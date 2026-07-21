@@ -1,0 +1,150 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import '../providers/providers.dart';
+import '../theme/app_theme.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totals = ref.watch(totalsProvider).value;
+    final routineCount = ref.watch(routinesProvider).value?.length ?? 0;
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+        children: [
+          Center(
+            child: Container(
+              width: 76,
+              height: 76,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: SweepGradient(
+                  colors: [
+                    AppColors.accent,
+                    AppColors.gold,
+                    AppColors.good,
+                    AppColors.accent,
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surface2,
+                ),
+                child: const Icon(Icons.fitness_center_rounded, color: AppColors.text),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Center(
+            child: Text('Your profile',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 2),
+          Center(
+            child: Text('FossLift — open-source workout tracker',
+                style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              _PStat(value: '${totals?.workouts ?? 0}', label: 'Workouts'),
+              const SizedBox(width: 12),
+              _PStat(
+                value: totals == null
+                    ? '0'
+                    : NumberFormat.compact().format(totals.volume),
+                label: 'Volume kg',
+                accent: true,
+              ),
+              const SizedBox(width: 12),
+              _PStat(value: '$routineCount', label: 'Routines'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _SettingsTile(icon: Icons.timer_outlined, label: 'Units & rest timers'),
+          _SettingsTile(icon: Icons.list_alt_rounded, label: 'Exercise library'),
+          _SettingsTile(icon: Icons.cloud_outlined, label: 'Backup & export'),
+          _SettingsTile(icon: Icons.brightness_6_outlined, label: 'Appearance'),
+          _SettingsTile(icon: Icons.info_outline_rounded, label: 'About FossLift', last: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _PStat extends StatelessWidget {
+  const _PStat({required this.value, required this.label, this.accent = false});
+  final String value;
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.line),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: kMono.copyWith(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: accent ? AppColors.accent : AppColors.text,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: kMono.copyWith(fontSize: 10, letterSpacing: 0.8, color: AppColors.faint),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({required this.icon, required this.label, this.last = false});
+  final IconData icon;
+  final String label;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"$label" is coming soon')),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(width: 26, child: Icon(icon, size: 20, color: AppColors.muted)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
+            const Icon(Icons.chevron_right, color: AppColors.faint),
+          ],
+        ),
+      ),
+    );
+  }
+}
