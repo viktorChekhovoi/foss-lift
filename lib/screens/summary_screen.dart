@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
+import '../util/units.dart';
 import '../widgets/common.dart';
 
 class SummaryScreen extends ConsumerWidget {
@@ -16,6 +17,7 @@ class SummaryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(workoutSummaryProvider(workoutId));
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return Scaffold(
       body: SafeArea(
@@ -24,7 +26,7 @@ class SummaryScreen extends ConsumerWidget {
               const Center(child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) =>
               Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
-          data: (d) => _SummaryBody(workout: d.workout, sets: d.sets),
+          data: (d) => _SummaryBody(workout: d.workout, sets: d.sets, unit: unit),
         ),
       ),
     );
@@ -32,9 +34,10 @@ class SummaryScreen extends ConsumerWidget {
 }
 
 class _SummaryBody extends StatelessWidget {
-  const _SummaryBody({required this.workout, required this.sets});
+  const _SummaryBody({required this.workout, required this.sets, required this.unit});
   final Workout workout;
   final List<WorkoutSet> sets;
+  final String unit;
 
   @override
   Widget build(BuildContext context) {
@@ -68,12 +71,12 @@ class _SummaryBody extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               const Center(
-                child: Text('Great work!',
+                child: Text('Workout logged',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
               ),
               const SizedBox(height: 4),
               Center(
-                child: Text('${workout.name} · logged',
+                child: Text(workout.name,
                     style: const TextStyle(color: AppColors.muted, fontSize: 14)),
               ),
               const SizedBox(height: 22),
@@ -93,8 +96,9 @@ class _SummaryBody extends StatelessWidget {
                       label: 'Duration',
                     ),
                     _SumCell(
-                      value: NumberFormat.decimalPattern().format(workout.totalVolume.round()),
-                      unit: 'kg',
+                      value: NumberFormat.decimalPattern()
+                          .format(toDisplayWeight(workout.totalVolume, unit).round()),
+                      unit: unitLabel(unit),
                       label: 'Total volume',
                     ),
                     _SumCell(value: '${workout.setsCompleted}', label: 'Sets done'),
@@ -122,6 +126,7 @@ class _SummaryBody extends StatelessWidget {
                               index: entry.key + 1,
                               name: entry.value.key,
                               sets: entry.value.value,
+                              unit: unit,
                               last: entry.key == grouped.length - 1,
                             ),
                           if (grouped.isEmpty)
@@ -203,11 +208,13 @@ class _SessionExerciseRow extends StatelessWidget {
     required this.index,
     required this.name,
     required this.sets,
+    required this.unit,
     required this.last,
   });
   final int index;
   final String name;
   final List<WorkoutSet> sets;
+  final String unit;
   final bool last;
 
   @override
@@ -217,7 +224,8 @@ class _SessionExerciseRow extends StatelessWidget {
     for (final s in sets) {
       if (s.weight * s.reps > best.weight * best.reps) best = s;
     }
-    final w = best.weight == 0 ? 'BW' : fmtWeight(best.weight);
+    final w =
+        best.weight == 0 ? 'BW' : fmtWeight(toDisplayWeight(best.weight, unit));
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),

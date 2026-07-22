@@ -22,21 +22,13 @@ class TodayScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          ScreenHeader(eyebrow: eyebrow, title: 'Ready to train?'),
+          ScreenHeader(eyebrow: eyebrow, title: 'Today'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _StartEmptyCard(
-              onTap: () async {
-                await ref
-                    .read(activeWorkoutProvider.notifier)
-                    .start(name: 'Quick workout');
-                if (context.mounted) context.push('/workout');
-              },
+            child: SectionLabel(
+              'Start a routine',
+              trailing: _BuildLink(onTap: () => context.push('/routine/new')),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: SectionLabel('Your routines'),
           ),
           routines.when(
             loading: () => const _PadLoader(),
@@ -45,13 +37,16 @@ class TodayScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: [
-                  for (final r in list) ...[
-                    RoutineCard(
-                      data: r,
-                      onTap: () => context.push('/routine/${r.routine.id}'),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  if (list.isEmpty)
+                    _NoRoutines(onCreate: () => context.push('/routine/new'))
+                  else
+                    for (final r in list) ...[
+                      RoutineCard(
+                        data: r,
+                        onTap: () => context.push('/routine/${r.routine.id}'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                 ],
               ),
             ),
@@ -70,60 +65,49 @@ class TodayScreen extends ConsumerWidget {
   }
 }
 
-class _StartEmptyCard extends StatelessWidget {
-  const _StartEmptyCard({required this.onTap});
+/// A small "+ Build" affordance in the section header.
+class _BuildLink extends StatelessWidget {
+  const _BuildLink({required this.onTap});
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Text('+ Build',
+            style: kMono.copyWith(
+                fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+class _NoRoutines extends StatelessWidget {
+  const _NoRoutines({required this.onCreate});
+  final VoidCallback onCreate;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-            gradient: LinearGradient(
-              colors: [
-                AppColors.accent.withValues(alpha: 0.20),
-                AppColors.accent.withValues(alpha: 0.05),
-              ],
-            ),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Icon(Icons.add, color: Color(0xFF20130C), size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Start empty workout',
-                      style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Begin now, add exercises as you go',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        border: Border.all(color: AppColors.line),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      child: Column(
+        children: [
+          const Text('No routines yet',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          const Text('Build one from the exercise library to get started.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.muted)),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: onCreate, child: const Text('Build a routine')),
+        ],
       ),
     );
   }
@@ -134,7 +118,8 @@ class _LifetimeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final totals = ref.watch(totalsProvider);
+    final workouts = ref.watch(workoutCountProvider).value ?? 0;
+    final routines = ref.watch(routinesProvider).value?.length ?? 0;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -142,20 +127,11 @@ class _LifetimeCard extends ConsumerWidget {
         border: Border.all(color: AppColors.line),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      child: totals.when(
-        loading: () => const SizedBox(height: 42),
-        error: (e, _) => Text('$e', style: const TextStyle(color: AppColors.muted)),
-        data: (t) => Row(
-          children: [
-            Expanded(child: _MiniStat(label: 'Workouts', value: '${t.workouts}')),
-            Expanded(
-              child: _MiniStat(
-                label: 'Volume · kg',
-                value: NumberFormat.decimalPattern().format(t.volume.round()),
-              ),
-            ),
-          ],
-        ),
+      child: Row(
+        children: [
+          Expanded(child: _MiniStat(label: 'Workouts', value: '$workouts')),
+          Expanded(child: _MiniStat(label: 'Routines', value: '$routines')),
+        ],
       ),
     );
   }

@@ -62,9 +62,7 @@ class _NewRoutineButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Routine builder is coming next 🙂')),
-        ),
+        onPressed: () => context.push('/routine/new'),
         child: const Text('+ New routine'),
       ),
     );

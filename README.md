@@ -3,19 +3,26 @@
 An open-source, offline-first **workout tracker** for Android, built with Flutter.
 
 FossLift keeps everything on your device — no account, no server, no telemetry.
-v1 focuses on the two things you do every session: **run a routine** and **log
-your sets**.
+You build routines from an exercise library, then run and log them.
 
-## Features (v1)
+## Features
 
-- **Routines / templates** — reusable workout plans (Push / Pull / Legs seeded to
-  start). Each lists its exercises and target sets × reps.
+- **Exercise library** — a curated, searchable set of exercises (each with a
+  form cue and a demo link), plus your own **custom exercises**.
+- **Routine builder** — create, edit, reorder, and delete routines. Per
+  exercise: sets, a fixed rep count / a **range** (e.g. 6–8) / **to failure**,
+  a rest override, and a suggested weight.
 - **Live workout logging** — start a routine, edit weight & reps per set, tick
-  sets off, and watch **duration, volume, and set count** update live. A rest
-  timer starts automatically after each completed set.
-- **Session summary** — duration, total volume, sets, and a per-exercise recap.
-- **History** — every finished session, newest first.
+  sets off, and watch **duration, volume, and set count** update live. The rest
+  timer uses each exercise's configured rest, with shorter/longer/skip controls.
+- **Units** — global **kg / lb**. Weights are stored canonically and converted
+  on the fly, so switching units never rewrites your history.
+- **Session summary & history** — per-session recap and every finished session,
+  newest first.
 - **Local database** — all data stored on-device via SQLite (drift).
+
+See [`features.txt`](features.txt) for the full ranked roadmap (progression
+engine, plate math, progress charts, sharing, reminders, themes).
 
 ## Tech stack
 
@@ -37,7 +44,9 @@ lib/
 ├── data/database.g.dart      Generated (drift codegen)
 ├── providers/                Riverpod providers
 ├── state/active_workout.dart In-memory live-session model + controller
-└── screens/                  Today · Routines · Detail · Workout · Summary · History · Profile
+├── util/units.dart           kg/lb conversion helpers
+└── screens/                  Today · Routines · Detail · Builder · Library ·
+                              Exercise · Workout · Summary · History · Profile · Settings
 design/
 └── mockup.html               Clickable HTML UI mockup — the visual spec
 ```

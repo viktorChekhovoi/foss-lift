@@ -6,12 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../providers/db_provider.dart';
 
-/// One editable set row during a live workout.
+/// One editable set row during a live workout. Weights are in kilograms; the
+/// UI converts to the display unit.
 class SetEntry {
-  SetEntry({required this.weight, required this.reps, this.prev, this.done = false});
-  double weight;
+  SetEntry({
+    required this.weight,
+    required this.reps,
+    this.prevWeight,
+    this.prevReps,
+    this.done = false,
+  });
+  double weight; // kg
   int reps;
-  final String? prev; // e.g. "80×6" — last time's performance
+  final double? prevWeight; // kg, from the routine's suggested weight
+  final int? prevReps;
   bool done;
 }
 
@@ -22,11 +30,15 @@ class ExerciseEntry {
     required this.name,
     required this.muscle,
     required this.sets,
+    this.restSeconds = 90,
   });
   final int? exerciseId;
   final String name;
   final String muscle;
   final List<SetEntry> sets;
+
+  /// Rest to start after a completed set (resolved from the routine/item).
+  final int restSeconds;
 }
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
@@ -82,17 +94,25 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   Future<void> start({int? routineId, required String name}) async {
     final exercises = <ExerciseEntry>[];
     if (routineId != null) {
+      final routine = await _db.routineById(routineId);
       final items = await _db.itemsForRoutine(routineId);
       for (final v in items) {
-        final reps = _firstInt(v.item.targetReps);
+        // Prefill with the top of the rep range (the goal), or the fixed count.
+        final reps = v.item.repsMax ?? v.item.repsMin;
         final w = v.item.suggestedWeight;
         exercises.add(ExerciseEntry(
           exerciseId: v.exercise.id,
           name: v.exercise.name,
           muscle: v.exercise.muscleGroup,
+          restSeconds: v.item.restSeconds ?? routine.restSeconds,
           sets: List.generate(
             v.item.targetSets,
-            (_) => SetEntry(weight: w ?? 0, reps: reps, prev: _prevLabel(w, reps)),
+            (_) => SetEntry(
+              weight: w ?? 0,
+              reps: reps,
+              prevWeight: w,
+              prevReps: reps,
+            ),
           ),
         ));
       }
@@ -184,14 +204,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     state = null;
   }
 }
-
-int _firstInt(String s, [int fallback = 10]) {
-  final m = RegExp(r'\d+').firstMatch(s);
-  return m == null ? fallback : int.parse(m.group(0)!);
-}
-
-String _prevLabel(double? w, int reps) =>
-    w == null ? 'BW×$reps' : '${fmtWeight(w)}×$reps';
 
 /// Formats a weight without a trailing ".0" (e.g. 80.0 -> "80", 12.5 -> "12.5").
 String fmtWeight(double w) =>

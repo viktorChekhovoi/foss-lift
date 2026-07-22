@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/units.dart';
 import '../widgets/common.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -13,6 +14,7 @@ class HistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(historyProvider);
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     return SafeArea(
       child: history.when(
         loading: () =>
@@ -20,14 +22,13 @@ class HistoryScreen extends ConsumerWidget {
         error: (e, _) =>
             Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
         data: (list) {
-          final totalVolume = list.fold<double>(0, (a, w) => a + w.totalVolume);
           return ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               ScreenHeader(
                 eyebrow: list.isEmpty
                     ? 'No sessions yet'
-                    : '${list.length} sessions · ${NumberFormat.compact().format(totalVolume)} kg lifted',
+                    : '${list.length} ${list.length == 1 ? 'session' : 'sessions'}',
                 title: 'History',
               ),
               if (list.isEmpty)
@@ -45,7 +46,11 @@ class HistoryScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         for (var i = 0; i < list.length; i++)
-                          _HistoryRow(workout: list[i], last: i == list.length - 1),
+                          _HistoryRow(
+                            workout: list[i],
+                            unit: unit,
+                            last: i == list.length - 1,
+                          ),
                       ],
                     ),
                   ),
@@ -59,8 +64,9 @@ class HistoryScreen extends ConsumerWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.workout, required this.last});
+  const _HistoryRow({required this.workout, required this.unit, required this.last});
   final Workout workout;
+  final String unit;
   final bool last;
 
   @override
@@ -93,7 +99,7 @@ class _HistoryRow extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
-                  '${NumberFormat.decimalPattern().format(workout.totalVolume.round())} kg · ${workout.setsCompleted} sets',
+                  '${NumberFormat.decimalPattern().format(toDisplayWeight(workout.totalVolume, unit).round())} ${unitLabel(unit)} · ${workout.setsCompleted} sets',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
                 ),
               ],

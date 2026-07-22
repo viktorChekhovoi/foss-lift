@@ -11,10 +11,16 @@ final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
   return ref.watch(databaseProvider).watchRoutines();
 });
 
-/// The exercises inside one routine (Routine detail screen).
+/// The exercises inside one routine, kept live so the detail screen and the
+/// builder both reflect edits immediately.
 final routineItemsProvider =
-    FutureProvider.family<List<RoutineItemView>, int>((ref, id) {
-  return ref.watch(databaseProvider).itemsForRoutine(id);
+    StreamProvider.family<List<RoutineItemView>, int>((ref, id) {
+  return ref.watch(databaseProvider).watchItemsForRoutine(id);
+});
+
+/// The whole exercise library (Library screen + routine builder picker).
+final exerciseLibraryProvider = StreamProvider<List<Exercise>>((ref) {
+  return ref.watch(databaseProvider).watchExercises();
 });
 
 /// Completed sessions, newest first (History tab).
@@ -22,9 +28,14 @@ final historyProvider = StreamProvider<List<Workout>>((ref) {
   return ref.watch(databaseProvider).watchHistory();
 });
 
-/// Lifetime totals (Profile tab).
-final totalsProvider = StreamProvider<({int workouts, double volume})>((ref) {
-  return ref.watch(databaseProvider).watchTotals();
+/// Number of completed workouts (Today + Profile).
+final workoutCountProvider = StreamProvider<int>((ref) {
+  return ref.watch(databaseProvider).watchWorkoutCount();
+});
+
+/// The user's chosen weight unit ('kg' or 'lb').
+final weightUnitProvider = StreamProvider<String>((ref) {
+  return ref.watch(databaseProvider).watchWeightUnit();
 });
 
 /// The live session (null when not training).

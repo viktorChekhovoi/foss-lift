@@ -26,7 +26,16 @@ class RoutineDetailScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(routine?.name ?? 'Routine')),
+      appBar: AppBar(
+        title: Text(routine?.name ?? 'Routine'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => context.push('/routine/$routineId/edit'),
+          ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: Column(
@@ -150,7 +159,7 @@ class _ExerciseRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${view.item.targetSets} × ${view.item.targetReps}',
+            '${view.item.targetSets} × ${repsLabel(view.item)}',
             style: kMono.copyWith(
               fontSize: 13,
               color: AppColors.accent,

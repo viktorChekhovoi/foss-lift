@@ -47,8 +47,66 @@ class $ExercisesTable extends Exercises
     requiredDuringInsert: false,
     defaultValue: const Constant('Other'),
   );
+  static const VerificationMeta _equipmentMeta = const VerificationMeta(
+    'equipment',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, muscleGroup];
+  late final GeneratedColumn<String> equipment = GeneratedColumn<String>(
+    'equipment',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Other'),
+  );
+  static const VerificationMeta _instructionsMeta = const VerificationMeta(
+    'instructions',
+  );
+  @override
+  late final GeneratedColumn<String> instructions = GeneratedColumn<String>(
+    'instructions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _videoUrlMeta = const VerificationMeta(
+    'videoUrl',
+  );
+  @override
+  late final GeneratedColumn<String> videoUrl = GeneratedColumn<String>(
+    'video_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isCustomMeta = const VerificationMeta(
+    'isCustom',
+  );
+  @override
+  late final GeneratedColumn<bool> isCustom = GeneratedColumn<bool>(
+    'is_custom',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_custom" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    muscleGroup,
+    equipment,
+    instructions,
+    videoUrl,
+    isCustom,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -81,6 +139,33 @@ class $ExercisesTable extends Exercises
         ),
       );
     }
+    if (data.containsKey('equipment')) {
+      context.handle(
+        _equipmentMeta,
+        equipment.isAcceptableOrUnknown(data['equipment']!, _equipmentMeta),
+      );
+    }
+    if (data.containsKey('instructions')) {
+      context.handle(
+        _instructionsMeta,
+        instructions.isAcceptableOrUnknown(
+          data['instructions']!,
+          _instructionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('video_url')) {
+      context.handle(
+        _videoUrlMeta,
+        videoUrl.isAcceptableOrUnknown(data['video_url']!, _videoUrlMeta),
+      );
+    }
+    if (data.containsKey('is_custom')) {
+      context.handle(
+        _isCustomMeta,
+        isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
+      );
+    }
     return context;
   }
 
@@ -102,6 +187,22 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}muscle_group'],
       )!,
+      equipment: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}equipment'],
+      )!,
+      instructions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instructions'],
+      )!,
+      videoUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}video_url'],
+      ),
+      isCustom: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_custom'],
+      )!,
     );
   }
 
@@ -115,10 +216,18 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final int id;
   final String name;
   final String muscleGroup;
+  final String equipment;
+  final String instructions;
+  final String? videoUrl;
+  final bool isCustom;
   const Exercise({
     required this.id,
     required this.name,
     required this.muscleGroup,
+    required this.equipment,
+    required this.instructions,
+    this.videoUrl,
+    required this.isCustom,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -126,6 +235,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['muscle_group'] = Variable<String>(muscleGroup);
+    map['equipment'] = Variable<String>(equipment);
+    map['instructions'] = Variable<String>(instructions);
+    if (!nullToAbsent || videoUrl != null) {
+      map['video_url'] = Variable<String>(videoUrl);
+    }
+    map['is_custom'] = Variable<bool>(isCustom);
     return map;
   }
 
@@ -134,6 +249,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       id: Value(id),
       name: Value(name),
       muscleGroup: Value(muscleGroup),
+      equipment: Value(equipment),
+      instructions: Value(instructions),
+      videoUrl: videoUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(videoUrl),
+      isCustom: Value(isCustom),
     );
   }
 
@@ -146,6 +267,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       muscleGroup: serializer.fromJson<String>(json['muscleGroup']),
+      equipment: serializer.fromJson<String>(json['equipment']),
+      instructions: serializer.fromJson<String>(json['instructions']),
+      videoUrl: serializer.fromJson<String?>(json['videoUrl']),
+      isCustom: serializer.fromJson<bool>(json['isCustom']),
     );
   }
   @override
@@ -155,13 +280,29 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'muscleGroup': serializer.toJson<String>(muscleGroup),
+      'equipment': serializer.toJson<String>(equipment),
+      'instructions': serializer.toJson<String>(instructions),
+      'videoUrl': serializer.toJson<String?>(videoUrl),
+      'isCustom': serializer.toJson<bool>(isCustom),
     };
   }
 
-  Exercise copyWith({int? id, String? name, String? muscleGroup}) => Exercise(
+  Exercise copyWith({
+    int? id,
+    String? name,
+    String? muscleGroup,
+    String? equipment,
+    String? instructions,
+    Value<String?> videoUrl = const Value.absent(),
+    bool? isCustom,
+  }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
     muscleGroup: muscleGroup ?? this.muscleGroup,
+    equipment: equipment ?? this.equipment,
+    instructions: instructions ?? this.instructions,
+    videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
+    isCustom: isCustom ?? this.isCustom,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -170,6 +311,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       muscleGroup: data.muscleGroup.present
           ? data.muscleGroup.value
           : this.muscleGroup,
+      equipment: data.equipment.present ? data.equipment.value : this.equipment,
+      instructions: data.instructions.present
+          ? data.instructions.value
+          : this.instructions,
+      videoUrl: data.videoUrl.present ? data.videoUrl.value : this.videoUrl,
+      isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
     );
   }
 
@@ -178,45 +325,81 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     return (StringBuffer('Exercise(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('muscleGroup: $muscleGroup')
+          ..write('muscleGroup: $muscleGroup, ')
+          ..write('equipment: $equipment, ')
+          ..write('instructions: $instructions, ')
+          ..write('videoUrl: $videoUrl, ')
+          ..write('isCustom: $isCustom')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, muscleGroup);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    muscleGroup,
+    equipment,
+    instructions,
+    videoUrl,
+    isCustom,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Exercise &&
           other.id == this.id &&
           other.name == this.name &&
-          other.muscleGroup == this.muscleGroup);
+          other.muscleGroup == this.muscleGroup &&
+          other.equipment == this.equipment &&
+          other.instructions == this.instructions &&
+          other.videoUrl == this.videoUrl &&
+          other.isCustom == this.isCustom);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<int> id;
   final Value<String> name;
   final Value<String> muscleGroup;
+  final Value<String> equipment;
+  final Value<String> instructions;
+  final Value<String?> videoUrl;
+  final Value<bool> isCustom;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.muscleGroup = const Value.absent(),
+    this.equipment = const Value.absent(),
+    this.instructions = const Value.absent(),
+    this.videoUrl = const Value.absent(),
+    this.isCustom = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     this.muscleGroup = const Value.absent(),
+    this.equipment = const Value.absent(),
+    this.instructions = const Value.absent(),
+    this.videoUrl = const Value.absent(),
+    this.isCustom = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? muscleGroup,
+    Expression<String>? equipment,
+    Expression<String>? instructions,
+    Expression<String>? videoUrl,
+    Expression<bool>? isCustom,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (muscleGroup != null) 'muscle_group': muscleGroup,
+      if (equipment != null) 'equipment': equipment,
+      if (instructions != null) 'instructions': instructions,
+      if (videoUrl != null) 'video_url': videoUrl,
+      if (isCustom != null) 'is_custom': isCustom,
     });
   }
 
@@ -224,11 +407,19 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<int>? id,
     Value<String>? name,
     Value<String>? muscleGroup,
+    Value<String>? equipment,
+    Value<String>? instructions,
+    Value<String?>? videoUrl,
+    Value<bool>? isCustom,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       muscleGroup: muscleGroup ?? this.muscleGroup,
+      equipment: equipment ?? this.equipment,
+      instructions: instructions ?? this.instructions,
+      videoUrl: videoUrl ?? this.videoUrl,
+      isCustom: isCustom ?? this.isCustom,
     );
   }
 
@@ -244,6 +435,18 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (muscleGroup.present) {
       map['muscle_group'] = Variable<String>(muscleGroup.value);
     }
+    if (equipment.present) {
+      map['equipment'] = Variable<String>(equipment.value);
+    }
+    if (instructions.present) {
+      map['instructions'] = Variable<String>(instructions.value);
+    }
+    if (videoUrl.present) {
+      map['video_url'] = Variable<String>(videoUrl.value);
+    }
+    if (isCustom.present) {
+      map['is_custom'] = Variable<bool>(isCustom.value);
+    }
     return map;
   }
 
@@ -252,7 +455,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     return (StringBuffer('ExercisesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('muscleGroup: $muscleGroup')
+          ..write('muscleGroup: $muscleGroup, ')
+          ..write('equipment: $equipment, ')
+          ..write('instructions: $instructions, ')
+          ..write('videoUrl: $videoUrl, ')
+          ..write('isCustom: $isCustom')
           ..write(')'))
         .toString();
   }
@@ -313,8 +520,26 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _restSecondsMeta = const VerificationMeta(
+    'restSeconds',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, colorHex, position];
+  late final GeneratedColumn<int> restSeconds = GeneratedColumn<int>(
+    'rest_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(90),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    colorHex,
+    position,
+    restSeconds,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -350,6 +575,15 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         position.isAcceptableOrUnknown(data['position']!, _positionMeta),
       );
     }
+    if (data.containsKey('rest_seconds')) {
+      context.handle(
+        _restSecondsMeta,
+        restSeconds.isAcceptableOrUnknown(
+          data['rest_seconds']!,
+          _restSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -375,6 +609,10 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         DriftSqlType.int,
         data['${effectivePrefix}position'],
       )!,
+      restSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rest_seconds'],
+      )!,
     );
   }
 
@@ -389,11 +627,15 @@ class Routine extends DataClass implements Insertable<Routine> {
   final String name;
   final String colorHex;
   final int position;
+
+  /// Default rest between sets for this routine, in seconds.
+  final int restSeconds;
   const Routine({
     required this.id,
     required this.name,
     required this.colorHex,
     required this.position,
+    required this.restSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -402,6 +644,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     map['name'] = Variable<String>(name);
     map['color_hex'] = Variable<String>(colorHex);
     map['position'] = Variable<int>(position);
+    map['rest_seconds'] = Variable<int>(restSeconds);
     return map;
   }
 
@@ -411,6 +654,7 @@ class Routine extends DataClass implements Insertable<Routine> {
       name: Value(name),
       colorHex: Value(colorHex),
       position: Value(position),
+      restSeconds: Value(restSeconds),
     );
   }
 
@@ -424,6 +668,7 @@ class Routine extends DataClass implements Insertable<Routine> {
       name: serializer.fromJson<String>(json['name']),
       colorHex: serializer.fromJson<String>(json['colorHex']),
       position: serializer.fromJson<int>(json['position']),
+      restSeconds: serializer.fromJson<int>(json['restSeconds']),
     );
   }
   @override
@@ -434,22 +679,32 @@ class Routine extends DataClass implements Insertable<Routine> {
       'name': serializer.toJson<String>(name),
       'colorHex': serializer.toJson<String>(colorHex),
       'position': serializer.toJson<int>(position),
+      'restSeconds': serializer.toJson<int>(restSeconds),
     };
   }
 
-  Routine copyWith({int? id, String? name, String? colorHex, int? position}) =>
-      Routine(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        colorHex: colorHex ?? this.colorHex,
-        position: position ?? this.position,
-      );
+  Routine copyWith({
+    int? id,
+    String? name,
+    String? colorHex,
+    int? position,
+    int? restSeconds,
+  }) => Routine(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    colorHex: colorHex ?? this.colorHex,
+    position: position ?? this.position,
+    restSeconds: restSeconds ?? this.restSeconds,
+  );
   Routine copyWithCompanion(RoutinesCompanion data) {
     return Routine(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
       position: data.position.present ? data.position.value : this.position,
+      restSeconds: data.restSeconds.present
+          ? data.restSeconds.value
+          : this.restSeconds,
     );
   }
 
@@ -459,13 +714,14 @@ class Routine extends DataClass implements Insertable<Routine> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('colorHex: $colorHex, ')
-          ..write('position: $position')
+          ..write('position: $position, ')
+          ..write('restSeconds: $restSeconds')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, colorHex, position);
+  int get hashCode => Object.hash(id, name, colorHex, position, restSeconds);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -473,7 +729,8 @@ class Routine extends DataClass implements Insertable<Routine> {
           other.id == this.id &&
           other.name == this.name &&
           other.colorHex == this.colorHex &&
-          other.position == this.position);
+          other.position == this.position &&
+          other.restSeconds == this.restSeconds);
 }
 
 class RoutinesCompanion extends UpdateCompanion<Routine> {
@@ -481,29 +738,34 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   final Value<String> name;
   final Value<String> colorHex;
   final Value<int> position;
+  final Value<int> restSeconds;
   const RoutinesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.position = const Value.absent(),
+    this.restSeconds = const Value.absent(),
   });
   RoutinesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     this.colorHex = const Value.absent(),
     this.position = const Value.absent(),
+    this.restSeconds = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Routine> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? colorHex,
     Expression<int>? position,
+    Expression<int>? restSeconds,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (colorHex != null) 'color_hex': colorHex,
       if (position != null) 'position': position,
+      if (restSeconds != null) 'rest_seconds': restSeconds,
     });
   }
 
@@ -512,12 +774,14 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     Value<String>? name,
     Value<String>? colorHex,
     Value<int>? position,
+    Value<int>? restSeconds,
   }) {
     return RoutinesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       colorHex: colorHex ?? this.colorHex,
       position: position ?? this.position,
+      restSeconds: restSeconds ?? this.restSeconds,
     );
   }
 
@@ -536,6 +800,9 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
+    if (restSeconds.present) {
+      map['rest_seconds'] = Variable<int>(restSeconds.value);
+    }
     return map;
   }
 
@@ -545,7 +812,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('colorHex: $colorHex, ')
-          ..write('position: $position')
+          ..write('position: $position, ')
+          ..write('restSeconds: $restSeconds')
           ..write(')'))
         .toString();
   }
@@ -622,17 +890,54 @@ class $RoutineItemsTable extends RoutineItems
     requiredDuringInsert: false,
     defaultValue: const Constant(3),
   );
-  static const VerificationMeta _targetRepsMeta = const VerificationMeta(
-    'targetReps',
+  static const VerificationMeta _repsMinMeta = const VerificationMeta(
+    'repsMin',
   );
   @override
-  late final GeneratedColumn<String> targetReps = GeneratedColumn<String>(
-    'target_reps',
+  late final GeneratedColumn<int> repsMin = GeneratedColumn<int>(
+    'reps_min',
     aliasedName,
     false,
-    type: DriftSqlType.string,
+    type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant('10'),
+    defaultValue: const Constant(8),
+  );
+  static const VerificationMeta _repsMaxMeta = const VerificationMeta(
+    'repsMax',
+  );
+  @override
+  late final GeneratedColumn<int> repsMax = GeneratedColumn<int>(
+    'reps_max',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _toFailureMeta = const VerificationMeta(
+    'toFailure',
+  );
+  @override
+  late final GeneratedColumn<bool> toFailure = GeneratedColumn<bool>(
+    'to_failure',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("to_failure" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _restSecondsMeta = const VerificationMeta(
+    'restSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> restSeconds = GeneratedColumn<int>(
+    'rest_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _suggestedWeightMeta = const VerificationMeta(
     'suggestedWeight',
@@ -652,7 +957,10 @@ class $RoutineItemsTable extends RoutineItems
     exerciseId,
     position,
     targetSets,
-    targetReps,
+    repsMin,
+    repsMax,
+    toFailure,
+    restSeconds,
     suggestedWeight,
   ];
   @override
@@ -698,10 +1006,31 @@ class $RoutineItemsTable extends RoutineItems
         targetSets.isAcceptableOrUnknown(data['target_sets']!, _targetSetsMeta),
       );
     }
-    if (data.containsKey('target_reps')) {
+    if (data.containsKey('reps_min')) {
       context.handle(
-        _targetRepsMeta,
-        targetReps.isAcceptableOrUnknown(data['target_reps']!, _targetRepsMeta),
+        _repsMinMeta,
+        repsMin.isAcceptableOrUnknown(data['reps_min']!, _repsMinMeta),
+      );
+    }
+    if (data.containsKey('reps_max')) {
+      context.handle(
+        _repsMaxMeta,
+        repsMax.isAcceptableOrUnknown(data['reps_max']!, _repsMaxMeta),
+      );
+    }
+    if (data.containsKey('to_failure')) {
+      context.handle(
+        _toFailureMeta,
+        toFailure.isAcceptableOrUnknown(data['to_failure']!, _toFailureMeta),
+      );
+    }
+    if (data.containsKey('rest_seconds')) {
+      context.handle(
+        _restSecondsMeta,
+        restSeconds.isAcceptableOrUnknown(
+          data['rest_seconds']!,
+          _restSecondsMeta,
+        ),
       );
     }
     if (data.containsKey('suggested_weight')) {
@@ -742,10 +1071,22 @@ class $RoutineItemsTable extends RoutineItems
         DriftSqlType.int,
         data['${effectivePrefix}target_sets'],
       )!,
-      targetReps: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}target_reps'],
+      repsMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reps_min'],
       )!,
+      repsMax: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reps_max'],
+      ),
+      toFailure: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}to_failure'],
+      )!,
+      restSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rest_seconds'],
+      ),
       suggestedWeight: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}suggested_weight'],
@@ -765,7 +1106,18 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
   final int exerciseId;
   final int position;
   final int targetSets;
-  final String targetReps;
+
+  /// Low end of the rep target (also the value used for a fixed count).
+  final int repsMin;
+
+  /// High end of the rep range. Null means a fixed count of [repsMin].
+  final int? repsMax;
+
+  /// When true, the set is taken to failure ([repsMin] is the goal to beat).
+  final bool toFailure;
+
+  /// Per-exercise rest override, in seconds. Null falls back to the routine.
+  final int? restSeconds;
   final double? suggestedWeight;
   const RoutineItem({
     required this.id,
@@ -773,7 +1125,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
     required this.exerciseId,
     required this.position,
     required this.targetSets,
-    required this.targetReps,
+    required this.repsMin,
+    this.repsMax,
+    required this.toFailure,
+    this.restSeconds,
     this.suggestedWeight,
   });
   @override
@@ -784,7 +1139,14 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
     map['exercise_id'] = Variable<int>(exerciseId);
     map['position'] = Variable<int>(position);
     map['target_sets'] = Variable<int>(targetSets);
-    map['target_reps'] = Variable<String>(targetReps);
+    map['reps_min'] = Variable<int>(repsMin);
+    if (!nullToAbsent || repsMax != null) {
+      map['reps_max'] = Variable<int>(repsMax);
+    }
+    map['to_failure'] = Variable<bool>(toFailure);
+    if (!nullToAbsent || restSeconds != null) {
+      map['rest_seconds'] = Variable<int>(restSeconds);
+    }
     if (!nullToAbsent || suggestedWeight != null) {
       map['suggested_weight'] = Variable<double>(suggestedWeight);
     }
@@ -798,7 +1160,14 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
       exerciseId: Value(exerciseId),
       position: Value(position),
       targetSets: Value(targetSets),
-      targetReps: Value(targetReps),
+      repsMin: Value(repsMin),
+      repsMax: repsMax == null && nullToAbsent
+          ? const Value.absent()
+          : Value(repsMax),
+      toFailure: Value(toFailure),
+      restSeconds: restSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(restSeconds),
       suggestedWeight: suggestedWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(suggestedWeight),
@@ -816,7 +1185,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
       exerciseId: serializer.fromJson<int>(json['exerciseId']),
       position: serializer.fromJson<int>(json['position']),
       targetSets: serializer.fromJson<int>(json['targetSets']),
-      targetReps: serializer.fromJson<String>(json['targetReps']),
+      repsMin: serializer.fromJson<int>(json['repsMin']),
+      repsMax: serializer.fromJson<int?>(json['repsMax']),
+      toFailure: serializer.fromJson<bool>(json['toFailure']),
+      restSeconds: serializer.fromJson<int?>(json['restSeconds']),
       suggestedWeight: serializer.fromJson<double?>(json['suggestedWeight']),
     );
   }
@@ -829,7 +1201,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
       'exerciseId': serializer.toJson<int>(exerciseId),
       'position': serializer.toJson<int>(position),
       'targetSets': serializer.toJson<int>(targetSets),
-      'targetReps': serializer.toJson<String>(targetReps),
+      'repsMin': serializer.toJson<int>(repsMin),
+      'repsMax': serializer.toJson<int?>(repsMax),
+      'toFailure': serializer.toJson<bool>(toFailure),
+      'restSeconds': serializer.toJson<int?>(restSeconds),
       'suggestedWeight': serializer.toJson<double?>(suggestedWeight),
     };
   }
@@ -840,7 +1215,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
     int? exerciseId,
     int? position,
     int? targetSets,
-    String? targetReps,
+    int? repsMin,
+    Value<int?> repsMax = const Value.absent(),
+    bool? toFailure,
+    Value<int?> restSeconds = const Value.absent(),
     Value<double?> suggestedWeight = const Value.absent(),
   }) => RoutineItem(
     id: id ?? this.id,
@@ -848,7 +1226,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
     exerciseId: exerciseId ?? this.exerciseId,
     position: position ?? this.position,
     targetSets: targetSets ?? this.targetSets,
-    targetReps: targetReps ?? this.targetReps,
+    repsMin: repsMin ?? this.repsMin,
+    repsMax: repsMax.present ? repsMax.value : this.repsMax,
+    toFailure: toFailure ?? this.toFailure,
+    restSeconds: restSeconds.present ? restSeconds.value : this.restSeconds,
     suggestedWeight: suggestedWeight.present
         ? suggestedWeight.value
         : this.suggestedWeight,
@@ -864,9 +1245,12 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
       targetSets: data.targetSets.present
           ? data.targetSets.value
           : this.targetSets,
-      targetReps: data.targetReps.present
-          ? data.targetReps.value
-          : this.targetReps,
+      repsMin: data.repsMin.present ? data.repsMin.value : this.repsMin,
+      repsMax: data.repsMax.present ? data.repsMax.value : this.repsMax,
+      toFailure: data.toFailure.present ? data.toFailure.value : this.toFailure,
+      restSeconds: data.restSeconds.present
+          ? data.restSeconds.value
+          : this.restSeconds,
       suggestedWeight: data.suggestedWeight.present
           ? data.suggestedWeight.value
           : this.suggestedWeight,
@@ -881,7 +1265,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
           ..write('exerciseId: $exerciseId, ')
           ..write('position: $position, ')
           ..write('targetSets: $targetSets, ')
-          ..write('targetReps: $targetReps, ')
+          ..write('repsMin: $repsMin, ')
+          ..write('repsMax: $repsMax, ')
+          ..write('toFailure: $toFailure, ')
+          ..write('restSeconds: $restSeconds, ')
           ..write('suggestedWeight: $suggestedWeight')
           ..write(')'))
         .toString();
@@ -894,7 +1281,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
     exerciseId,
     position,
     targetSets,
-    targetReps,
+    repsMin,
+    repsMax,
+    toFailure,
+    restSeconds,
     suggestedWeight,
   );
   @override
@@ -906,7 +1296,10 @@ class RoutineItem extends DataClass implements Insertable<RoutineItem> {
           other.exerciseId == this.exerciseId &&
           other.position == this.position &&
           other.targetSets == this.targetSets &&
-          other.targetReps == this.targetReps &&
+          other.repsMin == this.repsMin &&
+          other.repsMax == this.repsMax &&
+          other.toFailure == this.toFailure &&
+          other.restSeconds == this.restSeconds &&
           other.suggestedWeight == this.suggestedWeight);
 }
 
@@ -916,7 +1309,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
   final Value<int> exerciseId;
   final Value<int> position;
   final Value<int> targetSets;
-  final Value<String> targetReps;
+  final Value<int> repsMin;
+  final Value<int?> repsMax;
+  final Value<bool> toFailure;
+  final Value<int?> restSeconds;
   final Value<double?> suggestedWeight;
   const RoutineItemsCompanion({
     this.id = const Value.absent(),
@@ -924,7 +1320,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
     this.exerciseId = const Value.absent(),
     this.position = const Value.absent(),
     this.targetSets = const Value.absent(),
-    this.targetReps = const Value.absent(),
+    this.repsMin = const Value.absent(),
+    this.repsMax = const Value.absent(),
+    this.toFailure = const Value.absent(),
+    this.restSeconds = const Value.absent(),
     this.suggestedWeight = const Value.absent(),
   });
   RoutineItemsCompanion.insert({
@@ -933,7 +1332,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
     required int exerciseId,
     this.position = const Value.absent(),
     this.targetSets = const Value.absent(),
-    this.targetReps = const Value.absent(),
+    this.repsMin = const Value.absent(),
+    this.repsMax = const Value.absent(),
+    this.toFailure = const Value.absent(),
+    this.restSeconds = const Value.absent(),
     this.suggestedWeight = const Value.absent(),
   }) : routineId = Value(routineId),
        exerciseId = Value(exerciseId);
@@ -943,7 +1345,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
     Expression<int>? exerciseId,
     Expression<int>? position,
     Expression<int>? targetSets,
-    Expression<String>? targetReps,
+    Expression<int>? repsMin,
+    Expression<int>? repsMax,
+    Expression<bool>? toFailure,
+    Expression<int>? restSeconds,
     Expression<double>? suggestedWeight,
   }) {
     return RawValuesInsertable({
@@ -952,7 +1357,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (position != null) 'position': position,
       if (targetSets != null) 'target_sets': targetSets,
-      if (targetReps != null) 'target_reps': targetReps,
+      if (repsMin != null) 'reps_min': repsMin,
+      if (repsMax != null) 'reps_max': repsMax,
+      if (toFailure != null) 'to_failure': toFailure,
+      if (restSeconds != null) 'rest_seconds': restSeconds,
       if (suggestedWeight != null) 'suggested_weight': suggestedWeight,
     });
   }
@@ -963,7 +1371,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
     Value<int>? exerciseId,
     Value<int>? position,
     Value<int>? targetSets,
-    Value<String>? targetReps,
+    Value<int>? repsMin,
+    Value<int?>? repsMax,
+    Value<bool>? toFailure,
+    Value<int?>? restSeconds,
     Value<double?>? suggestedWeight,
   }) {
     return RoutineItemsCompanion(
@@ -972,7 +1383,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
       exerciseId: exerciseId ?? this.exerciseId,
       position: position ?? this.position,
       targetSets: targetSets ?? this.targetSets,
-      targetReps: targetReps ?? this.targetReps,
+      repsMin: repsMin ?? this.repsMin,
+      repsMax: repsMax ?? this.repsMax,
+      toFailure: toFailure ?? this.toFailure,
+      restSeconds: restSeconds ?? this.restSeconds,
       suggestedWeight: suggestedWeight ?? this.suggestedWeight,
     );
   }
@@ -995,8 +1409,17 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
     if (targetSets.present) {
       map['target_sets'] = Variable<int>(targetSets.value);
     }
-    if (targetReps.present) {
-      map['target_reps'] = Variable<String>(targetReps.value);
+    if (repsMin.present) {
+      map['reps_min'] = Variable<int>(repsMin.value);
+    }
+    if (repsMax.present) {
+      map['reps_max'] = Variable<int>(repsMax.value);
+    }
+    if (toFailure.present) {
+      map['to_failure'] = Variable<bool>(toFailure.value);
+    }
+    if (restSeconds.present) {
+      map['rest_seconds'] = Variable<int>(restSeconds.value);
     }
     if (suggestedWeight.present) {
       map['suggested_weight'] = Variable<double>(suggestedWeight.value);
@@ -1012,7 +1435,10 @@ class RoutineItemsCompanion extends UpdateCompanion<RoutineItem> {
           ..write('exerciseId: $exerciseId, ')
           ..write('position: $position, ')
           ..write('targetSets: $targetSets, ')
-          ..write('targetReps: $targetReps, ')
+          ..write('repsMin: $repsMin, ')
+          ..write('repsMax: $repsMax, ')
+          ..write('toFailure: $toFailure, ')
+          ..write('restSeconds: $restSeconds, ')
           ..write('suggestedWeight: $suggestedWeight')
           ..write(')'))
         .toString();
@@ -2033,6 +2459,199 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
   }
 }
 
+class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _weightUnitMeta = const VerificationMeta(
+    'weightUnit',
+  );
+  @override
+  late final GeneratedColumn<String> weightUnit = GeneratedColumn<String>(
+    'weight_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('kg'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, weightUnit];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Setting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('weight_unit')) {
+      context.handle(
+        _weightUnitMeta,
+        weightUnit.isAcceptableOrUnknown(data['weight_unit']!, _weightUnitMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Setting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Setting(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      weightUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}weight_unit'],
+      )!,
+    );
+  }
+
+  @override
+  $SettingsTable createAlias(String alias) {
+    return $SettingsTable(attachedDatabase, alias);
+  }
+}
+
+class Setting extends DataClass implements Insertable<Setting> {
+  final int id;
+
+  /// 'kg' or 'lb'. Weights are stored in kg; this only affects display/input.
+  final String weightUnit;
+  const Setting({required this.id, required this.weightUnit});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['weight_unit'] = Variable<String>(weightUnit);
+    return map;
+  }
+
+  SettingsCompanion toCompanion(bool nullToAbsent) {
+    return SettingsCompanion(id: Value(id), weightUnit: Value(weightUnit));
+  }
+
+  factory Setting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Setting(
+      id: serializer.fromJson<int>(json['id']),
+      weightUnit: serializer.fromJson<String>(json['weightUnit']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'weightUnit': serializer.toJson<String>(weightUnit),
+    };
+  }
+
+  Setting copyWith({int? id, String? weightUnit}) =>
+      Setting(id: id ?? this.id, weightUnit: weightUnit ?? this.weightUnit);
+  Setting copyWithCompanion(SettingsCompanion data) {
+    return Setting(
+      id: data.id.present ? data.id.value : this.id,
+      weightUnit: data.weightUnit.present
+          ? data.weightUnit.value
+          : this.weightUnit,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Setting(')
+          ..write('id: $id, ')
+          ..write('weightUnit: $weightUnit')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, weightUnit);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Setting &&
+          other.id == this.id &&
+          other.weightUnit == this.weightUnit);
+}
+
+class SettingsCompanion extends UpdateCompanion<Setting> {
+  final Value<int> id;
+  final Value<String> weightUnit;
+  const SettingsCompanion({
+    this.id = const Value.absent(),
+    this.weightUnit = const Value.absent(),
+  });
+  SettingsCompanion.insert({
+    this.id = const Value.absent(),
+    this.weightUnit = const Value.absent(),
+  });
+  static Insertable<Setting> custom({
+    Expression<int>? id,
+    Expression<String>? weightUnit,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (weightUnit != null) 'weight_unit': weightUnit,
+    });
+  }
+
+  SettingsCompanion copyWith({Value<int>? id, Value<String>? weightUnit}) {
+    return SettingsCompanion(
+      id: id ?? this.id,
+      weightUnit: weightUnit ?? this.weightUnit,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (weightUnit.present) {
+      map['weight_unit'] = Variable<String>(weightUnit.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('weightUnit: $weightUnit')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2041,6 +2660,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RoutineItemsTable routineItems = $RoutineItemsTable(this);
   late final $WorkoutsTable workouts = $WorkoutsTable(this);
   late final $WorkoutSetsTable workoutSets = $WorkoutSetsTable(this);
+  late final $SettingsTable settings = $SettingsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2051,6 +2671,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     routineItems,
     workouts,
     workoutSets,
+    settings,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2076,12 +2697,20 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<int> id,
       required String name,
       Value<String> muscleGroup,
+      Value<String> equipment,
+      Value<String> instructions,
+      Value<String?> videoUrl,
+      Value<bool> isCustom,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
       Value<int> id,
       Value<String> name,
       Value<String> muscleGroup,
+      Value<String> equipment,
+      Value<String> instructions,
+      Value<String?> videoUrl,
+      Value<bool> isCustom,
     });
 
 final class $$ExercisesTableReferences
@@ -2128,6 +2757,26 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get muscleGroup => $composableBuilder(
     column: $table.muscleGroup,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get equipment => $composableBuilder(
+    column: $table.equipment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get videoUrl => $composableBuilder(
+    column: $table.videoUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCustom => $composableBuilder(
+    column: $table.isCustom,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2180,6 +2829,26 @@ class $$ExercisesTableOrderingComposer
     column: $table.muscleGroup,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get equipment => $composableBuilder(
+    column: $table.equipment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get videoUrl => $composableBuilder(
+    column: $table.videoUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCustom => $composableBuilder(
+    column: $table.isCustom,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -2201,6 +2870,20 @@ class $$ExercisesTableAnnotationComposer
     column: $table.muscleGroup,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get equipment =>
+      $composableBuilder(column: $table.equipment, builder: (column) => column);
+
+  GeneratedColumn<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get videoUrl =>
+      $composableBuilder(column: $table.videoUrl, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCustom =>
+      $composableBuilder(column: $table.isCustom, builder: (column) => column);
 
   Expression<T> routineItemsRefs<T extends Object>(
     Expression<T> Function($$RoutineItemsTableAnnotationComposer a) f,
@@ -2259,20 +2942,36 @@ class $$ExercisesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> muscleGroup = const Value.absent(),
+                Value<String> equipment = const Value.absent(),
+                Value<String> instructions = const Value.absent(),
+                Value<String?> videoUrl = const Value.absent(),
+                Value<bool> isCustom = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
                 muscleGroup: muscleGroup,
+                equipment: equipment,
+                instructions: instructions,
+                videoUrl: videoUrl,
+                isCustom: isCustom,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<String> muscleGroup = const Value.absent(),
+                Value<String> equipment = const Value.absent(),
+                Value<String> instructions = const Value.absent(),
+                Value<String?> videoUrl = const Value.absent(),
+                Value<bool> isCustom = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
                 muscleGroup: muscleGroup,
+                equipment: equipment,
+                instructions: instructions,
+                videoUrl: videoUrl,
+                isCustom: isCustom,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -2336,6 +3035,7 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       required String name,
       Value<String> colorHex,
       Value<int> position,
+      Value<int> restSeconds,
     });
 typedef $$RoutinesTableUpdateCompanionBuilder =
     RoutinesCompanion Function({
@@ -2343,6 +3043,7 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> colorHex,
       Value<int> position,
+      Value<int> restSeconds,
     });
 
 final class $$RoutinesTableReferences
@@ -2394,6 +3095,11 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<int> get position => $composableBuilder(
     column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2451,6 +3157,11 @@ class $$RoutinesTableOrderingComposer
     column: $table.position,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RoutinesTableAnnotationComposer
@@ -2473,6 +3184,11 @@ class $$RoutinesTableAnnotationComposer
 
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
+    builder: (column) => column,
+  );
 
   Expression<T> routineItemsRefs<T extends Object>(
     Expression<T> Function($$RoutineItemsTableAnnotationComposer a) f,
@@ -2532,11 +3248,13 @@ class $$RoutinesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> colorHex = const Value.absent(),
                 Value<int> position = const Value.absent(),
+                Value<int> restSeconds = const Value.absent(),
               }) => RoutinesCompanion(
                 id: id,
                 name: name,
                 colorHex: colorHex,
                 position: position,
+                restSeconds: restSeconds,
               ),
           createCompanionCallback:
               ({
@@ -2544,11 +3262,13 @@ class $$RoutinesTableTableManager
                 required String name,
                 Value<String> colorHex = const Value.absent(),
                 Value<int> position = const Value.absent(),
+                Value<int> restSeconds = const Value.absent(),
               }) => RoutinesCompanion.insert(
                 id: id,
                 name: name,
                 colorHex: colorHex,
                 position: position,
+                restSeconds: restSeconds,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -2612,7 +3332,10 @@ typedef $$RoutineItemsTableCreateCompanionBuilder =
       required int exerciseId,
       Value<int> position,
       Value<int> targetSets,
-      Value<String> targetReps,
+      Value<int> repsMin,
+      Value<int?> repsMax,
+      Value<bool> toFailure,
+      Value<int?> restSeconds,
       Value<double?> suggestedWeight,
     });
 typedef $$RoutineItemsTableUpdateCompanionBuilder =
@@ -2622,7 +3345,10 @@ typedef $$RoutineItemsTableUpdateCompanionBuilder =
       Value<int> exerciseId,
       Value<int> position,
       Value<int> targetSets,
-      Value<String> targetReps,
+      Value<int> repsMin,
+      Value<int?> repsMax,
+      Value<bool> toFailure,
+      Value<int?> restSeconds,
       Value<double?> suggestedWeight,
     });
 
@@ -2689,8 +3415,23 @@ class $$RoutineItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get targetReps => $composableBuilder(
-    column: $table.targetReps,
+  ColumnFilters<int> get repsMin => $composableBuilder(
+    column: $table.repsMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get repsMax => $composableBuilder(
+    column: $table.repsMax,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get toFailure => $composableBuilder(
+    column: $table.toFailure,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2770,8 +3511,23 @@ class $$RoutineItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get targetReps => $composableBuilder(
-    column: $table.targetReps,
+  ColumnOrderings<int> get repsMin => $composableBuilder(
+    column: $table.repsMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get repsMax => $composableBuilder(
+    column: $table.repsMax,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get toFailure => $composableBuilder(
+    column: $table.toFailure,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2847,8 +3603,17 @@ class $$RoutineItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get targetReps => $composableBuilder(
-    column: $table.targetReps,
+  GeneratedColumn<int> get repsMin =>
+      $composableBuilder(column: $table.repsMin, builder: (column) => column);
+
+  GeneratedColumn<int> get repsMax =>
+      $composableBuilder(column: $table.repsMax, builder: (column) => column);
+
+  GeneratedColumn<bool> get toFailure =>
+      $composableBuilder(column: $table.toFailure, builder: (column) => column);
+
+  GeneratedColumn<int> get restSeconds => $composableBuilder(
+    column: $table.restSeconds,
     builder: (column) => column,
   );
 
@@ -2937,7 +3702,10 @@ class $$RoutineItemsTableTableManager
                 Value<int> exerciseId = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> targetSets = const Value.absent(),
-                Value<String> targetReps = const Value.absent(),
+                Value<int> repsMin = const Value.absent(),
+                Value<int?> repsMax = const Value.absent(),
+                Value<bool> toFailure = const Value.absent(),
+                Value<int?> restSeconds = const Value.absent(),
                 Value<double?> suggestedWeight = const Value.absent(),
               }) => RoutineItemsCompanion(
                 id: id,
@@ -2945,7 +3713,10 @@ class $$RoutineItemsTableTableManager
                 exerciseId: exerciseId,
                 position: position,
                 targetSets: targetSets,
-                targetReps: targetReps,
+                repsMin: repsMin,
+                repsMax: repsMax,
+                toFailure: toFailure,
+                restSeconds: restSeconds,
                 suggestedWeight: suggestedWeight,
               ),
           createCompanionCallback:
@@ -2955,7 +3726,10 @@ class $$RoutineItemsTableTableManager
                 required int exerciseId,
                 Value<int> position = const Value.absent(),
                 Value<int> targetSets = const Value.absent(),
-                Value<String> targetReps = const Value.absent(),
+                Value<int> repsMin = const Value.absent(),
+                Value<int?> repsMax = const Value.absent(),
+                Value<bool> toFailure = const Value.absent(),
+                Value<int?> restSeconds = const Value.absent(),
                 Value<double?> suggestedWeight = const Value.absent(),
               }) => RoutineItemsCompanion.insert(
                 id: id,
@@ -2963,7 +3737,10 @@ class $$RoutineItemsTableTableManager
                 exerciseId: exerciseId,
                 position: position,
                 targetSets: targetSets,
-                targetReps: targetReps,
+                repsMin: repsMin,
+                repsMax: repsMax,
+                toFailure: toFailure,
+                restSeconds: restSeconds,
                 suggestedWeight: suggestedWeight,
               ),
           withReferenceMapper: (p0) => p0
@@ -3775,6 +4552,127 @@ typedef $$WorkoutSetsTableProcessedTableManager =
       WorkoutSet,
       PrefetchHooks Function({bool workoutId})
     >;
+typedef $$SettingsTableCreateCompanionBuilder =
+    SettingsCompanion Function({Value<int> id, Value<String> weightUnit});
+typedef $$SettingsTableUpdateCompanionBuilder =
+    SettingsCompanion Function({Value<int> id, Value<String> weightUnit});
+
+class $$SettingsTableFilterComposer
+    extends Composer<_$AppDatabase, $SettingsTable> {
+  $$SettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get weightUnit => $composableBuilder(
+    column: $table.weightUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SettingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SettingsTable> {
+  $$SettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get weightUnit => $composableBuilder(
+    column: $table.weightUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SettingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SettingsTable> {
+  $$SettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get weightUnit => $composableBuilder(
+    column: $table.weightUnit,
+    builder: (column) => column,
+  );
+}
+
+class $$SettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SettingsTable,
+          Setting,
+          $$SettingsTableFilterComposer,
+          $$SettingsTableOrderingComposer,
+          $$SettingsTableAnnotationComposer,
+          $$SettingsTableCreateCompanionBuilder,
+          $$SettingsTableUpdateCompanionBuilder,
+          (Setting, BaseReferences<_$AppDatabase, $SettingsTable, Setting>),
+          Setting,
+          PrefetchHooks Function()
+        > {
+  $$SettingsTableTableManager(_$AppDatabase db, $SettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> weightUnit = const Value.absent(),
+              }) => SettingsCompanion(id: id, weightUnit: weightUnit),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> weightUnit = const Value.absent(),
+              }) => SettingsCompanion.insert(id: id, weightUnit: weightUnit),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SettingsTable,
+      Setting,
+      $$SettingsTableFilterComposer,
+      $$SettingsTableOrderingComposer,
+      $$SettingsTableAnnotationComposer,
+      $$SettingsTableCreateCompanionBuilder,
+      $$SettingsTableUpdateCompanionBuilder,
+      (Setting, BaseReferences<_$AppDatabase, $SettingsTable, Setting>),
+      Setting,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3789,4 +4687,6 @@ class $AppDatabaseManager {
       $$WorkoutsTableTableManager(_db, _db.workouts);
   $$WorkoutSetsTableTableManager get workoutSets =>
       $$WorkoutSetsTableTableManager(_db, _db.workoutSets);
+  $$SettingsTableTableManager get settings =>
+      $$SettingsTableTableManager(_db, _db.settings);
 }

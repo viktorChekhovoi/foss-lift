@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -10,8 +10,9 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final totals = ref.watch(totalsProvider).value;
+    final workouts = ref.watch(workoutCountProvider).value ?? 0;
     final routineCount = ref.watch(routinesProvider).value?.length ?? 0;
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return SafeArea(
       child: ListView(
@@ -55,25 +56,39 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 22),
           Row(
             children: [
-              _PStat(value: '${totals?.workouts ?? 0}', label: 'Workouts'),
-              const SizedBox(width: 12),
-              _PStat(
-                value: totals == null
-                    ? '0'
-                    : NumberFormat.compact().format(totals.volume),
-                label: 'Volume kg',
-                accent: true,
-              ),
+              _PStat(value: '$workouts', label: 'Workouts', accent: true),
               const SizedBox(width: 12),
               _PStat(value: '$routineCount', label: 'Routines'),
             ],
           ),
           const SizedBox(height: 20),
-          _SettingsTile(icon: Icons.timer_outlined, label: 'Units & rest timers'),
-          _SettingsTile(icon: Icons.list_alt_rounded, label: 'Exercise library'),
-          _SettingsTile(icon: Icons.cloud_outlined, label: 'Backup & export'),
-          _SettingsTile(icon: Icons.brightness_6_outlined, label: 'Appearance'),
-          _SettingsTile(icon: Icons.info_outline_rounded, label: 'About FossLift', last: true),
+          _SettingsTile(
+            icon: Icons.straighten_rounded,
+            label: 'Units',
+            value: unit == 'lb' ? 'Pounds (lb)' : 'Kilograms (kg)',
+            onTap: () => context.push('/settings'),
+          ),
+          _SettingsTile(
+            icon: Icons.list_alt_rounded,
+            label: 'Exercise library',
+            onTap: () => context.push('/library'),
+          ),
+          _SettingsTile(
+            icon: Icons.cloud_outlined,
+            label: 'Backup & export',
+            soon: true,
+          ),
+          _SettingsTile(
+            icon: Icons.brightness_6_outlined,
+            label: 'Appearance',
+            soon: true,
+          ),
+          _SettingsTile(
+            icon: Icons.info_outline_rounded,
+            label: 'About FossLift',
+            soon: true,
+            last: true,
+          ),
         ],
       ),
     );
@@ -120,17 +135,28 @@ class _PStat extends StatelessWidget {
 }
 
 class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({required this.icon, required this.label, this.last = false});
+  const _SettingsTile({
+    required this.icon,
+    required this.label,
+    this.value,
+    this.onTap,
+    this.soon = false,
+    this.last = false,
+  });
   final IconData icon;
   final String label;
+  final String? value;
+  final VoidCallback? onTap;
+  final bool soon;
   final bool last;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"$label" is coming soon')),
-      ),
+      onTap: onTap ??
+          () => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('"$label" is coming soon')),
+              ),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(
@@ -141,6 +167,19 @@ class _SettingsTile extends StatelessWidget {
             SizedBox(width: 26, child: Icon(icon, size: 20, color: AppColors.muted)),
             const SizedBox(width: 8),
             Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
+            if (value != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Text(value!,
+                    style: kMono.copyWith(fontSize: 12.5, color: AppColors.muted)),
+              ),
+            if (soon)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Text('SOON',
+                    style: kMono.copyWith(
+                        fontSize: 10, letterSpacing: 1, color: AppColors.faint)),
+              ),
             const Icon(Icons.chevron_right, color: AppColors.faint),
           ],
         ),

@@ -1,0 +1,40 @@
+FOSSLIFT — FEATURE BACKLOG
+==========================
+
+Legend:  [x] shipped   [ ] planned
+Ordered by priority. The top block (1–5) shipped in the "builder" milestone;
+everything below is the roadmap, still ranked.
+
+SHIPPED (builder milestone)
+---------------------------
+[x] 1. Exercise library — browse/search, per-exercise instructions + demo
+       link, and add-your-own custom exercises.
+[x] 2. Routine builder — create/edit/delete routines from the library;
+       reorder exercises; pick an accent colour.
+[x] 3. Sets × reps configuration — fixed count, a range (e.g. 6–8), or
+       "to failure", per exercise.
+[x] 4. Rest timers — routine-level default plus per-exercise overrides; the
+       live rest timer counts these down with shorter/longer/skip controls.
+[x] 5. Units of measurement — global kg/lb; weights stored canonically and
+       converted on the fly, so switching never rewrites history.
+
+ROADMAP (ranked)
+----------------
+[ ] 6.  Progression modes — increase reps, time (e.g. plank), or weight.
+[ ] 7.  Progression / regression rates — +X after N successes; back off after
+        consecutive failures; "goal reps" logic for to-failure sets.
+[ ] 8.  Weight types + plate math — bar / machine / dumbbell; for a bar, show
+        per-side load and a plate breakdown. Custom plate inventory.
+[ ] 9.  Progress visualisation per exercise, with CSV export.
+[ ] 10. Sharing — export/import routines as a file; QR code if feasible.
+[ ] 11. Exercise-library export / import.
+[ ] 12. Routine frequency (daily, M/W/F, …) + workout-time tracking and
+        push-notification reminders.
+[ ] 13. Colour themes — pick from presets, customise, import/export.
+
+
+NOT WANTED (explicitly out of scope — removed if previously present)
+--------------------------------------------------------------------
+- Cumulative "total weight lifted" stat.
+- "Empty workout" that you fill in as you go.
+- Encouraging quotes / motivational copy.

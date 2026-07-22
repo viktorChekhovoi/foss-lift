@@ -1,0 +1,199 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../providers/providers.dart';
+import '../theme/app_theme.dart';
+
+const _muscles = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Other'];
+const _equipment = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'Other'];
+
+/// Form for creating a custom exercise that joins the library.
+class ExerciseFormScreen extends ConsumerStatefulWidget {
+  const ExerciseFormScreen({super.key});
+
+  @override
+  ConsumerState<ExerciseFormScreen> createState() => _ExerciseFormScreenState();
+}
+
+class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
+  final _name = TextEditingController();
+  final _instructions = TextEditingController();
+  final _video = TextEditingController();
+  String _muscle = 'Chest';
+  String _equip = 'Barbell';
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _instructions.dispose();
+    _video.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Give the exercise a name first.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final video = _video.text.trim();
+    await ref.read(databaseProvider).createExercise(
+          name: name,
+          muscle: _muscle,
+          equipment: _equip,
+          instructions: _instructions.text.trim(),
+          videoUrl: video.isEmpty ? null : video,
+        );
+    if (mounted) context.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('New exercise')),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          children: [
+            _Label('Name'),
+            _Field(controller: _name, hint: 'e.g. Cable Lateral Raise'),
+            const SizedBox(height: 18),
+            _Label('Muscle group'),
+            _Choices(
+              options: _muscles,
+              selected: _muscle,
+              onSelect: (v) => setState(() => _muscle = v),
+            ),
+            const SizedBox(height: 18),
+            _Label('Equipment'),
+            _Choices(
+              options: _equipment,
+              selected: _equip,
+              onSelect: (v) => setState(() => _equip = v),
+            ),
+            const SizedBox(height: 18),
+            _Label('How to (optional)'),
+            _Field(
+              controller: _instructions,
+              hint: 'A short form cue…',
+              maxLines: 4,
+            ),
+            const SizedBox(height: 18),
+            _Label('Demo link (optional)'),
+            _Field(
+              controller: _video,
+              hint: 'https://…',
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'Saving…' : 'Save exercise'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Label extends StatelessWidget {
+  const _Label(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, left: 2),
+        child: Text(text.toUpperCase(),
+            style: kMono.copyWith(
+                fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+      );
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.controller,
+    required this.hint,
+    this.maxLines = 1,
+    this.keyboardType,
+  });
+  final TextEditingController controller;
+  final String hint;
+  final int maxLines;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 15),
+      decoration: InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.accent),
+        ),
+      ),
+    );
+  }
+}
+
+class _Choices extends StatelessWidget {
+  const _Choices({
+    required this.options,
+    required this.selected,
+    required this.onSelect,
+  });
+  final List<String> options;
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final o in options)
+          GestureDetector(
+            onTap: () => onSelect(o),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+              decoration: BoxDecoration(
+                color: o == selected
+                    ? AppColors.accent.withValues(alpha: 0.14)
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: o == selected ? AppColors.accent : AppColors.line,
+                ),
+              ),
+              child: Text(o,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: o == selected ? AppColors.accent : AppColors.muted,
+                  )),
+            ),
+          ),
+      ],
+    );
+  }
+}

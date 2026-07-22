@@ -1,10 +1,15 @@
 import 'package:go_router/go_router.dart';
 
+import 'screens/exercise_detail_screen.dart';
+import 'screens/exercise_form_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_shell.dart';
+import 'screens/library_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/routine_detail_screen.dart';
+import 'screens/routine_edit_screen.dart';
 import 'screens/routines_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/workout_screen.dart';
@@ -29,11 +34,26 @@ final appRouter = GoRouter(
         ),
       ],
     ),
+    // Routine builder (static path first so "/new" isn't captured by ":id").
+    GoRoute(path: '/routine/new', builder: (c, s) => const RoutineEditScreen()),
+    GoRoute(
+      path: '/routine/:id/edit',
+      builder: (c, s) =>
+          RoutineEditScreen(routineId: int.parse(s.pathParameters['id']!)),
+    ),
     GoRoute(
       path: '/routine/:id',
       builder: (c, s) =>
           RoutineDetailScreen(routineId: int.parse(s.pathParameters['id']!)),
     ),
+    GoRoute(path: '/library', builder: (c, s) => const LibraryScreen()),
+    GoRoute(path: '/library/new', builder: (c, s) => const ExerciseFormScreen()),
+    GoRoute(
+      path: '/exercise/:id',
+      builder: (c, s) =>
+          ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
+    ),
+    GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
     GoRoute(path: '/workout', builder: (c, s) => const WorkoutScreen()),
     GoRoute(
       path: '/summary/:id',

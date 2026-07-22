@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
+import '../util/units.dart';
 
 String fmtDuration(int seconds) {
   final m = seconds ~/ 60;
@@ -65,6 +66,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       return const Scaffold(body: SizedBox.shrink());
     }
     final controller = ref.read(activeWorkoutProvider.notifier);
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return Scaffold(
       body: SafeArea(
@@ -73,7 +75,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
             Column(
               children: [
                 _Header(title: session.name, onFinish: _finish),
-                _StatStrip(session: session),
+                _StatStrip(session: session, unit: unit),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
@@ -81,6 +83,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                       for (var ei = 0; ei < session.exercises.length; ei++)
                         _ExerciseBlock(
                           exercise: session.exercises[ei],
+                          unit: unit,
                           onAddSet: () => controller.addSet(ei),
                           rowBuilder: (si) {
                             final entry = session.exercises[ei].sets[si];
@@ -88,6 +91,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               key: ValueKey('$ei-$si-${session.exercises[ei].name}'),
                               number: si + 1,
                               entry: entry,
+                              unit: unit,
                               onWeight: (v) => controller.setWeight(ei, si, v),
                               onReps: (v) => controller.setReps(ei, si, v),
                               onToggle: () {
@@ -95,13 +99,12 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                 controller.toggleDone(ei, si);
                                 if (!wasDone) {
                                   HapticFeedback.selectionClick();
-                                  _startRest();
+                                  _startRest(session.exercises[ei].restSeconds);
                                 }
                               },
                             );
                           },
                         ),
-                      if (session.exercises.isEmpty) const _EmptyHint(),
                     ],
                   ),
                 ),
@@ -110,6 +113,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
             if (_restLeft > 0)
               _RestBanner(
                 secondsLeft: _restLeft,
+                onSub: () => setState(() =>
+                    _restLeft = _restLeft > 15 ? _restLeft - 15 : _restLeft),
                 onAdd: () => setState(() => _restLeft += 15),
                 onSkip: _stopRest,
               ),
@@ -161,8 +166,9 @@ class _Header extends StatelessWidget {
 }
 
 class _StatStrip extends StatelessWidget {
-  const _StatStrip({required this.session});
+  const _StatStrip({required this.session, required this.unit});
   final ActiveWorkout session;
+  final String unit;
 
   @override
   Widget build(BuildContext context) {
@@ -180,8 +186,9 @@ class _StatStrip extends StatelessWidget {
             _Stat(label: 'Duration', value: fmtDuration(session.elapsed)),
             const VerticalDivider(width: 1, color: AppColors.line),
             _Stat(
-              label: 'Volume · kg',
-              value: NumberFormat.decimalPattern().format(session.volume.round()),
+              label: 'Volume · ${unitLabel(unit)}',
+              value: NumberFormat.decimalPattern()
+                  .format(toDisplayWeight(session.volume, unit).round()),
               accent: true,
             ),
             const VerticalDivider(width: 1, color: AppColors.line),
@@ -230,10 +237,12 @@ class _Stat extends StatelessWidget {
 class _ExerciseBlock extends StatelessWidget {
   const _ExerciseBlock({
     required this.exercise,
+    required this.unit,
     required this.onAddSet,
     required this.rowBuilder,
   });
   final ExerciseEntry exercise;
+  final String unit;
   final VoidCallback onAddSet;
   final Widget Function(int setIndex) rowBuilder;
 
@@ -264,7 +273,7 @@ class _ExerciseBlock extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          const _ColumnHeaders(),
+          _ColumnHeaders(unit: unit),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
           const SizedBox(height: 8),
           _AddSetButton(onTap: onAddSet),
@@ -275,7 +284,8 @@ class _ExerciseBlock extends StatelessWidget {
 }
 
 class _ColumnHeaders extends StatelessWidget {
-  const _ColumnHeaders();
+  const _ColumnHeaders({required this.unit});
+  final String unit;
   @override
   Widget build(BuildContext context) {
     Widget h(String t, {double? width, bool left = false}) {
@@ -293,7 +303,7 @@ class _ColumnHeaders extends StatelessWidget {
         children: [
           h('Set', width: 40),
           h('Previous', width: 78, left: true),
-          h('Kg'),
+          h(unitLabel(unit)),
           h('Reps'),
           h('✓', width: 40),
         ],
@@ -307,12 +317,14 @@ class _SetRow extends StatefulWidget {
     super.key,
     required this.number,
     required this.entry,
+    required this.unit,
     required this.onWeight,
     required this.onReps,
     required this.onToggle,
   });
   final int number;
   final SetEntry entry;
+  final String unit;
   final ValueChanged<double> onWeight;
   final ValueChanged<int> onReps;
   final VoidCallback onToggle;
@@ -325,10 +337,19 @@ class _SetRowState extends State<_SetRow> {
   late final TextEditingController _w;
   late final TextEditingController _r;
 
+  String get _prevLabel {
+    final pw = widget.entry.prevWeight;
+    if (pw == null) return '—';
+    final reps = widget.entry.prevReps ?? 0;
+    final w = pw == 0 ? 'BW' : fmtWeight(toDisplayWeight(pw, widget.unit));
+    return '$w×$reps';
+  }
+
   @override
   void initState() {
     super.initState();
-    _w = TextEditingController(text: fmtWeight(widget.entry.weight));
+    _w = TextEditingController(
+        text: fmtWeight(toDisplayWeight(widget.entry.weight, widget.unit)));
     _r = TextEditingController(text: '${widget.entry.reps}');
   }
 
@@ -373,14 +394,17 @@ class _SetRowState extends State<_SetRow> {
           SizedBox(
             width: 78,
             child: Text(
-              widget.entry.prev ?? '—',
+              _prevLabel,
               style: kMono.copyWith(
                 fontSize: 12.5,
                 color: done ? AppColors.muted : AppColors.faint,
               ),
             ),
           ),
-          Expanded(child: _cell(_w, done, (v) => widget.onWeight(double.tryParse(v) ?? 0))),
+          Expanded(
+            child: _cell(_w, done,
+                (v) => widget.onWeight(toKg(double.tryParse(v) ?? 0, widget.unit))),
+          ),
           Expanded(child: _cell(_r, done, (v) => widget.onReps(int.tryParse(v) ?? 0))),
           SizedBox(
             width: 40,
@@ -465,10 +489,12 @@ class _AddSetButton extends StatelessWidget {
 class _RestBanner extends StatelessWidget {
   const _RestBanner({
     required this.secondsLeft,
+    required this.onSub,
     required this.onAdd,
     required this.onSkip,
   });
   final int secondsLeft;
+  final VoidCallback onSub;
   final VoidCallback onAdd;
   final VoidCallback onSkip;
 
@@ -511,6 +537,8 @@ class _RestBanner extends StatelessWidget {
                 ],
               ),
             ),
+            _pill('−15s', onSub),
+            const SizedBox(width: 8),
             _pill('+15s', onAdd),
             const SizedBox(width: 8),
             _pill('Skip', onSkip),
@@ -530,23 +558,6 @@ class _RestBanner extends StatelessWidget {
       ),
       onPressed: onTap,
       child: Text(label, style: kMono.copyWith(fontSize: 12)),
-    );
-  }
-}
-
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 60),
-      child: Center(
-        child: Text(
-          'Empty workout — exercise picker coming next.\nTap Finish to save an empty session.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.muted, height: 1.5),
-        ),
-      ),
     );
   }
 }
