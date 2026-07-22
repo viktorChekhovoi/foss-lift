@@ -13,11 +13,21 @@ class RoutinesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final routines = ref.watch(routinesProvider);
+    final currentId = ref.watch(currentRoutineProvider)?.routine.id;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          const ScreenHeader(eyebrow: 'Templates', title: 'Routines'),
+          const ScreenHeader(eyebrow: 'Your programmes', title: 'Routines'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+            child: Text(
+              'A routine is a programme — "Push / Pull / Legs" — and it holds '
+              'the workouts you actually train. Tap a circle to choose which '
+              'routine the Today tab shows.',
+              style: TextStyle(fontSize: 13, color: AppColors.muted),
+            ),
+          ),
           routines.when(
             loading: () => const Padding(
               padding: EdgeInsets.all(24),
@@ -34,6 +44,10 @@ class RoutinesScreen extends ConsumerWidget {
                   for (final r in list) ...[
                     RoutineCard(
                       data: r,
+                      isCurrent: r.routine.id == currentId,
+                      onSetCurrent: () => ref
+                          .read(databaseProvider)
+                          .setActiveRoutineId(r.routine.id),
                       onTap: () => context.push('/routine/${r.routine.id}'),
                     ),
                     const SizedBox(height: 12),

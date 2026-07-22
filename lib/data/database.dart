@@ -109,6 +109,11 @@ class Settings extends Table {
   /// 'kg' or 'lb'. Weights are stored in kg; this only affects display/input.
   TextColumn get weightUnit => text().withDefault(const Constant('kg'))();
 
+  /// The routine the Today tab is currently about. Null means "not chosen yet",
+  /// which makes Today fall back to a routine chooser. Not a foreign key: a
+  /// dangling id after a delete resolves to null rather than failing.
+  IntColumn get activeRoutineId => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -223,7 +228,12 @@ class AppDatabase extends _$AppDatabase {
     ''');
     await customStatement('DROP TABLE routine_items');
 
-    // 4. Point old history at the workout it would have been, where we can.
+    // 4. The Today tab's current-routine pointer. Left null on upgrade: a v1
+    //    user had several routines and we should not guess which one.
+    await customStatement(
+        'ALTER TABLE settings ADD COLUMN active_routine_id INTEGER');
+
+    // 5. Point old history at the workout it would have been, where we can.
     await customStatement(
         'UPDATE sessions SET workout_id = ('
         'SELECT w.id FROM workouts w WHERE w.routine_id = sessions.routine_id'
@@ -529,9 +539,25 @@ class AppDatabase extends _$AppDatabase {
         .map((s) => s?.weightUnit ?? 'kg');
   }
 
-  Future<void> setWeightUnit(String unit) {
-    return into(settings).insertOnConflictUpdate(
-      SettingsCompanion(id: const Value(1), weightUnit: Value(unit)),
+  Future<void> setWeightUnit(String unit) =>
+      _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
+
+  /// The routine the Today tab is currently about, or null if none is chosen.
+  Stream<int?> watchActiveRoutineId() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => s?.activeRoutineId);
+  }
+
+  Future<void> setActiveRoutineId(int? routineId) =>
+      _writeSettings(SettingsCompanion(activeRoutineId: Value(routineId)));
+
+  /// Updates the single settings row, creating it if it is somehow missing.
+  /// Only the columns present in [patch] are touched.
+  Future<void> _writeSettings(SettingsCompanion patch) {
+    return into(settings).insert(
+      patch.copyWith(id: const Value(1)),
+      onConflict: DoUpdate((_) => patch),
     );
   }
 
@@ -637,7 +663,7 @@ class AppDatabase extends _$AppDatabase {
 
     // Two starter programmes, each split into its training days. Upper/Lower
     // deliberately repeats a day name — that is legal and worth demonstrating.
-    Future<void> routine(
+    Future<int> routine(
       String name,
       String color,
       int pos,
@@ -676,9 +702,10 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+      return rid;
     }
 
-    await routine('Push / Pull / Legs', 'FF6A3D', 0, 120, [
+    final ppl = await routine('Push / Pull / Legs', 'FF6A3D', 0, 120, [
       (name: 'Push', items: [
         (name: 'Bench Press', sets: 4, min: 6, max: 8, w: 80),
         (name: 'Overhead Press', sets: 4, min: 8, max: null, w: 50),
@@ -728,6 +755,9 @@ class AppDatabase extends _$AppDatabase {
         (name: 'Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
       ]),
     ]);
+
+    // Give Today something to be about on first launch.
+    await setActiveRoutineId(ppl);
   }
 }
 

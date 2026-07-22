@@ -153,6 +153,12 @@ void main() {
     expect(await db.watchWeightUnit().first, 'lb');
   });
 
+  test('no routine is made current on upgrade', () async {
+    // A v1 user had several routines; guessing which one is "theirs" would be
+    // wrong, so Today shows the chooser until they pick.
+    expect(await db.watchActiveRoutineId().first, isNull);
+  });
+
   test('deleting a workout cascades to its items but spares history', () async {
     final workout = (await db.workoutsForRoutine(7)).single;
     await db.deleteWorkout(workout.id);

@@ -2833,8 +2833,19 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant('kg'),
   );
+  static const VerificationMeta _activeRoutineIdMeta = const VerificationMeta(
+    'activeRoutineId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, weightUnit];
+  late final GeneratedColumn<int> activeRoutineId = GeneratedColumn<int>(
+    'active_routine_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, weightUnit, activeRoutineId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2856,6 +2867,15 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         weightUnit.isAcceptableOrUnknown(data['weight_unit']!, _weightUnitMeta),
       );
     }
+    if (data.containsKey('active_routine_id')) {
+      context.handle(
+        _activeRoutineIdMeta,
+        activeRoutineId.isAcceptableOrUnknown(
+          data['active_routine_id']!,
+          _activeRoutineIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2873,6 +2893,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}weight_unit'],
       )!,
+      activeRoutineId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}active_routine_id'],
+      ),
     );
   }
 
@@ -2887,17 +2911,35 @@ class Setting extends DataClass implements Insertable<Setting> {
 
   /// 'kg' or 'lb'. Weights are stored in kg; this only affects display/input.
   final String weightUnit;
-  const Setting({required this.id, required this.weightUnit});
+
+  /// The routine the Today tab is currently about. Null means "not chosen yet",
+  /// which makes Today fall back to a routine chooser. Not a foreign key: a
+  /// dangling id after a delete resolves to null rather than failing.
+  final int? activeRoutineId;
+  const Setting({
+    required this.id,
+    required this.weightUnit,
+    this.activeRoutineId,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['weight_unit'] = Variable<String>(weightUnit);
+    if (!nullToAbsent || activeRoutineId != null) {
+      map['active_routine_id'] = Variable<int>(activeRoutineId);
+    }
     return map;
   }
 
   SettingsCompanion toCompanion(bool nullToAbsent) {
-    return SettingsCompanion(id: Value(id), weightUnit: Value(weightUnit));
+    return SettingsCompanion(
+      id: Value(id),
+      weightUnit: Value(weightUnit),
+      activeRoutineId: activeRoutineId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activeRoutineId),
+    );
   }
 
   factory Setting.fromJson(
@@ -2908,6 +2950,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     return Setting(
       id: serializer.fromJson<int>(json['id']),
       weightUnit: serializer.fromJson<String>(json['weightUnit']),
+      activeRoutineId: serializer.fromJson<int?>(json['activeRoutineId']),
     );
   }
   @override
@@ -2916,17 +2959,30 @@ class Setting extends DataClass implements Insertable<Setting> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'weightUnit': serializer.toJson<String>(weightUnit),
+      'activeRoutineId': serializer.toJson<int?>(activeRoutineId),
     };
   }
 
-  Setting copyWith({int? id, String? weightUnit}) =>
-      Setting(id: id ?? this.id, weightUnit: weightUnit ?? this.weightUnit);
+  Setting copyWith({
+    int? id,
+    String? weightUnit,
+    Value<int?> activeRoutineId = const Value.absent(),
+  }) => Setting(
+    id: id ?? this.id,
+    weightUnit: weightUnit ?? this.weightUnit,
+    activeRoutineId: activeRoutineId.present
+        ? activeRoutineId.value
+        : this.activeRoutineId,
+  );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
       id: data.id.present ? data.id.value : this.id,
       weightUnit: data.weightUnit.present
           ? data.weightUnit.value
           : this.weightUnit,
+      activeRoutineId: data.activeRoutineId.present
+          ? data.activeRoutineId.value
+          : this.activeRoutineId,
     );
   }
 
@@ -2934,46 +2990,58 @@ class Setting extends DataClass implements Insertable<Setting> {
   String toString() {
     return (StringBuffer('Setting(')
           ..write('id: $id, ')
-          ..write('weightUnit: $weightUnit')
+          ..write('weightUnit: $weightUnit, ')
+          ..write('activeRoutineId: $activeRoutineId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, weightUnit);
+  int get hashCode => Object.hash(id, weightUnit, activeRoutineId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Setting &&
           other.id == this.id &&
-          other.weightUnit == this.weightUnit);
+          other.weightUnit == this.weightUnit &&
+          other.activeRoutineId == this.activeRoutineId);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> id;
   final Value<String> weightUnit;
+  final Value<int?> activeRoutineId;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
+    this.activeRoutineId = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
+    this.activeRoutineId = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
     Expression<String>? weightUnit,
+    Expression<int>? activeRoutineId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (weightUnit != null) 'weight_unit': weightUnit,
+      if (activeRoutineId != null) 'active_routine_id': activeRoutineId,
     });
   }
 
-  SettingsCompanion copyWith({Value<int>? id, Value<String>? weightUnit}) {
+  SettingsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? weightUnit,
+    Value<int?>? activeRoutineId,
+  }) {
     return SettingsCompanion(
       id: id ?? this.id,
       weightUnit: weightUnit ?? this.weightUnit,
+      activeRoutineId: activeRoutineId ?? this.activeRoutineId,
     );
   }
 
@@ -2986,6 +3054,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (weightUnit.present) {
       map['weight_unit'] = Variable<String>(weightUnit.value);
     }
+    if (activeRoutineId.present) {
+      map['active_routine_id'] = Variable<int>(activeRoutineId.value);
+    }
     return map;
   }
 
@@ -2993,7 +3064,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   String toString() {
     return (StringBuffer('SettingsCompanion(')
           ..write('id: $id, ')
-          ..write('weightUnit: $weightUnit')
+          ..write('weightUnit: $weightUnit, ')
+          ..write('activeRoutineId: $activeRoutineId')
           ..write(')'))
         .toString();
   }
@@ -5307,9 +5379,17 @@ typedef $$SessionSetsTableProcessedTableManager =
       PrefetchHooks Function({bool sessionId})
     >;
 typedef $$SettingsTableCreateCompanionBuilder =
-    SettingsCompanion Function({Value<int> id, Value<String> weightUnit});
+    SettingsCompanion Function({
+      Value<int> id,
+      Value<String> weightUnit,
+      Value<int?> activeRoutineId,
+    });
 typedef $$SettingsTableUpdateCompanionBuilder =
-    SettingsCompanion Function({Value<int> id, Value<String> weightUnit});
+    SettingsCompanion Function({
+      Value<int> id,
+      Value<String> weightUnit,
+      Value<int?> activeRoutineId,
+    });
 
 class $$SettingsTableFilterComposer
     extends Composer<_$AppDatabase, $SettingsTable> {
@@ -5327,6 +5407,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get weightUnit => $composableBuilder(
     column: $table.weightUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activeRoutineId => $composableBuilder(
+    column: $table.activeRoutineId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5349,6 +5434,11 @@ class $$SettingsTableOrderingComposer
     column: $table.weightUnit,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get activeRoutineId => $composableBuilder(
+    column: $table.activeRoutineId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -5365,6 +5455,11 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<String> get weightUnit => $composableBuilder(
     column: $table.weightUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activeRoutineId => $composableBuilder(
+    column: $table.activeRoutineId,
     builder: (column) => column,
   );
 }
@@ -5399,12 +5494,22 @@ class $$SettingsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> weightUnit = const Value.absent(),
-              }) => SettingsCompanion(id: id, weightUnit: weightUnit),
+                Value<int?> activeRoutineId = const Value.absent(),
+              }) => SettingsCompanion(
+                id: id,
+                weightUnit: weightUnit,
+                activeRoutineId: activeRoutineId,
+              ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> weightUnit = const Value.absent(),
-              }) => SettingsCompanion.insert(id: id, weightUnit: weightUnit),
+                Value<int?> activeRoutineId = const Value.absent(),
+              }) => SettingsCompanion.insert(
+                id: id,
+                weightUnit: weightUnit,
+                activeRoutineId: activeRoutineId,
+              ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),

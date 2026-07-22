@@ -78,12 +78,16 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg |
-| `Settings`     | Single-row (id=1) app prefs. Currently just `weightUnit` |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`† |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 
-† Plain integers, deliberately **not** foreign keys: deleting a template must
-not erase the history of having trained it.
+† Plain integers, deliberately **not** foreign keys. For `Sessions`, deleting a
+template must not erase the history of having trained it; for `activeRoutineId`,
+a dangling pointer resolves to null in the UI rather than failing a constraint.
+
+Settings writes go through `_writeSettings`, which upserts only the columns you
+pass — so setting the unit never clobbers the current routine, and vice versa.
 
 Watch the vocabulary — before schema v2, `Workouts` meant a logged session.
 It now means a day template; the logged thing is a `Session`.
@@ -115,6 +119,9 @@ Thin bridge from widgets to data. Notable ones:
 - `routinesProvider`, `routineWorkoutsProvider(routineId)`, `workoutProvider(id)`,
   `workoutItemsProvider(id)`, `exerciseLibraryProvider`, `historyProvider`,
   `sessionCountProvider` — streams, so the UI auto-updates.
+- `activeRoutineIdProvider` / `currentRoutineProvider` — the routine Today is
+  about. Always read the latter: it resolves the stored id against the live
+  routine list, so a deleted routine degrades to null instead of dangling.
 - `weightUnitProvider` — current 'kg'/'lb'; read as `.value ?? 'kg'`.
 - `activeWorkoutProvider` — the live-session controller above.
 - `sessionSummaryProvider(id)` — one finished session + its sets.
@@ -125,8 +132,8 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 
 | Route | Screen | Purpose |
 |-------|--------|---------|
-| `/today` | today_screen | Greeting, routine list, lifetime counts |
-| `/routines` | routines_screen | All routines + "New routine" |
+| `/today` | today_screen | The current routine's workouts (or a chooser), lifetime counts |
+| `/routines` | routines_screen | All routines, pick the current one, + "New routine" |
 | `/routine/:id` | routine_detail_screen | The routine's workouts; tap one to open it |
 | `/routine/new`, `/routine/:id/edit` | routine_edit_screen | Routine meta + its workout list |
 | `/workout/:id` | workout_detail_screen | A day's exercises + **Start workout** |
@@ -141,6 +148,10 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/settings` | settings_screen | kg/lb toggle |
 
 Note `/workout/:id` is a *template*; `/session` is the live thing in progress.
+
+**Starting a workout is two taps from Today**: the current routine's days are
+listed there directly, so it is tap a day → tap Start. The routine list is only
+shown when no routine is current.
 
 Editing is split to match the hierarchy:
 - **`routine_edit_screen.dart`** — name, colour, default rest, and the ordered

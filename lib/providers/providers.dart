@@ -44,6 +44,23 @@ final sessionCountProvider = StreamProvider<int>((ref) {
   return ref.watch(databaseProvider).watchSessionCount();
 });
 
+/// The routine the Today tab is about, as stored. May point at a routine that
+/// has since been deleted — prefer [currentRoutineProvider], which resolves it.
+final activeRoutineIdProvider = StreamProvider<int?>((ref) {
+  return ref.watch(databaseProvider).watchActiveRoutineId();
+});
+
+/// The current routine, or null if none is chosen (or the chosen one is gone).
+final currentRoutineProvider = Provider<RoutineWithCount?>((ref) {
+  final id = ref.watch(activeRoutineIdProvider).value;
+  final routines = ref.watch(routinesProvider).value;
+  if (id == null || routines == null) return null;
+  for (final r in routines) {
+    if (r.routine.id == id) return r;
+  }
+  return null;
+});
+
 /// The user's chosen weight unit ('kg' or 'lb').
 final weightUnitProvider = StreamProvider<String>((ref) {
   return ref.watch(databaseProvider).watchWeightUnit();

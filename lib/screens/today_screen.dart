@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -14,7 +15,7 @@ class TodayScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
-    final routines = ref.watch(routinesProvider);
+    final current = ref.watch(currentRoutineProvider);
     final eyebrow =
         '${DateFormat('EEEE').format(now)} · ${DateFormat('MMM d').format(now)}';
 
@@ -23,34 +24,10 @@ class TodayScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           ScreenHeader(eyebrow: eyebrow, title: 'Today'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SectionLabel(
-              'Start a routine',
-              trailing: _BuildLink(onTap: () => context.push('/routine/new')),
-            ),
-          ),
-          routines.when(
-            loading: () => const _PadLoader(),
-            error: (e, _) => _PadError('$e'),
-            data: (list) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  if (list.isEmpty)
-                    _NoRoutines(onCreate: () => context.push('/routine/new'))
-                  else
-                    for (final r in list) ...[
-                      RoutineCard(
-                        data: r,
-                        onTap: () => context.push('/routine/${r.routine.id}'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                ],
-              ),
-            ),
-          ),
+          if (current != null)
+            _CurrentRoutineSection(current: current)
+          else
+            const _RoutineChooserSection(),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: SectionLabel('Lifetime'),
@@ -65,9 +42,180 @@ class TodayScreen extends ConsumerWidget {
   }
 }
 
-/// A small "+ Build" affordance in the section header.
-class _BuildLink extends StatelessWidget {
-  const _BuildLink({required this.onTap});
+/// The workouts of the current routine — pick one and you are one tap from
+/// starting it.
+class _CurrentRoutineSection extends ConsumerWidget {
+  const _CurrentRoutineSection({required this.current});
+  final RoutineWithCount current;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routine = current.routine;
+    final workouts = ref.watch(routineWorkoutsProvider(routine.id));
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SectionLabel(
+            routine.name,
+            trailing: _TextLink(
+              label: 'Change',
+              onTap: () => context.push('/routines'),
+            ),
+          ),
+        ),
+        workouts.when(
+          loading: () => const _PadLoader(),
+          error: (e, _) => _PadError('$e'),
+          data: (list) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                if (list.isEmpty)
+                  _EmptyCard(
+                    title: 'No workouts yet',
+                    body: '${routine.name} has no training days. Add some to '
+                        'start training it.',
+                    action: 'Edit routine',
+                    onAction: () => context.push('/routine/${routine.id}/edit'),
+                  )
+                else
+                  for (final w in list) ...[
+                    _WorkoutCard(
+                      data: w,
+                      accent: hexColor(routine.colorHex),
+                      onTap: () => context.push('/workout/${w.workout.id}'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shown when no routine is current: pick one (or build the first).
+class _RoutineChooserSection extends ConsumerWidget {
+  const _RoutineChooserSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routines = ref.watch(routinesProvider);
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: SectionLabel('Pick a routine'),
+        ),
+        routines.when(
+          loading: () => const _PadLoader(),
+          error: (e, _) => _PadError('$e'),
+          data: (list) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                if (list.isEmpty)
+                  _EmptyCard(
+                    title: 'No routines yet',
+                    body: 'Build one from the exercise library to get started.',
+                    action: 'Build a routine',
+                    onAction: () => context.push('/routine/new'),
+                  )
+                else
+                  for (final r in list) ...[
+                    RoutineCard(
+                      data: r,
+                      onSetCurrent: () => ref
+                          .read(databaseProvider)
+                          .setActiveRoutineId(r.routine.id),
+                      onTap: () => context.push('/routine/${r.routine.id}'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One training day on the Today screen.
+class _WorkoutCard extends StatelessWidget {
+  const _WorkoutCard({
+    required this.data,
+    required this.accent,
+    required this.onTap,
+  });
+  final WorkoutWithCount data;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.line),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.workout.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${data.exerciseCount} '
+                      '${data.exerciseCount == 1 ? 'exercise' : 'exercises'}',
+                      style:
+                          kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.faint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small text action in a section header.
+class _TextLink extends StatelessWidget {
+  const _TextLink({required this.label, required this.onTap});
+  final String label;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
@@ -76,17 +224,29 @@ class _BuildLink extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Text('+ Build',
+        child: Text(label,
             style: kMono.copyWith(
-                fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600)),
+                fontSize: 12,
+                color: AppColors.accent,
+                fontWeight: FontWeight.w600)),
       ),
     );
   }
 }
 
-class _NoRoutines extends StatelessWidget {
-  const _NoRoutines({required this.onCreate});
-  final VoidCallback onCreate;
+/// A centred "nothing here yet" card with a single call to action.
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({
+    required this.title,
+    required this.body,
+    required this.action,
+    required this.onAction,
+  });
+  final String title;
+  final String body;
+  final String action;
+  final VoidCallback onAction;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -99,14 +259,15 @@ class _NoRoutines extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       child: Column(
         children: [
-          const Text('No routines yet',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          const Text('Build one from the exercise library to get started.',
+          Text(body,
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.muted)),
+              style: const TextStyle(color: AppColors.muted)),
           const SizedBox(height: 14),
-          FilledButton(onPressed: onCreate, child: const Text('Build a routine')),
+          FilledButton(onPressed: onAction, child: Text(action)),
         ],
       ),
     );

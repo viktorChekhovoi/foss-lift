@@ -5,10 +5,21 @@ import '../theme/app_theme.dart';
 import 'common.dart';
 
 /// A tappable routine row: colour swatch, name, workout count.
+///
+/// When [onSetCurrent] is given the row also offers a "make this the current
+/// routine" control, and marks itself when [isCurrent].
 class RoutineCard extends StatelessWidget {
-  const RoutineCard({super.key, required this.data, required this.onTap});
+  const RoutineCard({
+    super.key,
+    required this.data,
+    required this.onTap,
+    this.isCurrent = false,
+    this.onSetCurrent,
+  });
   final RoutineWithCount data;
   final VoidCallback onTap;
+  final bool isCurrent;
+  final VoidCallback? onSetCurrent;
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +33,11 @@ class RoutineCard extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.line),
+            border: Border.all(
+              color: isCurrent ? hexColor(r.colorHex) : AppColors.line,
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          padding: const EdgeInsets.fromLTRB(16, 15, 8, 15),
           child: Row(
             children: [
               Container(
@@ -40,13 +53,23 @@ class RoutineCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      r.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            r.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        if (isCurrent) ...[
+                          const SizedBox(width: 8),
+                          _CurrentBadge(color: hexColor(r.colorHex)),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -60,9 +83,47 @@ class RoutineCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onSetCurrent != null)
+                IconButton(
+                  tooltip: isCurrent ? 'Current routine' : 'Make current',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: isCurrent ? null : onSetCurrent,
+                  icon: Icon(
+                    isCurrent
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    size: 22,
+                    color: isCurrent ? hexColor(r.colorHex) : AppColors.muted,
+                  ),
+                ),
               const Icon(Icons.chevron_right, color: AppColors.faint),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentBadge extends StatelessWidget {
+  const _CurrentBadge({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'CURRENT',
+        style: kMono.copyWith(
+          fontSize: 9,
+          letterSpacing: 0.9,
+          fontWeight: FontWeight.w700,
+          color: color,
         ),
       ),
     );

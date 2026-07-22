@@ -51,6 +51,45 @@ void main() {
     expect(await db.watchRoutines().first, hasLength(1));
   });
 
+  test('a fresh install starts with the first routine current', () async {
+    final ppl = (await db.watchRoutines().first).first.routine;
+    expect(await db.watchActiveRoutineId().first, ppl.id);
+  });
+
+  test('setting the current routine leaves the weight unit alone', () async {
+    await db.setWeightUnit('lb');
+    final ul = (await db.watchRoutines().first).last.routine;
+    await db.setActiveRoutineId(ul.id);
+
+    expect(await db.watchActiveRoutineId().first, ul.id);
+    expect(await db.watchWeightUnit().first, 'lb');
+  });
+
+  test('setting the weight unit leaves the current routine alone', () async {
+    final ul = (await db.watchRoutines().first).last.routine;
+    await db.setActiveRoutineId(ul.id);
+    await db.setWeightUnit('lb');
+
+    expect(await db.watchActiveRoutineId().first, ul.id);
+  });
+
+  test('the current routine can be cleared', () async {
+    await db.setActiveRoutineId(null);
+    expect(await db.watchActiveRoutineId().first, isNull);
+  });
+
+  test('deleting the current routine leaves a dangling id, not a crash',
+      () async {
+    final ppl = (await db.watchRoutines().first).first.routine;
+    await db.deleteRoutine(ppl.id);
+
+    // The pointer survives the delete; the UI resolves it against the routine
+    // list and falls back to the chooser when it no longer matches.
+    expect(await db.watchActiveRoutineId().first, ppl.id);
+    final remaining = await db.watchRoutines().first;
+    expect(remaining.any((r) => r.routine.id == ppl.id), isFalse);
+  });
+
   test('replaceRoutineWorkouts keeps exercises of workouts it retains',
       () async {
     final ppl = (await db.watchRoutines().first).first.routine;

@@ -16,6 +16,7 @@ class RoutineDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final routines = ref.watch(routinesProvider).value;
     final workouts = ref.watch(routineWorkoutsProvider(routineId));
+    final isCurrent = ref.watch(currentRoutineProvider)?.routine.id == routineId;
 
     Routine? routine;
     if (routines != null) {
@@ -31,6 +32,19 @@ class RoutineDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(routine?.name ?? 'Routine'),
         actions: [
+          IconButton(
+            tooltip:
+                isCurrent ? 'Shown on Today' : 'Show this routine on Today',
+            icon: Icon(isCurrent
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked),
+            color: isCurrent ? AppColors.accent : null,
+            onPressed: isCurrent
+                ? null
+                : () => ref
+                    .read(databaseProvider)
+                    .setActiveRoutineId(routineId),
+          ),
           IconButton(
             tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
