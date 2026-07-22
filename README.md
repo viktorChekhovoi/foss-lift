@@ -67,6 +67,9 @@ flutter test                  # run unit tests
 flutter analyze               # static analysis
 ```
 
+To build and test on a phone or the Android Studio emulator, see
+[`RUNNING.md`](RUNNING.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 Viktor Chekhovoi
