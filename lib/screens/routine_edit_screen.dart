@@ -133,6 +133,10 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
         ),
       ),
     );
+    // Popping a route restores focus to whatever held it before, which would
+    // reopen the keyboard on the routine name. Coming back from a workout is
+    // not an invitation to rename the routine.
+    FocusManager.instance.primaryFocus?.unfocus();
     if (mounted) setState(() {});
   }
 
@@ -244,6 +248,11 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         builderLabel('Name'),
                         TextField(
                           controller: _name,
+                          // Naming it is the first thing you do on a new
+                          // routine — but never grab focus when editing one
+                          // that already has a name.
+                          autofocus: !_isEdit,
+                          textCapitalization: TextCapitalization.sentences,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration:

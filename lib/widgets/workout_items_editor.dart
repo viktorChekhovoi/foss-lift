@@ -121,6 +121,9 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
 
   Future<void> _addExercise() async {
     final picked = await pickExercise(context);
+    // Dismissing a sheet hands focus back to whatever had it, which pops the
+    // keyboard open on the name field above. Nobody asked to rename anything.
+    FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
     _bump(() => _items.add(ItemDraft(
           exerciseId: picked.id,
@@ -144,6 +147,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         onChanged: () => _bump(() {}),
       ),
     );
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   @override
