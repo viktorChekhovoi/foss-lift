@@ -125,6 +125,12 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     draft.items ??= [];
     if (!mounted) return;
 
+    // Popping a route restores focus to whatever held it before, which would
+    // reopen the keyboard on the routine name. Coming back from a workout is
+    // not an invitation to rename the routine. Drop focus on the way *out* —
+    // then there is nothing to restore, which does not depend on when the
+    // restore happens relative to this await.
+    FocusManager.instance.primaryFocus?.unfocus();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _WorkoutDraftScreen(
@@ -133,19 +139,20 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
         ),
       ),
     );
-    // Popping a route restores focus to whatever held it before, which would
-    // reopen the keyboard on the routine name. Coming back from a workout is
-    // not an invitation to rename the routine.
     FocusManager.instance.primaryFocus?.unfocus();
     if (mounted) setState(() {});
   }
 
   /// A single-field dialog; returns null if cancelled or left blank.
   Future<String?> _promptName(String title, String initial) async {
+    // Same story as _editWorkout: the dialog's own field takes focus, and
+    // cancelling it must not hand focus back to the routine name.
+    FocusManager.instance.primaryFocus?.unfocus();
     final result = await showDialog<String>(
       context: context,
       builder: (_) => _NameDialog(title: title, initial: initial),
     );
+    FocusManager.instance.primaryFocus?.unfocus();
     final trimmed = result?.trim();
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }

@@ -120,9 +120,12 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   }
 
   Future<void> _addExercise() async {
-    final picked = await pickExercise(context);
     // Dismissing a sheet hands focus back to whatever had it, which pops the
     // keyboard open on the name field above. Nobody asked to rename anything.
+    // Dropping focus before opening leaves nothing to hand back, which beats
+    // racing the restore on the way in.
+    FocusManager.instance.primaryFocus?.unfocus();
+    final picked = await pickExercise(context);
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
     _bump(() => _items.add(ItemDraft(
@@ -133,6 +136,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   }
 
   Future<void> _configure(int i) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
