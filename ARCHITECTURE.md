@@ -39,6 +39,7 @@ lib/
 │   │                             avoid an import cycle)
 │   └── providers.dart            All other providers (routines, library, unit…)
 ├── util/units.dart               kg⇄lb conversion helpers (pure functions)
+├── util/format.dart              fmtTotal — big running totals for stat tiles
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
 │   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
@@ -82,6 +83,9 @@ has "Upper 1" and "Upper 2".
 | `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`† |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
+Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
+`SessionSets` rows instead (volume, reps and sets in one query), so old history
+counts and no stored tally can fall out of step with the sets beneath it.
 
 † Plain integers, deliberately **not** foreign keys. For `Sessions`, deleting a
 template must not erase the history of having trained it; for `activeRoutineId`,
@@ -119,7 +123,8 @@ Thin bridge from widgets to data. Notable ones:
 - `databaseProvider` — the one DB instance (in its own file to break a cycle).
 - `routinesProvider`, `routineWorkoutsProvider(routineId)`, `workoutProvider(id)`,
   `workoutItemsProvider(id)`, `exerciseLibraryProvider`, `historyProvider`,
-  `sessionCountProvider` — streams, so the UI auto-updates.
+  `sessionCountProvider`, `lifetimeTotalsProvider` — streams, so the UI
+  auto-updates.
 - `lastSessionProvider(routineId)` / `nextWorkoutIdProvider(routineId)` — the
   suggested next day. Derived from history, never stored, so training out of
   order cannot desync it (see `nextWorkoutId` in `data/database.dart`).
@@ -136,7 +141,7 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 
 | Route | Screen | Purpose |
 |-------|--------|---------|
-| `/today` | today_screen | The current routine's workouts (or a chooser), lifetime counts |
+| `/today` | today_screen | The current routine's workouts (or a chooser), lifetime totals |
 | `/routines` | routines_screen | All routines, pick the current one, + "New routine" |
 | `/routine/:id` | routine_detail_screen | The routine's workouts; tap one to open it |
 | `/routine/new`, `/routine/:id/edit` | routine_edit_screen | Routine meta + its workout list |

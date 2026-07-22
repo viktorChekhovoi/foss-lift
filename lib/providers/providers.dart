@@ -62,6 +62,11 @@ final sessionCountProvider = StreamProvider<int>((ref) {
   return ref.watch(databaseProvider).watchSessionCount();
 });
 
+/// Everything ever lifted: volume (kg), reps and sets (Today's Lifetime card).
+final lifetimeTotalsProvider = StreamProvider<LifetimeTotals>((ref) {
+  return ref.watch(databaseProvider).watchLifetimeTotals();
+});
+
 /// The routine the Today tab is about, as stored. May point at a routine that
 /// has since been deleted — prefer [currentRoutineProvider], which resolves it.
 final activeRoutineIdProvider = StreamProvider<int?>((ref) {

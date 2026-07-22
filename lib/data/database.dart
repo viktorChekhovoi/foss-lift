@@ -155,6 +155,20 @@ typedef WorkoutDraft = ({
   List<WorkoutItemsCompanion>? items,
 });
 
+/// Everything ever lifted, added up.
+///
+/// Derived from the logged sets on every read rather than kept as a running
+/// counter: existing history counts automatically, and no stored tally can
+/// drift out of step with the sets it is supposed to summarise. [volumeKg] is
+/// canonical kilograms — convert at the view boundary like any other weight,
+/// so switching to pounds changes the number shown and nothing else.
+class LifetimeTotals {
+  const LifetimeTotals({this.volumeKg = 0, this.reps = 0, this.sets = 0});
+  final double volumeKg;
+  final int reps;
+  final int sets;
+}
+
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 
@@ -581,6 +595,28 @@ class AppDatabase extends _$AppDatabase {
       ..addColumns([countExp])
       ..where(sessions.endedAt.isNotNull());
     return q.watchSingle().map((row) => row.read(countExp) ?? 0);
+  }
+
+  /// Lifetime volume, reps and sets over every completed set of every finished
+  /// session. Volume is kg·reps, in kilograms.
+  Stream<LifetimeTotals> watchLifetimeTotals() {
+    final volumeExp =
+        (sessionSets.weight * sessionSets.reps.cast<double>()).total();
+    final repsExp = sessionSets.reps.sum();
+    final setsExp = sessionSets.id.count();
+
+    final q = selectOnly(sessionSets).join([
+      innerJoin(sessions, sessions.id.equalsExp(sessionSets.sessionId),
+          useColumns: false),
+    ])
+      ..addColumns([volumeExp, repsExp, setsExp])
+      ..where(sessionSets.done.equals(true) & sessions.endedAt.isNotNull());
+
+    return q.watchSingle().map((row) => LifetimeTotals(
+          volumeKg: row.read(volumeExp) ?? 0,
+          reps: row.read(repsExp) ?? 0,
+          sets: row.read(setsExp) ?? 0,
+        ));
   }
 
   // ---- Settings -----------------------------------------------------------

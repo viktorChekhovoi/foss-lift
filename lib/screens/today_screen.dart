@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/format.dart';
+import '../util/units.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
 
@@ -298,7 +300,9 @@ class _LifetimeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final workouts = ref.watch(sessionCountProvider).value ?? 0;
-    final routines = ref.watch(routinesProvider).value?.length ?? 0;
+    final totals =
+        ref.watch(lifetimeTotalsProvider).value ?? const LifetimeTotals();
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -306,10 +310,30 @@ class _LifetimeCard extends ConsumerWidget {
         border: Border.all(color: AppColors.line),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(child: _MiniStat(label: 'Workouts', value: '$workouts')),
-          Expanded(child: _MiniStat(label: 'Routines', value: '$routines')),
+          Row(
+            children: [
+              Expanded(child: _MiniStat(label: 'Workouts', value: '$workouts')),
+              Expanded(
+                child: _MiniStat(
+                  label: 'Volume (${unitLabel(unit)})',
+                  value: fmtTotal(toDisplayWeight(totals.volumeKg, unit)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                  child:
+                      _MiniStat(label: 'Sets', value: fmtTotal(totals.sets))),
+              Expanded(
+                  child:
+                      _MiniStat(label: 'Reps', value: fmtTotal(totals.reps))),
+            ],
+          ),
         ],
       ),
     );
