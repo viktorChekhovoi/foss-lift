@@ -216,10 +216,15 @@ class _SessionExerciseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Best set = highest weight × reps.
+    // Best set = highest weight × reps, or the longest hold when the exercise
+    // is measured in time and weight × reps is zero for all of them.
+    final timed = sets.any((s) => s.goalSeconds != null || s.seconds != null);
     SessionSet best = sets.first;
     for (final s in sets) {
-      if (s.weight * s.reps > best.weight * best.reps) best = s;
+      final better = timed
+          ? (s.seconds ?? 0) > (best.seconds ?? 0)
+          : s.weight * s.reps > best.weight * best.reps;
+      if (better) best = s;
     }
     final missed = sets.where(setMissedGoal).length;
     final w =
@@ -266,10 +271,20 @@ class _SessionExerciseRow extends StatelessWidget {
           Text.rich(
             TextSpan(
               style: kMono.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
-              children: [
-                TextSpan(text: w),
-                TextSpan(text: ' ×${best.reps}', style: const TextStyle(color: AppColors.faint)),
-              ],
+              children: timed
+                  ? [
+                      TextSpan(text: '${best.seconds ?? 0}s'),
+                      if (best.weight != 0)
+                        TextSpan(
+                            text: ' @ $w',
+                            style: const TextStyle(color: AppColors.faint)),
+                    ]
+                  : [
+                      TextSpan(text: w),
+                      TextSpan(
+                          text: ' ×${best.reps}',
+                          style: const TextStyle(color: AppColors.faint)),
+                    ],
             ),
           ),
         ],

@@ -5,6 +5,10 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'progression.dart';
+
+export 'progression.dart';
+
 part 'database.g.dart';
 
 // ---------------------------------------------------------------------------
@@ -68,6 +72,47 @@ class WorkoutItems extends Table {
   IntColumn get restSeconds => integer().nullable()();
 
   RealColumn get suggestedWeight => real().nullable()();
+
+  // -- Progression ---------------------------------------------------------
+  // Which number goes up when the sets go well, by how much, and how long it
+  // takes. Defaults are the weight case, so an exercise nobody has configured
+  // behaves like the barbell programme everyone expects.
+
+  /// The axis this slot advances along — see [ProgressionMode].
+  TextColumn get progression =>
+      textEnum<ProgressionMode>().withDefault(const Constant('weight'))();
+
+  /// The per-set hold, in seconds, when [progression] is
+  /// [ProgressionMode.time]. Ignored by the other modes, which count reps.
+  IntColumn get holdSeconds => integer().withDefault(const Constant(30))();
+
+  /// How far the target moves on a step up, in the mode's own unit: kilograms,
+  /// reps or seconds. Kept as a real because 2.5 kg is the smallest plate pair
+  /// most gyms own.
+  RealColumn get increment => real().withDefault(const Constant(2.5))();
+
+  /// Consecutive clean sessions needed before the target goes up.
+  IntColumn get successThreshold =>
+      integer().withDefault(const Constant(defaultSuccessThreshold))();
+
+  /// How far the target drops on a back-off, in the mode's own unit.
+  RealColumn get deload => real().withDefault(const Constant(5))();
+
+  /// Consecutive missed sessions before the target backs off.
+  IntColumn get failureThreshold =>
+      integer().withDefault(const Constant(defaultFailureThreshold))();
+
+  /// Clean sessions since the last step up or miss.
+  ///
+  /// Stored rather than derived from history, unlike the next-workout
+  /// suggestion: the target itself moves, so a session's success can only be
+  /// judged against the goal that was live *on the day*, and replaying that
+  /// from logged sets would have to reconstruct every intervening edit. The
+  /// counters ride along with the thing they are counting towards instead.
+  IntColumn get successStreak => integer().withDefault(const Constant(0))();
+
+  /// Missed sessions since the last back-off or clean session.
+  IntColumn get failStreak => integer().withDefault(const Constant(0))();
 }
 
 /// A logged training session — one performance of a [Workouts] row.
@@ -110,6 +155,17 @@ class SessionSets extends Table {
 
   /// The weight the template suggested, in kg. Null when it suggested none.
   RealColumn get goalWeight => real().nullable()();
+
+  /// Seconds held, on a set measured in time rather than reps.
+  ///
+  /// A separate column rather than a reinterpretation of [reps]: a 60-second
+  /// plank is not sixty repetitions, and folding it into the rep count would
+  /// quietly inflate lifetime reps and volume alike. Null on a counted set.
+  IntColumn get seconds => integer().nullable()();
+
+  /// The hold the template was asking for, in seconds. Null when the set was
+  /// counted in reps.
+  IntColumn get goalSeconds => integer().nullable()();
 }
 
 /// A single-row key/value store for app-wide preferences (always id == 1).
@@ -196,19 +252,23 @@ int? nextWorkoutId(List<int> orderedIds, int? lastWorkoutId) {
   return orderedIds[(i + 1) % orderedIds.length];
 }
 
-/// Whether a logged set fell short of what it was aiming for: fewer reps than
-/// the goal, or a weight below the one the template suggested.
+/// Whether a logged set fell short of what it was aiming for: fewer reps (or
+/// seconds) than the goal, or a weight below the one the template suggested.
 ///
 /// Dropping the weight counts as a miss even at full reps — deloading to finish
 /// the set is exactly the failure progression needs to see. Sets logged before
 /// schema v3 carry a zero goal and no goal weight, so old history never reads
 /// as a failure.
-bool setMissedGoal(SessionSet s) =>
-    s.reps < s.goalReps ||
-    (s.goalWeight != null && s.weight < s.goalWeight! - 1e-9);
+bool setMissedGoal(SessionSet s) {
+  final short = s.goalSeconds == null
+      ? s.reps < s.goalReps
+      : (s.seconds ?? 0) < s.goalSeconds!;
+  return short || (s.goalWeight != null && s.weight < s.goalWeight! - 1e-9);
+}
 
-/// Human-readable rep target, e.g. "10", "6–8", or "To failure".
+/// Human-readable set target, e.g. "10", "6–8", "45s", or "To failure".
 String repsLabel(WorkoutItem it) {
+  if (it.progression.timed) return '${it.holdSeconds}s';
   if (it.toFailure) return 'Failure';
   if (it.repsMax == null || it.repsMax == it.repsMin) return '${it.repsMin}';
   return '${it.repsMin}–${it.repsMax}';
@@ -236,7 +296,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -252,6 +312,24 @@ class AppDatabase extends _$AppDatabase {
             // recorded" rather than as a failed set.
             await m.addColumn(sessionSets, sessionSets.goalReps);
             await m.addColumn(sessionSets, sessionSets.goalWeight);
+          }
+          if (from < 4) {
+            // v3 → v4: exercises gain a progression axis and the rules that
+            // drive it. Every column carries a weight-progression default, so
+            // exercises that predate the feature keep behaving as barbell lifts
+            // without anyone having to configure them.
+            await m.addColumn(workoutItems, workoutItems.progression);
+            await m.addColumn(workoutItems, workoutItems.holdSeconds);
+            await m.addColumn(workoutItems, workoutItems.increment);
+            await m.addColumn(workoutItems, workoutItems.successThreshold);
+            await m.addColumn(workoutItems, workoutItems.deload);
+            await m.addColumn(workoutItems, workoutItems.failureThreshold);
+            await m.addColumn(workoutItems, workoutItems.successStreak);
+            await m.addColumn(workoutItems, workoutItems.failStreak);
+            // Timed sets record seconds held; existing rows are all counted in
+            // reps, and a null here is exactly that statement.
+            await m.addColumn(sessionSets, sessionSets.seconds);
+            await m.addColumn(sessionSets, sessionSets.goalSeconds);
           }
         },
         beforeOpen: (details) async {
@@ -274,13 +352,32 @@ class AppDatabase extends _$AppDatabase {
     await customStatement('ALTER TABLE sessions ADD COLUMN workout_id INTEGER');
 
     // 2. `workouts` now means a day inside a routine — one per old routine.
-    await m.createTable(workouts);
+    //
+    //    Spelled out rather than created from the table definition: a
+    //    `createTable` here would build whatever the schema looks like *today*,
+    //    and every later step would then try to add columns this table already
+    //    has. A migration step has to produce the shape of its own era.
+    await customStatement('''
+      CREATE TABLE "workouts" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "routine_id" INTEGER NOT NULL REFERENCES routines (id) ON DELETE CASCADE,
+        "name" TEXT NOT NULL, "position" INTEGER NOT NULL DEFAULT 0)
+    ''');
     await customStatement(
         'INSERT INTO workouts (routine_id, name, position) '
         'SELECT id, name, 0 FROM routines');
 
     // 3. Exercise slots hang off a workout instead of a routine.
-    await m.createTable(workoutItems);
+    await customStatement('''
+      CREATE TABLE "workout_items" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "workout_id" INTEGER NOT NULL REFERENCES workouts (id) ON DELETE CASCADE,
+        "exercise_id" INTEGER NOT NULL REFERENCES exercises (id),
+        "position" INTEGER NOT NULL DEFAULT 0,
+        "target_sets" INTEGER NOT NULL DEFAULT 3,
+        "reps_min" INTEGER NOT NULL DEFAULT 8, "reps_max" INTEGER NULL,
+        "to_failure" INTEGER NOT NULL DEFAULT 0, "rest_seconds" INTEGER NULL,
+        "suggested_weight" REAL NULL)
+    ''');
     await customStatement('''
       INSERT INTO workout_items (workout_id, exercise_id, position, target_sets,
                                  reps_min, reps_max, to_failure, rest_seconds,
@@ -558,6 +655,77 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // ---- Progression --------------------------------------------------------
+
+  Future<WorkoutItem?> workoutItemById(int id) =>
+      (select(workoutItems)..where((i) => i.id.equals(id))).getSingleOrNull();
+
+  /// Advances one exercise slot after a session, per its own progression rules.
+  ///
+  /// [success] is the whole exercise's verdict for the session, not one set's —
+  /// see `ExerciseEntry.succeeded`. Returns how far the target actually moved,
+  /// in the mode's own unit; zero means the streak is still building, the
+  /// back-off has not been earned, or there was no target to move.
+  ///
+  /// The slot may be gone (the workout was edited while the session was in
+  /// progress), in which case there is nothing to advance and nothing to say.
+  Future<double> advanceProgression(int itemId, {required bool success}) async {
+    final it = await workoutItemById(itemId);
+    if (it == null) return 0;
+
+    final step = stepProgression(
+      success: success,
+      successes: it.successStreak,
+      failures: it.failStreak,
+      successThreshold: it.successThreshold,
+      failureThreshold: it.failureThreshold,
+      increment: it.increment,
+      deload: it.deload,
+    );
+
+    var patch = WorkoutItemsCompanion(
+      successStreak: Value(step.successes),
+      failStreak: Value(step.failures),
+    );
+    var moved = step.delta;
+
+    if (step.delta != 0) {
+      final mode = it.progression;
+      switch (mode) {
+        case ProgressionMode.weight:
+          final from = it.suggestedWeight;
+          // A slot with no suggested weight is a bodyweight movement the user
+          // never put a number on. Inventing one out of a step up would tell
+          // them to load 2.5 kg onto a push-up.
+          if (from == null) {
+            moved = 0;
+          } else {
+            final to = advanceTarget(from, step.delta, mode);
+            patch = patch.copyWith(suggestedWeight: Value(to));
+            moved = to - from;
+          }
+        case ProgressionMode.reps:
+          final from = it.repsMin;
+          final to = advanceTarget(from.toDouble(), step.delta, mode).round();
+          patch = patch.copyWith(
+            repsMin: Value(to),
+            // A range keeps its width: 6–8 becomes 7–9, not 7–8.
+            repsMax: Value(
+                it.repsMax == null ? null : it.repsMax! + (to - from)),
+          );
+          moved = (to - from).toDouble();
+        case ProgressionMode.time:
+          final from = it.holdSeconds;
+          final to = advanceTarget(from.toDouble(), step.delta, mode).round();
+          patch = patch.copyWith(holdSeconds: Value(to));
+          moved = (to - from).toDouble();
+      }
+    }
+
+    await (update(workoutItems)..where((i) => i.id.equals(itemId))).write(patch);
+    return moved;
+  }
+
   // ---- History ------------------------------------------------------------
 
   Stream<List<Session>> watchHistory() {
@@ -805,6 +973,11 @@ class AppDatabase extends _$AppDatabase {
         );
         var i = 0;
         for (final it in day.items) {
+          // A slot with no suggested load has nothing to add load to, so it
+          // progresses on reps — which is the right answer for the pull-ups
+          // and leg raises that make up every one of them here.
+          final mode =
+              it.w == null ? ProgressionMode.reps : ProgressionMode.weight;
           await into(workoutItems).insert(
             WorkoutItemsCompanion.insert(
               workoutId: wid,
@@ -814,6 +987,9 @@ class AppDatabase extends _$AppDatabase {
               repsMin: Value(it.min),
               repsMax: Value(it.max),
               suggestedWeight: Value(it.w),
+              progression: Value(mode),
+              increment: Value(mode.defaultIncrement),
+              deload: Value(mode.defaultDeload),
             ),
           );
         }

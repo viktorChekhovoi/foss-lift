@@ -9,21 +9,30 @@ import '../providers/db_provider.dart';
 /// One set row during a live workout. Weights are in kilograms; the UI converts
 /// to the display unit.
 ///
+/// A set is measured either in reps done or, when [timed], in seconds held —
+/// [goal] and [logged] carry whichever it is. They are one pair rather than two
+/// because everything around them (did you hit it, what colour is the row, does
+/// it count as a success) is the same question either way.
+///
 /// The goal is fixed by the template and cannot be edited from the logging
 /// screen — it is what you set out to do, and rewriting it after the fact would
 /// erase the only thing worth recording about a set you missed. What you
-/// actually did lives in [reps] (null until the set is logged) and [weight]
+/// actually did lives in [logged] (null until the set is logged) and [weight]
 /// (editable, because sometimes you have to deload mid-session).
 class SetEntry {
   SetEntry({
-    required this.goalReps,
+    required this.goal,
     this.goalWeight,
+    this.timed = false,
     double? weight,
-    this.reps,
+    this.logged,
   }) : weight = weight ?? goalWeight ?? 0;
 
-  /// The rep target from the template. Immutable.
-  final int goalReps;
+  /// The target from the template — reps, or seconds when [timed]. Immutable.
+  final int goal;
+
+  /// True when this set is held for time rather than counted in reps.
+  final bool timed;
 
   /// The weight the template suggests, in kg. Null when it suggests none.
   final double? goalWeight;
@@ -31,29 +40,34 @@ class SetEntry {
   /// The weight actually used, in kg.
   double weight;
 
-  /// Reps actually completed. Null means the set has not been logged yet; 0 is
-  /// a logged set where nothing was managed at all.
-  int? reps;
+  /// What was actually achieved — reps done, or seconds held when [timed].
+  /// Null means the set has not been logged yet; 0 is a logged set where
+  /// nothing was managed at all.
+  int? logged;
 
-  bool get done => reps != null;
+  bool get done => logged != null;
 
-  /// A logged set that came up short — fewer reps than the goal, or a weight
-  /// below the suggested one. Deloading to finish a set is still a miss.
+  /// A logged set that came up short — under the goal, or at a weight below
+  /// the suggested one. Deloading to finish a set is still a miss.
   bool get missedGoal =>
-      done && (reps! < goalReps || weight < (goalWeight ?? 0) - 1e-9);
+      done && (logged! < goal || weight < (goalWeight ?? 0) - 1e-9);
 
   /// The tap cycle: untouched → the goal → one rep fewer → … → 0 → untouched.
   ///
   /// The first tap claims the goal, which is the common case and costs one tap.
   /// Every tap after that is you admitting you fell a rep short.
+  ///
+  /// A timed set has no useful middle — nobody taps a plank down one second at
+  /// a time — so it toggles between the goal and untouched, and leaves an
+  /// exact duration to the type-in dialog.
   void cycle() {
-    final r = reps;
-    if (r == null) {
-      reps = goalReps;
-    } else if (r > 0) {
-      reps = r - 1;
+    final v = logged;
+    if (v == null) {
+      logged = goal;
+    } else if (!timed && v > 0) {
+      logged = v - 1;
     } else {
-      reps = null;
+      logged = null;
     }
   }
 }
@@ -65,15 +79,32 @@ class ExerciseEntry {
     required this.name,
     required this.muscle,
     required this.sets,
+    this.itemId,
+    this.mode = ProgressionMode.weight,
     this.restSeconds = 90,
   });
   final int? exerciseId;
+
+  /// The template slot this came from, so finishing can advance its
+  /// progression. Null for an ad-hoc session, which has no target to move.
+  final int? itemId;
   final String name;
   final String muscle;
   final List<SetEntry> sets;
 
+  /// The axis this exercise advances along, carried from the template.
+  final ProgressionMode mode;
+
   /// Rest to start after a completed set (resolved from the routine/item).
   final int restSeconds;
+
+  /// Whether this counts as a clean session for progression: every planned set
+  /// logged, and none of them short.
+  ///
+  /// Skipping a set is a miss. The programme asked for four and got three —
+  /// that is not the performance the next step up should be built on.
+  bool get succeeded =>
+      sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal);
 }
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
@@ -105,12 +136,13 @@ class ActiveWorkout {
       exercises.fold(0, (a, e) => a + e.sets.where((s) => s.done).length);
   int get missedSets =>
       exercises.fold(0, (a, e) => a + e.sets.where((s) => s.missedGoal).length);
+  /// Load moved, in kg. Timed sets contribute nothing — a 60-second plank is
+  /// not sixty reps of anything.
   double get volume => exercises.fold(
         0.0,
         (a, e) => a +
-            e.sets
-                .where((s) => s.done)
-                .fold(0.0, (b, s) => b + s.weight * s.reps!),
+            e.sets.where((s) => s.done).fold(
+                0.0, (b, s) => b + (s.timed ? 0 : s.weight * s.logged!)),
       );
 
   ActiveWorkout copyWith({int? elapsed}) => ActiveWorkout(
@@ -146,17 +178,24 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
       for (final v in items) {
-        // The goal is the top of the rep range, or the fixed count.
-        final reps = v.item.repsMax ?? v.item.repsMin;
+        final mode = v.item.progression;
+        // The goal is the hold for a timed exercise, and otherwise the top of
+        // the rep range or the fixed count. A to-failure set carries no upper
+        // bound, so its goal is `repsMin` — the number you have to beat for
+        // the set to count, which is exactly what "to failure" is asking.
+        final goal =
+            mode.timed ? v.item.holdSeconds : (v.item.repsMax ?? v.item.repsMin);
         final w = v.item.suggestedWeight;
         exercises.add(ExerciseEntry(
           exerciseId: v.exercise.id,
+          itemId: v.item.id,
           name: v.exercise.name,
           muscle: v.exercise.muscleGroup,
+          mode: mode,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           sets: List.generate(
             v.item.targetSets,
-            (_) => SetEntry(goalReps: reps, goalWeight: w),
+            (_) => SetEntry(goal: goal, goalWeight: w, timed: mode.timed),
           ),
         ));
       }
@@ -191,17 +230,20 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     state = s.copyWith();
   }
 
-  /// Types a rep count in directly (the long-press escape hatch). A null
-  /// [value] unlogs the set; anything else is clamped to zero or more.
-  void setReps(int ei, int si, int? value) {
+  /// Types a result in directly — reps done, or seconds held on a timed set
+  /// (the long-press escape hatch). A null [value] unlogs the set; anything
+  /// else is clamped to zero or more.
+  void setLogged(int ei, int si, int? value) {
     final s = state;
     if (s == null) return;
-    s.exercises[ei].sets[si].reps = value == null ? null : (value < 0 ? 0 : value);
+    s.exercises[ei].sets[si].logged =
+        value == null ? null : (value < 0 ? 0 : value);
     state = s.copyWith();
   }
 
-  /// Persists the session with only its completed sets. Returns the new
-  /// session id, or null if there was nothing to save.
+  /// Persists the session with only its completed sets, then advances each
+  /// exercise's progression. Returns the new session id, or null if there was
+  /// nothing to save.
   Future<int?> finish() async {
     final s = state;
     if (s == null) return null;
@@ -218,11 +260,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           setNumber: n++,
           exerciseId: Value(e.exerciseId),
           weight: Value(set.weight),
-          reps: Value(set.reps!),
+          reps: Value(set.timed ? 0 : set.logged!),
+          seconds: Value(set.timed ? set.logged! : null),
           done: const Value(true),
           // What it was aiming at, so a later reading of this set can tell a
           // hit from a miss without consulting a template that may have moved.
-          goalReps: Value(set.goalReps),
+          goalReps: Value(set.timed ? 0 : set.goal),
+          goalSeconds: Value(set.timed ? set.goal : null),
           goalWeight: Value(set.goalWeight),
         ));
       }
@@ -238,6 +282,17 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       totalVolume: s.volume,
       sets: rows,
     );
+
+    // Progression moves only once the session it is based on is safely on
+    // disk. A template that stepped up without the history to justify it is
+    // harder to explain than one that lags a crash behind.
+    for (final e in s.exercises) {
+      final itemId = e.itemId;
+      if (itemId != null) {
+        await _db.advanceProgression(itemId, success: e.succeeded);
+      }
+    }
+
     state = null;
     return id;
   }

@@ -1249,6 +1249,98 @@ class $WorkoutItemsTable extends WorkoutItems
     requiredDuringInsert: false,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<ProgressionMode, String>
+  progression = GeneratedColumn<String>(
+    'progression',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('weight'),
+  ).withConverter<ProgressionMode>($WorkoutItemsTable.$converterprogression);
+  static const VerificationMeta _holdSecondsMeta = const VerificationMeta(
+    'holdSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> holdSeconds = GeneratedColumn<int>(
+    'hold_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(30),
+  );
+  static const VerificationMeta _incrementMeta = const VerificationMeta(
+    'increment',
+  );
+  @override
+  late final GeneratedColumn<double> increment = GeneratedColumn<double>(
+    'increment',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(2.5),
+  );
+  static const VerificationMeta _successThresholdMeta = const VerificationMeta(
+    'successThreshold',
+  );
+  @override
+  late final GeneratedColumn<int> successThreshold = GeneratedColumn<int>(
+    'success_threshold',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(defaultSuccessThreshold),
+  );
+  static const VerificationMeta _deloadMeta = const VerificationMeta('deload');
+  @override
+  late final GeneratedColumn<double> deload = GeneratedColumn<double>(
+    'deload',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(5),
+  );
+  static const VerificationMeta _failureThresholdMeta = const VerificationMeta(
+    'failureThreshold',
+  );
+  @override
+  late final GeneratedColumn<int> failureThreshold = GeneratedColumn<int>(
+    'failure_threshold',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(defaultFailureThreshold),
+  );
+  static const VerificationMeta _successStreakMeta = const VerificationMeta(
+    'successStreak',
+  );
+  @override
+  late final GeneratedColumn<int> successStreak = GeneratedColumn<int>(
+    'success_streak',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _failStreakMeta = const VerificationMeta(
+    'failStreak',
+  );
+  @override
+  late final GeneratedColumn<int> failStreak = GeneratedColumn<int>(
+    'fail_streak',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     workoutId,
@@ -1260,6 +1352,14 @@ class $WorkoutItemsTable extends WorkoutItems
     toFailure,
     restSeconds,
     suggestedWeight,
+    progression,
+    holdSeconds,
+    increment,
+    successThreshold,
+    deload,
+    failureThreshold,
+    successStreak,
+    failStreak,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1340,6 +1440,60 @@ class $WorkoutItemsTable extends WorkoutItems
         ),
       );
     }
+    if (data.containsKey('hold_seconds')) {
+      context.handle(
+        _holdSecondsMeta,
+        holdSeconds.isAcceptableOrUnknown(
+          data['hold_seconds']!,
+          _holdSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('increment')) {
+      context.handle(
+        _incrementMeta,
+        increment.isAcceptableOrUnknown(data['increment']!, _incrementMeta),
+      );
+    }
+    if (data.containsKey('success_threshold')) {
+      context.handle(
+        _successThresholdMeta,
+        successThreshold.isAcceptableOrUnknown(
+          data['success_threshold']!,
+          _successThresholdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deload')) {
+      context.handle(
+        _deloadMeta,
+        deload.isAcceptableOrUnknown(data['deload']!, _deloadMeta),
+      );
+    }
+    if (data.containsKey('failure_threshold')) {
+      context.handle(
+        _failureThresholdMeta,
+        failureThreshold.isAcceptableOrUnknown(
+          data['failure_threshold']!,
+          _failureThresholdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('success_streak')) {
+      context.handle(
+        _successStreakMeta,
+        successStreak.isAcceptableOrUnknown(
+          data['success_streak']!,
+          _successStreakMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fail_streak')) {
+      context.handle(
+        _failStreakMeta,
+        failStreak.isAcceptableOrUnknown(data['fail_streak']!, _failStreakMeta),
+      );
+    }
     return context;
   }
 
@@ -1389,6 +1543,40 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.double,
         data['${effectivePrefix}suggested_weight'],
       ),
+      progression: $WorkoutItemsTable.$converterprogression.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}progression'],
+        )!,
+      ),
+      holdSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hold_seconds'],
+      )!,
+      increment: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}increment'],
+      )!,
+      successThreshold: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}success_threshold'],
+      )!,
+      deload: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}deload'],
+      )!,
+      failureThreshold: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}failure_threshold'],
+      )!,
+      successStreak: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}success_streak'],
+      )!,
+      failStreak: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fail_streak'],
+      )!,
     );
   }
 
@@ -1396,6 +1584,11 @@ class $WorkoutItemsTable extends WorkoutItems
   $WorkoutItemsTable createAlias(String alias) {
     return $WorkoutItemsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<ProgressionMode, String, String>
+  $converterprogression = const EnumNameConverter<ProgressionMode>(
+    ProgressionMode.values,
+  );
 }
 
 class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
@@ -1417,6 +1610,39 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
   /// Per-exercise rest override, in seconds. Null falls back to the routine.
   final int? restSeconds;
   final double? suggestedWeight;
+
+  /// The axis this slot advances along — see [ProgressionMode].
+  final ProgressionMode progression;
+
+  /// The per-set hold, in seconds, when [progression] is
+  /// [ProgressionMode.time]. Ignored by the other modes, which count reps.
+  final int holdSeconds;
+
+  /// How far the target moves on a step up, in the mode's own unit: kilograms,
+  /// reps or seconds. Kept as a real because 2.5 kg is the smallest plate pair
+  /// most gyms own.
+  final double increment;
+
+  /// Consecutive clean sessions needed before the target goes up.
+  final int successThreshold;
+
+  /// How far the target drops on a back-off, in the mode's own unit.
+  final double deload;
+
+  /// Consecutive missed sessions before the target backs off.
+  final int failureThreshold;
+
+  /// Clean sessions since the last step up or miss.
+  ///
+  /// Stored rather than derived from history, unlike the next-workout
+  /// suggestion: the target itself moves, so a session's success can only be
+  /// judged against the goal that was live *on the day*, and replaying that
+  /// from logged sets would have to reconstruct every intervening edit. The
+  /// counters ride along with the thing they are counting towards instead.
+  final int successStreak;
+
+  /// Missed sessions since the last back-off or clean session.
+  final int failStreak;
   const WorkoutItem({
     required this.id,
     required this.workoutId,
@@ -1428,6 +1654,14 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     required this.toFailure,
     this.restSeconds,
     this.suggestedWeight,
+    required this.progression,
+    required this.holdSeconds,
+    required this.increment,
+    required this.successThreshold,
+    required this.deload,
+    required this.failureThreshold,
+    required this.successStreak,
+    required this.failStreak,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1448,6 +1682,18 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     if (!nullToAbsent || suggestedWeight != null) {
       map['suggested_weight'] = Variable<double>(suggestedWeight);
     }
+    {
+      map['progression'] = Variable<String>(
+        $WorkoutItemsTable.$converterprogression.toSql(progression),
+      );
+    }
+    map['hold_seconds'] = Variable<int>(holdSeconds);
+    map['increment'] = Variable<double>(increment);
+    map['success_threshold'] = Variable<int>(successThreshold);
+    map['deload'] = Variable<double>(deload);
+    map['failure_threshold'] = Variable<int>(failureThreshold);
+    map['success_streak'] = Variable<int>(successStreak);
+    map['fail_streak'] = Variable<int>(failStreak);
     return map;
   }
 
@@ -1469,6 +1715,14 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       suggestedWeight: suggestedWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(suggestedWeight),
+      progression: Value(progression),
+      holdSeconds: Value(holdSeconds),
+      increment: Value(increment),
+      successThreshold: Value(successThreshold),
+      deload: Value(deload),
+      failureThreshold: Value(failureThreshold),
+      successStreak: Value(successStreak),
+      failStreak: Value(failStreak),
     );
   }
 
@@ -1488,6 +1742,16 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       toFailure: serializer.fromJson<bool>(json['toFailure']),
       restSeconds: serializer.fromJson<int?>(json['restSeconds']),
       suggestedWeight: serializer.fromJson<double?>(json['suggestedWeight']),
+      progression: $WorkoutItemsTable.$converterprogression.fromJson(
+        serializer.fromJson<String>(json['progression']),
+      ),
+      holdSeconds: serializer.fromJson<int>(json['holdSeconds']),
+      increment: serializer.fromJson<double>(json['increment']),
+      successThreshold: serializer.fromJson<int>(json['successThreshold']),
+      deload: serializer.fromJson<double>(json['deload']),
+      failureThreshold: serializer.fromJson<int>(json['failureThreshold']),
+      successStreak: serializer.fromJson<int>(json['successStreak']),
+      failStreak: serializer.fromJson<int>(json['failStreak']),
     );
   }
   @override
@@ -1504,6 +1768,16 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'toFailure': serializer.toJson<bool>(toFailure),
       'restSeconds': serializer.toJson<int?>(restSeconds),
       'suggestedWeight': serializer.toJson<double?>(suggestedWeight),
+      'progression': serializer.toJson<String>(
+        $WorkoutItemsTable.$converterprogression.toJson(progression),
+      ),
+      'holdSeconds': serializer.toJson<int>(holdSeconds),
+      'increment': serializer.toJson<double>(increment),
+      'successThreshold': serializer.toJson<int>(successThreshold),
+      'deload': serializer.toJson<double>(deload),
+      'failureThreshold': serializer.toJson<int>(failureThreshold),
+      'successStreak': serializer.toJson<int>(successStreak),
+      'failStreak': serializer.toJson<int>(failStreak),
     };
   }
 
@@ -1518,6 +1792,14 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     bool? toFailure,
     Value<int?> restSeconds = const Value.absent(),
     Value<double?> suggestedWeight = const Value.absent(),
+    ProgressionMode? progression,
+    int? holdSeconds,
+    double? increment,
+    int? successThreshold,
+    double? deload,
+    int? failureThreshold,
+    int? successStreak,
+    int? failStreak,
   }) => WorkoutItem(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -1531,6 +1813,14 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     suggestedWeight: suggestedWeight.present
         ? suggestedWeight.value
         : this.suggestedWeight,
+    progression: progression ?? this.progression,
+    holdSeconds: holdSeconds ?? this.holdSeconds,
+    increment: increment ?? this.increment,
+    successThreshold: successThreshold ?? this.successThreshold,
+    deload: deload ?? this.deload,
+    failureThreshold: failureThreshold ?? this.failureThreshold,
+    successStreak: successStreak ?? this.successStreak,
+    failStreak: failStreak ?? this.failStreak,
   );
   WorkoutItem copyWithCompanion(WorkoutItemsCompanion data) {
     return WorkoutItem(
@@ -1552,6 +1842,26 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       suggestedWeight: data.suggestedWeight.present
           ? data.suggestedWeight.value
           : this.suggestedWeight,
+      progression: data.progression.present
+          ? data.progression.value
+          : this.progression,
+      holdSeconds: data.holdSeconds.present
+          ? data.holdSeconds.value
+          : this.holdSeconds,
+      increment: data.increment.present ? data.increment.value : this.increment,
+      successThreshold: data.successThreshold.present
+          ? data.successThreshold.value
+          : this.successThreshold,
+      deload: data.deload.present ? data.deload.value : this.deload,
+      failureThreshold: data.failureThreshold.present
+          ? data.failureThreshold.value
+          : this.failureThreshold,
+      successStreak: data.successStreak.present
+          ? data.successStreak.value
+          : this.successStreak,
+      failStreak: data.failStreak.present
+          ? data.failStreak.value
+          : this.failStreak,
     );
   }
 
@@ -1567,7 +1877,15 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('repsMax: $repsMax, ')
           ..write('toFailure: $toFailure, ')
           ..write('restSeconds: $restSeconds, ')
-          ..write('suggestedWeight: $suggestedWeight')
+          ..write('suggestedWeight: $suggestedWeight, ')
+          ..write('progression: $progression, ')
+          ..write('holdSeconds: $holdSeconds, ')
+          ..write('increment: $increment, ')
+          ..write('successThreshold: $successThreshold, ')
+          ..write('deload: $deload, ')
+          ..write('failureThreshold: $failureThreshold, ')
+          ..write('successStreak: $successStreak, ')
+          ..write('failStreak: $failStreak')
           ..write(')'))
         .toString();
   }
@@ -1584,6 +1902,14 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     toFailure,
     restSeconds,
     suggestedWeight,
+    progression,
+    holdSeconds,
+    increment,
+    successThreshold,
+    deload,
+    failureThreshold,
+    successStreak,
+    failStreak,
   );
   @override
   bool operator ==(Object other) =>
@@ -1598,7 +1924,15 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.repsMax == this.repsMax &&
           other.toFailure == this.toFailure &&
           other.restSeconds == this.restSeconds &&
-          other.suggestedWeight == this.suggestedWeight);
+          other.suggestedWeight == this.suggestedWeight &&
+          other.progression == this.progression &&
+          other.holdSeconds == this.holdSeconds &&
+          other.increment == this.increment &&
+          other.successThreshold == this.successThreshold &&
+          other.deload == this.deload &&
+          other.failureThreshold == this.failureThreshold &&
+          other.successStreak == this.successStreak &&
+          other.failStreak == this.failStreak);
 }
 
 class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
@@ -1612,6 +1946,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<bool> toFailure;
   final Value<int?> restSeconds;
   final Value<double?> suggestedWeight;
+  final Value<ProgressionMode> progression;
+  final Value<int> holdSeconds;
+  final Value<double> increment;
+  final Value<int> successThreshold;
+  final Value<double> deload;
+  final Value<int> failureThreshold;
+  final Value<int> successStreak;
+  final Value<int> failStreak;
   const WorkoutItemsCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -1623,6 +1965,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.toFailure = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.suggestedWeight = const Value.absent(),
+    this.progression = const Value.absent(),
+    this.holdSeconds = const Value.absent(),
+    this.increment = const Value.absent(),
+    this.successThreshold = const Value.absent(),
+    this.deload = const Value.absent(),
+    this.failureThreshold = const Value.absent(),
+    this.successStreak = const Value.absent(),
+    this.failStreak = const Value.absent(),
   });
   WorkoutItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -1635,6 +1985,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.toFailure = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.suggestedWeight = const Value.absent(),
+    this.progression = const Value.absent(),
+    this.holdSeconds = const Value.absent(),
+    this.increment = const Value.absent(),
+    this.successThreshold = const Value.absent(),
+    this.deload = const Value.absent(),
+    this.failureThreshold = const Value.absent(),
+    this.successStreak = const Value.absent(),
+    this.failStreak = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId);
   static Insertable<WorkoutItem> custom({
@@ -1648,6 +2006,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<bool>? toFailure,
     Expression<int>? restSeconds,
     Expression<double>? suggestedWeight,
+    Expression<String>? progression,
+    Expression<int>? holdSeconds,
+    Expression<double>? increment,
+    Expression<int>? successThreshold,
+    Expression<double>? deload,
+    Expression<int>? failureThreshold,
+    Expression<int>? successStreak,
+    Expression<int>? failStreak,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1660,6 +2026,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (toFailure != null) 'to_failure': toFailure,
       if (restSeconds != null) 'rest_seconds': restSeconds,
       if (suggestedWeight != null) 'suggested_weight': suggestedWeight,
+      if (progression != null) 'progression': progression,
+      if (holdSeconds != null) 'hold_seconds': holdSeconds,
+      if (increment != null) 'increment': increment,
+      if (successThreshold != null) 'success_threshold': successThreshold,
+      if (deload != null) 'deload': deload,
+      if (failureThreshold != null) 'failure_threshold': failureThreshold,
+      if (successStreak != null) 'success_streak': successStreak,
+      if (failStreak != null) 'fail_streak': failStreak,
     });
   }
 
@@ -1674,6 +2048,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<bool>? toFailure,
     Value<int?>? restSeconds,
     Value<double?>? suggestedWeight,
+    Value<ProgressionMode>? progression,
+    Value<int>? holdSeconds,
+    Value<double>? increment,
+    Value<int>? successThreshold,
+    Value<double>? deload,
+    Value<int>? failureThreshold,
+    Value<int>? successStreak,
+    Value<int>? failStreak,
   }) {
     return WorkoutItemsCompanion(
       id: id ?? this.id,
@@ -1686,6 +2068,14 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       toFailure: toFailure ?? this.toFailure,
       restSeconds: restSeconds ?? this.restSeconds,
       suggestedWeight: suggestedWeight ?? this.suggestedWeight,
+      progression: progression ?? this.progression,
+      holdSeconds: holdSeconds ?? this.holdSeconds,
+      increment: increment ?? this.increment,
+      successThreshold: successThreshold ?? this.successThreshold,
+      deload: deload ?? this.deload,
+      failureThreshold: failureThreshold ?? this.failureThreshold,
+      successStreak: successStreak ?? this.successStreak,
+      failStreak: failStreak ?? this.failStreak,
     );
   }
 
@@ -1722,6 +2112,32 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     if (suggestedWeight.present) {
       map['suggested_weight'] = Variable<double>(suggestedWeight.value);
     }
+    if (progression.present) {
+      map['progression'] = Variable<String>(
+        $WorkoutItemsTable.$converterprogression.toSql(progression.value),
+      );
+    }
+    if (holdSeconds.present) {
+      map['hold_seconds'] = Variable<int>(holdSeconds.value);
+    }
+    if (increment.present) {
+      map['increment'] = Variable<double>(increment.value);
+    }
+    if (successThreshold.present) {
+      map['success_threshold'] = Variable<int>(successThreshold.value);
+    }
+    if (deload.present) {
+      map['deload'] = Variable<double>(deload.value);
+    }
+    if (failureThreshold.present) {
+      map['failure_threshold'] = Variable<int>(failureThreshold.value);
+    }
+    if (successStreak.present) {
+      map['success_streak'] = Variable<int>(successStreak.value);
+    }
+    if (failStreak.present) {
+      map['fail_streak'] = Variable<int>(failStreak.value);
+    }
     return map;
   }
 
@@ -1737,7 +2153,15 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('repsMax: $repsMax, ')
           ..write('toFailure: $toFailure, ')
           ..write('restSeconds: $restSeconds, ')
-          ..write('suggestedWeight: $suggestedWeight')
+          ..write('suggestedWeight: $suggestedWeight, ')
+          ..write('progression: $progression, ')
+          ..write('holdSeconds: $holdSeconds, ')
+          ..write('increment: $increment, ')
+          ..write('successThreshold: $successThreshold, ')
+          ..write('deload: $deload, ')
+          ..write('failureThreshold: $failureThreshold, ')
+          ..write('successStreak: $successStreak, ')
+          ..write('failStreak: $failStreak')
           ..write(')'))
         .toString();
   }
@@ -2424,6 +2848,28 @@ class $SessionSetsTable extends SessionSets
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _secondsMeta = const VerificationMeta(
+    'seconds',
+  );
+  @override
+  late final GeneratedColumn<int> seconds = GeneratedColumn<int>(
+    'seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _goalSecondsMeta = const VerificationMeta(
+    'goalSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> goalSeconds = GeneratedColumn<int>(
+    'goal_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2436,6 +2882,8 @@ class $SessionSetsTable extends SessionSets
     done,
     goalReps,
     goalWeight,
+    seconds,
+    goalSeconds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2515,6 +2963,21 @@ class $SessionSetsTable extends SessionSets
         goalWeight.isAcceptableOrUnknown(data['goal_weight']!, _goalWeightMeta),
       );
     }
+    if (data.containsKey('seconds')) {
+      context.handle(
+        _secondsMeta,
+        seconds.isAcceptableOrUnknown(data['seconds']!, _secondsMeta),
+      );
+    }
+    if (data.containsKey('goal_seconds')) {
+      context.handle(
+        _goalSecondsMeta,
+        goalSeconds.isAcceptableOrUnknown(
+          data['goal_seconds']!,
+          _goalSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2564,6 +3027,14 @@ class $SessionSetsTable extends SessionSets
         DriftSqlType.double,
         data['${effectivePrefix}goal_weight'],
       ),
+      seconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seconds'],
+      ),
+      goalSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}goal_seconds'],
+      ),
     );
   }
 
@@ -2592,6 +3063,17 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
 
   /// The weight the template suggested, in kg. Null when it suggested none.
   final double? goalWeight;
+
+  /// Seconds held, on a set measured in time rather than reps.
+  ///
+  /// A separate column rather than a reinterpretation of [reps]: a 60-second
+  /// plank is not sixty repetitions, and folding it into the rep count would
+  /// quietly inflate lifetime reps and volume alike. Null on a counted set.
+  final int? seconds;
+
+  /// The hold the template was asking for, in seconds. Null when the set was
+  /// counted in reps.
+  final int? goalSeconds;
   const SessionSet({
     required this.id,
     required this.sessionId,
@@ -2603,6 +3085,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     required this.done,
     required this.goalReps,
     this.goalWeight,
+    this.seconds,
+    this.goalSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2620,6 +3104,12 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     map['goal_reps'] = Variable<int>(goalReps);
     if (!nullToAbsent || goalWeight != null) {
       map['goal_weight'] = Variable<double>(goalWeight);
+    }
+    if (!nullToAbsent || seconds != null) {
+      map['seconds'] = Variable<int>(seconds);
+    }
+    if (!nullToAbsent || goalSeconds != null) {
+      map['goal_seconds'] = Variable<int>(goalSeconds);
     }
     return map;
   }
@@ -2640,6 +3130,12 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       goalWeight: goalWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(goalWeight),
+      seconds: seconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seconds),
+      goalSeconds: goalSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(goalSeconds),
     );
   }
 
@@ -2659,6 +3155,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       done: serializer.fromJson<bool>(json['done']),
       goalReps: serializer.fromJson<int>(json['goalReps']),
       goalWeight: serializer.fromJson<double?>(json['goalWeight']),
+      seconds: serializer.fromJson<int?>(json['seconds']),
+      goalSeconds: serializer.fromJson<int?>(json['goalSeconds']),
     );
   }
   @override
@@ -2675,6 +3173,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       'done': serializer.toJson<bool>(done),
       'goalReps': serializer.toJson<int>(goalReps),
       'goalWeight': serializer.toJson<double?>(goalWeight),
+      'seconds': serializer.toJson<int?>(seconds),
+      'goalSeconds': serializer.toJson<int?>(goalSeconds),
     };
   }
 
@@ -2689,6 +3189,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     bool? done,
     int? goalReps,
     Value<double?> goalWeight = const Value.absent(),
+    Value<int?> seconds = const Value.absent(),
+    Value<int?> goalSeconds = const Value.absent(),
   }) => SessionSet(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -2700,6 +3202,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     done: done ?? this.done,
     goalReps: goalReps ?? this.goalReps,
     goalWeight: goalWeight.present ? goalWeight.value : this.goalWeight,
+    seconds: seconds.present ? seconds.value : this.seconds,
+    goalSeconds: goalSeconds.present ? goalSeconds.value : this.goalSeconds,
   );
   SessionSet copyWithCompanion(SessionSetsCompanion data) {
     return SessionSet(
@@ -2719,6 +3223,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       goalWeight: data.goalWeight.present
           ? data.goalWeight.value
           : this.goalWeight,
+      seconds: data.seconds.present ? data.seconds.value : this.seconds,
+      goalSeconds: data.goalSeconds.present
+          ? data.goalSeconds.value
+          : this.goalSeconds,
     );
   }
 
@@ -2734,7 +3242,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ..write('reps: $reps, ')
           ..write('done: $done, ')
           ..write('goalReps: $goalReps, ')
-          ..write('goalWeight: $goalWeight')
+          ..write('goalWeight: $goalWeight, ')
+          ..write('seconds: $seconds, ')
+          ..write('goalSeconds: $goalSeconds')
           ..write(')'))
         .toString();
   }
@@ -2751,6 +3261,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     done,
     goalReps,
     goalWeight,
+    seconds,
+    goalSeconds,
   );
   @override
   bool operator ==(Object other) =>
@@ -2765,7 +3277,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           other.reps == this.reps &&
           other.done == this.done &&
           other.goalReps == this.goalReps &&
-          other.goalWeight == this.goalWeight);
+          other.goalWeight == this.goalWeight &&
+          other.seconds == this.seconds &&
+          other.goalSeconds == this.goalSeconds);
 }
 
 class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
@@ -2779,6 +3293,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
   final Value<bool> done;
   final Value<int> goalReps;
   final Value<double?> goalWeight;
+  final Value<int?> seconds;
+  final Value<int?> goalSeconds;
   const SessionSetsCompanion({
     this.id = const Value.absent(),
     this.sessionId = const Value.absent(),
@@ -2790,6 +3306,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.done = const Value.absent(),
     this.goalReps = const Value.absent(),
     this.goalWeight = const Value.absent(),
+    this.seconds = const Value.absent(),
+    this.goalSeconds = const Value.absent(),
   });
   SessionSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -2802,6 +3320,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.done = const Value.absent(),
     this.goalReps = const Value.absent(),
     this.goalWeight = const Value.absent(),
+    this.seconds = const Value.absent(),
+    this.goalSeconds = const Value.absent(),
   }) : sessionId = Value(sessionId),
        exerciseName = Value(exerciseName),
        setNumber = Value(setNumber);
@@ -2816,6 +3336,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Expression<bool>? done,
     Expression<int>? goalReps,
     Expression<double>? goalWeight,
+    Expression<int>? seconds,
+    Expression<int>? goalSeconds,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2828,6 +3350,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       if (done != null) 'done': done,
       if (goalReps != null) 'goal_reps': goalReps,
       if (goalWeight != null) 'goal_weight': goalWeight,
+      if (seconds != null) 'seconds': seconds,
+      if (goalSeconds != null) 'goal_seconds': goalSeconds,
     });
   }
 
@@ -2842,6 +3366,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Value<bool>? done,
     Value<int>? goalReps,
     Value<double?>? goalWeight,
+    Value<int?>? seconds,
+    Value<int?>? goalSeconds,
   }) {
     return SessionSetsCompanion(
       id: id ?? this.id,
@@ -2854,6 +3380,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       done: done ?? this.done,
       goalReps: goalReps ?? this.goalReps,
       goalWeight: goalWeight ?? this.goalWeight,
+      seconds: seconds ?? this.seconds,
+      goalSeconds: goalSeconds ?? this.goalSeconds,
     );
   }
 
@@ -2890,6 +3418,12 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     if (goalWeight.present) {
       map['goal_weight'] = Variable<double>(goalWeight.value);
     }
+    if (seconds.present) {
+      map['seconds'] = Variable<int>(seconds.value);
+    }
+    if (goalSeconds.present) {
+      map['goal_seconds'] = Variable<int>(goalSeconds.value);
+    }
     return map;
   }
 
@@ -2905,7 +3439,9 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
           ..write('reps: $reps, ')
           ..write('done: $done, ')
           ..write('goalReps: $goalReps, ')
-          ..write('goalWeight: $goalWeight')
+          ..write('goalWeight: $goalWeight, ')
+          ..write('seconds: $seconds, ')
+          ..write('goalSeconds: $goalSeconds')
           ..write(')'))
         .toString();
   }
@@ -4249,6 +4785,14 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<bool> toFailure,
       Value<int?> restSeconds,
       Value<double?> suggestedWeight,
+      Value<ProgressionMode> progression,
+      Value<int> holdSeconds,
+      Value<double> increment,
+      Value<int> successThreshold,
+      Value<double> deload,
+      Value<int> failureThreshold,
+      Value<int> successStreak,
+      Value<int> failStreak,
     });
 typedef $$WorkoutItemsTableUpdateCompanionBuilder =
     WorkoutItemsCompanion Function({
@@ -4262,6 +4806,14 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<bool> toFailure,
       Value<int?> restSeconds,
       Value<double?> suggestedWeight,
+      Value<ProgressionMode> progression,
+      Value<int> holdSeconds,
+      Value<double> increment,
+      Value<int> successThreshold,
+      Value<double> deload,
+      Value<int> failureThreshold,
+      Value<int> successStreak,
+      Value<int> failStreak,
     });
 
 final class $$WorkoutItemsTableReferences
@@ -4349,6 +4901,47 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<double> get suggestedWeight => $composableBuilder(
     column: $table.suggestedWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<ProgressionMode, ProgressionMode, String>
+  get progression => $composableBuilder(
+    column: $table.progression,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get holdSeconds => $composableBuilder(
+    column: $table.holdSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get increment => $composableBuilder(
+    column: $table.increment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get successThreshold => $composableBuilder(
+    column: $table.successThreshold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get deload => $composableBuilder(
+    column: $table.deload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get failureThreshold => $composableBuilder(
+    column: $table.failureThreshold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get successStreak => $composableBuilder(
+    column: $table.successStreak,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get failStreak => $composableBuilder(
+    column: $table.failStreak,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4448,6 +5041,46 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get progression => $composableBuilder(
+    column: $table.progression,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get holdSeconds => $composableBuilder(
+    column: $table.holdSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get increment => $composableBuilder(
+    column: $table.increment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get successThreshold => $composableBuilder(
+    column: $table.successThreshold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get deload => $composableBuilder(
+    column: $table.deload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get failureThreshold => $composableBuilder(
+    column: $table.failureThreshold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get successStreak => $composableBuilder(
+    column: $table.successStreak,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get failStreak => $composableBuilder(
+    column: $table.failStreak,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutsTableOrderingComposer get workoutId {
     final $$WorkoutsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4531,6 +5164,43 @@ class $$WorkoutItemsTableAnnotationComposer
 
   GeneratedColumn<double> get suggestedWeight => $composableBuilder(
     column: $table.suggestedWeight,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<ProgressionMode, String> get progression =>
+      $composableBuilder(
+        column: $table.progression,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get holdSeconds => $composableBuilder(
+    column: $table.holdSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get increment =>
+      $composableBuilder(column: $table.increment, builder: (column) => column);
+
+  GeneratedColumn<int> get successThreshold => $composableBuilder(
+    column: $table.successThreshold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get deload =>
+      $composableBuilder(column: $table.deload, builder: (column) => column);
+
+  GeneratedColumn<int> get failureThreshold => $composableBuilder(
+    column: $table.failureThreshold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get successStreak => $composableBuilder(
+    column: $table.successStreak,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get failStreak => $composableBuilder(
+    column: $table.failStreak,
     builder: (column) => column,
   );
 
@@ -4619,6 +5289,14 @@ class $$WorkoutItemsTableTableManager
                 Value<bool> toFailure = const Value.absent(),
                 Value<int?> restSeconds = const Value.absent(),
                 Value<double?> suggestedWeight = const Value.absent(),
+                Value<ProgressionMode> progression = const Value.absent(),
+                Value<int> holdSeconds = const Value.absent(),
+                Value<double> increment = const Value.absent(),
+                Value<int> successThreshold = const Value.absent(),
+                Value<double> deload = const Value.absent(),
+                Value<int> failureThreshold = const Value.absent(),
+                Value<int> successStreak = const Value.absent(),
+                Value<int> failStreak = const Value.absent(),
               }) => WorkoutItemsCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -4630,6 +5308,14 @@ class $$WorkoutItemsTableTableManager
                 toFailure: toFailure,
                 restSeconds: restSeconds,
                 suggestedWeight: suggestedWeight,
+                progression: progression,
+                holdSeconds: holdSeconds,
+                increment: increment,
+                successThreshold: successThreshold,
+                deload: deload,
+                failureThreshold: failureThreshold,
+                successStreak: successStreak,
+                failStreak: failStreak,
               ),
           createCompanionCallback:
               ({
@@ -4643,6 +5329,14 @@ class $$WorkoutItemsTableTableManager
                 Value<bool> toFailure = const Value.absent(),
                 Value<int?> restSeconds = const Value.absent(),
                 Value<double?> suggestedWeight = const Value.absent(),
+                Value<ProgressionMode> progression = const Value.absent(),
+                Value<int> holdSeconds = const Value.absent(),
+                Value<double> increment = const Value.absent(),
+                Value<int> successThreshold = const Value.absent(),
+                Value<double> deload = const Value.absent(),
+                Value<int> failureThreshold = const Value.absent(),
+                Value<int> successStreak = const Value.absent(),
+                Value<int> failStreak = const Value.absent(),
               }) => WorkoutItemsCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -4654,6 +5348,14 @@ class $$WorkoutItemsTableTableManager
                 toFailure: toFailure,
                 restSeconds: restSeconds,
                 suggestedWeight: suggestedWeight,
+                progression: progression,
+                holdSeconds: holdSeconds,
+                increment: increment,
+                successThreshold: successThreshold,
+                deload: deload,
+                failureThreshold: failureThreshold,
+                successStreak: successStreak,
+                failStreak: failStreak,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -5123,6 +5825,8 @@ typedef $$SessionSetsTableCreateCompanionBuilder =
       Value<bool> done,
       Value<int> goalReps,
       Value<double?> goalWeight,
+      Value<int?> seconds,
+      Value<int?> goalSeconds,
     });
 typedef $$SessionSetsTableUpdateCompanionBuilder =
     SessionSetsCompanion Function({
@@ -5136,6 +5840,8 @@ typedef $$SessionSetsTableUpdateCompanionBuilder =
       Value<bool> done,
       Value<int> goalReps,
       Value<double?> goalWeight,
+      Value<int?> seconds,
+      Value<int?> goalSeconds,
     });
 
 final class $$SessionSetsTableReferences
@@ -5211,6 +5917,16 @@ class $$SessionSetsTableFilterComposer
 
   ColumnFilters<double> get goalWeight => $composableBuilder(
     column: $table.goalWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get goalSeconds => $composableBuilder(
+    column: $table.goalSeconds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5292,6 +6008,16 @@ class $$SessionSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get goalSeconds => $composableBuilder(
+    column: $table.goalSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SessionsTableOrderingComposer get sessionId {
     final $$SessionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5358,6 +6084,14 @@ class $$SessionSetsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get seconds =>
+      $composableBuilder(column: $table.seconds, builder: (column) => column);
+
+  GeneratedColumn<int> get goalSeconds => $composableBuilder(
+    column: $table.goalSeconds,
+    builder: (column) => column,
+  );
+
   $$SessionsTableAnnotationComposer get sessionId {
     final $$SessionsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -5420,6 +6154,8 @@ class $$SessionSetsTableTableManager
                 Value<bool> done = const Value.absent(),
                 Value<int> goalReps = const Value.absent(),
                 Value<double?> goalWeight = const Value.absent(),
+                Value<int?> seconds = const Value.absent(),
+                Value<int?> goalSeconds = const Value.absent(),
               }) => SessionSetsCompanion(
                 id: id,
                 sessionId: sessionId,
@@ -5431,6 +6167,8 @@ class $$SessionSetsTableTableManager
                 done: done,
                 goalReps: goalReps,
                 goalWeight: goalWeight,
+                seconds: seconds,
+                goalSeconds: goalSeconds,
               ),
           createCompanionCallback:
               ({
@@ -5444,6 +6182,8 @@ class $$SessionSetsTableTableManager
                 Value<bool> done = const Value.absent(),
                 Value<int> goalReps = const Value.absent(),
                 Value<double?> goalWeight = const Value.absent(),
+                Value<int?> seconds = const Value.absent(),
+                Value<int?> goalSeconds = const Value.absent(),
               }) => SessionSetsCompanion.insert(
                 id: id,
                 sessionId: sessionId,
@@ -5455,6 +6195,8 @@ class $$SessionSetsTableTableManager
                 done: done,
                 goalReps: goalReps,
                 goalWeight: goalWeight,
+                seconds: seconds,
+                goalSeconds: goalSeconds,
               ),
           withReferenceMapper: (p0) => p0
               .map(

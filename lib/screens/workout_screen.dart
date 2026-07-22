@@ -49,16 +49,17 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   }
 
   /// The escape hatch for high rep counts, where tapping down from a goal of 20
-  /// is absurd. Returns the set to untouched if the field is cleared.
-  Future<void> _editReps(int ei, int si, SetEntry entry) async {
-    final result = await showDialog<({int? reps})>(
+  /// is absurd, and for timed sets, where the tap cycle only claims the whole
+  /// hold. Returns the set to untouched if the field is cleared.
+  Future<void> _editResult(int ei, int si, SetEntry entry) async {
+    final result = await showDialog<({int? value})>(
       context: context,
-      builder: (_) => _RepsDialog(entry: entry),
+      builder: (_) => _ResultDialog(entry: entry),
     );
     if (result == null || !mounted) return;
     final wasDone = entry.done;
-    ref.read(activeWorkoutProvider.notifier).setReps(ei, si, result.reps);
-    if (!wasDone && result.reps != null) {
+    ref.read(activeWorkoutProvider.notifier).setLogged(ei, si, result.value);
+    if (!wasDone && result.value != null) {
       final session = ref.read(activeWorkoutProvider);
       if (session != null) _startRest(session.exercises[ei].restSeconds);
     }
@@ -119,7 +120,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                   _startRest(session.exercises[ei].restSeconds);
                                 }
                               },
-                              onTypeReps: () => _editReps(ei, si, entry),
+                              onTypeResult: () => _editResult(ei, si, entry),
                             );
                           },
                         ),
@@ -304,7 +305,7 @@ class _ExerciseBlock extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          _ColumnHeaders(unit: unit),
+          _ColumnHeaders(unit: unit, timed: exercise.mode.timed),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
       ),
@@ -313,8 +314,9 @@ class _ExerciseBlock extends StatelessWidget {
 }
 
 class _ColumnHeaders extends StatelessWidget {
-  const _ColumnHeaders({required this.unit});
+  const _ColumnHeaders({required this.unit, required this.timed});
   final String unit;
+  final bool timed;
   @override
   Widget build(BuildContext context) {
     Widget h(String t, {double? width, bool left = false}) {
@@ -333,7 +335,7 @@ class _ColumnHeaders extends StatelessWidget {
           h('Set', width: 40),
           h('Goal', width: 78, left: true),
           h(unitLabel(unit)),
-          h('Reps done'),
+          h(timed ? 'Sec held' : 'Reps done'),
         ],
       ),
     );
@@ -351,14 +353,14 @@ class _SetRow extends StatefulWidget {
     required this.unit,
     required this.onWeight,
     required this.onTap,
-    required this.onTypeReps,
+    required this.onTypeResult,
   });
   final int number;
   final SetEntry entry;
   final String unit;
   final ValueChanged<double> onWeight;
   final VoidCallback onTap;
-  final VoidCallback onTypeReps;
+  final VoidCallback onTypeResult;
 
   @override
   State<_SetRow> createState() => _SetRowState();
@@ -370,13 +372,19 @@ class _SetRowState extends State<_SetRow> {
   SetEntry get _entry => widget.entry;
 
   /// What the template asked for: "82.5×8", "BW×12", or "—×8" when it suggests
-  /// no weight and the choice is yours.
+  /// no weight and the choice is yours. A timed set reads "45s", or "20×45s"
+  /// when there is load to hold as well.
   String get _goalLabel {
-    final gw = _entry.goalWeight;
+    final e = _entry;
+    final target = e.timed ? '${e.goal}s' : '${e.goal}';
+    final gw = e.goalWeight;
+    // An unloaded plank has no weight worth naming; an unloaded barbell lift
+    // still wants its "—", because the number is yours to pick.
+    if (e.timed && (gw == null || gw == 0)) return target;
     final w = gw == null
         ? '—'
         : (gw == 0 ? 'BW' : fmtWeight(toDisplayWeight(gw, widget.unit)));
-    return '$w×${_entry.goalReps}';
+    return '$w×$target';
   }
 
   /// Green for a set that met its goal, gold for one that came up short —
@@ -419,7 +427,7 @@ class _SetRowState extends State<_SetRow> {
               ),
             ),
             Expanded(child: _weightField()),
-            Expanded(child: _repsBox()),
+            Expanded(child: _resultBox()),
           ],
         ),
       ),
@@ -482,13 +490,13 @@ class _SetRowState extends State<_SetRow> {
   /// Untouched, the cell shows the goal greyed out — the number you are about
   /// to claim. One tap turns that same number green; further taps count it
   /// down in gold. Nothing here can change the goal itself.
-  Widget _repsBox() {
+  Widget _resultBox() {
     final done = _entry.done;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
         onTap: widget.onTap,
-        onLongPress: widget.onTypeReps,
+        onLongPress: widget.onTypeResult,
         behavior: HitTestBehavior.opaque,
         child: Container(
           alignment: Alignment.center,
@@ -501,7 +509,7 @@ class _SetRowState extends State<_SetRow> {
             ),
           ),
           child: Text(
-            '${_entry.reps ?? _entry.goalReps}',
+            '${_entry.logged ?? _entry.goal}${_entry.timed ? 's' : ''}',
             style: kMono.copyWith(
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -514,20 +522,23 @@ class _SetRowState extends State<_SetRow> {
   }
 }
 
-/// Direct rep entry, for the sets where tapping down from a goal of 20 is
-/// absurd. An empty field means the set never happened, which is the same
-/// thing the Clear button does.
-class _RepsDialog extends StatefulWidget {
-  const _RepsDialog({required this.entry});
+/// Direct entry of what a set actually came to — reps done, or seconds held on
+/// a timed set. For the sets where tapping down from a goal of 20 is absurd,
+/// and for every plank. An empty field means the set never happened, which is
+/// the same thing the Clear button does.
+class _ResultDialog extends StatefulWidget {
+  const _ResultDialog({required this.entry});
   final SetEntry entry;
 
   @override
-  State<_RepsDialog> createState() => _RepsDialogState();
+  State<_ResultDialog> createState() => _ResultDialogState();
 }
 
-class _RepsDialogState extends State<_RepsDialog> {
-  late final TextEditingController _c =
-      TextEditingController(text: '${widget.entry.reps ?? widget.entry.goalReps}');
+class _ResultDialogState extends State<_ResultDialog> {
+  late final TextEditingController _c = TextEditingController(
+      text: '${widget.entry.logged ?? widget.entry.goal}');
+
+  bool get _timed => widget.entry.timed;
 
   @override
   void dispose() {
@@ -535,7 +546,7 @@ class _RepsDialogState extends State<_RepsDialog> {
     super.dispose();
   }
 
-  void _pop(int? reps) => Navigator.pop<({int? reps})>(context, (reps: reps));
+  void _pop(int? value) => Navigator.pop<({int? value})>(context, (value: value));
 
   void _save() {
     final v = int.tryParse(_c.text.trim());
@@ -546,7 +557,7 @@ class _RepsDialogState extends State<_RepsDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: const Text('Reps done'),
+      title: Text(_timed ? 'Seconds held' : 'Reps done'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -574,7 +585,7 @@ class _RepsDialogState extends State<_RepsDialog> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Goal ${widget.entry.goalReps}',
+            'Goal ${widget.entry.goal}${_timed ? 's' : ''}',
             style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
           ),
         ],

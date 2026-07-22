@@ -7,6 +7,7 @@ import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 /// Drives the live logging screen the way a thumb does. The tap cycle itself is
 /// unit-tested in set_logging_test.dart; what this covers is that the screen
@@ -94,7 +95,7 @@ void main() {
     await tester.tap(firstRepsCell());
     await tester.pump();
 
-    expect(firstSet().reps, 8);
+    expect(firstSet().logged, 8);
     expect(firstSet().missedGoal, isFalse);
     expect(find.text('1/${totalSets()}'), findsOneWidget);
 
@@ -108,7 +109,7 @@ void main() {
     await tester.tap(firstRepsCell());
     await tester.pump();
 
-    expect(firstSet().reps, 7);
+    expect(firstSet().logged, 7);
     expect(firstSet().missedGoal, isTrue);
     expect(find.text('1/${totalSets()}'), findsOneWidget,
         reason: 'still one logged set');
@@ -128,7 +129,7 @@ void main() {
     await tester.tap(find.text('Save'));
     await frames(tester);
 
-    expect(firstSet().reps, 15, reason: 'a high count typed rather than tapped');
+    expect(firstSet().logged, 15, reason: 'a high count typed rather than tapped');
     expect(firstSet().missedGoal, isFalse);
 
     await stop(tester);
@@ -145,7 +146,7 @@ void main() {
     await tester.tap(find.text('Clear'));
     await frames(tester);
 
-    expect(firstSet().reps, isNull);
+    expect(firstSet().logged, isNull);
     expect(find.text('0/${totalSets()}'), findsOneWidget);
 
     await stop(tester);
@@ -161,8 +162,101 @@ void main() {
       find.descendant(of: row, matching: find.byType(TextField)),
       findsOneWidget,
     );
-    expect(firstSet().goalReps, 8);
+    expect(firstSet().goal, 8);
 
     await stop(tester);
+  });
+
+  group('an exercise that progresses on time', () {
+    /// A one-day routine holding a single timed slot: 2 × 45-second planks.
+    Future<void> startPlank(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        final plank = (await db.watchExercises().first)
+            .firstWhere((e) => e.name == 'Plank');
+        final rid = await db.createRoutine(
+            name: 'Core', color: 'FF6A3D', restSeconds: 60);
+        final wid = await db.createWorkout(rid, 'Core');
+        await db.replaceWorkoutItems(
+          wid,
+          itemCompanions(
+            [
+              ItemDraft(
+                exerciseId: plank.id,
+                name: plank.name,
+                muscle: plank.muscleGroup,
+                sets: 2,
+                progression: ProgressionMode.time,
+                holdSeconds: 45,
+              ),
+            ],
+            workoutId: wid,
+          ),
+        );
+
+        container = ProviderContainer(
+          overrides: [databaseProvider.overrideWithValue(db)],
+        );
+        await container
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Core');
+      });
+
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(theme: AppTheme.dark(), home: const WorkoutScreen()),
+      ));
+    }
+
+    Finder plankCell() => find.descendant(
+          of: find.byKey(const ValueKey('0-0-Plank')),
+          matching: find.byType(GestureDetector),
+        );
+
+    testWidgets('the screen asks for seconds, not reps', (tester) async {
+      await startPlank(tester);
+
+      expect(find.text('SEC HELD'), findsOneWidget);
+      expect(find.text('REPS DONE'), findsNothing);
+      // An unloaded hold names no weight — "—×45s" would be asking a question
+      // the plank does not have.
+      expect(find.text('45s'), findsWidgets);
+
+      await stop(tester);
+    });
+
+    testWidgets('one tap claims the whole hold, a second gives it back',
+        (tester) async {
+      await startPlank(tester);
+
+      await tester.tap(plankCell());
+      await tester.pump();
+      expect(firstSet().logged, 45);
+      expect(firstSet().missedGoal, isFalse);
+
+      // No tapping a plank down one second at a time.
+      await tester.tap(plankCell());
+      await tester.pump();
+      expect(firstSet().logged, isNull);
+
+      await stop(tester);
+    });
+
+    testWidgets('an exact duration is typed in', (tester) async {
+      await startPlank(tester);
+      await tester.longPress(plankCell());
+      await frames(tester);
+
+      expect(find.text('Seconds held'), findsOneWidget);
+      expect(find.text('Goal 45s'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).last, '32');
+      await tester.tap(find.text('Save'));
+      await frames(tester);
+
+      expect(firstSet().logged, 32);
+      expect(firstSet().missedGoal, isTrue, reason: 'short of the hold');
+
+      await stop(tester);
+    });
   });
 }
