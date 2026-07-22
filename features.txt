@@ -20,8 +20,11 @@ SHIPPED (builder milestone)
 
 ROADMAP (ranked)
 ----------------
-[ ] 6.  Progression modes — increase reps, time (e.g. plank), or weight.
-[ ] 7.  Progression / regression rates — +X after N successes; back off after
+[ ] 5.5. Concept fix - a routine consists of workouts (e.g., PPL contains Push, Pull, Legs; Upper-Lower contains Upper 1, Lower 1, Upper 2, Lower 2, etc). Each workout contains sets, each set is a number of reps
+[ ] 5.6. UI fix - I like the idea of letting the user change the weight of a set they did, sometimes you have to deload. this should track as a set fail for progresion purpose, however. I find the current rep editor box confusing - the # of goal reps should not change; if you didn't hit the desired # of rep you failed the set. I think it should me more similar to stronglifts - tap the corresponding box once to indicate success, then each consecutive tap marks a fail and lowerss finished rep count by 1. but ig for many reps you want to allow text editing. 
+[ ] 5.7. If the 5.6 suggestion is implemented, make sure the UI is still intuitive.
+[ ] 6.  Progression modes — increase reps, time (e.g. plank), or weight. 
+[ ] 7.  Progression / regression rates — +X after N successes (consecutive successful sets); back off after
         consecutive failures; "goal reps" logic for to-failure sets.
 [ ] 8.  Weight types + plate math — bar / machine / dumbbell; for a bar, show
         per-side load and a plate breakdown. Custom plate inventory.
@@ -30,12 +33,11 @@ ROADMAP (ranked)
 [ ] 11. Exercise-library export / import.
 [ ] 12. Routine frequency (daily, M/W/F, …) + workout-time tracking and
         push-notification reminders.
+[ ] 12.5. A help menu with an interactive tutorial for first-time users. I like those little popups with textboxes next to the UI elements. But the user should be able to skip the tutorial at any time.
 [ ] 13. Colour themes — pick from presets, customise, import/export.
 
 
 NOT WANTED (explicitly out of scope — removed if previously present)
 --------------------------------------------------------------------
-- Cumulative "total weight lifted" stat.
-- Per-session volume stat (still stored, just not shown).
-- "Empty workout" that you fill in as you go.
-- Encouraging quotes / motivational copy.
+- Lifetime "routines" - pointless stat 
+- Ability to add sets during a workout
