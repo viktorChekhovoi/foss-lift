@@ -42,6 +42,7 @@ lib/
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
 │   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
+│   ├── workout_items_editor.dart ItemDraft + the exercise-list editor
 │   └── routine_card.dart         The routine list-row card
 └── screens/                      One file per screen (see table below)
 
@@ -162,8 +163,17 @@ Editing is split to match the hierarchy:
   `_Draft` items, reorders with up/down, configures each in `_ItemConfigSheet`
   (sets, rep range, to-failure, rest override, weight), picks exercises via
   `ExercisePicker`, then writes with `renameWorkout` + `replaceWorkoutItems`.
+- Both share `widgets/workout_items_editor.dart` — `ItemDraft` plus the
+  add/reorder/configure list. It edits a plain `List<ItemDraft>` and never
+  touches the database, which is what lets the routine builder assemble a
+  workout's exercises before that workout exists.
 - Shared builder chrome (`NumberStepper`, `ExercisePicker`, `builderInput`) is
   in `widgets/builder_widgets.dart`.
+
+`WorkoutDraft.items` is nullable on purpose: null leaves a workout's exercises
+untouched, a list replaces them wholesale. The routine builder only populates
+it for workouts it actually opened, so saving a routine cannot blank out a day
+you never looked at.
 - **`workout_screen.dart`** — live logging. `_SetRow` owns the weight/reps text
   fields (converting kg⇄display unit), ticking a set fires haptics + the rest
   timer, and Finish routes to the summary.

@@ -49,6 +49,16 @@ class AppTheme {
         displayColor: AppColors.text,
       ),
       dividerColor: AppColors.line,
+      // Placeholders must never be mistakable for text you typed: dimmer than
+      // body text, and never inheriting the field's weight/size.
+      inputDecorationTheme: const InputDecorationTheme(
+        hintStyle: TextStyle(
+          color: AppColors.faint,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          fontStyle: FontStyle.italic,
+        ),
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.ground,
         surfaceTintColor: Colors.transparent,

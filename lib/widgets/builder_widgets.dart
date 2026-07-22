@@ -9,6 +9,15 @@ import '../theme/app_theme.dart';
 
 InputDecoration builderInput(String hint) => InputDecoration(
       hintText: hint,
+      // Set explicitly, not just via the theme: a field with its own `style`
+      // would otherwise lend the hint its weight and size and make the
+      // placeholder look like entered text.
+      hintStyle: const TextStyle(
+        color: AppColors.faint,
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
+        fontStyle: FontStyle.italic,
+      ),
       filled: true,
       fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

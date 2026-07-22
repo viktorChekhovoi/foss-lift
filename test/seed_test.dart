@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 /// Covers the fresh-install path: `onCreate` + the starter seed, in the
 /// routine → workout → exercise shape.
@@ -98,15 +99,80 @@ void main() {
     final pushItems = await db.itemsForWorkout(push.id);
 
     // Drop "Legs", rename "Pull", reorder, and add a new day.
+    // items: null on every draft — the builder never opened these workouts.
     await db.replaceRoutineWorkouts(ppl.id, [
-      (id: before[1].id, name: 'Pull A'),
-      (id: push.id, name: 'Push'),
-      (id: null, name: 'Arms'),
+      (id: before[1].id, name: 'Pull A', items: null),
+      (id: push.id, name: 'Push', items: null),
+      (id: null, name: 'Arms', items: null),
     ]);
 
     final after = await db.workoutsForRoutine(ppl.id);
     expect(after.map((w) => w.name), ['Pull A', 'Push', 'Arms']);
     expect(await db.itemsForWorkout(push.id), hasLength(pushItems.length));
     expect(await db.itemsForWorkout(before[2].id), isEmpty);
+  });
+
+  test('replaceRoutineWorkouts returns the resulting ids in list order',
+      () async {
+    final ppl = (await db.watchRoutines().first).first.routine;
+    final before = await db.workoutsForRoutine(ppl.id);
+
+    final ids = await db.replaceRoutineWorkouts(ppl.id, [
+      (id: before[1].id, name: 'Pull', items: null),
+      (id: null, name: 'Arms', items: null),
+    ]);
+
+    expect(ids.first, before[1].id);
+    expect(ids, hasLength(2));
+    expect((await db.workoutsForRoutine(ppl.id)).map((w) => w.id), ids);
+  });
+
+  test('a workout carrying items has them written', () async {
+    final ppl = (await db.watchRoutines().first).first.routine;
+    final bench = (await db.watchExercises().first)
+        .firstWhere((e) => e.name == 'Bench Press');
+
+    // What the builder does for a brand-new day: name plus exercises, saved in
+    // one go, against a workout that has no id yet.
+    final ids = await db.replaceRoutineWorkouts(ppl.id, [
+      ...(await db.workoutsForRoutine(ppl.id))
+          .map((w) => (id: w.id, name: w.name, items: null)),
+      (
+        id: null,
+        name: 'Arms',
+        items: itemCompanions([
+          ItemDraft(
+              exerciseId: bench.id,
+              name: bench.name,
+              muscle: bench.muscleGroup,
+              sets: 5,
+              repsMin: 3),
+        ]),
+      ),
+    ]);
+
+    final items = await db.itemsForWorkout(ids.last);
+    expect(items, hasLength(1));
+    expect(items.single.exercise.name, 'Bench Press');
+    expect(items.single.item.targetSets, 5);
+    expect(items.single.item.repsMin, 3);
+    expect(items.single.item.workoutId, ids.last);
+  });
+
+  test('items: null leaves exercises alone, items: [] clears them', () async {
+    final ppl = (await db.watchRoutines().first).first.routine;
+    final all = await db.workoutsForRoutine(ppl.id);
+    final push = all.first;
+    final pull = all[1];
+    expect(await db.itemsForWorkout(push.id), isNotEmpty);
+
+    await db.replaceRoutineWorkouts(ppl.id, [
+      (id: push.id, name: push.name, items: null),
+      (id: pull.id, name: pull.name, items: const []),
+      ...all.skip(2).map((w) => (id: w.id, name: w.name, items: null)),
+    ]);
+
+    expect(await db.itemsForWorkout(push.id), isNotEmpty);
+    expect(await db.itemsForWorkout(pull.id), isEmpty);
   });
 }

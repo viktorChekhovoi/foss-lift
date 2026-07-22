@@ -7,17 +7,31 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/common.dart';
+import '../widgets/workout_items_editor.dart';
 
 /// Swatches offered for a routine's accent colour.
 const _palette = ['FF6A3D', '3ED598', 'FFC24B', '4B9BFF', 'B06AFF', 'FF5D8F'];
 
 /// A mutable working copy of one workout while editing the routine. A null
 /// [id] is a workout that does not exist yet.
+///
+/// [items] is null until the user opens the workout — a saved workout whose
+/// exercises were never loaded must be written back untouched, not blanked.
 class _WorkoutDraft {
-  _WorkoutDraft({this.id, required this.name, this.exerciseCount = 0});
+  _WorkoutDraft({
+    this.id,
+    required this.name,
+    this.storedCount = 0,
+    this.items,
+  });
   final int? id;
   String name;
-  final int exerciseCount;
+
+  /// Exercise count as stored, used until [items] is loaded.
+  final int storedCount;
+  List<ItemDraft>? items;
+
+  int get exerciseCount => items?.length ?? storedCount;
 }
 
 /// Create ([routineId] == null) or edit an existing routine: its name, colour,
@@ -69,7 +83,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
         ..addAll(workouts.map((w) => _WorkoutDraft(
               id: w.id,
               name: w.name,
-              exerciseCount: counts[w.id] ?? 0,
+              storedCount: counts[w.id] ?? 0,
             )));
       _loaded = true;
     });
@@ -93,13 +107,33 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   Future<void> _addWorkout() async {
     final name = await _promptName('New workout', '');
     if (name == null) return;
-    setState(() => _workouts.add(_WorkoutDraft(name: name)));
+    final draft = _WorkoutDraft(name: name, items: []);
+    setState(() => _workouts.add(draft));
+    // Go straight into it — naming a day and then adding its exercises is one
+    // continuous thought.
+    await _editWorkout(draft);
   }
 
-  Future<void> _renameWorkout(int i) async {
-    final name = await _promptName('Rename workout', _workouts[i].name);
-    if (name == null) return;
-    setState(() => _workouts[i].name = name);
+  /// Opens a workout for editing. Its exercises are loaded from the database
+  /// the first time it is opened, then kept in memory until the routine is
+  /// saved, so a brand-new routine can be built exercises-and-all in one go.
+  Future<void> _editWorkout(_WorkoutDraft draft) async {
+    if (draft.items == null && draft.id != null) {
+      final views = await ref.read(databaseProvider).itemsForWorkout(draft.id!);
+      draft.items = views.map(ItemDraft.fromView).toList();
+    }
+    draft.items ??= [];
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _WorkoutDraftScreen(
+          draft: draft,
+          routineRest: _restSeconds,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   /// A single-field dialog; returns null if cancelled or left blank.
@@ -137,7 +171,15 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
 
     await db.replaceRoutineWorkouts(
       routineId,
-      [for (final w in _workouts) (id: w.id, name: w.name)],
+      [
+        for (final w in _workouts)
+          (
+            id: w.id,
+            name: w.name,
+            // Untouched workouts pass null so their exercises are left alone.
+            items: w.items == null ? null : itemCompanions(w.items!),
+          ),
+      ],
     );
     if (mounted) context.pop();
   }
@@ -241,7 +283,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                               draft: _workouts[i],
                               isFirst: i == 0,
                               isLast: i == _workouts.length - 1,
-                              onTap: () => _renameWorkout(i),
+                              onTap: () => _editWorkout(_workouts[i]),
                               onUp: () => _move(i, -1),
                               onDown: () => _move(i, 1),
                               onRemove: () =>
@@ -261,11 +303,11 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           icon: const Icon(Icons.add),
                           label: const Text('Add workout'),
                         ),
-                        if (_isEdit && _workouts.isNotEmpty) ...[
+                        if (_workouts.isNotEmpty) ...[
                           const SizedBox(height: 14),
                           const Text(
-                            'Tap a workout to rename it. To edit its exercises, '
-                            'open it from the routine screen.',
+                            'Tap a workout to rename it and pick its exercises. '
+                            'Nothing is written until you save the routine.',
                             style: TextStyle(
                                 fontSize: 12.5, color: AppColors.muted),
                           ),
@@ -288,6 +330,96 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// Edits one workout draft — its name and exercises — entirely in memory.
+///
+/// Nothing here touches the database: the routine builder owns the draft and
+/// commits the whole tree when the routine is saved. That is what lets you add
+/// exercises to a workout of a routine that does not exist yet.
+class _WorkoutDraftScreen extends ConsumerStatefulWidget {
+  const _WorkoutDraftScreen({required this.draft, required this.routineRest});
+  final _WorkoutDraft draft;
+  final int routineRest;
+
+  @override
+  ConsumerState<_WorkoutDraftScreen> createState() =>
+      _WorkoutDraftScreenState();
+}
+
+class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
+  late final TextEditingController _name =
+      TextEditingController(text: widget.draft.name);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  /// Keep the draft in step on the way out, whether by button or back gesture.
+  void _commitName() {
+    final trimmed = _name.text.trim();
+    if (trimmed.isNotEmpty) widget.draft.name = trimmed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final items = widget.draft.items ??= [];
+
+    return PopScope(
+      onPopInvokedWithResult: (_, _) => _commitName(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Workout')),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  children: [
+                    builderLabel('Name'),
+                    TextField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
+                      decoration: builderInput('e.g. Push'),
+                      onChanged: (_) => _commitName(),
+                    ),
+                    WorkoutItemsEditor(
+                      items: items,
+                      unit: unit,
+                      routineRest: widget.routineRest,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.line)),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      _commitName();
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Done'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -394,10 +526,10 @@ class _WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = draft.id == null
-        ? 'New — add exercises after saving'
-        : '${draft.exerciseCount} '
-            '${draft.exerciseCount == 1 ? 'exercise' : 'exercises'}';
+    final n = draft.exerciseCount;
+    final subtitle = n == 0
+        ? 'No exercises yet — tap to add'
+        : '$n ${n == 1 ? 'exercise' : 'exercises'}';
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),

@@ -143,9 +143,17 @@ class WorkoutItemView {
   final Exercise exercise;
 }
 
-/// A name/position pair used when saving the workout list of a routine. A null
-/// [id] means "insert"; a known id keeps the workout's exercises intact.
-typedef WorkoutDraft = ({int? id, String name});
+/// One workout as the routine builder holds it, before saving.
+///
+/// A null [id] is inserted; a known id is renamed and repositioned in place.
+/// A null [items] leaves that workout's exercises untouched — only a list the
+/// builder actually loaded and edited replaces them, so saving a routine can
+/// never blank out exercises the user never opened.
+typedef WorkoutDraft = ({
+  int? id,
+  String name,
+  List<WorkoutItemsCompanion>? items,
+});
 
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
@@ -352,10 +360,13 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteWorkout(int id) =>
       (delete(workouts)..where((w) => w.id.equals(id))).go();
 
-  /// Applies the routine builder's workout list in one transaction: workouts
-  /// missing from [drafts] are deleted (taking their exercises with them),
-  /// known ids are renamed and repositioned, and null ids are inserted.
-  Future<void> replaceRoutineWorkouts(
+  /// Applies the routine builder's whole workout list in one transaction:
+  /// workouts missing from [drafts] are deleted (taking their exercises with
+  /// them), known ids are renamed and repositioned, null ids are inserted, and
+  /// any draft carrying [WorkoutDraft.items] has its exercises replaced.
+  ///
+  /// Returns the resulting workout ids, in list order.
+  Future<List<int>> replaceRoutineWorkouts(
     int routineId,
     List<WorkoutDraft> drafts,
   ) {
@@ -365,10 +376,13 @@ class AppDatabase extends _$AppDatabase {
       for (final w in existing) {
         if (!keep.contains(w.id)) await deleteWorkout(w.id);
       }
+
+      final ids = <int>[];
       for (var i = 0; i < drafts.length; i++) {
         final d = drafts[i];
+        final int workoutId;
         if (d.id == null) {
-          await into(workouts).insert(
+          workoutId = await into(workouts).insert(
             WorkoutsCompanion.insert(
               routineId: routineId,
               name: d.name,
@@ -376,11 +390,25 @@ class AppDatabase extends _$AppDatabase {
             ),
           );
         } else {
-          await (update(workouts)..where((w) => w.id.equals(d.id!))).write(
+          workoutId = d.id!;
+          await (update(workouts)..where((w) => w.id.equals(workoutId))).write(
             WorkoutsCompanion(name: Value(d.name), position: Value(i)),
           );
         }
+        ids.add(workoutId);
+
+        final items = d.items;
+        if (items != null) {
+          await (delete(workoutItems)
+                ..where((it) => it.workoutId.equals(workoutId)))
+              .go();
+          for (final it in items) {
+            await into(workoutItems)
+                .insert(it.copyWith(workoutId: Value(workoutId)));
+          }
+        }
       }
+      return ids;
     });
   }
 
