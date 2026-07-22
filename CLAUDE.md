@@ -1,0 +1,98 @@
+# CLAUDE.md
+
+Guidance for Claude Code when working in this repository.
+
+## What this is
+
+FossLift — an offline, on-device Flutter workout tracker. No network, no auth,
+no telemetry. Read `ARCHITECTURE.md` before touching code; it is the map.
+`RUNNING.md` covers building and running on a phone or emulator.
+`design/mockup.html` is the visual spec.
+
+## Feature tracking — GitHub Issues
+
+**The backlog lives in GitHub Issues, not in a file.** `features.txt` is a stub
+pointing here; do not add features to it.
+
+```bash
+gh issue list --label p1              # what's next
+gh issue view 8                       # the spec for a feature
+gh issue list --state all --label shipped
+```
+
+Labels: `p1`/`p2`/`p3` are priority tiers (roughly: next / soon / later).
+`area/*` groups by subsystem. `blocked` means another issue must land first —
+the blocker is named in the body.
+
+### Before implementing
+
+1. `gh issue view <n>` — the body has the behaviour spec and acceptance
+   criteria. Work to those criteria, not to a paraphrase of the title.
+2. Check the `blocked` label and any "Depends on #n" line. If the dependency is
+   still open, say so rather than working around it.
+3. If the spec is ambiguous, ask — then record the answer as an issue comment so
+   the next session inherits it.
+
+### While implementing
+
+- Comment on the issue when a non-obvious decision gets made ("kept text entry
+  for >12 reps; tap-cycling is too slow"). These comments are the work log; a
+  fresh session has no other way to learn what was already tried and rejected.
+- If you discover the issue is wrong or incomplete, edit the body. A stale spec
+  is worse than no spec.
+
+### After implementing
+
+**Never close an issue.** The user reviews the work and closes it themselves.
+Post a completion comment and stop there.
+
+1. Tick the acceptance criteria you actually satisfied. Leave the rest unticked.
+2. Post a comment on the issue saying it is ready for review:
+
+   ```bash
+   gh issue comment <n> --body "..."
+   ```
+
+   The comment covers: what was built, the commit(s) that did it, which
+   acceptance criteria are unmet and why, anything the user should check by hand
+   on a device, and any decision they might want to overrule.
+3. Use a `Refs #<n>` trailer in the commit message — **not** `Closes`/`Fixes`,
+   which GitHub auto-closes on a push to `main` and would skip the review.
+4. Tell the user the issue is ready for review. Do not close it, and do not ask
+   to close it.
+
+### New ideas
+
+If something worth doing surfaces mid-task, open an issue for it rather than
+silently expanding scope. Label it and tell the user you filed it.
+
+## Out of scope — do not build these
+
+These were considered and explicitly rejected. If one seems necessary, raise it
+rather than implementing it.
+
+- Lifetime "routines completed" as a stat — pointless.
+- Adding sets during a live workout.
+- A "build" button next to "start a routine". That screen is for working out,
+  not editing. An edit icon that navigates to the routine/workout editor is fine.
+
+## Conventions
+
+- **UI never touches SQLite directly.** Screens watch Riverpod providers;
+  providers call methods on the single `AppDatabase`.
+- **Weights are stored in kilograms.** kg/lb is a display concern only — see
+  `lib/util/units.dart`. Never rewrite stored history on a unit switch.
+- **The live workout is in-memory** (`lib/state/active_workout.dart`) and only
+  writes to the DB on Finish. Keep it that way.
+- `lib/data/database.g.dart` is generated. Never edit it; run
+  `dart run build_runner build --delete-conflicting-outputs` after schema
+  changes.
+- Update the table list in `ARCHITECTURE.md` when the drift schema changes.
+
+## Commands
+
+```bash
+flutter analyze          # lints — must be clean
+flutter test             # pure-logic unit tests
+flutter run              # see RUNNING.md for device setup
+```

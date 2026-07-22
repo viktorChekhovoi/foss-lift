@@ -21,8 +21,9 @@ You build routines from an exercise library, then run and log them.
   newest first.
 - **Local database** — all data stored on-device via SQLite (drift).
 
-See [`features.txt`](features.txt) for the full ranked roadmap (progression
-engine, plate math, progress charts, sharing, reminders, themes).
+See the [issue tracker](https://github.com/viktorChekhovoi/foss-lift/issues) for
+the full ranked roadmap (progression engine, plate math, progress charts,
+sharing, reminders, themes) — `p1`/`p2`/`p3` are the priority tiers.
 
 ## Tech stack
 

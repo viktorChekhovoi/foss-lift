@@ -45,7 +45,8 @@ lib/
 └── screens/                      One file per screen (see table below)
 
 design/mockup.html                Clickable HTML UI mockup — the visual spec
-features.txt                      Ranked feature backlog (shipped + roadmap)
+CLAUDE.md                         Working conventions + the issue workflow
+features.txt                      Stub — the backlog lives in GitHub Issues
 test/                             Pure-logic unit tests (formatting, units)
 ```
 
@@ -140,7 +141,7 @@ Two screens carry most of the weight:
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,
   and a control in `settings_screen.dart`.
 - **Roadmap features** (progression, plate math, charts, sharing, reminders,
-  themes) are ranked in `features.txt`. Most build on the data model already in
+  themes) are ranked in the GitHub issue tracker. Most build on the data model already in
   place — e.g. `equipment` on `Exercises` is there to feed the plate calculator.
 
 ## Conventions

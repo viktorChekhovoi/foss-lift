@@ -1,47 +1,19 @@
 FOSSLIFT — FEATURE BACKLOG
 ==========================
 
-Legend:  [x] shipped   [ ] planned
-Ordered by priority. The top block (1–5) shipped in the "builder" milestone;
-everything below is the roadmap, still ranked.
+This file is no longer the backlog. Features now live in GitHub Issues:
 
-SHIPPED (builder milestone)
----------------------------
-[x] 1. Exercise library — browse/search, per-exercise instructions + demo
-       link, and add-your-own custom exercises.
-[x] 2. Routine builder — create/edit/delete routines from the library;
-       reorder exercises; pick an accent colour.
-[x] 3. Sets × reps configuration — fixed count, a range (e.g. 6–8), or
-       "to failure", per exercise.
-[x] 4. Rest timers — routine-level default plus per-exercise overrides; the
-       live rest timer counts these down with shorter/longer/skip controls.
-[x] 5. Units of measurement — global kg/lb; weights stored canonically and
-       converted on the fly, so switching never rewrites history.
+    https://github.com/viktorChekhovoi/foss-lift/issues
 
-ROADMAP (ranked)
-----------------
-[ ] 5.1. Add back lifetime volume lifted, also track total # of reps and sets - possibly for displaying later
-[ ] 5.5. Concept fix - a routine consists of workouts (e.g., PPL contains Push, Pull, Legs; Upper-Lower contains Upper 1, Lower 1, Upper 2, Lower 2, etc). Each workout contains sets, each set is a number of reps
-[ ] 5.6. UI fix - I like the idea of letting the user change the weight of a set they did, sometimes you have to deload. this should track as a set fail for progresion purpose, however. I find the current rep editor box confusing - the # of goal reps should not change; if you didn't hit the desired # of rep you failed the set. I think it should me more similar to stronglifts - tap the corresponding box once to indicate success, then each consecutive tap marks a fail and lowerss finished rep count by 1. but ig for many reps you want to allow text editing. 
-[ ] 5.6.5. UI improvement - the next workout in a routine should be suggested, but the user should be able to select any of them
-[ ] 5.7. If the 5.6 suggestion is implemented, make sure the UI is still intuitive.
-[ ] 6.  Progression modes — increase reps, time (e.g. plank), or weight. 
-[ ] 7.  Progression / regression rates — +X after N successes (consecutive successful sets); back off after
-        consecutive failures; "goal reps" logic for to-failure sets. 
-[ ] 7.5. Add regression/deload for missed workouts
-[ ] 8.  Weight types + plate math — bar / machine / dumbbell; for a bar, show
-        per-side load and a plate breakdown. Custom plate inventory.
-[ ] 9.  Progress visualisation per exercise, with CSV export.
-[ ] 10. Sharing — export/import routines as a file; QR code if feasible.
-[ ] 11. Exercise-library export / import.
-[ ] 12. Routine frequency (daily, M/W/F, …) + workout-time tracking and
-        push-notification reminders.
-[ ] 12.5. A help menu with an interactive tutorial for first-time users. I like those little popups with textboxes next to the UI elements. But the user should be able to skip the tutorial at any time.
-[ ] 13. Colour themes — pick from presets, customise, import/export.
+    gh issue list --label p1        # next up
+    gh issue list --label p2        # soon
+    gh issue list --label p3        # later
+    gh issue list --state all --label shipped
 
+Every item that was in this file has been migrated; the original numbering is
+preserved as a "Backlog ID:" line at the top of each issue body. Issues #1–#5
+are the shipped "builder" milestone. Item 5.7 ("make sure the UI is still
+intuitive") was folded into #8 as an acceptance criterion rather than becoming a
+standalone issue.
 
-NOT WANTED (explicitly out of scope — removed if previously present)
---------------------------------------------------------------------
-- Lifetime "routines" - pointless stat 
-- Ability to add sets during a workout
-- Remove the "build" button by "start a routine" - that screen is for working out, not changing the routine. The useere should be able to click an edit icon to go to the edit menu for that workout/routine though
+Out-of-scope decisions moved to CLAUDE.md.
