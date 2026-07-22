@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
-import '../util/units.dart';
 import '../widgets/common.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -14,7 +13,6 @@ class HistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(historyProvider);
-    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     return SafeArea(
       child: history.when(
         loading: () =>
@@ -48,7 +46,6 @@ class HistoryScreen extends ConsumerWidget {
                         for (var i = 0; i < list.length; i++)
                           _HistoryRow(
                             workout: list[i],
-                            unit: unit,
                             last: i == list.length - 1,
                           ),
                       ],
@@ -64,9 +61,8 @@ class HistoryScreen extends ConsumerWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.workout, required this.unit, required this.last});
+  const _HistoryRow({required this.workout, required this.last});
   final Workout workout;
-  final String unit;
   final bool last;
 
   @override
@@ -99,7 +95,7 @@ class _HistoryRow extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
-                  '${NumberFormat.decimalPattern().format(toDisplayWeight(workout.totalVolume, unit).round())} ${unitLabel(unit)} · ${workout.setsCompleted} sets',
+                  '${workout.setsCompleted} ${workout.setsCompleted == 1 ? 'set' : 'sets'}',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
                 ),
               ],

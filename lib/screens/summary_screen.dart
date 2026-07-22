@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../data/database.dart';
 import '../providers/providers.dart';
@@ -82,27 +81,25 @@ class _SummaryBody extends StatelessWidget {
               const SizedBox(height: 22),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 2.2,
+                child: Row(
                   children: [
-                    _SumCell(
-                      value: '${(workout.durationSeconds / 60).round()}',
-                      unit: 'min',
-                      label: 'Duration',
+                    Expanded(
+                      child: _SumCell(
+                        value: '${(workout.durationSeconds / 60).round()}',
+                        unit: 'min',
+                        label: 'Duration',
+                      ),
                     ),
-                    _SumCell(
-                      value: NumberFormat.decimalPattern()
-                          .format(toDisplayWeight(workout.totalVolume, unit).round()),
-                      unit: unitLabel(unit),
-                      label: 'Total volume',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SumCell(
+                          value: '${workout.setsCompleted}', label: 'Sets done'),
                     ),
-                    _SumCell(value: '${workout.setsCompleted}', label: 'Sets done'),
-                    _SumCell(value: '${grouped.length}', label: 'Exercises'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SumCell(
+                          value: '${grouped.length}', label: 'Exercises'),
+                    ),
                   ],
                 ),
               ),

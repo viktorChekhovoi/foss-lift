@@ -13,8 +13,8 @@ You build routines from an exercise library, then run and log them.
   exercise: sets, a fixed rep count / a **range** (e.g. 6–8) / **to failure**,
   a rest override, and a suggested weight.
 - **Live workout logging** — start a routine, edit weight & reps per set, tick
-  sets off, and watch **duration, volume, and set count** update live. The rest
-  timer uses each exercise's configured rest, with shorter/longer/skip controls.
+  sets off, and watch **duration and set count** update live. The rest timer
+  uses each exercise's configured rest, with shorter/longer/skip controls.
 - **Units** — global **kg / lb**. Weights are stored canonically and converted
   on the fly, so switching units never rewrites your history.
 - **Session summary & history** — per-session recap and every finished session,
@@ -34,6 +34,9 @@ engine, plate math, progress charts, sharing, reminders, themes).
 | Database | [drift](https://drift.simonbinder.eu) over SQLite |
 
 ## Project layout
+
+For a mid-level tour of how everything fits together, see
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ```
 lib/

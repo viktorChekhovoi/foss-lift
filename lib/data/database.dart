@@ -136,21 +136,11 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
-          await m.createAll();
-          await _seed();
-        },
-        onUpgrade: (m, from, to) async {
-          // Pre-release: there is no user-authored data worth preserving
-          // (routines were seed-only). Reset cleanly to the current schema.
-          await customStatement('PRAGMA foreign_keys = OFF');
-          for (final table in allTables) {
-            await m.deleteTable(table.actualTableName);
-          }
           await m.createAll();
           await _seed();
         },

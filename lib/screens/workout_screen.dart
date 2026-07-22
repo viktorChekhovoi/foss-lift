@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
@@ -75,7 +74,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
             Column(
               children: [
                 _Header(title: session.name, onFinish: _finish),
-                _StatStrip(session: session, unit: unit),
+                _StatStrip(session: session),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
@@ -166,9 +165,8 @@ class _Header extends StatelessWidget {
 }
 
 class _StatStrip extends StatelessWidget {
-  const _StatStrip({required this.session, required this.unit});
+  const _StatStrip({required this.session});
   final ActiveWorkout session;
-  final String unit;
 
   @override
   Widget build(BuildContext context) {
@@ -186,13 +184,10 @@ class _StatStrip extends StatelessWidget {
             _Stat(label: 'Duration', value: fmtDuration(session.elapsed)),
             const VerticalDivider(width: 1, color: AppColors.line),
             _Stat(
-              label: 'Volume · ${unitLabel(unit)}',
-              value: NumberFormat.decimalPattern()
-                  .format(toDisplayWeight(session.volume, unit).round()),
+              label: 'Sets',
+              value: '${session.doneSets}/${session.totalSets}',
               accent: true,
             ),
-            const VerticalDivider(width: 1, color: AppColors.line),
-            _Stat(label: 'Sets', value: '${session.doneSets}/${session.totalSets}'),
           ],
         ),
       ),

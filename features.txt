@@ -36,5 +36,6 @@ ROADMAP (ranked)
 NOT WANTED (explicitly out of scope — removed if previously present)
 --------------------------------------------------------------------
 - Cumulative "total weight lifted" stat.
+- Per-session volume stat (still stored, just not shown).
 - "Empty workout" that you fill in as you go.
 - Encouraging quotes / motivational copy.
