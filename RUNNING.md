@@ -24,8 +24,9 @@ Flutter needs the Android SDK + platform-tools + build-tools. The simplest way
 to get all of it (and the emulator) is Android Studio:
 
 ```zsh
-flatpak install flathub com.google.AndroidStudio   # if you have flatpak/Flathub
-# or download the tarball from https://developer.android.com/studio
+sudo dnf install android-studio                     # packaged in Nobara's terra repo
+# or: flatpak install flathub com.google.AndroidStudio
+# or: download the tarball from https://developer.android.com/studio
 ```
 
 Launch Android Studio once and let the **Setup Wizard** install the SDK. Then in
@@ -69,10 +70,11 @@ flutter pub get
 4. On Fedora/Nobara you need `adb` and (usually) udev rules so the device is
    visible without root:
    ```zsh
-   sudo dnf install android-tools android-udev
+   sudo dnf install android-tools android-udev-rules
    sudo udevadm control --reload-rules && sudo udevadm trigger
    ```
-   (Replug the phone after this.)
+   (Replug the phone after this. On Fedora/Nobara the package is
+   `android-udev-rules` — *not* `android-udev`.)
 5. Confirm it's seen:
    ```zsh
    flutter devices        # your phone should be listed
