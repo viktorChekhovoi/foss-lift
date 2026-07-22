@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="foss_lift"
+        android:label="FossLift"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
