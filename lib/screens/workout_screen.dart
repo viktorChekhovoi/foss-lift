@@ -48,6 +48,22 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (mounted) setState(() => _restLeft = 0);
   }
 
+  /// The escape hatch for high rep counts, where tapping down from a goal of 20
+  /// is absurd. Returns the set to untouched if the field is cleared.
+  Future<void> _editReps(int ei, int si, SetEntry entry) async {
+    final result = await showDialog<({int? reps})>(
+      context: context,
+      builder: (_) => _RepsDialog(entry: entry),
+    );
+    if (result == null || !mounted) return;
+    final wasDone = entry.done;
+    ref.read(activeWorkoutProvider.notifier).setReps(ei, si, result.reps);
+    if (!wasDone && result.reps != null) {
+      final session = ref.read(activeWorkoutProvider);
+      if (session != null) _startRest(session.exercises[ei].restSeconds);
+    }
+  }
+
   Future<void> _finish() async {
     final id = await ref.read(activeWorkoutProvider.notifier).finish();
     if (!mounted) return;
@@ -79,11 +95,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                     children: [
+                      const _LoggingHint(),
                       for (var ei = 0; ei < session.exercises.length; ei++)
                         _ExerciseBlock(
                           exercise: session.exercises[ei],
                           unit: unit,
-                          onAddSet: () => controller.addSet(ei),
                           rowBuilder: (si) {
                             final entry = session.exercises[ei].sets[si];
                             return _SetRow(
@@ -92,15 +108,18 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               entry: entry,
                               unit: unit,
                               onWeight: (v) => controller.setWeight(ei, si, v),
-                              onReps: (v) => controller.setReps(ei, si, v),
-                              onToggle: () {
+                              onTap: () {
                                 final wasDone = entry.done;
-                                controller.toggleDone(ei, si);
+                                controller.cycleSet(ei, si);
+                                HapticFeedback.selectionClick();
+                                // Rest starts when the set is first logged;
+                                // correcting the count afterwards must not
+                                // restart the clock you are already resting on.
                                 if (!wasDone) {
-                                  HapticFeedback.selectionClick();
                                   _startRest(session.exercises[ei].restSeconds);
                                 }
                               },
+                              onTypeReps: () => _editReps(ei, si, entry),
                             );
                           },
                         ),
@@ -229,16 +248,33 @@ class _Stat extends StatelessWidget {
   }
 }
 
+/// Said once, at the top of the list, rather than as a legend under every
+/// exercise: the tap cycle is quick to demonstrate and tedious to repeat.
+class _LoggingHint extends StatelessWidget {
+  const _LoggingHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Text(
+        'Tap a set to log it at the goal · tap again for each rep you fell '
+        'short · hold to type',
+        style: kMono.copyWith(
+            fontSize: 11, height: 1.45, color: AppColors.faint),
+      ),
+    );
+  }
+}
+
 class _ExerciseBlock extends StatelessWidget {
   const _ExerciseBlock({
     required this.exercise,
     required this.unit,
-    required this.onAddSet,
     required this.rowBuilder,
   });
   final ExerciseEntry exercise;
   final String unit;
-  final VoidCallback onAddSet;
   final Widget Function(int setIndex) rowBuilder;
 
   @override
@@ -270,8 +306,6 @@ class _ExerciseBlock extends StatelessWidget {
           const SizedBox(height: 6),
           _ColumnHeaders(unit: unit),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
-          const SizedBox(height: 8),
-          _AddSetButton(onTap: onAddSet),
         ],
       ),
     );
@@ -297,16 +331,18 @@ class _ColumnHeaders extends StatelessWidget {
       child: Row(
         children: [
           h('Set', width: 40),
-          h('Previous', width: 78, left: true),
+          h('Goal', width: 78, left: true),
           h(unitLabel(unit)),
-          h('Reps'),
-          h('✓', width: 40),
+          h('Reps done'),
         ],
       ),
     );
   }
 }
 
+/// One set. The weight stays a text field — deloading mid-session is a real
+/// thing you have to be able to do — but the reps cell is a tap target, not an
+/// editor: you log what you got against a goal you cannot edit.
 class _SetRow extends StatefulWidget {
   const _SetRow({
     super.key,
@@ -314,15 +350,15 @@ class _SetRow extends StatefulWidget {
     required this.entry,
     required this.unit,
     required this.onWeight,
-    required this.onReps,
-    required this.onToggle,
+    required this.onTap,
+    required this.onTypeReps,
   });
   final int number;
   final SetEntry entry;
   final String unit;
   final ValueChanged<double> onWeight;
-  final ValueChanged<int> onReps;
-  final VoidCallback onToggle;
+  final VoidCallback onTap;
+  final VoidCallback onTypeReps;
 
   @override
   State<_SetRow> createState() => _SetRowState();
@@ -330,92 +366,95 @@ class _SetRow extends StatefulWidget {
 
 class _SetRowState extends State<_SetRow> {
   late final TextEditingController _w;
-  late final TextEditingController _r;
 
-  String get _prevLabel {
-    final pw = widget.entry.prevWeight;
-    if (pw == null) return '—';
-    final reps = widget.entry.prevReps ?? 0;
-    final w = pw == 0 ? 'BW' : fmtWeight(toDisplayWeight(pw, widget.unit));
-    return '$w×$reps';
+  SetEntry get _entry => widget.entry;
+
+  /// What the template asked for: "82.5×8", "BW×12", or "—×8" when it suggests
+  /// no weight and the choice is yours.
+  String get _goalLabel {
+    final gw = _entry.goalWeight;
+    final w = gw == null
+        ? '—'
+        : (gw == 0 ? 'BW' : fmtWeight(toDisplayWeight(gw, widget.unit)));
+    return '$w×${_entry.goalReps}';
   }
+
+  /// Green for a set that met its goal, gold for one that came up short —
+  /// including a set finished at a reduced weight.
+  Color get _tone => _entry.missedGoal ? AppColors.gold : AppColors.good;
 
   @override
   void initState() {
     super.initState();
     _w = TextEditingController(
-        text: fmtWeight(toDisplayWeight(widget.entry.weight, widget.unit)));
-    _r = TextEditingController(text: '${widget.entry.reps}');
+        text: fmtWeight(toDisplayWeight(_entry.weight, widget.unit)));
   }
 
   @override
   void dispose() {
     _w.dispose();
-    _r.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final done = widget.entry.done;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            child: Center(
-              child: Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: done
-                      ? AppColors.good.withValues(alpha: 0.15)
-                      : AppColors.surface3,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(width: 40, child: Center(child: _setNumber())),
+            SizedBox(
+              width: 78,
+              child: Align(
+                alignment: Alignment.centerLeft,
                 child: Text(
-                  '${widget.number}',
+                  _goalLabel,
                   style: kMono.copyWith(
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: done ? AppColors.good : AppColors.muted,
+                    color: _entry.done ? AppColors.muted : AppColors.faint,
                   ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            width: 78,
-            child: Text(
-              _prevLabel,
-              style: kMono.copyWith(
-                fontSize: 12.5,
-                color: done ? AppColors.muted : AppColors.faint,
-              ),
-            ),
-          ),
-          Expanded(
-            child: _cell(_w, done,
-                (v) => widget.onWeight(toKg(double.tryParse(v) ?? 0, widget.unit))),
-          ),
-          Expanded(child: _cell(_r, done, (v) => widget.onReps(int.tryParse(v) ?? 0))),
-          SizedBox(
-            width: 40,
-            child: Center(child: _check(done, widget.onToggle)),
-          ),
-        ],
+            Expanded(child: _weightField()),
+            Expanded(child: _repsBox()),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _cell(TextEditingController c, bool done, ValueChanged<String> onChanged) {
+  Widget _setNumber() {
+    final done = _entry.done;
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: done ? _tone.withValues(alpha: 0.15) : AppColors.surface3,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '${widget.number}',
+        style: kMono.copyWith(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: done ? _tone : AppColors.muted,
+        ),
+      ),
+    );
+  }
+
+  Widget _weightField() {
+    final done = _entry.done;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: TextField(
-        controller: c,
-        onChanged: onChanged,
+        controller: _w,
+        onChanged: (v) =>
+            widget.onWeight(toKg(double.tryParse(v) ?? 0, widget.unit)),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textAlign: TextAlign.center,
         style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
@@ -423,11 +462,12 @@ class _SetRowState extends State<_SetRow> {
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
           filled: true,
-          fillColor: done ? AppColors.good.withValues(alpha: 0.10) : AppColors.surface2,
+          fillColor:
+              done ? _tone.withValues(alpha: 0.10) : AppColors.surface2,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(9),
             borderSide: BorderSide(
-              color: done ? AppColors.good.withValues(alpha: 0.30) : AppColors.line,
+              color: done ? _tone.withValues(alpha: 0.30) : AppColors.line,
             ),
           ),
           focusedBorder: OutlineInputBorder(
@@ -439,44 +479,118 @@ class _SetRowState extends State<_SetRow> {
     );
   }
 
-  Widget _check(bool done, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: done ? AppColors.good : AppColors.surface2,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: done ? AppColors.good : AppColors.line, width: 1.5),
-        ),
-        child: Icon(
-          Icons.check_rounded,
-          size: 18,
-          color: done ? const Color(0xFF062015) : Colors.transparent,
+  /// Untouched, the cell shows the goal greyed out — the number you are about
+  /// to claim. One tap turns that same number green; further taps count it
+  /// down in gold. Nothing here can change the goal itself.
+  Widget _repsBox() {
+    final done = _entry.done;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onLongPress: widget.onTypeReps,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: done ? _tone.withValues(alpha: 0.15) : AppColors.surface2,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: done ? _tone.withValues(alpha: 0.55) : AppColors.line,
+            ),
+          ),
+          child: Text(
+            '${_entry.reps ?? _entry.goalReps}',
+            style: kMono.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: done ? _tone : AppColors.faint,
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _AddSetButton extends StatelessWidget {
-  const _AddSetButton({required this.onTap});
-  final VoidCallback onTap;
+/// Direct rep entry, for the sets where tapping down from a goal of 20 is
+/// absurd. An empty field means the set never happened, which is the same
+/// thing the Clear button does.
+class _RepsDialog extends StatefulWidget {
+  const _RepsDialog({required this.entry});
+  final SetEntry entry;
+
+  @override
+  State<_RepsDialog> createState() => _RepsDialogState();
+}
+
+class _RepsDialogState extends State<_RepsDialog> {
+  late final TextEditingController _c =
+      TextEditingController(text: '${widget.entry.reps ?? widget.entry.goalReps}');
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _pop(int? reps) => Navigator.pop<({int? reps})>(context, (reps: reps));
+
+  void _save() {
+    final v = int.tryParse(_c.text.trim());
+    _pop(v == null ? null : (v < 0 ? 0 : v));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.muted,
-          side: const BorderSide(color: AppColors.line),
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
-        ),
-        onPressed: onTap,
-        child: Text('+ Add set', style: kMono.copyWith(fontSize: 13)),
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: const Text('Reps done'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _c,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: kMono.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              filled: true,
+              fillColor: AppColors.surface2,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.line),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.accent),
+              ),
+            ),
+            onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Goal ${widget.entry.goalReps}',
+            style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+          ),
+        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => _pop(null),
+          style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _save, child: const Text('Save')),
+      ],
     );
   }
 }

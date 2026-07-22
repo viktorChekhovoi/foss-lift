@@ -100,6 +100,16 @@ class SessionSets extends Table {
   RealColumn get weight => real().withDefault(const Constant(0))();
   IntColumn get reps => integer().withDefault(const Constant(0))();
   BoolColumn get done => boolean().withDefault(const Constant(false))();
+
+  /// What the set was aiming for, captured as it was logged.
+  ///
+  /// Stored rather than looked up from the template later: templates get
+  /// edited, and progression has to know what you were actually chasing on the
+  /// day. Zero means "no goal recorded" — every set logged before schema v3.
+  IntColumn get goalReps => integer().withDefault(const Constant(0))();
+
+  /// The weight the template suggested, in kg. Null when it suggested none.
+  RealColumn get goalWeight => real().nullable()();
 }
 
 /// A single-row key/value store for app-wide preferences (always id == 1).
@@ -186,6 +196,17 @@ int? nextWorkoutId(List<int> orderedIds, int? lastWorkoutId) {
   return orderedIds[(i + 1) % orderedIds.length];
 }
 
+/// Whether a logged set fell short of what it was aiming for: fewer reps than
+/// the goal, or a weight below the one the template suggested.
+///
+/// Dropping the weight counts as a miss even at full reps — deloading to finish
+/// the set is exactly the failure progression needs to see. Sets logged before
+/// schema v3 carry a zero goal and no goal weight, so old history never reads
+/// as a failure.
+bool setMissedGoal(SessionSet s) =>
+    s.reps < s.goalReps ||
+    (s.goalWeight != null && s.weight < s.goalWeight! - 1e-9);
+
 /// Human-readable rep target, e.g. "10", "6–8", or "To failure".
 String repsLabel(WorkoutItem it) {
   if (it.toFailure) return 'Failure';
@@ -215,7 +236,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -225,6 +246,13 @@ class AppDatabase extends _$AppDatabase {
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) await _migrateToWorkouts(m);
+          if (from < 3) {
+            // v2 → v3: logged sets start recording what they were aiming at.
+            // Existing rows default to a zero goal, which reads as "no goal
+            // recorded" rather than as a failed set.
+            await m.addColumn(sessionSets, sessionSets.goalReps);
+            await m.addColumn(sessionSets, sessionSets.goalWeight);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

@@ -79,7 +79,7 @@ has "Upper 1" and "Upper 2".
 | `Workouts`     | A training day inside a routine. routineId, name, position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
-| `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg |
+| `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, plus `goalReps`/`goalWeight` — what the set was aiming at |
 | `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`† |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
@@ -109,8 +109,11 @@ dart run build_runner build
 
 ### Live session — `state/active_workout.dart`
 - `SetEntry` / `ExerciseEntry` / `ActiveWorkout` — plain mutable model of the
-  session in progress (weights in kg; `prevWeight`/`prevReps` drive the
-  "Previous" column).
+  session in progress (weights in kg). A set carries an immutable
+  `goalReps`/`goalWeight` from the template and a nullable `reps` — null until
+  the set is logged. `cycle()` is the tap behaviour: goal → one fewer → … → 0 →
+  untouched, and `missedGoal` is a logged set that fell short on reps *or*
+  weight (deloading to finish counts as a miss).
 - `ActiveWorkoutController extends Notifier<ActiveWorkout?>` — null when idle.
   `start(workoutId:)` hydrates from a workout template (deriving its routine for
   the rest default), a 1s timer ticks `elapsed`, edits mutate in place (with a
@@ -182,9 +185,15 @@ Editing is split to match the hierarchy:
 untouched, a list replaces them wholesale. The routine builder only populates
 it for workouts it actually opened, so saving a routine cannot blank out a day
 you never looked at.
-- **`workout_screen.dart`** — live logging. `_SetRow` owns the weight/reps text
-  fields (converting kg⇄display unit), ticking a set fires haptics + the rest
-  timer, and Finish routes to the summary.
+- **`workout_screen.dart`** — live logging, StrongLifts-style. `_SetRow` has one
+  text field (the weight, converted kg⇄display unit) and one tap target (the
+  reps cell). Tapping runs `SetEntry.cycle()`, fires haptics, and starts the
+  rest timer on the *first* tap only; a long press opens `_RepsDialog` for
+  counts too high to tap down. Green means the goal was met, gold means it was
+  missed. Finish routes to the summary.
+
+  There is deliberately no "add set" button — sets come from the template, and
+  one added live would have no goal to be measured against.
 
 ### Cross-cutting
 - **Theme** (`theme/app_theme.dart`): `AppColors.*` constants and `kMono` (the
@@ -197,7 +206,7 @@ you never looked at.
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
   `build_runner`, add a query method, expose it via a provider. Bump
-  `schemaVersion` (currently **2**) and add an `onUpgrade` step. Migrations are
+  `schemaVersion` (currently **3**) and add an `onUpgrade` step. Migrations are
   tested against a hand-written DDL fixture of the old schema — see
   `test/migration_test.dart` for the pattern.
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,

@@ -2401,6 +2401,29 @@ class $SessionSetsTable extends SessionSets
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _goalRepsMeta = const VerificationMeta(
+    'goalReps',
+  );
+  @override
+  late final GeneratedColumn<int> goalReps = GeneratedColumn<int>(
+    'goal_reps',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _goalWeightMeta = const VerificationMeta(
+    'goalWeight',
+  );
+  @override
+  late final GeneratedColumn<double> goalWeight = GeneratedColumn<double>(
+    'goal_weight',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2411,6 +2434,8 @@ class $SessionSetsTable extends SessionSets
     weight,
     reps,
     done,
+    goalReps,
+    goalWeight,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2478,6 +2503,18 @@ class $SessionSetsTable extends SessionSets
         done.isAcceptableOrUnknown(data['done']!, _doneMeta),
       );
     }
+    if (data.containsKey('goal_reps')) {
+      context.handle(
+        _goalRepsMeta,
+        goalReps.isAcceptableOrUnknown(data['goal_reps']!, _goalRepsMeta),
+      );
+    }
+    if (data.containsKey('goal_weight')) {
+      context.handle(
+        _goalWeightMeta,
+        goalWeight.isAcceptableOrUnknown(data['goal_weight']!, _goalWeightMeta),
+      );
+    }
     return context;
   }
 
@@ -2519,6 +2556,14 @@ class $SessionSetsTable extends SessionSets
         DriftSqlType.bool,
         data['${effectivePrefix}done'],
       )!,
+      goalReps: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}goal_reps'],
+      )!,
+      goalWeight: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}goal_weight'],
+      ),
     );
   }
 
@@ -2537,6 +2582,16 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
   final double weight;
   final int reps;
   final bool done;
+
+  /// What the set was aiming for, captured as it was logged.
+  ///
+  /// Stored rather than looked up from the template later: templates get
+  /// edited, and progression has to know what you were actually chasing on the
+  /// day. Zero means "no goal recorded" — every set logged before schema v3.
+  final int goalReps;
+
+  /// The weight the template suggested, in kg. Null when it suggested none.
+  final double? goalWeight;
   const SessionSet({
     required this.id,
     required this.sessionId,
@@ -2546,6 +2601,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     required this.weight,
     required this.reps,
     required this.done,
+    required this.goalReps,
+    this.goalWeight,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2560,6 +2617,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     map['weight'] = Variable<double>(weight);
     map['reps'] = Variable<int>(reps);
     map['done'] = Variable<bool>(done);
+    map['goal_reps'] = Variable<int>(goalReps);
+    if (!nullToAbsent || goalWeight != null) {
+      map['goal_weight'] = Variable<double>(goalWeight);
+    }
     return map;
   }
 
@@ -2575,6 +2636,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       weight: Value(weight),
       reps: Value(reps),
       done: Value(done),
+      goalReps: Value(goalReps),
+      goalWeight: goalWeight == null && nullToAbsent
+          ? const Value.absent()
+          : Value(goalWeight),
     );
   }
 
@@ -2592,6 +2657,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       weight: serializer.fromJson<double>(json['weight']),
       reps: serializer.fromJson<int>(json['reps']),
       done: serializer.fromJson<bool>(json['done']),
+      goalReps: serializer.fromJson<int>(json['goalReps']),
+      goalWeight: serializer.fromJson<double?>(json['goalWeight']),
     );
   }
   @override
@@ -2606,6 +2673,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       'weight': serializer.toJson<double>(weight),
       'reps': serializer.toJson<int>(reps),
       'done': serializer.toJson<bool>(done),
+      'goalReps': serializer.toJson<int>(goalReps),
+      'goalWeight': serializer.toJson<double?>(goalWeight),
     };
   }
 
@@ -2618,6 +2687,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     double? weight,
     int? reps,
     bool? done,
+    int? goalReps,
+    Value<double?> goalWeight = const Value.absent(),
   }) => SessionSet(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -2627,6 +2698,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     weight: weight ?? this.weight,
     reps: reps ?? this.reps,
     done: done ?? this.done,
+    goalReps: goalReps ?? this.goalReps,
+    goalWeight: goalWeight.present ? goalWeight.value : this.goalWeight,
   );
   SessionSet copyWithCompanion(SessionSetsCompanion data) {
     return SessionSet(
@@ -2642,6 +2715,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       weight: data.weight.present ? data.weight.value : this.weight,
       reps: data.reps.present ? data.reps.value : this.reps,
       done: data.done.present ? data.done.value : this.done,
+      goalReps: data.goalReps.present ? data.goalReps.value : this.goalReps,
+      goalWeight: data.goalWeight.present
+          ? data.goalWeight.value
+          : this.goalWeight,
     );
   }
 
@@ -2655,7 +2732,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ..write('setNumber: $setNumber, ')
           ..write('weight: $weight, ')
           ..write('reps: $reps, ')
-          ..write('done: $done')
+          ..write('done: $done, ')
+          ..write('goalReps: $goalReps, ')
+          ..write('goalWeight: $goalWeight')
           ..write(')'))
         .toString();
   }
@@ -2670,6 +2749,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     weight,
     reps,
     done,
+    goalReps,
+    goalWeight,
   );
   @override
   bool operator ==(Object other) =>
@@ -2682,7 +2763,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           other.setNumber == this.setNumber &&
           other.weight == this.weight &&
           other.reps == this.reps &&
-          other.done == this.done);
+          other.done == this.done &&
+          other.goalReps == this.goalReps &&
+          other.goalWeight == this.goalWeight);
 }
 
 class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
@@ -2694,6 +2777,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
   final Value<double> weight;
   final Value<int> reps;
   final Value<bool> done;
+  final Value<int> goalReps;
+  final Value<double?> goalWeight;
   const SessionSetsCompanion({
     this.id = const Value.absent(),
     this.sessionId = const Value.absent(),
@@ -2703,6 +2788,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.weight = const Value.absent(),
     this.reps = const Value.absent(),
     this.done = const Value.absent(),
+    this.goalReps = const Value.absent(),
+    this.goalWeight = const Value.absent(),
   });
   SessionSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -2713,6 +2800,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.weight = const Value.absent(),
     this.reps = const Value.absent(),
     this.done = const Value.absent(),
+    this.goalReps = const Value.absent(),
+    this.goalWeight = const Value.absent(),
   }) : sessionId = Value(sessionId),
        exerciseName = Value(exerciseName),
        setNumber = Value(setNumber);
@@ -2725,6 +2814,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Expression<double>? weight,
     Expression<int>? reps,
     Expression<bool>? done,
+    Expression<int>? goalReps,
+    Expression<double>? goalWeight,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2735,6 +2826,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       if (weight != null) 'weight': weight,
       if (reps != null) 'reps': reps,
       if (done != null) 'done': done,
+      if (goalReps != null) 'goal_reps': goalReps,
+      if (goalWeight != null) 'goal_weight': goalWeight,
     });
   }
 
@@ -2747,6 +2840,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Value<double>? weight,
     Value<int>? reps,
     Value<bool>? done,
+    Value<int>? goalReps,
+    Value<double?>? goalWeight,
   }) {
     return SessionSetsCompanion(
       id: id ?? this.id,
@@ -2757,6 +2852,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       weight: weight ?? this.weight,
       reps: reps ?? this.reps,
       done: done ?? this.done,
+      goalReps: goalReps ?? this.goalReps,
+      goalWeight: goalWeight ?? this.goalWeight,
     );
   }
 
@@ -2787,6 +2884,12 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     if (done.present) {
       map['done'] = Variable<bool>(done.value);
     }
+    if (goalReps.present) {
+      map['goal_reps'] = Variable<int>(goalReps.value);
+    }
+    if (goalWeight.present) {
+      map['goal_weight'] = Variable<double>(goalWeight.value);
+    }
     return map;
   }
 
@@ -2800,7 +2903,9 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
           ..write('setNumber: $setNumber, ')
           ..write('weight: $weight, ')
           ..write('reps: $reps, ')
-          ..write('done: $done')
+          ..write('done: $done, ')
+          ..write('goalReps: $goalReps, ')
+          ..write('goalWeight: $goalWeight')
           ..write(')'))
         .toString();
   }
@@ -5016,6 +5121,8 @@ typedef $$SessionSetsTableCreateCompanionBuilder =
       Value<double> weight,
       Value<int> reps,
       Value<bool> done,
+      Value<int> goalReps,
+      Value<double?> goalWeight,
     });
 typedef $$SessionSetsTableUpdateCompanionBuilder =
     SessionSetsCompanion Function({
@@ -5027,6 +5134,8 @@ typedef $$SessionSetsTableUpdateCompanionBuilder =
       Value<double> weight,
       Value<int> reps,
       Value<bool> done,
+      Value<int> goalReps,
+      Value<double?> goalWeight,
     });
 
 final class $$SessionSetsTableReferences
@@ -5092,6 +5201,16 @@ class $$SessionSetsTableFilterComposer
 
   ColumnFilters<bool> get done => $composableBuilder(
     column: $table.done,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get goalReps => $composableBuilder(
+    column: $table.goalReps,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get goalWeight => $composableBuilder(
+    column: $table.goalWeight,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5163,6 +5282,16 @@ class $$SessionSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get goalReps => $composableBuilder(
+    column: $table.goalReps,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get goalWeight => $composableBuilder(
+    column: $table.goalWeight,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SessionsTableOrderingComposer get sessionId {
     final $$SessionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5220,6 +5349,14 @@ class $$SessionSetsTableAnnotationComposer
 
   GeneratedColumn<bool> get done =>
       $composableBuilder(column: $table.done, builder: (column) => column);
+
+  GeneratedColumn<int> get goalReps =>
+      $composableBuilder(column: $table.goalReps, builder: (column) => column);
+
+  GeneratedColumn<double> get goalWeight => $composableBuilder(
+    column: $table.goalWeight,
+    builder: (column) => column,
+  );
 
   $$SessionsTableAnnotationComposer get sessionId {
     final $$SessionsTableAnnotationComposer composer = $composerBuilder(
@@ -5281,6 +5418,8 @@ class $$SessionSetsTableTableManager
                 Value<double> weight = const Value.absent(),
                 Value<int> reps = const Value.absent(),
                 Value<bool> done = const Value.absent(),
+                Value<int> goalReps = const Value.absent(),
+                Value<double?> goalWeight = const Value.absent(),
               }) => SessionSetsCompanion(
                 id: id,
                 sessionId: sessionId,
@@ -5290,6 +5429,8 @@ class $$SessionSetsTableTableManager
                 weight: weight,
                 reps: reps,
                 done: done,
+                goalReps: goalReps,
+                goalWeight: goalWeight,
               ),
           createCompanionCallback:
               ({
@@ -5301,6 +5442,8 @@ class $$SessionSetsTableTableManager
                 Value<double> weight = const Value.absent(),
                 Value<int> reps = const Value.absent(),
                 Value<bool> done = const Value.absent(),
+                Value<int> goalReps = const Value.absent(),
+                Value<double?> goalWeight = const Value.absent(),
               }) => SessionSetsCompanion.insert(
                 id: id,
                 sessionId: sessionId,
@@ -5310,6 +5453,8 @@ class $$SessionSetsTableTableManager
                 weight: weight,
                 reps: reps,
                 done: done,
+                goalReps: goalReps,
+                goalWeight: goalWeight,
               ),
           withReferenceMapper: (p0) => p0
               .map(

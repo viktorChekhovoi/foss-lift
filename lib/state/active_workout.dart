@@ -6,21 +6,56 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../providers/db_provider.dart';
 
-/// One editable set row during a live workout. Weights are in kilograms; the
-/// UI converts to the display unit.
+/// One set row during a live workout. Weights are in kilograms; the UI converts
+/// to the display unit.
+///
+/// The goal is fixed by the template and cannot be edited from the logging
+/// screen — it is what you set out to do, and rewriting it after the fact would
+/// erase the only thing worth recording about a set you missed. What you
+/// actually did lives in [reps] (null until the set is logged) and [weight]
+/// (editable, because sometimes you have to deload mid-session).
 class SetEntry {
   SetEntry({
-    required this.weight,
-    required this.reps,
-    this.prevWeight,
-    this.prevReps,
-    this.done = false,
-  });
-  double weight; // kg
-  int reps;
-  final double? prevWeight; // kg, from the routine's suggested weight
-  final int? prevReps;
-  bool done;
+    required this.goalReps,
+    this.goalWeight,
+    double? weight,
+    this.reps,
+  }) : weight = weight ?? goalWeight ?? 0;
+
+  /// The rep target from the template. Immutable.
+  final int goalReps;
+
+  /// The weight the template suggests, in kg. Null when it suggests none.
+  final double? goalWeight;
+
+  /// The weight actually used, in kg.
+  double weight;
+
+  /// Reps actually completed. Null means the set has not been logged yet; 0 is
+  /// a logged set where nothing was managed at all.
+  int? reps;
+
+  bool get done => reps != null;
+
+  /// A logged set that came up short — fewer reps than the goal, or a weight
+  /// below the suggested one. Deloading to finish a set is still a miss.
+  bool get missedGoal =>
+      done && (reps! < goalReps || weight < (goalWeight ?? 0) - 1e-9);
+
+  /// The tap cycle: untouched → the goal → one rep fewer → … → 0 → untouched.
+  ///
+  /// The first tap claims the goal, which is the common case and costs one tap.
+  /// Every tap after that is you admitting you fell a rep short.
+  void cycle() {
+    final r = reps;
+    if (r == null) {
+      reps = goalReps;
+    } else if (r > 0) {
+      reps = r - 1;
+    } else {
+      reps = null;
+    }
+  }
 }
 
 /// One exercise (with its sets) during a live workout.
@@ -68,10 +103,14 @@ class ActiveWorkout {
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
   int get doneSets =>
       exercises.fold(0, (a, e) => a + e.sets.where((s) => s.done).length);
+  int get missedSets =>
+      exercises.fold(0, (a, e) => a + e.sets.where((s) => s.missedGoal).length);
   double get volume => exercises.fold(
         0.0,
-        (a, e) =>
-            a + e.sets.where((s) => s.done).fold(0.0, (b, s) => b + s.weight * s.reps),
+        (a, e) => a +
+            e.sets
+                .where((s) => s.done)
+                .fold(0.0, (b, s) => b + s.weight * s.reps!),
       );
 
   ActiveWorkout copyWith({int? elapsed}) => ActiveWorkout(
@@ -107,7 +146,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
       for (final v in items) {
-        // Prefill with the top of the rep range (the goal), or the fixed count.
+        // The goal is the top of the rep range, or the fixed count.
         final reps = v.item.repsMax ?? v.item.repsMin;
         final w = v.item.suggestedWeight;
         exercises.add(ExerciseEntry(
@@ -117,12 +156,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           sets: List.generate(
             v.item.targetSets,
-            (_) => SetEntry(
-              weight: w ?? 0,
-              reps: reps,
-              prevWeight: w,
-              prevReps: reps,
-            ),
+            (_) => SetEntry(goalReps: reps, goalWeight: w),
           ),
         ));
       }
@@ -142,11 +176,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     });
   }
 
-  void toggleDone(int ei, int si) {
+  /// One tap on a set: see [SetEntry.cycle].
+  void cycleSet(int ei, int si) {
     final s = state;
     if (s == null) return;
-    final set = s.exercises[ei].sets[si];
-    set.done = !set.done;
+    s.exercises[ei].sets[si].cycle();
     state = s.copyWith();
   }
 
@@ -157,19 +191,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     state = s.copyWith();
   }
 
-  void setReps(int ei, int si, int value) {
+  /// Types a rep count in directly (the long-press escape hatch). A null
+  /// [value] unlogs the set; anything else is clamped to zero or more.
+  void setReps(int ei, int si, int? value) {
     final s = state;
     if (s == null) return;
-    s.exercises[ei].sets[si].reps = value;
-    state = s.copyWith();
-  }
-
-  void addSet(int ei) {
-    final s = state;
-    if (s == null) return;
-    final sets = s.exercises[ei].sets;
-    final last = sets.isNotEmpty ? sets.last : null;
-    sets.add(SetEntry(weight: last?.weight ?? 0, reps: last?.reps ?? 10));
+    s.exercises[ei].sets[si].reps = value == null ? null : (value < 0 ? 0 : value);
     state = s.copyWith();
   }
 
@@ -191,8 +218,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           setNumber: n++,
           exerciseId: Value(e.exerciseId),
           weight: Value(set.weight),
-          reps: Value(set.reps),
+          reps: Value(set.reps!),
           done: const Value(true),
+          // What it was aiming at, so a later reading of this set can tell a
+          // hit from a miss without consulting a template that may have moved.
+          goalReps: Value(set.goalReps),
+          goalWeight: Value(set.goalWeight),
         ));
       }
     }

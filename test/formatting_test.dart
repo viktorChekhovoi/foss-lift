@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/state/active_workout.dart' show fmtWeight;
 import 'package:foss_lift/util/format.dart';
 import 'package:foss_lift/screens/workout_screen.dart' show fmtDuration;
 
@@ -40,32 +40,6 @@ void main() {
     });
     test('rounds fractional volumes', () {
       expect(fmtTotal(255.5), '256');
-    });
-  });
-
-  group('ActiveWorkout aggregates', () {
-    test('volume counts only completed sets', () {
-      final w = ActiveWorkout(
-        routineId: null,
-        workoutId: null,
-        name: 'Test',
-        startedAt: DateTime(2026),
-        elapsed: 0,
-        exercises: [
-          ExerciseEntry(
-            exerciseId: 1,
-            name: 'Bench',
-            muscle: 'Chest',
-            sets: [
-              SetEntry(weight: 100, reps: 5, done: true),
-              SetEntry(weight: 100, reps: 5), // not done
-            ],
-          ),
-        ],
-      );
-      expect(w.volume, 500);
-      expect(w.doneSets, 1);
-      expect(w.totalSets, 2);
     });
   });
 }

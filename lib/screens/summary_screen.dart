@@ -221,6 +221,7 @@ class _SessionExerciseRow extends StatelessWidget {
     for (final s in sets) {
       if (s.weight * s.reps > best.weight * best.reps) best = s;
     }
+    final missed = sets.where(setMissedGoal).length;
     final w =
         best.weight == 0 ? 'BW' : fmtWeight(toDisplayWeight(best.weight, unit));
 
@@ -244,8 +245,21 @@ class _SessionExerciseRow extends StatelessWidget {
               children: [
                 Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text('${sets.length} sets',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                Text.rich(
+                  TextSpan(
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                    children: [
+                      TextSpan(text: '${sets.length} sets'),
+                      // Only ever shown when there is something to say — a
+                      // clean session should not carry a "0 missed" badge.
+                      if (missed > 0)
+                        TextSpan(
+                          text: ' · $missed missed',
+                          style: const TextStyle(color: AppColors.gold),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
