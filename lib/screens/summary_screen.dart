@@ -10,12 +10,12 @@ import '../util/units.dart';
 import '../widgets/common.dart';
 
 class SummaryScreen extends ConsumerWidget {
-  const SummaryScreen({super.key, required this.workoutId});
-  final int workoutId;
+  const SummaryScreen({super.key, required this.sessionId});
+  final int sessionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(workoutSummaryProvider(workoutId));
+    final data = ref.watch(sessionSummaryProvider(sessionId));
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return Scaffold(
@@ -25,7 +25,7 @@ class SummaryScreen extends ConsumerWidget {
               const Center(child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) =>
               Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
-          data: (d) => _SummaryBody(workout: d.workout, sets: d.sets, unit: unit),
+          data: (d) => _SummaryBody(session: d.session, sets: d.sets, unit: unit),
         ),
       ),
     );
@@ -33,15 +33,15 @@ class SummaryScreen extends ConsumerWidget {
 }
 
 class _SummaryBody extends StatelessWidget {
-  const _SummaryBody({required this.workout, required this.sets, required this.unit});
-  final Workout workout;
-  final List<WorkoutSet> sets;
+  const _SummaryBody({required this.session, required this.sets, required this.unit});
+  final Session session;
+  final List<SessionSet> sets;
   final String unit;
 
   @override
   Widget build(BuildContext context) {
     // Group sets by exercise, preserving first-seen order.
-    final grouped = <String, List<WorkoutSet>>{};
+    final grouped = <String, List<SessionSet>>{};
     for (final s in sets) {
       grouped.putIfAbsent(s.exerciseName, () => []).add(s);
     }
@@ -75,7 +75,7 @@ class _SummaryBody extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Center(
-                child: Text(workout.name,
+                child: Text(session.name,
                     style: const TextStyle(color: AppColors.muted, fontSize: 14)),
               ),
               const SizedBox(height: 22),
@@ -85,7 +85,7 @@ class _SummaryBody extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _SumCell(
-                        value: '${(workout.durationSeconds / 60).round()}',
+                        value: '${(session.durationSeconds / 60).round()}',
                         unit: 'min',
                         label: 'Duration',
                       ),
@@ -93,7 +93,7 @@ class _SummaryBody extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _SumCell(
-                          value: '${workout.setsCompleted}', label: 'Sets done'),
+                          value: '${session.setsCompleted}', label: 'Sets done'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -210,14 +210,14 @@ class _SessionExerciseRow extends StatelessWidget {
   });
   final int index;
   final String name;
-  final List<WorkoutSet> sets;
+  final List<SessionSet> sets;
   final String unit;
   final bool last;
 
   @override
   Widget build(BuildContext context) {
     // Best set = highest weight × reps.
-    WorkoutSet best = sets.first;
+    SessionSet best = sets.first;
     for (final s in sets) {
       if (s.weight * s.reps > best.weight * best.reps) best = s;
     }

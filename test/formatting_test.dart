@@ -26,6 +26,7 @@ void main() {
     test('volume counts only completed sets', () {
       final w = ActiveWorkout(
         routineId: null,
+        workoutId: null,
         name: 'Test',
         startedAt: DateTime(2026),
         elapsed: 0,

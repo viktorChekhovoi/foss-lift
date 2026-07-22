@@ -23,7 +23,8 @@ class Exercises extends Table {
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 }
 
-/// A reusable workout template ("Push Day").
+/// A training programme ("PPL", "Upper/Lower"). A routine is a container: the
+/// thing you actually train is one of its [Workouts].
 class Routines extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 80)();
@@ -34,12 +35,22 @@ class Routines extends Table {
   IntColumn get restSeconds => integer().withDefault(const Constant(90))();
 }
 
-/// One exercise slot inside a routine template. Reps are stored structurally so
-/// the app can express a fixed count (10), a range (6–8), or "to failure".
-class RoutineItems extends Table {
+/// One day within a routine ("Push", "Upper 1"). Names need not be unique — an
+/// Upper/Lower split legitimately repeats "Upper" twice.
+class Workouts extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId =>
       integer().references(Routines, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text().withLength(min: 1, max: 80)();
+  IntColumn get position => integer().withDefault(const Constant(0))();
+}
+
+/// One exercise slot inside a workout. Reps are stored structurally so the app
+/// can express a fixed count (10), a range (6–8), or "to failure".
+class WorkoutItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get workoutId =>
+      integer().references(Workouts, #id, onDelete: KeyAction.cascade)();
   IntColumn get exerciseId => integer().references(Exercises, #id)();
   IntColumn get position => integer().withDefault(const Constant(0))();
   IntColumn get targetSets => integer().withDefault(const Constant(3))();
@@ -59,10 +70,15 @@ class RoutineItems extends Table {
   RealColumn get suggestedWeight => real().nullable()();
 }
 
-/// A logged training session.
-class Workouts extends Table {
+/// A logged training session — one performance of a [Workouts] row.
+///
+/// [routineId] and [workoutId] are deliberately plain integers rather than
+/// foreign keys: deleting a template must not erase the history of having
+/// trained it.
+class Sessions extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId => integer().nullable()();
+  IntColumn get workoutId => integer().nullable()();
   TextColumn get name => text()();
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
@@ -71,13 +87,13 @@ class Workouts extends Table {
   IntColumn get setsCompleted => integer().withDefault(const Constant(0))();
 }
 
-/// A single logged set belonging to a workout. `exerciseName` is denormalised
+/// A single logged set belonging to a session. `exerciseName` is denormalised
 /// so history stays readable even if the library changes later. Weights are
 /// always stored in kilograms; the UI converts for display.
-class WorkoutSets extends Table {
+class SessionSets extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get workoutId =>
-      integer().references(Workouts, #id, onDelete: KeyAction.cascade)();
+  IntColumn get sessionId =>
+      integer().references(Sessions, #id, onDelete: KeyAction.cascade)();
   IntColumn get exerciseId => integer().nullable()();
   TextColumn get exerciseName => text()();
   IntColumn get setNumber => integer()();
@@ -101,22 +117,36 @@ class Settings extends Table {
 // Read-model helpers
 // ---------------------------------------------------------------------------
 
-/// A routine plus how many exercises it contains (for list rows).
+/// A routine plus how many workouts it contains (for list rows).
 class RoutineWithCount {
-  RoutineWithCount(this.routine, this.exerciseCount);
+  RoutineWithCount(this.routine, this.workoutCount);
   final Routine routine;
+  final int workoutCount;
+}
+
+/// A workout plus how many exercises it contains (for list rows).
+class WorkoutWithCount {
+  WorkoutWithCount(this.workout, this.exerciseCount);
+  final Workout workout;
   final int exerciseCount;
 }
 
-/// A routine item joined with its exercise (for the detail/builder screens).
-class RoutineItemView {
-  RoutineItemView(this.item, this.exercise);
-  final RoutineItem item;
+/// A workout item joined with its exercise (for the detail/builder screens).
+class WorkoutItemView {
+  WorkoutItemView(this.item, this.exercise);
+  final WorkoutItem item;
   final Exercise exercise;
 }
 
+/// A name/position pair used when saving the workout list of a routine. A null
+/// [id] means "insert"; a known id keeps the workout's exercises intact.
+typedef WorkoutDraft = ({int? id, String name});
+
+/// One seeded exercise slot (first-run demo data only).
+typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
+
 /// Human-readable rep target, e.g. "10", "6–8", or "To failure".
-String repsLabel(RoutineItem it) {
+String repsLabel(WorkoutItem it) {
   if (it.toFailure) return 'Failure';
   if (it.repsMax == null || it.repsMax == it.repsMin) return '${it.repsMin}';
   return '${it.repsMin}–${it.repsMax}';
@@ -127,7 +157,15 @@ String repsLabel(RoutineItem it) {
 // ---------------------------------------------------------------------------
 
 @DriftDatabase(
-  tables: [Exercises, Routines, RoutineItems, Workouts, WorkoutSets, Settings],
+  tables: [
+    Exercises,
+    Routines,
+    Workouts,
+    WorkoutItems,
+    Sessions,
+    SessionSets,
+    Settings,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -136,7 +174,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -144,10 +182,53 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seed();
         },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await _migrateToWorkouts(m);
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
+
+  /// v1 → v2: insert a `Workouts` level between routines and their exercises.
+  ///
+  /// The name `workouts` used to mean "a logged session", so the old tables are
+  /// renamed out of the way first. Every existing routine becomes a routine
+  /// holding exactly one workout of the same name, which keeps its exercises.
+  Future<void> _migrateToWorkouts(Migrator m) async {
+    // 1. Logged sessions: workouts → sessions, workout_sets → session_sets.
+    //    SQLite rewrites the dependent foreign-key clauses as part of a rename.
+    await customStatement('ALTER TABLE workouts RENAME TO sessions');
+    await customStatement('ALTER TABLE workout_sets RENAME TO session_sets');
+    await customStatement(
+        'ALTER TABLE session_sets RENAME COLUMN workout_id TO session_id');
+    await customStatement('ALTER TABLE sessions ADD COLUMN workout_id INTEGER');
+
+    // 2. `workouts` now means a day inside a routine — one per old routine.
+    await m.createTable(workouts);
+    await customStatement(
+        'INSERT INTO workouts (routine_id, name, position) '
+        'SELECT id, name, 0 FROM routines');
+
+    // 3. Exercise slots hang off a workout instead of a routine.
+    await m.createTable(workoutItems);
+    await customStatement('''
+      INSERT INTO workout_items (workout_id, exercise_id, position, target_sets,
+                                 reps_min, reps_max, to_failure, rest_seconds,
+                                 suggested_weight)
+      SELECT w.id, ri.exercise_id, ri.position, ri.target_sets, ri.reps_min,
+             ri.reps_max, ri.to_failure, ri.rest_seconds, ri.suggested_weight
+      FROM routine_items ri
+      JOIN workouts w ON w.routine_id = ri.routine_id
+    ''');
+    await customStatement('DROP TABLE routine_items');
+
+    // 4. Point old history at the workout it would have been, where we can.
+    await customStatement(
+        'UPDATE sessions SET workout_id = ('
+        'SELECT w.id FROM workouts w WHERE w.routine_id = sessions.routine_id'
+        ') WHERE routine_id IS NOT NULL');
+  }
 
   // ---- Exercise library --------------------------------------------------
 
@@ -185,12 +266,9 @@ class AppDatabase extends _$AppDatabase {
   // ---- Routines -----------------------------------------------------------
 
   Stream<List<RoutineWithCount>> watchRoutines() {
-    final count = routineItems.id.count();
+    final count = workouts.id.count();
     final query = select(routines).join([
-      leftOuterJoin(
-        routineItems,
-        routineItems.routineId.equalsExp(routines.id),
-      ),
+      leftOuterJoin(workouts, workouts.routineId.equalsExp(routines.id)),
     ])
       ..addColumns([count])
       ..groupBy([routines.id])
@@ -209,34 +287,123 @@ class AppDatabase extends _$AppDatabase {
   Future<Routine> routineById(int id) =>
       (select(routines)..where((r) => r.id.equals(id))).getSingle();
 
-  Stream<List<RoutineItemView>> watchItemsForRoutine(int routineId) {
-    final query = select(routineItems).join([
-      innerJoin(exercises, exercises.id.equalsExp(routineItems.exerciseId)),
+  // ---- Workouts (the days inside a routine) -------------------------------
+
+  Stream<List<WorkoutWithCount>> watchWorkoutsForRoutine(int routineId) {
+    final count = workoutItems.id.count();
+    final query = select(workouts).join([
+      leftOuterJoin(workoutItems, workoutItems.workoutId.equalsExp(workouts.id)),
     ])
-      ..where(routineItems.routineId.equals(routineId))
-      ..orderBy([OrderingTerm(expression: routineItems.position)]);
+      ..where(workouts.routineId.equals(routineId))
+      ..addColumns([count])
+      ..groupBy([workouts.id])
+      ..orderBy([OrderingTerm(expression: workouts.position)]);
 
     return query.watch().map(
           (rows) => rows
-              .map((r) => RoutineItemView(
-                    r.readTable(routineItems),
+              .map((r) => WorkoutWithCount(
+                    r.readTable(workouts),
+                    r.read(count) ?? 0,
+                  ))
+              .toList(),
+        );
+  }
+
+  Future<List<Workout>> workoutsForRoutine(int routineId) {
+    return (select(workouts)
+          ..where((w) => w.routineId.equals(routineId))
+          ..orderBy([(w) => OrderingTerm(expression: w.position)]))
+        .get();
+  }
+
+  Future<Workout> workoutById(int id) =>
+      (select(workouts)..where((w) => w.id.equals(id))).getSingle();
+
+  Stream<Workout?> watchWorkout(int id) =>
+      (select(workouts)..where((w) => w.id.equals(id))).watchSingleOrNull();
+
+  Future<int> createWorkout(int routineId, String name) async {
+    final existing = await workoutsForRoutine(routineId);
+    return into(workouts).insert(
+      WorkoutsCompanion.insert(
+        routineId: routineId,
+        name: name,
+        position: Value(existing.length),
+      ),
+    );
+  }
+
+  Future<void> renameWorkout(int id, String name) {
+    return (update(workouts)..where((w) => w.id.equals(id)))
+        .write(WorkoutsCompanion(name: Value(name)));
+  }
+
+  /// Deletes a workout; its exercise slots cascade away via the foreign key.
+  Future<void> deleteWorkout(int id) =>
+      (delete(workouts)..where((w) => w.id.equals(id))).go();
+
+  /// Applies the routine builder's workout list in one transaction: workouts
+  /// missing from [drafts] are deleted (taking their exercises with them),
+  /// known ids are renamed and repositioned, and null ids are inserted.
+  Future<void> replaceRoutineWorkouts(
+    int routineId,
+    List<WorkoutDraft> drafts,
+  ) {
+    return transaction(() async {
+      final keep = drafts.map((d) => d.id).whereType<int>().toSet();
+      final existing = await workoutsForRoutine(routineId);
+      for (final w in existing) {
+        if (!keep.contains(w.id)) await deleteWorkout(w.id);
+      }
+      for (var i = 0; i < drafts.length; i++) {
+        final d = drafts[i];
+        if (d.id == null) {
+          await into(workouts).insert(
+            WorkoutsCompanion.insert(
+              routineId: routineId,
+              name: d.name,
+              position: Value(i),
+            ),
+          );
+        } else {
+          await (update(workouts)..where((w) => w.id.equals(d.id!))).write(
+            WorkoutsCompanion(name: Value(d.name), position: Value(i)),
+          );
+        }
+      }
+    });
+  }
+
+  // ---- Workout items ------------------------------------------------------
+
+  Stream<List<WorkoutItemView>> watchItemsForWorkout(int workoutId) {
+    final query = select(workoutItems).join([
+      innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
+    ])
+      ..where(workoutItems.workoutId.equals(workoutId))
+      ..orderBy([OrderingTerm(expression: workoutItems.position)]);
+
+    return query.watch().map(
+          (rows) => rows
+              .map((r) => WorkoutItemView(
+                    r.readTable(workoutItems),
                     r.readTable(exercises),
                   ))
               .toList(),
         );
   }
 
-  Future<List<RoutineItemView>> itemsForRoutine(int routineId) async {
-    final query = select(routineItems).join([
-      innerJoin(exercises, exercises.id.equalsExp(routineItems.exerciseId)),
+  Future<List<WorkoutItemView>> itemsForWorkout(int workoutId) async {
+    final query = select(workoutItems).join([
+      innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
     ])
-      ..where(routineItems.routineId.equals(routineId))
-      ..orderBy([OrderingTerm(expression: routineItems.position)]);
+      ..where(workoutItems.workoutId.equals(workoutId))
+      ..orderBy([OrderingTerm(expression: workoutItems.position)]);
 
     final rows = await query.get();
     return rows
         .map((r) =>
-            RoutineItemView(r.readTable(routineItems), r.readTable(exercises)))
+            WorkoutItemView(r.readTable(workoutItems), r.readTable(exercises)))
         .toList();
   }
 
@@ -279,54 +446,56 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Deletes a routine; its items cascade away via the foreign key.
+  /// Deletes a routine; its workouts and their items cascade away.
   Future<void> deleteRoutine(int id) =>
       (delete(routines)..where((r) => r.id.equals(id))).go();
 
-  /// Replaces the full ordered set of items for a routine in one transaction.
-  Future<void> replaceRoutineItems(
-    int routineId,
-    List<RoutineItemsCompanion> items,
+  /// Replaces the full ordered set of items for a workout in one transaction.
+  Future<void> replaceWorkoutItems(
+    int workoutId,
+    List<WorkoutItemsCompanion> items,
   ) {
     return transaction(() async {
-      await (delete(routineItems)..where((i) => i.routineId.equals(routineId)))
+      await (delete(workoutItems)..where((i) => i.workoutId.equals(workoutId)))
           .go();
       for (final it in items) {
-        await into(routineItems).insert(it);
+        await into(workoutItems).insert(it);
       }
     });
   }
 
   // ---- History ------------------------------------------------------------
 
-  Stream<List<Workout>> watchHistory() {
-    return (select(workouts)
-          ..where((w) => w.endedAt.isNotNull())
-          ..orderBy([(w) => OrderingTerm.desc(w.startedAt)]))
+  Stream<List<Session>> watchHistory() {
+    return (select(sessions)
+          ..where((s) => s.endedAt.isNotNull())
+          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
         .watch();
   }
 
-  Future<List<WorkoutSet>> setsForWorkout(int workoutId) {
-    return (select(workoutSets)
-          ..where((s) => s.workoutId.equals(workoutId))
+  Future<List<SessionSet>> setsForSession(int sessionId) {
+    return (select(sessionSets)
+          ..where((s) => s.sessionId.equals(sessionId))
           ..orderBy([(s) => OrderingTerm(expression: s.id)]))
         .get();
   }
 
   /// Persists a finished session and all of its completed sets in one tx.
-  Future<int> saveWorkout({
+  Future<int> saveSession({
     required int? routineId,
+    required int? workoutId,
     required String name,
     required DateTime startedAt,
     required DateTime endedAt,
     required int durationSeconds,
     required double totalVolume,
-    required List<WorkoutSetsCompanion> sets,
+    required List<SessionSetsCompanion> sets,
   }) {
     return transaction(() async {
-      final workoutId = await into(workouts).insert(
-        WorkoutsCompanion.insert(
+      final sessionId = await into(sessions).insert(
+        SessionsCompanion.insert(
           routineId: Value(routineId),
+          workoutId: Value(workoutId),
           name: name,
           startedAt: startedAt,
           endedAt: Value(endedAt),
@@ -336,19 +505,19 @@ class AppDatabase extends _$AppDatabase {
         ),
       );
       for (final s in sets) {
-        await into(workoutSets).insert(s.copyWith(workoutId: Value(workoutId)));
+        await into(sessionSets).insert(s.copyWith(sessionId: Value(sessionId)));
       }
-      return workoutId;
+      return sessionId;
     });
   }
 
   // ---- Aggregate stats ----------------------------------------------------
 
-  Stream<int> watchWorkoutCount() {
-    final countExp = workouts.id.count();
-    final q = selectOnly(workouts)
+  Stream<int> watchSessionCount() {
+    final countExp = sessions.id.count();
+    final q = selectOnly(sessions)
       ..addColumns([countExp])
-      ..where(workouts.endedAt.isNotNull());
+      ..where(sessions.endedAt.isNotNull());
     return q.watchSingle().map((row) => row.read(countExp) ?? 0);
   }
 
@@ -466,12 +635,14 @@ class AppDatabase extends _$AppDatabase {
     await ex('Cable Crunch', 'Core', 'Cable',
         'Kneel and crunch your ribs toward your hips, rounding your spine.');
 
+    // Two starter programmes, each split into its training days. Upper/Lower
+    // deliberately repeats a day name — that is legal and worth demonstrating.
     Future<void> routine(
       String name,
       String color,
       int pos,
       int rest,
-      List<({String name, int sets, int min, int? max, double? w})> items,
+      List<({String name, List<_SeedItem> items})> days,
     ) async {
       final rid = await into(routines).insert(
         RoutinesCompanion.insert(
@@ -481,42 +652,81 @@ class AppDatabase extends _$AppDatabase {
           restSeconds: Value(rest),
         ),
       );
-      var i = 0;
-      for (final it in items) {
-        await into(routineItems).insert(
-          RoutineItemsCompanion.insert(
+      var dayPos = 0;
+      for (final day in days) {
+        final wid = await into(workouts).insert(
+          WorkoutsCompanion.insert(
             routineId: rid,
-            exerciseId: ids[it.name]!,
-            position: Value(i++),
-            targetSets: Value(it.sets),
-            repsMin: Value(it.min),
-            repsMax: Value(it.max),
-            suggestedWeight: Value(it.w),
+            name: day.name,
+            position: Value(dayPos++),
           ),
         );
+        var i = 0;
+        for (final it in day.items) {
+          await into(workoutItems).insert(
+            WorkoutItemsCompanion.insert(
+              workoutId: wid,
+              exerciseId: ids[it.name]!,
+              position: Value(i++),
+              targetSets: Value(it.sets),
+              repsMin: Value(it.min),
+              repsMax: Value(it.max),
+              suggestedWeight: Value(it.w),
+            ),
+          );
+        }
       }
     }
 
-    await routine('Push Day', 'FF6A3D', 0, 120, [
-      (name: 'Bench Press', sets: 4, min: 6, max: 8, w: 80),
-      (name: 'Overhead Press', sets: 4, min: 8, max: null, w: 50),
-      (name: 'Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
-      (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-      (name: 'Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
+    await routine('Push / Pull / Legs', 'FF6A3D', 0, 120, [
+      (name: 'Push', items: [
+        (name: 'Bench Press', sets: 4, min: 6, max: 8, w: 80),
+        (name: 'Overhead Press', sets: 4, min: 8, max: null, w: 50),
+        (name: 'Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
+        (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
+        (name: 'Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
+      ]),
+      (name: 'Pull', items: [
+        (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
+        (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
+        (name: 'Barbell Row', sets: 4, min: 8, max: null, w: 70),
+        (name: 'Face Pull', sets: 3, min: 15, max: 20, w: 25),
+        (name: 'Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
+      ]),
+      (name: 'Legs', items: [
+        (name: 'Back Squat', sets: 4, min: 6, max: null, w: 110),
+        (name: 'Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
+        (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
+        (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
+        (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+      ]),
     ]);
-    await routine('Pull Day', '3ED598', 1, 120, [
-      (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
-      (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
-      (name: 'Barbell Row', sets: 4, min: 8, max: null, w: 70),
-      (name: 'Face Pull', sets: 3, min: 15, max: 20, w: 25),
-      (name: 'Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
-    ]);
-    await routine('Leg Day', 'FFC24B', 2, 150, [
-      (name: 'Back Squat', sets: 4, min: 6, max: null, w: 110),
-      (name: 'Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
-      (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
-      (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
-      (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+
+    await routine('Upper / Lower', '3ED598', 1, 150, [
+      (name: 'Upper 1', items: [
+        (name: 'Bench Press', sets: 4, min: 5, max: null, w: 80),
+        (name: 'Barbell Row', sets: 4, min: 6, max: 8, w: 70),
+        (name: 'Overhead Press', sets: 3, min: 8, max: 10, w: 45),
+        (name: 'Lat Pulldown', sets: 3, min: 10, max: 12, w: 55),
+      ]),
+      (name: 'Lower 1', items: [
+        (name: 'Back Squat', sets: 4, min: 5, max: null, w: 110),
+        (name: 'Romanian Deadlift', sets: 3, min: 8, max: 10, w: 90),
+        (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
+        (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+      ]),
+      (name: 'Upper 2', items: [
+        (name: 'Incline DB Press', sets: 4, min: 8, max: 10, w: 30),
+        (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
+        (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
+        (name: 'Hammer Curl', sets: 3, min: 10, max: 12, w: 14),
+      ]),
+      (name: 'Lower 2', items: [
+        (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
+        (name: 'Front Squat', sets: 3, min: 8, max: 10, w: 70),
+        (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
+        (name: 'Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
+      ]),
     ]);
   }
 }

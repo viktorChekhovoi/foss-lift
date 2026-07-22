@@ -118,7 +118,7 @@ class _LifetimeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final workouts = ref.watch(workoutCountProvider).value ?? 0;
+    final workouts = ref.watch(sessionCountProvider).value ?? 0;
     final routines = ref.watch(routinesProvider).value?.length ?? 0;
     return Container(
       decoration: BoxDecoration(

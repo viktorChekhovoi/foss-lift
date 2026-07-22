@@ -12,6 +12,8 @@ import 'screens/routines_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
 import 'screens/today_screen.dart';
+import 'screens/workout_detail_screen.dart';
+import 'screens/workout_edit_screen.dart';
 import 'screens/workout_screen.dart';
 
 final appRouter = GoRouter(
@@ -46,6 +48,17 @@ final appRouter = GoRouter(
       builder: (c, s) =>
           RoutineDetailScreen(routineId: int.parse(s.pathParameters['id']!)),
     ),
+    // A workout is one training day inside a routine.
+    GoRoute(
+      path: '/workout/:id/edit',
+      builder: (c, s) =>
+          WorkoutEditScreen(workoutId: int.parse(s.pathParameters['id']!)),
+    ),
+    GoRoute(
+      path: '/workout/:id',
+      builder: (c, s) =>
+          WorkoutDetailScreen(workoutId: int.parse(s.pathParameters['id']!)),
+    ),
     GoRoute(path: '/library', builder: (c, s) => const LibraryScreen()),
     GoRoute(path: '/library/new', builder: (c, s) => const ExerciseFormScreen()),
     GoRoute(
@@ -54,11 +67,12 @@ final appRouter = GoRouter(
           ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
     ),
     GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
-    GoRoute(path: '/workout', builder: (c, s) => const WorkoutScreen()),
+    // The live session in progress (distinct from /workout/:id, its template).
+    GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),
     GoRoute(
       path: '/summary/:id',
       builder: (c, s) =>
-          SummaryScreen(workoutId: int.parse(s.pathParameters['id']!)),
+          SummaryScreen(sessionId: int.parse(s.pathParameters['id']!)),
     ),
   ],
 );

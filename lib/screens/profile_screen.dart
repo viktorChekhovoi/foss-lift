@@ -10,7 +10,7 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final workouts = ref.watch(workoutCountProvider).value ?? 0;
+    final workouts = ref.watch(sessionCountProvider).value ?? 0;
     final routineCount = ref.watch(routinesProvider).value?.length ?? 0;
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 

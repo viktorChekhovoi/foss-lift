@@ -41,13 +41,14 @@ lib/
 ├── util/units.dart               kg⇄lb conversion helpers (pure functions)
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
+│   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
 │   └── routine_card.dart         The routine list-row card
 └── screens/                      One file per screen (see table below)
 
 design/mockup.html                Clickable HTML UI mockup — the visual spec
 CLAUDE.md                         Working conventions + the issue workflow
 features.txt                      Stub — the backlog lives in GitHub Issues
-test/                             Pure-logic unit tests (formatting, units)
+test/                             Unit tests (formatting, units, schema+seed)
 ```
 
 ## Layers in detail
@@ -56,20 +57,41 @@ test/                             Pure-logic unit tests (formatting, units)
 The heart of the app. Defines six drift tables and every query as a method on
 `AppDatabase`:
 
+The template side is three levels deep — **a routine contains workouts, a
+workout contains exercises, an exercise is done for sets**:
+
+```
+Routine  "Push / Pull / Legs"      ← the programme; you never train "a routine"
+└── Workout  "Push"                ← one training day; this is what you start
+    └── WorkoutItem  Bench Press   ← an exercise slot: 4 × 6–8 @ 80 kg
+        └── (sets are produced live, then logged as SessionSets)
+```
+
+Workout names need not be unique inside a routine — Upper/Lower legitimately
+has "Upper 1" and "Upper 2".
+
 | Table          | Holds |
 |----------------|-------|
 | `Exercises`    | The library. name, muscleGroup, equipment, instructions, videoUrl, isCustom |
-| `Routines`     | Templates. name, colorHex, position, restSeconds (default rest) |
-| `RoutineItems` | One exercise slot in a routine. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight |
-| `Workouts`     | A finished/in-progress session header. name, times, duration, totalVolume*, setsCompleted |
-| `WorkoutSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg |
+| `Routines`     | A programme. name, colorHex, position, restSeconds (default rest) |
+| `Workouts`     | A training day inside a routine. routineId, name, position |
+| `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight |
+| `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
+| `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg |
 | `Settings`     | Single-row (id=1) app prefs. Currently just `weightUnit` |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 
+† Plain integers, deliberately **not** foreign keys: deleting a template must
+not erase the history of having trained it.
+
+Watch the vocabulary — before schema v2, `Workouts` meant a logged session.
+It now means a day template; the logged thing is a `Session`.
+
 Query methods are grouped by comment banners (Exercise library / Routines /
-History / Aggregate stats / Settings / Seed). `_seed()` populates the starter
-library (~30 exercises) and three demo routines on first launch.
+Workouts / Workout items / History / Aggregate stats / Settings / Seed).
+`_seed()` populates the starter library (~30 exercises) plus two demo routines
+(PPL and Upper/Lower) on first launch.
 
 `database.g.dart` is generated — after editing tables/`@DriftDatabase`, run:
 ```
@@ -81,19 +103,21 @@ dart run build_runner build
   session in progress (weights in kg; `prevWeight`/`prevReps` drive the
   "Previous" column).
 - `ActiveWorkoutController extends Notifier<ActiveWorkout?>` — null when idle.
-  `start()` hydrates from a routine, a 1s timer ticks `elapsed`, edits mutate in
-  place (with a `rev` bump so Riverpod rebuilds), and `finish()` writes only the
-  completed sets via `saveWorkout()` and returns the new workout id.
+  `start(workoutId:)` hydrates from a workout template (deriving its routine for
+  the rest default), a 1s timer ticks `elapsed`, edits mutate in place (with a
+  `rev` bump so Riverpod rebuilds), and `finish()` writes only the completed sets
+  via `saveSession()` and returns the new session id.
 - Also exports the tiny `fmtWeight()` helper used across screens.
 
 ### Providers — `providers/`
 Thin bridge from widgets to data. Notable ones:
 - `databaseProvider` — the one DB instance (in its own file to break a cycle).
-- `routinesProvider`, `routineItemsProvider(id)`, `exerciseLibraryProvider`,
-  `historyProvider`, `workoutCountProvider` — streams, so the UI auto-updates.
+- `routinesProvider`, `routineWorkoutsProvider(routineId)`, `workoutProvider(id)`,
+  `workoutItemsProvider(id)`, `exerciseLibraryProvider`, `historyProvider`,
+  `sessionCountProvider` — streams, so the UI auto-updates.
 - `weightUnitProvider` — current 'kg'/'lb'; read as `.value ?? 'kg'`.
 - `activeWorkoutProvider` — the live-session controller above.
-- `workoutSummaryProvider(id)` — one finished session + its sets.
+- `sessionSummaryProvider(id)` — one finished session + its sets.
 
 ### UI — `screens/` and `widgets/`
 `home_shell.dart` is the bottom-tab scaffold (Today / Routines / History /
@@ -101,25 +125,34 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 
 | Route | Screen | Purpose |
 |-------|--------|---------|
-| `/today` | today_screen | Greeting, start-a-routine list, lifetime counts |
+| `/today` | today_screen | Greeting, routine list, lifetime counts |
 | `/routines` | routines_screen | All routines + "New routine" |
-| `/routine/:id` | routine_detail_screen | Read-only routine view + Start / Edit |
-| `/routine/new`, `/routine/:id/edit` | routine_edit_screen | **The builder** (see below) |
+| `/routine/:id` | routine_detail_screen | The routine's workouts; tap one to open it |
+| `/routine/new`, `/routine/:id/edit` | routine_edit_screen | Routine meta + its workout list |
+| `/workout/:id` | workout_detail_screen | A day's exercises + **Start workout** |
+| `/workout/:id/edit` | workout_edit_screen | **The exercise builder** (see below) |
 | `/library` | library_screen | Searchable exercise library + FAB to add |
 | `/library/new` | exercise_form_screen | Create a custom exercise |
 | `/exercise/:id` | exercise_detail_screen | Instructions + demo link |
-| `/workout` | workout_screen | **Live logging** (set rows, rest banner) |
-| `/summary/:id` | summary_screen | Post-workout recap |
+| `/session` | workout_screen | **Live logging** (set rows, rest banner) |
+| `/summary/:id` | summary_screen | Post-session recap |
 | `/history` | history_screen | Past sessions |
 | `/profile` | profile_screen | Stats + settings entry points |
 | `/settings` | settings_screen | kg/lb toggle |
 
-Two screens carry most of the weight:
-- **`routine_edit_screen.dart`** — the builder. Keeps a local list of `_Draft`
-  items, edits meta (name/colour/rest), reorders with up/down, configures each
-  item in `_ItemConfigSheet` (sets, rep range, to-failure, rest override,
-  weight), picks exercises via `_ExercisePicker`, then writes everything with
-  `createRoutine`/`updateRoutineMeta` + `replaceRoutineItems`.
+Note `/workout/:id` is a *template*; `/session` is the live thing in progress.
+
+Editing is split to match the hierarchy:
+- **`routine_edit_screen.dart`** — name, colour, default rest, and the ordered
+  list of workouts. Workout drafts carry their existing id, so
+  `replaceRoutineWorkouts` renames and reorders in place and only deletes what
+  you actually removed — editing a routine never disturbs its exercises.
+- **`workout_edit_screen.dart`** — the exercise builder. Keeps a local list of
+  `_Draft` items, reorders with up/down, configures each in `_ItemConfigSheet`
+  (sets, rep range, to-failure, rest override, weight), picks exercises via
+  `ExercisePicker`, then writes with `renameWorkout` + `replaceWorkoutItems`.
+- Shared builder chrome (`NumberStepper`, `ExercisePicker`, `builderInput`) is
+  in `widgets/builder_widgets.dart`.
 - **`workout_screen.dart`** — live logging. `_SetRow` owns the weight/reps text
   fields (converting kg⇄display unit), ticking a set fires haptics + the rest
   timer, and Finish routes to the summary.
@@ -134,10 +167,10 @@ Two screens carry most of the weight:
 
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
-  `build_runner`, add a query method, expose it via a provider.
-  Since the app is pre-release, `schemaVersion` is still 1 — bump it and add an
-  `onUpgrade` step **once real users exist**; until then a fresh install just
-  reseeds.
+  `build_runner`, add a query method, expose it via a provider. Bump
+  `schemaVersion` (currently **2**) and add an `onUpgrade` step. Migrations are
+  tested against a hand-written DDL fixture of the old schema — see
+  `test/migration_test.dart` for the pattern.
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,
   and a control in `settings_screen.dart`.
 - **Roadmap features** (progression, plate math, charts, sharing, reminders,

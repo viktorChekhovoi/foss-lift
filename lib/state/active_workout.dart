@@ -47,6 +47,7 @@ class ExerciseEntry {
 class ActiveWorkout {
   ActiveWorkout({
     required this.routineId,
+    required this.workoutId,
     required this.name,
     required this.startedAt,
     required this.exercises,
@@ -55,6 +56,9 @@ class ActiveWorkout {
   });
 
   final int? routineId;
+
+  /// The template being performed, or null for an ad-hoc session.
+  final int? workoutId;
   final String name;
   final DateTime startedAt;
   final List<ExerciseEntry> exercises;
@@ -72,6 +76,7 @@ class ActiveWorkout {
 
   ActiveWorkout copyWith({int? elapsed}) => ActiveWorkout(
         routineId: routineId,
+        workoutId: workoutId,
         name: name,
         startedAt: startedAt,
         exercises: exercises,
@@ -91,11 +96,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     return null;
   }
 
-  Future<void> start({int? routineId, required String name}) async {
+  /// Begins a live session from a workout template. Passing a null [workoutId]
+  /// starts an empty ad-hoc session.
+  Future<void> start({int? workoutId, required String name}) async {
     final exercises = <ExerciseEntry>[];
-    if (routineId != null) {
+    int? routineId;
+    if (workoutId != null) {
+      final workout = await _db.workoutById(workoutId);
+      routineId = workout.routineId;
       final routine = await _db.routineById(routineId);
-      final items = await _db.itemsForRoutine(routineId);
+      final items = await _db.itemsForWorkout(workoutId);
       for (final v in items) {
         // Prefill with the top of the rep range (the goal), or the fixed count.
         final reps = v.item.repsMax ?? v.item.repsMin;
@@ -119,6 +129,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     }
     state = ActiveWorkout(
       routineId: routineId,
+      workoutId: workoutId,
       name: name,
       startedAt: DateTime.now(),
       exercises: exercises,
@@ -163,19 +174,19 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   }
 
   /// Persists the session with only its completed sets. Returns the new
-  /// workout id, or null if there was nothing to save.
+  /// session id, or null if there was nothing to save.
   Future<int?> finish() async {
     final s = state;
     if (s == null) return null;
     _timer?.cancel();
 
-    final rows = <WorkoutSetsCompanion>[];
+    final rows = <SessionSetsCompanion>[];
     for (final e in s.exercises) {
       var n = 1;
       for (final set in e.sets) {
         if (!set.done) continue;
-        rows.add(WorkoutSetsCompanion.insert(
-          workoutId: 0, // replaced inside saveWorkout
+        rows.add(SessionSetsCompanion.insert(
+          sessionId: 0, // replaced inside saveSession
           exerciseName: e.name,
           setNumber: n++,
           exerciseId: Value(e.exerciseId),
@@ -186,8 +197,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       }
     }
 
-    final id = await _db.saveWorkout(
+    final id = await _db.saveSession(
       routineId: s.routineId,
+      workoutId: s.workoutId,
       name: s.name,
       startedAt: s.startedAt,
       endedAt: DateTime.now(),

@@ -45,7 +45,7 @@ class HistoryScreen extends ConsumerWidget {
                       children: [
                         for (var i = 0; i < list.length; i++)
                           _HistoryRow(
-                            workout: list[i],
+                            session: list[i],
                             last: i == list.length - 1,
                           ),
                       ],
@@ -61,8 +61,8 @@ class HistoryScreen extends ConsumerWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.workout, required this.last});
-  final Workout workout;
+  const _HistoryRow({required this.session, required this.last});
+  final Session session;
   final bool last;
 
   @override
@@ -78,10 +78,10 @@ class _HistoryRow extends StatelessWidget {
             width: 52,
             child: Column(
               children: [
-                Text(DateFormat('d').format(workout.startedAt),
+                Text(DateFormat('d').format(session.startedAt),
                     style: kMono.copyWith(fontSize: 20, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
-                Text(DateFormat('MMM').format(workout.startedAt).toUpperCase(),
+                Text(DateFormat('MMM').format(session.startedAt).toUpperCase(),
                     style: kMono.copyWith(fontSize: 10, letterSpacing: 1.0, color: AppColors.faint)),
               ],
             ),
@@ -91,11 +91,11 @@ class _HistoryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(workout.name,
+                Text(session.name,
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
-                  '${workout.setsCompleted} ${workout.setsCompleted == 1 ? 'set' : 'sets'}',
+                  '${session.setsCompleted} ${session.setsCompleted == 1 ? 'set' : 'sets'}',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
                 ),
               ],

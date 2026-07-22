@@ -4,7 +4,7 @@ import '../data/database.dart';
 import '../theme/app_theme.dart';
 import 'common.dart';
 
-/// A tappable routine template row: colour swatch, name, exercise count.
+/// A tappable routine row: colour swatch, name, workout count.
 class RoutineCard extends StatelessWidget {
   const RoutineCard({super.key, required this.data, required this.onTap});
   final RoutineWithCount data;
@@ -50,7 +50,8 @@ class RoutineCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${data.exerciseCount} exercises',
+                      '${data.workoutCount} '
+                      '${data.workoutCount == 1 ? 'workout' : 'workouts'}',
                       style: kMono.copyWith(
                         fontSize: 12.5,
                         color: AppColors.muted,
