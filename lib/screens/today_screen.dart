@@ -52,6 +52,7 @@ class _CurrentRoutineSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final routine = current.routine;
     final workouts = ref.watch(routineWorkoutsProvider(routine.id));
+    final nextId = ref.watch(nextWorkoutIdProvider(routine.id));
 
     return Column(
       children: [
@@ -85,6 +86,7 @@ class _CurrentRoutineSection extends ConsumerWidget {
                     _WorkoutCard(
                       data: w,
                       accent: hexColor(routine.colorHex),
+                      isNext: w.workout.id == nextId,
                       onTap: () => context.push('/workout/${w.workout.id}'),
                     ),
                     const SizedBox(height: 12),
@@ -145,21 +147,24 @@ class _RoutineChooserSection extends ConsumerWidget {
   }
 }
 
-/// One training day on the Today screen.
+/// One training day on the Today screen. The suggested next day is outlined in
+/// the routine's accent and badged; the others stay plain but tappable.
 class _WorkoutCard extends StatelessWidget {
   const _WorkoutCard({
     required this.data,
     required this.accent,
     required this.onTap,
+    this.isNext = false,
   });
   final WorkoutWithCount data;
   final Color accent;
   final VoidCallback onTap;
+  final bool isNext;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color: isNext ? AppColors.surface2 : AppColors.surface,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -167,7 +172,10 @@ class _WorkoutCard extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.line),
+            border: Border.all(
+              color: isNext ? accent : AppColors.line,
+              width: isNext ? 1.5 : 1,
+            ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           child: Row(
@@ -185,13 +193,23 @@ class _WorkoutCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      data.workout.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            data.workout.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        if (isNext) ...[
+                          const SizedBox(width: 8),
+                          NextBadge(color: accent),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Text(

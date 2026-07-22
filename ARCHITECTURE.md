@@ -120,6 +120,9 @@ Thin bridge from widgets to data. Notable ones:
 - `routinesProvider`, `routineWorkoutsProvider(routineId)`, `workoutProvider(id)`,
   `workoutItemsProvider(id)`, `exerciseLibraryProvider`, `historyProvider`,
   `sessionCountProvider` — streams, so the UI auto-updates.
+- `lastSessionProvider(routineId)` / `nextWorkoutIdProvider(routineId)` — the
+  suggested next day. Derived from history, never stored, so training out of
+  order cannot desync it (see `nextWorkoutId` in `data/database.dart`).
 - `activeRoutineIdProvider` / `currentRoutineProvider` — the routine Today is
   about. Always read the latter: it resolves the stored id against the live
   routine list, so a deleted routine degrades to null instead of dangling.

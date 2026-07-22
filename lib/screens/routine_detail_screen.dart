@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 
 /// A routine's training days. You start a workout from here, never the routine
 /// itself — a routine is a container, not a session.
@@ -17,6 +18,7 @@ class RoutineDetailScreen extends ConsumerWidget {
     final routines = ref.watch(routinesProvider).value;
     final workouts = ref.watch(routineWorkoutsProvider(routineId));
     final isCurrent = ref.watch(currentRoutineProvider)?.routine.id == routineId;
+    final nextId = ref.watch(nextWorkoutIdProvider(routineId));
 
     Routine? routine;
     if (routines != null) {
@@ -83,6 +85,7 @@ class RoutineDetailScreen extends ConsumerWidget {
                       index: i + 1,
                       data: list[i],
                       accent: routine?.colorHex,
+                      isNext: list[i].workout.id == nextId,
                       onTap: () => context.push('/workout/${list[i].workout.id}'),
                     ),
                   ),
@@ -132,16 +135,19 @@ class _WorkoutRow extends StatelessWidget {
     required this.data,
     required this.accent,
     required this.onTap,
+    this.isNext = false,
   });
   final int index;
   final WorkoutWithCount data;
   final String? accent;
   final VoidCallback onTap;
+  final bool isNext;
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = hexColor(accent ?? 'FF6A3D');
     return Material(
-      color: AppColors.surface,
+      color: isNext ? AppColors.surface2 : AppColors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -149,7 +155,10 @@ class _WorkoutRow extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.line),
+            border: Border.all(
+              color: isNext ? accentColor : AppColors.line,
+              width: isNext ? 1.5 : 1,
+            ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           child: Row(
@@ -166,9 +175,19 @@ class _WorkoutRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(data.workout.name,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(data.workout.name,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600)),
+                        ),
+                        if (isNext) ...[
+                          const SizedBox(width: 8),
+                          NextBadge(color: accentColor),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 3),
                     Text(
                       '${data.exerciseCount} '

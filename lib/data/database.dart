@@ -158,6 +158,20 @@ typedef WorkoutDraft = ({
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 
+/// The workout a routine should suggest next, given its workouts in order and
+/// the workout logged by the most recent finished session.
+///
+/// Derived, never stored: training out of order cannot corrupt anything,
+/// because the suggestion is only ever "the one after whatever you did last".
+/// Falls back to the first workout when the routine has never been trained, or
+/// when the last one trained has since been deleted.
+int? nextWorkoutId(List<int> orderedIds, int? lastWorkoutId) {
+  if (orderedIds.isEmpty) return null;
+  final i = lastWorkoutId == null ? -1 : orderedIds.indexOf(lastWorkoutId);
+  if (i < 0) return orderedIds.first;
+  return orderedIds[(i + 1) % orderedIds.length];
+}
+
 /// Human-readable rep target, e.g. "10", "6–8", or "To failure".
 String repsLabel(WorkoutItem it) {
   if (it.toFailure) return 'Failure';
@@ -509,6 +523,16 @@ class AppDatabase extends _$AppDatabase {
           ..where((s) => s.endedAt.isNotNull())
           ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
         .watch();
+  }
+
+  /// The most recently finished session of a routine, if it has ever been
+  /// trained. Drives the next-workout suggestion.
+  Stream<Session?> watchLastSessionForRoutine(int routineId) {
+    return (select(sessions)
+          ..where((s) => s.routineId.equals(routineId) & s.endedAt.isNotNull())
+          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
+          ..limit(1))
+        .watchSingleOrNull();
   }
 
   Future<List<SessionSet>> setsForSession(int sessionId) {

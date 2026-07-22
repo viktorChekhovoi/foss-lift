@@ -67,5 +67,31 @@ class ScreenHeader extends StatelessWidget {
   }
 }
 
+/// A small pill marking the workout a routine suggests doing next.
+class NextBadge extends StatelessWidget {
+  const NextBadge({super.key, required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'NEXT',
+        style: kMono.copyWith(
+          fontSize: 9,
+          letterSpacing: 0.9,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
 /// Parses a stored "RRGGBB" hex string into an opaque [Color].
 Color hexColor(String hex) => Color(int.parse('FF$hex', radix: 16));

@@ -17,6 +17,24 @@ final routineWorkoutsProvider =
   return ref.watch(databaseProvider).watchWorkoutsForRoutine(routineId);
 });
 
+/// The most recent finished session of a routine, or null if never trained.
+final lastSessionProvider =
+    StreamProvider.family<Session?, int>((ref, routineId) {
+  return ref.watch(databaseProvider).watchLastSessionForRoutine(routineId);
+});
+
+/// The workout a routine suggests next — the one after whatever was trained
+/// most recently, wrapping around. Null while loading or if there are none.
+final nextWorkoutIdProvider = Provider.family<int?, int>((ref, routineId) {
+  final workouts = ref.watch(routineWorkoutsProvider(routineId)).value;
+  if (workouts == null) return null;
+  final last = ref.watch(lastSessionProvider(routineId)).value;
+  return nextWorkoutId(
+    workouts.map((w) => w.workout.id).toList(),
+    last?.workoutId,
+  );
+});
+
 /// One workout template, kept live so a rename shows up immediately.
 final workoutProvider = StreamProvider.family<Workout?, int>((ref, id) {
   return ref.watch(databaseProvider).watchWorkout(id);
