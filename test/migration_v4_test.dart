@@ -5,10 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 
 /// The v3 schema, verbatim — what an install that has been through the goal
-/// columns has on disk. v3→v4 hangs progression off every exercise slot, and
-/// the whole promise of that upgrade is that nobody's programme changes shape
-/// underneath them: existing exercises keep adding weight, and their targets
-/// stay exactly where the user left them.
+/// columns has on disk. v3→v4 hangs progression off every exercise slot and
+/// v4→v5 sorts the library into counted and held movements. The whole promise
+/// of both is that nobody's programme changes shape underneath them: existing
+/// exercises keep adding weight, and their targets stay where the user left
+/// them.
 const _v3Ddl = [
   '''CREATE TABLE "exercises" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
        "name" TEXT NOT NULL, "muscle_group" TEXT NOT NULL DEFAULT 'Other',
@@ -57,6 +58,7 @@ QueryExecutor _v3Fixture() {
     raw.execute("INSERT INTO settings (id, weight_unit) VALUES (1, 'kg')");
     raw.execute("INSERT INTO exercises (id, name) VALUES (1, 'Squat')");
     raw.execute("INSERT INTO exercises (id, name) VALUES (2, 'Pull-Up')");
+    raw.execute("INSERT INTO exercises (id, name) VALUES (3, 'Plank')");
     raw.execute("INSERT INTO routines (id, name) VALUES (4, 'Strength')");
     raw.execute('INSERT INTO workouts (id, routine_id, name, position) '
         "VALUES (9, 4, 'Day A', 0)");
@@ -129,5 +131,30 @@ void main() {
   test('an upgraded slot progresses from its first session onwards', () async {
     await db.advanceProgression(1, success: true);
     expect((await db.workoutItemById(1))!.suggestedWeight, 62.5);
+  });
+
+  group('v4 → v5, which sorts the library into counted and held', () {
+    test('everything is counted unless it is a hold', () async {
+      // The default is what almost every movement is, so an upgrade cannot
+      // quietly turn a squat into something you hold.
+      final all = await db.watchExercises().first;
+      expect(all.firstWhere((e) => e.name == 'Squat').measure,
+          ExerciseMeasure.reps);
+    });
+
+    test('the starter library\'s one hold is recognised as one', () async {
+      // Matched by name on upgrade: it is the only handle on a seeded row.
+      final plank = (await db.watchExercises().first)
+          .firstWhere((e) => e.name == 'Plank');
+      expect(plank.measure, ExerciseMeasure.time);
+      expect(plank.measure.modes, [ProgressionMode.time]);
+    });
+
+    test('a counted movement is never offered the time axis', () async {
+      final squat = (await db.watchExercises().first)
+          .firstWhere((e) => e.name == 'Squat');
+      expect(squat.measure.modes,
+          [ProgressionMode.weight, ProgressionMode.reps]);
+    });
   });
 }

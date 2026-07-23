@@ -42,6 +42,11 @@ Widget builderLabel(String t) => Padding(
     );
 
 /// A compact "− value + " stepper.
+///
+/// Pass [onClear] to make the value optional: pressing − at [min] empties it
+/// rather than sticking, and + brings it back. That keeps an optional setting
+/// the same width and shape as a required one — a separate clear button beside
+/// the stepper would push it out of line with every other row.
 class NumberStepper extends StatelessWidget {
   const NumberStepper({
     super.key,
@@ -51,7 +56,9 @@ class NumberStepper extends StatelessWidget {
     this.max = 999,
     this.step = 1,
     this.suffix = '',
-    this.badge,
+    this.isEmpty = false,
+    this.emptyLabel = '—',
+    this.onClear,
   });
   final int value;
   final ValueChanged<int> onChanged;
@@ -59,33 +66,47 @@ class NumberStepper extends StatelessWidget {
   final int max;
   final int step;
   final String suffix;
-  final String? badge;
+
+  /// Shows [emptyLabel] instead of [value]; + restores [min].
+  final bool isEmpty;
+  final String emptyLabel;
+
+  /// Called instead of [onChanged] when − would take the value below [min].
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
+    final canGoDown = isEmpty ? false : (value > min || onClear != null);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (badge != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Text(badge!.toUpperCase(),
-                style: kMono.copyWith(
-                    fontSize: 9, letterSpacing: 0.8, color: AppColors.faint)),
-          ),
-        _btn(Icons.remove,
-            value > min ? () => onChanged(_clamp(value - step)) : null),
+        _btn(Icons.remove, canGoDown ? _down : null),
         Container(
           constraints: const BoxConstraints(minWidth: 54),
           alignment: Alignment.center,
-          child: Text('$value$suffix',
-              style: kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w700)),
+          child: Text(
+            isEmpty ? emptyLabel : '$value$suffix',
+            style: kMono.copyWith(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isEmpty ? AppColors.faint : AppColors.text,
+            ),
+          ),
         ),
-        _btn(Icons.add,
-            value < max ? () => onChanged(_clamp(value + step)) : null),
+        _btn(Icons.add, isEmpty || value < max ? _up : null),
       ],
     );
   }
+
+  void _down() {
+    if (value - step < min) {
+      onClear!();
+    } else {
+      onChanged(_clamp(value - step));
+    }
+  }
+
+  void _up() => onChanged(isEmpty ? min : _clamp(value + step));
 
   int _clamp(int v) => v < min ? min : (v > max ? max : v);
 
@@ -105,6 +126,97 @@ class NumberStepper extends StatelessWidget {
               color: onTap == null ? AppColors.faint : AppColors.text),
         ),
       ),
+    );
+  }
+}
+
+/// A titled group of settings.
+///
+/// A sheet with a dozen controls stacked in one column reads as a dozen
+/// decisions; the same controls in three captioned blocks read as three. Every
+/// setting inside a card is about the same thing.
+Widget builderCard(String caption, List<Widget> children) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        builderLabel(caption),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.line),
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: children,
+          ),
+        ),
+      ],
+    );
+
+/// Lays fields out two to a row, last one half-width if the count is odd.
+Widget builderGrid(List<Widget> fields) {
+  final rows = <Widget>[];
+  for (var i = 0; i < fields.length; i += 2) {
+    rows.add(Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: fields[i]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: i + 1 < fields.length ? fields[i + 1] : const SizedBox(),
+        ),
+      ],
+    ));
+  }
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < rows.length; i++) ...[
+        if (i > 0) const SizedBox(height: 16),
+        rows[i],
+      ],
+    ],
+  );
+}
+
+/// One captioned control inside a [builderGrid] cell. [note] is a qualifier
+/// that belongs to the caption rather than to the value — "REST · DEFAULT".
+class BuilderField extends StatelessWidget {
+  const BuilderField({
+    super.key,
+    required this.label,
+    required this.child,
+    this.note,
+  });
+  final String label;
+  final Widget child;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text.rich(
+          TextSpan(
+            style: kMono.copyWith(
+                fontSize: 10, letterSpacing: 1.0, color: AppColors.faint),
+            children: [
+              TextSpan(text: label.toUpperCase()),
+              if (note != null)
+                TextSpan(
+                  text: ' · ${note!.toUpperCase()}',
+                  style: const TextStyle(color: AppColors.accent),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
     );
   }
 }

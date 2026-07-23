@@ -98,6 +98,16 @@ class $ExercisesTable extends Exercises
     defaultValue: const Constant(false),
   );
   @override
+  late final GeneratedColumnWithTypeConverter<ExerciseMeasure, String> measure =
+      GeneratedColumn<String>(
+        'measure',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('reps'),
+      ).withConverter<ExerciseMeasure>($ExercisesTable.$convertermeasure);
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     name,
@@ -106,6 +116,7 @@ class $ExercisesTable extends Exercises
     instructions,
     videoUrl,
     isCustom,
+    measure,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -203,6 +214,12 @@ class $ExercisesTable extends Exercises
         DriftSqlType.bool,
         data['${effectivePrefix}is_custom'],
       )!,
+      measure: $ExercisesTable.$convertermeasure.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}measure'],
+        )!,
+      ),
     );
   }
 
@@ -210,6 +227,9 @@ class $ExercisesTable extends Exercises
   $ExercisesTable createAlias(String alias) {
     return $ExercisesTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<ExerciseMeasure, String, String> $convertermeasure =
+      const EnumNameConverter<ExerciseMeasure>(ExerciseMeasure.values);
 }
 
 class Exercise extends DataClass implements Insertable<Exercise> {
@@ -220,6 +240,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String instructions;
   final String? videoUrl;
   final bool isCustom;
+
+  /// Whether the movement is counted or held — see [ExerciseMeasure]. Decides
+  /// which progression axes a workout may put it on.
+  final ExerciseMeasure measure;
   const Exercise({
     required this.id,
     required this.name,
@@ -228,6 +252,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.instructions,
     this.videoUrl,
     required this.isCustom,
+    required this.measure,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -241,6 +266,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       map['video_url'] = Variable<String>(videoUrl);
     }
     map['is_custom'] = Variable<bool>(isCustom);
+    {
+      map['measure'] = Variable<String>(
+        $ExercisesTable.$convertermeasure.toSql(measure),
+      );
+    }
     return map;
   }
 
@@ -255,6 +285,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ? const Value.absent()
           : Value(videoUrl),
       isCustom: Value(isCustom),
+      measure: Value(measure),
     );
   }
 
@@ -271,6 +302,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       instructions: serializer.fromJson<String>(json['instructions']),
       videoUrl: serializer.fromJson<String?>(json['videoUrl']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
+      measure: $ExercisesTable.$convertermeasure.fromJson(
+        serializer.fromJson<String>(json['measure']),
+      ),
     );
   }
   @override
@@ -284,6 +318,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'instructions': serializer.toJson<String>(instructions),
       'videoUrl': serializer.toJson<String?>(videoUrl),
       'isCustom': serializer.toJson<bool>(isCustom),
+      'measure': serializer.toJson<String>(
+        $ExercisesTable.$convertermeasure.toJson(measure),
+      ),
     };
   }
 
@@ -295,6 +332,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     String? instructions,
     Value<String?> videoUrl = const Value.absent(),
     bool? isCustom,
+    ExerciseMeasure? measure,
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -303,6 +341,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     instructions: instructions ?? this.instructions,
     videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
     isCustom: isCustom ?? this.isCustom,
+    measure: measure ?? this.measure,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -317,6 +356,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : this.instructions,
       videoUrl: data.videoUrl.present ? data.videoUrl.value : this.videoUrl,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
+      measure: data.measure.present ? data.measure.value : this.measure,
     );
   }
 
@@ -329,7 +369,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('equipment: $equipment, ')
           ..write('instructions: $instructions, ')
           ..write('videoUrl: $videoUrl, ')
-          ..write('isCustom: $isCustom')
+          ..write('isCustom: $isCustom, ')
+          ..write('measure: $measure')
           ..write(')'))
         .toString();
   }
@@ -343,6 +384,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     instructions,
     videoUrl,
     isCustom,
+    measure,
   );
   @override
   bool operator ==(Object other) =>
@@ -354,7 +396,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.equipment == this.equipment &&
           other.instructions == this.instructions &&
           other.videoUrl == this.videoUrl &&
-          other.isCustom == this.isCustom);
+          other.isCustom == this.isCustom &&
+          other.measure == this.measure);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -365,6 +408,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String> instructions;
   final Value<String?> videoUrl;
   final Value<bool> isCustom;
+  final Value<ExerciseMeasure> measure;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -373,6 +417,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.instructions = const Value.absent(),
     this.videoUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
+    this.measure = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -382,6 +427,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.instructions = const Value.absent(),
     this.videoUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
+    this.measure = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
     Expression<int>? id,
@@ -391,6 +437,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? instructions,
     Expression<String>? videoUrl,
     Expression<bool>? isCustom,
+    Expression<String>? measure,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -400,6 +447,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (instructions != null) 'instructions': instructions,
       if (videoUrl != null) 'video_url': videoUrl,
       if (isCustom != null) 'is_custom': isCustom,
+      if (measure != null) 'measure': measure,
     });
   }
 
@@ -411,6 +459,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String>? instructions,
     Value<String?>? videoUrl,
     Value<bool>? isCustom,
+    Value<ExerciseMeasure>? measure,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -420,6 +469,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       instructions: instructions ?? this.instructions,
       videoUrl: videoUrl ?? this.videoUrl,
       isCustom: isCustom ?? this.isCustom,
+      measure: measure ?? this.measure,
     );
   }
 
@@ -447,6 +497,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (isCustom.present) {
       map['is_custom'] = Variable<bool>(isCustom.value);
     }
+    if (measure.present) {
+      map['measure'] = Variable<String>(
+        $ExercisesTable.$convertermeasure.toSql(measure.value),
+      );
+    }
     return map;
   }
 
@@ -459,7 +514,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('equipment: $equipment, ')
           ..write('instructions: $instructions, ')
           ..write('videoUrl: $videoUrl, ')
-          ..write('isCustom: $isCustom')
+          ..write('isCustom: $isCustom, ')
+          ..write('measure: $measure')
           ..write(')'))
         .toString();
   }
@@ -3770,6 +3826,7 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<String> instructions,
       Value<String?> videoUrl,
       Value<bool> isCustom,
+      Value<ExerciseMeasure> measure,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -3780,6 +3837,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<String> instructions,
       Value<String?> videoUrl,
       Value<bool> isCustom,
+      Value<ExerciseMeasure> measure,
     });
 
 final class $$ExercisesTableReferences
@@ -3847,6 +3905,12 @@ class $$ExercisesTableFilterComposer
   ColumnFilters<bool> get isCustom => $composableBuilder(
     column: $table.isCustom,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<ExerciseMeasure, ExerciseMeasure, String>
+  get measure => $composableBuilder(
+    column: $table.measure,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   Expression<bool> workoutItemsRefs(
@@ -3918,6 +3982,11 @@ class $$ExercisesTableOrderingComposer
     column: $table.isCustom,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get measure => $composableBuilder(
+    column: $table.measure,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -3953,6 +4022,9 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<bool> get isCustom =>
       $composableBuilder(column: $table.isCustom, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ExerciseMeasure, String> get measure =>
+      $composableBuilder(column: $table.measure, builder: (column) => column);
 
   Expression<T> workoutItemsRefs<T extends Object>(
     Expression<T> Function($$WorkoutItemsTableAnnotationComposer a) f,
@@ -4015,6 +4087,7 @@ class $$ExercisesTableTableManager
                 Value<String> instructions = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
+                Value<ExerciseMeasure> measure = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -4023,6 +4096,7 @@ class $$ExercisesTableTableManager
                 instructions: instructions,
                 videoUrl: videoUrl,
                 isCustom: isCustom,
+                measure: measure,
               ),
           createCompanionCallback:
               ({
@@ -4033,6 +4107,7 @@ class $$ExercisesTableTableManager
                 Value<String> instructions = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
+                Value<ExerciseMeasure> measure = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -4041,6 +4116,7 @@ class $$ExercisesTableTableManager
                 instructions: instructions,
                 videoUrl: videoUrl,
                 isCustom: isCustom,
+                measure: measure,
               ),
           withReferenceMapper: (p0) => p0
               .map(

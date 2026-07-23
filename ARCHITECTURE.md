@@ -75,7 +75,7 @@ has "Upper 1" and "Upper 2".
 
 | Table          | Holds |
 |----------------|-------|
-| `Exercises`    | The library. name, muscleGroup, equipment, instructions, videoUrl, isCustom |
+| `Exercises`    | The library. name, muscleGroup, equipment, instructions, videoUrl, isCustom, `measure` (counted or held) |
 | `Routines`     | A programme. name, colorHex, position, restSeconds (default rest) |
 | `Workouts`     | A training day inside a routine. routineId, name, position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
@@ -113,6 +113,15 @@ load), **reps** (add reps at a fixed load), or **time** (hold longer). The rules
 are per-slot and fully configurable in the workout builder, with defaults that
 work untouched: `+2.5 kg` after one clean session, `−5 kg` after two misses in a
 row.
+
+**Which axes a slot may use is not the programme's choice** — it comes from
+`Exercises.measure` (`ExerciseMeasure`), a property of the movement itself. A
+*counted* exercise offers weight and reps; a *held* one offers time and nothing
+else. There is no such thing as a deadlift progressed by time, so the builder
+never offers it: `ExerciseMeasure.modes` is what the picker renders, and
+`coerce` pulls a stored axis back in line if the exercise's measure ever
+changes under it. The measure is chosen when a custom exercise is created; in
+the starter library only the Plank is held.
 
 - `progression.dart` is the pure arithmetic — `stepProgression` folds one
   session's verdict into the consecutive-success/failure counters and says how
@@ -217,9 +226,16 @@ Editing is split to match the hierarchy:
 - Both share `widgets/workout_items_editor.dart` — `ItemDraft` plus the
   add/reorder/configure list. It edits a plain `List<ItemDraft>` and never
   touches the database, which is what lets the routine builder assemble a
-  workout's exercises before that workout exists.
-- Shared builder chrome (`NumberStepper`, `ExercisePicker`, `builderInput`) is
-  in `widgets/builder_widgets.dart`.
+  workout's exercises before that workout exists. Rows are reordered by
+  dragging the grip on the left (`ReorderableListView` with
+  `buildDefaultDragHandles: false`); the rest of the card keeps its tap.
+- Shared builder chrome (`NumberStepper`, `ExercisePicker`, `builderInput`,
+  `builderCard`/`builderGrid`/`BuilderField`) is in
+  `widgets/builder_widgets.dart`. The config sheet is built from those: three
+  captioned cards of two-column fields, because a dozen controls in one column
+  reads as a dozen decisions. `NumberStepper` takes an `onClear` to make a
+  value optional in place — that is how the rep range's upper bound is dropped
+  without a clear button beside it knocking the row out of alignment.
 
 `WorkoutDraft.items` is nullable on purpose: null leaves a workout's exercises
 untouched, a list replaces them wholesale. The routine builder only populates
@@ -246,7 +262,7 @@ you never looked at.
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
   `build_runner`, add a query method, expose it via a provider. Bump
-  `schemaVersion` (currently **4**) and add an `onUpgrade` step. Migrations are
+  `schemaVersion` (currently **5**) and add an `onUpgrade` step. Migrations are
   tested against a hand-written DDL fixture of the old schema — see
   `test/migration_test.dart` for the pattern.
   A migration step must build the shape of *its own era*: create tables with

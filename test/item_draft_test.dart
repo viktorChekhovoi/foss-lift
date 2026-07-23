@@ -5,8 +5,10 @@ import 'package:foss_lift/widgets/workout_items_editor.dart';
 /// The builder's working copy of an exercise slot: what switching the axis does
 /// to the rates, and how the card summarises the result.
 void main() {
+  /// A counted movement by default; pass [measure] for a held one.
   ItemDraft draft({
-    ProgressionMode mode = ProgressionMode.weight,
+    ExerciseMeasure measure = ExerciseMeasure.reps,
+    ProgressionMode? mode,
     int sets = 4,
     int repsMin = 6,
     int? repsMax = 8,
@@ -18,6 +20,7 @@ void main() {
         exerciseId: 1,
         name: 'Bench Press',
         muscle: 'Chest',
+        measure: measure,
         sets: sets,
         repsMin: repsMin,
         repsMax: repsMax,
@@ -26,6 +29,35 @@ void main() {
         progression: mode,
         holdSeconds: holdSeconds,
       );
+
+  group('what the measure allows', () {
+    test('a counted movement offers load and reps, never time', () {
+      expect(draft().modes,
+          [ProgressionMode.weight, ProgressionMode.reps]);
+    });
+
+    test('a held movement offers time and nothing else', () {
+      final d = draft(measure: ExerciseMeasure.time);
+      expect(d.modes, [ProgressionMode.time]);
+      expect(d.progression, ProgressionMode.time,
+          reason: 'and opens on it, since there is nothing else to open on');
+      expect([d.increment, d.deload], [5, 10]);
+    });
+
+    test('an axis the measure forbids is refused, not silently taken', () {
+      // You cannot progress a deadlift by time.
+      final d = draft()..setMode(ProgressionMode.time);
+      expect(d.progression, ProgressionMode.weight);
+      expect(d.increment, 2.5, reason: 'and the rates are left alone with it');
+    });
+
+    test('a stored axis the measure no longer allows is coerced back', () {
+      // The exercise was edited to a hold under a workout that had it on load.
+      final d = draft(
+          measure: ExerciseMeasure.time, mode: ProgressionMode.weight);
+      expect(d.progression, ProgressionMode.time);
+    });
+  });
 
   group('rates follow the axis', () {
     test('a fresh draft starts on the weight defaults', () {
@@ -38,8 +70,8 @@ void main() {
       final d = draft()..setMode(ProgressionMode.reps);
       expect([d.increment, d.deload], [1, 2]);
 
-      d.setMode(ProgressionMode.time);
-      expect([d.increment, d.deload], [5, 10]);
+      d.setMode(ProgressionMode.weight);
+      expect([d.increment, d.deload], [2.5, 5]);
     });
 
     test('re-selecting the axis already chosen leaves a custom rate alone', () {
@@ -64,7 +96,7 @@ void main() {
     });
 
     test('a timed slot reads in seconds, not reps', () {
-      final d = draft(weightKg: null)..setMode(ProgressionMode.time);
+      final d = draft(measure: ExerciseMeasure.time, weightKg: null);
       expect(draftSummary(d, 'kg'), '4 × 45s · +5s');
     });
 
@@ -89,7 +121,7 @@ void main() {
 
   test('progression settings survive a round trip through the drafts', () {
     final rows = itemCompanions([
-      draft(mode: ProgressionMode.time)
+      draft(measure: ExerciseMeasure.time)
         ..successThreshold = 3
         ..failureThreshold = 4
         ..successStreak = 2,

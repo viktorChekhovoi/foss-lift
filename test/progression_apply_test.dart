@@ -15,6 +15,10 @@ void main() {
   tearDown(() => db.close());
 
   /// A one-exercise workout in its own routine, configured to taste.
+  ///
+  /// The exercise follows the axis: a squat for load and reps, a plank for
+  /// time, because the library decides which axes a movement may go on and
+  /// there is no such thing as a timed squat.
   Future<int> slot({
     ProgressionMode mode = ProgressionMode.weight,
     int sets = 3,
@@ -28,8 +32,8 @@ void main() {
     int successThreshold = defaultSuccessThreshold,
     int failureThreshold = defaultFailureThreshold,
   }) async {
-    final squat = (await db.watchExercises().first)
-        .firstWhere((e) => e.name == 'Back Squat');
+    final ex = (await db.watchExercises().first).firstWhere(
+        (e) => e.name == (mode.timed ? 'Plank' : 'Back Squat'));
     final rid = await db.createRoutine(
         name: 'Test', color: 'FF6A3D', restSeconds: 90);
     final wid = await db.createWorkout(rid, 'Day');
@@ -38,9 +42,10 @@ void main() {
       itemCompanions(
         [
           ItemDraft(
-            exerciseId: squat.id,
-            name: squat.name,
-            muscle: squat.muscleGroup,
+            exerciseId: ex.id,
+            name: ex.name,
+            muscle: ex.muscleGroup,
+            measure: ex.measure,
             sets: sets,
             repsMin: repsMin,
             repsMax: repsMax,

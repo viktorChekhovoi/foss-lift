@@ -48,6 +48,38 @@ enum ProgressionMode {
       };
 }
 
+/// How a movement is measured — a property of the exercise itself, not of any
+/// programme built on it. A squat is counted; a plank is held.
+///
+/// This is what decides which progression axes an exercise may use at all.
+/// Offering to progress a deadlift by time, or a plank by reps, is offering a
+/// choice with no right answer in it.
+enum ExerciseMeasure {
+  /// Counted in repetitions. Progresses on load or on reps.
+  reps,
+
+  /// Held for a duration. Progresses on time.
+  time;
+
+  /// The axes this measure permits, in the order they should be offered.
+  List<ProgressionMode> get modes => switch (this) {
+        ExerciseMeasure.reps => const [
+            ProgressionMode.weight,
+            ProgressionMode.reps,
+          ],
+        ExerciseMeasure.time => const [ProgressionMode.time],
+      };
+
+  /// The axis to start on: load for anything counted, time for anything held.
+  ProgressionMode get defaultMode => modes.first;
+
+  /// Forces [mode] into something this measure allows. Used when reading a
+  /// stored slot back, so an exercise that changed measure cannot leave a
+  /// workout logging reps against a hold.
+  ProgressionMode coerce(ProgressionMode mode) =>
+      modes.contains(mode) ? mode : defaultMode;
+}
+
 /// One clean session earns a step up: the common case is a programme that adds
 /// weight every time you finish the sets it asked for.
 const defaultSuccessThreshold = 1;

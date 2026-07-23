@@ -180,12 +180,14 @@ void main() {
           wid,
           itemCompanions(
             [
+              // The library says a plank is held, which is what puts it on the
+              // time axis — a workout cannot pick that for itself.
               ItemDraft(
                 exerciseId: plank.id,
                 name: plank.name,
                 muscle: plank.muscleGroup,
+                measure: plank.measure,
                 sets: 2,
-                progression: ProgressionMode.time,
                 holdSeconds: 45,
               ),
             ],

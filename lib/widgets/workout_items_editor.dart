@@ -23,7 +23,8 @@ class ItemDraft {
     this.toFailure = false,
     this.restSeconds,
     this.weightKg,
-    this.progression = ProgressionMode.weight,
+    this.measure = ExerciseMeasure.reps,
+    ProgressionMode? progression,
     this.holdSeconds = 30,
     double? increment,
     double? deload,
@@ -31,8 +32,15 @@ class ItemDraft {
     this.failureThreshold = defaultFailureThreshold,
     this.successStreak = 0,
     this.failStreak = 0,
-  })  : increment = increment ?? progression.defaultIncrement,
-        deload = deload ?? progression.defaultDeload;
+  })  : progression = _startingMode(measure, progression),
+        increment =
+            increment ?? _startingMode(measure, progression).defaultIncrement,
+        deload = deload ?? _startingMode(measure, progression).defaultDeload;
+
+  /// The axis a draft opens on: what was asked for, if the measure allows it.
+  static ProgressionMode _startingMode(
+          ExerciseMeasure measure, ProgressionMode? want) =>
+      measure.coerce(want ?? ProgressionMode.weight);
 
   /// Rehydrates a draft from a stored item.
   factory ItemDraft.fromView(WorkoutItemView v) => ItemDraft(
@@ -45,6 +53,9 @@ class ItemDraft {
         toFailure: v.item.toFailure,
         restSeconds: v.item.restSeconds,
         weightKg: v.item.suggestedWeight,
+        // The library has the final say on the axis: an exercise that changed
+        // measure must not leave a saved workout counting reps against a hold.
+        measure: v.exercise.measure,
         progression: v.item.progression,
         holdSeconds: v.item.holdSeconds,
         increment: v.item.increment,
@@ -55,9 +66,23 @@ class ItemDraft {
         failStreak: v.item.failStreak,
       );
 
+  /// A brand-new slot for [e], on whichever axis its measure implies.
+  factory ItemDraft.forExercise(Exercise e) => ItemDraft(
+        exerciseId: e.id,
+        name: e.name,
+        muscle: e.muscleGroup,
+        measure: e.measure,
+        progression: e.measure.defaultMode,
+      );
+
   final int exerciseId;
   final String name;
   final String muscle;
+
+  /// Whether the movement is counted or held. Fixed by the library, not the
+  /// programme — it is what limits which axes [setMode] will accept.
+  final ExerciseMeasure measure;
+
   int sets;
   int repsMin;
   int? repsMax;
@@ -78,10 +103,14 @@ class ItemDraft {
   int successStreak;
   int failStreak;
 
+  /// The axes this slot may be put on, per the exercise's measure.
+  List<ProgressionMode> get modes => measure.modes;
+
   /// Switches the axis, resetting the rates to that mode's defaults: 2.5 of
-  /// anything is a sane step in kilograms and nonsense in reps.
+  /// anything is a sane step in kilograms and nonsense in reps. An axis the
+  /// measure does not allow is ignored.
   void setMode(ProgressionMode mode) {
-    if (mode == progression) return;
+    if (mode == progression || !modes.contains(mode)) return;
     progression = mode;
     increment = mode.defaultIncrement;
     deload = mode.defaultDeload;
@@ -176,10 +205,8 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     widget.onChanged?.call();
   }
 
-  void _move(int i, int delta) {
-    final j = i + delta;
-    if (j < 0 || j >= _items.length) return;
-    _bump(() => _items.insert(j, _items.removeAt(i)));
+  void _reorder(int from, int to) {
+    _bump(() => _items.insert(to, _items.removeAt(from)));
   }
 
   Future<void> _addExercise() async {
@@ -191,11 +218,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     final picked = await pickExercise(context);
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
-    _bump(() => _items.add(ItemDraft(
-          exerciseId: picked.id,
-          name: picked.name,
-          muscle: picked.muscleGroup,
-        )));
+    _bump(() => _items.add(ItemDraft.forExercise(picked)));
   }
 
   Future<void> _configure(int i) async {
@@ -203,6 +226,9 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      // Without this the sheet grows behind the status bar and the camera
+      // cut-out takes a bite out of the exercise name at the top of it.
+      useSafeArea: true,
       backgroundColor: AppColors.ground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -230,20 +256,33 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
             child: Text('No exercises yet — add one below.',
                 style: TextStyle(color: AppColors.muted)),
           ),
-        for (var i = 0; i < _items.length; i++)
-          Padding(
+        // Shrink-wrapped and non-scrolling: the editor is already inside the
+        // screen's scroll view, and a list with its own would trap the drag.
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          padding: EdgeInsets.zero,
+          itemCount: _items.length,
+          // onReorderItem, not onReorder: it hands back a destination index
+          // already corrected for the item having been lifted out.
+          onReorderItem: _reorder,
+          proxyDecorator: (child, _, _) => Material(
+            color: Colors.transparent,
+            child: Opacity(opacity: 0.9, child: child),
+          ),
+          itemBuilder: (context, i) => Padding(
+            key: ValueKey(_items[i]),
             padding: const EdgeInsets.only(bottom: 10),
             child: _ItemCard(
+              index: i,
               draft: _items[i],
               unit: widget.unit,
-              isFirst: i == 0,
-              isLast: i == _items.length - 1,
               onTap: () => _configure(i),
-              onUp: () => _move(i, -1),
-              onDown: () => _move(i, 1),
               onRemove: () => _bump(() => _items.removeAt(i)),
             ),
           ),
+        ),
         const SizedBox(height: 6),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
@@ -264,22 +303,16 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
 
 class _ItemCard extends StatelessWidget {
   const _ItemCard({
+    required this.index,
     required this.draft,
     required this.unit,
-    required this.isFirst,
-    required this.isLast,
     required this.onTap,
-    required this.onUp,
-    required this.onDown,
     required this.onRemove,
   });
+  final int index;
   final ItemDraft draft;
   final String unit;
-  final bool isFirst;
-  final bool isLast;
   final VoidCallback onTap;
-  final VoidCallback onUp;
-  final VoidCallback onDown;
   final VoidCallback onRemove;
 
   @override
@@ -295,9 +328,18 @@ class _ItemCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.line),
           ),
-          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+          padding: const EdgeInsets.fromLTRB(4, 10, 6, 10),
           child: Row(
             children: [
+              // Grab here to drag the exercise up or down the list.
+              ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Icon(Icons.drag_indicator,
+                      size: 22, color: AppColors.faint),
+                ),
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,9 +354,6 @@ class _ItemCard extends StatelessWidget {
                   ],
                 ),
               ),
-              builderIconButton(Icons.keyboard_arrow_up, isFirst ? null : onUp),
-              builderIconButton(
-                  Icons.keyboard_arrow_down, isLast ? null : onDown),
               builderIconButton(Icons.close, onRemove, danger: true),
             ],
           ),
@@ -378,7 +417,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
         padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SheetGrabber(),
             Text(d.name,
@@ -388,47 +427,33 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
             Text(d.muscle,
                 style: const TextStyle(fontSize: 13, color: AppColors.muted)),
             const SizedBox(height: 18),
-            // The axis comes first: it decides whether the controls below ask
-            // for reps or for a hold.
-            _ModePicker(
-              mode: d.progression,
-              onChanged: (m) => _bump(() => d.setMode(m)),
-            ),
-            const SizedBox(height: 16),
-            _row(
-                'Sets',
-                NumberStepper(
-                  value: d.sets,
-                  min: 1,
-                  max: 12,
-                  onChanged: (v) => _bump(() => d.sets = v),
-                )),
-            if (_timed) ...[
-              const SizedBox(height: 14),
-              _row(
-                  'Hold',
-                  NumberStepper(
-                    value: d.holdSeconds,
-                    suffix: 's',
-                    step: 5,
-                    min: 5,
-                    max: 600,
-                    onChanged: (v) => _bump(() => d.holdSeconds = v),
-                  )),
-            ] else ...[
-              const SizedBox(height: 14),
-              _row(
-                  'To failure',
-                  Switch(
-                    value: d.toFailure,
-                    activeThumbColor: AppColors.accent,
-                    onChanged: (v) => _bump(() => d.toFailure = v),
-                  )),
-              if (!d.toFailure) ...[
-                const SizedBox(height: 14),
-                _row(
-                    'Min reps',
-                    NumberStepper(
+            builderCard('Target', [
+              builderGrid([
+                BuilderField(
+                  label: 'Sets',
+                  child: NumberStepper(
+                    value: d.sets,
+                    min: 1,
+                    max: 12,
+                    onChanged: (v) => _bump(() => d.sets = v),
+                  ),
+                ),
+                if (_timed)
+                  BuilderField(
+                    label: 'Hold',
+                    child: NumberStepper(
+                      value: d.holdSeconds,
+                      suffix: 's',
+                      step: 5,
+                      min: 5,
+                      max: 600,
+                      onChanged: (v) => _bump(() => d.holdSeconds = v),
+                    ),
+                  )
+                else ...[
+                  BuilderField(
+                    label: d.toFailure ? 'Reps to beat' : 'Reps',
+                    child: NumberStepper(
                       value: d.repsMin,
                       min: 1,
                       max: 100,
@@ -436,120 +461,138 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                         d.repsMin = v;
                         if (d.repsMax != null && d.repsMax! < v) d.repsMax = v;
                       }),
-                    )),
+                    ),
+                  ),
+                  // A range has no meaning once the set runs to failure, so the
+                  // field goes away rather than sitting there greyed out.
+                  if (!d.toFailure)
+                    BuilderField(
+                      label: 'Up to',
+                      child: NumberStepper(
+                        // Stepping down past the lower bound drops the upper
+                        // one entirely — no stray clear button to knock the
+                        // row out of line with the rest of the grid.
+                        value: d.repsMax ?? d.repsMin,
+                        isEmpty: d.repsMax == null,
+                        emptyLabel: 'none',
+                        min: d.repsMin,
+                        max: 100,
+                        onChanged: (v) => _bump(() => d.repsMax = v),
+                        onClear: () => _bump(() => d.repsMax = null),
+                      ),
+                    ),
+                ],
+                BuilderField(
+                  label: 'Rest',
+                  // Editing rest here creates an explicit per-exercise
+                  // override; the caption is where that gets said, so the
+                  // stepper stays the same width as its neighbours.
+                  note: d.restSeconds == null ? 'default' : 'custom',
+                  child: NumberStepper(
+                    value: d.restSeconds ?? widget.routineRest,
+                    suffix: 's',
+                    step: 15,
+                    min: 0,
+                    max: 300,
+                    onChanged: (v) => _bump(() => d.restSeconds = v),
+                  ),
+                ),
+              ]),
+              if (!_timed) ...[
                 const SizedBox(height: 14),
-                _row(
-                  'Rep range',
-                  d.repsMax == null
-                      ? TextButton(
-                          onPressed: () =>
-                              _bump(() => d.repsMax = d.repsMin + 2),
-                          child: Text('+ Add upper bound',
-                              style: kMono.copyWith(
-                                  fontSize: 13, color: AppColors.accent)),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            NumberStepper(
-                              value: d.repsMax!,
-                              min: d.repsMin,
-                              max: 100,
-                              onChanged: (v) => _bump(() => d.repsMax = v),
-                            ),
-                            IconButton(
-                              onPressed: () => _bump(() => d.repsMax = null),
-                              icon: const Icon(Icons.close,
-                                  size: 18, color: AppColors.muted),
-                            ),
-                          ],
-                        ),
+                _CheckRow(
+                  label: 'To failure',
+                  value: d.toFailure,
+                  onChanged: (v) => _bump(() => d.toFailure = v),
                 ),
               ],
-            ],
+            ]),
             const SizedBox(height: 14),
-            _row(
-              'Rest',
-              NumberStepper(
-                value: d.restSeconds ?? widget.routineRest,
-                suffix: 's',
-                step: 15,
-                min: 0,
-                max: 300,
-                // Editing rest here creates an explicit per-exercise override.
-                onChanged: (v) => _bump(() => d.restSeconds = v),
-                badge: d.restSeconds == null ? 'default' : 'custom',
+            builderCard('Suggested weight (${unitLabel(widget.unit)})', [
+              TextField(
+                controller: _weight,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style:
+                    kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+                decoration: builderInput('Blank for bodyweight'),
+                onChanged: (v) {
+                  final parsed = double.tryParse(v.trim());
+                  d.weightKg = parsed == null ? null : toKg(parsed, widget.unit);
+                  widget.onChanged();
+                },
               ),
-            ),
-            const SizedBox(height: 18),
-            builderLabel(
-                'Suggested weight (${unitLabel(widget.unit)})'),
-            TextField(
-              controller: _weight,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
-              decoration: builderInput('Optional — leave blank for bodyweight'),
-              onChanged: (v) {
-                final parsed = double.tryParse(v.trim());
-                d.weightKg = parsed == null ? null : toKg(parsed, widget.unit);
-                widget.onChanged();
-              },
-            ),
-            const SizedBox(height: 22),
-            builderLabel('Progression rates'),
-            _row(
-              'Step up by',
-              _AmountField(
-                value: d.increment,
-                mode: d.progression,
-                unit: widget.unit,
-                onChanged: (v) => _bump(() => d.increment = v),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _row(
-                'Clean sessions to step up',
-                NumberStepper(
-                  value: d.successThreshold,
-                  min: 1,
-                  max: 10,
-                  onChanged: (v) => _bump(() => d.successThreshold = v),
-                )),
+            ]),
             const SizedBox(height: 14),
-            _row(
-              'Back off by',
-              _AmountField(
-                value: d.deload,
-                mode: d.progression,
-                unit: widget.unit,
-                onChanged: (v) => _bump(() => d.deload = v),
+            builderCard('Progression', [
+              // A hold has one axis available and no choice to present; the
+              // caption says so instead of showing a picker of one.
+              if (d.modes.length > 1)
+                _ModePicker(
+                  modes: d.modes,
+                  mode: d.progression,
+                  onChanged: (m) => _bump(() => d.setMode(m)),
+                )
+              else
+                Text(
+                  'Held for time — the only axis a hold can progress on.',
+                  style: kMono.copyWith(
+                      fontSize: 11, height: 1.5, color: AppColors.faint),
+                ),
+              const SizedBox(height: 16),
+              builderGrid([
+                BuilderField(
+                  label: 'Step up by',
+                  child: _AmountField(
+                    value: d.increment,
+                    mode: d.progression,
+                    unit: widget.unit,
+                    onChanged: (v) => _bump(() => d.increment = v),
+                  ),
+                ),
+                BuilderField(
+                  label: 'Clean sessions',
+                  child: NumberStepper(
+                    value: d.successThreshold,
+                    min: 1,
+                    max: 10,
+                    onChanged: (v) => _bump(() => d.successThreshold = v),
+                  ),
+                ),
+                BuilderField(
+                  label: 'Back off by',
+                  child: _AmountField(
+                    value: d.deload,
+                    mode: d.progression,
+                    unit: widget.unit,
+                    onChanged: (v) => _bump(() => d.deload = v),
+                  ),
+                ),
+                BuilderField(
+                  label: 'Misses',
+                  child: NumberStepper(
+                    value: d.failureThreshold,
+                    min: 1,
+                    max: 10,
+                    onChanged: (v) => _bump(() => d.failureThreshold = v),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              // The four numbers above, read back as the rule they add up to.
+              Text(
+                'Add ${progressionAmount(d.increment, d.progression, widget.unit)} '
+                'after ${_plural(d.successThreshold, 'clean session')}; '
+                'drop ${progressionAmount(d.deload, d.progression, widget.unit)} '
+                'after ${_plural(d.failureThreshold, 'missed one')} in a row.',
+                style: kMono.copyWith(
+                    fontSize: 11, height: 1.5, color: AppColors.faint),
               ),
-            ),
-            const SizedBox(height: 10),
-            _row(
-                'Misses to back off',
-                NumberStepper(
-                  value: d.failureThreshold,
-                  min: 1,
-                  max: 10,
-                  onChanged: (v) => _bump(() => d.failureThreshold = v),
-                )),
-            const SizedBox(height: 10),
-            Text(
-              'Add ${progressionAmount(d.increment, d.progression, widget.unit)} '
-              'after ${_plural(d.successThreshold, 'clean session')}; '
-              'drop ${progressionAmount(d.deload, d.progression, widget.unit)} '
-              'after ${_plural(d.failureThreshold, 'missed one')} in a row.',
-              style: kMono.copyWith(
-                  fontSize: 11, height: 1.5, color: AppColors.faint),
-            ),
+            ]),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Done'),
-              ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
             ),
           ],
         ),
@@ -558,20 +601,57 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
   }
 
   String _plural(int n, String noun) => '$n $noun${n == 1 ? '' : 's'}';
+}
 
-  Widget _row(String label, Widget trailing) {
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
-        trailing,
-      ],
+/// A label with a checkbox, tappable across its whole width.
+class _CheckRow extends StatelessWidget {
+  const _CheckRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              activeColor: AppColors.accent,
+              checkColor: const Color(0xFF1A0E07),
+              side: const BorderSide(color: AppColors.line, width: 1.5),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontSize: 15)),
+        ],
+      ),
     );
   }
 }
 
-/// The three progression axes as one row of pills.
+/// The axes an exercise may progress on, as one row of pills.
+///
+/// Only ever shows [modes] — the axes its measure allows. Offering to progress
+/// a deadlift by time is offering a choice with no right answer in it.
 class _ModePicker extends StatelessWidget {
-  const _ModePicker({required this.mode, required this.onChanged});
+  const _ModePicker({
+    required this.modes,
+    required this.mode,
+    required this.onChanged,
+  });
+  final List<ProgressionMode> modes;
   final ProgressionMode mode;
   final ValueChanged<ProgressionMode> onChanged;
 
@@ -583,22 +663,15 @@ class _ModePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        builderLabel('Progress by'),
-        Row(
-          children: [
-            for (final m in ProgressionMode.values)
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                      right: m == ProgressionMode.values.last ? 0 : 8),
-                  child: _pill(m),
-                ),
-              ),
-          ],
-        ),
+        for (final m in modes)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: m == modes.last ? 0 : 8),
+              child: _pill(m),
+            ),
+          ),
       ],
     );
   }
@@ -679,7 +752,7 @@ class _AmountFieldState extends State<_AmountField> {
         ? unitLabel(widget.unit)
         : (widget.mode.timed ? 'sec' : 'reps');
     return SizedBox(
-      width: 132,
+      height: 36, // matches a NumberStepper, so grid rows line up
       child: TextField(
         controller: _c,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),

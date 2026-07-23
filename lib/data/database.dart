@@ -25,6 +25,11 @@ class Exercises extends Table {
   TextColumn get instructions => text().withDefault(const Constant(''))();
   TextColumn get videoUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
+
+  /// Whether the movement is counted or held — see [ExerciseMeasure]. Decides
+  /// which progression axes a workout may put it on.
+  TextColumn get measure =>
+      textEnum<ExerciseMeasure>().withDefault(const Constant('reps'))();
 }
 
 /// A training programme ("PPL", "Upper/Lower"). A routine is a container: the
@@ -296,7 +301,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -330,6 +335,17 @@ class AppDatabase extends _$AppDatabase {
             // reps, and a null here is exactly that statement.
             await m.addColumn(sessionSets, sessionSets.seconds);
             await m.addColumn(sessionSets, sessionSets.goalSeconds);
+          }
+          if (from < 5) {
+            // v4 → v5: the library says whether a movement is counted or held,
+            // so a workout can only offer axes that mean something for it.
+            await m.addColumn(exercises, exercises.measure);
+            // Everything defaults to counted, which is right for all but the
+            // holds in the starter library. Matched by name because that is
+            // the only handle on a seeded row, and seeded rows cannot be
+            // renamed from anywhere in the app.
+            await customStatement(
+                "UPDATE exercises SET measure = 'time' WHERE name = 'Plank'");
           }
         },
         beforeOpen: (details) async {
@@ -421,6 +437,7 @@ class AppDatabase extends _$AppDatabase {
     required String equipment,
     required String instructions,
     String? videoUrl,
+    ExerciseMeasure measure = ExerciseMeasure.reps,
   }) {
     return into(exercises).insert(
       ExercisesCompanion.insert(
@@ -430,6 +447,7 @@ class AppDatabase extends _$AppDatabase {
         instructions: Value(instructions),
         videoUrl: Value(videoUrl),
         isCustom: const Value(true),
+        measure: Value(measure),
       ),
     );
   }
@@ -856,18 +874,22 @@ class AppDatabase extends _$AppDatabase {
     // A curated starter library. Each ships with a one-line cue and a demo
     // link (a YouTube search, so the link never rots).
     final ids = <String, int>{};
+    final measures = <String, ExerciseMeasure>{};
     Future<int> ex(
       String name,
       String muscle,
       String equip,
-      String how,
-    ) async {
+      String how, {
+      ExerciseMeasure measure = ExerciseMeasure.reps,
+    }) async {
+      measures[name] = measure;
       return ids[name] ??= await into(exercises).insert(
         ExercisesCompanion.insert(
           name: name,
           muscleGroup: Value(muscle),
           equipment: Value(equip),
           instructions: Value(how),
+          measure: Value(measure),
           videoUrl: Value(
             'https://www.youtube.com/results?search_query='
             '${Uri.encodeQueryComponent('$name proper form')}',
@@ -938,8 +960,11 @@ class AppDatabase extends _$AppDatabase {
     await ex('Skull Crusher', 'Arms', 'Barbell',
         'Lower the bar toward your forehead by bending only at the elbows, then extend.');
     // Core
+    // The one held movement in the starter library: no rep count to progress,
+    // so the only axis it offers is time.
     await ex('Plank', 'Core', 'Bodyweight',
-        'Hold a straight line on your forearms; squeeze your glutes and brace your abs.');
+        'Hold a straight line on your forearms; squeeze your glutes and brace your abs.',
+        measure: ExerciseMeasure.time);
     await ex('Hanging Leg Raise', 'Core', 'Bodyweight',
         'From a hang, raise your legs to hip height (or higher) without swinging.');
     await ex('Cable Crunch', 'Core', 'Cable',
@@ -973,11 +998,13 @@ class AppDatabase extends _$AppDatabase {
         );
         var i = 0;
         for (final it in day.items) {
-          // A slot with no suggested load has nothing to add load to, so it
-          // progresses on reps — which is the right answer for the pull-ups
-          // and leg raises that make up every one of them here.
-          final mode =
-              it.w == null ? ProgressionMode.reps : ProgressionMode.weight;
+          // A held movement can only progress on time. Otherwise: a slot with
+          // no suggested load has nothing to add load to, so it progresses on
+          // reps — the right answer for the pull-ups and leg raises that make
+          // up every one of them here.
+          final measure = measures[it.name] ?? ExerciseMeasure.reps;
+          final mode = measure.coerce(
+              it.w == null ? ProgressionMode.reps : ProgressionMode.weight);
           await into(workoutItems).insert(
             WorkoutItemsCompanion.insert(
               workoutId: wid,

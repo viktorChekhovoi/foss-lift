@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 
 const _muscles = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Other'];
 const _equipment = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'Other'];
+
+/// How the movement is counted, in the words a lifter would use.
+const _measures = {'Reps': ExerciseMeasure.reps, 'Time held': ExerciseMeasure.time};
 
 /// Form for creating a custom exercise that joins the library.
 class ExerciseFormScreen extends ConsumerStatefulWidget {
@@ -22,6 +26,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   final _video = TextEditingController();
   String _muscle = 'Chest';
   String _equip = 'Barbell';
+  String _measure = 'Reps';
   bool _saving = false;
 
   @override
@@ -48,6 +53,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           equipment: _equip,
           instructions: _instructions.text.trim(),
           videoUrl: video.isEmpty ? null : video,
+          measure: _measures[_measure]!,
         );
     if (mounted) context.pop();
   }
@@ -76,6 +82,22 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
               options: _equipment,
               selected: _equip,
               onSelect: (v) => setState(() => _equip = v),
+            ),
+            const SizedBox(height: 18),
+            _Label('Measured in'),
+            _Choices(
+              options: _measures.keys.toList(),
+              selected: _measure,
+              onSelect: (v) => setState(() => _measure = v),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _measure == 'Reps'
+                  ? 'Counted movements progress by adding load or reps.'
+                  : 'Held movements are logged in seconds and progress by '
+                      'holding longer.',
+              style: kMono.copyWith(
+                  fontSize: 11, height: 1.5, color: AppColors.faint),
             ),
             const SizedBox(height: 18),
             _Label('How to (optional)'),
