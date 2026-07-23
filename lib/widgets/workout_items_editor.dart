@@ -420,13 +420,36 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SheetGrabber(),
-            Text(d.name,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(d.muscle,
-                style: const TextStyle(fontSize: 13, color: AppColors.muted)),
-            const SizedBox(height: 18),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(d.name,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(d.muscle,
+                          style: const TextStyle(
+                              fontSize: 13, color: AppColors.muted)),
+                    ],
+                  ),
+                ),
+                // Dragging the sheet down closes it too, but only if your
+                // thumb lands somewhere that is not the scrolling content.
+                // A close button is always where you left it.
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  color: AppColors.muted,
+                  tooltip: 'Close',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             builderCard('Target', [
               builderGrid([
                 BuilderField(
@@ -508,7 +531,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
               ],
             ]),
             const SizedBox(height: 14),
-            builderCard('Suggested weight (${unitLabel(widget.unit)})', [
+            builderCard('Weight (${unitLabel(widget.unit)})', [
               TextField(
                 controller: _weight,
                 keyboardType:

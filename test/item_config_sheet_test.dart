@@ -72,7 +72,7 @@ void main() {
       await openSheet(tester);
 
       expect(find.text('TARGET'), findsOneWidget);
-      expect(find.text('SUGGESTED WEIGHT (KG)'), findsOneWidget);
+      expect(find.text('WEIGHT (KG)'), findsOneWidget);
       expect(find.text('PROGRESSION'), findsOneWidget);
       // The four numbers in the progression grid, read back as one rule.
       expect(
@@ -219,6 +219,46 @@ void main() {
 
       expect(squat.successThreshold, 3);
       expect(find.textContaining('after 3 clean sessions'), findsOneWidget);
+    });
+  });
+
+  group('getting back out', () {
+    testWidgets('the close button in the corner dismisses the sheet',
+        (tester) async {
+      await openSheet(tester);
+      expect(find.text('TARGET'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TARGET'), findsNothing);
+      // And the edits it was opened to make are still there.
+      expect(find.text('Back Squat'), findsOneWidget);
+    });
+
+    testWidgets('so does Done at the foot of it', (tester) async {
+      await openSheet(tester);
+      // Which you have to scroll to on a short screen — the reason the close
+      // button exists is that this one is not always where you can reach it.
+      await tester.ensureVisible(find.text('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TARGET'), findsNothing);
+    });
+
+    testWidgets('an edit made in the sheet survives closing it',
+        (tester) async {
+      await openSheet(tester);
+      await tester.tap(underLabel('Sets', find.byIcon(Icons.add)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(squat.sets, 5);
+      expect(find.textContaining('5 × 5'), findsOneWidget,
+          reason: 'the card behind it caught up');
     });
   });
 
