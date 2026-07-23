@@ -76,19 +76,22 @@ void main() {
     await tester.pump();
 
     final rack = (await stored(tester)).plates;
-    expect(rack.first, (kg: 25.0, count: 6));
+    expect(rack.first, (kg: 25.0, count: 4));
     expect(rack, hasLength(7),
         reason: 'the rest of the standard rack came along with it');
   });
 
-  testWidgets('taking a pair off writes it back two lighter', (tester) async {
+  testWidgets('and taking the last pair off drops the size', (tester) async {
     await open(tester);
 
+    // The 25s start at one pair, so − is the last one.
     await tester.tap(find.byIcon(Icons.remove).first);
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
 
-    expect((await stored(tester)).plates.first, (kg: 25.0, count: 2));
+    final rack = (await stored(tester)).plates;
+    expect(rack.any((p) => p.kg == 25), isFalse);
+    expect(rack, hasLength(6));
   });
 
   testWidgets('a plate size can be dropped entirely', (tester) async {

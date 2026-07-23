@@ -39,7 +39,17 @@ void main() {
       expect(defaultBarKg('kg'), 20.0);
       expect(kgRack.first.kg, 25.0);
       expect(kgRack.last.kg, 1.25);
-      expect(kgRack.every((p) => p.count == kDefaultPlateCount), isTrue);
+    });
+
+    test('with a pair of everything and a pile of the workhorse plate', () {
+      PlateStack of(double kg) => kgRack.firstWhere((p) => p.kg == kg);
+      expect(of(20).count, kDefaultBigPlateCount);
+      expect(of(25).count, kDefaultPlateCount);
+      expect(of(1.25).count, kDefaultPlateCount);
+
+      final lb = defaultPlatesFor('lb');
+      expect(lb.first.count, kDefaultBigPlateCount, reason: 'the 45s');
+      expect(lb.skip(1).every((p) => p.count == kDefaultPlateCount), isTrue);
     });
 
     test('a pounds gym gets 45s and 25s, not converted metric', () {

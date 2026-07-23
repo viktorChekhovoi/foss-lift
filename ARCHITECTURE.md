@@ -214,7 +214,11 @@ applies, and it is a property of the *exercise*, like `measure`.
   heaviest ones — so 40 kg a side is 25 + 15, not 20 + 20, and never
   10 + 5 + 2.5 + 2.5.
 - The inventory is **pairs**: plates go on two at a time, so an odd plate is
-  stock the bar cannot use and is ignored. The editor steps counts by two.
+  stock the bar cannot use and is ignored. The editor steps counts by two, and −
+  on the last pair takes the size off the rack. The assumed rack is a pair of
+  every size and a pile of the workhorse plate — the 45s in a pounds gym, the
+  20s in a metric one — because that is what a rack actually looks like, and
+  claiming four 35s produces breakdowns nobody can load.
 - `Settings.barWeight` and `Settings.plateInventory` are both **nullable, and
   null is not empty** — it means "never configured", which lets the standard
   rack for the chosen unit stand in. A pounds gym gets 45s and 25s without

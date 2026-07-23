@@ -72,10 +72,19 @@ const kDefaultBarKg = 20.0;
 /// The same bar as a pounds gym describes it.
 const kDefaultBarLb = 45.0;
 
-/// How many of each plate size a gym is assumed to own until told otherwise.
-/// Four — two pairs — is enough for the defaults to reach a real working
-/// weight without pretending anybody owns ten pairs of 25s.
-const kDefaultPlateCount = 4;
+/// How many of a plate size a gym is assumed to own until told otherwise, and
+/// how many are added when you put a new size on the rack.
+///
+/// Two — one pair — because that is the smallest amount of a plate that is any
+/// use, and claiming more of the odd sizes than a gym has is how you get a
+/// breakdown asking for four 35s.
+const kDefaultPlateCount = 2;
+
+/// How many of the *workhorse* plate a gym is assumed to own: the 45s in a
+/// pounds gym, the 20s in a metric one. Everything heavy is built out of these
+/// and every rack has a pile of them, so five pairs is the realistic default
+/// where one pair is right for the rest.
+const kDefaultBigPlateCount = 10;
 
 /// Two weights within this of each other are the same weight. Plate maths runs
 /// on rounded grams, and a pound plate converts to kilograms with a tail on it,
@@ -84,15 +93,35 @@ const kPlateToleranceKg = 0.01;
 
 /// The most distinct per-side loads the search will hold at once. A guard
 /// against a pathological inventory, not a limit anybody's gym will meet: the
-/// standard set with four of everything reaches a few hundred combinations.
+/// standard rack reaches a few hundred combinations.
 const kPlateSearchCap = 20000;
 
-/// The plate sizes a gym stocking kilograms owns.
-const _standardKg = <double>[25, 20, 15, 10, 5, 2.5, 1.25];
+/// One entry of a standard rack, in the unit it is named in rather than in
+/// kilograms — a pounds gym owns 45s, not 20.41s.
+typedef _Stock = ({double size, int count});
+
+/// The rack a gym stocking kilograms owns: a pair of everything and a pile of
+/// 20s, heaviest first.
+const _standardKg = <_Stock>[
+  (size: 25, count: kDefaultPlateCount),
+  (size: 20, count: kDefaultBigPlateCount),
+  (size: 15, count: kDefaultPlateCount),
+  (size: 10, count: kDefaultPlateCount),
+  (size: 5, count: kDefaultPlateCount),
+  (size: 2.5, count: kDefaultPlateCount),
+  (size: 1.25, count: kDefaultPlateCount),
+];
 
 /// The same rack in pounds. Not a conversion of the list above — a pounds gym
-/// owns 45s and 35s, not 55.1s and 44.1s.
-const _standardLb = <double>[45, 35, 25, 10, 5, 2.5];
+/// owns 45s and 35s, not 55.1s and 44.1s, and it owns a lot of the 45s.
+const _standardLb = <_Stock>[
+  (size: 45, count: kDefaultBigPlateCount),
+  (size: 35, count: kDefaultPlateCount),
+  (size: 25, count: kDefaultPlateCount),
+  (size: 10, count: kDefaultPlateCount),
+  (size: 5, count: kDefaultPlateCount),
+  (size: 2.5, count: kDefaultPlateCount),
+];
 
 /// The bar to assume for someone who has never said, in kilograms.
 double defaultBarKg(String unit) =>
@@ -100,8 +129,8 @@ double defaultBarKg(String unit) =>
 
 /// The plate rack to assume for someone who has never said, in kilograms.
 List<PlateStack> defaultPlatesFor(String unit) => [
-      for (final w in unit == 'lb' ? _standardLb : _standardKg)
-        (kg: toKg(w, unit), count: kDefaultPlateCount),
+      for (final p in unit == 'lb' ? _standardLb : _standardKg)
+        (kg: toKg(p.size, unit), count: p.count),
     ];
 
 /// A plate or bar weight for display: up to two decimals, no trailing zeros.
