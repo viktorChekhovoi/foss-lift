@@ -60,6 +60,17 @@ Post a completion comment and stop there.
    which GitHub auto-closes on a push to `main` and would skip the review.
 4. Tell the user the issue is ready for review. Do not close it, and do not ask
    to close it.
+5. **Say how to see it in the app.** End with the taps: where to start, what to
+   tap in order, and what should be on screen at the end. Include how to reach
+   any state the feature needs (a barbell exercise with a weight set, a workout
+   left untrained for a fortnight) — a feature nobody can find is a feature
+   nobody reviewed. Green tests are not this; they prove the logic, not that the
+   thing is reachable and reads well on a phone.
+
+   ```
+   Profile → Settings → Bar & plates → tap "Bar weight" → 15 → Save.
+   Then Today → Push → Start: Bench Press should read 20 kg/side over a 15 kg bar.
+   ```
 
 ### New ideas
 
