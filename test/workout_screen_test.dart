@@ -185,8 +185,7 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a dumbbell says which dumbbell, and a machine says nothing',
-        (tester) async {
+    testWidgets('nothing but a bar gets one', (tester) async {
       await startPush(tester);
       // The list builds lazily, so the exercises under the fold have to be
       // scrolled to before they can be asked anything.
@@ -197,11 +196,11 @@ void main() {
       expect(find.text('Triceps Pushdown'), findsOneWidget,
           reason: 'the bottom of the day is on screen');
 
-      // Incline DB Press and Lateral Raise are loaded per hand.
-      expect(find.text('PER DUMBBELL, NOT THE PAIR'), findsWidgets);
-      // The pushdown is 35 kg on a stack — there is no "per side" to it, and
-      // 7.5 a side is what it would say if the app thought there were.
+      // The pushdown is 35 kg on a stack and the DB press is 30 in one hand.
+      // Neither has sides, and 7.5 and 5 a side is what the app would say if
+      // it thought they did.
       expect(find.textContaining('7.5 KG/SIDE'), findsNothing);
+      expect(find.textContaining('5 KG/SIDE'), findsNothing);
 
       await stop(tester);
     });

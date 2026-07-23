@@ -5,7 +5,12 @@ import '../theme/app_theme.dart';
 import '../util/units.dart';
 
 /// What the number in the weight column comes to in the real world: the plates
-/// on each side of a bar, or a reminder that a dumbbell figure is per hand.
+/// on each side of a bar.
+///
+/// Only a bar gets a line. A machine's number is the number, and a dumbbell's
+/// is whatever is in your hand — there is no arrangement to work out, and a
+/// line saying "per dumbbell, not the pair" would be wrong for every one-arm
+/// row and goblet squat.
 ///
 /// One line under an exercise rather than one per set. Every set of an exercise
 /// is normally loaded the same way, and four identical plate breakdowns down a
@@ -27,15 +32,11 @@ class PlateLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Nothing to break down for a machine, and nothing to say about a weight
-    // nobody has picked yet — an unloaded bar exercise is a slot waiting for a
-    // number, not a warning that the bar is heavier than it.
-    if (type == WeightType.machine || weightKg <= 0) {
+    // Nothing to break down unless it is a bar, and nothing to say about a
+    // weight nobody has picked yet — an unloaded bar exercise is a slot waiting
+    // for a number, not a warning that the bar is heavier than it.
+    if (!type.loadedPerSide || weightKg <= 0) {
       return const SizedBox.shrink();
-    }
-
-    if (type == WeightType.dumbbell) {
-      return _line('PER DUMBBELL, NOT THE PAIR', AppColors.faint);
     }
 
     final s = solvePlates(

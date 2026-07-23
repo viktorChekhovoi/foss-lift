@@ -23,7 +23,9 @@ enum WeightType {
   /// out.
   machine,
 
-  /// Held in each hand: the number is *one* dumbbell, not the pair.
+  /// A dumbbell: the number is the one in your hand. Whether the movement uses
+  /// one of them or two is the exercise's business, not the weight's — a
+  /// one-arm row and a pair of curls both log what is on the dumbbell.
   dumbbell;
 
   String get label => switch (this) {
@@ -37,7 +39,7 @@ enum WeightType {
         WeightType.bar => 'The whole bar, plates included. Foss Lift works out '
             'what goes on each side.',
         WeightType.machine => 'Whatever the machine reads. Nothing to work out.',
-        WeightType.dumbbell => 'One dumbbell, not the pair.',
+        WeightType.dumbbell => 'The weight of the dumbbell in your hand.',
       };
 
   /// Whether a weight of this type breaks down into a per-side plate load.

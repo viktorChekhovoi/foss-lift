@@ -230,8 +230,10 @@ applies, and it is a property of the *exercise*, like `measure`.
   set**: four identical breakdowns down a column is noise you stop reading. It
   describes the *next* set's weight (`ExerciseEntry.nextWeight` — the first
   unlogged set, or the last one when they are all in), so it follows you down
-  the exercise and re-solves the moment you type a different weight. A dumbbell
-  exercise gets one line saying the number is per hand; a machine gets nothing.
+  the exercise and re-solves the moment you type a different weight. **Only a
+  bar gets a line**: a machine's number is the number, and a dumbbell's is
+  whatever is in your hand — "per dumbbell, not the pair" would be wrong for
+  every one-arm row and goblet squat.
 
 ### Scheduling and reminders — `data/schedule.dart` + `services/reminders.dart`
 A routine can say which weekdays it is meant to be trained on, and ask to be
