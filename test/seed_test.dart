@@ -54,10 +54,11 @@ void main() {
   });
 
   test('a fresh install has a bar and plates without being asked', () async {
-    expect(await db.watchPlateSetup().first, (inventory: null, barKg: null),
+    expect(await db.watchPlateSetup().first,
+        (kgRack: null, lbRack: null, barKg: null),
         reason: 'nothing stored, so the chosen unit still decides');
-    final resolved = resolvePlateSettings(
-        unit: await db.watchWeightUnit().first, inventory: null, barKg: null);
+    final resolved =
+        resolvePlateSettings(unit: await db.watchWeightUnit().first);
     expect(resolved.barKg, kDefaultBarKg);
     expect(resolved.plates.first.kg, 25);
   });

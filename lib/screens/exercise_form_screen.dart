@@ -108,12 +108,6 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
               selected: _weightType.label,
               onSelect: (v) => setState(() => _weightType = _weightTypes[v]!),
             ),
-            const SizedBox(height: 6),
-            Text(
-              _weightType.blurb,
-              style: kMono.copyWith(
-                  fontSize: 11, height: 1.5, color: AppColors.faint),
-            ),
             const SizedBox(height: 18),
             _Label('Measured in'),
             _Choices(

@@ -35,47 +35,40 @@ class SettingsScreen extends ConsumerWidget {
               label: 'Kilograms',
               suffix: 'kg',
               selected: unit == 'kg',
-              onTap: () => db.setWeightUnit('kg'),
+              // Tapping the unit you are already on is not a switch and gets no
+              // dialog about one.
+              onTap: () =>
+                  unit == 'kg' ? null : _switchUnit(context, db, 'kg'),
             ),
             const SizedBox(height: 10),
             _UnitOption(
               label: 'Pounds',
               suffix: 'lb',
               selected: unit == 'lb',
-              onTap: () => db.setWeightUnit('lb'),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Weights are stored internally and converted on the fly, so '
-              'switching units never rewrites your history.',
-              style: const TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
+              onTap: () =>
+                  unit == 'lb' ? null : _switchUnit(context, db, 'lb'),
             ),
             const SizedBox(height: 28),
             Text('BAR & PLATES',
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
-            _NavRow(
-              label: 'Bar and plate rack',
+            SettingRow(
+              label: 'Default bar',
+              note: 'exercises can override it',
               value: '${fmtPlateWeight(toDisplayWeight(plates.barKg, unit))} '
-                  '${unitLabel(unit)} bar · '
-                  '${plates.plates.length} plate '
+                  '${unitLabel(unit)}',
+              onTap: () => context.push('/settings/bar'),
+            ),
+            const SizedBox(height: 10),
+            SettingRow(
+              label: 'Plate rack',
+              note: 'what the gym stocks in ${unitLabel(unit)}',
+              value: '${plates.plates.length} '
                   '${plates.plates.length == 1 ? 'size' : 'sizes'}',
               onTap: () => context.push('/settings/plates'),
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Exercises marked as loaded on a bar show what goes on each side '
-              'of it, worked out from these. Until you change anything, a '
-              'standard $unit gym is assumed.',
-              style: const TextStyle(
-                  color: AppColors.muted, fontSize: 13, height: 1.5),
-            ),
             const SizedBox(height: 28),
-            Text('COMING BACK FROM A LAYOFF',
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-            const SizedBox(height: 10),
             builderCard('Deload after time off', [
               builderGrid([
                 BuilderField(
@@ -117,8 +110,7 @@ class SettingsScreen extends ConsumerWidget {
                       'again offers to cut its targets by ${layoff.percent}% — '
                       'twice that after ${layoff.days * 2} days, and no more '
                       'than ${_maxCut(layoff.percent)}% however long you are '
-                      'away. You are always asked first, and logged history is '
-                      'never changed.',
+                      'away.',
               style: const TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
@@ -136,54 +128,43 @@ int _maxCut(int percent) {
   return stacked > kMaxLayoffCutPercent ? kMaxLayoffCutPercent : stacked;
 }
 
-/// A settings row that opens a screen of its own, with today's answer on it.
-class _NavRow extends StatelessWidget {
-  const _NavRow({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.line),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 3),
-                    Text(value,
-                        style: kMono.copyWith(
-                            fontSize: 12, color: AppColors.muted)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
-            ],
-          ),
-        ),
+/// Changes the unit, once the user has seen what it will do.
+///
+/// Stored weights are never rewritten — history in particular has to stay the
+/// weight it was lifted at. The cost of that is arithmetic in plain sight: a
+/// 100 kg squat reads as 220.5 lb, which is not a bar anybody loads, and the
+/// plate rack for the new unit is whatever was set up for it (a standard gym,
+/// until it is edited). Both are things to go and look at, so the dialog says
+/// so rather than letting them be discovered mid-set.
+Future<void> _switchUnit(
+    BuildContext context, AppDatabase db, String unit) async {
+  final to = unit == 'lb' ? 'pounds' : 'kilograms';
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text('Switch to $to?'),
+      content: Text(
+        'Every weight you have logged or set is kept exactly as it was and '
+        'converted for display, so some will land between the numbers you can '
+        'actually load.\n\n'
+        'Worth checking afterwards: your exercise weights, and your plate rack '
+        'for $to.',
+        style: const TextStyle(color: AppColors.muted, height: 1.5),
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text('Use $to'),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) await db.setWeightUnit(unit);
 }
 
 class _UnitOption extends StatelessWidget {

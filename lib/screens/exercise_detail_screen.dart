@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/units.dart';
+import '../widgets/builder_widgets.dart';
 
 /// Read-only detail for one library exercise: how to do it + a demo link.
 class ExerciseDetailScreen extends ConsumerWidget {
@@ -95,15 +97,13 @@ class _Body extends ConsumerWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(exercise.weightType.blurb,
-            style: kMono.copyWith(
-                fontSize: 11.5, height: 1.5, color: AppColors.muted)),
         if (exercise.weightType == WeightType.bar) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
+          _BarWeightRow(exercise: exercise),
+          const SizedBox(height: 8),
           GestureDetector(
             onTap: () => context.push('/settings/plates'),
-            child: Text('Bar weight and plate rack →',
+            child: Text('Plate rack →',
                 style: kMono.copyWith(
                     fontSize: 11.5, height: 1.5, color: AppColors.accent)),
           ),
@@ -128,6 +128,45 @@ class _Body extends ConsumerWidget {
           _VideoLink(url: exercise.videoUrl!),
         ],
       ],
+    );
+  }
+}
+
+/// This exercise's bar, and the gym default it falls back to.
+///
+/// Lives on the exercise rather than in settings because a gym is not one bar:
+/// the EZ curl bar is 10, the trap bar 25, and both are facts about the
+/// movement, not about the app.
+class _BarWeightRow extends ConsumerWidget {
+  const _BarWeightRow({required this.exercise});
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final fallback = ref.watch(plateSettingsProvider).barKg;
+    final own = exercise.barWeight;
+    final u = unitLabel(unit);
+
+    Future<void> edit() async {
+      final choice = await askWeight(
+        context,
+        title: 'Bar for ${exercise.name}',
+        unit: unit,
+        initialKg: own ?? fallback,
+        defaultLabel: own == null ? null : 'Use default',
+      );
+      if (choice == null) return;
+      await ref
+          .read(databaseProvider)
+          .setExerciseBarWeight(exercise.id, choice.kg);
+    }
+
+    return SettingRow(
+      label: 'Bar weight',
+      note: own == null ? 'the gym default' : 'set for this exercise',
+      value: '${fmtPlateWeight(toDisplayWeight(own ?? fallback, unit))} $u',
+      onTap: edit,
     );
   }
 }

@@ -62,10 +62,31 @@ void main() {
 
     test('a stored rack wins over the unit; nothing stored falls back', () {
       final stored = encodePlates([(kg: 10, count: 2)]);
-      expect(resolvePlateSettings(unit: 'lb', inventory: stored).plates,
+      expect(resolvePlateSettings(unit: 'lb', lbRack: stored).plates,
           [(kg: 10.0, count: 2)]);
       expect(resolvePlateSettings(unit: 'kg').plates, kgRack);
       expect(resolvePlateSettings(unit: 'kg', barKg: 15).barKg, 15);
+    });
+
+    test('each unit keeps its own rack', () {
+      // A 30 kg plate added by a metric gym is 66.14 lb — a plate nobody owns
+      // and nobody should be shown. The pounds rack is a separate thing.
+      final kg = encodePlates([...kgRack, (kg: 30, count: 2)]);
+      final both = (kgRack: kg, lbRack: null);
+
+      expect(
+        resolvePlateSettings(unit: 'kg', kgRack: both.kgRack, lbRack: both.lbRack)
+            .plates
+            .first,
+        (kg: 30.0, count: 2),
+      );
+      expect(
+        resolvePlateSettings(unit: 'lb', kgRack: both.kgRack, lbRack: both.lbRack)
+            .plates,
+        defaultPlatesFor('lb'),
+        reason: 'the pounds gym is still standard, not the metric rack in '
+            'decimals',
+      );
     });
   });
 

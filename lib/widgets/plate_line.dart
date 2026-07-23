@@ -22,6 +22,7 @@ class PlateLine extends StatelessWidget {
     required this.type,
     required this.settings,
     required this.unit,
+    this.barKg,
   });
 
   /// The weight to break down, in kg.
@@ -29,6 +30,9 @@ class PlateLine extends StatelessWidget {
   final WeightType type;
   final PlateSettings settings;
   final String unit;
+
+  /// This exercise's own bar, in kg. Null uses the default from settings.
+  final double? barKg;
 
   @override
   Widget build(BuildContext context) {
@@ -41,21 +45,22 @@ class PlateLine extends StatelessWidget {
 
     final s = solvePlates(
       targetKg: weightKg,
-      barKg: settings.barKg,
+      barKg: barKg ?? settings.barKg,
       inventory: settings.plates,
     );
-    // Gold is what the rest of the app uses for "this is not what you asked
-    // for": a missed set, a deloaded target, and now a weight the gym cannot
-    // actually make.
+    // The same green/gold the set rows use: green is what you asked for, gold
+    // is not. A weight the gym cannot make is the same kind of news as a set
+    // that came up short, and it has to be as easy to notice.
     final off = !s.exact || s.belowBar;
-    return _line(plateSummary(s, unit), off ? AppColors.gold : AppColors.faint);
+    return _line(plateSummary(s, unit), off ? AppColors.gold : AppColors.good);
   }
 
   Widget _line(String text, Color color) => Padding(
-        padding: const EdgeInsets.only(top: 2, bottom: 4),
+        padding: const EdgeInsets.only(top: 3, bottom: 4),
         child: Text(
           text,
-          style: kMono.copyWith(fontSize: 10.5, height: 1.4, color: color),
+          style: kMono.copyWith(
+              fontSize: 11, height: 1.4, fontWeight: FontWeight.w600, color: color),
         ),
       );
 }
@@ -99,11 +104,12 @@ String? perSideLabel({
   required WeightType type,
   required PlateSettings settings,
   required String unit,
+  double? barKg,
 }) {
   if (!type.loadedPerSide) return null;
   final s = solvePlates(
     targetKg: weightKg,
-    barKg: settings.barKg,
+    barKg: barKg ?? settings.barKg,
     inventory: settings.plates,
   );
   if (s.belowBar) return 'under the bar';

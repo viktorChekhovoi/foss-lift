@@ -117,6 +117,17 @@ class $ExercisesTable extends Exercises
         requiredDuringInsert: false,
         defaultValue: const Constant('machine'),
       ).withConverter<WeightType>($ExercisesTable.$converterweightType);
+  static const VerificationMeta _barWeightMeta = const VerificationMeta(
+    'barWeight',
+  );
+  @override
+  late final GeneratedColumn<double> barWeight = GeneratedColumn<double>(
+    'bar_weight',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -128,6 +139,7 @@ class $ExercisesTable extends Exercises
     isCustom,
     measure,
     weightType,
+    barWeight,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -188,6 +200,12 @@ class $ExercisesTable extends Exercises
         isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
       );
     }
+    if (data.containsKey('bar_weight')) {
+      context.handle(
+        _barWeightMeta,
+        barWeight.isAcceptableOrUnknown(data['bar_weight']!, _barWeightMeta),
+      );
+    }
     return context;
   }
 
@@ -237,6 +255,10 @@ class $ExercisesTable extends Exercises
           data['${effectivePrefix}weight_type'],
         )!,
       ),
+      barWeight: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bar_weight'],
+      ),
     );
   }
 
@@ -270,6 +292,15 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// Defaults to [WeightType.machine]: the number is the number, which is the
   /// only reading that is never wrong.
   final WeightType weightType;
+
+  /// What *this* movement's bar weighs, in kg, when the gym's default is wrong
+  /// for it. Null — the usual case — means the default from settings.
+  ///
+  /// Per exercise rather than app-wide because a gym is not one bar: the EZ
+  /// curl bar is 10, the trap bar 25, the Smith carriage counterweighted to
+  /// something else again, and every one of them is a fact about the movement
+  /// you do on it. Ignored unless [weightType] is [WeightType.bar].
+  final double? barWeight;
   const Exercise({
     required this.id,
     required this.name,
@@ -280,6 +311,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.isCustom,
     required this.measure,
     required this.weightType,
+    this.barWeight,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -303,6 +335,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
         $ExercisesTable.$converterweightType.toSql(weightType),
       );
     }
+    if (!nullToAbsent || barWeight != null) {
+      map['bar_weight'] = Variable<double>(barWeight);
+    }
     return map;
   }
 
@@ -319,6 +354,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       isCustom: Value(isCustom),
       measure: Value(measure),
       weightType: Value(weightType),
+      barWeight: barWeight == null && nullToAbsent
+          ? const Value.absent()
+          : Value(barWeight),
     );
   }
 
@@ -341,6 +379,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       weightType: $ExercisesTable.$converterweightType.fromJson(
         serializer.fromJson<String>(json['weightType']),
       ),
+      barWeight: serializer.fromJson<double?>(json['barWeight']),
     );
   }
   @override
@@ -360,6 +399,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'weightType': serializer.toJson<String>(
         $ExercisesTable.$converterweightType.toJson(weightType),
       ),
+      'barWeight': serializer.toJson<double?>(barWeight),
     };
   }
 
@@ -373,6 +413,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     bool? isCustom,
     ExerciseMeasure? measure,
     WeightType? weightType,
+    Value<double?> barWeight = const Value.absent(),
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -383,6 +424,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom: isCustom ?? this.isCustom,
     measure: measure ?? this.measure,
     weightType: weightType ?? this.weightType,
+    barWeight: barWeight.present ? barWeight.value : this.barWeight,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -401,6 +443,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       weightType: data.weightType.present
           ? data.weightType.value
           : this.weightType,
+      barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
     );
   }
 
@@ -415,7 +458,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('videoUrl: $videoUrl, ')
           ..write('isCustom: $isCustom, ')
           ..write('measure: $measure, ')
-          ..write('weightType: $weightType')
+          ..write('weightType: $weightType, ')
+          ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
   }
@@ -431,6 +475,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom,
     measure,
     weightType,
+    barWeight,
   );
   @override
   bool operator ==(Object other) =>
@@ -444,7 +489,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.videoUrl == this.videoUrl &&
           other.isCustom == this.isCustom &&
           other.measure == this.measure &&
-          other.weightType == this.weightType);
+          other.weightType == this.weightType &&
+          other.barWeight == this.barWeight);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -457,6 +503,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<bool> isCustom;
   final Value<ExerciseMeasure> measure;
   final Value<WeightType> weightType;
+  final Value<double?> barWeight;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -467,6 +514,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
     this.weightType = const Value.absent(),
+    this.barWeight = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -478,6 +526,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
     this.weightType = const Value.absent(),
+    this.barWeight = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
     Expression<int>? id,
@@ -489,6 +538,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<bool>? isCustom,
     Expression<String>? measure,
     Expression<String>? weightType,
+    Expression<double>? barWeight,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -500,6 +550,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (isCustom != null) 'is_custom': isCustom,
       if (measure != null) 'measure': measure,
       if (weightType != null) 'weight_type': weightType,
+      if (barWeight != null) 'bar_weight': barWeight,
     });
   }
 
@@ -513,6 +564,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<bool>? isCustom,
     Value<ExerciseMeasure>? measure,
     Value<WeightType>? weightType,
+    Value<double?>? barWeight,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -524,6 +576,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       isCustom: isCustom ?? this.isCustom,
       measure: measure ?? this.measure,
       weightType: weightType ?? this.weightType,
+      barWeight: barWeight ?? this.barWeight,
     );
   }
 
@@ -561,6 +614,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
         $ExercisesTable.$converterweightType.toSql(weightType.value),
       );
     }
+    if (barWeight.present) {
+      map['bar_weight'] = Variable<double>(barWeight.value);
+    }
     return map;
   }
 
@@ -575,7 +631,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('videoUrl: $videoUrl, ')
           ..write('isCustom: $isCustom, ')
           ..write('measure: $measure, ')
-          ..write('weightType: $weightType')
+          ..write('weightType: $weightType, ')
+          ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
   }
@@ -3756,6 +3813,17 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _plateInventoryLbMeta = const VerificationMeta(
+    'plateInventoryLb',
+  );
+  @override
+  late final GeneratedColumn<String> plateInventoryLb = GeneratedColumn<String>(
+    'plate_inventory_lb',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _barWeightMeta = const VerificationMeta(
     'barWeight',
   );
@@ -3775,6 +3843,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     layoffDays,
     layoffPercent,
     plateInventory,
+    plateInventoryLb,
     barWeight,
   ];
   @override
@@ -3831,6 +3900,15 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
+    if (data.containsKey('plate_inventory_lb')) {
+      context.handle(
+        _plateInventoryLbMeta,
+        plateInventoryLb.isAcceptableOrUnknown(
+          data['plate_inventory_lb']!,
+          _plateInventoryLbMeta,
+        ),
+      );
+    }
     if (data.containsKey('bar_weight')) {
       context.handle(
         _barWeightMeta,
@@ -3870,6 +3948,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}plate_inventory'],
       ),
+      plateInventoryLb: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plate_inventory_lb'],
+      ),
       barWeight: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}bar_weight'],
@@ -3902,15 +3984,19 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// percentage — see `layoff.dart`.
   final int layoffPercent;
 
-  /// The plates the gym owns, encoded — see `plates.dart`.
+  /// The plates a metric gym owns, encoded — see `plates.dart`.
   ///
   /// Null means the user has never edited it, which is not the same as owning
-  /// no plates: it lets the standard rack for the chosen unit stand in, so a
-  /// pounds gym gets 45s and 25s rather than the metric rack in decimals.
+  /// no plates: it lets the standard rack stand in.
   final String? plateInventory;
 
-  /// What the bar itself weighs, in kg. Null falls back to the standard bar
-  /// for the chosen unit, for the same reason as [plateInventory].
+  /// The same for a gym stocking pounds. A separate rack rather than a
+  /// conversion of [plateInventory]: see [resolvePlateSettings] for why.
+  final String? plateInventoryLb;
+
+  /// What the bar weighs by default, in kg — an exercise may override it with
+  /// `Exercises.barWeight`. Null falls back to the standard bar for the chosen
+  /// unit, for the same reason as [plateInventory].
   final double? barWeight;
   const Setting({
     required this.id,
@@ -3919,6 +4005,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     required this.layoffDays,
     required this.layoffPercent,
     this.plateInventory,
+    this.plateInventoryLb,
     this.barWeight,
   });
   @override
@@ -3933,6 +4020,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     map['layoff_percent'] = Variable<int>(layoffPercent);
     if (!nullToAbsent || plateInventory != null) {
       map['plate_inventory'] = Variable<String>(plateInventory);
+    }
+    if (!nullToAbsent || plateInventoryLb != null) {
+      map['plate_inventory_lb'] = Variable<String>(plateInventoryLb);
     }
     if (!nullToAbsent || barWeight != null) {
       map['bar_weight'] = Variable<double>(barWeight);
@@ -3952,6 +4042,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       plateInventory: plateInventory == null && nullToAbsent
           ? const Value.absent()
           : Value(plateInventory),
+      plateInventoryLb: plateInventoryLb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plateInventoryLb),
       barWeight: barWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(barWeight),
@@ -3970,6 +4063,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       layoffDays: serializer.fromJson<int>(json['layoffDays']),
       layoffPercent: serializer.fromJson<int>(json['layoffPercent']),
       plateInventory: serializer.fromJson<String?>(json['plateInventory']),
+      plateInventoryLb: serializer.fromJson<String?>(json['plateInventoryLb']),
       barWeight: serializer.fromJson<double?>(json['barWeight']),
     );
   }
@@ -3983,6 +4077,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'layoffDays': serializer.toJson<int>(layoffDays),
       'layoffPercent': serializer.toJson<int>(layoffPercent),
       'plateInventory': serializer.toJson<String?>(plateInventory),
+      'plateInventoryLb': serializer.toJson<String?>(plateInventoryLb),
       'barWeight': serializer.toJson<double?>(barWeight),
     };
   }
@@ -3994,6 +4089,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     int? layoffDays,
     int? layoffPercent,
     Value<String?> plateInventory = const Value.absent(),
+    Value<String?> plateInventoryLb = const Value.absent(),
     Value<double?> barWeight = const Value.absent(),
   }) => Setting(
     id: id ?? this.id,
@@ -4006,6 +4102,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     plateInventory: plateInventory.present
         ? plateInventory.value
         : this.plateInventory,
+    plateInventoryLb: plateInventoryLb.present
+        ? plateInventoryLb.value
+        : this.plateInventoryLb,
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
@@ -4026,6 +4125,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       plateInventory: data.plateInventory.present
           ? data.plateInventory.value
           : this.plateInventory,
+      plateInventoryLb: data.plateInventoryLb.present
+          ? data.plateInventoryLb.value
+          : this.plateInventoryLb,
       barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
     );
   }
@@ -4039,6 +4141,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('layoffDays: $layoffDays, ')
           ..write('layoffPercent: $layoffPercent, ')
           ..write('plateInventory: $plateInventory, ')
+          ..write('plateInventoryLb: $plateInventoryLb, ')
           ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
@@ -4052,6 +4155,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     layoffDays,
     layoffPercent,
     plateInventory,
+    plateInventoryLb,
     barWeight,
   );
   @override
@@ -4064,6 +4168,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.layoffDays == this.layoffDays &&
           other.layoffPercent == this.layoffPercent &&
           other.plateInventory == this.plateInventory &&
+          other.plateInventoryLb == this.plateInventoryLb &&
           other.barWeight == this.barWeight);
 }
 
@@ -4074,6 +4179,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> layoffDays;
   final Value<int> layoffPercent;
   final Value<String?> plateInventory;
+  final Value<String?> plateInventoryLb;
   final Value<double?> barWeight;
   const SettingsCompanion({
     this.id = const Value.absent(),
@@ -4082,6 +4188,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.layoffDays = const Value.absent(),
     this.layoffPercent = const Value.absent(),
     this.plateInventory = const Value.absent(),
+    this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
   });
   SettingsCompanion.insert({
@@ -4091,6 +4198,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.layoffDays = const Value.absent(),
     this.layoffPercent = const Value.absent(),
     this.plateInventory = const Value.absent(),
+    this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
   });
   static Insertable<Setting> custom({
@@ -4100,6 +4208,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<int>? layoffDays,
     Expression<int>? layoffPercent,
     Expression<String>? plateInventory,
+    Expression<String>? plateInventoryLb,
     Expression<double>? barWeight,
   }) {
     return RawValuesInsertable({
@@ -4109,6 +4218,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (layoffDays != null) 'layoff_days': layoffDays,
       if (layoffPercent != null) 'layoff_percent': layoffPercent,
       if (plateInventory != null) 'plate_inventory': plateInventory,
+      if (plateInventoryLb != null) 'plate_inventory_lb': plateInventoryLb,
       if (barWeight != null) 'bar_weight': barWeight,
     });
   }
@@ -4120,6 +4230,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<int>? layoffDays,
     Value<int>? layoffPercent,
     Value<String?>? plateInventory,
+    Value<String?>? plateInventoryLb,
     Value<double?>? barWeight,
   }) {
     return SettingsCompanion(
@@ -4129,6 +4240,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       layoffDays: layoffDays ?? this.layoffDays,
       layoffPercent: layoffPercent ?? this.layoffPercent,
       plateInventory: plateInventory ?? this.plateInventory,
+      plateInventoryLb: plateInventoryLb ?? this.plateInventoryLb,
       barWeight: barWeight ?? this.barWeight,
     );
   }
@@ -4154,6 +4266,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (plateInventory.present) {
       map['plate_inventory'] = Variable<String>(plateInventory.value);
     }
+    if (plateInventoryLb.present) {
+      map['plate_inventory_lb'] = Variable<String>(plateInventoryLb.value);
+    }
     if (barWeight.present) {
       map['bar_weight'] = Variable<double>(barWeight.value);
     }
@@ -4169,6 +4284,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('layoffDays: $layoffDays, ')
           ..write('layoffPercent: $layoffPercent, ')
           ..write('plateInventory: $plateInventory, ')
+          ..write('plateInventoryLb: $plateInventoryLb, ')
           ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
@@ -4235,6 +4351,7 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
       Value<WeightType> weightType,
+      Value<double?> barWeight,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -4247,6 +4364,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
       Value<WeightType> weightType,
+      Value<double?> barWeight,
     });
 
 final class $$ExercisesTableReferences
@@ -4328,6 +4446,11 @@ class $$ExercisesTableFilterComposer
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
+  ColumnFilters<double> get barWeight => $composableBuilder(
+    column: $table.barWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> workoutItemsRefs(
     Expression<bool> Function($$WorkoutItemsTableFilterComposer f) f,
   ) {
@@ -4407,6 +4530,11 @@ class $$ExercisesTableOrderingComposer
     column: $table.weightType,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get barWeight => $composableBuilder(
+    column: $table.barWeight,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -4451,6 +4579,9 @@ class $$ExercisesTableAnnotationComposer
         column: $table.weightType,
         builder: (column) => column,
       );
+
+  GeneratedColumn<double> get barWeight =>
+      $composableBuilder(column: $table.barWeight, builder: (column) => column);
 
   Expression<T> workoutItemsRefs<T extends Object>(
     Expression<T> Function($$WorkoutItemsTableAnnotationComposer a) f,
@@ -4515,6 +4646,7 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
                 Value<WeightType> weightType = const Value.absent(),
+                Value<double?> barWeight = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -4525,6 +4657,7 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 measure: measure,
                 weightType: weightType,
+                barWeight: barWeight,
               ),
           createCompanionCallback:
               ({
@@ -4537,6 +4670,7 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
                 Value<WeightType> weightType = const Value.absent(),
+                Value<double?> barWeight = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -4547,6 +4681,7 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 measure: measure,
                 weightType: weightType,
+                barWeight: barWeight,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6821,6 +6956,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<int> layoffDays,
       Value<int> layoffPercent,
       Value<String?> plateInventory,
+      Value<String?> plateInventoryLb,
       Value<double?> barWeight,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
@@ -6831,6 +6967,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<int> layoffDays,
       Value<int> layoffPercent,
       Value<String?> plateInventory,
+      Value<String?> plateInventoryLb,
       Value<double?> barWeight,
     });
 
@@ -6870,6 +7007,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get plateInventory => $composableBuilder(
     column: $table.plateInventory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plateInventoryLb => $composableBuilder(
+    column: $table.plateInventoryLb,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6918,6 +7060,11 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get plateInventoryLb => $composableBuilder(
+    column: $table.plateInventoryLb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get barWeight => $composableBuilder(
     column: $table.barWeight,
     builder: (column) => ColumnOrderings(column),
@@ -6961,6 +7108,11 @@ class $$SettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get plateInventoryLb => $composableBuilder(
+    column: $table.plateInventoryLb,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get barWeight =>
       $composableBuilder(column: $table.barWeight, builder: (column) => column);
 }
@@ -6999,6 +7151,7 @@ class $$SettingsTableTableManager
                 Value<int> layoffDays = const Value.absent(),
                 Value<int> layoffPercent = const Value.absent(),
                 Value<String?> plateInventory = const Value.absent(),
+                Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
@@ -7007,6 +7160,7 @@ class $$SettingsTableTableManager
                 layoffDays: layoffDays,
                 layoffPercent: layoffPercent,
                 plateInventory: plateInventory,
+                plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
               ),
           createCompanionCallback:
@@ -7017,6 +7171,7 @@ class $$SettingsTableTableManager
                 Value<int> layoffDays = const Value.absent(),
                 Value<int> layoffPercent = const Value.absent(),
                 Value<String?> plateInventory = const Value.absent(),
+                Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
@@ -7025,6 +7180,7 @@ class $$SettingsTableTableManager
                 layoffDays: layoffDays,
                 layoffPercent: layoffPercent,
                 plateInventory: plateInventory,
+                plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
               ),
           withReferenceMapper: (p0) => p0

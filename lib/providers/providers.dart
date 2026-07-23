@@ -133,7 +133,8 @@ final plateSettingsProvider = Provider<PlateSettings>((ref) {
   final stored = ref.watch(storedPlateSetupProvider).value;
   return resolvePlateSettings(
     unit: unit,
-    inventory: stored?.inventory,
+    kgRack: stored?.kgRack,
+    lbRack: stored?.lbRack,
     barKg: stored?.barKg,
   );
 });

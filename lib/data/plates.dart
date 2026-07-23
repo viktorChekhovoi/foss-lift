@@ -34,14 +34,6 @@ enum WeightType {
         WeightType.dumbbell => 'Dumbbell',
       };
 
-  /// What the weight column means, said in one line for the picker.
-  String get blurb => switch (this) {
-        WeightType.bar => 'The whole bar, plates included. Foss Lift works out '
-            'what goes on each side.',
-        WeightType.machine => 'Whatever the machine reads. Nothing to work out.',
-        WeightType.dumbbell => 'The weight of the dumbbell in your hand.',
-      };
-
   /// Whether a weight of this type breaks down into a per-side plate load.
   bool get loadedPerSide => this == WeightType.bar;
 }
@@ -175,20 +167,28 @@ List<PlateStack> sortedPlates(List<PlateStack> plates) =>
     [...plates]..sort((a, b) => b.kg.compareTo(a.kg));
 
 /// The bar and plates to use, falling back to the standard set for [unit] when
-/// the user has never edited either.
+/// the user has never edited it.
 ///
-/// Unit-derived rather than seeded once at install: a lifter who switches the
-/// app to pounds and has never touched the plate screen means 45s and 25s, not
-/// the metric rack converted into ugly decimals. The moment they edit anything,
-/// the choice is stored and the unit stops deciding for them.
+/// **The rack is kept per unit** — [kgRack] and [lbRack] are separate — because
+/// a rack is a set of *sizes*, not a set of weights. Adding a 30 kg plate to a
+/// metric rack and then reading it in pounds gives 66.14, a plate nobody owns
+/// and nobody can find; a pounds gym stocks 45s. So each unit remembers its own
+/// rack and the standard one stands in until it is edited, rather than one rack
+/// being converted into decimals the other unit cannot use.
+///
+/// (The values inside a rack are still canonical kilograms like every other
+/// weight in the app. It is which rack you are looking at that follows the
+/// unit, not what the numbers mean.)
 PlateSettings resolvePlateSettings({
   required String unit,
-  String? inventory,
+  String? kgRack,
+  String? lbRack,
   double? barKg,
 }) =>
     (
       barKg: barKg ?? defaultBarKg(unit),
-      plates: decodePlates(inventory) ?? defaultPlatesFor(unit),
+      plates: decodePlates(unit == 'lb' ? lbRack : kgRack) ??
+          defaultPlatesFor(unit),
     );
 
 /// What to load on a bar to reach a weight — or the closest the plates in the

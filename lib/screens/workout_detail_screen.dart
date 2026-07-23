@@ -223,6 +223,7 @@ class _ExerciseRow extends StatelessWidget {
       type: view.exercise.weightType,
       settings: plates,
       unit: unit,
+      barKg: view.exercise.barWeight,
     );
   }
 

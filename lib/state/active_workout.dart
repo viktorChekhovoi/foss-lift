@@ -82,6 +82,7 @@ class ExerciseEntry {
     this.itemId,
     this.mode = ProgressionMode.weight,
     this.weightType = WeightType.machine,
+    this.barKg,
     this.restSeconds = 90,
   });
   final int? exerciseId;
@@ -99,6 +100,9 @@ class ExerciseEntry {
   /// How the load is arranged, carried from the library — see [WeightType].
   /// What decides whether the screen can say what goes on the bar.
   final WeightType weightType;
+
+  /// This exercise's own bar, in kg, or null for the gym's default.
+  final double? barKg;
 
   /// The load the next set will be done at: the first set still unlogged, or
   /// the last one when they are all in.
@@ -245,6 +249,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           muscle: v.exercise.muscleGroup,
           mode: mode,
           weightType: v.exercise.weightType,
+          barKg: v.exercise.barWeight,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           sets: List.generate(
             v.item.targetSets,

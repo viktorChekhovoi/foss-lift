@@ -80,13 +80,13 @@ has "Upper 1" and "Upper 2".
 
 | Table          | Holds |
 |----------------|-------|
-| `Exercises`    | The library. name, muscleGroup, equipment, instructions, videoUrl, isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell) |
+| `Exercises`    | The library. name, muscleGroup, equipment, instructions, videoUrl, isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell), `barWeight` (nullable — this movement's own bar) |
 | `Routines`     | A programme. name, colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, and the bar and plate rack `barWeight`/`plateInventory` (both nullable — see below) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, and a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all three nullable, see below |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
@@ -193,6 +193,11 @@ A weight in the log is a number; a weight in the gym is a bar with things on it.
 `WeightType` — **bar**, **machine** or **dumbbell** — is what says which reading
 applies, and it is a property of the *exercise*, like `measure`.
 
+- The bar is **per exercise, with an app-wide default**: `Exercises.barWeight`
+  (null = use `Settings.barWeight`, itself null = the standard bar for the unit).
+  A gym is not one bar — the EZ curl bar is 10 kg, the trap bar 25 — and which
+  one a movement uses is a fact about the movement. Set on the exercise detail
+  screen; the default lives in Settings → Default bar.
 - The type is stored on `Exercises.weightType` and seeded from `equipment`
   (Barbell → bar, Dumbbell → dumbbell, everything else → machine, bodyweight
   included). It is editable on the exercise detail screen for **every** exercise,
@@ -219,19 +224,28 @@ applies, and it is a property of the *exercise*, like `measure`.
   every size and a pile of the workhorse plate — the 45s in a pounds gym, the
   20s in a metric one — because that is what a rack actually looks like, and
   claiming four 35s produces breakdowns nobody can load.
-- `Settings.barWeight` and `Settings.plateInventory` are both **nullable, and
-  null is not empty** — it means "never configured", which lets the standard
-  rack for the chosen unit stand in. A pounds gym gets 45s and 25s without
-  configuring anything, and a metric one gets 25s and 1.25s; the moment either
-  is edited the choice is stored and the unit stops deciding. `resolvePlateSettings`
-  is where that fallback lives, and `plateSettingsProvider` is where the UI reads
-  it (synchronous, so the first frame already has an answer).
+- **One rack per unit**, `plateInventory` (kg) and `plateInventoryLb`. A rack is
+  a set of *sizes*, not a set of weights: add a 30 kg plate to a metric rack and
+  read it in pounds and you get 66.14, a plate nobody owns. Each unit remembers
+  its own and the standard one stands in until it is edited. (The values inside
+  are still canonical kilograms — it is *which* rack you see that follows the
+  unit.)
+- The rack columns and `Settings.barWeight` are **nullable, and null is not
+  empty** — it means "never configured", which is what lets the standard rack
+  stand in. `resolvePlateSettings` is where that fallback lives, and
+  `plateSettingsProvider` is where the UI reads it (synchronous, so the first
+  frame already has an answer).
+- Switching units **confirms first**. Stored weights are never rewritten, so the
+  cost of the switch is arithmetic in plain sight: a 100 kg squat reads as
+  220.5 lb, which is not a bar anybody loads. The dialog says what to go and
+  check rather than letting it be found mid-set.
 - `PlateLine` draws it under an exercise — **once per exercise, not once per
   set**: four identical breakdowns down a column is noise you stop reading. It
   describes the *next* set's weight (`ExerciseEntry.nextWeight` — the first
   unlogged set, or the last one when they are all in), so it follows you down
-  the exercise and re-solves the moment you type a different weight. **Only a
-  bar gets a line**: a machine's number is the number, and a dumbbell's is
+  the exercise and re-solves the moment you type a different weight. It is
+  drawn in the same green/gold the set rows use — green is the weight you asked
+  for, gold is not. **Only a bar gets a line**: a machine's number is the number, and a dumbbell's is
   whatever is in your hand — "per dumbbell, not the pair" would be wrong for
   every one-arm row and goblet squat.
 
@@ -323,7 +337,8 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/history` | history_screen | Past sessions |
 | `/profile` | profile_screen | Stats + settings entry points |
 | `/settings` | settings_screen | kg/lb toggle, bar & plates, layoff deload rules |
-| `/settings/plates` | plate_inventory_screen | Bar weight + the plates the gym owns |
+| `/settings/bar` | bar_settings_screen | The default bar weight |
+| `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
 
 Note `/workout/:id` is a *template*; `/session` is the live thing in progress.
 
@@ -382,7 +397,7 @@ you never looked at.
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
   `build_runner`, add a query method, expose it via a provider. Bump
-  `schemaVersion` (currently **7**) and add an `onUpgrade` step. Migrations are
+  `schemaVersion` (currently **8**) and add an `onUpgrade` step. Migrations are
   tested against a hand-written DDL fixture of the old schema — see
   `test/migration_test.dart` for the pattern.
   A migration step must build the shape of *its own era*: create tables with

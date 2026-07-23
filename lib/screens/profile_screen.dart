@@ -12,7 +12,6 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final workouts = ref.watch(sessionCountProvider).value ?? 0;
     final routineCount = ref.watch(routinesProvider).value?.length ?? 0;
-    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return SafeArea(
       child: ListView(
@@ -64,12 +63,10 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           // Named for the screen, not for one thing on it: the row said "Units"
           // when units were all that was behind it, and has since collected the
-          // layoff rules and the plate rack. The unit stays as the value — it
-          // is the setting worth reading at a glance.
+          // layoff rules, the bar and the plate rack.
           _SettingsTile(
             icon: Icons.tune_rounded,
             label: 'Settings',
-            value: unit == 'lb' ? 'Pounds (lb)' : 'Kilograms (kg)',
             onTap: () => context.push('/settings'),
           ),
           _SettingsTile(
@@ -142,14 +139,12 @@ class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
     required this.label,
-    this.value,
     this.onTap,
     this.soon = false,
     this.last = false,
   });
   final IconData icon;
   final String label;
-  final String? value;
   final VoidCallback? onTap;
   final bool soon;
   final bool last;
@@ -171,12 +166,6 @@ class _SettingsTile extends StatelessWidget {
             SizedBox(width: 26, child: Icon(icon, size: 20, color: AppColors.muted)),
             const SizedBox(width: 8),
             Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
-            if (value != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Text(value!,
-                    style: kMono.copyWith(fontSize: 12.5, color: AppColors.muted)),
-              ),
             if (soon)
               Padding(
                 padding: const EdgeInsets.only(right: 6),

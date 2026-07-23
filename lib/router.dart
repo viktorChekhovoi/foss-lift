@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import 'screens/bar_settings_screen.dart';
 import 'screens/exercise_detail_screen.dart';
 import 'screens/exercise_form_screen.dart';
 import 'screens/history_screen.dart';
@@ -68,6 +69,10 @@ final appRouter = GoRouter(
           ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
     ),
     GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+    GoRoute(
+      path: '/settings/bar',
+      builder: (c, s) => const BarSettingsScreen(),
+    ),
     GoRoute(
       path: '/settings/plates',
       builder: (c, s) => const PlateInventoryScreen(),

@@ -49,7 +49,7 @@ void main() {
     await tester.runAsync(() async {
       final raw = await db.watchPlateSetup().first;
       out = resolvePlateSettings(
-          unit: 'kg', inventory: raw.inventory, barKg: raw.barKg);
+          unit: 'kg', kgRack: raw.kgRack, lbRack: raw.lbRack, barKg: raw.barKg);
     });
     return out;
   }
@@ -58,10 +58,8 @@ void main() {
       (tester) async {
     await open(tester);
 
-    expect(find.text('Bar weight'), findsOneWidget);
-    expect(find.text('20 kg'), findsNWidgets(2),
-        reason: 'the bar itself, and the pair of 20s in the rack');
     expect(find.text('25 kg'), findsOneWidget);
+    expect(find.text('20 kg'), findsOneWidget);
     expect(find.text('1.25 kg'), findsOneWidget,
         reason: 'and not "1.3 kg", which is not a plate anybody owns');
     expect(find.text('Add a plate size'), findsOneWidget);
@@ -104,19 +102,5 @@ void main() {
     final rack = (await stored(tester)).plates;
     expect(rack, hasLength(6));
     expect(rack.any((p) => p.kg == 25), isFalse);
-  });
-
-  testWidgets('the bar is edited in the unit on screen', (tester) async {
-    await open(tester);
-
-    await tester.tap(find.text('Bar weight'));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), '15');
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-
-    expect((await stored(tester)).barKg, 15);
   });
 }

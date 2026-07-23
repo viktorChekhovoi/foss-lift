@@ -357,6 +357,7 @@ class _ExerciseBlock extends StatelessWidget {
               type: exercise.weightType,
               settings: plates,
               unit: unit,
+              barKg: exercise.barKg,
             ),
           const SizedBox(height: 6),
           _ColumnHeaders(unit: unit, timed: exercise.mode.timed),

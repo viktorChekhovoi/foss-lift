@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/units.dart';
 
 /// Shared chrome for the routine and workout builders.
 
@@ -30,6 +31,169 @@ InputDecoration builderInput(String hint) => InputDecoration(
         borderSide: const BorderSide(color: AppColors.accent),
       ),
     );
+
+/// What came back from [askWeight]: a weight in kilograms, or a null [kg]
+/// meaning "use the default". A null *result* is a cancelled dialog.
+typedef WeightChoice = ({double? kg});
+
+/// Asks for a weight in the display unit and hands back kilograms.
+///
+/// A dialog rather than a field on the screen: the values it edits are read
+/// from the database, and a live text field over a stream has to decide on
+/// every keystroke whether the user or the database is right.
+///
+/// [defaultLabel] adds a button that clears the setting back to whatever the
+/// app would have assumed — "Standard 20 kg", "Gym default".
+Future<WeightChoice?> askWeight(
+  BuildContext context, {
+  required String title,
+  required String unit,
+  double? initialKg,
+  String? defaultLabel,
+}) {
+  return showDialog<WeightChoice>(
+    context: context,
+    builder: (_) => _WeightDialog(
+      title: title,
+      unit: unit,
+      initialKg: initialKg,
+      defaultLabel: defaultLabel,
+    ),
+  );
+}
+
+class _WeightDialog extends StatefulWidget {
+  const _WeightDialog({
+    required this.title,
+    required this.unit,
+    this.initialKg,
+    this.defaultLabel,
+  });
+  final String title;
+  final String unit;
+  final double? initialKg;
+  final String? defaultLabel;
+
+  @override
+  State<_WeightDialog> createState() => _WeightDialogState();
+}
+
+class _WeightDialogState extends State<_WeightDialog> {
+  late final TextEditingController _c = TextEditingController(
+      text: widget.initialKg == null
+          ? ''
+          : fmtPlateWeight(toDisplayWeight(widget.initialKg!, widget.unit)));
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  /// Anything unreadable or absurd closes without changing a thing — a plate
+  /// size is not worth an error message.
+  void _save() {
+    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+    Navigator.pop<WeightChoice>(
+      context,
+      v == null || v < 0 || v > 1000 ? null : (kg: toKg(v, widget.unit)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(widget.title),
+      content: TextField(
+        controller: _c,
+        autofocus: true,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textAlign: TextAlign.center,
+        style: kMono.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+        decoration: builderInput(unitLabel(widget.unit)),
+        onSubmitted: (_) => _save(),
+      ),
+      actions: [
+        if (widget.defaultLabel != null)
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+            onPressed: () =>
+                Navigator.pop<WeightChoice>(context, (kg: null)),
+            child: Text(widget.defaultLabel!),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+}
+
+/// A settings row that states a value and opens something when tapped.
+class SettingRow extends StatelessWidget {
+  const SettingRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.note,
+  });
+  final String label;
+  final String value;
+
+  /// A qualifier under the label — "the gym default", "for pounds".
+  final String? note;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.line),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    if (note != null) ...[
+                      const SizedBox(height: 3),
+                      Text(note!,
+                          style: kMono.copyWith(
+                              fontSize: 11.5, color: AppColors.muted)),
+                    ],
+                  ],
+                ),
+              ),
+              Text(value,
+                  style: kMono.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accent)),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// A small uppercase field caption.
 Widget builderLabel(String t) => Padding(
