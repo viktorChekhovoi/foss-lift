@@ -256,7 +256,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     final granted = !reminders.supported || await reminders.requestPermission();
     if (!mounted) return;
     if (!granted) {
-      _toast('FossLift is not allowed to notify — turn it on in '
+      _toast('Foss Lift is not allowed to notify — turn it on in '
           'Android settings.');
       return;
     }

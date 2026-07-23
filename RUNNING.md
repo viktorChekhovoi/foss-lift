@@ -1,4 +1,4 @@
-# Running FossLift on Android
+# Running Foss Lift on Android
 
 How to build and test the app on a **physical phone** or an **Android Studio
 emulator**. Written for this Nobara/Fedora machine, where Flutter lives at

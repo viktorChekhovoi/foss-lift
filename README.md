@@ -1,8 +1,8 @@
-# FossLift
+# Foss Lift
 
 An open-source, offline-first **workout tracker** for Android, built with Flutter.
 
-FossLift keeps everything on your device — no account, no server, no telemetry.
+Foss Lift keeps everything on your device — no account, no server, no telemetry.
 You build routines from an exercise library, then run and log them.
 
 ## Features

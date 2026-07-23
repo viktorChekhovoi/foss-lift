@@ -143,7 +143,7 @@ class _LayoffDialog extends StatelessWidget {
       content: Text(
         'You last trained $workoutName ${layoff.gapDays} days ago. Coming back '
         'at the same load is how people get hurt.\n\n'
-        'FossLift can drop every target in this workout by ${layoff.percent}% '
+        'Foss Lift can drop every target in this workout by ${layoff.percent}% '
         'to ease you back in. Your logged history is not touched.',
         style: const TextStyle(color: AppColors.muted, height: 1.5),
       ),

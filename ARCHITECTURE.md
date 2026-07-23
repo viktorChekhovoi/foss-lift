@@ -1,4 +1,4 @@
-# FossLift — Architecture Map
+# Foss Lift — Architecture Map
 
 A mid-level tour of the codebase: what each file/group is for and how they fit
 together. Read this first; drop into the code second. No deep API detail here —

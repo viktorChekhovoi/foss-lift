@@ -25,7 +25,7 @@ class FossLiftApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(reminderSyncProvider);
     return MaterialApp.router(
-      title: 'FossLift',
+      title: 'Foss Lift',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
       routerConfig: appRouter,

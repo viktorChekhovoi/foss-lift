@@ -50,7 +50,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           Center(
-            child: Text('FossLift — open-source workout tracker',
+            child: Text('Foss Lift — open-source workout tracker',
                 style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
           ),
           const SizedBox(height: 22),
@@ -85,7 +85,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
-            label: 'About FossLift',
+            label: 'About Foss Lift',
             soon: true,
             last: true,
           ),

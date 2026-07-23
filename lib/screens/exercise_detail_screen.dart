@@ -95,7 +95,7 @@ class _Body extends StatelessWidget {
 
 /// The demo link: opens in whatever the phone uses for the web.
 ///
-/// Handing the URL to another app is the only outward-facing thing FossLift
+/// Handing the URL to another app is the only outward-facing thing Foss Lift
 /// does, and it is still the browser that does the talking — the app asks for
 /// no network permission of its own. The address is printed underneath so you
 /// can see where you are being sent before you tap, and long-press copies it
