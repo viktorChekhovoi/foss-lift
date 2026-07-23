@@ -290,6 +290,110 @@ void main() {
     });
   });
 
+  group('loading the bar past the suggestion', () {
+    /// Trains the slot with every set logged at [weights], in order.
+    Future<void> trainAt(int itemId, List<double> weights) async {
+      final wid = (await read(itemId)).workoutId;
+      final container = ProviderContainer(
+        overrides: [databaseProvider.overrideWithValue(db)],
+      );
+      addTearDown(container.dispose);
+      final c = container.read(activeWorkoutProvider.notifier);
+      await c.start(workoutId: wid, name: 'Day');
+      final e = container.read(activeWorkoutProvider)!.exercises.single;
+      for (var i = 0; i < e.sets.length; i++) {
+        e.sets[i].weight = weights[i];
+        e.sets[i].cycle();
+      }
+      await c.finish();
+    }
+
+    test('a session done heavier steps up from the heavier weight', () async {
+      // You put 105 on the bar instead of the 100 the template asked for and
+      // finished the sets. The next target is built on 105, not on 100.
+      final id = await slot();
+      await trainAt(id, [105, 105, 105]);
+      expect((await read(id)).suggestedWeight, 107.5);
+    });
+
+    test('the lightest set is the working weight, not the heaviest', () async {
+      // One heavy set is a heavy single. What you carried through the whole
+      // exercise is the lighter number.
+      final id = await slot();
+      await trainAt(id, [105, 110, 105]);
+      expect((await read(id)).suggestedWeight, 107.5);
+    });
+
+    test('bumping a single set does not move the working weight', () async {
+      final id = await slot();
+      await trainAt(id, [100, 105, 100]);
+      expect((await read(id)).suggestedWeight, 102.5,
+          reason: 'stepped up from 100, the weight actually held throughout');
+    });
+
+    test('the heavier weight is adopted even before a step is earned',
+        () async {
+      // Three clean sessions to a step: the first two do not move the target
+      // on their own, but they must not pretend you are still on 100.
+      final id = await slot(successThreshold: 3);
+      await trainAt(id, [105, 105, 105]);
+
+      final it = await read(id);
+      expect(it.suggestedWeight, 105);
+      expect(it.successStreak, 1);
+    });
+
+    test('a back-off comes off the weight you were actually training at',
+        () async {
+      final id = await slot(failureThreshold: 1);
+      // Heavier bar, but short on reps — a miss at 110, not a miss at 100.
+      final wid = (await read(id)).workoutId;
+      final container = ProviderContainer(
+        overrides: [databaseProvider.overrideWithValue(db)],
+      );
+      addTearDown(container.dispose);
+      final c = container.read(activeWorkoutProvider.notifier);
+      await c.start(workoutId: wid, name: 'Day');
+      for (final s in container.read(activeWorkoutProvider)!.exercises.single.sets) {
+        s.weight = 110;
+        s.logged = 3;
+      }
+      await c.finish();
+
+      expect((await read(id)).suggestedWeight, 105, reason: '110 less 5');
+    });
+
+    test('coming down mid-session does not drag the target with it', () async {
+      // Deloading to finish is a miss, and the failure path answers it. The
+      // stored target must not quietly follow the bar down as well.
+      final id = await slot();
+      await trainAt(id, [100, 90, 90]);
+
+      final it = await read(id);
+      expect(it.suggestedWeight, 100);
+      expect(it.failStreak, 1);
+    });
+
+    test('a bodyweight slot is still left alone', () async {
+      // Typing a number into the live weight field of a slot that never had a
+      // suggestion is not the same as setting one.
+      final id = await slot(weightKg: null);
+      await trainAt(id, [20, 20, 20]);
+      expect((await read(id)).suggestedWeight, isNull);
+    });
+
+    test('the reps axis keeps its fixed load', () async {
+      // Adding load is not how this exercise progresses, so a heavier session
+      // buys a rep, not a heavier suggestion.
+      final id = await slot(mode: ProgressionMode.reps, repsMin: 6);
+      await trainAt(id, [105, 105, 105]);
+
+      final it = await read(id);
+      expect(it.repsMin, 7);
+      expect(it.suggestedWeight, 100);
+    });
+  });
+
   group('editing a workout', () {
     test('does not reset a pending back-off', () async {
       // Saving a workout rewrites its items wholesale. A draft that dropped the

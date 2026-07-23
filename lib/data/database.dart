@@ -681,13 +681,18 @@ class AppDatabase extends _$AppDatabase {
   /// Advances one exercise slot after a session, per its own progression rules.
   ///
   /// [success] is the whole exercise's verdict for the session, not one set's —
-  /// see `ExerciseEntry.succeeded`. Returns how far the target actually moved,
-  /// in the mode's own unit; zero means the streak is still building, the
-  /// back-off has not been earned, or there was no target to move.
+  /// see `ExerciseEntry.succeeded`. [performedWeight] is the load actually
+  /// carried through every set of it, which on the weight axis is allowed to
+  /// raise the target on its own — see below. Returns how far the target
+  /// moved, in the mode's own unit, counted from where it was before.
   ///
   /// The slot may be gone (the workout was edited while the session was in
   /// progress), in which case there is nothing to advance and nothing to say.
-  Future<double> advanceProgression(int itemId, {required bool success}) async {
+  Future<double> advanceProgression(
+    int itemId, {
+    required bool success,
+    double? performedWeight,
+  }) async {
     final it = await workoutItemById(itemId);
     if (it == null) return 0;
 
@@ -705,39 +710,46 @@ class AppDatabase extends _$AppDatabase {
       successStreak: Value(step.successes),
       failStreak: Value(step.failures),
     );
-    var moved = step.delta;
+    var moved = 0.0;
 
-    if (step.delta != 0) {
-      final mode = it.progression;
-      switch (mode) {
-        case ProgressionMode.weight:
-          final from = it.suggestedWeight;
-          // A slot with no suggested weight is a bodyweight movement the user
-          // never put a number on. Inventing one out of a step up would tell
-          // them to load 2.5 kg onto a push-up.
-          if (from == null) {
-            moved = 0;
-          } else {
-            final to = advanceTarget(from, step.delta, mode);
-            patch = patch.copyWith(suggestedWeight: Value(to));
-            moved = to - from;
-          }
-        case ProgressionMode.reps:
+    final mode = it.progression;
+    switch (mode) {
+      case ProgressionMode.weight:
+        final stored = it.suggestedWeight;
+        // A slot with no suggested weight is a bodyweight movement the user
+        // never put a number on. Inventing one out of a step up would tell
+        // them to load 2.5 kg onto a push-up.
+        if (stored != null) {
+          // Loading the bar past the suggestion *is* the progression: the step
+          // is applied to what you actually carried, not to a number the
+          // template has been left behind by. Only upwards — coming down
+          // mid-session is a deload, and the failure path is what answers it.
+          final base = performedWeight != null && performedWeight > stored
+              ? performedWeight
+              : stored;
+          final to = advanceTarget(base, step.delta, mode);
+          if (to != stored) patch = patch.copyWith(suggestedWeight: Value(to));
+          moved = to - stored;
+        }
+      case ProgressionMode.reps:
+        if (step.delta != 0) {
           final from = it.repsMin;
           final to = advanceTarget(from.toDouble(), step.delta, mode).round();
           patch = patch.copyWith(
             repsMin: Value(to),
             // A range keeps its width: 6–8 becomes 7–9, not 7–8.
-            repsMax: Value(
-                it.repsMax == null ? null : it.repsMax! + (to - from)),
+            repsMax:
+                Value(it.repsMax == null ? null : it.repsMax! + (to - from)),
           );
           moved = (to - from).toDouble();
-        case ProgressionMode.time:
+        }
+      case ProgressionMode.time:
+        if (step.delta != 0) {
           final from = it.holdSeconds;
           final to = advanceTarget(from.toDouble(), step.delta, mode).round();
           patch = patch.copyWith(holdSeconds: Value(to));
           moved = (to - from).toDouble();
-      }
+        }
     }
 
     await (update(workoutItems)..where((i) => i.id.equals(itemId))).write(patch);

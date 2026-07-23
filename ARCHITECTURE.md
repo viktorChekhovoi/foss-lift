@@ -127,9 +127,17 @@ the starter library only the Plank is held.
   session's verdict into the consecutive-success/failure counters and says how
   far the target should move; `advanceTarget` applies it without crossing the
   mode's floor. No drift, no Flutter.
-- `AppDatabase.advanceProgression(itemId, success:)` writes the result: it moves
-  `suggestedWeight`, `repsMin`/`repsMax` (a range keeps its width), or
-  `holdSeconds` depending on the mode, and stores the new streaks.
+- `AppDatabase.advanceProgression(itemId, success:, performedWeight:)` writes
+  the result: it moves `suggestedWeight`, `repsMin`/`repsMax` (a range keeps its
+  width), or `holdSeconds` depending on the mode, and stores the new streaks.
+- **Loading the bar past the suggestion is itself progression.** On the weight
+  axis the step is applied to `performedWeight` — `ExerciseEntry.performedWeight`,
+  the *lightest* logged set, i.e. the load carried through the whole exercise —
+  whenever that beats the stored target. One heavy set among lighter ones is a
+  heavy single, not a new working weight, which is why it is the lightest and
+  not the heaviest. This happens whatever the verdict, so a heavier session
+  counts even before a step is earned; it only ever raises, because coming down
+  mid-session is a deload and the failure path already answers that.
 - The verdict itself is `ExerciseEntry.succeeded` — *every planned set logged
   and none of them short*. A skipped set is a miss, and so is finishing at a
   reduced weight (see `SetEntry.missedGoal`).

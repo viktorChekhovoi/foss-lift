@@ -105,6 +105,22 @@ class ExerciseEntry {
   /// that is not the performance the next step up should be built on.
   bool get succeeded =>
       sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal);
+
+  /// The load actually carried through the whole exercise: the *lightest* of
+  /// the logged sets, or null if none were.
+  ///
+  /// The lightest, because that is the weight you held for every set. Putting
+  /// an extra plate on one set and leaving the rest alone is a heavy single,
+  /// not a new working weight — so 100/105/110 counts as 100, and 105/105/105
+  /// counts as 105.
+  double? get performedWeight {
+    double? lightest;
+    for (final s in sets) {
+      if (!s.done) continue;
+      if (lightest == null || s.weight < lightest) lightest = s.weight;
+    }
+    return lightest;
+  }
 }
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
@@ -289,7 +305,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     for (final e in s.exercises) {
       final itemId = e.itemId;
       if (itemId != null) {
-        await _db.advanceProgression(itemId, success: e.succeeded);
+        await _db.advanceProgression(
+          itemId,
+          success: e.succeeded,
+          performedWeight: e.performedWeight,
+        );
       }
     }
 
