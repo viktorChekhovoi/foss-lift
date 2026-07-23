@@ -103,7 +103,7 @@ class _Body extends ConsumerWidget {
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () => context.push('/settings/plates'),
-            child: Text('Plate rack →',
+            child: Text('Available plates →',
                 style: kMono.copyWith(
                     fontSize: 11.5, height: 1.5, color: AppColors.accent)),
           ),

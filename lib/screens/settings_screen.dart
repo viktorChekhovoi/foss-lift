@@ -54,15 +54,14 @@ class SettingsScreen extends ConsumerWidget {
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             SettingRow(
-              label: 'Default bar',
-              note: 'exercises can override it',
+              label: 'Default bar weight',
               value: '${fmtPlateWeight(toDisplayWeight(plates.barKg, unit))} '
                   '${unitLabel(unit)}',
               onTap: () => context.push('/settings/bar'),
             ),
             const SizedBox(height: 10),
             SettingRow(
-              label: 'Plate rack',
+              label: 'Available plates',
               note: 'what the gym stocks in ${unitLabel(unit)}',
               value: '${plates.plates.length} '
                   '${plates.plates.length == 1 ? 'size' : 'sizes'}',
@@ -145,11 +144,9 @@ Future<void> _switchUnit(
       backgroundColor: AppColors.surface,
       title: Text('Switch to $to?'),
       content: Text(
-        'Every weight you have logged or set is kept exactly as it was and '
-        'converted for display, so some will land between the numbers you can '
-        'actually load.\n\n'
-        'Worth checking afterwards: your exercise weights, and your plate rack '
-        'for $to.',
+        'Your exercise weights and available plates are converted to $to '
+        'automatically. A few may land between the numbers you can load, so '
+        'they are worth a quick look afterwards.',
         style: const TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [

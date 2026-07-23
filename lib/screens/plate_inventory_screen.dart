@@ -41,7 +41,7 @@ class PlateInventoryScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Plate rack · ${unitLabel(unit)}')),
+      appBar: AppBar(title: Text('Available plates · ${unitLabel(unit)}')),
       body: SafeArea(
         top: false,
         child: ListView(

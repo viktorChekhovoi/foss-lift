@@ -27,7 +27,7 @@ class BarSettingsScreen extends ConsumerWidget {
     Future<void> edit() async {
       final choice = await askWeight(
         context,
-        title: 'Default bar',
+        title: 'Default bar weight',
         unit: unit,
         initialKg: setup.barKg,
         defaultLabel: isDefault
@@ -44,7 +44,7 @@ class BarSettingsScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Default bar')),
+      appBar: AppBar(title: const Text('Default bar weight')),
       body: SafeArea(
         top: false,
         child: ListView(
