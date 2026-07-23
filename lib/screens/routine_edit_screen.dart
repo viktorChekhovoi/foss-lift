@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-
+import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/builder_widgets.dart';
@@ -49,6 +49,8 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   final _name = TextEditingController();
   String _color = _palette.first;
   int _restSeconds = 90;
+  int _scheduleDays = kNoScheduleMask;
+  int? _reminderMinutes;
   final List<_WorkoutDraft> _workouts = [];
   bool _loaded = false;
   bool _saving = false;
@@ -78,6 +80,8 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       _name.text = routine.name;
       _color = routine.colorHex;
       _restSeconds = routine.restSeconds;
+      _scheduleDays = routine.scheduleDays;
+      _reminderMinutes = routine.reminderMinutes;
       _workouts
         ..clear()
         ..addAll(workouts.map((w) => _WorkoutDraft(
@@ -173,11 +177,22 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     final int routineId;
     if (_isEdit) {
       routineId = widget.routineId!;
-      await db.updateRoutineMeta(routineId,
-          name: name, color: _color, restSeconds: _restSeconds);
+      await db.updateRoutineMeta(
+        routineId,
+        name: name,
+        color: _color,
+        restSeconds: _restSeconds,
+        scheduleDays: _scheduleDays,
+        reminderMinutes: _reminderMinutes,
+      );
     } else {
       routineId = await db.createRoutine(
-          name: name, color: _color, restSeconds: _restSeconds);
+        name: name,
+        color: _color,
+        restSeconds: _restSeconds,
+        scheduleDays: _scheduleDays,
+        reminderMinutes: _reminderMinutes,
+      );
     }
 
     await db.replaceRoutineWorkouts(
@@ -226,6 +241,53 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
 
   void _toast(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+
+  /// Turns the reminder on or off. Switching it on is the moment to ask for the
+  /// notification permission — the system prompt then arrives with the reason
+  /// for it still on screen, rather than on first launch out of nowhere.
+  Future<void> _toggleReminder(bool on) async {
+    if (!on) {
+      setState(() => _reminderMinutes = null);
+      return;
+    }
+    final reminders = ref.read(reminderServiceProvider);
+    // On a platform that has nothing to ask (the desktop test bench), the
+    // setting is still worth storing — it just will not fire there.
+    final granted = !reminders.supported || await reminders.requestPermission();
+    if (!mounted) return;
+    if (!granted) {
+      _toast('FossLift is not allowed to notify — turn it on in '
+          'Android settings.');
+      return;
+    }
+    setState(() => _reminderMinutes ??= 18 * 60);
+  }
+
+  Future<void> _pickReminderTime() async {
+    final now = _reminderMinutes ?? 18 * 60;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: now ~/ 60, minute: now % 60),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _reminderMinutes = picked.hour * 60 + picked.minute);
+  }
+
+  String _reminderHint() {
+    if (_reminderMinutes == null) {
+      return 'No reminder. Nothing is sent anywhere — a reminder is an alarm '
+          'this phone sets for itself.';
+    }
+    if (_scheduleDays == kNoScheduleMask) {
+      return 'Pick at least one training day above, or there is no day for the '
+          'reminder to fire on.';
+    }
+    final when = _scheduleDays == kEveryDayMask
+        ? 'every day'
+        : 'on ${scheduleLabel(_scheduleDays)}';
+    return 'A notification at ${timeLabel(_reminderMinutes!)} $when, skipped '
+        'on any day you have already trained this routine.';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -280,6 +342,28 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           min: 0,
                           max: 300,
                           onChanged: (v) => setState(() => _restSeconds = v),
+                        ),
+                        const SizedBox(height: 22),
+                        builderLabel('Training days'),
+                        _DayToggles(
+                          mask: _scheduleDays,
+                          onToggle: (d) => setState(
+                              () => _scheduleDays = toggleDay(_scheduleDays, d)),
+                        ),
+                        const SizedBox(height: 18),
+                        builderLabel('Reminder'),
+                        _ReminderRow(
+                          minutes: _reminderMinutes,
+                          onToggle: _toggleReminder,
+                          onPickTime: _pickReminderTime,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _reminderHint(),
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.muted,
+                              height: 1.45),
                         ),
                         const SizedBox(height: 8),
                         SectionLabel('Workouts · ${_workouts.length}'),
@@ -485,6 +569,122 @@ class _NameDialogState extends State<_NameDialog> {
           child: const Text('OK'),
         ),
       ],
+    );
+  }
+}
+
+/// The seven day toggles, Monday first.
+///
+/// A row of round buttons rather than a list of checkboxes: a week is a shape
+/// people recognise at a glance, and Mon/Wed/Fri should be readable as one.
+class _DayToggles extends StatelessWidget {
+  const _DayToggles({required this.mask, required this.onToggle});
+  final int mask;
+
+  /// Called with a `DateTime.weekday` value (1 = Monday).
+  final ValueChanged<int> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var day = 1; day <= 7; day++) ...[
+          if (day > 1) const SizedBox(width: 8),
+          Expanded(
+            child: _DayToggle(
+              label: kDayInitials[day - 1],
+              on: scheduledOn(mask, day),
+              onTap: () => onToggle(day),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DayToggle extends StatelessWidget {
+  const _DayToggle(
+      {required this.label, required this.on, required this.onTap});
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: on ? AppColors.accent : AppColors.line),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: kMono.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: on ? AppColors.accent : AppColors.faint,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The reminder switch, with the time beside it once it is on.
+class _ReminderRow extends StatelessWidget {
+  const _ReminderRow({
+    required this.minutes,
+    required this.onToggle,
+    required this.onPickTime,
+  });
+  final int? minutes;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onPickTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = minutes != null;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.line),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text('Notify me',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ),
+          if (on)
+            TextButton(
+              onPressed: onPickTime,
+              child: Text(
+                timeLabel(minutes!),
+                style: kMono.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accent,
+                ),
+              ),
+            ),
+          Switch(
+            value: on,
+            activeThumbColor: AppColors.accent,
+            onChanged: onToggle,
+          ),
+        ],
+      ),
     );
   }
 }

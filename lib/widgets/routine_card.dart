@@ -80,6 +80,32 @@ class RoutineCard extends StatelessWidget {
                         color: AppColors.muted,
                       ),
                     ),
+                    // Only when there is one: a line reading "No fixed days" on
+                    // every unscheduled routine is noise about a setting most
+                    // of them will never use.
+                    if (r.scheduleDays != kNoScheduleMask) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            r.reminderMinutes == null
+                                ? Icons.event_outlined
+                                : Icons.notifications_active_outlined,
+                            size: 12,
+                            color: AppColors.faint,
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              scheduleLabel(r.scheduleDays),
+                              overflow: TextOverflow.ellipsis,
+                              style: kMono.copyWith(
+                                  fontSize: 11.5, color: AppColors.faint),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

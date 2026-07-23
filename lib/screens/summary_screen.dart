@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../data/database.dart';
 import '../providers/providers.dart';
@@ -77,6 +78,13 @@ class _SummaryBody extends StatelessWidget {
               Center(
                 child: Text(session.name,
                     style: const TextStyle(color: AppColors.muted, fontSize: 14)),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Text(
+                  DateFormat('EEE d MMM · HH:mm').format(session.startedAt),
+                  style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+                ),
               ),
               const SizedBox(height: 22),
               Padding(

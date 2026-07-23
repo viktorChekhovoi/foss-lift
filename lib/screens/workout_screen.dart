@@ -96,6 +96,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                     children: [
+                      if (session.notice != null)
+                        _SessionNotice(text: session.notice!),
                       const _LoggingHint(),
                       for (var ei = 0; ei < session.exercises.length; ei++)
                         _ExerciseBlock(
@@ -251,6 +253,42 @@ class _Stat extends StatelessWidget {
 
 /// Said once, at the top of the list, rather than as a legend under every
 /// exercise: the tap cycle is quick to demonstrate and tedious to repeat.
+/// Why the numbers are not where you left them. Stays for the whole session:
+/// the question "why is this lighter?" occurs to people mid-set, not on the way
+/// in, and there is nowhere else on this screen to answer it.
+class _SessionNotice extends StatelessWidget {
+  const _SessionNotice({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.trending_down_rounded,
+              size: 18, color: AppColors.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: kMono.copyWith(
+                  fontSize: 11.5, height: 1.45, color: AppColors.gold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LoggingHint extends StatelessWidget {
   const _LoggingHint();
 

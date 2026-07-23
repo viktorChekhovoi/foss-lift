@@ -5,9 +5,13 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'layoff.dart';
 import 'progression.dart';
+import 'schedule.dart';
 
+export 'layoff.dart';
 export 'progression.dart';
+export 'schedule.dart';
 
 part 'database.g.dart';
 
@@ -42,6 +46,16 @@ class Routines extends Table {
 
   /// Default rest between sets for this routine, in seconds.
   IntColumn get restSeconds => integer().withDefault(const Constant(90))();
+
+  /// Which weekdays this routine is meant to be trained on, as the bitmask
+  /// described in `schedule.dart`. Zero — the default — means no fixed days.
+  IntColumn get scheduleDays =>
+      integer().withDefault(const Constant(kNoScheduleMask))();
+
+  /// Minutes past midnight for the reminder on a scheduled day, or null for no
+  /// reminder. Null by default: a notification is something the user asks for,
+  /// one routine at a time, not something an offline tracker starts doing.
+  IntColumn get reminderMinutes => integer().nullable()();
 }
 
 /// One day within a routine ("Push", "Upper 1"). Names need not be unique — an
@@ -185,6 +199,16 @@ class Settings extends Table {
   /// dangling id after a delete resolves to null rather than failing.
   IntColumn get activeRoutineId => integer().nullable()();
 
+  /// Days away from a workout before returning to it offers a back-off. Zero
+  /// switches layoff deloads off entirely.
+  IntColumn get layoffDays =>
+      integer().withDefault(const Constant(kDefaultLayoffDays))();
+
+  /// How much a layoff cuts the target for each whole period away, as a
+  /// percentage — see `layoff.dart`.
+  IntColumn get layoffPercent =>
+      integer().withDefault(const Constant(kDefaultLayoffPercent))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -301,7 +325,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -346,6 +370,16 @@ class AppDatabase extends _$AppDatabase {
             // renamed from anywhere in the app.
             await customStatement(
                 "UPDATE exercises SET measure = 'time' WHERE name = 'Plank'");
+          }
+          if (from < 6) {
+            // v5 → v6: routines gain a weekly schedule and an opt-in reminder,
+            // and the layoff rules get somewhere to live. Every column either
+            // defaults to "off" or is nullable, so an existing install comes
+            // out the far side scheduling nothing and notifying nobody.
+            await m.addColumn(routines, routines.scheduleDays);
+            await m.addColumn(routines, routines.reminderMinutes);
+            await m.addColumn(settings, settings.layoffDays);
+            await m.addColumn(settings, settings.layoffPercent);
           }
         },
         beforeOpen: (details) async {
@@ -628,6 +662,8 @@ class AppDatabase extends _$AppDatabase {
     required String name,
     required String color,
     required int restSeconds,
+    int scheduleDays = kNoScheduleMask,
+    int? reminderMinutes,
   }) async {
     final pos = await _nextRoutinePosition();
     return into(routines).insert(
@@ -636,23 +672,64 @@ class AppDatabase extends _$AppDatabase {
         colorHex: Value(color),
         position: Value(pos),
         restSeconds: Value(restSeconds),
+        scheduleDays: Value(scheduleDays),
+        reminderMinutes: Value(reminderMinutes),
       ),
     );
   }
 
+  /// Rewrites a routine's own settings. The schedule and reminder are written
+  /// every time, including back to null: the editor always holds the whole
+  /// answer, so a null here means "no reminder", never "leave it alone".
   Future<void> updateRoutineMeta(
     int id, {
     required String name,
     required String color,
     required int restSeconds,
+    int scheduleDays = kNoScheduleMask,
+    int? reminderMinutes,
   }) {
     return (update(routines)..where((r) => r.id.equals(id))).write(
       RoutinesCompanion(
         name: Value(name),
         colorHex: Value(color),
         restSeconds: Value(restSeconds),
+        scheduleDays: Value(scheduleDays),
+        reminderMinutes: Value(reminderMinutes),
       ),
     );
+  }
+
+  /// Every routine's reminder, paired with when it was last actually trained.
+  ///
+  /// One query rather than a per-routine lookup because the scheduler wants the
+  /// whole picture at once: it cancels and re-lays every pending notification
+  /// each time anything moves, and a partial view would leave stale ones behind.
+  Stream<List<RoutineReminder>> watchRoutineReminders() {
+    final lastAt = sessions.startedAt.max();
+    final query = select(routines).join([
+      leftOuterJoin(
+        sessions,
+        sessions.routineId.equalsExp(routines.id) & sessions.endedAt.isNotNull(),
+        useColumns: false,
+      ),
+    ])
+      ..addColumns([lastAt])
+      ..groupBy([routines.id])
+      ..orderBy([OrderingTerm(expression: routines.position)]);
+
+    return query.watch().map(
+          (rows) => rows.map((r) {
+            final routine = r.readTable(routines);
+            return RoutineReminder(
+              routineId: routine.id,
+              name: routine.name,
+              scheduleDays: routine.scheduleDays,
+              reminderMinutes: routine.reminderMinutes,
+              lastTrainedAt: r.read(lastAt),
+            );
+          }).toList(),
+        );
   }
 
   /// Deletes a routine; its workouts and their items cascade away.
@@ -756,6 +833,85 @@ class AppDatabase extends _$AppDatabase {
     return moved;
   }
 
+  // ---- Layoff deloads -----------------------------------------------------
+
+  /// The back-off that returning to [workoutId] has earned, or null for none.
+  ///
+  /// Measured per workout rather than per routine: a split where Push comes
+  /// round every week and Legs has not been touched since spring is exactly the
+  /// case worth catching, and "the routine" was trained throughout. A workout
+  /// that has never been trained has no gap and nothing to regress from.
+  Future<LayoffDeload?> layoffFor(int workoutId, {DateTime? now}) async {
+    final last = await lastTrainedAt(workoutId);
+    if (last == null) return null;
+    final rules = await layoffSettings();
+    return layoffDeload(
+      gapDays: daysBetween(last, now ?? DateTime.now()),
+      thresholdDays: rules.days,
+      percentPerPeriod: rules.percent,
+    );
+  }
+
+  /// Cuts every slot in a workout by [percent] along its own axis, and clears
+  /// the progression streaks with it.
+  ///
+  /// The streaks go because they are a claim about momentum, and a month off
+  /// has settled that claim: the sessions either side of a layoff are not
+  /// consecutive in any sense the progression rules mean. Returns how many
+  /// slots actually moved — a workout of bodyweight movements with no target
+  /// to cut moves nothing, and the UI should not claim otherwise.
+  Future<int> applyLayoffDeload(int workoutId, int percent) {
+    return transaction(() async {
+      final items = await (select(workoutItems)
+            ..where((i) => i.workoutId.equals(workoutId)))
+          .get();
+
+      var moved = 0;
+      for (final it in items) {
+        var patch = const WorkoutItemsCompanion(
+          successStreak: Value(0),
+          failStreak: Value(0),
+        );
+        final mode = it.progression;
+        switch (mode) {
+          case ProgressionMode.weight:
+            final from = it.suggestedWeight;
+            // No suggested weight is a movement nobody put a number on. There
+            // is nothing to take ten percent of.
+            if (from != null) {
+              final to = deloadedTarget(from, percent, mode);
+              if (to != from) {
+                patch = patch.copyWith(suggestedWeight: Value(to));
+                moved++;
+              }
+            }
+          case ProgressionMode.reps:
+            final from = it.repsMin;
+            final to = deloadedTarget(from.toDouble(), percent, mode).round();
+            if (to != from) {
+              patch = patch.copyWith(
+                repsMin: Value(to),
+                // A range keeps its width, as it does on the way up.
+                repsMax:
+                    Value(it.repsMax == null ? null : it.repsMax! + (to - from)),
+              );
+              moved++;
+            }
+          case ProgressionMode.time:
+            final from = it.holdSeconds;
+            final to = deloadedTarget(from.toDouble(), percent, mode).round();
+            if (to != from) {
+              patch = patch.copyWith(holdSeconds: Value(to));
+              moved++;
+            }
+        }
+        await (update(workoutItems)..where((i) => i.id.equals(it.id)))
+            .write(patch);
+      }
+      return moved;
+    });
+  }
+
   // ---- History ------------------------------------------------------------
 
   Stream<List<Session>> watchHistory() {
@@ -773,6 +929,17 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
           ..limit(1))
         .watchSingleOrNull();
+  }
+
+  /// When a workout was last trained, or null if it never has been. Drives the
+  /// layoff check on the way into a session.
+  Future<DateTime?> lastTrainedAt(int workoutId) async {
+    final row = await (select(sessions)
+          ..where((s) => s.workoutId.equals(workoutId) & s.endedAt.isNotNull())
+          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    return row?.startedAt;
   }
 
   Future<List<SessionSet>> setsForSession(int sessionId) {
@@ -865,6 +1032,31 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setActiveRoutineId(int? routineId) =>
       _writeSettings(SettingsCompanion(activeRoutineId: Value(routineId)));
+
+  /// The layoff rules, falling back to the defaults if the settings row has
+  /// somehow not been written yet.
+  Stream<LayoffSettings> watchLayoffSettings() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map(_layoffOf);
+  }
+
+  Future<LayoffSettings> layoffSettings() async {
+    final row = await (select(settings)..where((s) => s.id.equals(1)))
+        .getSingleOrNull();
+    return _layoffOf(row);
+  }
+
+  LayoffSettings _layoffOf(Setting? s) => (
+        days: s?.layoffDays ?? kDefaultLayoffDays,
+        percent: s?.layoffPercent ?? kDefaultLayoffPercent,
+      );
+
+  Future<void> setLayoffDays(int days) =>
+      _writeSettings(SettingsCompanion(layoffDays: Value(days)));
+
+  Future<void> setLayoffPercent(int percent) =>
+      _writeSettings(SettingsCompanion(layoffPercent: Value(percent)));
 
   /// Updates the single settings row, creating it if it is somehow missing.
   /// Only the columns present in [patch] are touched.
@@ -989,14 +1181,16 @@ class AppDatabase extends _$AppDatabase {
       String color,
       int pos,
       int rest,
-      List<({String name, List<_SeedItem> items})> days,
-    ) async {
+      List<({String name, List<_SeedItem> items})> days, {
+      int schedule = kNoScheduleMask,
+    }) async {
       final rid = await into(routines).insert(
         RoutinesCompanion.insert(
           name: name,
           colorHex: Value(color),
           position: Value(pos),
           restSeconds: Value(rest),
+          scheduleDays: Value(schedule),
         ),
       );
       var dayPos = 0;
@@ -1058,7 +1252,11 @@ class AppDatabase extends _$AppDatabase {
         (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
         (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
       ]),
-    ]);
+      // Mondays, Wednesdays and Fridays — a schedule on one of the two demo
+      // routines and none on the other, so both states of the setting are
+      // visible before anyone has configured anything. No reminder either way:
+      // notifications are asked for, never assumed.
+    ], schedule: 1 << 0 | 1 << 2 | 1 << 4);
 
     await routine('Upper / Lower', '3ED598', 1, 150, [
       (name: 'Upper 1', items: [

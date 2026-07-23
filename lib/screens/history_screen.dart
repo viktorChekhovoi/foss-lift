@@ -95,6 +95,10 @@ class _HistoryRow extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
+                  // The time of day, not just the date: whether you train
+                  // mornings or late evenings is the pattern history is being
+                  // read for as often as the date is.
+                  '${DateFormat('HH:mm').format(session.startedAt)} · '
                   '${session.setsCompleted} ${session.setsCompleted == 1 ? 'set' : 'sets'}',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
                 ),

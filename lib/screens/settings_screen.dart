@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/builder_widgets.dart';
 
-/// App preferences. Currently the weight unit; more will hang off here.
+/// App preferences: the weight unit and the layoff rules.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final layoff = ref.watch(layoffSettingsProvider).value ??
+        (days: kDefaultLayoffDays, percent: kDefaultLayoffPercent);
     final db = ref.read(databaseProvider);
 
     return Scaffold(
@@ -43,11 +47,69 @@ class SettingsScreen extends ConsumerWidget {
               'switching units never rewrites your history.',
               style: const TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
+            const SizedBox(height: 28),
+            Text('COMING BACK FROM A LAYOFF',
+                style: kMono.copyWith(
+                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+            const SizedBox(height: 10),
+            builderCard('Deload after time off', [
+              builderGrid([
+                BuilderField(
+                  label: 'After',
+                  child: NumberStepper(
+                    value: layoff.days,
+                    suffix: 'd',
+                    min: 7,
+                    max: 120,
+                    step: 7,
+                    // Zero is not a threshold, it is the feature switched off,
+                    // so it gets a word rather than a number.
+                    isEmpty: layoff.days == 0,
+                    emptyLabel: 'Off',
+                    onClear: () => db.setLayoffDays(0),
+                    onChanged: db.setLayoffDays,
+                  ),
+                ),
+                BuilderField(
+                  label: 'Cut',
+                  note: 'per period',
+                  child: NumberStepper(
+                    value: layoff.percent,
+                    suffix: '%',
+                    min: 5,
+                    max: 50,
+                    step: 5,
+                    onChanged: db.setLayoffPercent,
+                  ),
+                ),
+              ]),
+            ]),
+            const SizedBox(height: 14),
+            Text(
+              layoff.days == 0
+                  ? 'Returning to a workout after any gap starts it at the '
+                      'weight you left it at.'
+                  : 'Go ${layoff.days} days without a workout and starting it '
+                      'again offers to cut its targets by ${layoff.percent}% — '
+                      'twice that after ${layoff.days * 2} days, and no more '
+                      'than ${_maxCut(layoff.percent)}% however long you are '
+                      'away. You are always asked first, and logged history is '
+                      'never changed.',
+              style: const TextStyle(
+                  color: AppColors.muted, fontSize: 13, height: 1.5),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// The deepest a layoff can ever cut, given the per-period rate — the periods
+/// stack only [kMaxLayoffPeriods] deep and stop at [kMaxLayoffCutPercent].
+int _maxCut(int percent) {
+  final stacked = kMaxLayoffPeriods * percent;
+  return stacked > kMaxLayoffCutPercent ? kMaxLayoffCutPercent : stacked;
 }
 
 class _UnitOption extends StatelessWidget {

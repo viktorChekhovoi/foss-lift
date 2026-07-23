@@ -588,6 +588,29 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
     requiredDuringInsert: false,
     defaultValue: const Constant(90),
   );
+  static const VerificationMeta _scheduleDaysMeta = const VerificationMeta(
+    'scheduleDays',
+  );
+  @override
+  late final GeneratedColumn<int> scheduleDays = GeneratedColumn<int>(
+    'schedule_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kNoScheduleMask),
+  );
+  static const VerificationMeta _reminderMinutesMeta = const VerificationMeta(
+    'reminderMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> reminderMinutes = GeneratedColumn<int>(
+    'reminder_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -595,6 +618,8 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
     colorHex,
     position,
     restSeconds,
+    scheduleDays,
+    reminderMinutes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -640,6 +665,24 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         ),
       );
     }
+    if (data.containsKey('schedule_days')) {
+      context.handle(
+        _scheduleDaysMeta,
+        scheduleDays.isAcceptableOrUnknown(
+          data['schedule_days']!,
+          _scheduleDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_minutes')) {
+      context.handle(
+        _reminderMinutesMeta,
+        reminderMinutes.isAcceptableOrUnknown(
+          data['reminder_minutes']!,
+          _reminderMinutesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -669,6 +712,14 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         DriftSqlType.int,
         data['${effectivePrefix}rest_seconds'],
       )!,
+      scheduleDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schedule_days'],
+      )!,
+      reminderMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_minutes'],
+      ),
     );
   }
 
@@ -686,12 +737,23 @@ class Routine extends DataClass implements Insertable<Routine> {
 
   /// Default rest between sets for this routine, in seconds.
   final int restSeconds;
+
+  /// Which weekdays this routine is meant to be trained on, as the bitmask
+  /// described in `schedule.dart`. Zero — the default — means no fixed days.
+  final int scheduleDays;
+
+  /// Minutes past midnight for the reminder on a scheduled day, or null for no
+  /// reminder. Null by default: a notification is something the user asks for,
+  /// one routine at a time, not something an offline tracker starts doing.
+  final int? reminderMinutes;
   const Routine({
     required this.id,
     required this.name,
     required this.colorHex,
     required this.position,
     required this.restSeconds,
+    required this.scheduleDays,
+    this.reminderMinutes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -701,6 +763,10 @@ class Routine extends DataClass implements Insertable<Routine> {
     map['color_hex'] = Variable<String>(colorHex);
     map['position'] = Variable<int>(position);
     map['rest_seconds'] = Variable<int>(restSeconds);
+    map['schedule_days'] = Variable<int>(scheduleDays);
+    if (!nullToAbsent || reminderMinutes != null) {
+      map['reminder_minutes'] = Variable<int>(reminderMinutes);
+    }
     return map;
   }
 
@@ -711,6 +777,10 @@ class Routine extends DataClass implements Insertable<Routine> {
       colorHex: Value(colorHex),
       position: Value(position),
       restSeconds: Value(restSeconds),
+      scheduleDays: Value(scheduleDays),
+      reminderMinutes: reminderMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderMinutes),
     );
   }
 
@@ -725,6 +795,8 @@ class Routine extends DataClass implements Insertable<Routine> {
       colorHex: serializer.fromJson<String>(json['colorHex']),
       position: serializer.fromJson<int>(json['position']),
       restSeconds: serializer.fromJson<int>(json['restSeconds']),
+      scheduleDays: serializer.fromJson<int>(json['scheduleDays']),
+      reminderMinutes: serializer.fromJson<int?>(json['reminderMinutes']),
     );
   }
   @override
@@ -736,6 +808,8 @@ class Routine extends DataClass implements Insertable<Routine> {
       'colorHex': serializer.toJson<String>(colorHex),
       'position': serializer.toJson<int>(position),
       'restSeconds': serializer.toJson<int>(restSeconds),
+      'scheduleDays': serializer.toJson<int>(scheduleDays),
+      'reminderMinutes': serializer.toJson<int?>(reminderMinutes),
     };
   }
 
@@ -745,12 +819,18 @@ class Routine extends DataClass implements Insertable<Routine> {
     String? colorHex,
     int? position,
     int? restSeconds,
+    int? scheduleDays,
+    Value<int?> reminderMinutes = const Value.absent(),
   }) => Routine(
     id: id ?? this.id,
     name: name ?? this.name,
     colorHex: colorHex ?? this.colorHex,
     position: position ?? this.position,
     restSeconds: restSeconds ?? this.restSeconds,
+    scheduleDays: scheduleDays ?? this.scheduleDays,
+    reminderMinutes: reminderMinutes.present
+        ? reminderMinutes.value
+        : this.reminderMinutes,
   );
   Routine copyWithCompanion(RoutinesCompanion data) {
     return Routine(
@@ -761,6 +841,12 @@ class Routine extends DataClass implements Insertable<Routine> {
       restSeconds: data.restSeconds.present
           ? data.restSeconds.value
           : this.restSeconds,
+      scheduleDays: data.scheduleDays.present
+          ? data.scheduleDays.value
+          : this.scheduleDays,
+      reminderMinutes: data.reminderMinutes.present
+          ? data.reminderMinutes.value
+          : this.reminderMinutes,
     );
   }
 
@@ -771,13 +857,23 @@ class Routine extends DataClass implements Insertable<Routine> {
           ..write('name: $name, ')
           ..write('colorHex: $colorHex, ')
           ..write('position: $position, ')
-          ..write('restSeconds: $restSeconds')
+          ..write('restSeconds: $restSeconds, ')
+          ..write('scheduleDays: $scheduleDays, ')
+          ..write('reminderMinutes: $reminderMinutes')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, colorHex, position, restSeconds);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    colorHex,
+    position,
+    restSeconds,
+    scheduleDays,
+    reminderMinutes,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -786,7 +882,9 @@ class Routine extends DataClass implements Insertable<Routine> {
           other.name == this.name &&
           other.colorHex == this.colorHex &&
           other.position == this.position &&
-          other.restSeconds == this.restSeconds);
+          other.restSeconds == this.restSeconds &&
+          other.scheduleDays == this.scheduleDays &&
+          other.reminderMinutes == this.reminderMinutes);
 }
 
 class RoutinesCompanion extends UpdateCompanion<Routine> {
@@ -795,12 +893,16 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   final Value<String> colorHex;
   final Value<int> position;
   final Value<int> restSeconds;
+  final Value<int> scheduleDays;
+  final Value<int?> reminderMinutes;
   const RoutinesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.position = const Value.absent(),
     this.restSeconds = const Value.absent(),
+    this.scheduleDays = const Value.absent(),
+    this.reminderMinutes = const Value.absent(),
   });
   RoutinesCompanion.insert({
     this.id = const Value.absent(),
@@ -808,6 +910,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     this.colorHex = const Value.absent(),
     this.position = const Value.absent(),
     this.restSeconds = const Value.absent(),
+    this.scheduleDays = const Value.absent(),
+    this.reminderMinutes = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Routine> custom({
     Expression<int>? id,
@@ -815,6 +919,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     Expression<String>? colorHex,
     Expression<int>? position,
     Expression<int>? restSeconds,
+    Expression<int>? scheduleDays,
+    Expression<int>? reminderMinutes,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -822,6 +928,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
       if (colorHex != null) 'color_hex': colorHex,
       if (position != null) 'position': position,
       if (restSeconds != null) 'rest_seconds': restSeconds,
+      if (scheduleDays != null) 'schedule_days': scheduleDays,
+      if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
     });
   }
 
@@ -831,6 +939,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     Value<String>? colorHex,
     Value<int>? position,
     Value<int>? restSeconds,
+    Value<int>? scheduleDays,
+    Value<int?>? reminderMinutes,
   }) {
     return RoutinesCompanion(
       id: id ?? this.id,
@@ -838,6 +948,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
       colorHex: colorHex ?? this.colorHex,
       position: position ?? this.position,
       restSeconds: restSeconds ?? this.restSeconds,
+      scheduleDays: scheduleDays ?? this.scheduleDays,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
     );
   }
 
@@ -859,6 +971,12 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     if (restSeconds.present) {
       map['rest_seconds'] = Variable<int>(restSeconds.value);
     }
+    if (scheduleDays.present) {
+      map['schedule_days'] = Variable<int>(scheduleDays.value);
+    }
+    if (reminderMinutes.present) {
+      map['reminder_minutes'] = Variable<int>(reminderMinutes.value);
+    }
     return map;
   }
 
@@ -869,7 +987,9 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
           ..write('name: $name, ')
           ..write('colorHex: $colorHex, ')
           ..write('position: $position, ')
-          ..write('restSeconds: $restSeconds')
+          ..write('restSeconds: $restSeconds, ')
+          ..write('scheduleDays: $scheduleDays, ')
+          ..write('reminderMinutes: $reminderMinutes')
           ..write(')'))
         .toString();
   }
@@ -3541,8 +3661,38 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _layoffDaysMeta = const VerificationMeta(
+    'layoffDays',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, weightUnit, activeRoutineId];
+  late final GeneratedColumn<int> layoffDays = GeneratedColumn<int>(
+    'layoff_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultLayoffDays),
+  );
+  static const VerificationMeta _layoffPercentMeta = const VerificationMeta(
+    'layoffPercent',
+  );
+  @override
+  late final GeneratedColumn<int> layoffPercent = GeneratedColumn<int>(
+    'layoff_percent',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultLayoffPercent),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    weightUnit,
+    activeRoutineId,
+    layoffDays,
+    layoffPercent,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3573,6 +3723,21 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
+    if (data.containsKey('layoff_days')) {
+      context.handle(
+        _layoffDaysMeta,
+        layoffDays.isAcceptableOrUnknown(data['layoff_days']!, _layoffDaysMeta),
+      );
+    }
+    if (data.containsKey('layoff_percent')) {
+      context.handle(
+        _layoffPercentMeta,
+        layoffPercent.isAcceptableOrUnknown(
+          data['layoff_percent']!,
+          _layoffPercentMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3594,6 +3759,14 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.int,
         data['${effectivePrefix}active_routine_id'],
       ),
+      layoffDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}layoff_days'],
+      )!,
+      layoffPercent: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}layoff_percent'],
+      )!,
     );
   }
 
@@ -3613,10 +3786,20 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// which makes Today fall back to a routine chooser. Not a foreign key: a
   /// dangling id after a delete resolves to null rather than failing.
   final int? activeRoutineId;
+
+  /// Days away from a workout before returning to it offers a back-off. Zero
+  /// switches layoff deloads off entirely.
+  final int layoffDays;
+
+  /// How much a layoff cuts the target for each whole period away, as a
+  /// percentage — see `layoff.dart`.
+  final int layoffPercent;
   const Setting({
     required this.id,
     required this.weightUnit,
     this.activeRoutineId,
+    required this.layoffDays,
+    required this.layoffPercent,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3626,6 +3809,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     if (!nullToAbsent || activeRoutineId != null) {
       map['active_routine_id'] = Variable<int>(activeRoutineId);
     }
+    map['layoff_days'] = Variable<int>(layoffDays);
+    map['layoff_percent'] = Variable<int>(layoffPercent);
     return map;
   }
 
@@ -3636,6 +3821,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       activeRoutineId: activeRoutineId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeRoutineId),
+      layoffDays: Value(layoffDays),
+      layoffPercent: Value(layoffPercent),
     );
   }
 
@@ -3648,6 +3835,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       id: serializer.fromJson<int>(json['id']),
       weightUnit: serializer.fromJson<String>(json['weightUnit']),
       activeRoutineId: serializer.fromJson<int?>(json['activeRoutineId']),
+      layoffDays: serializer.fromJson<int>(json['layoffDays']),
+      layoffPercent: serializer.fromJson<int>(json['layoffPercent']),
     );
   }
   @override
@@ -3657,6 +3846,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       'id': serializer.toJson<int>(id),
       'weightUnit': serializer.toJson<String>(weightUnit),
       'activeRoutineId': serializer.toJson<int?>(activeRoutineId),
+      'layoffDays': serializer.toJson<int>(layoffDays),
+      'layoffPercent': serializer.toJson<int>(layoffPercent),
     };
   }
 
@@ -3664,12 +3855,16 @@ class Setting extends DataClass implements Insertable<Setting> {
     int? id,
     String? weightUnit,
     Value<int?> activeRoutineId = const Value.absent(),
+    int? layoffDays,
+    int? layoffPercent,
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
     activeRoutineId: activeRoutineId.present
         ? activeRoutineId.value
         : this.activeRoutineId,
+    layoffDays: layoffDays ?? this.layoffDays,
+    layoffPercent: layoffPercent ?? this.layoffPercent,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -3680,6 +3875,12 @@ class Setting extends DataClass implements Insertable<Setting> {
       activeRoutineId: data.activeRoutineId.present
           ? data.activeRoutineId.value
           : this.activeRoutineId,
+      layoffDays: data.layoffDays.present
+          ? data.layoffDays.value
+          : this.layoffDays,
+      layoffPercent: data.layoffPercent.present
+          ? data.layoffPercent.value
+          : this.layoffPercent,
     );
   }
 
@@ -3688,45 +3889,60 @@ class Setting extends DataClass implements Insertable<Setting> {
     return (StringBuffer('Setting(')
           ..write('id: $id, ')
           ..write('weightUnit: $weightUnit, ')
-          ..write('activeRoutineId: $activeRoutineId')
+          ..write('activeRoutineId: $activeRoutineId, ')
+          ..write('layoffDays: $layoffDays, ')
+          ..write('layoffPercent: $layoffPercent')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, weightUnit, activeRoutineId);
+  int get hashCode =>
+      Object.hash(id, weightUnit, activeRoutineId, layoffDays, layoffPercent);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Setting &&
           other.id == this.id &&
           other.weightUnit == this.weightUnit &&
-          other.activeRoutineId == this.activeRoutineId);
+          other.activeRoutineId == this.activeRoutineId &&
+          other.layoffDays == this.layoffDays &&
+          other.layoffPercent == this.layoffPercent);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> id;
   final Value<String> weightUnit;
   final Value<int?> activeRoutineId;
+  final Value<int> layoffDays;
+  final Value<int> layoffPercent;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
     this.activeRoutineId = const Value.absent(),
+    this.layoffDays = const Value.absent(),
+    this.layoffPercent = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
     this.activeRoutineId = const Value.absent(),
+    this.layoffDays = const Value.absent(),
+    this.layoffPercent = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
     Expression<String>? weightUnit,
     Expression<int>? activeRoutineId,
+    Expression<int>? layoffDays,
+    Expression<int>? layoffPercent,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (weightUnit != null) 'weight_unit': weightUnit,
       if (activeRoutineId != null) 'active_routine_id': activeRoutineId,
+      if (layoffDays != null) 'layoff_days': layoffDays,
+      if (layoffPercent != null) 'layoff_percent': layoffPercent,
     });
   }
 
@@ -3734,11 +3950,15 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<int>? id,
     Value<String>? weightUnit,
     Value<int?>? activeRoutineId,
+    Value<int>? layoffDays,
+    Value<int>? layoffPercent,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
       weightUnit: weightUnit ?? this.weightUnit,
       activeRoutineId: activeRoutineId ?? this.activeRoutineId,
+      layoffDays: layoffDays ?? this.layoffDays,
+      layoffPercent: layoffPercent ?? this.layoffPercent,
     );
   }
 
@@ -3754,6 +3974,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (activeRoutineId.present) {
       map['active_routine_id'] = Variable<int>(activeRoutineId.value);
     }
+    if (layoffDays.present) {
+      map['layoff_days'] = Variable<int>(layoffDays.value);
+    }
+    if (layoffPercent.present) {
+      map['layoff_percent'] = Variable<int>(layoffPercent.value);
+    }
     return map;
   }
 
@@ -3762,7 +3988,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     return (StringBuffer('SettingsCompanion(')
           ..write('id: $id, ')
           ..write('weightUnit: $weightUnit, ')
-          ..write('activeRoutineId: $activeRoutineId')
+          ..write('activeRoutineId: $activeRoutineId, ')
+          ..write('layoffDays: $layoffDays, ')
+          ..write('layoffPercent: $layoffPercent')
           ..write(')'))
         .toString();
   }
@@ -4181,6 +4409,8 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       Value<String> colorHex,
       Value<int> position,
       Value<int> restSeconds,
+      Value<int> scheduleDays,
+      Value<int?> reminderMinutes,
     });
 typedef $$RoutinesTableUpdateCompanionBuilder =
     RoutinesCompanion Function({
@@ -4189,6 +4419,8 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<String> colorHex,
       Value<int> position,
       Value<int> restSeconds,
+      Value<int> scheduleDays,
+      Value<int?> reminderMinutes,
     });
 
 final class $$RoutinesTableReferences
@@ -4246,6 +4478,16 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<int> get restSeconds => $composableBuilder(
     column: $table.restSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get scheduleDays => $composableBuilder(
+    column: $table.scheduleDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4308,6 +4550,16 @@ class $$RoutinesTableOrderingComposer
     column: $table.restSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get scheduleDays => $composableBuilder(
+    column: $table.scheduleDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RoutinesTableAnnotationComposer
@@ -4333,6 +4585,16 @@ class $$RoutinesTableAnnotationComposer
 
   GeneratedColumn<int> get restSeconds => $composableBuilder(
     column: $table.restSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get scheduleDays => $composableBuilder(
+    column: $table.scheduleDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
     builder: (column) => column,
   );
 
@@ -4395,12 +4657,16 @@ class $$RoutinesTableTableManager
                 Value<String> colorHex = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
+                Value<int> scheduleDays = const Value.absent(),
+                Value<int?> reminderMinutes = const Value.absent(),
               }) => RoutinesCompanion(
                 id: id,
                 name: name,
                 colorHex: colorHex,
                 position: position,
                 restSeconds: restSeconds,
+                scheduleDays: scheduleDays,
+                reminderMinutes: reminderMinutes,
               ),
           createCompanionCallback:
               ({
@@ -4409,12 +4675,16 @@ class $$RoutinesTableTableManager
                 Value<String> colorHex = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
+                Value<int> scheduleDays = const Value.absent(),
+                Value<int?> reminderMinutes = const Value.absent(),
               }) => RoutinesCompanion.insert(
                 id: id,
                 name: name,
                 colorHex: colorHex,
                 position: position,
                 restSeconds: restSeconds,
+                scheduleDays: scheduleDays,
+                reminderMinutes: reminderMinutes,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6346,12 +6616,16 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<int> id,
       Value<String> weightUnit,
       Value<int?> activeRoutineId,
+      Value<int> layoffDays,
+      Value<int> layoffPercent,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
       Value<int> id,
       Value<String> weightUnit,
       Value<int?> activeRoutineId,
+      Value<int> layoffDays,
+      Value<int> layoffPercent,
     });
 
 class $$SettingsTableFilterComposer
@@ -6375,6 +6649,16 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<int> get activeRoutineId => $composableBuilder(
     column: $table.activeRoutineId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get layoffDays => $composableBuilder(
+    column: $table.layoffDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get layoffPercent => $composableBuilder(
+    column: $table.layoffPercent,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6402,6 +6686,16 @@ class $$SettingsTableOrderingComposer
     column: $table.activeRoutineId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get layoffDays => $composableBuilder(
+    column: $table.layoffDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get layoffPercent => $composableBuilder(
+    column: $table.layoffPercent,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -6423,6 +6717,16 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<int> get activeRoutineId => $composableBuilder(
     column: $table.activeRoutineId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get layoffDays => $composableBuilder(
+    column: $table.layoffDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get layoffPercent => $composableBuilder(
+    column: $table.layoffPercent,
     builder: (column) => column,
   );
 }
@@ -6458,20 +6762,28 @@ class $$SettingsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> weightUnit = const Value.absent(),
                 Value<int?> activeRoutineId = const Value.absent(),
+                Value<int> layoffDays = const Value.absent(),
+                Value<int> layoffPercent = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
                 activeRoutineId: activeRoutineId,
+                layoffDays: layoffDays,
+                layoffPercent: layoffPercent,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> weightUnit = const Value.absent(),
                 Value<int?> activeRoutineId = const Value.absent(),
+                Value<int> layoffDays = const Value.absent(),
+                Value<int> layoffPercent = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
                 activeRoutineId: activeRoutineId,
+                layoffDays: layoffDays,
+                layoffPercent: layoffPercent,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

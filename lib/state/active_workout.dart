@@ -134,6 +134,7 @@ class ActiveWorkout {
     required this.startedAt,
     required this.exercises,
     required this.elapsed,
+    this.notice,
     this.rev = 0,
   });
 
@@ -145,6 +146,14 @@ class ActiveWorkout {
   final DateTime startedAt;
   final List<ExerciseEntry> exercises;
   final int elapsed; // seconds
+
+  /// Something the session needs to say for itself — currently only that its
+  /// targets were cut on the way in after a layoff.
+  ///
+  /// It rides on the session rather than being a snackbar because a weight that
+  /// dropped is a question the user will ask again halfway through the second
+  /// exercise, by which time a snackbar is long gone.
+  final String? notice;
   final int rev;
 
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
@@ -168,6 +177,7 @@ class ActiveWorkout {
         startedAt: startedAt,
         exercises: exercises,
         elapsed: elapsed ?? this.elapsed,
+        notice: notice,
         rev: rev + 1,
       );
 }
@@ -185,7 +195,15 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 
   /// Begins a live session from a workout template. Passing a null [workoutId]
   /// starts an empty ad-hoc session.
-  Future<void> start({int? workoutId, required String name}) async {
+  ///
+  /// [notice] is shown for the length of the session — see [ActiveWorkout.notice].
+  /// The template is read *after* the caller has had its chance to change it,
+  /// which is what lets a layoff deload land before the first set is drawn.
+  Future<void> start({
+    int? workoutId,
+    required String name,
+    String? notice,
+  }) async {
     final exercises = <ExerciseEntry>[];
     int? routineId;
     if (workoutId != null) {
@@ -223,6 +241,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       startedAt: DateTime.now(),
       exercises: exercises,
       elapsed: 0,
+      notice: notice,
     );
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {

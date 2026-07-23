@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../services/reminders.dart';
 import '../state/active_workout.dart';
 import 'db_provider.dart';
 
@@ -82,6 +83,33 @@ final currentRoutineProvider = Provider<RoutineWithCount?>((ref) {
     if (r.routine.id == id) return r;
   }
   return null;
+});
+
+/// When each routine's next reminder is due, and when it was last trained.
+final routineRemindersProvider =
+    StreamProvider<List<RoutineReminder>>((ref) {
+  return ref.watch(databaseProvider).watchRoutineReminders();
+});
+
+/// The one notification scheduler.
+final reminderServiceProvider =
+    Provider<ReminderService>((ref) => ReminderService());
+
+/// Keeps the pending notifications in step with the routines and the history.
+///
+/// A provider rather than a call site, because the things that invalidate a
+/// reminder are scattered: editing a schedule, finishing a session, deleting a
+/// routine. All of them move [routineRemindersProvider], and re-laying every
+/// reminder from that one signal is cheaper than remembering to do it in three
+/// places and forgetting in a fourth. Watch it once, high up — see `main.dart`.
+final reminderSyncProvider = Provider<void>((ref) {
+  final reminders = ref.watch(routineRemindersProvider).value;
+  if (reminders != null) ref.watch(reminderServiceProvider).sync(reminders);
+});
+
+/// The layoff rules: the gap that earns a back-off and how deep it cuts.
+final layoffSettingsProvider = StreamProvider<LayoffSettings>((ref) {
+  return ref.watch(databaseProvider).watchLayoffSettings();
 });
 
 /// The user's chosen weight unit ('kg' or 'lb').
