@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/plate_line.dart';
 
 /// One training day: the exercises it contains, and the button that starts it.
 class WorkoutDetailScreen extends ConsumerWidget {
@@ -15,6 +16,8 @@ class WorkoutDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final workout = ref.watch(workoutProvider(workoutId)).value;
     final items = ref.watch(workoutItemsProvider(workoutId));
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final plates = ref.watch(plateSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -67,6 +70,8 @@ class WorkoutDetailScreen extends ConsumerWidget {
                               _ExerciseRow(
                                 index: i + 1,
                                 view: list[i],
+                                unit: unit,
+                                plates: plates,
                                 last: i == list.length - 1,
                               ),
                           ],
@@ -194,14 +199,36 @@ class _CountChip extends StatelessWidget {
 }
 
 class _ExerciseRow extends StatelessWidget {
-  const _ExerciseRow(
-      {required this.index, required this.view, required this.last});
+  const _ExerciseRow({
+    required this.index,
+    required this.view,
+    required this.unit,
+    required this.plates,
+    required this.last,
+  });
   final int index;
   final WorkoutItemView view;
+  final String unit;
+  final PlateSettings plates;
   final bool last;
+
+  /// "31.25/side" beside the muscle group, so a barbell day can be read as the
+  /// bars it will be. The full breakdown waits for the session — this screen is
+  /// a glance at the day, not a loading chart.
+  String? get _perSide {
+    final w = view.item.suggestedWeight;
+    if (w == null || w <= 0) return null;
+    return perSideLabel(
+      weightKg: w,
+      type: view.exercise.weightType,
+      settings: plates,
+      unit: unit,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final perSide = _perSide;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
@@ -225,9 +252,12 @@ class _ExerciseRow extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(view.exercise.muscleGroup,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppColors.muted)),
+                Text(
+                  perSide == null
+                      ? view.exercise.muscleGroup
+                      : '${view.exercise.muscleGroup} · $perSide',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
               ],
             ),
           ),

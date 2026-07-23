@@ -6,10 +6,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'layoff.dart';
+import 'plates.dart';
 import 'progression.dart';
 import 'schedule.dart';
 
 export 'layoff.dart';
+export 'plates.dart';
 export 'progression.dart';
 export 'schedule.dart';
 
@@ -34,6 +36,14 @@ class Exercises extends Table {
   /// which progression axes a workout may put it on.
   TextColumn get measure =>
       textEnum<ExerciseMeasure>().withDefault(const Constant('reps'))();
+
+  /// How the load is arranged — see [WeightType]. Decides what the weight
+  /// column *means*, and so whether it can be broken down into plates.
+  ///
+  /// Defaults to [WeightType.machine]: the number is the number, which is the
+  /// only reading that is never wrong.
+  TextColumn get weightType =>
+      textEnum<WeightType>().withDefault(const Constant('machine'))();
 }
 
 /// A training programme ("PPL", "Upper/Lower"). A routine is a container: the
@@ -209,6 +219,17 @@ class Settings extends Table {
   IntColumn get layoffPercent =>
       integer().withDefault(const Constant(kDefaultLayoffPercent))();
 
+  /// The plates the gym owns, encoded — see `plates.dart`.
+  ///
+  /// Null means the user has never edited it, which is not the same as owning
+  /// no plates: it lets the standard rack for the chosen unit stand in, so a
+  /// pounds gym gets 45s and 25s rather than the metric rack in decimals.
+  TextColumn get plateInventory => text().nullable()();
+
+  /// What the bar itself weighs, in kg. Null falls back to the standard bar
+  /// for the chosen unit, for the same reason as [plateInventory].
+  RealColumn get barWeight => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -263,6 +284,10 @@ class LifetimeTotals {
   final int reps;
   final int sets;
 }
+
+/// The plate setup exactly as the settings row holds it: either value may be
+/// null, meaning "never configured" rather than "empty".
+typedef StoredPlateSetup = ({String? inventory, double? barKg});
 
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
@@ -325,7 +350,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -380,6 +405,25 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(routines, routines.reminderMinutes);
             await m.addColumn(settings, settings.layoffDays);
             await m.addColumn(settings, settings.layoffPercent);
+          }
+          if (from < 7) {
+            // v6 → v7: the library says how each movement is loaded, and the
+            // settings row gets somewhere to keep the bar and the plate rack.
+            await m.addColumn(exercises, exercises.weightType);
+            await m.addColumn(settings, settings.plateInventory);
+            await m.addColumn(settings, settings.barWeight);
+            // Existing exercises already recorded their equipment, which is
+            // right often enough to be a better starting point than making
+            // everybody classify thirty rows by hand. Anything else stays a
+            // machine — the reading that is never wrong, only unhelpful.
+            await customStatement("UPDATE exercises SET weight_type = 'bar' "
+                "WHERE equipment = 'Barbell'");
+            await customStatement(
+                "UPDATE exercises SET weight_type = 'dumbbell' "
+                "WHERE equipment = 'Dumbbell'");
+            // Bar and plates stay null: the standard rack for the unit already
+            // in use is a better guess than any single set of numbers written
+            // in here, and it costs nothing to defer.
           }
         },
         beforeOpen: (details) async {
@@ -472,6 +516,7 @@ class AppDatabase extends _$AppDatabase {
     required String instructions,
     String? videoUrl,
     ExerciseMeasure measure = ExerciseMeasure.reps,
+    WeightType weightType = WeightType.machine,
   }) {
     return into(exercises).insert(
       ExercisesCompanion.insert(
@@ -482,9 +527,17 @@ class AppDatabase extends _$AppDatabase {
         videoUrl: Value(videoUrl),
         isCustom: const Value(true),
         measure: Value(measure),
+        weightType: Value(weightType),
       ),
     );
   }
+
+  /// Reclassifies how an exercise is loaded. Editable for every exercise, not
+  /// just custom ones: whether the gym's bench has a 20 kg bar or a 15 kg one
+  /// is a fact about the gym, and the starter library cannot know it.
+  Future<void> setExerciseWeightType(int id, WeightType type) =>
+      (update(exercises)..where((e) => e.id.equals(id)))
+          .write(ExercisesCompanion(weightType: Value(type)));
 
   // ---- Routines -----------------------------------------------------------
 
@@ -1058,6 +1111,27 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setLayoffPercent(int percent) =>
       _writeSettings(SettingsCompanion(layoffPercent: Value(percent)));
 
+  /// The bar and plate setup as stored — nulls and all. Resolve it against the
+  /// current unit with [resolvePlateSettings] before using it; see
+  /// `plateSettingsProvider`.
+  Stream<StoredPlateSetup> watchPlateSetup() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => (inventory: s?.plateInventory, barKg: s?.barWeight));
+  }
+
+  Future<void> setBarWeight(double kg) =>
+      _writeSettings(SettingsCompanion(barWeight: Value(kg)));
+
+  Future<void> setPlateInventory(List<PlateStack> plates) => _writeSettings(
+      SettingsCompanion(plateInventory: Value(encodePlates(plates))));
+
+  /// Forgets both, so the standard rack for the chosen unit stands in again.
+  Future<void> resetPlateSetup() => _writeSettings(const SettingsCompanion(
+        plateInventory: Value(null),
+        barWeight: Value(null),
+      ));
+
   /// Updates the single settings row, creating it if it is somehow missing.
   /// Only the columns present in [patch] are touched.
   Future<void> _writeSettings(SettingsCompanion patch) {
@@ -1094,6 +1168,10 @@ class AppDatabase extends _$AppDatabase {
           equipment: Value(equip),
           instructions: Value(how),
           measure: Value(measure),
+          // The equipment already says how these are loaded — a barbell lift
+          // is a bar, a dumbbell lift is a dumbbell, and the cables, machines
+          // and bodyweight movements are all "the number is the number".
+          weightType: Value(weightTypeForEquipment(equip)),
           videoUrl: Value(
             'https://www.youtube.com/results?search_query='
             '${Uri.encodeQueryComponent('$name proper form')}',

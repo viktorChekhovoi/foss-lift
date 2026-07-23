@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/plates.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
+import '../widgets/plate_line.dart';
 
 String fmtDuration(int seconds) {
   final m = seconds ~/ 60;
@@ -83,6 +85,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     }
     final controller = ref.read(activeWorkoutProvider.notifier);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final plates = ref.watch(plateSettingsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -103,6 +106,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                         _ExerciseBlock(
                           exercise: session.exercises[ei],
                           unit: unit,
+                          plates: plates,
                           rowBuilder: (si) {
                             final entry = session.exercises[ei].sets[si];
                             return _SetRow(
@@ -310,10 +314,12 @@ class _ExerciseBlock extends StatelessWidget {
   const _ExerciseBlock({
     required this.exercise,
     required this.unit,
+    required this.plates,
     required this.rowBuilder,
   });
   final ExerciseEntry exercise;
   final String unit;
+  final PlateSettings plates;
   final Widget Function(int setIndex) rowBuilder;
 
   @override
@@ -342,6 +348,16 @@ class _ExerciseBlock extends StatelessWidget {
               ),
             ],
           ),
+          // What to put on the bar for the set you are about to do — it follows
+          // you down the exercise as sets get logged, and re-solves the moment
+          // you type a different weight.
+          if (exercise.nextWeight case final w?)
+            PlateLine(
+              weightKg: w,
+              type: exercise.weightType,
+              settings: plates,
+              unit: unit,
+            ),
           const SizedBox(height: 6),
           _ColumnHeaders(unit: unit, timed: exercise.mode.timed),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),

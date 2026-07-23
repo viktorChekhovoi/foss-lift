@@ -12,6 +12,13 @@ const _equipment = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'Ot
 /// How the movement is counted, in the words a lifter would use.
 const _measures = {'Reps': ExerciseMeasure.reps, 'Time held': ExerciseMeasure.time};
 
+/// What the weight column will mean for this movement.
+const _weightTypes = {
+  'Bar': WeightType.bar,
+  'Machine': WeightType.machine,
+  'Dumbbell': WeightType.dumbbell,
+};
+
 /// Form for creating a custom exercise that joins the library.
 class ExerciseFormScreen extends ConsumerStatefulWidget {
   const ExerciseFormScreen({super.key});
@@ -27,7 +34,17 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   String _muscle = 'Chest';
   String _equip = 'Barbell';
   String _measure = 'Reps';
+  WeightType _weightType = weightTypeForEquipment('Barbell');
   bool _saving = false;
+
+  /// Picking the equipment answers the loading question in almost every case,
+  /// so it sets the weight type as it goes. Overwriting a choice made earlier
+  /// is safe here because the two controls sit in that order on the screen —
+  /// and the exceptions (an EZ-bar, a Smith machine) are a tap away below.
+  void _setEquipment(String v) => setState(() {
+        _equip = v;
+        _weightType = weightTypeForEquipment(v);
+      });
 
   @override
   void dispose() {
@@ -54,6 +71,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           instructions: _instructions.text.trim(),
           videoUrl: video.isEmpty ? null : video,
           measure: _measures[_measure]!,
+          weightType: _weightType,
         );
     if (mounted) context.pop();
   }
@@ -81,7 +99,20 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
             _Choices(
               options: _equipment,
               selected: _equip,
-              onSelect: (v) => setState(() => _equip = v),
+              onSelect: _setEquipment,
+            ),
+            const SizedBox(height: 18),
+            _Label('Loaded as'),
+            _Choices(
+              options: _weightTypes.keys.toList(),
+              selected: _weightType.label,
+              onSelect: (v) => setState(() => _weightType = _weightTypes[v]!),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _weightType.blurb,
+              style: kMono.copyWith(
+                  fontSize: 11, height: 1.5, color: AppColors.faint),
             ),
             const SizedBox(height: 18),
             _Label('Measured in'),

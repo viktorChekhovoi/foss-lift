@@ -5,6 +5,7 @@ import 'screens/exercise_form_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/library_screen.dart';
+import 'screens/plate_inventory_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/routine_detail_screen.dart';
 import 'screens/routine_edit_screen.dart';
@@ -67,6 +68,10 @@ final appRouter = GoRouter(
           ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
     ),
     GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+    GoRoute(
+      path: '/settings/plates',
+      builder: (c, s) => const PlateInventoryScreen(),
+    ),
     // The live session in progress (distinct from /workout/:id, its template).
     GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),
     GoRoute(

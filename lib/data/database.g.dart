@@ -108,6 +108,16 @@ class $ExercisesTable extends Exercises
         defaultValue: const Constant('reps'),
       ).withConverter<ExerciseMeasure>($ExercisesTable.$convertermeasure);
   @override
+  late final GeneratedColumnWithTypeConverter<WeightType, String> weightType =
+      GeneratedColumn<String>(
+        'weight_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('machine'),
+      ).withConverter<WeightType>($ExercisesTable.$converterweightType);
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     name,
@@ -117,6 +127,7 @@ class $ExercisesTable extends Exercises
     videoUrl,
     isCustom,
     measure,
+    weightType,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -220,6 +231,12 @@ class $ExercisesTable extends Exercises
           data['${effectivePrefix}measure'],
         )!,
       ),
+      weightType: $ExercisesTable.$converterweightType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}weight_type'],
+        )!,
+      ),
     );
   }
 
@@ -230,6 +247,8 @@ class $ExercisesTable extends Exercises
 
   static JsonTypeConverter2<ExerciseMeasure, String, String> $convertermeasure =
       const EnumNameConverter<ExerciseMeasure>(ExerciseMeasure.values);
+  static JsonTypeConverter2<WeightType, String, String> $converterweightType =
+      const EnumNameConverter<WeightType>(WeightType.values);
 }
 
 class Exercise extends DataClass implements Insertable<Exercise> {
@@ -244,6 +263,13 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// Whether the movement is counted or held — see [ExerciseMeasure]. Decides
   /// which progression axes a workout may put it on.
   final ExerciseMeasure measure;
+
+  /// How the load is arranged — see [WeightType]. Decides what the weight
+  /// column *means*, and so whether it can be broken down into plates.
+  ///
+  /// Defaults to [WeightType.machine]: the number is the number, which is the
+  /// only reading that is never wrong.
+  final WeightType weightType;
   const Exercise({
     required this.id,
     required this.name,
@@ -253,6 +279,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     this.videoUrl,
     required this.isCustom,
     required this.measure,
+    required this.weightType,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -271,6 +298,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
         $ExercisesTable.$convertermeasure.toSql(measure),
       );
     }
+    {
+      map['weight_type'] = Variable<String>(
+        $ExercisesTable.$converterweightType.toSql(weightType),
+      );
+    }
     return map;
   }
 
@@ -286,6 +318,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : Value(videoUrl),
       isCustom: Value(isCustom),
       measure: Value(measure),
+      weightType: Value(weightType),
     );
   }
 
@@ -305,6 +338,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       measure: $ExercisesTable.$convertermeasure.fromJson(
         serializer.fromJson<String>(json['measure']),
       ),
+      weightType: $ExercisesTable.$converterweightType.fromJson(
+        serializer.fromJson<String>(json['weightType']),
+      ),
     );
   }
   @override
@@ -321,6 +357,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'measure': serializer.toJson<String>(
         $ExercisesTable.$convertermeasure.toJson(measure),
       ),
+      'weightType': serializer.toJson<String>(
+        $ExercisesTable.$converterweightType.toJson(weightType),
+      ),
     };
   }
 
@@ -333,6 +372,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     Value<String?> videoUrl = const Value.absent(),
     bool? isCustom,
     ExerciseMeasure? measure,
+    WeightType? weightType,
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -342,6 +382,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
     isCustom: isCustom ?? this.isCustom,
     measure: measure ?? this.measure,
+    weightType: weightType ?? this.weightType,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -357,6 +398,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       videoUrl: data.videoUrl.present ? data.videoUrl.value : this.videoUrl,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       measure: data.measure.present ? data.measure.value : this.measure,
+      weightType: data.weightType.present
+          ? data.weightType.value
+          : this.weightType,
     );
   }
 
@@ -370,7 +414,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('instructions: $instructions, ')
           ..write('videoUrl: $videoUrl, ')
           ..write('isCustom: $isCustom, ')
-          ..write('measure: $measure')
+          ..write('measure: $measure, ')
+          ..write('weightType: $weightType')
           ..write(')'))
         .toString();
   }
@@ -385,6 +430,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     videoUrl,
     isCustom,
     measure,
+    weightType,
   );
   @override
   bool operator ==(Object other) =>
@@ -397,7 +443,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.instructions == this.instructions &&
           other.videoUrl == this.videoUrl &&
           other.isCustom == this.isCustom &&
-          other.measure == this.measure);
+          other.measure == this.measure &&
+          other.weightType == this.weightType);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -409,6 +456,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String?> videoUrl;
   final Value<bool> isCustom;
   final Value<ExerciseMeasure> measure;
+  final Value<WeightType> weightType;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -418,6 +466,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.videoUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
+    this.weightType = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -428,6 +477,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.videoUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
+    this.weightType = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
     Expression<int>? id,
@@ -438,6 +488,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? videoUrl,
     Expression<bool>? isCustom,
     Expression<String>? measure,
+    Expression<String>? weightType,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -448,6 +499,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (videoUrl != null) 'video_url': videoUrl,
       if (isCustom != null) 'is_custom': isCustom,
       if (measure != null) 'measure': measure,
+      if (weightType != null) 'weight_type': weightType,
     });
   }
 
@@ -460,6 +512,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String?>? videoUrl,
     Value<bool>? isCustom,
     Value<ExerciseMeasure>? measure,
+    Value<WeightType>? weightType,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -470,6 +523,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       videoUrl: videoUrl ?? this.videoUrl,
       isCustom: isCustom ?? this.isCustom,
       measure: measure ?? this.measure,
+      weightType: weightType ?? this.weightType,
     );
   }
 
@@ -502,6 +556,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
         $ExercisesTable.$convertermeasure.toSql(measure.value),
       );
     }
+    if (weightType.present) {
+      map['weight_type'] = Variable<String>(
+        $ExercisesTable.$converterweightType.toSql(weightType.value),
+      );
+    }
     return map;
   }
 
@@ -515,7 +574,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('instructions: $instructions, ')
           ..write('videoUrl: $videoUrl, ')
           ..write('isCustom: $isCustom, ')
-          ..write('measure: $measure')
+          ..write('measure: $measure, ')
+          ..write('weightType: $weightType')
           ..write(')'))
         .toString();
   }
@@ -3685,6 +3745,28 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant(kDefaultLayoffPercent),
   );
+  static const VerificationMeta _plateInventoryMeta = const VerificationMeta(
+    'plateInventory',
+  );
+  @override
+  late final GeneratedColumn<String> plateInventory = GeneratedColumn<String>(
+    'plate_inventory',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _barWeightMeta = const VerificationMeta(
+    'barWeight',
+  );
+  @override
+  late final GeneratedColumn<double> barWeight = GeneratedColumn<double>(
+    'bar_weight',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3692,6 +3774,8 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     activeRoutineId,
     layoffDays,
     layoffPercent,
+    plateInventory,
+    barWeight,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3738,6 +3822,21 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
+    if (data.containsKey('plate_inventory')) {
+      context.handle(
+        _plateInventoryMeta,
+        plateInventory.isAcceptableOrUnknown(
+          data['plate_inventory']!,
+          _plateInventoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bar_weight')) {
+      context.handle(
+        _barWeightMeta,
+        barWeight.isAcceptableOrUnknown(data['bar_weight']!, _barWeightMeta),
+      );
+    }
     return context;
   }
 
@@ -3767,6 +3866,14 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.int,
         data['${effectivePrefix}layoff_percent'],
       )!,
+      plateInventory: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plate_inventory'],
+      ),
+      barWeight: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bar_weight'],
+      ),
     );
   }
 
@@ -3794,12 +3901,25 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// How much a layoff cuts the target for each whole period away, as a
   /// percentage — see `layoff.dart`.
   final int layoffPercent;
+
+  /// The plates the gym owns, encoded — see `plates.dart`.
+  ///
+  /// Null means the user has never edited it, which is not the same as owning
+  /// no plates: it lets the standard rack for the chosen unit stand in, so a
+  /// pounds gym gets 45s and 25s rather than the metric rack in decimals.
+  final String? plateInventory;
+
+  /// What the bar itself weighs, in kg. Null falls back to the standard bar
+  /// for the chosen unit, for the same reason as [plateInventory].
+  final double? barWeight;
   const Setting({
     required this.id,
     required this.weightUnit,
     this.activeRoutineId,
     required this.layoffDays,
     required this.layoffPercent,
+    this.plateInventory,
+    this.barWeight,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3811,6 +3931,12 @@ class Setting extends DataClass implements Insertable<Setting> {
     }
     map['layoff_days'] = Variable<int>(layoffDays);
     map['layoff_percent'] = Variable<int>(layoffPercent);
+    if (!nullToAbsent || plateInventory != null) {
+      map['plate_inventory'] = Variable<String>(plateInventory);
+    }
+    if (!nullToAbsent || barWeight != null) {
+      map['bar_weight'] = Variable<double>(barWeight);
+    }
     return map;
   }
 
@@ -3823,6 +3949,12 @@ class Setting extends DataClass implements Insertable<Setting> {
           : Value(activeRoutineId),
       layoffDays: Value(layoffDays),
       layoffPercent: Value(layoffPercent),
+      plateInventory: plateInventory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plateInventory),
+      barWeight: barWeight == null && nullToAbsent
+          ? const Value.absent()
+          : Value(barWeight),
     );
   }
 
@@ -3837,6 +3969,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       activeRoutineId: serializer.fromJson<int?>(json['activeRoutineId']),
       layoffDays: serializer.fromJson<int>(json['layoffDays']),
       layoffPercent: serializer.fromJson<int>(json['layoffPercent']),
+      plateInventory: serializer.fromJson<String?>(json['plateInventory']),
+      barWeight: serializer.fromJson<double?>(json['barWeight']),
     );
   }
   @override
@@ -3848,6 +3982,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       'activeRoutineId': serializer.toJson<int?>(activeRoutineId),
       'layoffDays': serializer.toJson<int>(layoffDays),
       'layoffPercent': serializer.toJson<int>(layoffPercent),
+      'plateInventory': serializer.toJson<String?>(plateInventory),
+      'barWeight': serializer.toJson<double?>(barWeight),
     };
   }
 
@@ -3857,6 +3993,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<int?> activeRoutineId = const Value.absent(),
     int? layoffDays,
     int? layoffPercent,
+    Value<String?> plateInventory = const Value.absent(),
+    Value<double?> barWeight = const Value.absent(),
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -3865,6 +4003,10 @@ class Setting extends DataClass implements Insertable<Setting> {
         : this.activeRoutineId,
     layoffDays: layoffDays ?? this.layoffDays,
     layoffPercent: layoffPercent ?? this.layoffPercent,
+    plateInventory: plateInventory.present
+        ? plateInventory.value
+        : this.plateInventory,
+    barWeight: barWeight.present ? barWeight.value : this.barWeight,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -3881,6 +4023,10 @@ class Setting extends DataClass implements Insertable<Setting> {
       layoffPercent: data.layoffPercent.present
           ? data.layoffPercent.value
           : this.layoffPercent,
+      plateInventory: data.plateInventory.present
+          ? data.plateInventory.value
+          : this.plateInventory,
+      barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
     );
   }
 
@@ -3891,14 +4037,23 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('weightUnit: $weightUnit, ')
           ..write('activeRoutineId: $activeRoutineId, ')
           ..write('layoffDays: $layoffDays, ')
-          ..write('layoffPercent: $layoffPercent')
+          ..write('layoffPercent: $layoffPercent, ')
+          ..write('plateInventory: $plateInventory, ')
+          ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, weightUnit, activeRoutineId, layoffDays, layoffPercent);
+  int get hashCode => Object.hash(
+    id,
+    weightUnit,
+    activeRoutineId,
+    layoffDays,
+    layoffPercent,
+    plateInventory,
+    barWeight,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3907,7 +4062,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.weightUnit == this.weightUnit &&
           other.activeRoutineId == this.activeRoutineId &&
           other.layoffDays == this.layoffDays &&
-          other.layoffPercent == this.layoffPercent);
+          other.layoffPercent == this.layoffPercent &&
+          other.plateInventory == this.plateInventory &&
+          other.barWeight == this.barWeight);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -3916,12 +4073,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int?> activeRoutineId;
   final Value<int> layoffDays;
   final Value<int> layoffPercent;
+  final Value<String?> plateInventory;
+  final Value<double?> barWeight;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
     this.activeRoutineId = const Value.absent(),
     this.layoffDays = const Value.absent(),
     this.layoffPercent = const Value.absent(),
+    this.plateInventory = const Value.absent(),
+    this.barWeight = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -3929,6 +4090,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.activeRoutineId = const Value.absent(),
     this.layoffDays = const Value.absent(),
     this.layoffPercent = const Value.absent(),
+    this.plateInventory = const Value.absent(),
+    this.barWeight = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -3936,6 +4099,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<int>? activeRoutineId,
     Expression<int>? layoffDays,
     Expression<int>? layoffPercent,
+    Expression<String>? plateInventory,
+    Expression<double>? barWeight,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3943,6 +4108,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (activeRoutineId != null) 'active_routine_id': activeRoutineId,
       if (layoffDays != null) 'layoff_days': layoffDays,
       if (layoffPercent != null) 'layoff_percent': layoffPercent,
+      if (plateInventory != null) 'plate_inventory': plateInventory,
+      if (barWeight != null) 'bar_weight': barWeight,
     });
   }
 
@@ -3952,6 +4119,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<int?>? activeRoutineId,
     Value<int>? layoffDays,
     Value<int>? layoffPercent,
+    Value<String?>? plateInventory,
+    Value<double?>? barWeight,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -3959,6 +4128,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       activeRoutineId: activeRoutineId ?? this.activeRoutineId,
       layoffDays: layoffDays ?? this.layoffDays,
       layoffPercent: layoffPercent ?? this.layoffPercent,
+      plateInventory: plateInventory ?? this.plateInventory,
+      barWeight: barWeight ?? this.barWeight,
     );
   }
 
@@ -3980,6 +4151,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (layoffPercent.present) {
       map['layoff_percent'] = Variable<int>(layoffPercent.value);
     }
+    if (plateInventory.present) {
+      map['plate_inventory'] = Variable<String>(plateInventory.value);
+    }
+    if (barWeight.present) {
+      map['bar_weight'] = Variable<double>(barWeight.value);
+    }
     return map;
   }
 
@@ -3990,7 +4167,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('weightUnit: $weightUnit, ')
           ..write('activeRoutineId: $activeRoutineId, ')
           ..write('layoffDays: $layoffDays, ')
-          ..write('layoffPercent: $layoffPercent')
+          ..write('layoffPercent: $layoffPercent, ')
+          ..write('plateInventory: $plateInventory, ')
+          ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
   }
@@ -4055,6 +4234,7 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<String?> videoUrl,
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
+      Value<WeightType> weightType,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -4066,6 +4246,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<String?> videoUrl,
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
+      Value<WeightType> weightType,
     });
 
 final class $$ExercisesTableReferences
@@ -4138,6 +4319,12 @@ class $$ExercisesTableFilterComposer
   ColumnWithTypeConverterFilters<ExerciseMeasure, ExerciseMeasure, String>
   get measure => $composableBuilder(
     column: $table.measure,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<WeightType, WeightType, String>
+  get weightType => $composableBuilder(
+    column: $table.weightType,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
@@ -4215,6 +4402,11 @@ class $$ExercisesTableOrderingComposer
     column: $table.measure,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get weightType => $composableBuilder(
+    column: $table.weightType,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -4253,6 +4445,12 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<ExerciseMeasure, String> get measure =>
       $composableBuilder(column: $table.measure, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<WeightType, String> get weightType =>
+      $composableBuilder(
+        column: $table.weightType,
+        builder: (column) => column,
+      );
 
   Expression<T> workoutItemsRefs<T extends Object>(
     Expression<T> Function($$WorkoutItemsTableAnnotationComposer a) f,
@@ -4316,6 +4514,7 @@ class $$ExercisesTableTableManager
                 Value<String?> videoUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
+                Value<WeightType> weightType = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -4325,6 +4524,7 @@ class $$ExercisesTableTableManager
                 videoUrl: videoUrl,
                 isCustom: isCustom,
                 measure: measure,
+                weightType: weightType,
               ),
           createCompanionCallback:
               ({
@@ -4336,6 +4536,7 @@ class $$ExercisesTableTableManager
                 Value<String?> videoUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
+                Value<WeightType> weightType = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -4345,6 +4546,7 @@ class $$ExercisesTableTableManager
                 videoUrl: videoUrl,
                 isCustom: isCustom,
                 measure: measure,
+                weightType: weightType,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6618,6 +6820,8 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<int?> activeRoutineId,
       Value<int> layoffDays,
       Value<int> layoffPercent,
+      Value<String?> plateInventory,
+      Value<double?> barWeight,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -6626,6 +6830,8 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<int?> activeRoutineId,
       Value<int> layoffDays,
       Value<int> layoffPercent,
+      Value<String?> plateInventory,
+      Value<double?> barWeight,
     });
 
 class $$SettingsTableFilterComposer
@@ -6659,6 +6865,16 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<int> get layoffPercent => $composableBuilder(
     column: $table.layoffPercent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plateInventory => $composableBuilder(
+    column: $table.plateInventory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get barWeight => $composableBuilder(
+    column: $table.barWeight,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6696,6 +6912,16 @@ class $$SettingsTableOrderingComposer
     column: $table.layoffPercent,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get plateInventory => $composableBuilder(
+    column: $table.plateInventory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get barWeight => $composableBuilder(
+    column: $table.barWeight,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -6729,6 +6955,14 @@ class $$SettingsTableAnnotationComposer
     column: $table.layoffPercent,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get plateInventory => $composableBuilder(
+    column: $table.plateInventory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get barWeight =>
+      $composableBuilder(column: $table.barWeight, builder: (column) => column);
 }
 
 class $$SettingsTableTableManager
@@ -6764,12 +6998,16 @@ class $$SettingsTableTableManager
                 Value<int?> activeRoutineId = const Value.absent(),
                 Value<int> layoffDays = const Value.absent(),
                 Value<int> layoffPercent = const Value.absent(),
+                Value<String?> plateInventory = const Value.absent(),
+                Value<double?> barWeight = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
                 activeRoutineId: activeRoutineId,
                 layoffDays: layoffDays,
                 layoffPercent: layoffPercent,
+                plateInventory: plateInventory,
+                barWeight: barWeight,
               ),
           createCompanionCallback:
               ({
@@ -6778,12 +7016,16 @@ class $$SettingsTableTableManager
                 Value<int?> activeRoutineId = const Value.absent(),
                 Value<int> layoffDays = const Value.absent(),
                 Value<int> layoffPercent = const Value.absent(),
+                Value<String?> plateInventory = const Value.absent(),
+                Value<double?> barWeight = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
                 activeRoutineId: activeRoutineId,
                 layoffDays: layoffDays,
                 layoffPercent: layoffPercent,
+                plateInventory: plateInventory,
+                barWeight: barWeight,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

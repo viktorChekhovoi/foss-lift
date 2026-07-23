@@ -41,6 +41,27 @@ void main() {
     expect(items.map((i) => i.item.position), [0, 1, 2, 3, 4]);
   });
 
+  test('the starter library knows how each movement is loaded', () async {
+    final library = await db.watchExercises().first;
+    WeightType typeOf(String name) =>
+        library.firstWhere((e) => e.name == name).weightType;
+
+    expect(typeOf('Bench Press'), WeightType.bar);
+    expect(typeOf('Hammer Curl'), WeightType.dumbbell);
+    expect(typeOf('Leg Press'), WeightType.machine);
+    expect(typeOf('Pull-Up'), WeightType.machine,
+        reason: 'bodyweight has no bar to break down');
+  });
+
+  test('a fresh install has a bar and plates without being asked', () async {
+    expect(await db.watchPlateSetup().first, (inventory: null, barKg: null),
+        reason: 'nothing stored, so the chosen unit still decides');
+    final resolved = resolvePlateSettings(
+        unit: await db.watchWeightUnit().first, inventory: null, barKg: null);
+    expect(resolved.barKg, kDefaultBarKg);
+    expect(resolved.plates.first.kg, 25);
+  });
+
   test('deleting a routine takes its workouts and items with it', () async {
     final ppl = (await db.watchRoutines().first).first.routine;
     final push = (await db.workoutsForRoutine(ppl.id)).first;

@@ -167,6 +167,58 @@ void main() {
     await stop(tester);
   });
 
+  group('what actually goes on the bar', () {
+    /// The bench press row's weight field — the one thing on a set row that is
+    /// typed rather than tapped.
+    Finder benchWeight() => find.descendant(
+          of: find.byKey(const ValueKey('0-0-Bench Press')),
+          matching: find.byType(TextField),
+        );
+
+    testWidgets('a barbell exercise is broken down per side', (tester) async {
+      await startPush(tester);
+
+      // 80 kg on a 20 kg bar: 30 a side, and the standard rack makes that
+      // with a 25 and a 5.
+      expect(find.text('30 KG/SIDE · 25 + 5 · BAR 20'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('a dumbbell says which dumbbell, and a machine says nothing',
+        (tester) async {
+      await startPush(tester);
+      // The list builds lazily, so the exercises under the fold have to be
+      // scrolled to before they can be asked anything.
+      for (var i = 0; i < 5; i++) {
+        await tester.drag(find.byType(ListView), const Offset(0, -400));
+        await tester.pump();
+      }
+      expect(find.text('Triceps Pushdown'), findsOneWidget,
+          reason: 'the bottom of the day is on screen');
+
+      // Incline DB Press and Lateral Raise are loaded per hand.
+      expect(find.text('PER DUMBBELL, NOT THE PAIR'), findsWidgets);
+      // The pushdown is 35 kg on a stack — there is no "per side" to it, and
+      // 7.5 a side is what it would say if the app thought there were.
+      expect(find.textContaining('7.5 KG/SIDE'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('a weight the plates cannot make is flagged, with the '
+        'nearest one that can', (tester) async {
+      await startPush(tester);
+
+      await tester.enterText(benchWeight(), '81');
+      await tester.pump();
+
+      expect(find.textContaining('NEAREST YOU CAN LOAD: 80 KG'), findsOneWidget);
+
+      await stop(tester);
+    });
+  });
+
   group('an exercise that progresses on time', () {
     /// A one-day routine holding a single timed slot: 2 × 45-second planks.
     Future<void> startPlank(WidgetTester tester) async {

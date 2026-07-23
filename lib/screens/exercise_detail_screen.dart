@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/database.dart';
@@ -47,12 +48,12 @@ class ExerciseDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends ConsumerWidget {
   const _Body({required this.exercise});
   final Exercise exercise;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
@@ -69,6 +70,44 @@ class _Body extends StatelessWidget {
             if (exercise.isCustom) _Chip('Custom', accent: true),
           ],
         ),
+        const SizedBox(height: 22),
+        Text('LOADED AS',
+            style: kMono.copyWith(
+                fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+        const SizedBox(height: 8),
+        // Editable here rather than only on the create form: the starter
+        // library is where the barbell lifts live, and whether your gym's bench
+        // has a 20 kg bar or a fixed-weight EZ curl bar is a fact the seed
+        // cannot know. Writes straight through — there is nothing to save.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final t in WeightType.values)
+              _Chip(
+                t.label,
+                accent: t == exercise.weightType,
+                onTap: t == exercise.weightType
+                    ? null
+                    : () => ref
+                        .read(databaseProvider)
+                        .setExerciseWeightType(exercise.id, t),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(exercise.weightType.blurb,
+            style: kMono.copyWith(
+                fontSize: 11.5, height: 1.5, color: AppColors.muted)),
+        if (exercise.weightType == WeightType.bar) ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => context.push('/settings/plates'),
+            child: Text('Bar weight and plate rack →',
+                style: kMono.copyWith(
+                    fontSize: 11.5, height: 1.5, color: AppColors.accent)),
+          ),
+        ],
         const SizedBox(height: 22),
         Text('HOW TO',
             style: kMono.copyWith(
@@ -164,12 +203,16 @@ class _VideoLink extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip(this.label, {this.accent = false});
+  const _Chip(this.label, {this.accent = false, this.onTap});
   final String label;
   final bool accent;
+
+  /// Null for a chip that only states a fact (the muscle group, the equipment).
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
         color: accent ? AppColors.accent.withValues(alpha: 0.14) : AppColors.surface2,
@@ -182,5 +225,7 @@ class _Chip extends StatelessWidget {
               color: accent ? AppColors.accent : AppColors.muted,
               fontWeight: FontWeight.w600)),
     );
+    if (onTap == null) return chip;
+    return GestureDetector(onTap: onTap, child: chip);
   }
 }

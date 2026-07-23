@@ -117,6 +117,27 @@ final weightUnitProvider = StreamProvider<String>((ref) {
   return ref.watch(databaseProvider).watchWeightUnit();
 });
 
+/// The bar and plate rack as stored — read [plateSettingsProvider] instead
+/// unless you specifically need to know whether the user has configured them.
+final storedPlateSetupProvider = StreamProvider<StoredPlateSetup>((ref) {
+  return ref.watch(databaseProvider).watchPlateSetup();
+});
+
+/// The bar and the plates to work with, resolved against the chosen unit.
+///
+/// Synchronous rather than a stream: every screen that draws a plate breakdown
+/// wants an answer on the first frame, and "the standard rack" is a correct
+/// answer to give while the settings row is still being read.
+final plateSettingsProvider = Provider<PlateSettings>((ref) {
+  final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+  final stored = ref.watch(storedPlateSetupProvider).value;
+  return resolvePlateSettings(
+    unit: unit,
+    inventory: stored?.inventory,
+    barKg: stored?.barKg,
+  );
+});
+
 /// The live session (null when not training).
 final activeWorkoutProvider =
     NotifierProvider<ActiveWorkoutController, ActiveWorkout?>(

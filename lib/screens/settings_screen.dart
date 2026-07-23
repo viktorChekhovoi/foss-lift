@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 
-/// App preferences: the weight unit and the layoff rules.
+/// App preferences: the weight unit, the bar and plates, and the layoff rules.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final plates = ref.watch(plateSettingsProvider);
     final layoff = ref.watch(layoffSettingsProvider).value ??
         (days: kDefaultLayoffDays, percent: kDefaultLayoffPercent);
     final db = ref.read(databaseProvider);
@@ -46,6 +49,27 @@ class SettingsScreen extends ConsumerWidget {
               'Weights are stored internally and converted on the fly, so '
               'switching units never rewrites your history.',
               style: const TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 28),
+            Text('BAR & PLATES',
+                style: kMono.copyWith(
+                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+            const SizedBox(height: 10),
+            _NavRow(
+              label: 'Bar and plate rack',
+              value: '${fmtPlateWeight(toDisplayWeight(plates.barKg, unit))} '
+                  '${unitLabel(unit)} bar · '
+                  '${plates.plates.length} plate '
+                  '${plates.plates.length == 1 ? 'size' : 'sizes'}',
+              onTap: () => context.push('/settings/plates'),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Exercises marked as loaded on a bar show what goes on each side '
+              'of it, worked out from these. Until you change anything, a '
+              'standard $unit gym is assumed.',
+              style: const TextStyle(
+                  color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 28),
             Text('COMING BACK FROM A LAYOFF',
@@ -110,6 +134,56 @@ class SettingsScreen extends ConsumerWidget {
 int _maxCut(int percent) {
   final stacked = kMaxLayoffPeriods * percent;
   return stacked > kMaxLayoffCutPercent ? kMaxLayoffCutPercent : stacked;
+}
+
+/// A settings row that opens a screen of its own, with today's answer on it.
+class _NavRow extends StatelessWidget {
+  const _NavRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.line),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
+                    Text(value,
+                        style: kMono.copyWith(
+                            fontSize: 12, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _UnitOption extends StatelessWidget {

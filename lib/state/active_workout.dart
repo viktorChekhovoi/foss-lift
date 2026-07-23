@@ -81,6 +81,7 @@ class ExerciseEntry {
     required this.sets,
     this.itemId,
     this.mode = ProgressionMode.weight,
+    this.weightType = WeightType.machine,
     this.restSeconds = 90,
   });
   final int? exerciseId;
@@ -94,6 +95,23 @@ class ExerciseEntry {
 
   /// The axis this exercise advances along, carried from the template.
   final ProgressionMode mode;
+
+  /// How the load is arranged, carried from the library — see [WeightType].
+  /// What decides whether the screen can say what goes on the bar.
+  final WeightType weightType;
+
+  /// The load the next set will be done at: the first set still unlogged, or
+  /// the last one when they are all in.
+  ///
+  /// What a plate breakdown should describe — the bar you are about to load,
+  /// not the one you loaded first. Null only when there are no sets at all.
+  double? get nextWeight {
+    if (sets.isEmpty) return null;
+    for (final s in sets) {
+      if (!s.done) return s.weight;
+    }
+    return sets.last.weight;
+  }
 
   /// Rest to start after a completed set (resolved from the routine/item).
   final int restSeconds;
@@ -226,6 +244,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           name: v.exercise.name,
           muscle: v.exercise.muscleGroup,
           mode: mode,
+          weightType: v.exercise.weightType,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           sets: List.generate(
             v.item.targetSets,
