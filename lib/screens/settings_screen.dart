@@ -62,7 +62,6 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             SettingRow(
               label: 'Available plates',
-              note: 'what the gym stocks in ${unitLabel(unit)}',
               value: '${plates.plates.length} '
                   '${plates.plates.length == 1 ? 'size' : 'sizes'}',
               onTap: () => context.push('/settings/plates'),
@@ -145,8 +144,7 @@ Future<void> _switchUnit(
       title: Text('Switch to $to?'),
       content: Text(
         'Your exercise weights and available plates are converted to $to '
-        'automatically. A few may land between the numbers you can load, so '
-        'they are worth a quick look afterwards.',
+        'automatically. Some conversions may need to be manually adjusted.',
         style: const TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [
