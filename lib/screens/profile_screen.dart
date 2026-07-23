@@ -62,9 +62,13 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
+          // Named for the screen, not for one thing on it: the row said "Units"
+          // when units were all that was behind it, and has since collected the
+          // layoff rules and the plate rack. The unit stays as the value — it
+          // is the setting worth reading at a glance.
           _SettingsTile(
-            icon: Icons.straighten_rounded,
-            label: 'Units',
+            icon: Icons.tune_rounded,
+            label: 'Settings',
             value: unit == 'lb' ? 'Pounds (lb)' : 'Kilograms (kg)',
             onTap: () => context.push('/settings'),
           ),
