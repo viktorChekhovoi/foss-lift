@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/database.dart';
 import '../providers/providers.dart';
@@ -92,9 +93,44 @@ class _Body extends StatelessWidget {
   }
 }
 
+/// The demo link: opens in whatever the phone uses for the web.
+///
+/// Handing the URL to another app is the only outward-facing thing FossLift
+/// does, and it is still the browser that does the talking — the app asks for
+/// no network permission of its own. The address is printed underneath so you
+/// can see where you are being sent before you tap, and long-press copies it
+/// for the case where there is nothing installed to open it with.
 class _VideoLink extends StatelessWidget {
   const _VideoLink({required this.url});
   final String url;
+
+  Future<void> _copy(BuildContext context, {required String reason}) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(reason)));
+  }
+
+  Future<void> _open(BuildContext context) async {
+    // externalApplication, not the in-app browser: a demo video belongs in
+    // YouTube or the browser, not in a web view bolted onto a workout tracker.
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && context.mounted) {
+      // No browser, or the intent was refused. Falling back to the clipboard
+      // leaves the user somewhere they can still act, rather than with a tap
+      // that silently did nothing.
+      await _copy(context, reason: 'Nothing here can open links — copied it '
+          'to the clipboard instead');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,20 +147,17 @@ class _VideoLink extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             icon: const Icon(Icons.play_circle_outline, color: AppColors.accent),
-            label: const Text('Copy demo link'),
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: url));
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Demo link copied to clipboard')),
-                );
-              }
-            },
+            label: const Text('Watch a demo'),
+            onPressed: () => _open(context),
           ),
         ),
         const SizedBox(height: 8),
-        SelectableText(url,
-            style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
+        GestureDetector(
+          onLongPress: () =>
+              _copy(context, reason: 'Demo link copied to clipboard'),
+          child: Text(url,
+              style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
+        ),
       ],
     );
   }
