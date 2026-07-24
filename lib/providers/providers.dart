@@ -58,6 +58,13 @@ final historyProvider = StreamProvider<List<Session>>((ref) {
   return ref.watch(databaseProvider).watchHistory();
 });
 
+/// Every logged set of one exercise across finished sessions, oldest first —
+/// the source for its progress chart and CSV export.
+final exerciseHistoryProvider =
+    StreamProvider.family<List<ExerciseSetEntry>, int>((ref, exerciseId) {
+  return ref.watch(databaseProvider).watchExerciseSetHistory(exerciseId);
+});
+
 /// Number of completed sessions (Today + Profile).
 final sessionCountProvider = StreamProvider<int>((ref) {
   return ref.watch(databaseProvider).watchSessionCount();

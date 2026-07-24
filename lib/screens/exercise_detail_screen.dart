@@ -73,6 +73,21 @@ class _Body extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 22),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.text,
+              side: const BorderSide(color: AppColors.line),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            icon: const Icon(Icons.show_chart, color: AppColors.accent),
+            label: const Text('Progress & export'),
+            onPressed: () => context.push('/exercise/${exercise.id}/progress'),
+          ),
+        ),
+        const SizedBox(height: 22),
         Text('LOADED AS',
             style: kMono.copyWith(
                 fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),

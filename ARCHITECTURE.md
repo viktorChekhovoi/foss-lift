@@ -32,6 +32,7 @@ lib/
 ├── theme/app_theme.dart          Palette (AppColors), mono text style, dark theme
 ├── data/
 │   ├── database.dart             Drift tables, queries, first-run seed  ← core
+│   ├── exercise_stats.dart       Per-exercise 1RM/chart maths + CSV (pure)
 │   ├── progression.dart          Progression modes + the step/deload rules
 │   ├── layoff.dart               Gap → back-off: the rules for coming back
 │   ├── plates.dart               Weight types + what goes on each side of a bar
@@ -110,8 +111,12 @@ lifetime reps and volume from counting a 45-second plank as forty-five of
 anything.
 
 Query methods are grouped by comment banners (Exercise library / Routines /
-Workouts / Workout items / Progression / Layoff deloads / History / Aggregate
-stats / Settings / Seed).
+Workouts / Workout items / Progression / Layoff deloads / History / Exercise
+history / Aggregate stats / Settings / Seed). The **Exercise history** banner is
+one read-only query — `watchExerciseSetHistory(exerciseId)` — that gathers every
+completed-session set of a single movement (matched on `exerciseId`, not the
+denormalised name) for its progress chart and CSV export. The maths and the CSV
+rendering are pure and live in `data/exercise_stats.dart`, not in drift.
 
 ### Progression — `data/progression.dart` + `advanceProgression`
 Each exercise slot advances along one axis (`ProgressionMode`): **weight** (add
@@ -346,6 +351,7 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/library` | library_screen | Searchable exercise library + FAB to add |
 | `/library/new` | exercise_form_screen | Create a custom exercise |
 | `/exercise/:id` | exercise_detail_screen | Instructions + demo link |
+| `/exercise/:id/progress` | exercise_progress_screen | Progress chart over time + CSV export |
 | `/session` | workout_screen | **Live logging** (set rows, rest banner) |
 | `/summary/:id` | summary_screen | Post-session recap |
 | `/history` | history_screen | Past sessions |
