@@ -40,7 +40,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
-        theme: AppTheme.dark(),
+        theme: AppTheme.dark(kDefaultPalette),
         routerConfig: appRouter,
         builder: (c, child) => ResumeWorkoutOverlay(child: child!),
       ),

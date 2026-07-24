@@ -243,6 +243,16 @@ class Settings extends Table {
   /// unit, for the same reason as [plateInventory].
   RealColumn get barWeight => real().nullable()();
 
+  /// Which colour theme is active: a preset slug (`ignition`, `graphite`, …),
+  /// `custom`, or null. Null means the default preset, so an install that never
+  /// touched the setting looks exactly as it always did.
+  TextColumn get themePresetId => text().nullable()();
+
+  /// The user's own custom palette, serialised as JSON — see `AppPalette`. Kept
+  /// even while a preset is active, so switching to Custom brings back what was
+  /// last built rather than a blank slate.
+  TextColumn get customTheme => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -302,6 +312,12 @@ class LifetimeTotals {
 /// null, meaning "never configured" rather than "empty". One rack per unit —
 /// see [resolvePlateSettings].
 typedef StoredPlateSetup = ({String? kgRack, String? lbRack, double? barKg});
+
+/// The colour-theme choice as the settings row holds it: the selected id (a
+/// preset slug, `custom`, or null for the default preset) and the user's custom
+/// palette JSON, if they have built one. Resolved into a palette by
+/// `resolvePalette` in `app_theme.dart`.
+typedef ThemeSetting = ({String? presetId, String? customJson});
 
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
@@ -364,7 +380,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -445,6 +461,13 @@ class AppDatabase extends _$AppDatabase {
             // nothing about how any existing weight is loaded.
             await m.addColumn(exercises, exercises.barWeight);
             await m.addColumn(settings, settings.plateInventoryLb);
+          }
+          if (from < 9) {
+            // v8 → v9: a colour theme choice, and somewhere to keep a custom
+            // palette. Both nullable and both meaning "nothing chosen", so an
+            // existing install keeps the default (Ignition) look untouched.
+            await m.addColumn(settings, settings.themePresetId);
+            await m.addColumn(settings, settings.customTheme);
           }
         },
         beforeOpen: (details) async {
@@ -1172,6 +1195,30 @@ class AppDatabase extends _$AppDatabase {
   /// Forgets the configured default bar.
   Future<void> resetBarWeight() =>
       _writeSettings(const SettingsCompanion(barWeight: Value(null)));
+
+  /// The active colour theme choice as stored: the selected id (a preset slug,
+  /// `custom`, or null for the default preset) and the user's custom palette
+  /// JSON, if any. Resolving these into a palette lives in `app_theme.dart`
+  /// (`resolvePalette`); the UI reads it via `activePaletteProvider`.
+  Stream<ThemeSetting> watchThemeSetting() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => (presetId: s?.themePresetId, customJson: s?.customTheme));
+  }
+
+  /// Selects a shipped preset (or `custom`) as the active theme. Passing null
+  /// falls back to the default preset. The stored custom palette is left
+  /// untouched, so switching away from and back to Custom is lossless.
+  Future<void> setThemePreset(String? presetId) =>
+      _writeSettings(SettingsCompanion(themePresetId: Value(presetId)));
+
+  /// Stores the user's custom palette (JSON from `AppPalette.toJson`) and makes
+  /// it the active theme in one write. The `custom` slug matches
+  /// `kCustomThemeId` in `app_theme.dart` — the id a self-built palette carries.
+  Future<void> setCustomTheme(String json) => _writeSettings(SettingsCompanion(
+        customTheme: Value(json),
+        themePresetId: const Value('custom'),
+      ));
 
   /// Updates the single settings row, creating it if it is somehow missing.
   /// Only the columns present in [patch] are touched.

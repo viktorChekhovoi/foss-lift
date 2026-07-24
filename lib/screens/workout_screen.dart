@@ -217,7 +217,7 @@ class _StatStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: AppColors.line),
           bottom: BorderSide(color: AppColors.line),
@@ -228,7 +228,7 @@ class _StatStrip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _Stat(label: 'Duration', value: fmtDuration(session.elapsed)),
-            const VerticalDivider(width: 1, color: AppColors.line),
+            VerticalDivider(width: 1, color: AppColors.line),
             _Stat(
               label: 'Sets',
               value: '${session.doneSets}/${session.totalSets}',
@@ -297,7 +297,7 @@ class _SessionNotice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.trending_down_rounded,
+          Icon(Icons.trending_down_rounded,
               size: 18, color: AppColors.gold),
           const SizedBox(width: 10),
           Expanded(
@@ -355,7 +355,7 @@ class _ExerciseBlock extends StatelessWidget {
                 width: 8,
                 height: 8,
                 margin: const EdgeInsets.only(right: 10),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.accent,
                   shape: BoxShape.circle,
                 ),
@@ -555,7 +555,7 @@ class _SetRowState extends State<_SetRow> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(color: AppColors.accent),
+            borderSide: BorderSide(color: AppColors.accent),
           ),
         ),
       ),
@@ -649,11 +649,11 @@ class _ResultDialogState extends State<_ResultDialog> {
               fillColor: AppColors.surface2,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.line),
+                borderSide: BorderSide(color: AppColors.line),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.accent),
+                borderSide: BorderSide(color: AppColors.accent),
               ),
             ),
             onSubmitted: (_) => _save(),
@@ -747,7 +747,7 @@ class _RestBanner extends StatelessWidget {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.text,
-        side: const BorderSide(color: AppColors.line),
+        side: BorderSide(color: AppColors.line),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),

@@ -18,6 +18,7 @@ class SettingsScreen extends ConsumerWidget {
     final plates = ref.watch(plateSettingsProvider);
     final layoff = ref.watch(layoffSettingsProvider).value ??
         (days: kDefaultLayoffDays, percent: kDefaultLayoffPercent);
+    final palette = ref.watch(activePaletteProvider);
     final db = ref.read(databaseProvider);
 
     return Scaffold(
@@ -67,6 +68,16 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push('/settings/plates'),
             ),
             const SizedBox(height: 28),
+            Text('APPEARANCE',
+                style: kMono.copyWith(
+                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+            const SizedBox(height: 10),
+            SettingRow(
+              label: 'Colour theme',
+              value: palette.name,
+              onTap: () => context.push('/settings/theme'),
+            ),
+            const SizedBox(height: 28),
             builderCard('Deload after time off', [
               builderGrid([
                 BuilderField(
@@ -109,7 +120,7 @@ class SettingsScreen extends ConsumerWidget {
                       'twice that after ${layoff.days * 2} days, and no more '
                       'than ${_maxCut(layoff.percent)}% however long you are '
                       'away.',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
           ],
@@ -145,7 +156,7 @@ Future<void> _switchUnit(
       content: Text(
         'Your exercise weights and available plates are converted to $to '
         'automatically. Some conversions may need to be manually adjusted.',
-        style: const TextStyle(color: AppColors.muted, height: 1.5),
+        style: TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [
         TextButton(

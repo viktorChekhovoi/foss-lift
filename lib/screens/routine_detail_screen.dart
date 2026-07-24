@@ -57,11 +57,11 @@ class RoutineDetailScreen extends ConsumerWidget {
       body: SafeArea(
         top: false,
         child: workouts.when(
-          loading: () => const Center(
+          loading: () => Center(
             child: CircularProgressIndicator(color: AppColors.accent),
           ),
           error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.muted)),
+            child: Text('$e', style: TextStyle(color: AppColors.muted)),
           ),
           data: (list) => ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -69,7 +69,7 @@ class RoutineDetailScreen extends ConsumerWidget {
               _CountChip(count: list.length),
               const SizedBox(height: 14),
               if (list.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Text(
                     'This routine has no workouts yet. Tap the edit icon to add '
@@ -117,7 +117,7 @@ class _CountChip extends StatelessWidget {
             children: [
               TextSpan(
                 text: '$count',
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.text, fontWeight: FontWeight.w600),
               ),
               TextSpan(text: count == 1 ? ' workout' : ' workouts'),
@@ -198,7 +198,7 @@ class _WorkoutRow extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.faint),
+              Icon(Icons.chevron_right, color: AppColors.faint),
             ],
           ),
         ),

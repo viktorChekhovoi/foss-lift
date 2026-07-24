@@ -61,7 +61,7 @@ class BarSettingsScreen extends ConsumerWidget {
               'The bar counts towards every barbell weight you log, so the '
               'breakdown only asks you to load the difference. A standard '
               'Olympic bar is 20 kg (45 lb); a womens bar is 15.',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 14),
@@ -70,7 +70,7 @@ class BarSettingsScreen extends ConsumerWidget {
               'a trap bar 25. Any exercise can be given its own: open it in the '
               'exercise library and set the bar weight there. This is what the '
               'rest of them use.',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
           ],

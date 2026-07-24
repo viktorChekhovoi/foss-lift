@@ -29,7 +29,7 @@ Flutter widgets  ──watch──►  Riverpod providers  ──call──►  
 lib/
 ├── main.dart                     App entry: ProviderScope + MaterialApp.router
 ├── router.dart                   All routes (go_router) in one place
-├── theme/app_theme.dart          Palette (AppColors), mono text style, dark theme
+├── theme/app_theme.dart          Palette model + presets (AppColors), mono style, theme
 ├── data/
 │   ├── database.dart             Drift tables, queries, first-run seed  ← core
 │   ├── progression.dart          Progression modes + the step/deload rules
@@ -87,7 +87,7 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, and a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all three nullable, see below |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`), and the colour theme (`themePresetId` — a preset slug/`custom`/null; `customTheme` — the user's palette as JSON) — all nullable, see below |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
@@ -353,6 +353,8 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/settings` | settings_screen | kg/lb toggle, bar & plates, layoff deload rules |
 | `/settings/bar` | bar_settings_screen | The default bar weight |
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
+| `/settings/theme` | theme_settings_screen | Pick a preset or custom theme; import/export |
+| `/settings/theme/custom` | theme_settings_screen | Edit each colour role of the custom theme |
 
 Note `/workout/:id` is a *template*; `/session` is the live thing in progress.
 
@@ -401,8 +403,16 @@ you never looked at.
   one added live would have no goal to be measured against.
 
 ### Cross-cutting
-- **Theme** (`theme/app_theme.dart`): `AppColors.*` constants and `kMono` (the
-  tabular monospace style for all numbers). Colours mirror `design/mockup.html`.
+- **Theme** (`theme/app_theme.dart`): the twelve colour roles are an
+  `AppPalette` value; several `kThemePresets` ship (the default, Ignition,
+  mirrors `design/mockup.html`) and the user can build a `custom` one.
+  `AppColors.*` are the live colours the whole UI reads — no longer `const`:
+  `AppTheme.dark(palette)` applies the active palette to them, and the app root
+  re-keys `MaterialApp` by `palette.signature` so every screen repaints.
+  `resolvePalette` turns the stored choice into a palette; `activePaletteProvider`
+  exposes it. A routine's own `colorHex` is parsed by `hexColor()` and bypasses
+  this entirely, so per-routine accents show through any theme. `kMono` is the
+  tabular monospace style for all numbers.
 - **Units** (`util/units.dart`): `toDisplayWeight`, `toKg`, `unitLabel`. Any new
   weight display/input must go through these.
 
@@ -411,7 +421,7 @@ you never looked at.
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
   `build_runner`, add a query method, expose it via a provider. Bump
-  `schemaVersion` (currently **8**) and add an `onUpgrade` step. Migrations are
+  `schemaVersion` (currently **9**) and add an `onUpgrade` step. Migrations are
   tested against a hand-written DDL fixture of the old schema — see
   `test/migration_test.dart` for the pattern.
   A migration step must build the shape of *its own era*: create tables with

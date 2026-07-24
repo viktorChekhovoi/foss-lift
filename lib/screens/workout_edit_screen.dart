@@ -116,7 +116,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
       body: SafeArea(
         top: false,
         child: !_loaded
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(color: AppColors.accent))
             : Column(
                 children: [
@@ -142,7 +142,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: AppColors.line)),
                     ),
                     child: SizedBox(

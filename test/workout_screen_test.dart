@@ -52,7 +52,7 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(theme: AppTheme.dark(), home: const WorkoutScreen()),
+      child: MaterialApp(theme: AppTheme.dark(kDefaultPalette), home: const WorkoutScreen()),
     ));
   }
 
@@ -256,7 +256,7 @@ void main() {
 
       await tester.pumpWidget(UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(theme: AppTheme.dark(), home: const WorkoutScreen()),
+        child: MaterialApp(theme: AppTheme.dark(kDefaultPalette), home: const WorkoutScreen()),
       ));
     }
 

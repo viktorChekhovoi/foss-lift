@@ -35,9 +35,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         top: false,
         child: library.when(
           loading: () =>
-              const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+              Center(child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) =>
-              Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
+              Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (all) {
             final q = _query.trim().toLowerCase();
             final list = q.isEmpty
@@ -66,7 +66,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
                     children: [
                       if (list.isEmpty)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: 60),
                           child: Center(
                             child: Text('No exercises match your search.',
@@ -127,18 +127,18 @@ class _SearchField extends StatelessWidget {
       style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
         hintText: 'Search exercises…',
-        prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+        prefixIcon: Icon(Icons.search, color: AppColors.muted),
         isDense: true,
         filled: true,
         fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.line),
+          borderSide: BorderSide(color: AppColors.line),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.accent),
+          borderSide: BorderSide(color: AppColors.accent),
         ),
       ),
     );
@@ -158,7 +158,7 @@ class _ExerciseTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+          border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
         ),
         child: Row(
           children: [
@@ -180,11 +180,11 @@ class _ExerciseTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(exercise.equipment,
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                      style: TextStyle(fontSize: 12, color: AppColors.muted)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.faint),
+            Icon(Icons.chevron_right, color: AppColors.faint),
           ],
         ),
       ),

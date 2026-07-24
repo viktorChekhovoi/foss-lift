@@ -19,7 +19,7 @@ class RoutinesScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           const ScreenHeader(eyebrow: 'Your programmes', title: 'Routines'),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
             child: Text(
               'A routine is a programme — "Push / Pull / Legs" — and it holds '
@@ -29,13 +29,13 @@ class RoutinesScreen extends ConsumerWidget {
             ),
           ),
           routines.when(
-            loading: () => const Padding(
+            loading: () => Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.all(20),
-              child: Text('$e', style: const TextStyle(color: AppColors.muted)),
+              child: Text('$e', style: TextStyle(color: AppColors.muted)),
             ),
             data: (list) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -72,7 +72,7 @@ class _NewRoutineButton extends StatelessWidget {
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.text,
-          side: const BorderSide(color: AppColors.line),
+          side: BorderSide(color: AppColors.line),
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),

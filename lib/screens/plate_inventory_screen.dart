@@ -58,7 +58,7 @@ class PlateInventoryScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   if (setup.plates.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 18),
                       child: Text(
                         'No plates. Every barbell weight will read as just the '
@@ -78,14 +78,14 @@ class PlateInventoryScreen extends ConsumerWidget {
                       onRemove: () => write(
                           [...setup.plates]..removeAt(i)),
                     ),
-                  const Divider(height: 1, color: AppColors.line),
+                  Divider(height: 1, color: AppColors.line),
                   InkWell(
                     onTap: addPlate,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       child: Row(
                         children: [
-                          const Icon(Icons.add,
+                          Icon(Icons.add,
                               size: 18, color: AppColors.accent),
                           const SizedBox(width: 10),
                           Text('Add a plate size',
@@ -108,7 +108,7 @@ class PlateInventoryScreen extends ConsumerWidget {
               'instead of a number nobody can put on a bar.\n\n'
               'This rack is the one for $u. Switching units gives you the '
               'other gym\'s rack rather than these sizes in decimals.',
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 18),
@@ -145,7 +145,7 @@ class _PlateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration:
-          const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.line))),
+          BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.line))),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [

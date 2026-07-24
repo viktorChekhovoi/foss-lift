@@ -13,6 +13,7 @@ import 'screens/routine_edit_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
+import 'screens/theme_settings_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/workout_detail_screen.dart';
 import 'screens/workout_edit_screen.dart';
@@ -76,6 +77,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/plates',
       builder: (c, s) => const PlateInventoryScreen(),
+    ),
+    GoRoute(
+      path: '/settings/theme',
+      builder: (c, s) => const ThemeSettingsScreen(),
+    ),
+    GoRoute(
+      path: '/settings/theme/custom',
+      builder: (c, s) => const CustomThemeEditorScreen(),
     ),
     // The live session in progress (distinct from /workout/:id, its template).
     GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),

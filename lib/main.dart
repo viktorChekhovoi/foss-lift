@@ -25,10 +25,16 @@ class FossLiftApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(reminderSyncProvider);
+    final palette = ref.watch(activePaletteProvider);
     return MaterialApp.router(
+      // The screens read AppColors directly, not Theme.of, so a theme change
+      // has to force the whole tree to repaint. Keying by the palette's
+      // fingerprint rebuilds everything against the freshly applied colours;
+      // go_router keeps the current location across the rebuild.
+      key: ValueKey(palette.signature),
       title: 'Foss Lift',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.dark(palette),
       routerConfig: appRouter,
       // Wraps every route so a collapsed workout can be resumed from anywhere.
       builder: (context, child) => ResumeWorkoutOverlay(child: child!),

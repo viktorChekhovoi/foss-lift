@@ -306,7 +306,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       body: SafeArea(
         top: false,
         child: !_loaded
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(color: AppColors.accent))
             : Column(
                 children: [
@@ -360,7 +360,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         const SizedBox(height: 8),
                         Text(
                           _reminderHint(),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5,
                               color: AppColors.muted,
                               height: 1.45),
@@ -368,7 +368,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         const SizedBox(height: 8),
                         SectionLabel('Workouts · ${_workouts.length}'),
                         if (_workouts.isEmpty)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
                             child: Text(
                               'No workouts yet — a routine is made of training '
@@ -394,7 +394,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.accent,
-                            side: const BorderSide(color: AppColors.line),
+                            side: BorderSide(color: AppColors.line),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
@@ -405,7 +405,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         ),
                         if (_workouts.isNotEmpty) ...[
                           const SizedBox(height: 14),
-                          const Text(
+                          Text(
                             'Tap a workout to rename it and pick its exercises. '
                             'Nothing is written until you save the routine.',
                             style: TextStyle(
@@ -417,7 +417,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: AppColors.line)),
                     ),
                     child: SizedBox(
@@ -503,7 +503,7 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
               ),
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(top: BorderSide(color: AppColors.line)),
                 ),
                 child: SizedBox(

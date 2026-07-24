@@ -3835,6 +3835,28 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _themePresetIdMeta = const VerificationMeta(
+    'themePresetId',
+  );
+  @override
+  late final GeneratedColumn<String> themePresetId = GeneratedColumn<String>(
+    'theme_preset_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _customThemeMeta = const VerificationMeta(
+    'customTheme',
+  );
+  @override
+  late final GeneratedColumn<String> customTheme = GeneratedColumn<String>(
+    'custom_theme',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3845,6 +3867,8 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     plateInventory,
     plateInventoryLb,
     barWeight,
+    themePresetId,
+    customTheme,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3915,6 +3939,24 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         barWeight.isAcceptableOrUnknown(data['bar_weight']!, _barWeightMeta),
       );
     }
+    if (data.containsKey('theme_preset_id')) {
+      context.handle(
+        _themePresetIdMeta,
+        themePresetId.isAcceptableOrUnknown(
+          data['theme_preset_id']!,
+          _themePresetIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_theme')) {
+      context.handle(
+        _customThemeMeta,
+        customTheme.isAcceptableOrUnknown(
+          data['custom_theme']!,
+          _customThemeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3955,6 +3997,14 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       barWeight: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}bar_weight'],
+      ),
+      themePresetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme_preset_id'],
+      ),
+      customTheme: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_theme'],
       ),
     );
   }
@@ -3998,6 +4048,16 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// `Exercises.barWeight`. Null falls back to the standard bar for the chosen
   /// unit, for the same reason as [plateInventory].
   final double? barWeight;
+
+  /// Which colour theme is active: a preset slug (`ignition`, `graphite`, …),
+  /// `custom`, or null. Null means the default preset, so an install that never
+  /// touched the setting looks exactly as it always did.
+  final String? themePresetId;
+
+  /// The user's own custom palette, serialised as JSON — see `AppPalette`. Kept
+  /// even while a preset is active, so switching to Custom brings back what was
+  /// last built rather than a blank slate.
+  final String? customTheme;
   const Setting({
     required this.id,
     required this.weightUnit,
@@ -4007,6 +4067,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.plateInventory,
     this.plateInventoryLb,
     this.barWeight,
+    this.themePresetId,
+    this.customTheme,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4026,6 +4088,12 @@ class Setting extends DataClass implements Insertable<Setting> {
     }
     if (!nullToAbsent || barWeight != null) {
       map['bar_weight'] = Variable<double>(barWeight);
+    }
+    if (!nullToAbsent || themePresetId != null) {
+      map['theme_preset_id'] = Variable<String>(themePresetId);
+    }
+    if (!nullToAbsent || customTheme != null) {
+      map['custom_theme'] = Variable<String>(customTheme);
     }
     return map;
   }
@@ -4048,6 +4116,12 @@ class Setting extends DataClass implements Insertable<Setting> {
       barWeight: barWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(barWeight),
+      themePresetId: themePresetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(themePresetId),
+      customTheme: customTheme == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customTheme),
     );
   }
 
@@ -4065,6 +4139,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       plateInventory: serializer.fromJson<String?>(json['plateInventory']),
       plateInventoryLb: serializer.fromJson<String?>(json['plateInventoryLb']),
       barWeight: serializer.fromJson<double?>(json['barWeight']),
+      themePresetId: serializer.fromJson<String?>(json['themePresetId']),
+      customTheme: serializer.fromJson<String?>(json['customTheme']),
     );
   }
   @override
@@ -4079,6 +4155,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       'plateInventory': serializer.toJson<String?>(plateInventory),
       'plateInventoryLb': serializer.toJson<String?>(plateInventoryLb),
       'barWeight': serializer.toJson<double?>(barWeight),
+      'themePresetId': serializer.toJson<String?>(themePresetId),
+      'customTheme': serializer.toJson<String?>(customTheme),
     };
   }
 
@@ -4091,6 +4169,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> plateInventory = const Value.absent(),
     Value<String?> plateInventoryLb = const Value.absent(),
     Value<double?> barWeight = const Value.absent(),
+    Value<String?> themePresetId = const Value.absent(),
+    Value<String?> customTheme = const Value.absent(),
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -4106,6 +4186,10 @@ class Setting extends DataClass implements Insertable<Setting> {
         ? plateInventoryLb.value
         : this.plateInventoryLb,
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
+    themePresetId: themePresetId.present
+        ? themePresetId.value
+        : this.themePresetId,
+    customTheme: customTheme.present ? customTheme.value : this.customTheme,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -4129,6 +4213,12 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.plateInventoryLb.value
           : this.plateInventoryLb,
       barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
+      themePresetId: data.themePresetId.present
+          ? data.themePresetId.value
+          : this.themePresetId,
+      customTheme: data.customTheme.present
+          ? data.customTheme.value
+          : this.customTheme,
     );
   }
 
@@ -4142,7 +4232,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('layoffPercent: $layoffPercent, ')
           ..write('plateInventory: $plateInventory, ')
           ..write('plateInventoryLb: $plateInventoryLb, ')
-          ..write('barWeight: $barWeight')
+          ..write('barWeight: $barWeight, ')
+          ..write('themePresetId: $themePresetId, ')
+          ..write('customTheme: $customTheme')
           ..write(')'))
         .toString();
   }
@@ -4157,6 +4249,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     plateInventory,
     plateInventoryLb,
     barWeight,
+    themePresetId,
+    customTheme,
   );
   @override
   bool operator ==(Object other) =>
@@ -4169,7 +4263,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.layoffPercent == this.layoffPercent &&
           other.plateInventory == this.plateInventory &&
           other.plateInventoryLb == this.plateInventoryLb &&
-          other.barWeight == this.barWeight);
+          other.barWeight == this.barWeight &&
+          other.themePresetId == this.themePresetId &&
+          other.customTheme == this.customTheme);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -4181,6 +4277,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String?> plateInventory;
   final Value<String?> plateInventoryLb;
   final Value<double?> barWeight;
+  final Value<String?> themePresetId;
+  final Value<String?> customTheme;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -4190,6 +4288,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.plateInventory = const Value.absent(),
     this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
+    this.themePresetId = const Value.absent(),
+    this.customTheme = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -4200,6 +4300,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.plateInventory = const Value.absent(),
     this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
+    this.themePresetId = const Value.absent(),
+    this.customTheme = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -4210,6 +4312,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<String>? plateInventory,
     Expression<String>? plateInventoryLb,
     Expression<double>? barWeight,
+    Expression<String>? themePresetId,
+    Expression<String>? customTheme,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4220,6 +4324,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (plateInventory != null) 'plate_inventory': plateInventory,
       if (plateInventoryLb != null) 'plate_inventory_lb': plateInventoryLb,
       if (barWeight != null) 'bar_weight': barWeight,
+      if (themePresetId != null) 'theme_preset_id': themePresetId,
+      if (customTheme != null) 'custom_theme': customTheme,
     });
   }
 
@@ -4232,6 +4338,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<String?>? plateInventory,
     Value<String?>? plateInventoryLb,
     Value<double?>? barWeight,
+    Value<String?>? themePresetId,
+    Value<String?>? customTheme,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -4242,6 +4350,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       plateInventory: plateInventory ?? this.plateInventory,
       plateInventoryLb: plateInventoryLb ?? this.plateInventoryLb,
       barWeight: barWeight ?? this.barWeight,
+      themePresetId: themePresetId ?? this.themePresetId,
+      customTheme: customTheme ?? this.customTheme,
     );
   }
 
@@ -4272,6 +4382,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (barWeight.present) {
       map['bar_weight'] = Variable<double>(barWeight.value);
     }
+    if (themePresetId.present) {
+      map['theme_preset_id'] = Variable<String>(themePresetId.value);
+    }
+    if (customTheme.present) {
+      map['custom_theme'] = Variable<String>(customTheme.value);
+    }
     return map;
   }
 
@@ -4285,7 +4401,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('layoffPercent: $layoffPercent, ')
           ..write('plateInventory: $plateInventory, ')
           ..write('plateInventoryLb: $plateInventoryLb, ')
-          ..write('barWeight: $barWeight')
+          ..write('barWeight: $barWeight, ')
+          ..write('themePresetId: $themePresetId, ')
+          ..write('customTheme: $customTheme')
           ..write(')'))
         .toString();
   }
@@ -6958,6 +7076,8 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<String?> plateInventory,
       Value<String?> plateInventoryLb,
       Value<double?> barWeight,
+      Value<String?> themePresetId,
+      Value<String?> customTheme,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -6969,6 +7089,8 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<String?> plateInventory,
       Value<String?> plateInventoryLb,
       Value<double?> barWeight,
+      Value<String?> themePresetId,
+      Value<String?> customTheme,
     });
 
 class $$SettingsTableFilterComposer
@@ -7017,6 +7139,16 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<double> get barWeight => $composableBuilder(
     column: $table.barWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themePresetId => $composableBuilder(
+    column: $table.themePresetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customTheme => $composableBuilder(
+    column: $table.customTheme,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7069,6 +7201,16 @@ class $$SettingsTableOrderingComposer
     column: $table.barWeight,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get themePresetId => $composableBuilder(
+    column: $table.themePresetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customTheme => $composableBuilder(
+    column: $table.customTheme,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -7115,6 +7257,16 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<double> get barWeight =>
       $composableBuilder(column: $table.barWeight, builder: (column) => column);
+
+  GeneratedColumn<String> get themePresetId => $composableBuilder(
+    column: $table.themePresetId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customTheme => $composableBuilder(
+    column: $table.customTheme,
+    builder: (column) => column,
+  );
 }
 
 class $$SettingsTableTableManager
@@ -7153,6 +7305,8 @@ class $$SettingsTableTableManager
                 Value<String?> plateInventory = const Value.absent(),
                 Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
+                Value<String?> themePresetId = const Value.absent(),
+                Value<String?> customTheme = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -7162,6 +7316,8 @@ class $$SettingsTableTableManager
                 plateInventory: plateInventory,
                 plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
+                themePresetId: themePresetId,
+                customTheme: customTheme,
               ),
           createCompanionCallback:
               ({
@@ -7173,6 +7329,8 @@ class $$SettingsTableTableManager
                 Value<String?> plateInventory = const Value.absent(),
                 Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
+                Value<String?> themePresetId = const Value.absent(),
+                Value<String?> customTheme = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -7182,6 +7340,8 @@ class $$SettingsTableTableManager
                 plateInventory: plateInventory,
                 plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
+                themePresetId: themePresetId,
+                customTheme: customTheme,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

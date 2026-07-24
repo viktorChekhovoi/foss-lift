@@ -21,7 +21,7 @@ class ProfileScreen extends ConsumerWidget {
             child: Container(
               width: 76,
               height: 76,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
                   colors: [
@@ -34,11 +34,11 @@ class ProfileScreen extends ConsumerWidget {
               ),
               padding: const EdgeInsets.all(4),
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.surface2,
                 ),
-                child: const Icon(Icons.fitness_center_rounded, color: AppColors.text),
+                child: Icon(Icons.fitness_center_rounded, color: AppColors.text),
               ),
             ),
           ),
@@ -159,7 +159,7 @@ class _SettingsTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+          border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
         ),
         child: Row(
           children: [
@@ -173,7 +173,7 @@ class _SettingsTile extends StatelessWidget {
                     style: kMono.copyWith(
                         fontSize: 10, letterSpacing: 1, color: AppColors.faint)),
               ),
-            const Icon(Icons.chevron_right, color: AppColors.faint),
+            Icon(Icons.chevron_right, color: AppColors.faint),
           ],
         ),
       ),
