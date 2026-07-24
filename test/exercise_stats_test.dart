@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/exercise_stats.dart';
-import 'package:foss_lift/util/units.dart';
 
-/// The per-exercise progress maths and CSV rendering are pure, so they are
-/// exercised here without a database or a widget in sight.
+/// The per-exercise progress maths are pure, so they are exercised here without
+/// a database or a widget in sight.
 void main() {
   ExerciseSetEntry set(
     int session,
@@ -88,54 +87,6 @@ void main() {
         set(1, DateTime(2026, 1, 1), seconds: 60, setNumber: 2),
       ]);
       expect(points.first.bestSeconds, 60);
-    });
-  });
-
-  group('exerciseHistoryCsv', () {
-    test('header names the display unit and rows follow', () {
-      final csv = exerciseHistoryCsv(
-        exerciseName: 'Bench Press',
-        unit: 'kg',
-        convertWeight: toDisplayWeight,
-        sets: [
-          set(1, DateTime(2026, 1, 1, 10, 30),
-              weight: 80, reps: 5, name: 'Push'),
-        ],
-      );
-      final lines = csv.split('\r\n');
-      expect(lines.first,
-          'Date,Session,Exercise,Set,Weight (kg),Reps,Seconds,Est 1RM (kg)');
-      expect(lines[1],
-          startsWith('2026-01-01 10:30,Push,Bench Press,1,80,5,,'));
-      // Est 1RM = 80*(1+5/30) = 93.33
-      expect(lines[1], endsWith('93.33'));
-    });
-
-    test('weights convert to pounds when that is the unit', () {
-      final csv = exerciseHistoryCsv(
-        exerciseName: 'Squat',
-        unit: 'lb',
-        convertWeight: toDisplayWeight,
-        sets: [set(1, DateTime(2026, 1, 1), weight: 100, reps: 1)],
-      );
-      final cols = csv.split('\r\n')[1].split(',');
-      // 100 kg is 220.46 lb; single rep so the 1RM equals the weight.
-      expect(double.parse(cols[4]), closeTo(220.46, 0.01));
-      expect(double.parse(cols[7]), closeTo(220.46, 0.01));
-    });
-
-    test('a comma in a session name is quoted', () {
-      final csv = exerciseHistoryCsv(
-        exerciseName: 'Plank',
-        unit: 'kg',
-        convertWeight: toDisplayWeight,
-        sets: [
-          set(1, DateTime(2026, 1, 1), seconds: 60, name: 'Legs, day one'),
-        ],
-      );
-      expect(csv, contains('"Legs, day one"'));
-      // A timed set fills Seconds, leaves Reps at 0 and the 1RM blank.
-      expect(csv.split('\r\n')[1], endsWith(',0,60,'));
     });
   });
 }

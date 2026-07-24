@@ -37,19 +37,27 @@ class ThemeSettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            Text('PRESETS',
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-            const SizedBox(height: 10),
-            for (final preset in kThemePresets) ...[
-              _ThemeOption(
-                palette: preset,
-                selected: selectedId == preset.id,
-                onTap: () => db.setThemePreset(preset.id),
-              ),
+            // Presets grouped by brightness so light and dark are easy to scan.
+            // High contrast is a dark theme and sits with the darks.
+            for (final group in const [
+              ('DARK', Brightness.dark),
+              ('LIGHT', Brightness.light),
+            ]) ...[
+              Text(group.$1,
+                  style: kMono.copyWith(
+                      fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+              const SizedBox(height: 10),
+              for (final preset
+                  in kThemePresets.where((p) => p.brightness == group.$2)) ...[
+                _ThemeOption(
+                  palette: preset,
+                  selected: selectedId == preset.id,
+                  onTap: () => db.setThemePreset(preset.id),
+                ),
+                const SizedBox(height: 10),
+              ],
               const SizedBox(height: 10),
             ],
-            const SizedBox(height: 18),
             Text('YOUR THEME',
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),

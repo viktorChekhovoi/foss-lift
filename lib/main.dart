@@ -27,6 +27,15 @@ class FossLiftApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(reminderSyncProvider);
     final palette = ref.watch(activePaletteProvider);
+    // Status-bar icons have to contrast with the app's ground: dark icons over a
+    // light theme, light icons over a dark one. Re-applied here so switching to
+    // a light theme flips them immediately rather than leaving them invisible.
+    final light = palette.brightness == Brightness.light;
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: light ? Brightness.dark : Brightness.light,
+      statusBarBrightness: light ? Brightness.light : Brightness.dark,
+    ));
     return MaterialApp.router(
       // The screens read AppColors directly, not Theme.of, so a theme change
       // has to force the whole tree to repaint. Keying by the palette's
@@ -35,7 +44,7 @@ class FossLiftApp extends ConsumerWidget {
       key: ValueKey(palette.signature),
       title: 'Foss Lift',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(palette),
+      theme: AppTheme.build(palette),
       routerConfig: appRouter,
       // Wraps every route so a collapsed workout can be resumed from anywhere,
       // and — on top of that — so the first-run tour can spotlight any of it.

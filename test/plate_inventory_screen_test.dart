@@ -36,7 +36,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: AppTheme.dark(kDefaultPalette),
+        theme: AppTheme.build(kDefaultPalette),
         home: const PlateInventoryScreen(),
       ),
     ));

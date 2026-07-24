@@ -32,7 +32,7 @@ void main() {
   Widget app() => UncontrolledProviderScope(
         container: container,
         child: MaterialApp.router(
-          theme: AppTheme.dark(kDefaultPalette),
+          theme: AppTheme.build(kDefaultPalette),
           routerConfig: appRouter,
           builder: (c, child) =>
               TutorialOverlay(child: ResumeWorkoutOverlay(child: child!)),

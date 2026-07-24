@@ -98,8 +98,12 @@ final appRouter = GoRouter(
     GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),
     GoRoute(
       path: '/summary/:id',
-      builder: (c, s) =>
-          SummaryScreen(sessionId: int.parse(s.pathParameters['id']!)),
+      builder: (c, s) => SummaryScreen(
+        sessionId: int.parse(s.pathParameters['id']!),
+        // Reached from History rather than the end of a session: show a back
+        // button and no celebration, and never a progression banner.
+        fromHistory: s.uri.queryParameters['from'] == 'history',
+      ),
     ),
   ],
 );

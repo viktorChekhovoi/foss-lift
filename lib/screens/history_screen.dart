@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
@@ -67,7 +68,11 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
+      // Tap a past session to see its per-exercise set/rep breakdown — the same
+      // summary the live session ends on, reached read-only from here.
+      onTap: () => context.push('/summary/${session.id}?from=history'),
+      child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
         border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
@@ -107,6 +112,7 @@ class _HistoryRow extends StatelessWidget {
           ),
           Icon(Icons.chevron_right, color: AppColors.faint),
         ],
+      ),
       ),
     );
   }

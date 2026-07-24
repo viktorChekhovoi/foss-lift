@@ -1,13 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // intl also defines a `TextDirection`; hide it so the dart:ui one (with `.ltr`)
 // that TextPainter needs stays in scope.
 import 'package:intl/intl.dart' hide TextDirection;
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../data/database.dart';
 import '../providers/providers.dart';
@@ -24,8 +19,8 @@ enum _Metric {
   final String label;
 }
 
-/// A per-exercise progress chart over every finished session, plus a CSV export
-/// of the underlying set history. Read-only — it only ever reads the log.
+/// A per-exercise progress chart over every finished session. Read-only — it
+/// only ever reads the log.
 class ExerciseProgressScreen extends ConsumerWidget {
   const ExerciseProgressScreen({super.key, required this.exerciseId});
   final int exerciseId;
@@ -75,7 +70,6 @@ class _Body extends ConsumerStatefulWidget {
 
 class _BodyState extends ConsumerState<_Body> {
   _Metric _metric = _Metric.est1RM;
-  bool _exporting = false;
 
   bool get _timed => widget.exercise.measure == ExerciseMeasure.time;
 
@@ -122,75 +116,10 @@ class _BodyState extends ConsumerState<_Body> {
               _LatestReadout(
                   points: points, metric: _metric, timed: _timed, unit: unit),
             ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.text,
-                  side: BorderSide(color: AppColors.line),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
-                icon: _exporting
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.accent))
-                    : Icon(Icons.ios_share, color: AppColors.accent),
-                label: Text(sets.isEmpty ? 'Nothing to export' : 'Export CSV'),
-                onPressed: sets.isEmpty || _exporting
-                    ? null
-                    : () => _export(sets, unit),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'A comma-separated file of every logged set, handed to whatever '
-              'you use to save or send files. Nothing leaves the device on its '
-              'own.',
-              style: kMono.copyWith(
-                  fontSize: 11.5, height: 1.5, color: AppColors.faint),
-            ),
           ],
         );
       },
     );
-  }
-
-  Future<void> _export(List<ExerciseSetEntry> sets, String unit) async {
-    setState(() => _exporting = true);
-    try {
-      final csv = exerciseHistoryCsv(
-        exerciseName: widget.exercise.name,
-        sets: sets,
-        unit: unit,
-        convertWeight: toDisplayWeight,
-      );
-      final dir = await getTemporaryDirectory();
-      final safeName = widget.exercise.name.replaceAll(RegExp(r'[^\w]+'), '_');
-      final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
-      final file = File(p.join(dir.path, '${safeName}_history_$stamp.csv'));
-      await file.writeAsString(csv);
-
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'text/csv')],
-          subject: '${widget.exercise.name} history',
-          text: '${widget.exercise.name} — logged set history',
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not export: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _exporting = false);
-    }
   }
 }
 

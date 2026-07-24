@@ -15,6 +15,49 @@ void main() {
       final ids = kThemePresets.map((p) => p.id).toSet();
       expect(ids.length, kThemePresets.length);
     });
+
+    test('both light and dark presets ship', () {
+      final dark =
+          kThemePresets.where((p) => p.brightness == Brightness.dark);
+      final light =
+          kThemePresets.where((p) => p.brightness == Brightness.light);
+      expect(dark.length, greaterThanOrEqualTo(3));
+      expect(light.length, greaterThanOrEqualTo(3));
+    });
+
+    test('a high-contrast accessibility preset ships', () {
+      final hc = kThemePresets.firstWhere((p) => p.id == 'high_contrast');
+      // Pure black ground, pure white text — maximum luminance contrast.
+      expect(hc.ground.computeLuminance(), lessThan(0.02));
+      expect(hc.text.computeLuminance(), greaterThan(0.95));
+    });
+  });
+
+  group('brightness and on-accent contrast', () {
+    test('a pale ground reads as a light theme, a dark one as dark', () {
+      for (final p in kThemePresets) {
+        final expected = p.ground.computeLuminance() > 0.5
+            ? Brightness.light
+            : Brightness.dark;
+        expect(p.brightness, expected, reason: p.id);
+      }
+    });
+
+    test('the accent foreground stays legible on every preset', () {
+      // A dark accent (the light themes) takes white; a bright one (the dark
+      // themes) takes a dark tint. Either way the two must be far apart.
+      for (final p in kThemePresets) {
+        final contrast =
+            (p.accent.computeLuminance() - p.onAccent.computeLuminance()).abs();
+        expect(contrast, greaterThan(0.2), reason: '${p.id} accent vs onAccent');
+      }
+    });
+
+    test('the light themes put white on their dark accents', () {
+      for (final p in kThemePresets.where((p) => p.brightness == Brightness.light)) {
+        expect(p.onAccent, Colors.white, reason: p.id);
+      }
+    });
   });
 
   group('serialisation (export/import)', () {

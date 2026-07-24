@@ -1,13 +1,10 @@
-/// Per-exercise progress maths and CSV rendering.
+/// Per-exercise progress maths.
 ///
-/// Deliberately free of Flutter and drift: the aggregation and the export are
-/// pure functions over plain data, so both are unit-tested without a database
-/// and reused by the chart screen. Weights in here are canonical kilograms —
-/// convert to the display unit at the view boundary, exactly like the rest of
-/// the app.
+/// Deliberately free of Flutter and drift: the aggregation is pure functions
+/// over plain data, so it is unit-tested without a database and reused by the
+/// chart screen. Weights in here are canonical kilograms — convert to the
+/// display unit at the view boundary, exactly like the rest of the app.
 library;
-
-import 'package:intl/intl.dart';
 
 /// One logged set of a single exercise, flattened with the date and name of the
 /// session it belongs to. Built from a `SessionSets` row joined to its session
@@ -122,62 +119,4 @@ List<ExerciseProgressPoint> progressPoints(List<ExerciseSetEntry> sets) {
 
   points.sort((a, b) => a.date.compareTo(b.date));
   return points;
-}
-
-/// Renders one exercise's whole set history as a CSV document.
-///
-/// A header row then one row per logged set, oldest first. Weights are
-/// converted to [unit] with [convertWeight] (pass the app's `toDisplayWeight`)
-/// and the weight/1RM column headers name that unit, so a file opened later is
-/// unambiguous. Everything is built in memory from data already on the device —
-/// there is nothing here that touches the network.
-String exerciseHistoryCsv({
-  required String exerciseName,
-  required List<ExerciseSetEntry> sets,
-  required String unit,
-  required double Function(double kg, String unit) convertWeight,
-}) {
-  final fmt = DateFormat('yyyy-MM-dd HH:mm');
-  final rows = <List<String>>[
-    ['Date', 'Session', 'Exercise', 'Set', 'Weight ($unit)', 'Reps', 'Seconds',
-        'Est 1RM ($unit)'],
-  ];
-
-  for (final s in sets) {
-    final est = estimatedOneRepMax(s.weightKg, s.reps);
-    rows.add([
-      fmt.format(s.date),
-      s.sessionName,
-      exerciseName,
-      '${s.setNumber}',
-      _num(convertWeight(s.weightKg, unit)),
-      '${s.reps}',
-      s.seconds == null ? '' : '${s.seconds}',
-      est == 0 ? '' : _num(convertWeight(est, unit)),
-    ]);
-  }
-
-  return rows.map((r) => r.map(_csvField).join(',')).join('\r\n');
-}
-
-/// Quotes a field only when it has to be: a comma, a quote, or a newline.
-String _csvField(String value) {
-  if (value.contains(',') ||
-      value.contains('"') ||
-      value.contains('\n') ||
-      value.contains('\r')) {
-    return '"${value.replaceAll('"', '""')}"';
-  }
-  return value;
-}
-
-/// A weight for a cell: at most two decimals, with a trailing `.0`/`.00` and
-/// any dangling zeros trimmed so 80 reads "80" and 82.55 stays "82.55".
-String _num(double v) {
-  var s = v.toStringAsFixed(2);
-  if (s.contains('.')) {
-    s = s.replaceAll(RegExp(r'0+$'), '');
-    s = s.replaceAll(RegExp(r'\.$'), '');
-  }
-  return s;
 }

@@ -50,12 +50,23 @@ class AppPalette {
   final Color good;
   final Color gold;
 
-  /// A legible foreground for text/icons drawn *on* the accent — a very dark
-  /// tint of the accent itself, so an orange button reads brown-black and a
-  /// blue one navy-black, whatever the theme.
-  Color get onAccent => Color.lerp(accent, Colors.black, 0.82)!;
+  /// Whether this is a light or dark theme, read straight off the ground's
+  /// luminance. Inferred rather than stored so custom and imported palettes get
+  /// the right Material brightness for free — a pale ground is a light theme.
+  Brightness get brightness =>
+      ground.computeLuminance() > 0.5 ? Brightness.light : Brightness.dark;
 
-  /// The same, for the "good"/completed colour.
+  /// A legible foreground for text/icons drawn *on* the accent. A bright accent
+  /// (the dark themes' oranges and mints) takes a very dark tint of itself, so
+  /// the button reads brown-black or navy-black; a dark accent (the light
+  /// themes' saturated colours) takes white. The 0.26 cut keeps every shipped
+  /// dark preset on the dark-tint side it was designed for.
+  Color get onAccent => accent.computeLuminance() >= 0.26
+      ? Color.lerp(accent, Colors.black, 0.82)!
+      : Colors.white;
+
+  /// The same, for the "good"/completed colour — always a bright/medium green,
+  /// so a dark tint always reads on it.
   Color get onGood => Color.lerp(good, Colors.black, 0.85)!;
 
   AppPalette copyWith({
@@ -310,13 +321,101 @@ const AppPalette _violet = AppPalette(
   gold: Color(0xFFFFC24B),
 );
 
-/// Every preset that ships with the app. The first is the default.
+// --- Light presets ---------------------------------------------------------
+// Pale grounds with dark text. Their accents are saturated and dark enough to
+// read on white (and so take white foreground on an accent button — see
+// [AppPalette.onAccent]); `good`/`gold` stay a medium tone that works both as a
+// coloured label and behind the dark-on-green markers the app draws.
+
+/// A clean, cool near-white with the signature ignition orange.
+const AppPalette _daylight = AppPalette(
+  id: 'daylight',
+  name: 'Daylight',
+  ground: Color(0xFFF5F7FA),
+  surface: Color(0xFFFFFFFF),
+  surface2: Color(0xFFEDF1F6),
+  surface3: Color(0xFFE2E8F0),
+  line: Color(0xFFD5DCE6),
+  text: Color(0xFF1B2430),
+  muted: Color(0xFF5B6472),
+  faint: Color(0xFF949CAC),
+  accent: Color(0xFFD9531A),
+  accentPress: Color(0xFFB5410F),
+  good: Color(0xFF12A866),
+  gold: Color(0xFFC8890B),
+);
+
+/// A warm paper-white with a deep blue accent.
+const AppPalette _paper = AppPalette(
+  id: 'paper',
+  name: 'Paper',
+  ground: Color(0xFFF7F4EF),
+  surface: Color(0xFFFFFFFF),
+  surface2: Color(0xFFF1ECE3),
+  surface3: Color(0xFFE8E1D5),
+  line: Color(0xFFDBD3C6),
+  text: Color(0xFF25201A),
+  muted: Color(0xFF6E655A),
+  faint: Color(0xFF9E9384),
+  accent: Color(0xFF2A5CD6),
+  accentPress: Color(0xFF1E46AB),
+  good: Color(0xFF12A866),
+  gold: Color(0xFFB87E0A),
+);
+
+/// A cool, pale green with a teal accent.
+const AppPalette _fern = AppPalette(
+  id: 'fern',
+  name: 'Fern',
+  ground: Color(0xFFF1F6F3),
+  surface: Color(0xFFFFFFFF),
+  surface2: Color(0xFFE7F0EB),
+  surface3: Color(0xFFDAE7E0),
+  line: Color(0xFFCCDCD3),
+  text: Color(0xFF15201B),
+  muted: Color(0xFF566A60),
+  faint: Color(0xFF869A8E),
+  accent: Color(0xFF0D8F6B),
+  accentPress: Color(0xFF0A6E52),
+  good: Color(0xFF16A34A),
+  gold: Color(0xFFBE871A),
+);
+
+// --- Accessibility ---------------------------------------------------------
+
+/// Maximum contrast: pure black ground, pure white text, a high-visibility
+/// yellow accent and vivid green/amber markers. Borders are lightened well past
+/// the other dark themes so structure is never lost.
+const AppPalette _highContrast = AppPalette(
+  id: 'high_contrast',
+  name: 'High contrast',
+  ground: Color(0xFF000000),
+  surface: Color(0xFF0A0A0A),
+  surface2: Color(0xFF161616),
+  surface3: Color(0xFF222222),
+  line: Color(0xFF5A5A5A),
+  text: Color(0xFFFFFFFF),
+  muted: Color(0xFFD5D5D5),
+  faint: Color(0xFFAEAEAE),
+  accent: Color(0xFFFFD400),
+  accentPress: Color(0xFFE6BE00),
+  good: Color(0xFF00E676),
+  gold: Color(0xFFFFAB00),
+);
+
+/// Every preset that ships with the app. The first is the default. Ordered
+/// dark, then light, then the accessibility theme — the picker groups them by
+/// [AppPalette.brightness].
 const List<AppPalette> kThemePresets = [
   _ignition,
   _graphite,
   _forest,
   _crimson,
   _violet,
+  _daylight,
+  _paper,
+  _fern,
+  _highContrast,
 ];
 
 /// The default palette, used when nothing has been chosen or a stored/imported
@@ -398,22 +497,36 @@ const TextStyle kMono = TextStyle(
 );
 
 class AppTheme {
-  /// Builds the Material theme for [palette]. As a side effect it points
-  /// [AppColors] at [palette] so the widget tree — which reads those directly —
-  /// paints the same theme.
-  static ThemeData dark(AppPalette palette) {
+  /// Builds the Material theme for [palette], light or dark according to its
+  /// [AppPalette.brightness]. As a side effect it points [AppColors] at
+  /// [palette] so the widget tree — which reads those directly — paints the
+  /// same theme.
+  static ThemeData build(AppPalette palette) {
     AppColors.apply(palette);
-    final base = ThemeData.dark(useMaterial3: true);
-    final scheme = ColorScheme.dark(
-      primary: palette.accent,
-      onPrimary: palette.onAccent,
-      secondary: palette.good,
-      onSecondary: palette.onGood,
-      surface: palette.surface,
-      onSurface: palette.text,
-      error: const Color(0xFFFF5D5D),
-      outline: palette.line,
-    );
+    final isLight = palette.brightness == Brightness.light;
+    final base = ThemeData(brightness: palette.brightness, useMaterial3: true);
+    final error = isLight ? const Color(0xFFC62828) : const Color(0xFFFF5D5D);
+    final scheme = isLight
+        ? ColorScheme.light(
+            primary: palette.accent,
+            onPrimary: palette.onAccent,
+            secondary: palette.good,
+            onSecondary: palette.onGood,
+            surface: palette.surface,
+            onSurface: palette.text,
+            error: error,
+            outline: palette.line,
+          )
+        : ColorScheme.dark(
+            primary: palette.accent,
+            onPrimary: palette.onAccent,
+            secondary: palette.good,
+            onSecondary: palette.onGood,
+            surface: palette.surface,
+            onSurface: palette.text,
+            error: error,
+            outline: palette.line,
+          );
 
     return base.copyWith(
       scaffoldBackgroundColor: palette.ground,

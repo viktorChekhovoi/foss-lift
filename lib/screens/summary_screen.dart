@@ -11,8 +11,17 @@ import '../util/units.dart';
 import '../widgets/common.dart';
 
 class SummaryScreen extends ConsumerStatefulWidget {
-  const SummaryScreen({super.key, required this.sessionId});
+  const SummaryScreen({
+    super.key,
+    required this.sessionId,
+    this.fromHistory = false,
+  });
   final int sessionId;
+
+  /// True when opened from the History tab to read a past session, rather than
+  /// at the end of a just-finished one. Swaps the celebration header for a plain
+  /// back-and-title bar and never shows the progression banner.
+  final bool fromHistory;
 
   @override
   ConsumerState<SummaryScreen> createState() => _SummaryScreenState();
@@ -24,9 +33,11 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
   @override
   void initState() {
     super.initState();
-    // The progression banner belongs to the session that was just finished.
-    // Grab its report if this is that screen, and clear the stash so reaching
-    // the same summary later from History finds nothing and shows nothing.
+    // The progression banner belongs to the session that was just finished, not
+    // to a past one browsed from History. Grab its report if this is that
+    // screen, and clear the stash so reaching the same summary later finds
+    // nothing and shows nothing.
+    if (widget.fromHistory) return;
     final report = ref.read(lastProgressionProvider);
     if (report != null && report.sessionId == widget.sessionId) {
       _progression = report.outcomes;
@@ -53,6 +64,7 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
             sets: d.sets,
             unit: unit,
             progression: _progression,
+            fromHistory: widget.fromHistory,
           ),
         ),
       ),
@@ -66,11 +78,13 @@ class _SummaryBody extends StatelessWidget {
     required this.sets,
     required this.unit,
     required this.progression,
+    required this.fromHistory,
   });
   final Session session;
   final List<SessionSet> sets;
   final String unit;
   final List<ProgressionOutcome> progression;
+  final bool fromHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -86,40 +100,44 @@ class _SummaryBody extends StatelessWidget {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const SizedBox(height: 24),
-              Center(
-                child: Container(
-                  width: 78,
-                  height: 78,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.good, Color(0xFF2FAE7D)],
+              if (fromHistory)
+                _HistoryHeader(session: session)
+              else ...[
+                const SizedBox(height: 24),
+                Center(
+                  child: Container(
+                    width: 78,
+                    height: 78,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.good, Color(0xFF2FAE7D)],
+                      ),
                     ),
+                    child: const Icon(Icons.check_rounded, size: 40, color: Color(0xFF062015)),
                   ),
-                  child: const Icon(Icons.check_rounded, size: 40, color: Color(0xFF062015)),
                 ),
-              ),
-              const SizedBox(height: 18),
-              const Center(
-                child: Text('Workout logged',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
-              ),
-              const SizedBox(height: 4),
-              Center(
-                child: Text(session.name,
-                    style: TextStyle(color: AppColors.muted, fontSize: 14)),
-              ),
-              const SizedBox(height: 4),
-              Center(
-                child: Text(
-                  DateFormat('EEE d MMM · HH:mm').format(session.startedAt),
-                  style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+                const SizedBox(height: 18),
+                const Center(
+                  child: Text('Workout logged',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
                 ),
-              ),
-              const SizedBox(height: 22),
+                const SizedBox(height: 4),
+                Center(
+                  child: Text(session.name,
+                      style: TextStyle(color: AppColors.muted, fontSize: 14)),
+                ),
+                const SizedBox(height: 4),
+                Center(
+                  child: Text(
+                    DateFormat('EEE d MMM · HH:mm').format(session.startedAt),
+                    style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+                  ),
+                ),
+                const SizedBox(height: 22),
+              ],
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -215,12 +233,61 @@ class _SummaryBody extends StatelessWidget {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () => context.go('/today'),
-              child: const Text('Done'),
+              // From History, step back to the list; at the end of a session,
+              // there is nothing behind this screen so head home to Today.
+              onPressed: () =>
+                  fromHistory ? context.pop() : context.go('/today'),
+              child: Text(fromHistory ? 'Back' : 'Done'),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The plain header a session gets when opened from History: a back button and
+/// the session's name and date, in place of the just-finished celebration.
+class _HistoryHeader extends StatelessWidget {
+  const _HistoryHeader({required this.session});
+  final Session session;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 20, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconButton(
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/history'),
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back',
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(session.name,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5)),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('EEE d MMM · HH:mm').format(session.startedAt),
+                    style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

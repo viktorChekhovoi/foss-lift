@@ -71,7 +71,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: AppTheme.dark(kDefaultPalette),
+        theme: AppTheme.build(kDefaultPalette),
         home: ExerciseProgressScreen(exerciseId: benchId),
       ),
     ));
@@ -84,7 +84,6 @@ void main() {
     expect(find.text('No history yet'), findsOneWidget);
     expect(find.textContaining('the curve starts here'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets); // no chart-specific assert
-    expect(find.text('Nothing to export'), findsOneWidget);
   });
 
   testWidgets('draws a chart and a readout once there is history',
@@ -94,7 +93,6 @@ void main() {
     await open(tester);
 
     expect(find.text('2 sessions logged'), findsOneWidget);
-    expect(find.text('Export CSV'), findsOneWidget);
     // Est 1RM of the last session: 85*(1+5/30) = 99.16 -> "99.2 kg".
     expect(find.text('99.2 kg'), findsOneWidget);
     expect(find.text('LATEST EST. 1RM'), findsOneWidget);
