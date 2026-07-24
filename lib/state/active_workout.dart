@@ -463,3 +463,21 @@ final lastProgressionProvider =
     NotifierProvider<LastProgressionController, ProgressionReport?>(
   LastProgressionController.new,
 );
+
+/// Whether the live logging screen is the one on screen right now. Set by
+/// `WorkoutScreen` as it mounts and unmounts, and read by the resume overlay to
+/// know not to float its pill over the very screen the pill leads to.
+///
+/// This is a lifecycle fact, not a route string: go_router pushes `/session`
+/// imperatively, and an imperative push does not reliably show up in the
+/// reported location, so asking "is the path /session?" gives the wrong answer
+/// on a device. Asking the screen itself does not.
+class WorkoutScreenVisible extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool visible) => state = visible;
+}
+
+final workoutScreenVisibleProvider =
+    NotifierProvider<WorkoutScreenVisible, bool>(WorkoutScreenVisible.new);

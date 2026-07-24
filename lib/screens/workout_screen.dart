@@ -28,9 +28,29 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   Timer? _restTimer;
   int _restLeft = 0;
 
+  /// The resume-overlay's visibility flag, captured up front so `dispose` need
+  /// not touch `ref` (unsafe once the element is deactivating).
+  late final WorkoutScreenVisible _visibility =
+      ref.read(workoutScreenVisibleProvider.notifier);
+
+  @override
+  void initState() {
+    super.initState();
+    // Tell the resume overlay this screen is up, so it holds its pill. Deferred
+    // off the build frame: flipping the provider synchronously here would mark
+    // the overlay (an ancestor, already built this frame) dirty mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _visibility.set(true);
+    });
+  }
+
   @override
   void dispose() {
     _restTimer?.cancel();
+    // Leaving — collapsed or finished — lets the pill come back. Deferred so it
+    // never notifies listeners while the tree is being torn down.
+    final visibility = _visibility;
+    Future.microtask(() => visibility.set(false));
     super.dispose();
   }
 

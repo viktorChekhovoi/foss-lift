@@ -24,35 +24,25 @@ class ResumeWorkoutOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watched, so the pill's clock ticks with the session. `child` is the same
-    // widget instance each rebuild, so the app below it is not rebuilt — only
-    // the thin Stack around it.
+    // Watched, so the pill's clock ticks with the session and the flag flips it
+    // off the instant the logging screen appears. `child` is the same widget
+    // instance each rebuild, so the app below is not rebuilt — only the Stack.
     final session = ref.watch(activeWorkoutProvider);
+    final onSessionScreen = ref.watch(workoutScreenVisibleProvider);
 
-    // Rebuild on navigation via the route-information provider, *not* the router
-    // delegate: this widget lives in `MaterialApp.router`'s builder, above the
-    // Router, so the builder does not re-run when the route changes on its own.
-    // The delegate notifies during its build (subscribing there trips the
-    // framework's dirty assertion); the route-information provider reports the
-    // new location after the frame, which is a safe moment to rebuild.
+    // The route only decides *where* the pill sits (clear of the bottom nav on a
+    // tab screen). It is read, never subscribed to — the delegate notifies
+    // during its own build, which would trip the framework's dirty assertion —
+    // and the route-information provider is the safe, post-frame rebuild signal
+    // that keeps that positioning current as tabs and routes change.
     return ListenableBuilder(
       listenable: appRouter.routeInformationProvider,
       builder: (context, _) {
-        final path = appRouter.routeInformationProvider.value.uri.path;
-
-        // Never over the logging screen itself — that is where "resume" leads —
-        // nor over the template screen of the very workout in progress, where
-        // it would double up with that screen's own "Start workout" button.
-        final ownTemplate = session?.workoutId == null
-            ? null
-            : '/workout/${session!.workoutId}';
-        final show =
-            session != null && path != '/session' && path != ownTemplate;
-
+        final path = appRouter.routerDelegate.currentConfiguration.uri.path;
         return Stack(
           children: [
             child,
-            if (show)
+            if (session != null && !onSessionScreen)
               _ResumeBar(
                 session: session,
                 aboveNavBar: _tabRoots.contains(path),
