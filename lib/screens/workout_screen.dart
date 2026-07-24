@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/plates.dart';
+import '../data/warmup.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
@@ -87,6 +88,22 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     }
   }
 
+  /// The same escape hatch for a warm-up row: types a result in, and starts the
+  /// shorter warm-up rest if the set was not already logged.
+  Future<void> _editWarmupResult(int ei, int wi, SetEntry entry) async {
+    final result = await showDialog<({int? value})>(
+      context: context,
+      builder: (_) => _ResultDialog(entry: entry),
+    );
+    if (result == null || !mounted) return;
+    final wasDone = entry.done;
+    ref.read(activeWorkoutProvider.notifier).setWarmupLogged(ei, wi, result.value);
+    if (!wasDone && result.value != null) {
+      final session = ref.read(activeWorkoutProvider);
+      if (session != null) _startRest(session.exercises[ei].warmupRestSeconds);
+    }
+  }
+
   Future<void> _finish() async {
     final id = await ref.read(activeWorkoutProvider.notifier).finish();
     if (!mounted) return;
@@ -127,6 +144,29 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                           exercise: session.exercises[ei],
                           unit: unit,
                           plates: plates,
+                          onWarmupCount: (n) => controller.setWarmupCount(ei, n),
+                          warmupRowBuilder: (wi) {
+                            final entry = session.exercises[ei].warmups[wi];
+                            return _SetRow(
+                              key: ValueKey('w$ei-$wi-${session.exercises[ei].name}'),
+                              number: wi + 1,
+                              entry: entry,
+                              unit: unit,
+                              onWeight: (v) =>
+                                  controller.setWarmupWeight(ei, wi, v),
+                              onTap: () {
+                                final wasDone = entry.done;
+                                controller.cycleWarmup(ei, wi);
+                                HapticFeedback.selectionClick();
+                                if (!wasDone) {
+                                  _startRest(
+                                      session.exercises[ei].warmupRestSeconds);
+                                }
+                              },
+                              onTypeResult: () =>
+                                  _editWarmupResult(ei, wi, entry),
+                            );
+                          },
                           rowBuilder: (si) {
                             final entry = session.exercises[ei].sets[si];
                             return _SetRow(
@@ -336,11 +376,15 @@ class _ExerciseBlock extends StatelessWidget {
     required this.unit,
     required this.plates,
     required this.rowBuilder,
+    required this.warmupRowBuilder,
+    required this.onWarmupCount,
   });
   final ExerciseEntry exercise;
   final String unit;
   final PlateSettings plates;
   final Widget Function(int setIndex) rowBuilder;
+  final Widget Function(int warmupIndex) warmupRowBuilder;
+  final ValueChanged<int> onWarmupCount;
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +412,25 @@ class _ExerciseBlock extends StatelessWidget {
               ),
             ],
           ),
+          // The warm-up ramp, kept in a group of its own above the working sets
+          // so the two are never confused. Only a weight-based slot with a load
+          // gets one.
+          if (exercise.hasWarmups)
+            _WarmupGroup(
+              exercise: exercise,
+              unit: unit,
+              onCount: onWarmupCount,
+              rowBuilder: warmupRowBuilder,
+            ),
+          if (exercise.hasWarmups)
+            Padding(
+              padding: const EdgeInsets.only(top: 14, bottom: 2),
+              child: Text(
+                'WORKING SETS',
+                style: kMono.copyWith(
+                    fontSize: 10, letterSpacing: 1.0, color: AppColors.muted),
+              ),
+            ),
           // What to put on the bar for the set you are about to do — it follows
           // you down the exercise as sets get logged, and re-solves the moment
           // you type a different weight.
@@ -384,6 +447,186 @@ class _ExerciseBlock extends StatelessWidget {
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
       ),
+    );
+  }
+}
+
+/// The warm-up ramp for one exercise: a labelled group above the working sets,
+/// collapsed by default to a single summary line so it never crowds the work.
+/// Tapping the header opens the ramp — the rows, the stepper and a one-line
+/// disclaimer. Visually quieter than the working block (dimmer label, no plate
+/// breakdowns) so the eye goes to the work.
+class _WarmupGroup extends StatefulWidget {
+  const _WarmupGroup({
+    required this.exercise,
+    required this.unit,
+    required this.onCount,
+    required this.rowBuilder,
+  });
+  final ExerciseEntry exercise;
+  final String unit;
+  final ValueChanged<int> onCount;
+  final Widget Function(int warmupIndex) rowBuilder;
+
+  @override
+  State<_WarmupGroup> createState() => _WarmupGroupState();
+}
+
+class _WarmupGroupState extends State<_WarmupGroup> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = widget.exercise;
+    final count = exercise.warmupCount;
+    final summary = count == 0
+        ? 'None'
+        : '$count ${count == 1 ? 'set' : 'sets'}';
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: EdgeInsets.fromLTRB(12, 6, 12, _open ? 10 : 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface2.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The header is one tap target that toggles the ramp open and shut.
+          GestureDetector(
+            onTap: () => setState(() => _open = !_open),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    _open
+                        ? Icons.keyboard_arrow_down_rounded
+                        : Icons.keyboard_arrow_right_rounded,
+                    size: 18,
+                    color: AppColors.faint,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'WARM-UP',
+                    style: kMono.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 1.2,
+                        color: AppColors.faint),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '· $summary',
+                    style:
+                        kMono.copyWith(fontSize: 11, color: AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_open) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Sets',
+                      style: kMono.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                          color: AppColors.faint),
+                    ),
+                  ),
+                  _CountStepper(
+                    count: count,
+                    onSub: count > 0 ? () => widget.onCount(count - 1) : null,
+                    onAdd: count < kMaxWarmupSets
+                        ? () => widget.onCount(count + 1)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            if (exercise.warmups.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'No warm-up sets — add some above.',
+                  style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+                ),
+              )
+            else ...[
+              const SizedBox(height: 4),
+              _ColumnHeaders(unit: widget.unit, timed: false),
+              for (var wi = 0; wi < exercise.warmups.length; wi++)
+                widget.rowBuilder(wi),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              'Suggested to prime the movement — not medical advice. Adjust to '
+              'how you feel, and consult a professional.',
+              style: kMono.copyWith(
+                  fontSize: 9.5, height: 1.4, color: AppColors.faint),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The compact −/+ that dials the warm-up count. A disabled side (null handler)
+/// greys out at the ends of the 0..[kMaxWarmupSets] range.
+class _CountStepper extends StatelessWidget {
+  const _CountStepper({
+    required this.count,
+    required this.onSub,
+    required this.onAdd,
+  });
+  final int count;
+  final VoidCallback? onSub;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget btn(String glyph, VoidCallback? onTap) => GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 30,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: onTap == null ? AppColors.surface2 : AppColors.surface3,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.line),
+            ),
+            child: Text(
+              glyph,
+              style: kMono.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: onTap == null ? AppColors.faint : AppColors.text,
+              ),
+            ),
+          ),
+        );
+
+    return Row(
+      children: [
+        btn('−', onSub),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            '$count',
+            style: kMono.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+        ),
+        btn('+', onAdd),
+      ],
     );
   }
 }

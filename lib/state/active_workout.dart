@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/warmup.dart';
 import '../providers/db_provider.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
@@ -84,7 +85,12 @@ class ExerciseEntry {
     this.weightType = WeightType.machine,
     this.barKg,
     this.restSeconds = 90,
-  });
+    List<SetEntry>? warmups,
+    this.warmupCount = 0,
+    this.warmupWorkingKg,
+    this.warmupBarKg = 0,
+    this.warmupRestSeconds = kWarmupRestSeconds,
+  }) : warmups = warmups ?? <SetEntry>[];
   final int? exerciseId;
 
   /// The template slot this came from, so finishing can advance its
@@ -92,7 +98,39 @@ class ExerciseEntry {
   final int? itemId;
   final String name;
   final String muscle;
+
+  /// The working sets — the ones the template asked for and the only ones that
+  /// count. Progression, volume, the verdict and the saved history all read
+  /// this list and nothing else.
   final List<SetEntry> sets;
+
+  /// The warm-up ramp shown *above* the working sets, kept apart so nothing here
+  /// can distort what the working sets mean. Warm-ups are suggestions: they are
+  /// never saved, never scored, and never move a target. Empty for anything
+  /// without a working load to ramp toward (a plank, a bodyweight movement).
+  final List<SetEntry> warmups;
+
+  /// How many warm-up sets are asked for. Adjustable live; the ramp is
+  /// regenerated from [warmupWorkingKg]/[warmupBarKg] when it changes. May
+  /// exceed [warmups]`.length` when rounding collapses two steps into one.
+  int warmupCount;
+
+  /// The working weight the warm-up ramp climbs toward, or null when this
+  /// exercise gets no warm-ups (timed or unloaded). Stored so the ramp can be
+  /// rebuilt when the count changes without re-reading the template.
+  final double? warmupWorkingKg;
+
+  /// The bar the warm-up ramp stands on — the resolved bar for a barbell lift,
+  /// 0 for a machine or dumbbell where there is no empty bar to start from.
+  final double warmupBarKg;
+
+  /// Rest after a warm-up set — shorter than [restSeconds], see
+  /// [kWarmupRestSeconds].
+  final int warmupRestSeconds;
+
+  /// Whether this exercise offers warm-ups at all — a weight-based slot with a
+  /// working load. When false the warm-up section is not drawn.
+  bool get hasWarmups => warmupWorkingKg != null;
 
   /// The axis this exercise advances along, carried from the template.
   final ProgressionMode mode;
@@ -236,6 +274,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       routineId = workout.routineId;
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
+      // Read once for the whole session: the warm-up ramp needs the gym's
+      // default bar to stand a barbell lift on, and the unit only to fall back
+      // to the standard bar when nothing has ever been configured.
+      final unit = await _db.watchWeightUnit().first;
+      final setup = await _db.watchPlateSetup().first;
       for (final v in items) {
         final mode = v.item.progression;
         // The goal is the hold for a timed exercise, and otherwise the top of
@@ -245,6 +288,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
         final goal =
             mode.timed ? v.item.holdSeconds : (v.item.repsMax ?? v.item.repsMin);
         final w = v.item.suggestedWeight;
+        // Warm-ups only make sense for a weight-based slot with a real working
+        // load: a plank or a bodyweight movement has nothing to ramp toward.
+        final hasLoad = !mode.timed && w != null && w > 0;
+        final warmupBar = hasLoad && v.exercise.weightType == WeightType.bar
+            ? (v.exercise.barWeight ?? setup.barKg ?? defaultBarKg(unit))
+            : 0.0;
+        final warmupCount = hasLoad ? kDefaultWarmupSets : 0;
         exercises.add(ExerciseEntry(
           exerciseId: v.exercise.id,
           itemId: v.item.id,
@@ -254,6 +304,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           weightType: v.exercise.weightType,
           barKg: v.exercise.barWeight,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
+          warmupWorkingKg: hasLoad ? w : null,
+          warmupBarKg: warmupBar,
+          warmupCount: warmupCount,
+          warmups: hasLoad ? _warmupSetsFor(w, warmupBar, warmupCount) : null,
           sets: List.generate(
             v.item.targetSets,
             (_) => SetEntry(goal: goal, goalWeight: w, timed: mode.timed),
@@ -299,6 +353,49 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return;
     s.exercises[ei].sets[si].logged =
+        value == null ? null : (value < 0 ? 0 : value);
+    state = s.copyWith();
+  }
+
+  /// Dials the warm-up ramp for one exercise up or down and rebuilds it. The
+  /// count is clamped to 0..[kMaxWarmupSets]; the ramp is regenerated from the
+  /// stored working weight and bar, so any warm-up already ticked off is reset
+  /// — a different ramp is a different set of numbers.
+  void setWarmupCount(int ei, int count) {
+    final s = state;
+    if (s == null) return;
+    final e = s.exercises[ei];
+    if (!e.hasWarmups) return;
+    final n = count < 0 ? 0 : (count > kMaxWarmupSets ? kMaxWarmupSets : count);
+    e.warmupCount = n;
+    e.warmups
+      ..clear()
+      ..addAll(_warmupSetsFor(e.warmupWorkingKg!, e.warmupBarKg, n));
+    state = s.copyWith();
+  }
+
+  /// One tap on a warm-up set — the same cycle as a working set, but on the
+  /// warm-up list and answering to nothing that counts.
+  void cycleWarmup(int ei, int wi) {
+    final s = state;
+    if (s == null) return;
+    s.exercises[ei].warmups[wi].cycle();
+    state = s.copyWith();
+  }
+
+  void setWarmupWeight(int ei, int wi, double value) {
+    final s = state;
+    if (s == null) return;
+    s.exercises[ei].warmups[wi].weight = value;
+    state = s.copyWith();
+  }
+
+  /// Types a warm-up result in directly — the long-press escape hatch, mirroring
+  /// [setLogged] for the warm-up list.
+  void setWarmupLogged(int ei, int wi, int? value) {
+    final s = state;
+    if (s == null) return;
+    s.exercises[ei].warmups[wi].logged =
         value == null ? null : (value < 0 ? 0 : value);
     state = s.copyWith();
   }
@@ -398,6 +495,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     state = null;
   }
 }
+
+/// Turns the pure warm-up ramp into live set rows. Each carries its suggested
+/// weight and reps as its goal, exactly like a working set, so the same tap
+/// cycle and weight field work on it — but it lives in [ExerciseEntry.warmups]
+/// and so answers to nothing that counts.
+List<SetEntry> _warmupSetsFor(double workingKg, double barKg, int count) => [
+      for (final s
+          in computeWarmups(workingKg: workingKg, barKg: barKg, sets: count))
+        SetEntry(goal: s.reps, goalWeight: s.weightKg, weight: s.weightKg),
+    ];
 
 /// Formats a weight without a trailing ".0" (e.g. 80.0 -> "80", 12.5 -> "12.5").
 String fmtWeight(double w) =>

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
@@ -213,6 +214,123 @@ void main() {
       await tester.pump();
 
       expect(find.textContaining('NEAREST YOU CAN LOAD: 80 KG'), findsOneWidget);
+
+      await stop(tester);
+    });
+  });
+
+  group('warm-ups', () {
+    ExerciseEntry bench() =>
+        container.read(activeWorkoutProvider)!.exercises[0];
+
+    /// The reps cell of a warm-up row of the first exercise. Only present once
+    /// the group is expanded.
+    Finder warmupCell(int wi) => find.descendant(
+          of: find.byKey(ValueKey('w0-$wi-Bench Press')),
+          matching: find.byType(GestureDetector),
+        );
+
+    testWidgets('a weight-based exercise gets them by default, out of the '
+        'working count', (tester) async {
+      await startPush(tester);
+
+      // Bench is 80 kg on a bar: it gets the default ramp.
+      expect(bench().hasWarmups, isTrue);
+      expect(bench().warmupCount, kDefaultWarmupSets);
+      expect(bench().warmups, isNotEmpty);
+      // Warm-ups are not working sets: the headline count and volume ignore
+      // them entirely.
+      expect(bench().sets.length, 4, reason: 'four working sets, no more');
+      expect(find.text('0/${totalSets()}'), findsOneWidget);
+      expect(container.read(activeWorkoutProvider)!.volume, 0);
+
+      await stop(tester);
+    });
+
+    testWidgets('the ramp is collapsed until the header is tapped',
+        (tester) async {
+      await startPush(tester);
+
+      // The label is there, but the rows are not until it is opened.
+      expect(find.text('WARM-UP'), findsWidgets);
+      expect(warmupCell(0), findsNothing);
+
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      expect(warmupCell(0), findsOneWidget,
+          reason: 'the ramp is revealed on expand');
+      // The disclaimer rides with the opened ramp.
+      expect(find.textContaining('not medical advice'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('logging a warm-up moves nothing that counts', (tester) async {
+      await startPush(tester);
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      await tester.tap(warmupCell(0));
+      await tester.pump();
+
+      expect(bench().warmups[0].done, isTrue, reason: 'the warm-up is logged');
+      // ...but the working session is untouched by it.
+      expect(container.read(activeWorkoutProvider)!.doneSets, 0);
+      expect(container.read(activeWorkoutProvider)!.volume, 0);
+      expect(bench().succeeded, isFalse);
+      expect(bench().performedWeight, isNull);
+
+      await stop(tester);
+    });
+
+    testWidgets('the count is adjustable and rebuilds the ramp',
+        (tester) async {
+      await startPush(tester);
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      final before = bench().warmups.length;
+      // Drop it to zero.
+      for (var i = 0; i < kDefaultWarmupSets; i++) {
+        await tester.tap(find.text('−').first);
+        await tester.pump();
+      }
+      expect(bench().warmupCount, 0);
+      expect(bench().warmups, isEmpty);
+
+      // And back up by one.
+      await tester.tap(find.text('+').first);
+      await tester.pump();
+      expect(bench().warmupCount, 1);
+      expect(bench().warmups, isNotEmpty);
+      expect(bench().warmups.length, lessThanOrEqualTo(before));
+
+      await stop(tester);
+    });
+
+    testWidgets('finishing saves working sets only, never a warm-up',
+        (tester) async {
+      await startPush(tester);
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      // Log one warm-up and one working set.
+      await tester.tap(warmupCell(0));
+      await tester.pump();
+      await tester.tap(firstRepsCell());
+      await tester.pump();
+
+      // Finishing writes to real SQLite — needs a real clock.
+      late final int id;
+      await tester.runAsync(() async {
+        id = (await container.read(activeWorkoutProvider.notifier).finish())!;
+      });
+      final saved = await tester.runAsync(() => db.setsForSession(id));
+
+      expect(saved!.length, 1,
+          reason: 'only the one working set was persisted');
+      expect(saved.first.exerciseName, 'Bench Press');
 
       await stop(tester);
     });
