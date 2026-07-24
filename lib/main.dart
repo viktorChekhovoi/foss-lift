@@ -6,6 +6,7 @@ import 'providers/providers.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 import 'widgets/resume_workout_bar.dart';
+import 'widgets/tutorial.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,8 +31,11 @@ class FossLiftApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
       routerConfig: appRouter,
-      // Wraps every route so a collapsed workout can be resumed from anywhere.
-      builder: (context, child) => ResumeWorkoutOverlay(child: child!),
+      // Wraps every route so a collapsed workout can be resumed from anywhere,
+      // and — on top of that — so the first-run tour can spotlight any of it.
+      builder: (context, child) => TutorialOverlay(
+        child: ResumeWorkoutOverlay(child: child!),
+      ),
     );
   }
 }

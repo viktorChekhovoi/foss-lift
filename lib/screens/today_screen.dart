@@ -10,6 +10,7 @@ import '../util/format.dart';
 import '../util/units.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
+import '../widgets/tutorial.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -34,9 +35,11 @@ class TodayScreen extends ConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: SectionLabel('Lifetime'),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: _LifetimeCard(),
+          Padding(
+            // Anchor for the tour's "lifetime totals" coach mark.
+            key: tutorialLifetimeKey,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: const _LifetimeCard(),
           ),
         ],
       ),
@@ -85,11 +88,17 @@ class _CurrentRoutineSection extends ConsumerWidget {
                   )
                 else
                   for (final w in list) ...[
-                    _WorkoutCard(
-                      data: w,
-                      accent: hexColor(routine.colorHex),
-                      isNext: w.workout.id == nextId,
-                      onTap: () => context.push('/workout/${w.workout.id}'),
+                    KeyedSubtree(
+                      // The suggested day is the tour's "next workout" anchor.
+                      key: w.workout.id == nextId
+                          ? tutorialTodayWorkoutKey
+                          : null,
+                      child: _WorkoutCard(
+                        data: w,
+                        accent: hexColor(routine.colorHex),
+                        isNext: w.workout.id == nextId,
+                        onTap: () => context.push('/workout/${w.workout.id}'),
+                      ),
                     ),
                     const SizedBox(height: 12),
                   ],

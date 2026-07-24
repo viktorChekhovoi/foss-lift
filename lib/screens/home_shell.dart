@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/tutorial.dart';
 
 /// The bottom-tab scaffold that hosts Today / Routines / History / Profile.
 class HomeShell extends StatelessWidget {
@@ -32,6 +33,8 @@ class HomeShell extends StatelessWidget {
           }),
         ),
         child: NavigationBar(
+          // Anchors the tour's tab coach marks; each slot is a quarter of it.
+          key: tutorialNavBarKey,
           height: 64,
           selectedIndex: shell.currentIndex,
           onDestinationSelected: (i) => shell.goBranch(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/tutorial.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -73,6 +74,16 @@ class ProfileScreen extends ConsumerWidget {
             icon: Icons.list_alt_rounded,
             label: 'Exercise library',
             onTap: () => context.push('/library'),
+          ),
+          // Replays the first-run tour on demand. Jumps to Today first, where
+          // its coach marks are anchored, then starts it.
+          _SettingsTile(
+            icon: Icons.help_outline_rounded,
+            label: 'Help & tour',
+            onTap: () {
+              ref.read(tutorialProvider.notifier).start();
+              context.go('/today');
+            },
           ),
           _SettingsTile(
             icon: Icons.cloud_outlined,

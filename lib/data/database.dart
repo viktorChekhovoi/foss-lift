@@ -243,6 +243,13 @@ class Settings extends Table {
   /// unit, for the same reason as [plateInventory].
   RealColumn get barWeight => real().nullable()();
 
+  /// Whether the first-run tutorial has already been shown. False on a fresh
+  /// install, so the coach marks run exactly once; set true when the tour is
+  /// completed or skipped. An upgrade marks it true — an existing user is not a
+  /// first run and should never be ambushed by it mid-programme. Re-running the
+  /// tour from the help menu does not clear it.
+  BoolColumn get tutorialSeen => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -364,7 +371,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -445,6 +452,14 @@ class AppDatabase extends _$AppDatabase {
             // nothing about how any existing weight is loaded.
             await m.addColumn(exercises, exercises.barWeight);
             await m.addColumn(settings, settings.plateInventoryLb);
+          }
+          if (from < 9) {
+            // v8 → v9: the first-run tutorial gets a flag so it runs once. An
+            // existing install is marked as having seen it — someone already
+            // mid-programme is not a first run, and the coach marks should not
+            // ambush them on the launch after an update.
+            await m.addColumn(settings, settings.tutorialSeen);
+            await customStatement('UPDATE settings SET tutorial_seen = 1');
           }
         },
         beforeOpen: (details) async {
@@ -1112,6 +1127,17 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setActiveRoutineId(int? routineId) =>
       _writeSettings(SettingsCompanion(activeRoutineId: Value(routineId)));
+
+  /// Whether the first-run tutorial has been shown. False triggers it once on a
+  /// genuine first run; replaying it from the help menu does not touch this.
+  Stream<bool> watchTutorialSeen() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => s?.tutorialSeen ?? false);
+  }
+
+  Future<void> setTutorialSeen(bool seen) =>
+      _writeSettings(SettingsCompanion(tutorialSeen: Value(seen)));
 
   /// The layoff rules, falling back to the defaults if the settings row has
   /// somehow not been written yet.

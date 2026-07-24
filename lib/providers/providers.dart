@@ -74,6 +74,12 @@ final activeRoutineIdProvider = StreamProvider<int?>((ref) {
   return ref.watch(databaseProvider).watchActiveRoutineId();
 });
 
+/// Whether the first-run tutorial has already been shown. False triggers the
+/// coach marks once on a genuine first run; see `widgets/tutorial.dart`.
+final tutorialSeenProvider = StreamProvider<bool>((ref) {
+  return ref.watch(databaseProvider).watchTutorialSeen();
+});
+
 /// The current routine, or null if none is chosen (or the chosen one is gone).
 final currentRoutineProvider = Provider<RoutineWithCount?>((ref) {
   final id = ref.watch(activeRoutineIdProvider).value;
