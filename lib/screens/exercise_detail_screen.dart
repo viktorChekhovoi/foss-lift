@@ -25,9 +25,9 @@ class ExerciseDetailScreen extends ConsumerWidget {
         top: false,
         child: library.when(
           loading: () =>
-              const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+              Center(child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) =>
-              Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
+              Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (all) {
             Exercise? ex;
             for (final e in all) {
@@ -37,7 +37,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
               }
             }
             if (ex == null) {
-              return const Center(
+              return Center(
                 child: Text('This exercise no longer exists.',
                     style: TextStyle(color: AppColors.muted)),
               );
@@ -78,11 +78,11 @@ class _Body extends ConsumerWidget {
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.text,
-              side: const BorderSide(color: AppColors.line),
+              side: BorderSide(color: AppColors.line),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            icon: const Icon(Icons.show_chart, color: AppColors.accent),
+            icon: Icon(Icons.show_chart, color: AppColors.accent),
             label: const Text('Progress & export'),
             onPressed: () => context.push('/exercise/${exercise.id}/progress'),
           ),
@@ -132,7 +132,7 @@ class _Body extends ConsumerWidget {
           exercise.instructions.isEmpty
               ? 'No instructions yet.'
               : exercise.instructions,
-          style: const TextStyle(fontSize: 15, height: 1.55, color: AppColors.text),
+          style: TextStyle(fontSize: 15, height: 1.55, color: AppColors.text),
         ),
         if (exercise.videoUrl != null) ...[
           const SizedBox(height: 24),
@@ -235,11 +235,11 @@ class _VideoLink extends StatelessWidget {
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.text,
-              side: const BorderSide(color: AppColors.line),
+              side: BorderSide(color: AppColors.line),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            icon: const Icon(Icons.play_circle_outline, color: AppColors.accent),
+            icon: Icon(Icons.play_circle_outline, color: AppColors.accent),
             label: const Text('Watch a demo'),
             onPressed: () => _open(context),
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../services/reminders.dart';
 import '../state/active_workout.dart';
+import '../theme/app_theme.dart';
 import 'db_provider.dart';
 
 export 'db_provider.dart' show databaseProvider;
@@ -128,6 +129,22 @@ final layoffSettingsProvider = StreamProvider<LayoffSettings>((ref) {
 /// The user's chosen weight unit ('kg' or 'lb').
 final weightUnitProvider = StreamProvider<String>((ref) {
   return ref.watch(databaseProvider).watchWeightUnit();
+});
+
+/// The stored theme choice: the selected id and the custom palette JSON.
+/// Read [activePaletteProvider] unless you need the raw choice (the picker
+/// does, to mark which preset is selected).
+final themeSettingProvider = StreamProvider<ThemeSetting>((ref) {
+  return ref.watch(databaseProvider).watchThemeSetting();
+});
+
+/// The palette to paint with, resolved against the shipped presets and any
+/// custom theme. Synchronous with a sensible default, so the very first frame
+/// is painted with the default preset rather than an unthemed flash while the
+/// settings row is read.
+final activePaletteProvider = Provider<AppPalette>((ref) {
+  final setting = ref.watch(themeSettingProvider).value;
+  return resolvePalette(setting?.presetId, setting?.customJson);
 });
 
 /// The bar and plate rack as stored — read [plateSettingsProvider] instead

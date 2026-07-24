@@ -305,7 +305,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                   Expanded(
                     child: Text(
                       step.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.text,
@@ -324,7 +324,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
               const SizedBox(height: 6),
               Text(
                 step.body,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5, height: 1.35, color: AppColors.muted),
               ),
               const SizedBox(height: 12),

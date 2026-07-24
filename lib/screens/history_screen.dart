@@ -16,9 +16,9 @@ class HistoryScreen extends ConsumerWidget {
     return SafeArea(
       child: history.when(
         loading: () =>
-            const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+            Center(child: CircularProgressIndicator(color: AppColors.accent)),
         error: (e, _) =>
-            Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
+            Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
         data: (list) {
           return ListView(
             padding: const EdgeInsets.only(bottom: 24),
@@ -70,7 +70,7 @@ class _HistoryRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+        border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
@@ -105,7 +105,7 @@ class _HistoryRow extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.faint),
+          Icon(Icons.chevron_right, color: AppColors.faint),
         ],
       ),
     );
@@ -116,7 +116,7 @@ class _EmptyHistory extends StatelessWidget {
   const _EmptyHistory();
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.fromLTRB(20, 60, 20, 20),
       child: Column(
         children: [

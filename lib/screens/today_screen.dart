@@ -232,7 +232,7 @@ class _WorkoutCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.faint),
+              Icon(Icons.chevron_right, color: AppColors.faint),
             ],
           ),
         ),
@@ -294,7 +294,7 @@ class _EmptyCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(body,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted)),
+              style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 14),
           FilledButton(onPressed: onAction, child: Text(action)),
         ],
@@ -376,7 +376,7 @@ class _MiniStat extends StatelessWidget {
 class _PadLoader extends StatelessWidget {
   const _PadLoader();
   @override
-  Widget build(BuildContext context) => const Padding(
+  Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.all(24),
         child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
       );
@@ -388,6 +388,6 @@ class _PadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.all(20),
-        child: Text(message, style: const TextStyle(color: AppColors.muted)),
+        child: Text(message, style: TextStyle(color: AppColors.muted)),
       );
 }

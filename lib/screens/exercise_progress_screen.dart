@@ -39,10 +39,10 @@ class ExerciseProgressScreen extends ConsumerWidget {
       body: SafeArea(
         top: false,
         child: library.when(
-          loading: () => const Center(
+          loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) => Center(
-              child: Text('$e', style: const TextStyle(color: AppColors.muted))),
+              child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (all) {
             Exercise? ex;
             for (final e in all) {
@@ -52,7 +52,7 @@ class ExerciseProgressScreen extends ConsumerWidget {
               }
             }
             if (ex == null) {
-              return const Center(
+              return Center(
                 child: Text('This exercise no longer exists.',
                     style: TextStyle(color: AppColors.muted)),
               );
@@ -85,10 +85,10 @@ class _BodyState extends ConsumerState<_Body> {
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return history.when(
-      loading: () => const Center(
+      loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.accent)),
       error: (e, _) => Center(
-          child: Text('$e', style: const TextStyle(color: AppColors.muted))),
+          child: Text('$e', style: TextStyle(color: AppColors.muted))),
       data: (sets) {
         final points = progressPoints(sets);
         return ListView(
@@ -128,18 +128,18 @@ class _BodyState extends ConsumerState<_Body> {
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.text,
-                  side: const BorderSide(color: AppColors.line),
+                  side: BorderSide(color: AppColors.line),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 icon: _exporting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: AppColors.accent))
-                    : const Icon(Icons.ios_share, color: AppColors.accent),
+                    : Icon(Icons.ios_share, color: AppColors.accent),
                 label: Text(sets.isEmpty ? 'Nothing to export' : 'Export CSV'),
                 onPressed: sets.isEmpty || _exporting
                     ? null
@@ -518,7 +518,7 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.show_chart, color: AppColors.faint, size: 30),
+          Icon(Icons.show_chart, color: AppColors.faint, size: 30),
           const SizedBox(height: 12),
           Text(
             timed

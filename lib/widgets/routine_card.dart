@@ -122,7 +122,7 @@ class RoutineCard extends StatelessWidget {
                     color: isCurrent ? hexColor(r.colorHex) : AppColors.muted,
                   ),
                 ),
-              const Icon(Icons.chevron_right, color: AppColors.faint),
+              Icon(Icons.chevron_right, color: AppColors.faint),
             ],
           ),
         ),

@@ -45,7 +45,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: AppTheme.dark(),
+        theme: AppTheme.dark(kDefaultPalette),
         home: Scaffold(
           body: SingleChildScrollView(
             child: WorkoutItemsEditor(

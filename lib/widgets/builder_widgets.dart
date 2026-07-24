@@ -13,7 +13,7 @@ InputDecoration builderInput(String hint) => InputDecoration(
       // Set explicitly, not just via the theme: a field with its own `style`
       // would otherwise lend the hint its weight and size and make the
       // placeholder look like entered text.
-      hintStyle: const TextStyle(
+      hintStyle: TextStyle(
         color: AppColors.faint,
         fontSize: 15,
         fontWeight: FontWeight.w400,
@@ -24,11 +24,11 @@ InputDecoration builderInput(String hint) => InputDecoration(
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.line),
+        borderSide: BorderSide(color: AppColors.line),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.accent),
+        borderSide: BorderSide(color: AppColors.accent),
       ),
     );
 
@@ -186,7 +186,7 @@ class SettingRow extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: AppColors.accent)),
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
+              Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
             ],
           ),
         ),
@@ -373,7 +373,7 @@ class BuilderField extends StatelessWidget {
               if (note != null)
                 TextSpan(
                   text: ' · ${note!.toUpperCase()}',
-                  style: const TextStyle(color: AppColors.accent),
+                  style: TextStyle(color: AppColors.accent),
                 ),
             ],
           ),
@@ -431,17 +431,17 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
               autofocus: false,
               onChanged: (v) => setState(() => _query = v),
               decoration: builderInput('Search exercises…').copyWith(
-                prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+                prefixIcon: Icon(Icons.search, color: AppColors.muted),
               ),
             ),
             const SizedBox(height: 8),
             Expanded(
               child: library.when(
-                loading: () => const Center(
+                loading: () => Center(
                     child: CircularProgressIndicator(color: AppColors.accent)),
                 error: (e, _) => Center(
                     child:
-                        Text('$e', style: const TextStyle(color: AppColors.muted))),
+                        Text('$e', style: TextStyle(color: AppColors.muted))),
                 data: (all) {
                   final q = _query.trim().toLowerCase();
                   final list = q.isEmpty
@@ -454,7 +454,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                   return ListView.separated(
                     itemCount: list.length,
                     separatorBuilder: (_, _) =>
-                        const Divider(height: 1, color: AppColors.line),
+                        Divider(height: 1, color: AppColors.line),
                     itemBuilder: (_, i) {
                       final e = list[i];
                       return ListTile(
@@ -463,9 +463,9 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                             style: const TextStyle(
                                 fontSize: 15, fontWeight: FontWeight.w600)),
                         subtitle: Text('${e.muscleGroup} · ${e.equipment}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12, color: AppColors.muted)),
-                        trailing: const Icon(Icons.add, color: AppColors.accent),
+                        trailing: Icon(Icons.add, color: AppColors.accent),
                         onTap: () => Navigator.pop(context, e),
                       );
                     },

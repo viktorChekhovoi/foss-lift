@@ -251,7 +251,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
       children: [
         SectionLabel('Exercises · ${_items.length}'),
         if (_items.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Text('No exercises yet — add one below.',
                 style: TextStyle(color: AppColors.muted)),
@@ -287,7 +287,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.line),
+            side: BorderSide(color: AppColors.line),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -334,7 +334,7 @@ class _ItemCard extends StatelessWidget {
               // Grab here to drag the exercise up or down the list.
               ReorderableDragStartListener(
                 index: index,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   child: Icon(Icons.drag_indicator,
                       size: 22, color: AppColors.faint),
@@ -432,7 +432,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                               fontSize: 18, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
                       Text(d.muscle,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13, color: AppColors.muted)),
                     ],
                   ),
@@ -652,7 +652,7 @@ class _CheckRow extends StatelessWidget {
               onChanged: (v) => onChanged(v ?? false),
               activeColor: AppColors.accent,
               checkColor: const Color(0xFF1A0E07),
-              side: const BorderSide(color: AppColors.line, width: 1.5),
+              side: BorderSide(color: AppColors.line, width: 1.5),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
@@ -791,11 +791,11 @@ class _AmountFieldState extends State<_AmountField> {
           suffixStyle: kMono.copyWith(fontSize: 12, color: AppColors.faint),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: AppColors.line),
+            borderSide: BorderSide(color: AppColors.line),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: AppColors.accent),
+            borderSide: BorderSide(color: AppColors.accent),
           ),
         ),
         onChanged: (v) {

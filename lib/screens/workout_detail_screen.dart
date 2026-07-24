@@ -36,12 +36,12 @@ class WorkoutDetailScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: items.when(
-                loading: () => const Center(
+                loading: () => Center(
                   child: CircularProgressIndicator(color: AppColors.accent),
                 ),
                 error: (e, _) => Center(
                   child:
-                      Text('$e', style: const TextStyle(color: AppColors.muted)),
+                      Text('$e', style: TextStyle(color: AppColors.muted)),
                 ),
                 data: (list) => ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -49,7 +49,7 @@ class WorkoutDetailScreen extends ConsumerWidget {
                     _CountChip(count: list.length),
                     const SizedBox(height: 14),
                     if (list.isEmpty)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: Text(
                           'No exercises yet. Tap the edit icon to add some.',
@@ -150,7 +150,7 @@ class _LayoffDialog extends StatelessWidget {
         'at the same load is how people get hurt.\n\n'
         'Foss Lift can drop every target in this workout by ${layoff.percent}% '
         'to ease you back in. Your logged history is not touched.',
-        style: const TextStyle(color: AppColors.muted, height: 1.5),
+        style: TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [
         TextButton(
@@ -186,7 +186,7 @@ class _CountChip extends StatelessWidget {
             children: [
               TextSpan(
                 text: '$count',
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.text, fontWeight: FontWeight.w600),
               ),
               TextSpan(text: count == 1 ? ' exercise' : ' exercises'),
@@ -234,7 +234,7 @@ class _ExerciseRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
         border:
-            last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+            last ? null : Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
@@ -257,7 +257,7 @@ class _ExerciseRow extends StatelessWidget {
                   perSide == null
                       ? view.exercise.muscleGroup
                       : '${view.exercise.muscleGroup} · $perSide',
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ],
             ),

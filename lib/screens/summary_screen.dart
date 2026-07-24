@@ -45,9 +45,9 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
       body: SafeArea(
         child: data.when(
           loading: () =>
-              const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+              Center(child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) =>
-              Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
+              Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (d) => _SummaryBody(
             session: d.session,
             sets: d.sets,
@@ -91,7 +91,7 @@ class _SummaryBody extends StatelessWidget {
                 child: Container(
                   width: 78,
                   height: 78,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -110,7 +110,7 @@ class _SummaryBody extends StatelessWidget {
               const SizedBox(height: 4),
               Center(
                 child: Text(session.name,
-                    style: const TextStyle(color: AppColors.muted, fontSize: 14)),
+                    style: TextStyle(color: AppColors.muted, fontSize: 14)),
               ),
               const SizedBox(height: 4),
               Center(
@@ -196,7 +196,7 @@ class _SummaryBody extends StatelessWidget {
                               last: entry.key == grouped.length - 1,
                             ),
                           if (grouped.isEmpty)
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.symmetric(vertical: 18),
                               child: Text('No sets were logged this session.',
                                   style: TextStyle(color: AppColors.muted)),
@@ -252,7 +252,7 @@ class _SumCell extends StatelessWidget {
                 if (unit != null)
                   TextSpan(
                     text: ' $unit',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: AppColors.muted, fontWeight: FontWeight.w600),
                   ),
               ],
@@ -343,7 +343,7 @@ class _ProgressionRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
         border:
-            last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+            last ? null : Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
@@ -357,7 +357,7 @@ class _ProgressionRow extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 if (sub != null) ...[
                   const SizedBox(height: 2),
-                  Text(sub, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Text(sub, style: TextStyle(fontSize: 12, color: AppColors.muted)),
                 ],
               ],
             ),
@@ -406,7 +406,7 @@ class _SessionExerciseRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        border: last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+        border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
@@ -425,7 +425,7 @@ class _SessionExerciseRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text.rich(
                   TextSpan(
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
                     children: [
                       TextSpan(text: '${sets.length} sets'),
                       // Only ever shown when there is something to say — a
@@ -433,7 +433,7 @@ class _SessionExerciseRow extends StatelessWidget {
                       if (missed > 0)
                         TextSpan(
                           text: ' · $missed missed',
-                          style: const TextStyle(color: AppColors.gold),
+                          style: TextStyle(color: AppColors.gold),
                         ),
                     ],
                   ),
@@ -450,13 +450,13 @@ class _SessionExerciseRow extends StatelessWidget {
                       if (best.weight != 0)
                         TextSpan(
                             text: ' @ $w',
-                            style: const TextStyle(color: AppColors.faint)),
+                            style: TextStyle(color: AppColors.faint)),
                     ]
                   : [
                       TextSpan(text: w),
                       TextSpan(
                           text: ' ×${best.reps}',
-                          style: const TextStyle(color: AppColors.faint)),
+                          style: TextStyle(color: AppColors.faint)),
                     ],
             ),
           ),
