@@ -226,6 +226,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     required String name,
     String? notice,
   }) async {
+    // A fresh session clears whatever the last one's summary was still holding
+    // on to — the progression banner belongs to one finish only.
+    ref.read(lastProgressionProvider.notifier).clear();
     final exercises = <ExerciseEntry>[];
     int? routineId;
     if (workoutId != null) {
@@ -345,16 +348,46 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     // Progression moves only once the session it is based on is safely on
     // disk. A template that stepped up without the history to justify it is
     // harder to explain than one that lags a crash behind.
+    final outcomes = <ProgressionOutcome>[];
     for (final e in s.exercises) {
       final itemId = e.itemId;
-      if (itemId != null) {
-        await _db.advanceProgression(
-          itemId,
-          success: e.succeeded,
-          performedWeight: e.performedWeight,
-        );
-      }
+      if (itemId == null) continue;
+      final moved = await _db.advanceProgression(
+        itemId,
+        success: e.succeeded,
+        performedWeight: e.performedWeight,
+      );
+      // Read the slot back after advancing to see where progression left it —
+      // the resulting target and the streaks — so the summary can explain it.
+      final it = await _db.workoutItemById(itemId);
+      if (it == null) continue; // slot deleted mid-session; nothing to say
+      final mode = it.progression;
+      final double? target = switch (mode) {
+        ProgressionMode.weight => it.suggestedWeight,
+        ProgressionMode.reps => it.repsMin.toDouble(),
+        ProgressionMode.time => it.holdSeconds.toDouble(),
+      };
+      // A weight slot with no suggested weight is a bodyweight movement with no
+      // target to move — it does not get to claim it progressed.
+      if (target == null) continue;
+      outcomes.add(ProgressionOutcome(
+        name: e.name,
+        mode: mode,
+        moved: moved,
+        target: target,
+        successes: it.successStreak,
+        failures: it.failStreak,
+        successThreshold: it.successThreshold,
+        failureThreshold: it.failureThreshold,
+      ));
     }
+
+    // Stash the deltas keyed by this session, for the summary to explain. Empty
+    // means nothing had a target to move (an ad-hoc or all-bodyweight session),
+    // and the summary shows no banner at all.
+    ref.read(lastProgressionProvider.notifier).set(
+          outcomes.isEmpty ? null : ProgressionReport(sessionId: id, outcomes: outcomes),
+        );
 
     state = null;
     return id;
@@ -369,3 +402,64 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 /// Formats a weight without a trailing ".0" (e.g. 80.0 -> "80", 12.5 -> "12.5").
 String fmtWeight(double w) =>
     w == w.roundToDouble() ? w.toStringAsFixed(0) : w.toStringAsFixed(1);
+
+/// What one exercise's progression did in the session that just finished, in
+/// enough detail for the summary to say so without re-deriving anything.
+///
+/// [target] is the load/reps/seconds the slot now points at — where the next
+/// session starts. [moved] is the signed change that got it there in the mode's
+/// own unit (positive stepped up, negative backed off, zero held). The streaks
+/// and thresholds are what lets a held exercise say how close it is to the next
+/// move ("one more miss to a back-off").
+class ProgressionOutcome {
+  const ProgressionOutcome({
+    required this.name,
+    required this.mode,
+    required this.moved,
+    required this.target,
+    required this.successes,
+    required this.failures,
+    required this.successThreshold,
+    required this.failureThreshold,
+  });
+
+  final String name;
+  final ProgressionMode mode;
+  final double moved;
+  final double target;
+  final int successes;
+  final int failures;
+  final int successThreshold;
+  final int failureThreshold;
+
+  bool get steppedUp => moved > 1e-9;
+  bool get backedOff => moved < -1e-9;
+  bool get held => !steppedUp && !backedOff;
+}
+
+/// The progression changes from one finished session, tagged with its id.
+///
+/// The id is what keeps the banner honest: the summary shows it only for the
+/// session it belongs to, so the same screen opened later from History — a
+/// different id, or none — says nothing.
+class ProgressionReport {
+  const ProgressionReport({required this.sessionId, required this.outcomes});
+  final int sessionId;
+  final List<ProgressionOutcome> outcomes;
+}
+
+/// Holds the [ProgressionReport] from the last finish until the summary consumes
+/// it. Written by [ActiveWorkoutController] on finish, cleared on the next start
+/// and by the summary once it has been shown.
+class LastProgressionController extends Notifier<ProgressionReport?> {
+  @override
+  ProgressionReport? build() => null;
+
+  void set(ProgressionReport? report) => state = report;
+  void clear() => state = null;
+}
+
+final lastProgressionProvider =
+    NotifierProvider<LastProgressionController, ProgressionReport?>(
+  LastProgressionController.new,
+);

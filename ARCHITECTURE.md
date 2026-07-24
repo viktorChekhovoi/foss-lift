@@ -50,7 +50,8 @@ lib/
 │   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
 │   ├── workout_items_editor.dart ItemDraft + the exercise-list editor
 │   ├── routine_card.dart         The routine list-row card
-│   └── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
+│   ├── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
+│   └── resume_workout_bar.dart   Resume pill over the app for a collapsed session
 └── screens/                      One file per screen (see table below)
 
 design/mockup.html                Clickable HTML UI mockup — the visual spec
@@ -290,7 +291,20 @@ reminded on them.
   `rev` bump so Riverpod rebuilds), and `finish()` writes only the completed sets
   via `saveSession()`, then advances each exercise's progression — in that
   order, so a template never steps up without the history to justify it.
-- Also exports the tiny `fmtWeight()` helper used across screens.
+- **The session survives being collapsed.** The controller is a plain
+  `Notifier`, so leaving `/session` (the down-arrow just pops the route) does not
+  touch the state. `widgets/resume_workout_bar.dart`, mounted in
+  `MaterialApp.router`'s builder above every route, watches
+  `activeWorkoutProvider` and floats a "Resume workout" pill on any screen but
+  `/session` itself. A session only ends by finishing it.
+- **`finish()` also stashes what progression did.** After advancing, it reads
+  each slot back and records a `ProgressionOutcome` (where the target landed, how
+  far it moved, the streaks) into a `ProgressionReport` tagged with the new
+  session id, held in `lastProgressionProvider`. The summary reads it once and
+  clears it, so the banner shows only for the session just finished — not for the
+  same screen reopened from History. Bodyweight slots with no target are omitted.
+- Also exports the tiny `fmtWeight()` helper used across screens, and the
+  `ProgressionOutcome` / `ProgressionReport` / `lastProgressionProvider` trio.
 
 ### Providers — `providers/`
 Thin bridge from widgets to data. Notable ones:

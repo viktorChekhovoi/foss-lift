@@ -10,13 +10,35 @@ import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../widgets/common.dart';
 
-class SummaryScreen extends ConsumerWidget {
+class SummaryScreen extends ConsumerStatefulWidget {
   const SummaryScreen({super.key, required this.sessionId});
   final int sessionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(sessionSummaryProvider(sessionId));
+  ConsumerState<SummaryScreen> createState() => _SummaryScreenState();
+}
+
+class _SummaryScreenState extends ConsumerState<SummaryScreen> {
+  List<ProgressionOutcome> _progression = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    // The progression banner belongs to the session that was just finished.
+    // Grab its report if this is that screen, and clear the stash so reaching
+    // the same summary later from History finds nothing and shows nothing.
+    final report = ref.read(lastProgressionProvider);
+    if (report != null && report.sessionId == widget.sessionId) {
+      _progression = report.outcomes;
+      Future.microtask(() {
+        if (mounted) ref.read(lastProgressionProvider.notifier).clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = ref.watch(sessionSummaryProvider(widget.sessionId));
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
     return Scaffold(
@@ -26,7 +48,12 @@ class SummaryScreen extends ConsumerWidget {
               const Center(child: CircularProgressIndicator(color: AppColors.accent)),
           error: (e, _) =>
               Center(child: Text('$e', style: const TextStyle(color: AppColors.muted))),
-          data: (d) => _SummaryBody(session: d.session, sets: d.sets, unit: unit),
+          data: (d) => _SummaryBody(
+            session: d.session,
+            sets: d.sets,
+            unit: unit,
+            progression: _progression,
+          ),
         ),
       ),
     );
@@ -34,10 +61,16 @@ class SummaryScreen extends ConsumerWidget {
 }
 
 class _SummaryBody extends StatelessWidget {
-  const _SummaryBody({required this.session, required this.sets, required this.unit});
+  const _SummaryBody({
+    required this.session,
+    required this.sets,
+    required this.unit,
+    required this.progression,
+  });
   final Session session;
   final List<SessionSet> sets;
   final String unit;
+  final List<ProgressionOutcome> progression;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +144,34 @@ class _SummaryBody extends StatelessWidget {
                   ],
                 ),
               ),
+              if (progression.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionLabel('Progression'),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppColors.line),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            for (final e in progression.asMap().entries)
+                              _ProgressionRow(
+                                outcome: e.value,
+                                unit: unit,
+                                last: e.key == progression.length - 1,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -201,6 +262,110 @@ class _SumCell extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: kMono.copyWith(fontSize: 11, letterSpacing: 0.9, color: AppColors.faint),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One line of the "what progression did" banner: the exercise, where its
+/// target now sits, and — coloured green up / gold down / muted for a hold —
+/// the change that got it there or how close a held one is to the next move.
+class _ProgressionRow extends StatelessWidget {
+  const _ProgressionRow({
+    required this.outcome,
+    required this.unit,
+    required this.last,
+  });
+  final ProgressionOutcome outcome;
+  final String unit;
+  final bool last;
+
+  /// Where the slot now points — the load, reps, or hold the next session opens
+  /// at. A weight target driven to zero is the bodyweight movement it always
+  /// was, not "0 kg".
+  String _target() {
+    switch (outcome.mode) {
+      case ProgressionMode.weight:
+        if (outcome.target == 0) return 'bodyweight';
+        return '${fmtWeight(toDisplayWeight(outcome.target, unit))} ${unitLabel(unit)}';
+      case ProgressionMode.reps:
+        return '${outcome.target.round()} reps';
+      case ProgressionMode.time:
+        return '${outcome.target.round()}s';
+    }
+  }
+
+  /// The change in the mode's own unit, converted for display. Deltas are
+  /// linear across units, so a kg step reads correctly once scaled to lb.
+  String _delta() {
+    final mag = outcome.moved.abs();
+    final sign = outcome.moved > 0 ? '+' : '−';
+    final amount = switch (outcome.mode) {
+      ProgressionMode.weight =>
+        '${fmtWeight(toDisplayWeight(mag, unit))} ${unitLabel(unit)}',
+      ProgressionMode.reps => mag == 1 ? '1 rep' : '${mag.round()} reps',
+      ProgressionMode.time => '${mag.round()}s',
+    };
+    return '$sign$amount';
+  }
+
+  /// The subline for a held exercise: how many more sessions or misses stand
+  /// between it and the next move. Null when there is nothing pending to say.
+  String? _heldNote() {
+    if (outcome.failures > 0) {
+      final n = outcome.failureThreshold - outcome.failures;
+      if (n > 0) {
+        return n == 1 ? '1 more miss to a back-off' : '$n more misses to a back-off';
+      }
+    } else if (outcome.successes > 0) {
+      final n = outcome.successThreshold - outcome.successes;
+      if (n > 0) {
+        return n == 1
+            ? '1 more clean session to a step'
+            : '$n more clean sessions to a step';
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color tone) = outcome.steppedUp
+        ? (Icons.arrow_upward_rounded, AppColors.good)
+        : outcome.backedOff
+            ? (Icons.arrow_downward_rounded, AppColors.gold)
+            : (Icons.remove_rounded, AppColors.muted);
+    final sub = outcome.held ? _heldNote() : _delta();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        border:
+            last ? null : const Border(bottom: BorderSide(color: AppColors.line)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: tone),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(outcome.name,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                if (sub != null) ...[
+                  const SizedBox(height: 2),
+                  Text(sub, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            _target(),
+            style: kMono.copyWith(
+                fontSize: 13, fontWeight: FontWeight.w700, color: tone),
           ),
         ],
       ),

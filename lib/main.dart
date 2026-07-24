@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/providers.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
+import 'widgets/resume_workout_bar.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,8 @@ class FossLiftApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
       routerConfig: appRouter,
+      // Wraps every route so a collapsed workout can be resumed from anywhere.
+      builder: (context, child) => ResumeWorkoutOverlay(child: child!),
     );
   }
 }
