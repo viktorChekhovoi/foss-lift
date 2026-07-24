@@ -3835,6 +3835,21 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tutorialSeenMeta = const VerificationMeta(
+    'tutorialSeen',
+  );
+  @override
+  late final GeneratedColumn<bool> tutorialSeen = GeneratedColumn<bool>(
+    'tutorial_seen',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("tutorial_seen" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3845,6 +3860,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     plateInventory,
     plateInventoryLb,
     barWeight,
+    tutorialSeen,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3915,6 +3931,15 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         barWeight.isAcceptableOrUnknown(data['bar_weight']!, _barWeightMeta),
       );
     }
+    if (data.containsKey('tutorial_seen')) {
+      context.handle(
+        _tutorialSeenMeta,
+        tutorialSeen.isAcceptableOrUnknown(
+          data['tutorial_seen']!,
+          _tutorialSeenMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3956,6 +3981,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.double,
         data['${effectivePrefix}bar_weight'],
       ),
+      tutorialSeen: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}tutorial_seen'],
+      )!,
     );
   }
 
@@ -3998,6 +4027,13 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// `Exercises.barWeight`. Null falls back to the standard bar for the chosen
   /// unit, for the same reason as [plateInventory].
   final double? barWeight;
+
+  /// Whether the first-run tutorial has already been shown. False on a fresh
+  /// install, so the coach marks run exactly once; set true when the tour is
+  /// completed or skipped. An upgrade marks it true — an existing user is not a
+  /// first run and should never be ambushed by it mid-programme. Re-running the
+  /// tour from the help menu does not clear it.
+  final bool tutorialSeen;
   const Setting({
     required this.id,
     required this.weightUnit,
@@ -4007,6 +4043,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.plateInventory,
     this.plateInventoryLb,
     this.barWeight,
+    required this.tutorialSeen,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4027,6 +4064,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     if (!nullToAbsent || barWeight != null) {
       map['bar_weight'] = Variable<double>(barWeight);
     }
+    map['tutorial_seen'] = Variable<bool>(tutorialSeen);
     return map;
   }
 
@@ -4048,6 +4086,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       barWeight: barWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(barWeight),
+      tutorialSeen: Value(tutorialSeen),
     );
   }
 
@@ -4065,6 +4104,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       plateInventory: serializer.fromJson<String?>(json['plateInventory']),
       plateInventoryLb: serializer.fromJson<String?>(json['plateInventoryLb']),
       barWeight: serializer.fromJson<double?>(json['barWeight']),
+      tutorialSeen: serializer.fromJson<bool>(json['tutorialSeen']),
     );
   }
   @override
@@ -4079,6 +4119,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'plateInventory': serializer.toJson<String?>(plateInventory),
       'plateInventoryLb': serializer.toJson<String?>(plateInventoryLb),
       'barWeight': serializer.toJson<double?>(barWeight),
+      'tutorialSeen': serializer.toJson<bool>(tutorialSeen),
     };
   }
 
@@ -4091,6 +4132,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> plateInventory = const Value.absent(),
     Value<String?> plateInventoryLb = const Value.absent(),
     Value<double?> barWeight = const Value.absent(),
+    bool? tutorialSeen,
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -4106,6 +4148,7 @@ class Setting extends DataClass implements Insertable<Setting> {
         ? plateInventoryLb.value
         : this.plateInventoryLb,
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
+    tutorialSeen: tutorialSeen ?? this.tutorialSeen,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -4129,6 +4172,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.plateInventoryLb.value
           : this.plateInventoryLb,
       barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
+      tutorialSeen: data.tutorialSeen.present
+          ? data.tutorialSeen.value
+          : this.tutorialSeen,
     );
   }
 
@@ -4142,7 +4188,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('layoffPercent: $layoffPercent, ')
           ..write('plateInventory: $plateInventory, ')
           ..write('plateInventoryLb: $plateInventoryLb, ')
-          ..write('barWeight: $barWeight')
+          ..write('barWeight: $barWeight, ')
+          ..write('tutorialSeen: $tutorialSeen')
           ..write(')'))
         .toString();
   }
@@ -4157,6 +4204,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     plateInventory,
     plateInventoryLb,
     barWeight,
+    tutorialSeen,
   );
   @override
   bool operator ==(Object other) =>
@@ -4169,7 +4217,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.layoffPercent == this.layoffPercent &&
           other.plateInventory == this.plateInventory &&
           other.plateInventoryLb == this.plateInventoryLb &&
-          other.barWeight == this.barWeight);
+          other.barWeight == this.barWeight &&
+          other.tutorialSeen == this.tutorialSeen);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -4181,6 +4230,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String?> plateInventory;
   final Value<String?> plateInventoryLb;
   final Value<double?> barWeight;
+  final Value<bool> tutorialSeen;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -4190,6 +4240,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.plateInventory = const Value.absent(),
     this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
+    this.tutorialSeen = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -4200,6 +4251,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.plateInventory = const Value.absent(),
     this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
+    this.tutorialSeen = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -4210,6 +4262,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<String>? plateInventory,
     Expression<String>? plateInventoryLb,
     Expression<double>? barWeight,
+    Expression<bool>? tutorialSeen,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4220,6 +4273,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (plateInventory != null) 'plate_inventory': plateInventory,
       if (plateInventoryLb != null) 'plate_inventory_lb': plateInventoryLb,
       if (barWeight != null) 'bar_weight': barWeight,
+      if (tutorialSeen != null) 'tutorial_seen': tutorialSeen,
     });
   }
 
@@ -4232,6 +4286,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<String?>? plateInventory,
     Value<String?>? plateInventoryLb,
     Value<double?>? barWeight,
+    Value<bool>? tutorialSeen,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -4242,6 +4297,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       plateInventory: plateInventory ?? this.plateInventory,
       plateInventoryLb: plateInventoryLb ?? this.plateInventoryLb,
       barWeight: barWeight ?? this.barWeight,
+      tutorialSeen: tutorialSeen ?? this.tutorialSeen,
     );
   }
 
@@ -4272,6 +4328,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (barWeight.present) {
       map['bar_weight'] = Variable<double>(barWeight.value);
     }
+    if (tutorialSeen.present) {
+      map['tutorial_seen'] = Variable<bool>(tutorialSeen.value);
+    }
     return map;
   }
 
@@ -4285,7 +4344,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('layoffPercent: $layoffPercent, ')
           ..write('plateInventory: $plateInventory, ')
           ..write('plateInventoryLb: $plateInventoryLb, ')
-          ..write('barWeight: $barWeight')
+          ..write('barWeight: $barWeight, ')
+          ..write('tutorialSeen: $tutorialSeen')
           ..write(')'))
         .toString();
   }
@@ -6958,6 +7018,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<String?> plateInventory,
       Value<String?> plateInventoryLb,
       Value<double?> barWeight,
+      Value<bool> tutorialSeen,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -6969,6 +7030,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<String?> plateInventory,
       Value<String?> plateInventoryLb,
       Value<double?> barWeight,
+      Value<bool> tutorialSeen,
     });
 
 class $$SettingsTableFilterComposer
@@ -7017,6 +7079,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<double> get barWeight => $composableBuilder(
     column: $table.barWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get tutorialSeen => $composableBuilder(
+    column: $table.tutorialSeen,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7069,6 +7136,11 @@ class $$SettingsTableOrderingComposer
     column: $table.barWeight,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get tutorialSeen => $composableBuilder(
+    column: $table.tutorialSeen,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -7115,6 +7187,11 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<double> get barWeight =>
       $composableBuilder(column: $table.barWeight, builder: (column) => column);
+
+  GeneratedColumn<bool> get tutorialSeen => $composableBuilder(
+    column: $table.tutorialSeen,
+    builder: (column) => column,
+  );
 }
 
 class $$SettingsTableTableManager
@@ -7153,6 +7230,7 @@ class $$SettingsTableTableManager
                 Value<String?> plateInventory = const Value.absent(),
                 Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
+                Value<bool> tutorialSeen = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -7162,6 +7240,7 @@ class $$SettingsTableTableManager
                 plateInventory: plateInventory,
                 plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
+                tutorialSeen: tutorialSeen,
               ),
           createCompanionCallback:
               ({
@@ -7173,6 +7252,7 @@ class $$SettingsTableTableManager
                 Value<String?> plateInventory = const Value.absent(),
                 Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
+                Value<bool> tutorialSeen = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -7182,6 +7262,7 @@ class $$SettingsTableTableManager
                 plateInventory: plateInventory,
                 plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
+                tutorialSeen: tutorialSeen,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

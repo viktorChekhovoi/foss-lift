@@ -52,7 +52,8 @@ lib/
 │   ├── workout_items_editor.dart ItemDraft + the exercise-list editor
 │   ├── routine_card.dart         The routine list-row card
 │   ├── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
-│   └── resume_workout_bar.dart   Resume pill over the app for a collapsed session
+│   ├── resume_workout_bar.dart   Resume pill over the app for a collapsed session
+│   └── tutorial.dart             First-run coach-mark tour (overlay + anchors)
 └── screens/                      One file per screen (see table below)
 
 design/mockup.html                Clickable HTML UI mockup — the visual spec
@@ -88,7 +89,7 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, and a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all three nullable, see below |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all three nullable, see below — and `tutorialSeen` (the first-run tour has run) |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
@@ -417,7 +418,7 @@ you never looked at.
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
   `build_runner`, add a query method, expose it via a provider. Bump
-  `schemaVersion` (currently **8**) and add an `onUpgrade` step. Migrations are
+  `schemaVersion` (currently **9**) and add an `onUpgrade` step. Migrations are
   tested against a hand-written DDL fixture of the old schema — see
   `test/migration_test.dart` for the pattern.
   A migration step must build the shape of *its own era*: create tables with
