@@ -5,11 +5,13 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'exercise_stats.dart';
 import 'layoff.dart';
 import 'plates.dart';
 import 'progression.dart';
 import 'schedule.dart';
 
+export 'exercise_stats.dart';
 export 'layoff.dart';
 export 'plates.dart';
 export 'progression.dart';
@@ -1058,6 +1060,47 @@ class AppDatabase extends _$AppDatabase {
       }
       return sessionId;
     });
+  }
+
+  // ---- Exercise history ---------------------------------------------------
+
+  /// Every completed-session set of one exercise, oldest first, each flattened
+  /// with the date and name of the session it belongs to.
+  ///
+  /// Read-only: it drives the per-exercise progress chart and the CSV export
+  /// and never writes anything. Matched on `exerciseId` rather than the
+  /// denormalised name, so a movement renamed in the library still gathers its
+  /// whole history; sets logged before the id was recorded (there are none from
+  /// this app, but a hand-edited DB could hold some) simply do not match.
+  /// Live, unfinished sessions are excluded — a set only counts once its
+  /// session is finished, the same rule the lifetime totals use.
+  Stream<List<ExerciseSetEntry>> watchExerciseSetHistory(int exerciseId) {
+    final query = select(sessionSets).join([
+      innerJoin(sessions, sessions.id.equalsExp(sessionSets.sessionId)),
+    ])
+      ..where(sessionSets.exerciseId.equals(exerciseId) &
+          sessions.endedAt.isNotNull())
+      ..orderBy([
+        OrderingTerm(expression: sessions.startedAt),
+        OrderingTerm(expression: sessionSets.setNumber),
+      ]);
+
+    return query.watch().map(
+          (rows) => rows.map((r) {
+            final set = r.readTable(sessionSets);
+            final session = r.readTable(sessions);
+            return ExerciseSetEntry(
+              sessionId: set.sessionId,
+              date: session.startedAt,
+              sessionName: session.name,
+              setNumber: set.setNumber,
+              weightKg: set.weight,
+              reps: set.reps,
+              seconds: set.seconds,
+              done: set.done,
+            );
+          }).toList(),
+        );
   }
 
   // ---- Aggregate stats ----------------------------------------------------

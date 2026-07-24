@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'screens/bar_settings_screen.dart';
 import 'screens/exercise_detail_screen.dart';
 import 'screens/exercise_form_screen.dart';
+import 'screens/exercise_progress_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/library_screen.dart';
@@ -63,6 +64,13 @@ final appRouter = GoRouter(
     ),
     GoRoute(path: '/library', builder: (c, s) => const LibraryScreen()),
     GoRoute(path: '/library/new', builder: (c, s) => const ExerciseFormScreen()),
+    // Progress chart + CSV export for one exercise (static segment before ":id"
+    // catches nothing here, but keep the more specific path listed first).
+    GoRoute(
+      path: '/exercise/:id/progress',
+      builder: (c, s) =>
+          ExerciseProgressScreen(exerciseId: int.parse(s.pathParameters['id']!)),
+    ),
     GoRoute(
       path: '/exercise/:id',
       builder: (c, s) =>
