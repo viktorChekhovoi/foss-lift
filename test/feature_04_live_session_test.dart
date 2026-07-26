@@ -260,6 +260,45 @@ void main() {
       expect(bench.warmupRestSeconds, lessThan(bench.restSeconds));
     });
 
+    test('the rest after the last rung is the working rest', () async {
+      // Between warm-ups you are catching your breath; after the heaviest one
+      // you are about to do the actual set, and that earns the full rest.
+      await startPush();
+      final bench = session().exercises[0];
+      final last = bench.warmups.length - 1;
+      expect(bench.restAfterWarmup(last), bench.restSeconds);
+      for (var wi = 0; wi < last; wi++) {
+        expect(bench.restAfterWarmup(wi), kWarmupRestSeconds);
+      }
+    });
+
+    testWidgets('tapping the last rung starts the full rest', (tester) async {
+      await pumpPushScreen(tester);
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      // The first rung: the short warm-up rest.
+      await tester.tap(find.descendant(
+        of: find.byKey(const ValueKey('w0-0-Bench Press')),
+        matching: find.byType(GestureDetector),
+      ));
+      await tester.pump();
+      expect(find.text('0:45'), findsOneWidget);
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+
+      // The last rung: the routine's own 2:00, because the work is next.
+      final last = session().exercises[0].warmups.length - 1;
+      await tester.tap(find.descendant(
+        of: find.byKey(ValueKey('w0-$last-Bench Press')),
+        matching: find.byType(GestureDetector),
+      ));
+      await tester.pump();
+      expect(find.text('2:00'), findsOneWidget);
+
+      await stop(tester);
+    });
+
     test('the count is adjustable and clamped to 0..max', () async {
       final ctl = await startPush();
       ctl.setWarmupCount(0, 5);

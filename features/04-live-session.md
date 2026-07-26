@@ -41,8 +41,12 @@ you're done.
 - **Warm-ups are never persisted** — they're suggestions, not history, so logging
   them can't distort volume or lifetime totals. They ride alongside the working
   sets and are excluded from every working-set aggregate (verdict, volume, set
-  count). Warm-up rest is its own shorter interval, and the group carries a
-  liability disclaimer.
+  count). The group carries a liability disclaimer.
+- **Warm-up rest is shorter between rungs, full before the work.** 45 s between
+  warm-up sets — that's changing the plates and catching your breath — but after
+  the *last* rung the exercise's own rest runs instead, because the next thing
+  you do is the working set and a warm-up is not meant to be fatigue you lift
+  through.
 - **Every warm-up rung is a load the gym can be set to.** A ramp of percentages
   is useless if nobody can build the numbers, so each step lands on the nearest
   *cheap* real load rather than the exact percentage:
@@ -65,6 +69,13 @@ you're done.
     dropped, so a light lift gets a shorter ramp than asked for rather than one
     that stalls or steps backward — a 25 kg lift on a 20 kg bar gets the empty
     bar and nothing else.
+- **The ramp's shape follows published practice, as fractions of the working
+  weight** (not of 1RM): three sets by default because 2–4 is where the research
+  lands for a compound lift and more starts costing fatigue; 40–50% / 60–70% /
+  70–80% for the loads; 8–10 / 4–6 / 1–3 for the reps; 45–60 s between rungs. The
+  stepper goes to six for a heavy lift starting from an empty bar, but six is a
+  choice the user makes, not a suggestion. Sources are cited in
+  `lib/data/warmup.dart`.
 - **A tap cycles differently for timed sets** — goal ⇄ untouched, since nobody
   taps a plank down a second at a time.
 - **A missed set** is one that fell short on reps/seconds *or* weight (deloading

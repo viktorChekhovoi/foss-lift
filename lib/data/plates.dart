@@ -89,14 +89,23 @@ const kDefaultPlateCount = 2;
 const kDefaultBigPlateCount = 10;
 
 /// The increment a gym buys dumbbells in, named in the unit it counts by: a
-/// pounds gym's rack climbs in 5s, a metric one's in 2.5s. Half-steps exist in
-/// the light end of some racks, but suggesting a bell nobody stocks is worse
-/// than suggesting the one next to it.
+/// pounds gym's rack climbs in 5s, a metric one's in 2.5s.
+///
+/// Matches how commercial racks are actually sold — hex sets run 2.5–30 kg in
+/// 2.5 kg steps, and their pounds equivalents go up in 2.5s to 30 lb and 5s
+/// above that. The light end of a rack is therefore finer than this, and above
+/// 30 kg some racks are coarser; one step is the honest compromise, because
+/// suggesting a bell nobody stocks is worse than suggesting the one beside it.
 const kDumbbellStepLb = 5.0;
 const kDumbbellStepKg = 2.5;
 
 /// The increment a machine's stack moves in — five of whatever the gym counts
-/// in, which is what the pins on a selectorised stack are labelled with.
+/// in.
+///
+/// The *finest* common increment rather than the typical one: selectorised
+/// stacks are built from 5, 10, 15 or 20 lb plates depending on the machine, and
+/// there is no way to know which from here. A suggestion on a 5 grid is always
+/// within one pin of something the machine can do.
 const kStackStepLb = 5.0;
 const kStackStepKg = 5.0;
 

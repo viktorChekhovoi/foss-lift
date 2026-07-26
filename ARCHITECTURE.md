@@ -333,8 +333,11 @@ reminded on them.
   saved by `finish()`) reads only `sets` and is untouched by them. **Warm-ups
   are never persisted** — they are suggestions, not history, so logging them
   cannot distort volume or lifetime totals. The count is adjustable live
-  (`setWarmupCount`, 0..`kMaxWarmupSets`), which regenerates the ramp; warm-up
-  rest is its own shorter `warmupRestSeconds` (`kWarmupRestSeconds`). The
+  (`setWarmupCount`, 0..`kMaxWarmupSets`), which regenerates the ramp; rest
+  between rungs is the shorter `warmupRestSeconds` (`kWarmupRestSeconds`) but
+  `restAfterWarmup(wi)` hands back the exercise's full `restSeconds` after the
+  last rung, because the working set is next. The ramp's constants are the
+  middle of published practice and cited in `data/warmup.dart`'s library doc. The
   `workout_screen` draws them in a collapsed-by-default group above the working
   sets, with a set stepper and a liability disclaimer.
 

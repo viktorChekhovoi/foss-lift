@@ -5,6 +5,27 @@
 /// ([progression], [plates], [layoff]). A warm-up is a suggestion, not logged
 /// history — it never touches the database, so keeping the arithmetic on its
 /// own where it can be read and tested is the whole of it.
+///
+/// **Where the numbers come from.** The shape is the one every strength
+/// programme uses: start with the empty bar, take even jumps, drop the reps as
+/// the load climbs, and never let the last warm-up become a working set
+/// (Starting Strength, "Our warm-up is…a warm-up"; the same source's own worked
+/// example divides the gap between bar and work into equal jumps). The
+/// constants are the middle of the published advice, expressed as fractions of
+/// the **working weight** rather than of 1RM:
+///
+/// - 2–4 warm-up sets for a compound lift; past four the fatigue starts to cost
+///   more than the priming (JSCR 2021, via Fit Records' summary) — hence
+///   [kDefaultWarmupSets] of three, and a stepper that goes to six only because
+///   a heavy lift over an empty bar genuinely needs the rungs.
+/// - First set 40–50% of the working weight, middle 60–70%, an optional last at
+///   70–80% — hence [kWarmupStartFraction] and the [kWarmupTopFraction] ceiling.
+/// - 8–10 reps on the first, 4–6 in the middle, 1–3 at the top — hence the
+///   buckets in [warmupReps].
+/// - 45–60 s between warm-up sets, then the exercise's normal rest before the
+///   first working set — see `ExerciseEntry.restAfterWarmup`.
+///
+/// It is still a suggestion, not a prescription, and the screen says so.
 library;
 
 import 'plates.dart';

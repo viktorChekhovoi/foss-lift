@@ -135,6 +135,16 @@ class ExerciseEntry {
   /// [kWarmupRestSeconds].
   final int warmupRestSeconds;
 
+  /// Rest after warm-up rung [wi]: the short [warmupRestSeconds] between rungs,
+  /// but the exercise's full [restSeconds] after the last one.
+  ///
+  /// Between warm-ups you are changing the plates and catching your breath. After
+  /// the heaviest rung the next thing you do is the working set, and the standard
+  /// advice is to take that exercise's normal rest before it — warming up is not
+  /// meant to be the fatigue you lift through.
+  int restAfterWarmup(int wi) =>
+      wi >= warmups.length - 1 ? restSeconds : warmupRestSeconds;
+
   /// Whether this exercise offers warm-ups at all — a weight-based slot with a
   /// working load. When false the warm-up section is not drawn.
   bool get hasWarmups => warmupWorkingKg != null;

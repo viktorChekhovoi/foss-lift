@@ -89,7 +89,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   }
 
   /// The same escape hatch for a warm-up row: types a result in, and starts the
-  /// shorter warm-up rest if the set was not already logged.
+  /// rest for that rung if the set was not already logged — see
+  /// [ExerciseEntry.restAfterWarmup].
   Future<void> _editWarmupResult(int ei, int wi, SetEntry entry) async {
     final result = await showDialog<({int? value})>(
       context: context,
@@ -100,7 +101,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setWarmupLogged(ei, wi, result.value);
     if (!wasDone && result.value != null) {
       final session = ref.read(activeWorkoutProvider);
-      if (session != null) _startRest(session.exercises[ei].warmupRestSeconds);
+      if (session != null) {
+        _startRest(session.exercises[ei].restAfterWarmup(wi));
+      }
     }
   }
 
@@ -159,8 +162,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                 controller.cycleWarmup(ei, wi);
                                 HapticFeedback.selectionClick();
                                 if (!wasDone) {
-                                  _startRest(
-                                      session.exercises[ei].warmupRestSeconds);
+                                  _startRest(session.exercises[ei]
+                                      .restAfterWarmup(wi));
                                 }
                               },
                               onTypeResult: () =>
