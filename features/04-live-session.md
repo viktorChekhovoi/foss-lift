@@ -50,16 +50,21 @@ you're done.
     weight the plates can make, preferring the fewest plates per side. Working
     up to 225 lb over a 45 lb bar gives **45 → 95 → 135 → 185**: one pair a
     step, in the sizes a lifter reaches for. (In a metric gym, 80 kg over a
-    20 kg bar gives 20 → 40 → 70.)
+    20 kg bar gives 20 → 40 → 60.)
   - **Dumbbell — the increments a gym stocks bells in**: multiples of 5 lb, or
     2.5 kg in a metric gym.
   - **Machine/cable — multiples of 5**, which is how a stack is labelled, in
     either unit.
   - The ramp starts on the empty bar for a barbell and at ~40% of the work for
-    anything else (a dumbbell has no empty bar to stand on), and tops out around
-    85% of the work. Where a coarse grid puts two steps on the same load the
-    duplicate is dropped, so a light lift gets a shorter ramp than asked for
-    rather than one that stalls or steps backward.
+    anything else (a dumbbell has no empty bar to stand on). **85% of the work
+    is a hard ceiling** — snapping onto a loadable weight rounds down past it,
+    never up, so the last warm-up can't turn into a first working set. Reps fall
+    off as the load climbs (8 → 5 → 3 → 2 by fraction of the work), so an 80 kg
+    bench warms up 20×8, 40×5, 60×3.
+  - Where a coarse grid puts two steps on the same load the duplicate is
+    dropped, so a light lift gets a shorter ramp than asked for rather than one
+    that stalls or steps backward — a 25 kg lift on a 20 kg bar gets the empty
+    bar and nothing else.
 - **A tap cycles differently for timed sets** — goal ⇄ untouched, since nobody
   taps a plank down a second at a time.
 - **A missed set** is one that fell short on reps/seconds *or* weight (deloading

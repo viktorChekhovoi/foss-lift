@@ -449,6 +449,37 @@ void main() {
         }
       }
     });
+
+    test('no rung climbs past the top of the ramp, however many', () async {
+      // Snapping to a loadable weight rounds *down* past the ceiling: a last
+      // warm-up at 88% of a set you still owe four of is a working set.
+      final ctl = await startPush();
+      for (var ei = 0; ei < kPushSize; ei++) {
+        final working = session().exercises[ei].sets.first.goalWeight!;
+        for (var n = 1; n <= kMaxWarmupSets; n++) {
+          ctl.setWarmupCount(ei, n);
+          for (final s in session().exercises[ei].warmups.skip(1)) {
+            expect(
+              s.weight,
+              lessThanOrEqualTo(working * kWarmupTopFraction + 0.01),
+              reason: 'exercise $ei, $n sets: ${s.weight} of $working',
+            );
+          }
+        }
+      }
+    });
+
+    test('reps fall off as the ramp gets heavier', () async {
+      final ctl = await startPush();
+      ctl.setWarmupCount(0, kMaxWarmupSets);
+      final ramp = session().exercises[0].warmups;
+      for (var i = 1; i < ramp.length; i++) {
+        expect(ramp[i].goal, lessThanOrEqualTo(ramp[i - 1].goal),
+            reason: 'rung $i of ${ramp.map((s) => '${s.weight}x${s.goal}')}');
+      }
+      // The top of the ramp is a couple of reps, not a set.
+      expect(ramp.last.goal, lessThanOrEqualTo(3));
+    });
   });
 
   group('The plate line describes the working bar', () {

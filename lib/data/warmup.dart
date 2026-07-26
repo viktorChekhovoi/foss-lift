@@ -33,8 +33,9 @@ const kWarmupRestSeconds = 45;
 /// stack has no natural floor, and 40% of the work is light enough to be free.
 const kWarmupStartFraction = 0.40;
 
-/// Where the ramp aims to finish — a clear margin below the work, so the last
-/// warm-up is still a warm-up and not a first working set.
+/// Where the ramp finishes — a hard ceiling, not a target, so the last warm-up
+/// is still a warm-up and not a first working set. Snapping a step onto a
+/// loadable weight may land under this; it may never land over it.
 const kWarmupTopFraction = 0.85;
 
 /// The reps to suggest at a given fraction of the working weight. Monotonic by
@@ -76,20 +77,30 @@ List<WarmupSet> computeWarmups({
   final bar = barKg < 0 ? 0.0 : barKg;
   final start = bar > 0 ? bar : workingKg * kWarmupStartFraction;
 
-  // The rungs this ramp may use: at or above where it starts, and below the
-  // work — the work is the work, not a warm-up.
-  final rungs = [
+  // The rungs this ramp may use: at or above where it starts, and no heavier
+  // than [kWarmupTopFraction] of the work. The ceiling is *hard* — snapping to
+  // the nearest loadable weight must not push the last warm-up up to 88% of a
+  // set you still have to do four of.
+  final ceiling = workingKg * kWarmupTopFraction;
+  final usable = [
     for (final r in ladder)
       if (r.kg >= start - kPlateToleranceKg &&
           r.kg < workingKg - kPlateToleranceKg)
         r,
   ]..sort((a, b) => a.kg.compareTo(b.kg));
-  if (rungs.isEmpty) return const [];
+  if (usable.isEmpty) return const [];
+  // The empty bar survives the ceiling regardless: on a working weight barely
+  // above the bar it is the only warm-up there is, and it is still the one to
+  // start on.
+  final rungs = [
+    for (final r in usable)
+      if (r.kg <= ceiling + kPlateToleranceKg || r.kg <= usable.first.kg) r,
+  ];
 
-  // The ramp spans the lightest usable rung to [kWarmupTopFraction] of the
-  // work, or as close to it as the ladder reaches.
+  // The ramp spans the lightest usable rung to the ceiling, or as close to it
+  // as the ladder reaches.
   final floor = rungs.first.kg;
-  final top = (workingKg * kWarmupTopFraction).clamp(floor, rungs.last.kg);
+  final top = ceiling.clamp(floor, rungs.last.kg);
   final gap = sets == 1 ? top - floor : (top - floor) / (sets - 1);
 
   final out = <WarmupSet>[];
