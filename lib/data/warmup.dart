@@ -28,6 +28,8 @@
 /// It is still a suggestion, not a prescription, and the screen says so.
 library;
 
+import 'dart:math' as math;
+
 import 'plates.dart';
 
 /// One suggested warm-up set. [weightKg] is canonical kilograms like every
@@ -59,6 +61,17 @@ const kWarmupStartFraction = 0.40;
 /// loadable weight may land under this; it may never land over it.
 const kWarmupTopFraction = 0.85;
 
+/// How far from an ideal step the ramp will reach to find a load that is cheaper
+/// to set up, as a fraction of the working weight.
+///
+/// A tenth is worth one pair of plates and no more. Without a cap in absolute
+/// terms, a short ramp has enormous gaps between its steps and a window half a
+/// gap wide swallows the whole ladder — the empty bar is free, so it wins every
+/// step it can see, and a single warm-up before a heavy squat comes back as an
+/// empty bar. Cheapness is a tie-breaker between nearby loads, not a reason to
+/// warm up 50 kg lighter than intended.
+const kWarmupSnapFraction = 0.10;
+
 /// The reps to suggest at a given fraction of the working weight. Monotonic by
 /// design: the heavier the warm-up, the fewer reps.
 int warmupReps(double fractionOfWorking) {
@@ -81,6 +94,12 @@ int warmupReps(double fractionOfWorking) {
 /// Without a bar ([barKg] `<= 0`, a dumbbell or a machine) the ramp starts at
 /// [kWarmupStartFraction] of the work instead, and every rung lands on the
 /// increment the gym stocks.
+///
+/// **A single warm-up set is the exception**: with [sets] of one there is no ramp
+/// to open, so it lands mid-range rather than on the bar — heavy enough to warm
+/// you up, light enough to be safe (40 kg for an 80 kg bench, 70 for a 140 kg
+/// squat). A working weight light enough that the bar is the only rung available
+/// still gets the bar, at any count.
 ///
 /// Returns an empty list when there is nothing to ramp: a zero (or negative)
 /// [sets] or [workingKg], an empty [ladder], or a working weight at or below
@@ -124,15 +143,17 @@ List<WarmupSet> computeWarmups({
   final top = ceiling.clamp(floor, rungs.last.kg);
   final gap = sets == 1 ? top - floor : (top - floor) / (sets - 1);
 
+  // How far a step may stray to find a cheaper load: half a step, and never
+  // more than [kWarmupSnapFraction] of the work.
+  final window = math.min(gap / 2, workingKg * kWarmupSnapFraction);
+
   final out = <WarmupSet>[];
   double? last;
   for (var i = 0; i < sets; i++) {
     // One warm-up sits in the middle of the ramp rather than at the bottom of
     // it; more than one steps evenly from floor to top.
     final ideal = sets == 1 ? floor + gap / 2 : floor + gap * i;
-    // Half a step either way: near enough to keep the ramp's shape, wide
-    // enough to trade an exact percentage for a load worth loading.
-    final pick = _pickRung(rungs, ideal: ideal, window: gap / 2, above: last);
+    final pick = _pickRung(rungs, ideal: ideal, window: window, above: last);
     if (pick == null) continue; // nothing left between here and the work
     out.add((weightKg: pick, reps: warmupReps(pick / workingKg)));
     last = pick;

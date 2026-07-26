@@ -326,8 +326,9 @@ reminded on them.
   `start()` from `data/warmup.dart` — an ascending ramp toward the working
   weight, reps dropping as the load climbs, every rung a load this gym can
   actually be set to (`loadLadder`, carried on the entry as `warmupLadder` so
-  the ramp can be rebuilt without going back to the DB). A barbell ramp always
-  opens on the empty bar. They live in `ExerciseEntry.warmups`, a list kept apart from
+  the ramp can be rebuilt without going back to the DB). A barbell ramp of two or
+  more rungs opens on the empty bar; a ramp of *one* is a single mid-range set
+  instead, since there is no ramp to open. They live in `ExerciseEntry.warmups`, a list kept apart from
   `sets`, so every working-set aggregate (the verdict `succeeded`,
   `performedWeight`, `ActiveWorkout.volume`, `totalSets`/`doneSets`, the sets
   saved by `finish()`) reads only `sets` and is untouched by them. **Warm-ups

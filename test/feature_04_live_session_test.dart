@@ -398,9 +398,10 @@ void main() {
       await startPush();
       // Bench Press, 80 kg over the default 20 kg bar.
       expect(session().exercises[0].warmups.first.weight, 20.0);
-      // And it still does after the count is dialled up or down.
+      // And it still does after the count is dialled up or down. (A ramp of one
+      // is not a ramp — see the lone-warm-up test below.)
       final ctl = container!.read(activeWorkoutProvider.notifier);
-      for (final n in [1, 2, kMaxWarmupSets]) {
+      for (final n in [2, 3, kMaxWarmupSets]) {
         ctl.setWarmupCount(0, n);
         expect(
           session().exercises[0].warmups.first.weight,
@@ -504,6 +505,40 @@ void main() {
               reason: 'exercise $ei, $n sets: ${s.weight} of $working',
             );
           }
+        }
+      }
+    });
+
+    test('a lone warm-up is middle of the road, not the empty bar', () async {
+      // One warm-up set is not the bottom of a ramp, it is the whole warm-up:
+      // heavy enough to actually warm you up, light enough not to hurt you.
+      final ctl = await startPush();
+      for (var ei = 0; ei < kPushSize; ei++) {
+        ctl.setWarmupCount(ei, 1);
+        final e = session().exercises[ei];
+        expect(e.warmups.length, 1);
+        final frac = e.warmups.single.weight / e.sets.first.goalWeight!;
+        expect(frac, greaterThanOrEqualTo(kWarmupStartFraction));
+        expect(frac, lessThanOrEqualTo(kWarmupTopFraction + 0.01),
+            reason: 'exercise $ei warmed up at ${(frac * 100).round()}%');
+        // On a barbell lift that means plates on it, not the bar on its own.
+        expect(e.warmups.single.weight, greaterThan(e.warmupBarKg));
+      }
+    });
+
+    test('the heaviest rung is a warm-up, not another light set', () async {
+      // Preferring cheap loads must not buy a saved plate with half the ramp:
+      // 20 → 70 before a 140 kg squat is not a warm-up for it.
+      final ctl = await startPush();
+      for (var ei = 0; ei < kPushSize; ei++) {
+        final working = session().exercises[ei].sets.first.goalWeight!;
+        for (var n = 2; n <= kMaxWarmupSets; n++) {
+          ctl.setWarmupCount(ei, n);
+          expect(
+            session().exercises[ei].warmups.last.weight,
+            greaterThanOrEqualTo(0.6 * working),
+            reason: 'exercise $ei, $n sets, working $working',
+          );
         }
       }
     });

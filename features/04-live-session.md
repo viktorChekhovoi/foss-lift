@@ -50,11 +50,11 @@ you're done.
 - **Every warm-up rung is a load the gym can be set to.** A ramp of percentages
   is useless if nobody can build the numbers, so each step lands on the nearest
   *cheap* real load rather than the exact percentage:
-  - **Barbell — always starts on the empty bar**, and each later rung is a
-    weight the plates can make, preferring the fewest plates per side. Working
-    up to 225 lb over a 45 lb bar gives **45 → 95 → 135 → 185**: one pair a
-    step, in the sizes a lifter reaches for. (In a metric gym, 80 kg over a
-    20 kg bar gives 20 → 40 → 60.)
+  - **Barbell — starts on the empty bar**, and each later rung is a weight the
+    plates can make, preferring the fewest plates per side. 225 lb over a 45 lb
+    bar gives **45 → 115 → 185** at the default three, and **45 → 95 → 135 →
+    185** at four: one pair a step, in the sizes a lifter reaches for. (In a
+    metric gym, 80 kg over a 20 kg bar gives 20 → 40 → 60.)
   - **Dumbbell — the increments a gym stocks bells in**: multiples of 5 lb, or
     2.5 kg in a metric gym.
   - **Machine/cable — multiples of 5**, which is how a stack is labelled, in
@@ -65,10 +65,21 @@ you're done.
     never up, so the last warm-up can't turn into a first working set. Reps fall
     off as the load climbs (8 → 5 → 3 → 2 by fraction of the work), so an 80 kg
     bench warms up 20×8, 40×5, 60×3.
+  - **A step will only stray a tenth of the working weight to find a cheaper
+    load.** Cheapness breaks a tie between neighbouring loads; it is never worth
+    warming up 50 kg lighter than intended for the sake of one pair of plates.
   - Where a coarse grid puts two steps on the same load the duplicate is
     dropped, so a light lift gets a shorter ramp than asked for rather than one
-    that stalls or steps backward — a 25 kg lift on a 20 kg bar gets the empty
-    bar and nothing else.
+    that stalls or steps backward.
+- **One warm-up set is a middle-of-the-road set, not the empty bar.** Dial the
+  stepper to 1 and you get a single rung around halfway between the bar and the
+  ceiling — heavy enough to actually warm you up, light enough to be safe: 40 kg
+  for an 80 kg bench, 70 for a 140 kg squat, 115 lb for a 225 lb squat. With one
+  set there is no ramp to open, so the "starts on the empty bar" rule doesn't
+  apply — it resumes at two rungs and up. **A light lift still collapses to the
+  bar on its own**, at any set count, because there is nothing between the bar
+  and the work to put in: a 25 kg lift over a 20 kg bar warms up with the empty
+  bar and nothing else.
 - **The ramp's shape follows published practice, as fractions of the working
   weight** (not of 1RM): three sets by default because 2–4 is where the research
   lands for a compound lift and more starts costing fatigue; 40–50% / 60–70% /
