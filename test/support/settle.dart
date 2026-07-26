@@ -1,0 +1,50 @@
+// Small provider-polling helper shared by the theme and tutorial feature tests.
+//
+// The synchronous providers (`activePaletteProvider`, and the widgets that read
+// the tutorial-seen flag) are computed off drift streams, which emit
+// asynchronously. After a database write there is a beat before the stream —
+// and anything derived from it — catches up. [readWhen] keeps the provider
+// subscribed and yields the event loop until its value satisfies [test], so a
+// test can assert on the settled value without hard-coding a delay.
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:flutter_test/flutter_test.dart';
+
+/// Keeps [provider] alive on [container] and returns its value once [test]
+/// passes, pumping the event loop between reads. Throws if it never settles.
+Future<T> readWhen<T>(
+  ProviderContainer container,
+  ProviderListenable<T> provider,
+  bool Function(T) test, {
+  String? reason,
+}) async {
+  final sub = container.listen(provider, (_, _) {});
+  try {
+    for (var i = 0; i < 200; i++) {
+      final value = sub.read();
+      if (test(value)) return value;
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    throw StateError(
+        'readWhen timed out${reason == null ? '' : ': $reason'} (last=${sub.read()})');
+  } finally {
+    sub.close();
+  }
+}
+
+/// Pumps [tester] a frame at a time until [condition] holds or [maxFrames] is
+/// reached. Used inside `testWidgets`, where the fake clock only advances on a
+/// pump — so a drift write propagates to the providers only as frames are
+/// pumped. Unlike [readWhen] (real-time delays, for pure-Dart tests) this drives
+/// the widget clock and so is safe under the test binding.
+Future<void> pumpUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  int maxFrames = 60,
+  Duration step = const Duration(milliseconds: 20),
+}) async {
+  for (var i = 0; i < maxFrames; i++) {
+    if (condition()) return;
+    await tester.pump(step);
+  }
+}

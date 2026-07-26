@@ -389,172 +389,22 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 1;
 
+  /// Version 1 is the whole schema. The app has only ever run on one phone, so
+  /// there is no installed base to migrate: a fresh install creates every table
+  /// at its current shape and seeds it. If the schema changes again, add an
+  /// `onUpgrade` ladder from here.
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _seed();
         },
-        onUpgrade: (m, from, to) async {
-          if (from < 2) await _migrateToWorkouts(m);
-          if (from < 3) {
-            // v2 → v3: logged sets start recording what they were aiming at.
-            // Existing rows default to a zero goal, which reads as "no goal
-            // recorded" rather than as a failed set.
-            await m.addColumn(sessionSets, sessionSets.goalReps);
-            await m.addColumn(sessionSets, sessionSets.goalWeight);
-          }
-          if (from < 4) {
-            // v3 → v4: exercises gain a progression axis and the rules that
-            // drive it. Every column carries a weight-progression default, so
-            // exercises that predate the feature keep behaving as barbell lifts
-            // without anyone having to configure them.
-            await m.addColumn(workoutItems, workoutItems.progression);
-            await m.addColumn(workoutItems, workoutItems.holdSeconds);
-            await m.addColumn(workoutItems, workoutItems.increment);
-            await m.addColumn(workoutItems, workoutItems.successThreshold);
-            await m.addColumn(workoutItems, workoutItems.deload);
-            await m.addColumn(workoutItems, workoutItems.failureThreshold);
-            await m.addColumn(workoutItems, workoutItems.successStreak);
-            await m.addColumn(workoutItems, workoutItems.failStreak);
-            // Timed sets record seconds held; existing rows are all counted in
-            // reps, and a null here is exactly that statement.
-            await m.addColumn(sessionSets, sessionSets.seconds);
-            await m.addColumn(sessionSets, sessionSets.goalSeconds);
-          }
-          if (from < 5) {
-            // v4 → v5: the library says whether a movement is counted or held,
-            // so a workout can only offer axes that mean something for it.
-            await m.addColumn(exercises, exercises.measure);
-            // Everything defaults to counted, which is right for all but the
-            // holds in the starter library. Matched by name because that is
-            // the only handle on a seeded row, and seeded rows cannot be
-            // renamed from anywhere in the app.
-            await customStatement(
-                "UPDATE exercises SET measure = 'time' WHERE name = 'Plank'");
-          }
-          if (from < 6) {
-            // v5 → v6: routines gain a weekly schedule and an opt-in reminder,
-            // and the layoff rules get somewhere to live. Every column either
-            // defaults to "off" or is nullable, so an existing install comes
-            // out the far side scheduling nothing and notifying nobody.
-            await m.addColumn(routines, routines.scheduleDays);
-            await m.addColumn(routines, routines.reminderMinutes);
-            await m.addColumn(settings, settings.layoffDays);
-            await m.addColumn(settings, settings.layoffPercent);
-          }
-          if (from < 7) {
-            // v6 → v7: the library says how each movement is loaded, and the
-            // settings row gets somewhere to keep the bar and the plate rack.
-            await m.addColumn(exercises, exercises.weightType);
-            await m.addColumn(settings, settings.plateInventory);
-            await m.addColumn(settings, settings.barWeight);
-            // Existing exercises already recorded their equipment, which is
-            // right often enough to be a better starting point than making
-            // everybody classify thirty rows by hand. Anything else stays a
-            // machine — the reading that is never wrong, only unhelpful.
-            await customStatement("UPDATE exercises SET weight_type = 'bar' "
-                "WHERE equipment = 'Barbell'");
-            await customStatement(
-                "UPDATE exercises SET weight_type = 'dumbbell' "
-                "WHERE equipment = 'Dumbbell'");
-            // Bar and plates stay null: the standard rack for the unit already
-            // in use is a better guess than any single set of numbers written
-            // in here, and it costs nothing to defer.
-          }
-          if (from < 8) {
-            // v7 → v8: a bar per exercise, and a rack per unit. Both are
-            // nullable and both mean "nothing said yet", so an upgrade changes
-            // nothing about how any existing weight is loaded.
-            await m.addColumn(exercises, exercises.barWeight);
-            await m.addColumn(settings, settings.plateInventoryLb);
-          }
-          if (from < 9) {
-            // v8 → v9: the first-run tutorial gets a flag so it runs once. An
-            // existing install is marked as having seen it — someone already
-            // mid-programme is not a first run, and the coach marks should not
-            // ambush them on the launch after an update.
-            await m.addColumn(settings, settings.tutorialSeen);
-            await customStatement('UPDATE settings SET tutorial_seen = 1');
-          }
-          if (from < 10) {
-            // v9 → v10: a colour theme choice, and somewhere to keep a custom
-            // palette. Both nullable and both meaning "nothing chosen", so an
-            // existing install keeps the default (Ignition) look untouched.
-            await m.addColumn(settings, settings.themePresetId);
-            await m.addColumn(settings, settings.customTheme);
-          }
-        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
-
-  /// v1 → v2: insert a `Workouts` level between routines and their exercises.
-  ///
-  /// The name `workouts` used to mean "a logged session", so the old tables are
-  /// renamed out of the way first. Every existing routine becomes a routine
-  /// holding exactly one workout of the same name, which keeps its exercises.
-  Future<void> _migrateToWorkouts(Migrator m) async {
-    // 1. Logged sessions: workouts → sessions, workout_sets → session_sets.
-    //    SQLite rewrites the dependent foreign-key clauses as part of a rename.
-    await customStatement('ALTER TABLE workouts RENAME TO sessions');
-    await customStatement('ALTER TABLE workout_sets RENAME TO session_sets');
-    await customStatement(
-        'ALTER TABLE session_sets RENAME COLUMN workout_id TO session_id');
-    await customStatement('ALTER TABLE sessions ADD COLUMN workout_id INTEGER');
-
-    // 2. `workouts` now means a day inside a routine — one per old routine.
-    //
-    //    Spelled out rather than created from the table definition: a
-    //    `createTable` here would build whatever the schema looks like *today*,
-    //    and every later step would then try to add columns this table already
-    //    has. A migration step has to produce the shape of its own era.
-    await customStatement('''
-      CREATE TABLE "workouts" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-        "routine_id" INTEGER NOT NULL REFERENCES routines (id) ON DELETE CASCADE,
-        "name" TEXT NOT NULL, "position" INTEGER NOT NULL DEFAULT 0)
-    ''');
-    await customStatement(
-        'INSERT INTO workouts (routine_id, name, position) '
-        'SELECT id, name, 0 FROM routines');
-
-    // 3. Exercise slots hang off a workout instead of a routine.
-    await customStatement('''
-      CREATE TABLE "workout_items" (
-        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-        "workout_id" INTEGER NOT NULL REFERENCES workouts (id) ON DELETE CASCADE,
-        "exercise_id" INTEGER NOT NULL REFERENCES exercises (id),
-        "position" INTEGER NOT NULL DEFAULT 0,
-        "target_sets" INTEGER NOT NULL DEFAULT 3,
-        "reps_min" INTEGER NOT NULL DEFAULT 8, "reps_max" INTEGER NULL,
-        "to_failure" INTEGER NOT NULL DEFAULT 0, "rest_seconds" INTEGER NULL,
-        "suggested_weight" REAL NULL)
-    ''');
-    await customStatement('''
-      INSERT INTO workout_items (workout_id, exercise_id, position, target_sets,
-                                 reps_min, reps_max, to_failure, rest_seconds,
-                                 suggested_weight)
-      SELECT w.id, ri.exercise_id, ri.position, ri.target_sets, ri.reps_min,
-             ri.reps_max, ri.to_failure, ri.rest_seconds, ri.suggested_weight
-      FROM routine_items ri
-      JOIN workouts w ON w.routine_id = ri.routine_id
-    ''');
-    await customStatement('DROP TABLE routine_items');
-
-    // 4. The Today tab's current-routine pointer. Left null on upgrade: a v1
-    //    user had several routines and we should not guess which one.
-    await customStatement(
-        'ALTER TABLE settings ADD COLUMN active_routine_id INTEGER');
-
-    // 5. Point old history at the workout it would have been, where we can.
-    await customStatement(
-        'UPDATE sessions SET workout_id = ('
-        'SELECT w.id FROM workouts w WHERE w.routine_id = sessions.routine_id'
-        ') WHERE routine_id IS NOT NULL');
-  }
 
   // ---- Exercise library --------------------------------------------------
 

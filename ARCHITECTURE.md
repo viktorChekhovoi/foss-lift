@@ -442,13 +442,12 @@ you never looked at.
 
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
-  `build_runner`, add a query method, expose it via a provider. Bump
-  `schemaVersion` (currently **9**) and add an `onUpgrade` step. Migrations are
-  tested against a hand-written DDL fixture of the old schema — see
-  `test/migration_test.dart` for the pattern.
-  A migration step must build the shape of *its own era*: create tables with
-  explicit DDL, never `m.createTable`, which would emit today's columns and
-  leave every later `addColumn` duplicating them.
+  `build_runner`, add a query method, expose it via a provider. The schema is a
+  single clean **v1** (`schemaVersion => 1`, `onCreate` builds every table and
+  seeds it) — the app has only ever run on one phone, so the old migration
+  ladder was collapsed. If a future change needs to preserve installed data,
+  bump `schemaVersion` and add an `onUpgrade` step; a migration step must build
+  the shape of *its own era* (explicit DDL, never `m.createTable`).
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,
   and a control in `settings_screen.dart`.
 - **Roadmap features** (plate math, charts, sharing, themes) are ranked in the GitHub issue tracker. Most build on the data model already in

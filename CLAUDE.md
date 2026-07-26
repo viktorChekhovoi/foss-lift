@@ -2,6 +2,21 @@
 
 Guidance for Claude Code when working in this repository.
 
+# Key coding strategy
+
+Do not deviate from these rules. They describe important approaches to writing code and features.
+
+1. NEVER write 'implementation tests'
+2. Only write integration tests based on feature descriptions outlined in 'features/'
+3. Always notify me when 'features/' is changed at all
+4. Aim for high test coverage; 100% is not necessary, but each uncovered line should have good reason for being skipped - e.g., 'this line is for a rare filesystem exception'
+5. When implementing any changes, follow the red-green-refactor strategy: 
+    1. Take the delta-specification from Github Issues or 'features/'
+    2. Spawn an agent with that delta information and other relevant context from 'features/', and have it write integration tests that follow this spec
+    3. Write the code to make the tests pass without a focus on efficiency.
+    4. Refactor the code while keeping the tests passing to remove code duplication, inefficiencies, and suboptimal practices
+6. Do NOT write duplicate code. DO NOT NEVER EVER
+
 ## What this is
 
 FossLift — an offline, on-device Flutter workout tracker. No network, no auth,
