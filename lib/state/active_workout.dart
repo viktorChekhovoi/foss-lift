@@ -89,6 +89,7 @@ class ExerciseEntry {
     this.warmupCount = 0,
     this.warmupWorkingKg,
     this.warmupBarKg = 0,
+    this.warmupLadder = const [],
     this.warmupRestSeconds = kWarmupRestSeconds,
   }) : warmups = warmups ?? <SetEntry>[];
   final int? exerciseId;
@@ -111,8 +112,8 @@ class ExerciseEntry {
   final List<SetEntry> warmups;
 
   /// How many warm-up sets are asked for. Adjustable live; the ramp is
-  /// regenerated from [warmupWorkingKg]/[warmupBarKg] when it changes. May
-  /// exceed [warmups]`.length` when rounding collapses two steps into one.
+  /// regenerated from [warmupWorkingKg]/[warmupBarKg]/[warmupLadder] when it
+  /// changes. May exceed [warmups]`.length` when two steps want the same load.
   int warmupCount;
 
   /// The working weight the warm-up ramp climbs toward, or null when this
@@ -123,6 +124,12 @@ class ExerciseEntry {
   /// The bar the warm-up ramp stands on — the resolved bar for a barbell lift,
   /// 0 for a machine or dumbbell where there is no empty bar to start from.
   final double warmupBarKg;
+
+  /// The loads this exercise can actually be set to at this gym — every rung the
+  /// ramp is allowed to land on. Resolved once at start (it needs the unit and
+  /// the plate rack) and carried so the ramp can be rebuilt without going back
+  /// to the database. See [loadLadder].
+  final List<LoadRung> warmupLadder;
 
   /// Rest after a warm-up set — shorter than [restSeconds], see
   /// [kWarmupRestSeconds].
@@ -274,11 +281,17 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       routineId = workout.routineId;
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
-      // Read once for the whole session: the warm-up ramp needs the gym's
-      // default bar to stand a barbell lift on, and the unit only to fall back
-      // to the standard bar when nothing has ever been configured.
+      // Read once for the whole session: the warm-up ramp needs the gym's bar
+      // and rack to know which loads a barbell lift can be built to, and the
+      // unit to know what increments its dumbbells and stacks come in.
       final unit = await _db.watchWeightUnit().first;
-      final setup = await _db.watchPlateSetup().first;
+      final stored = await _db.watchPlateSetup().first;
+      final setup = resolvePlateSettings(
+        unit: unit,
+        kgRack: stored.kgRack,
+        lbRack: stored.lbRack,
+        barKg: stored.barKg,
+      );
       for (final v in items) {
         final mode = v.item.progression;
         // The goal is the hold for a timed exercise, and otherwise the top of
@@ -292,9 +305,18 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
         // load: a plank or a bodyweight movement has nothing to ramp toward.
         final hasLoad = !mode.timed && w != null && w > 0;
         final warmupBar = hasLoad && v.exercise.weightType == WeightType.bar
-            ? (v.exercise.barWeight ?? setup.barKg ?? defaultBarKg(unit))
+            ? (v.exercise.barWeight ?? setup.barKg)
             : 0.0;
         final warmupCount = hasLoad ? kDefaultWarmupSets : 0;
+        final ladder = hasLoad
+            ? loadLadder(
+                type: v.exercise.weightType,
+                unit: unit,
+                maxKg: w,
+                barKg: warmupBar,
+                inventory: setup.plates,
+              )
+            : const <LoadRung>[];
         exercises.add(ExerciseEntry(
           exerciseId: v.exercise.id,
           itemId: v.item.id,
@@ -306,8 +328,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           warmupWorkingKg: hasLoad ? w : null,
           warmupBarKg: warmupBar,
+          warmupLadder: ladder,
           warmupCount: warmupCount,
-          warmups: hasLoad ? _warmupSetsFor(w, warmupBar, warmupCount) : null,
+          warmups: hasLoad
+              ? _warmupSetsFor(w, warmupBar, ladder, warmupCount)
+              : null,
           sets: List.generate(
             v.item.targetSets,
             (_) => SetEntry(goal: goal, goalWeight: w, timed: mode.timed),
@@ -359,8 +384,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 
   /// Dials the warm-up ramp for one exercise up or down and rebuilds it. The
   /// count is clamped to 0..[kMaxWarmupSets]; the ramp is regenerated from the
-  /// stored working weight and bar, so any warm-up already ticked off is reset
-  /// — a different ramp is a different set of numbers.
+  /// stored working weight, bar and ladder, so any warm-up already ticked off is
+  /// reset — a different ramp is a different set of numbers.
   void setWarmupCount(int ei, int count) {
     final s = state;
     if (s == null) return;
@@ -370,7 +395,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     e.warmupCount = n;
     e.warmups
       ..clear()
-      ..addAll(_warmupSetsFor(e.warmupWorkingKg!, e.warmupBarKg, n));
+      ..addAll(
+          _warmupSetsFor(e.warmupWorkingKg!, e.warmupBarKg, e.warmupLadder, n));
     state = s.copyWith();
   }
 
@@ -500,9 +526,19 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 /// weight and reps as its goal, exactly like a working set, so the same tap
 /// cycle and weight field work on it — but it lives in [ExerciseEntry.warmups]
 /// and so answers to nothing that counts.
-List<SetEntry> _warmupSetsFor(double workingKg, double barKg, int count) => [
-      for (final s
-          in computeWarmups(workingKg: workingKg, barKg: barKg, sets: count))
+List<SetEntry> _warmupSetsFor(
+  double workingKg,
+  double barKg,
+  List<LoadRung> ladder,
+  int count,
+) =>
+    [
+      for (final s in computeWarmups(
+        workingKg: workingKg,
+        ladder: ladder,
+        barKg: barKg,
+        sets: count,
+      ))
         SetEntry(goal: s.reps, goalWeight: s.weightKg, weight: s.weightKg),
     ];
 

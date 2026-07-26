@@ -55,6 +55,14 @@ WeightType weightTypeForEquipment(String equipment) =>
 /// and for a solved stack ("two 20s go on each side").
 typedef PlateStack = ({double kg, int count});
 
+/// A load the gym can actually be set to, and what it costs to set up: plates
+/// per side on a bar, and zero for a dumbbell or a stack, where you pick a
+/// number off the rack and there is nothing to load.
+///
+/// A ladder of these is what stops a suggested weight being arithmetic nobody
+/// can build — see [loadLadder] and the warm-up ramp that consumes it.
+typedef LoadRung = ({double kg, int cost});
+
 /// The bar and the plates as the user has them, resolved — see
 /// [resolvePlateSettings]. Weights are canonical kilograms like everywhere
 /// else; the editor converts at the view boundary.
@@ -79,6 +87,18 @@ const kDefaultPlateCount = 2;
 /// and every rack has a pile of them, so five pairs is the realistic default
 /// where one pair is right for the rest.
 const kDefaultBigPlateCount = 10;
+
+/// The increment a gym buys dumbbells in, named in the unit it counts by: a
+/// pounds gym's rack climbs in 5s, a metric one's in 2.5s. Half-steps exist in
+/// the light end of some racks, but suggesting a bell nobody stocks is worse
+/// than suggesting the one next to it.
+const kDumbbellStepLb = 5.0;
+const kDumbbellStepKg = 2.5;
+
+/// The increment a machine's stack moves in — five of whatever the gym counts
+/// in, which is what the pins on a selectorised stack are labelled with.
+const kStackStepLb = 5.0;
+const kStackStepKg = 5.0;
 
 /// Two weights within this of each other are the same weight. Plate maths runs
 /// on rounded grams, and a pound plate converts to kilograms with a tail on it,
@@ -254,40 +274,13 @@ PlateSolution solvePlates({
   final barG = (bar * 1000).round();
   if (targetG <= barG) return barOnly();
 
-  // Grams, so the search runs on integers: a pound plate in kilograms is a
-  // number with a tail, and floating-point sums of those do not compare equal
-  // to anything.
-  final kinds = [
-    for (final p in sortedPlates(inventory))
-      if (p.kg > 0 && p.count >= 2)
-        (kg: p.kg, g: (p.kg * 1000).round(), pairs: p.count ~/ 2),
-  ]..removeWhere((k) => k.g <= 0);
+  final kinds = _pairKinds(inventory);
   if (kinds.isEmpty) return barOnly();
 
   final neededG = ((targetG - barG) / 2).round();
   // No point building a stack more than one plate past the target: drop that
   // plate and it is still at least as close.
-  final limit = neededG + kinds.first.g;
-
-  // Reachable per-side loads → how many of each kind make them. Keyed by the
-  // load so the same weight reached two ways is stored once, keeping the
-  // fewest-plates version.
-  var reachable = <int, List<int>>{0: List.filled(kinds.length, 0)};
-  for (var i = 0; i < kinds.length; i++) {
-    final next = Map<int, List<int>>.from(reachable);
-    for (final entry in reachable.entries) {
-      for (var k = 1; k <= kinds[i].pairs; k++) {
-        final sum = entry.key + k * kinds[i].g;
-        if (sum > limit) break;
-        final counts = [...entry.value];
-        counts[i] = k;
-        final held = next[sum];
-        if (held == null || _betterStack(counts, held)) next[sum] = counts;
-      }
-    }
-    reachable = next;
-    if (reachable.length > kPlateSearchCap) break;
-  }
+  final reachable = _reachablePerSide(kinds, neededG + kinds.first.g);
 
   var bestSum = 0;
   var bestCounts = reachable[0]!;
@@ -298,22 +291,138 @@ PlateSolution solvePlates({
     }
   }
 
-  final plates = <PlateStack>[];
-  var perSide = 0.0;
-  for (var i = 0; i < kinds.length; i++) {
-    if (bestCounts[i] == 0) continue;
-    plates.add((kg: kinds[i].kg, count: bestCounts[i]));
-    perSide += kinds[i].kg * bestCounts[i];
-  }
-
+  final best = _stack(kinds, bestCounts);
   return PlateSolution(
     targetKg: targetKg,
-    // From the plate weights themselves rather than the rounded grams, so a
-    // stack that makes exactly 225 lb reads as 225 lb and not 224.998.
-    achievedKg: bar + 2 * perSide,
+    achievedKg: bar + 2 * best.perSideKg,
     barKg: bar,
-    plates: plates,
+    plates: best.plates,
   );
+}
+
+/// Every load a [barKg] bar can be built to with [inventory], up to [maxKg] —
+/// ascending, each paired with the plates per side it costs.
+///
+/// The empty bar is always the first rung: it is a load like any other, and it
+/// is the one a warm-up starts on. Where two stacks make the same weight only
+/// the better one is kept (see [_betterStack]), so a rung's cost is the fewest
+/// plates it will ever need.
+List<LoadRung> barLoadLadder({
+  required double barKg,
+  required List<PlateStack> inventory,
+  required double maxKg,
+}) {
+  final bar = barKg < 0 ? 0.0 : barKg;
+  final ladder = <LoadRung>[(kg: bar, cost: 0)];
+  final kinds = _pairKinds(inventory);
+  final limitG = ((maxKg - bar) / 2 * 1000).round();
+  if (kinds.isEmpty || limitG <= 0) return ladder;
+
+  for (final entry in _reachablePerSide(kinds, limitG).entries) {
+    if (entry.key == 0) continue; // the empty bar, already the first rung
+    final s = _stack(kinds, entry.value);
+    ladder.add((kg: bar + 2 * s.perSideKg, cost: _plates(entry.value)));
+  }
+  return ladder..sort((a, b) => a.kg.compareTo(b.kg));
+}
+
+/// Loads on a fixed [stepKg] grid up to [maxKg], ascending — a rack of
+/// dumbbells or a machine's stack, where the gym chose the increments and no
+/// two settings cost anything different to reach.
+List<LoadRung> gridLoadLadder({
+  required double stepKg,
+  required double maxKg,
+}) {
+  if (stepKg <= 0 || maxKg < stepKg) return const [];
+  final rungs = ((maxKg + kPlateToleranceKg) / stepKg).floor();
+  // Multiplied out rather than accumulated, so the hundredth rung of a
+  // pound-derived grid is still exactly a hundred of them.
+  return [for (var i = 1; i <= rungs; i++) (kg: stepKg * i, cost: 0)];
+}
+
+/// The loads an exercise of [type] can actually be set to at this gym, up to
+/// [maxKg]: what a suggested weight — a warm-up rung — has to land on.
+///
+/// [barKg] and [inventory] are only read for a bar. Everything else comes off a
+/// rack in whole increments of whatever the gym counts in, so [unit] decides
+/// them: [kDumbbellStepLb] and [kStackStepLb] in a pounds gym, their metric
+/// counterparts otherwise.
+List<LoadRung> loadLadder({
+  required WeightType type,
+  required String unit,
+  required double maxKg,
+  double barKg = 0,
+  List<PlateStack> inventory = const [],
+}) =>
+    switch (type) {
+      WeightType.bar =>
+        barLoadLadder(barKg: barKg, inventory: inventory, maxKg: maxKg),
+      WeightType.dumbbell => gridLoadLadder(
+          stepKg: unit == 'lb' ? toKg(kDumbbellStepLb, 'lb') : kDumbbellStepKg,
+          maxKg: maxKg,
+        ),
+      WeightType.machine => gridLoadLadder(
+          stepKg: unit == 'lb' ? toKg(kStackStepLb, 'lb') : kStackStepKg,
+          maxKg: maxKg,
+        ),
+    };
+
+/// The inventory as the search wants it: pairs only — an odd plate is stock the
+/// bar cannot use — heaviest first, and in whole grams.
+///
+/// Grams so the search runs on integers: a pound plate in kilograms is a number
+/// with a tail, and floating-point sums of those do not compare equal to
+/// anything.
+List<_Kind> _pairKinds(List<PlateStack> inventory) => [
+      for (final p in sortedPlates(inventory))
+        if (p.kg > 0 && p.count >= 2)
+          (kg: p.kg, g: (p.kg * 1000).round(), pairs: p.count ~/ 2),
+    ]..removeWhere((k) => k.g <= 0);
+
+/// One plate size the search may draw on: its weight, the same in grams, and
+/// how many pairs of it the gym owns.
+typedef _Kind = ({double kg, int g, int pairs});
+
+/// Per-side loads in grams → how many of each kind makes them, for every load
+/// up to [limitG]. Keyed by the load, so the same weight reached two ways is
+/// stored once — the [_betterStack] way.
+Map<int, List<int>> _reachablePerSide(List<_Kind> kinds, int limitG) {
+  var reachable = <int, List<int>>{0: List.filled(kinds.length, 0)};
+  for (var i = 0; i < kinds.length; i++) {
+    final next = Map<int, List<int>>.from(reachable);
+    for (final entry in reachable.entries) {
+      for (var k = 1; k <= kinds[i].pairs; k++) {
+        final sum = entry.key + k * kinds[i].g;
+        if (sum > limitG) break;
+        final counts = [...entry.value];
+        counts[i] = k;
+        final held = next[sum];
+        if (held == null || _betterStack(counts, held)) next[sum] = counts;
+      }
+    }
+    reachable = next;
+    if (reachable.length > kPlateSearchCap) break;
+  }
+  return reachable;
+}
+
+/// The stack [counts] describes: what goes on one side, heaviest first, and
+/// what it weighs.
+///
+/// Summed from the plate weights themselves rather than the rounded grams, so a
+/// stack that makes exactly 225 lb reads as 225 lb and not 224.998.
+({List<PlateStack> plates, double perSideKg}) _stack(
+  List<_Kind> kinds,
+  List<int> counts,
+) {
+  final plates = <PlateStack>[];
+  var perSideKg = 0.0;
+  for (var i = 0; i < kinds.length; i++) {
+    if (counts[i] == 0) continue;
+    plates.add((kg: kinds[i].kg, count: counts[i]));
+    perSideKg += kinds[i].kg * counts[i];
+  }
+  return (plates: plates, perSideKg: perSideKg);
 }
 
 int _plates(List<int> counts) => counts.fold(0, (a, b) => a + b);

@@ -21,6 +21,7 @@ import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
@@ -334,6 +335,120 @@ void main() {
         await stop(tester);
       },
     );
+  });
+
+  group('Warm-up rungs land on loads the gym can actually set', () {
+    // Every rung of a ramp has to be a weight you can walk up to the rack and
+    // make — and the cheapest such weight near the step, so a warm-up costs one
+    // pair of plates rather than four. See features/04-live-session.md.
+
+    /// Whether [kg] sits on a [step]-sized grid (2.5 kg dumbbells, 5 lb stacks).
+    bool onGrid(double kg, double step) {
+      final n = kg / step;
+      return (n - n.roundToDouble()).abs() < 1e-6;
+    }
+
+    /// The warm-up rungs of the exercise at [ei], in the display unit.
+    List<double> rungsIn(String unit, int ei) => session()
+        .exercises[ei]
+        .warmups
+        .map((s) => toDisplayWeight(s.weight, unit))
+        .toList();
+
+    test('a barbell ramp always starts on the empty bar', () async {
+      await startPush();
+      // Bench Press, 80 kg over the default 20 kg bar.
+      expect(session().exercises[0].warmups.first.weight, 20.0);
+      // And it still does after the count is dialled up or down.
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      for (final n in [1, 2, kMaxWarmupSets]) {
+        ctl.setWarmupCount(0, n);
+        expect(
+          session().exercises[0].warmups.first.weight,
+          20.0,
+          reason: 'ramp of $n should still open on the empty bar',
+        );
+      }
+    });
+
+    test('every barbell rung is loadable, and cheap to load', () async {
+      await startPush();
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      ctl.setWarmupCount(0, kMaxWarmupSets);
+      final rack = defaultPlatesFor('kg');
+      for (final s in session().exercises[0].warmups.skip(1)) {
+        final sol = solvePlates(targetKg: s.weight, barKg: 20, inventory: rack);
+        expect(sol.exact, isTrue, reason: '${s.weight} kg cannot be loaded');
+        final perSide = sol.plates.fold<int>(0, (a, p) => a + p.count);
+        expect(
+          perSide,
+          lessThanOrEqualTo(2),
+          reason: '${s.weight} kg needs $perSide plates a side',
+        );
+      }
+    });
+
+    test('a pounds gym ramps 45 → 95 → 135, one pair at a time', () async {
+      await db.setWeightUnit('lb');
+      await startPush();
+      expect(rungsIn('lb', 0).map((w) => w.round()).toList(), [45, 95, 135]);
+    });
+
+    test('a dumbbell ramp moves in the steps a gym stocks', () async {
+      await startPush();
+      // Incline DB Press, 30 kg a hand: metric racks go up in 2.5s.
+      final kg = rungsIn('kg', 2);
+      expect(kg, isNotEmpty);
+      for (final w in kg) {
+        expect(onGrid(w, 2.5), isTrue, reason: '$w kg is not a stocked bell');
+      }
+
+      // The same rack counted in pounds goes up in 5s.
+      await db.setWeightUnit('lb');
+      container!.dispose();
+      await startPush();
+      final lb = rungsIn('lb', 2);
+      expect(lb, isNotEmpty);
+      for (final w in lb) {
+        expect(onGrid(w, 5), isTrue, reason: '$w lb is not a stocked bell');
+      }
+    });
+
+    test('a machine ramp moves in multiples of five', () async {
+      await startPush();
+      // Triceps Pushdown, 35 kg on a stack.
+      final kg = rungsIn('kg', 4);
+      expect(kg, isNotEmpty);
+      for (final w in kg) {
+        expect(onGrid(w, 5), isTrue, reason: '$w kg is not a stack setting');
+      }
+
+      await db.setWeightUnit('lb');
+      container!.dispose();
+      await startPush();
+      final lb = rungsIn('lb', 4);
+      expect(lb, isNotEmpty);
+      for (final w in lb) {
+        expect(onGrid(w, 5), isTrue, reason: '$w lb is not a stack setting');
+      }
+    });
+
+    test('a ramp of any length stays ascending and under the work', () async {
+      final ctl = await startPush();
+      for (var ei = 0; ei < kPushSize; ei++) {
+        final working = session().exercises[ei].sets.first.goalWeight!;
+        for (var n = 1; n <= kMaxWarmupSets; n++) {
+          ctl.setWarmupCount(ei, n);
+          final w = session().exercises[ei].warmups.map((s) => s.weight);
+          expect(w.length, lessThanOrEqualTo(n));
+          expect(w.every((x) => x > 0 && x < working), isTrue,
+              reason: 'exercise $ei, $n sets: $w against $working');
+          for (var i = 1; i < w.length; i++) {
+            expect(w.elementAt(i), greaterThan(w.elementAt(i - 1)));
+          }
+        }
+      }
+    });
   });
 
   group('The plate line describes the working bar', () {

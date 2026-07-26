@@ -7,6 +7,8 @@
 /// own where it can be read and tested is the whole of it.
 library;
 
+import 'plates.dart';
+
 /// One suggested warm-up set. [weightKg] is canonical kilograms like every
 /// weight in the app; the UI converts at the view boundary. [reps] drops as the
 /// weight climbs — a warm-up primes the movement, it does not pre-fatigue it.
@@ -27,6 +29,14 @@ const kMaxWarmupSets = 6;
 /// earns.
 const kWarmupRestSeconds = 45;
 
+/// Where a ramp starts when there is no empty bar to start on: a dumbbell or a
+/// stack has no natural floor, and 40% of the work is light enough to be free.
+const kWarmupStartFraction = 0.40;
+
+/// Where the ramp aims to finish — a clear margin below the work, so the last
+/// warm-up is still a warm-up and not a first working set.
+const kWarmupTopFraction = 0.85;
+
 /// The reps to suggest at a given fraction of the working weight. Monotonic by
 /// design: the heavier the warm-up, the fewer reps.
 int warmupReps(double fractionOfWorking) {
@@ -36,64 +46,110 @@ int warmupReps(double fractionOfWorking) {
   return 2;
 }
 
-/// A ramp of [sets] warm-up sets climbing toward [workingKg].
+/// A ramp of [sets] warm-up sets climbing toward [workingKg], using only loads
+/// from [ladder] — the weights this gym can actually be set to, see
+/// [loadLadder].
 ///
-/// The heaviest warm-up sits a clear margin below the working weight (never at
-/// or above it — that is the work, not a warm-up), and the lightest starts at
-/// the empty bar for a barbell ([barKg] > 0) or around 40% for anything else.
-/// Weights are rounded to [roundingKg] so the ramp lands on numbers a rack can
-/// build; the caller's plate solver turns each into a per-side breakdown.
+/// **A barbell ramp starts on the empty bar.** Pass the bar as [barKg] and the
+/// first rung is the bar itself; everything above it is a load the plates can
+/// build, chosen to need as few of them as possible. That is what makes a ramp
+/// toward 225 lb read *45 → 95 → 135 → 185* — one pair a step, in sizes a
+/// lifter reaches for — rather than the arithmetically even 81/117/153/189,
+/// which is four plates a side and a trip to the rack between every set.
+/// Without a bar ([barKg] `<= 0`, a dumbbell or a machine) the ramp starts at
+/// [kWarmupStartFraction] of the work instead, and every rung lands on the
+/// increment the gym stocks.
 ///
 /// Returns an empty list when there is nothing to ramp: a zero (or negative)
-/// [sets] or [workingKg], or a working weight barely above where the ramp would
-/// begin (an empty-bar squat has no warm-up below the bar). Rounding can push
-/// two neighbouring steps onto the same load — those collisions are dropped, so
-/// a very light working weight yields fewer sets than asked rather than a ramp
-/// that stalls or steps backward.
+/// [sets] or [workingKg], an empty [ladder], or a working weight at or below
+/// where the ramp would begin (an empty-bar squat has no warm-up below the
+/// bar). Two neighbouring steps can also want the same rung — a light working
+/// weight on a coarse grid — and those collisions are dropped, so the ramp
+/// comes back shorter than asked rather than stalling or stepping backward.
 List<WarmupSet> computeWarmups({
   required double workingKg,
+  required List<LoadRung> ladder,
   double barKg = 0,
   int sets = kDefaultWarmupSets,
-  double roundingKg = 2.5,
 }) {
   if (sets <= 0 || workingKg <= 0) return const [];
   final bar = barKg < 0 ? 0.0 : barKg;
-  final step = roundingKg <= 0 ? 2.5 : roundingKg;
+  final start = bar > 0 ? bar : workingKg * kWarmupStartFraction;
 
-  // The heaviest warm-up stays a rounding step below the work; the lightest
-  // starts at the bar, or ~40% when there is no bar to stand on. If the work is
-  // not clearly above that start, there is no room for a ramp.
-  final ceiling = workingKg - step;
-  final floor = bar > 0 ? bar : workingKg * 0.40;
-  if (ceiling <= floor) return const [];
+  // The rungs this ramp may use: at or above where it starts, and below the
+  // work — the work is the work, not a warm-up.
+  final rungs = [
+    for (final r in ladder)
+      if (r.kg >= start - kPlateToleranceKg &&
+          r.kg < workingKg - kPlateToleranceKg)
+        r,
+  ]..sort((a, b) => a.kg.compareTo(b.kg));
+  if (rungs.isEmpty) return const [];
 
-  const topFraction = 0.85;
-  final top = workingKg * topFraction <= ceiling
-      ? workingKg * topFraction
-      : ceiling;
-
-  double fractionAt(int i) {
-    final lo = floor / workingKg;
-    final hi = top / workingKg;
-    if (sets == 1) return (lo + hi) / 2;
-    return lo + (hi - lo) * i / (sets - 1);
-  }
-
-  double roundKg(double kg) => (kg / step).round() * step;
+  // The ramp spans the lightest usable rung to [kWarmupTopFraction] of the
+  // work, or as close to it as the ladder reaches.
+  final floor = rungs.first.kg;
+  final top = (workingKg * kWarmupTopFraction).clamp(floor, rungs.last.kg);
+  final gap = sets == 1 ? top - floor : (top - floor) / (sets - 1);
 
   final out = <WarmupSet>[];
   double? last;
   for (var i = 0; i < sets; i++) {
-    final frac = fractionAt(i);
-    var w = roundKg(workingKg * frac);
-    // Never below the empty bar — the bar itself is a legitimate first warm-up,
-    // even when it does not sit on the rounding grid (a 45 lb bar in kg).
-    if (bar > 0 && w < bar) w = bar;
-    if (w <= 0) continue;
-    if (w >= workingKg - 1e-9) continue; // that is the working set, not a warm-up
-    if (last != null && w <= last + 1e-9) continue; // rounding collision
-    out.add((weightKg: w, reps: warmupReps(frac)));
-    last = w;
+    // One warm-up sits in the middle of the ramp rather than at the bottom of
+    // it; more than one steps evenly from floor to top.
+    final ideal = sets == 1 ? floor + gap / 2 : floor + gap * i;
+    // Half a step either way: near enough to keep the ramp's shape, wide
+    // enough to trade an exact percentage for a load worth loading.
+    final pick = _pickRung(rungs, ideal: ideal, window: gap / 2, above: last);
+    if (pick == null) continue; // nothing left between here and the work
+    out.add((weightKg: pick, reps: warmupReps(pick / workingKg)));
+    last = pick;
   }
   return out;
 }
+
+/// The load to use for one step of a ramp: the cheapest rung within [window] of
+/// [ideal], or — when the ladder has nothing that close — the nearest rung
+/// there is. Rungs at or below [above] are already behind us and ignored.
+///
+/// Null when every rung is behind us, which is how a ramp comes back shorter
+/// than it was asked for.
+double? _pickRung(
+  List<LoadRung> rungs, {
+  required double ideal,
+  required double window,
+  double? above,
+}) {
+  final open = [
+    for (final r in rungs)
+      if (above == null || r.kg > above + kPlateToleranceKg) r,
+  ];
+  if (open.isEmpty) return null;
+  final near = [
+    for (final r in open)
+      if ((r.kg - ideal).abs() <= window + kPlateToleranceKg) r,
+  ];
+  final candidates = near.isNotEmpty ? near : open;
+  candidates.sort(_byFitness(ideal, cheapestFirst: near.isNotEmpty));
+  return candidates.first.kg;
+}
+
+/// Orders the rungs that could serve one step of the ramp.
+///
+/// [cheapestFirst] is the normal case: among the loads near the step, the one
+/// that costs the fewest plates wins. When nothing is near the step there is no
+/// cheapness to trade for, so the closest load wins instead. Ties go to the
+/// lighter rung either way — a warm-up that misses should miss light.
+int Function(LoadRung, LoadRung) _byFitness(
+  double ideal, {
+  required bool cheapestFirst,
+}) =>
+    (a, b) {
+      final cost = a.cost.compareTo(b.cost);
+      if (cheapestFirst && cost != 0) return cost;
+      final near =
+          (a.kg - ideal).abs().compareTo((b.kg - ideal).abs());
+      if (near != 0) return near;
+      if (cost != 0) return cost;
+      return a.kg.compareTo(b.kg);
+    };

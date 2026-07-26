@@ -13,7 +13,8 @@ you're done.
 - **Runs a rest timer** using each slot's configured rest, with
   shorter / longer / skip controls.
 - **Suggests warm-up sets** for barbell/weighted lifts — an ascending ramp toward
-  the working weight — kept separate from the working sets.
+  the working weight, landing only on loads the gym can actually be set to —
+  kept separate from the working sets.
 - **Survives being collapsed** — leave the session and a "Resume workout" pill
   floats over every other screen.
 - **On Finish**, writes only the completed sets, advances progression, and opens
@@ -42,6 +43,23 @@ you're done.
   sets and are excluded from every working-set aggregate (verdict, volume, set
   count). Warm-up rest is its own shorter interval, and the group carries a
   liability disclaimer.
+- **Every warm-up rung is a load the gym can be set to.** A ramp of percentages
+  is useless if nobody can build the numbers, so each step lands on the nearest
+  *cheap* real load rather than the exact percentage:
+  - **Barbell — always starts on the empty bar**, and each later rung is a
+    weight the plates can make, preferring the fewest plates per side. Working
+    up to 225 lb over a 45 lb bar gives **45 → 95 → 135 → 185**: one pair a
+    step, in the sizes a lifter reaches for. (In a metric gym, 80 kg over a
+    20 kg bar gives 20 → 40 → 70.)
+  - **Dumbbell — the increments a gym stocks bells in**: multiples of 5 lb, or
+    2.5 kg in a metric gym.
+  - **Machine/cable — multiples of 5**, which is how a stack is labelled, in
+    either unit.
+  - The ramp starts on the empty bar for a barbell and at ~40% of the work for
+    anything else (a dumbbell has no empty bar to stand on), and tops out around
+    85% of the work. Where a coarse grid puts two steps on the same load the
+    duplicate is dropped, so a light lift gets a shorter ramp than asked for
+    rather than one that stalls or steps backward.
 - **A tap cycles differently for timed sets** — goal ⇄ untouched, since nobody
   taps a plank down a second at a time.
 - **A missed set** is one that fell short on reps/seconds *or* weight (deloading
@@ -53,7 +71,8 @@ you're done.
 
 - State: `lib/state/active_workout.dart` (`SetEntry` / `ExerciseEntry` /
   `ActiveWorkout` + `ActiveWorkoutController`).
-- Warm-up ramp: `lib/data/warmup.dart`.
+- Warm-up ramp: `lib/data/warmup.dart`; the loads it may land on come from
+  `loadLadder` in `lib/data/plates.dart`.
 - Screens/widgets: `lib/screens/workout_screen.dart`,
   `lib/widgets/resume_workout_bar.dart`.
 
