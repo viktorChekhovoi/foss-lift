@@ -28,6 +28,7 @@ class AppPalette {
     required this.accentPress,
     required this.good,
     required this.gold,
+    this.accessible = false,
   });
 
   /// A stable identifier: a preset slug (e.g. `ignition`) or [kCustomThemeId]
@@ -36,6 +37,13 @@ class AppPalette {
 
   /// A human label shown in the picker.
   final String name;
+
+  /// Whether this palette is one of the deliberately high-contrast ones. It is
+  /// declared rather than measured so a theme is only ever presented as
+  /// accessible if it was designed and checked to be — see the contrast
+  /// assertions in the feature tests. It travels through [toMap]/[fromMap] so a
+  /// shared theme arrives still labelled.
+  final bool accessible;
 
   final Color ground;
   final Color surface;
@@ -57,17 +65,26 @@ class AppPalette {
       ground.computeLuminance() > 0.5 ? Brightness.light : Brightness.dark;
 
   /// A legible foreground for text/icons drawn *on* the accent. A bright accent
-  /// (the dark themes' oranges and mints) takes a very dark tint of itself, so
+  /// (the dark themes' oranges and blues) takes a very dark tint of itself, so
   /// the button reads brown-black or navy-black; a dark accent (the light
-  /// themes' saturated colours) takes white. The 0.26 cut keeps every shipped
-  /// dark preset on the dark-tint side it was designed for.
-  Color get onAccent => accent.computeLuminance() >= 0.26
-      ? Color.lerp(accent, Colors.black, 0.82)!
-      : Colors.white;
+  /// themes' saturated colours) takes white.
+  Color get onAccent => _foregroundOn(accent);
 
-  /// The same, for the "good"/completed colour — always a bright/medium green,
-  /// so a dark tint always reads on it.
-  Color get onGood => Color.lerp(good, Colors.black, 0.85)!;
+  /// The same, for the "good"/completed colour.
+  Color get onGood => _foregroundOn(good);
+
+  /// Whichever of the two candidate foregrounds actually reads better on [bg]:
+  /// a near-black tint of the colour itself, or white. Picking by measured
+  /// contrast rather than a luminance cut-off matters for mid-tone colours,
+  /// where a fixed threshold lands on the wrong side and leaves a button label
+  /// below the 4.5:1 floor — and it means a custom or imported accent gets a
+  /// readable label wherever on the scale it sits.
+  static Color _foregroundOn(Color bg) {
+    final tint = Color.lerp(bg, Colors.black, 0.86)!;
+    return contrastRatio(tint, bg) >= contrastRatio(Colors.white, bg)
+        ? tint
+        : Colors.white;
+  }
 
   AppPalette copyWith({
     String? id,
@@ -84,10 +101,12 @@ class AppPalette {
     Color? accentPress,
     Color? good,
     Color? gold,
+    bool? accessible,
   }) {
     return AppPalette(
       id: id ?? this.id,
       name: name ?? this.name,
+      accessible: accessible ?? this.accessible,
       ground: ground ?? this.ground,
       surface: surface ?? this.surface,
       surface2: surface2 ?? this.surface2,
@@ -124,6 +143,7 @@ class AppPalette {
   Map<String, dynamic> toMap() => {
         'id': id,
         'name': name,
+        'accessible': accessible,
         'colors': _roles,
       };
 
@@ -151,6 +171,7 @@ class AppPalette {
       name: (map['name'] as String?)?.trim().isNotEmpty == true
           ? map['name'] as String
           : 'Custom',
+      accessible: map['accessible'] == true,
       ground: role('ground', d.ground),
       surface: role('surface', d.surface),
       surface2: role('surface2', d.surface2),
@@ -188,6 +209,7 @@ class AppPalette {
       other is AppPalette &&
       other.id == id &&
       other.name == name &&
+      other.accessible == accessible &&
       other.ground == ground &&
       other.surface == surface &&
       other.surface2 == surface2 &&
@@ -220,6 +242,17 @@ Color? _tryHex(String hex) {
   final value = int.tryParse(s, radix: 16);
   if (value == null) return null;
   return Color(0xFF000000 | value);
+}
+
+/// The WCAG contrast ratio between two opaque colours: 1.0 when they are
+/// identical, 21.0 for black against white. 4.5 is the AA floor for body text,
+/// 7.0 the AAA floor, and 3.0 the floor for borders and other non-text UI.
+double contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final lighter = la > lb ? la : lb;
+  final darker = la > lb ? lb : la;
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 /// The id used for the one palette the user builds and edits themselves.
@@ -267,65 +300,11 @@ const AppPalette _graphite = AppPalette(
   gold: Color(0xFFFFC24B),
 );
 
-/// A green-tinted ground with a lime accent.
-const AppPalette _forest = AppPalette(
-  id: 'forest',
-  name: 'Forest',
-  ground: Color(0xFF0E1512),
-  surface: Color(0xFF141D18),
-  surface2: Color(0xFF1C2822),
-  surface3: Color(0xFF24332B),
-  line: Color(0xFF2A3A31),
-  text: Color(0xFFE7F0EA),
-  muted: Color(0xFF8DA093),
-  faint: Color(0xFF5C6F63),
-  accent: Color(0xFF5BD16A),
-  accentPress: Color(0xFF3DAE4C),
-  good: Color(0xFF6FE3C2),
-  gold: Color(0xFFF5C766),
-);
-
-/// A warm, dark ember ground with a red accent.
-const AppPalette _crimson = AppPalette(
-  id: 'crimson',
-  name: 'Crimson',
-  ground: Color(0xFF15100F),
-  surface: Color(0xFF1E1614),
-  surface2: Color(0xFF2A1E1B),
-  surface3: Color(0xFF342623),
-  line: Color(0xFF3D2C28),
-  text: Color(0xFFF3E9E7),
-  muted: Color(0xFFA8938E),
-  faint: Color(0xFF74615C),
-  accent: Color(0xFFFF5A5F),
-  accentPress: Color(0xFFE03B41),
-  good: Color(0xFF3ED598),
-  gold: Color(0xFFFFC24B),
-);
-
-/// A deep violet ground with a magenta accent.
-const AppPalette _violet = AppPalette(
-  id: 'violet',
-  name: 'Violet',
-  ground: Color(0xFF120F18),
-  surface: Color(0xFF1A1622),
-  surface2: Color(0xFF241E30),
-  surface3: Color(0xFF2D2639),
-  line: Color(0xFF372E45),
-  text: Color(0xFFECE8F5),
-  muted: Color(0xFF9B92AD),
-  faint: Color(0xFF675E78),
-  accent: Color(0xFFB26BFF),
-  accentPress: Color(0xFF9540E8),
-  good: Color(0xFF3ED598),
-  gold: Color(0xFFFFC24B),
-);
-
 // --- Light presets ---------------------------------------------------------
 // Pale grounds with dark text. Their accents are saturated and dark enough to
-// read on white (and so take white foreground on an accent button — see
-// [AppPalette.onAccent]); `good`/`gold` stay a medium tone that works both as a
-// coloured label and behind the dark-on-green markers the app draws.
+// read on white; `good`/`gold` stay a medium tone that works both as a coloured
+// label and behind the markers the app draws on them. What a filled button's
+// label ends up being is measured, not assumed — see [AppPalette.onAccent].
 
 /// A clean, cool near-white with the signature ignition orange.
 const AppPalette _daylight = AppPalette(
@@ -363,37 +342,24 @@ const AppPalette _paper = AppPalette(
   gold: Color(0xFFB87E0A),
 );
 
-/// A cool, pale green with a teal accent.
-const AppPalette _fern = AppPalette(
-  id: 'fern',
-  name: 'Fern',
-  ground: Color(0xFFF1F6F3),
-  surface: Color(0xFFFFFFFF),
-  surface2: Color(0xFFE7F0EB),
-  surface3: Color(0xFFDAE7E0),
-  line: Color(0xFFCCDCD3),
-  text: Color(0xFF15201B),
-  muted: Color(0xFF566A60),
-  faint: Color(0xFF869A8E),
-  accent: Color(0xFF0D8F6B),
-  accentPress: Color(0xFF0A6E52),
-  good: Color(0xFF16A34A),
-  gold: Color(0xFFBE871A),
-);
-
 // --- Accessibility ---------------------------------------------------------
+// One high-contrast theme per brightness, so choosing legibility never also
+// means choosing dark-on-light or light-on-dark. Both clear WCAG AAA (7:1) for
+// body text and AA (4.5:1) for the muted text and every coloured marker, on
+// both the ground and a card; borders clear the 3:1 non-text floor so structure
+// is never lost. The feature tests assert all of that.
 
-/// Maximum contrast: pure black ground, pure white text, a high-visibility
-/// yellow accent and vivid green/amber markers. Borders are lightened well past
-/// the other dark themes so structure is never lost.
-const AppPalette _highContrast = AppPalette(
+/// Maximum contrast, dark: pure black ground, pure white text, a
+/// high-visibility yellow accent and vivid green/amber markers.
+const AppPalette _highContrastDark = AppPalette(
   id: 'high_contrast',
-  name: 'High contrast',
+  name: 'High contrast dark',
+  accessible: true,
   ground: Color(0xFF000000),
   surface: Color(0xFF0A0A0A),
   surface2: Color(0xFF161616),
   surface3: Color(0xFF222222),
-  line: Color(0xFF5A5A5A),
+  line: Color(0xFF727272),
   text: Color(0xFFFFFFFF),
   muted: Color(0xFFD5D5D5),
   faint: Color(0xFFAEAEAE),
@@ -403,19 +369,36 @@ const AppPalette _highContrast = AppPalette(
   gold: Color(0xFFFFAB00),
 );
 
-/// Every preset that ships with the app. The first is the default. Ordered
-/// dark, then light, then the accessibility theme — the picker groups them by
-/// [AppPalette.brightness].
+/// The mirror image: pure white ground, pure black text, and deep saturated
+/// markers dark enough to hold 4.5:1 against the paper.
+const AppPalette _highContrastLight = AppPalette(
+  id: 'high_contrast_light',
+  name: 'High contrast light',
+  accessible: true,
+  ground: Color(0xFFFFFFFF),
+  surface: Color(0xFFFAFAFA),
+  surface2: Color(0xFFF0F0F0),
+  surface3: Color(0xFFE4E4E4),
+  line: Color(0xFF6B6B6B),
+  text: Color(0xFF000000),
+  muted: Color(0xFF2E2E2E),
+  faint: Color(0xFF4A4A4A),
+  accent: Color(0xFF0038A8),
+  accentPress: Color(0xFF002A80),
+  good: Color(0xFF0F7A3D),
+  gold: Color(0xFF8A5A00),
+);
+
+/// Every preset that ships with the app. The first is the default. Ordered dark
+/// then light, with each brightness's accessible option last in its group — the
+/// picker groups them by [AppPalette.brightness] and renders them in this order.
 const List<AppPalette> kThemePresets = [
   _ignition,
   _graphite,
-  _forest,
-  _crimson,
-  _violet,
+  _highContrastDark,
   _daylight,
   _paper,
-  _fern,
-  _highContrast,
+  _highContrastLight,
 ];
 
 /// The default palette, used when nothing has been chosen or a stored/imported

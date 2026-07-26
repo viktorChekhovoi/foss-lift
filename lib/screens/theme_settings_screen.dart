@@ -37,8 +37,10 @@ class ThemeSettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            // Presets grouped by brightness so light and dark are easy to scan.
-            // High contrast is a dark theme and sits with the darks.
+            // Presets grouped by brightness so light and dark are easy to
+            // scan. Each group ends with its high-contrast option, which the
+            // row badges — picking legibility should never also mean giving up
+            // the brightness you prefer.
             for (final group in const [
               ('DARK', Brightness.dark),
               ('LIGHT', Brightness.light),
@@ -63,8 +65,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             _ThemeOption(
-              palette: custom ??
-                  active.copyWith(id: kCustomThemeId, name: 'Custom'),
+              palette: custom ?? _seedCustom(active),
               label: custom == null ? 'Build your own' : 'Custom',
               selected: selectedId == kCustomThemeId,
               // With no custom theme yet, tapping goes straight to the editor to
@@ -110,6 +111,13 @@ class ThemeSettingsScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Re-labels [from] as the user's own theme: the custom slug, the custom name,
+/// and no accessibility claim. The claim is dropped deliberately — the shipped
+/// high-contrast palettes are checked against WCAG, and a copy the user is
+/// free to recolour has not been.
+AppPalette _seedCustom(AppPalette from) =>
+    from.copyWith(id: kCustomThemeId, name: 'Custom', accessible: false);
 
 /// Writes [palette] to a file, copies its JSON to the clipboard, and says so.
 Future<void> _export(BuildContext context, AppPalette palette) async {
@@ -229,6 +237,26 @@ class _ThemeOption extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
               ),
+              if (palette.accessible)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Tooltip(
+                    message: 'Meets WCAG AAA contrast',
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.line),
+                      ),
+                      child: Text('AAA',
+                          style: kMono.copyWith(
+                              fontSize: 10,
+                              letterSpacing: 0.8,
+                              color: AppColors.muted)),
+                    ),
+                  ),
+                ),
               if (onEdit != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
@@ -368,8 +396,7 @@ class _CustomThemeEditorScreenState
     final existing = setting?.customJson == null
         ? null
         : AppPalette.tryParse(setting!.customJson!);
-    final draft = _draft ??=
-        (existing ?? active).copyWith(id: kCustomThemeId, name: 'Custom');
+    final draft = _draft ??= _seedCustom(existing ?? active);
 
     return Scaffold(
       appBar: AppBar(

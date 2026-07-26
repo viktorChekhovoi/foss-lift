@@ -1,7 +1,8 @@
 // Integration tests for features/11-themes.md — colour themes.
 //
 // The behaviour under test, straight from the spec:
-//   * several presets ship, including a light one and a high-contrast one;
+//   * six presets ship — two dark, two light, and an accessible (high-contrast)
+//     one of each brightness;
 //   * a custom theme edits each colour role;
 //   * import/export carries the palette itself (as JSON), so a shared theme
 //     does not depend on the recipient having the preset installed;
@@ -50,27 +51,95 @@ void main() {
   });
 
   group('shipped presets', () {
-    test('several ship, including a light and a high-contrast one', () {
-      expect(kThemePresets.length, greaterThanOrEqualTo(3),
-          reason: 'the spec says "several" presets ship');
+    Iterable<AppPalette> of(Brightness b, {required bool accessible}) =>
+        kThemePresets
+            .where((p) => p.brightness == b && p.accessible == accessible);
 
-      // At least one dark and one light, grouped as the picker groups them.
-      expect(kThemePresets.any((p) => p.brightness == Brightness.dark), isTrue);
-      expect(kThemePresets.any((p) => p.brightness == Brightness.light), isTrue,
-          reason: 'a light option must ship');
-
-      final highContrast =
-          kThemePresets.where((p) => p.id == 'high_contrast').toList();
-      expect(highContrast, hasLength(1),
-          reason: 'a high-contrast option must ship');
+    test('two dark, two light, and an accessible one of each', () {
+      expect(of(Brightness.dark, accessible: false), hasLength(2),
+          reason: 'two everyday dark themes ship');
+      expect(of(Brightness.light, accessible: false), hasLength(2),
+          reason: 'two everyday light themes ship');
+      expect(of(Brightness.dark, accessible: true), hasLength(1),
+          reason: 'one accessible dark theme ships');
+      expect(of(Brightness.light, accessible: true), hasLength(1),
+          reason: 'one accessible light theme ships');
+      expect(kThemePresets, hasLength(6),
+          reason: 'and nothing else — six presets in total');
     });
 
-    test('the high-contrast preset really is maximal contrast', () {
-      final hc = kThemePresets.firstWhere((p) => p.id == 'high_contrast');
-      // Pure black on pure white text — the defining property of the theme,
-      // asserted on the palette values rather than on any label.
-      expect(hc.ground.computeLuminance(), lessThan(0.01));
-      expect(hc.text.computeLuminance(), greaterThan(0.99));
+    test('the default preset is a dark, everyday one', () {
+      expect(kThemePresets.first, equals(kDefaultPalette),
+          reason: 'the first preset is the default');
+      expect(kDefaultPalette.brightness, Brightness.dark);
+      expect(kDefaultPalette.accessible, isFalse);
+    });
+
+    test('both accessible presets really are maximal contrast', () {
+      final dark = of(Brightness.dark, accessible: true).single;
+      final light = of(Brightness.light, accessible: true).single;
+      // Pure black ground under pure white text, and the exact mirror — the
+      // defining property, asserted on the colours rather than on any label.
+      expect(dark.ground.computeLuminance(), lessThan(0.01));
+      expect(dark.text.computeLuminance(), greaterThan(0.99));
+      expect(light.ground.computeLuminance(), greaterThan(0.99));
+      expect(light.text.computeLuminance(), lessThan(0.01));
+    });
+
+    test('the accessible presets clear WCAG AAA text and AA everything else',
+        () {
+      for (final p in kThemePresets.where((p) => p.accessible)) {
+        final why = '${p.id}: ';
+        // AAA (7:1) for body text on both backgrounds it is painted over.
+        expect(contrastRatio(p.text, p.ground), greaterThanOrEqualTo(7.0),
+            reason: '${why}body text on the ground');
+        expect(contrastRatio(p.text, p.surface), greaterThanOrEqualTo(7.0),
+            reason: '${why}body text on a card');
+        // AA (4.5:1) for the secondary text and the coloured markers, which
+        // carry meaning (accent = action, good = done, gold = a record).
+        for (final pair in [
+          ('secondary text', p.muted),
+          ('the accent', p.accent),
+          ('the completed colour', p.good),
+          ('the record colour', p.gold),
+        ]) {
+          expect(contrastRatio(pair.$2, p.ground), greaterThanOrEqualTo(4.5),
+              reason: '$why${pair.$1} on the ground');
+          expect(contrastRatio(pair.$2, p.surface), greaterThanOrEqualTo(4.5),
+              reason: '$why${pair.$1} on a card');
+        }
+        // Labels drawn on top of a filled accent/good button.
+        expect(contrastRatio(p.onAccent, p.accent), greaterThanOrEqualTo(4.5),
+            reason: '${why}the label on an accent button');
+        expect(contrastRatio(p.onGood, p.good), greaterThanOrEqualTo(4.5),
+            reason: '${why}the label on a completed marker');
+        // Structure must never be lost: borders stay visible at UI contrast.
+        expect(contrastRatio(p.line, p.surface), greaterThanOrEqualTo(3.0),
+            reason: '${why}card borders');
+        expect(contrastRatio(p.line, p.ground), greaterThanOrEqualTo(3.0),
+            reason: '${why}borders against the ground');
+      }
+    });
+
+    test('every shipped preset keeps body text legible', () {
+      // Not just the accessible pair — no theme may ship unreadable text.
+      for (final p in kThemePresets) {
+        expect(contrastRatio(p.text, p.ground), greaterThanOrEqualTo(4.5),
+            reason: '${p.id}: body text on the ground');
+        expect(contrastRatio(p.text, p.surface), greaterThanOrEqualTo(4.5),
+            reason: '${p.id}: body text on a card');
+        expect(contrastRatio(p.onAccent, p.accent), greaterThanOrEqualTo(4.5),
+            reason: '${p.id}: the label on an accent button');
+      }
+    });
+
+    test('the picker groups every preset under a brightness heading', () {
+      // The screen renders a DARK and a LIGHT group; a preset that is in
+      // neither would ship invisible.
+      for (final p in kThemePresets) {
+        expect(const [Brightness.dark, Brightness.light].contains(p.brightness),
+            isTrue);
+      }
     });
 
     test('each shipped preset resolves to its own distinct palette', () {
@@ -182,9 +251,9 @@ void main() {
       final mine = _mineCustom();
       await db.setCustomTheme(mine.toJson());
       // Switch away to a preset...
-      await db.setThemePreset('forest');
+      await db.setThemePreset('graphite');
       var setting = await db.watchThemeSetting().first;
-      expect(setting.presetId, 'forest');
+      expect(setting.presetId, 'graphite');
       expect(setting.customJson, isNotNull,
           reason: 'the stored custom palette survives a switch away');
 
@@ -214,6 +283,14 @@ void main() {
         expect(imported, equals(preset),
             reason: '${preset.id} must survive an export/import round-trip');
       }
+    });
+
+    test('a shared accessible theme is still marked accessible on arrival', () {
+      final hc = kThemePresets.firstWhere((p) => p.accessible);
+      expect(AppPalette.tryParse(hc.toJson())!.accessible, isTrue,
+          reason: 'the accessibility of a shared theme travels with it');
+      final plain = kThemePresets.firstWhere((p) => !p.accessible);
+      expect(AppPalette.tryParse(plain.toJson())!.accessible, isFalse);
     });
 
     test('a truncated import keeps its own colours and fills gaps sanely', () {
@@ -253,6 +330,48 @@ void main() {
       expect(container.read(activePaletteProvider),
           equals(kThemePresets.firstWhere((p) => p.id == 'graphite')),
           reason: 'the active palette follows the picker');
+
+      await stop(tester);
+    });
+
+    testWidgets('every shipped preset is reachable by its name on the screen',
+        (tester) async {
+      await tester
+          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Including both accessible ones — a preset nobody can find is a preset
+      // nobody can pick.
+      for (final preset in kThemePresets) {
+        expect(find.text(preset.name), findsOneWidget,
+            reason: '${preset.id} should have a row on the picker');
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('picking the light accessible theme switches to a light app',
+        (tester) async {
+      await tester
+          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final light = kThemePresets
+          .firstWhere((p) => p.accessible && p.brightness == Brightness.light);
+      await tester.tap(find.text(light.name));
+      await pumpUntil(
+          tester,
+          () =>
+              container.read(themeSettingProvider).value?.presetId == light.id);
+
+      final active = container.read(activePaletteProvider);
+      expect(active, equals(light));
+      expect(active.brightness, Brightness.light,
+          reason: 'an accessible choice must not force you into dark mode');
+      expect(AppTheme.build(active).brightness, Brightness.light,
+          reason: 'and Material agrees, so system widgets follow suit');
 
       await stop(tester);
     });
