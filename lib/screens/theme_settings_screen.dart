@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -437,6 +438,11 @@ class _CustomThemeEditorScreenState
 }
 
 /// A role row in the editor: swatch, label, current hex, tap to change.
+///
+/// A long press copies the hex. The row's tap already belongs to the picker, so
+/// the hex cannot have a tap of its own — and long-press-to-copy is the gesture
+/// this app already uses for the one other string worth lifting off a screen,
+/// the demo link on an exercise.
 class _RoleRow extends StatelessWidget {
   const _RoleRow({
     required this.label,
@@ -447,12 +453,21 @@ class _RoleRow extends StatelessWidget {
   final Color color;
   final VoidCallback onPick;
 
+  Future<void> _copy(BuildContext context) async {
+    final hex = '#${_hexOf(color)}';
+    await Clipboard.setData(ClipboardData(text: hex));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Copied $hex')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPick,
+        onLongPress: () => _copy(context),
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
@@ -616,7 +631,17 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
             Row(
               children: [
                 Expanded(child: _hexField()),
-                const SizedBox(width: 10),
+                _hexAction(
+                  icon: Icons.copy_rounded,
+                  tooltip: 'Copy hex',
+                  onTap: _copyHex,
+                ),
+                _hexAction(
+                  icon: Icons.content_paste_rounded,
+                  tooltip: 'Paste hex',
+                  onTap: _pasteHex,
+                ),
+                const SizedBox(width: 6),
                 _modeToggle(),
               ],
             ),
@@ -635,6 +660,53 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
           child: const Text('Use'),
         ),
       ],
+    );
+  }
+
+  /// Puts this colour on the clipboard as `#RRGGBB`.
+  ///
+  /// The roles are families — `surface`/`surface2`/`surface3` are one hue at
+  /// three lightnesses — so building one by hand starts from the value of the
+  /// last. Retyping six hex digits to do that is the sort of thing people stop
+  /// bothering with, and then the family drifts.
+  Future<void> _copyHex() async {
+    final hex = '#${_hexOf(_color)}';
+    await Clipboard.setData(ClipboardData(text: hex));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Copied $hex')));
+  }
+
+  /// Takes a colour off the clipboard, in any form the field itself accepts.
+  ///
+  /// Junk leaves the colour alone, exactly as typing junk does — [parseHex]
+  /// returning null is the whole of that rule, and it is the same rule either
+  /// way in.
+  Future<void> _pasteHex() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final parsed = parseHex(data?.text ?? '');
+    if (parsed == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No colour on the clipboard.')),
+      );
+      return;
+    }
+    _adopt(parsed);
+  }
+
+  Widget _hexAction({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18, color: AppColors.muted),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
     );
   }
 

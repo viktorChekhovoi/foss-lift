@@ -14,9 +14,9 @@
 // These are exercised through the real public surface: the [AppPalette] value
 // model + [resolvePalette], the [AppDatabase] theme settings, the providers,
 // and the picker widget — never private internals or generated code.
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
@@ -929,7 +929,8 @@ void main() {
       ));
       await tester.pump();
 
-      await tester.ensureVisible(find.text('Use this theme'));
+      await tester.scrollUntilVisible(find.text('Use this theme'), 150,
+          scrollable: find.byType(Scrollable).first);
       await tester.pump();
       await tester.tap(find.text('Use this theme'));
       await pumpUntil(tester,
@@ -959,7 +960,8 @@ void main() {
         ThemeImportScreen(code: ThemeCode.encode(hc)),
       ));
       await tester.pump();
-      await tester.ensureVisible(find.text('Use this theme'));
+      await tester.scrollUntilVisible(find.text('Use this theme'), 150,
+          scrollable: find.byType(Scrollable).first);
       await tester.pump();
       await tester.tap(find.text('Use this theme'));
       await pumpUntil(tester,
@@ -1017,7 +1019,8 @@ void main() {
         ThemeImportScreen(code: ThemeCode.encode(theirs())),
       ));
       await tester.pump();
-      await tester.ensureVisible(find.text('Cancel'));
+      await tester.scrollUntilVisible(find.text('Cancel'), 150,
+          scrollable: find.byType(Scrollable).first);
       await tester.pump();
       await tester.tap(find.text('Cancel'));
       await tester.pump();
@@ -1207,6 +1210,101 @@ void main() {
       expect(shownHex(tester, 'Accent'), '#123456',
           reason: 'the hash is optional');
 
+      await stop(tester);
+    });
+
+    /// Stands in for the system clipboard, which is a platform channel a widget
+    /// test has none of. Returns a one-entry box the test can read and write.
+    List<String?> fakeClipboard(WidgetTester tester) {
+      final held = <String?>[null];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          switch (call.method) {
+            case 'Clipboard.setData':
+              held[0] = (call.arguments as Map)['text'] as String?;
+              return null;
+            case 'Clipboard.getData':
+              return held[0] == null ? null : {'text': held[0]};
+          }
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      return held;
+    }
+
+    testWidgets('the hex can be copied out of the picker', (tester) async {
+      // The roles are families — surface, surface2 and surface3 are one hue at
+      // three lightnesses — so building one starts from the last one's value.
+      final clipboard = fakeClipboard(tester);
+      await openPicker(tester, 'Accent');
+      await tester.enterText(find.byType(TextField), '#123456');
+      await frames(tester);
+
+      await tester.tap(find.byTooltip('Copy hex'));
+      await frames(tester);
+
+      expect(clipboard[0], '#123456');
+      await stop(tester);
+    });
+
+    testWidgets('and pasted in, in any form the field itself takes',
+        (tester) async {
+      final clipboard = fakeClipboard(tester);
+
+      for (final (pasted, expected) in [
+        ('#ABCDEF', '#ABCDEF'),
+        ('ABCDEF', '#ABCDEF'), // bare, no hash
+        ('#ABC', '#AABBCC'), // CSS shorthand
+      ]) {
+        clipboard[0] = pasted;
+        await openPicker(tester, 'Accent');
+        await tester.tap(find.byTooltip('Paste hex'));
+        await frames(tester);
+        await use(tester);
+
+        expect(shownHex(tester, 'Accent'), expected, reason: 'pasted "$pasted"');
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('pasting junk leaves the colour alone', (tester) async {
+      // The same rule as typing junk: parseHex returning null is the whole of
+      // it, and it has to hold whichever way the text arrives.
+      final clipboard = fakeClipboard(tester);
+      clipboard[0] = 'not a colour at all';
+
+      await openPicker(tester, 'Accent');
+      final before = shownHex(tester, 'Accent');
+      await tester.tap(find.byTooltip('Paste hex'));
+      await frames(tester);
+      await use(tester);
+
+      expect(shownHex(tester, 'Accent'), before);
+      await stop(tester);
+    });
+
+    testWidgets('a role row hands over its hex on a long press', (tester) async {
+      // The row's tap already belongs to the picker, so the hex it prints
+      // cannot have a tap of its own.
+      final clipboard = fakeClipboard(tester);
+      tester.view.physicalSize = const Size(1200, 4800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+          routedAppUnder(container, const CustomThemeEditorScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final shown = shownHex(tester, 'Accent');
+      await tester.longPress(find.text('Accent'));
+      await frames(tester);
+
+      expect(clipboard[0], shown);
       await stop(tester);
     });
 
@@ -1446,7 +1544,54 @@ void main() {
         await tester.pump();
         expect(find.textContaining('hard to read'), findsNothing,
             reason: '${preset.id} should not trip its own legibility warning');
+        expect(find.textContaining('look alike'), findsNothing,
+            reason: '${preset.id} should not trip the marker warning either');
       }
+      await stop(tester);
+    });
+
+    testWidgets('it shows a set row with both markers on it', (tester) async {
+      // The markers are the palette's hardest job, and a swatch of each says
+      // nothing about whether you could tell them apart at a glance down a
+      // column. So the preview is the board: a hit, a short one, one to go.
+      final p = sentinels();
+      await tester.pumpWidget(appUnder(container, ThemePreview(palette: p)));
+      await tester.pump();
+
+      // The set rows themselves, in the shape the board draws them.
+      expect(find.text('Bench Press'), findsOneWidget);
+      expect(find.text('80×8'), findsWidgets);
+      for (final n in ['1', '2', '3']) {
+        expect(find.text(n), findsWidgets, reason: 'set $n');
+      }
+
+      // And the cue that does not depend on hue, on the short row only.
+      expect(find.byIcon(Icons.arrow_downward_rounded), findsOneWidget);
+
+      final shown = painted(tester);
+      expect(shown, contains(p.good), reason: 'the hit row');
+      expect(shown, contains(p.gold), reason: 'the short row');
+
+      await stop(tester);
+    });
+
+    testWidgets('warns when done and short are too close to tell apart',
+        (tester) async {
+      // The other warning is about reading text against a background. This one
+      // is about telling two colours apart from each other, which no contrast
+      // ratio answers — Solarized's own pair sat at 1.00:1 and looked it.
+      final alike = sentinels().copyWith(
+        good: const Color(0xFF859900),
+        gold: const Color(0xFFB58900),
+      );
+      expect(colourDistance(alike.good, alike.gold),
+          lessThan(kMarkerDistance),
+          reason: 'the fixture really is a pair nobody could separate');
+
+      await tester.pumpWidget(appUnder(container, ThemePreview(palette: alike)));
+      await tester.pump();
+
+      expect(find.textContaining('look alike'), findsOneWidget);
       await stop(tester);
     });
   });

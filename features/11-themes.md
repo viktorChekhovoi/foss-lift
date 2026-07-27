@@ -37,6 +37,23 @@ Solarized, never also means accepting a brightness you did not want.
 
 ## Behaviour & edge cases
 
+- **The preview is the workout board.** The editor previews a palette on a
+  miniature of the screen it has to survive — an exercise heading, three set
+  rows (a hit, a short one, one still to do) and the stat strip — rather than on
+  twelve swatches. The set rows are the point: `good` and `gold` are the
+  palette's hardest job, and a chip of each says nothing about telling them
+  apart at speed. The untouched third row is what puts `surface2`, `surface3`
+  and `faint` on screen doing their real jobs.
+- **Two warnings, both binary.** One when text is too close to its background,
+  one when the two markers are too close to each other. Guidance, never a
+  running number — see the rule in `CLAUDE.md`.
+- **A hex can be copied and pasted, not just typed.** The picker has explicit
+  copy and paste buttons, and a long press on any role row copies that role's
+  hex. The roles are families — `surface`/`surface2`/`surface3` are one hue at
+  three lightnesses — so building one by hand starts from the last one's value,
+  and retyping six digits is what stops people doing it. Paste accepts every
+  form the field does (`#RGB`, `#RRGGBB`, bare `RRGGBB`) and, like typing,
+  leaves the colour alone on junk.
 - **Done and short must be unmistakable from each other, not just readable.**
   The two markers on the workout board are the fastest read in the app — you
   glance down a column of set rows and see how the session went — so every
@@ -169,3 +186,6 @@ app free of proprietary binaries.
 - [#27 Portable theme code](https://github.com/viktorChekhovoi/foss-lift/issues/27) — the `FLT1.` format
 - [#28 QR share and scan](https://github.com/viktorChekhovoi/foss-lift/issues/28)
 - [#29 Shared theme links](https://github.com/viktorChekhovoi/foss-lift/issues/29)
+- [#45 Done/short colours across themes](https://github.com/viktorChekhovoi/foss-lift/issues/45) — shipped, in review
+- [#47 The nav bar on a cold launch](https://github.com/viktorChekhovoi/foss-lift/issues/47) — shipped, in review
+- [#48 A current preview, and hex you can copy and paste](https://github.com/viktorChekhovoi/foss-lift/issues/48) — shipped, in review
