@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -255,6 +256,49 @@ double contrastRatio(Color a, Color b) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+/// How far apart two colours look, as CIE76 ΔE over CIELAB.
+///
+/// [contrastRatio] answers "can this be read against that", which is a question
+/// about lightness alone. This answers the different question the done/short
+/// markers ask: **can these two be told apart from each other.** Solarized's
+/// green and yellow are the case that needs it — they sit at the same
+/// luminance, so their contrast ratio against each other is 1.00 and says
+/// nothing at all, while their ΔE says plainly that they are close.
+///
+/// Rough reading: under 10 is a shade of the same colour, around 25 is
+/// noticeably different, and [kMarkerDistance] is where two states of a signal
+/// are unmistakable at a glance.
+double colourDistance(Color a, Color b) {
+  final (l1, a1, b1) = _lab(a);
+  final (l2, a2, b2) = _lab(b);
+  final dl = l1 - l2, da = a1 - a2, db = b1 - b2;
+  return math.sqrt(dl * dl + da * da + db * db);
+}
+
+/// The ΔE the done and short markers must keep between them.
+///
+/// They are the fastest read on the workout board — a column of set rows tells
+/// you how the session went before you read a number — so "noticeably
+/// different" is not enough. Every shipped preset clears this, and the feature
+/// tests hold it there.
+const double kMarkerDistance = 45;
+
+/// One colour in CIELAB (D65), the space ΔE is measured in.
+(double, double, double) _lab(Color c) {
+  double lin(double v) =>
+      v <= 0.04045 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+  final r = lin(c.r), g = lin(c.g), b = lin(c.b);
+  // sRGB → XYZ, then normalised against the D65 white point.
+  final x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
+  final y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+  final z = (r * 0.0193339 + g * 0.1191920 + b * 0.9503041) / 1.08883;
+  double f(double t) => t > 216 / 24389
+      ? math.pow(t, 1 / 3).toDouble()
+      : (841 / 108) * t + 4 / 29;
+  final fx = f(x), fy = f(y), fz = f(z);
+  return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz));
+}
+
 /// The id used for the one palette the user builds and edits themselves.
 const String kCustomThemeId = 'custom';
 
@@ -323,8 +367,20 @@ const Color _solBase1 = Color(0xFF93A1A1);
 const Color _solBase2 = Color(0xFFEEE8D5);
 const Color _solBase3 = Color(0xFFFDF6E3);
 const Color _solBlue = Color(0xFF268BD2);
-const Color _solGreen = Color(0xFF859900);
-const Color _solYellow = Color(0xFFB58900);
+
+// The done/short markers are the third departure, and the largest. Solarized's
+// green (#859900) and yellow (#B58900) sit at the *same* luminance — their
+// contrast ratio against each other is 1.00 — and only 30 ΔE apart, which is
+// fine for syntax highlighting where a token's meaning comes from its position
+// as much as its colour, and useless for a binary did-you-hit-it signal read at
+// a glance down a column. So the short marker takes Solarized's **orange**
+// (#CB4B16) rather than its yellow, and both are moved along their own
+// lightness ramp until they clear 4.5:1 on this palette's ground and card.
+// Still Solarized's hues; not Solarized's exact tones.
+const Color _solGreenDark = Color(0xFF9BB000);
+const Color _solOrangeDark = Color(0xFFE58A3C);
+const Color _solGreenLight = Color(0xFF4F6600);
+const Color _solOrangeLight = Color(0xFF9C3B0D);
 
 /// Solarized dark: base03 ground, base02 cards, blue accent.
 const AppPalette _solarizedDark = AppPalette(
@@ -340,8 +396,8 @@ const AppPalette _solarizedDark = AppPalette(
   faint: _solBase01,
   accent: _solBlue,
   accentPress: Color(0xFF1B6FA8),
-  good: _solGreen,
-  gold: _solYellow,
+  good: _solGreenDark,
+  gold: _solOrangeDark,
 );
 
 /// Solarized light: base3 ground, base2 cards, the same blue accent.
@@ -358,8 +414,8 @@ const AppPalette _solarizedLight = AppPalette(
   faint: _solBase00,
   accent: _solBlue,
   accentPress: Color(0xFF1F6FA8),
-  good: _solGreen,
-  gold: _solYellow,
+  good: _solGreenLight,
+  gold: _solOrangeLight,
 );
 
 // --- Light presets ---------------------------------------------------------
@@ -382,8 +438,8 @@ const AppPalette _daylight = AppPalette(
   faint: Color(0xFF949CAC),
   accent: Color(0xFFD9531A),
   accentPress: Color(0xFFB5410F),
-  good: Color(0xFF12A866),
-  gold: Color(0xFFC8890B),
+  good: Color(0xFF0E7A47),
+  gold: Color(0xFF8A5A00),
 );
 
 /// A warm paper-white with a deep blue accent.
@@ -400,8 +456,8 @@ const AppPalette _paper = AppPalette(
   faint: Color(0xFF9E9384),
   accent: Color(0xFF2A5CD6),
   accentPress: Color(0xFF1E46AB),
-  good: Color(0xFF12A866),
-  gold: Color(0xFFB87E0A),
+  good: Color(0xFF0E7A47),
+  gold: Color(0xFF7E5600),
 );
 
 // --- Accessibility ---------------------------------------------------------

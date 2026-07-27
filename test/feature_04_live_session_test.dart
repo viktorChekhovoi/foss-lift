@@ -1153,6 +1153,45 @@ void main() {
     });
   });
 
+  group('A short set says so without relying on its colour', () {
+    testWidgets('a set that fell short carries a downward arrow; a hit does not',
+        (tester) async {
+      // Green and gold differing only in hue is the one pair a colour-blind
+      // reader cannot separate, and this column is the app's most-read signal.
+      await pumpPushScreen(tester);
+
+      // Set 1 at the goal: a hit, and nothing but colour to say so.
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('0-0-Bench Press')),
+          matching: find.byIcon(Icons.arrow_downward_rounded),
+        ),
+        findsNothing,
+      );
+
+      // Set 2 tapped twice: one rep short.
+      await tester.tap(repsCell('0-1-Bench Press'));
+      await tester.pump();
+      await tester.tap(repsCell('0-1-Bench Press'));
+      await tester.pump();
+
+      final row = session().exercises[0].sets[1];
+      expect(row.missedGoal, isTrue);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('0-1-Bench Press')),
+          matching: find.byIcon(Icons.arrow_downward_rounded),
+        ),
+        findsOneWidget,
+        reason: 'nothing but the hue distinguishes a short set',
+      );
+
+      await stop(tester);
+    });
+  });
+
   group('The resume bar takes room rather than covering things', () {
     /// Mounts [routes] under the overlay, with the same router the overlay is
     /// told to read — the app's global one belongs to the app, not to a test.

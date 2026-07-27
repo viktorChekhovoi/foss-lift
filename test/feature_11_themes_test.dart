@@ -118,26 +118,36 @@ void main() {
 
     test('Solarized ships as the published palette, in both brightnesses', () {
       // Solarized is a named, published palette; someone choosing it wants
-      // those exact hues, so the accent/good/gold triple is shared by the two
-      // and is Schoonover's blue, green and yellow.
-      final dark =
-          kThemePresets.singleWhere((p) => p.id == 'solarized_dark');
-      final light =
-          kThemePresets.singleWhere((p) => p.id == 'solarized_light');
+      // those hues, so the accent is Schoonover's blue in both brightnesses and
+      // the grounds are the palette's own base3/base03, not invented paper.
+      final dark = kThemePresets.singleWhere((p) => p.id == 'solarized_dark');
+      final light = kThemePresets.singleWhere((p) => p.id == 'solarized_light');
+
       expect(dark.accent, const Color(0xFF268BD2), reason: 'Solarized blue');
-      expect(dark.good, const Color(0xFF859900), reason: 'Solarized green');
-      expect(dark.gold, const Color(0xFFB58900), reason: 'Solarized yellow');
-      for (final role in [
-        (dark.accent, light.accent),
-        (dark.good, light.good),
-        (dark.gold, light.gold),
-      ]) {
-        expect(role.$1, role.$2,
-            reason: 'both Solarized themes share the same accent hues');
-      }
-      // The grounds are the palette's own base3/base03, not invented paper.
+      expect(light.accent, dark.accent,
+          reason: 'both Solarized themes share the accent');
       expect(dark.ground, const Color(0xFF002B36), reason: 'base03');
       expect(light.ground, const Color(0xFFFDF6E3), reason: 'base3');
+    });
+
+    test('but its markers are moved, because its own two cannot be told apart',
+        () {
+      // The documented third departure. Solarized's green (#859900) and yellow
+      // (#B58900) sit at the same luminance — 1.00:1 against each other — which
+      // is fine for syntax highlighting and useless for a binary
+      // did-you-hit-it signal. So the short marker takes Solarized's *orange*
+      // instead, and both are moved along their lightness ramp until they read
+      // on this palette's ground.
+      for (final id in ['solarized_dark', 'solarized_light']) {
+        final p = kThemePresets.singleWhere((x) => x.id == id);
+        expect(p.good, isNot(const Color(0xFF859900)), reason: '$id green');
+        expect(p.gold, isNot(const Color(0xFFB58900)), reason: '$id yellow');
+        // Still recognisably a green and an orange: green dominant in one, and
+        // red-through-green descending in the other.
+        expect(p.good.g, greaterThan(p.good.b), reason: '$id good is green');
+        expect(p.gold.r, greaterThan(p.gold.g), reason: '$id gold is warm');
+        expect(p.gold.g, greaterThan(p.gold.b), reason: '$id gold is warm');
+      }
     });
 
     test('the default preset is a dark, everyday one', () {
@@ -190,6 +200,39 @@ void main() {
             reason: '${why}card borders');
         expect(contrastRatio(p.line, p.ground), greaterThanOrEqualTo(3.0),
             reason: '${why}borders against the ground');
+      }
+    });
+
+    test('done and short are unmistakable from each other, in every preset',
+        () {
+      // The most-read signal in the app: you glance down a column of set rows
+      // and see how the session went. Contrast against the *background* is not
+      // what makes that work — telling green from gold is, and two colours at
+      // the same luminance have a contrast ratio of 1.00 against each other
+      // while looking every bit as different as they are, which is not at all.
+      for (final p in kThemePresets) {
+        expect(
+          colourDistance(p.good, p.gold),
+          greaterThanOrEqualTo(kMarkerDistance),
+          reason: '${p.id}: done and short are the same colour at a glance',
+        );
+      }
+    });
+
+    test('and both markers read against the ground and a card, in every preset',
+        () {
+      // Not just the accessible pair. A marker is a number you have to read, so
+      // it answers to the same 4.5:1 body-text floor wherever it is painted.
+      for (final p in kThemePresets) {
+        for (final (what, colour) in [
+          ('the completed colour', p.good),
+          ('the short colour', p.gold),
+        ]) {
+          expect(contrastRatio(colour, p.ground), greaterThanOrEqualTo(4.5),
+              reason: '${p.id}: $what on the ground');
+          expect(contrastRatio(colour, p.surface), greaterThanOrEqualTo(4.5),
+              reason: '${p.id}: $what on a card');
+        }
       }
     });
 

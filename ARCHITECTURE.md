@@ -490,7 +490,10 @@ you never looked at.
   go_router holds its branch navigators by `GlobalKey` and the re-key moves the
   shell's elements instead of rebuilding them.
   `resolvePalette` turns the stored choice into a palette; `activePaletteProvider`
-  exposes it. A routine's own `colorHex` is parsed by `hexColor()` and bypasses
+  exposes it. `contrastRatio` answers "can this be read against that";
+  `colourDistance` (CIE76 ΔE) answers the different question the done/short
+  markers ask — "can these two be told apart" — and every preset holds them
+  `kMarkerDistance` apart. A routine's own `colorHex` is parsed by `hexColor()` and bypasses
   this entirely, so per-routine accents show through any theme. `kMono` is the
   tabular monospace style for all numbers.
 - **Units** (`util/units.dart`): `toDisplayWeight`, `toKg`, `unitLabel`. Any new

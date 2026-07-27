@@ -1102,6 +1102,12 @@ class _SetRow extends StatelessWidget {
   /// Untouched, the cell shows the goal greyed out — the number you are about
   /// to claim. One tap turns that same number green; further taps count it
   /// down in gold. Nothing here can change the goal itself.
+  ///
+  /// A set that came up short also gets a downward arrow. **Green and gold
+  /// differing only in hue is the one pair a colour-blind reader cannot see at
+  /// all**, and this column is the app's most-read signal — you glance down it
+  /// to see how the session went. The arrow says the same thing the colour
+  /// does, without asking anyone to tell two hues apart.
   Widget _resultBox() {
     final done = _entry.done;
     return Padding(
@@ -1121,13 +1127,22 @@ class _SetRow extends StatelessWidget {
               color: done ? _tone.withValues(alpha: 0.55) : AppColors.line,
             ),
           ),
-          child: Text(
-            '${_entry.logged ?? _entry.goal}${_entry.timed ? 's' : ''}',
-            style: kMono.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: done ? _tone : AppColors.faint,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_entry.logged ?? _entry.goal}${_entry.timed ? 's' : ''}',
+                style: kMono.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: done ? _tone : AppColors.faint,
+                ),
+              ),
+              if (_entry.missedGoal) ...[
+                const SizedBox(width: 2),
+                Icon(Icons.arrow_downward_rounded, size: 13, color: _tone),
+              ],
+            ],
           ),
         ),
       ),

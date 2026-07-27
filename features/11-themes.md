@@ -37,6 +37,18 @@ Solarized, never also means accepting a brightness you did not want.
 
 ## Behaviour & edge cases
 
+- **Done and short must be unmistakable from each other, not just readable.**
+  The two markers on the workout board are the fastest read in the app — you
+  glance down a column of set rows and see how the session went — so every
+  preset holds them at least `kMarkerDistance` apart in CIELAB (`colourDistance`),
+  and both clear 4.5:1 against the ground and a card. Contrast against the
+  *background* was never the problem: Solarized's green and yellow sit at the
+  same luminance, so their contrast ratio against each other is 1.00 and says
+  nothing, while their ΔE says plainly that they are close.
+- **And they differ by more than hue.** Two colours that differ only in hue are
+  the one pair a colour-blind reader cannot separate at all, so a set that came
+  up short also carries a downward arrow. The colour is the fast read; the arrow
+  is the one that always works.
 - **Nothing is painted until the stored theme is known.** `activePaletteProvider`
   is synchronous and falls back to the system-brightness default while the
   settings row is still arriving, so building the app on that guess would paint
