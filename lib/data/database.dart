@@ -47,6 +47,20 @@ class Exercises extends Table {
   TextColumn get weightType =>
       textEnum<WeightType>().withDefault(const Constant('machine'))();
 
+  /// What you need to remember about this movement at your gym: the seat
+  /// setting, the rack pin, how far down you take it, which cable stack sticks.
+  ///
+  /// Personal, and deliberately so. This is not the coaching cue that used to
+  /// live here and was deleted — that was general advice, which travels badly
+  /// because it is long and because the demo link says it better. A note is
+  /// specific to one person at one gym, which is why it never travels at all:
+  /// "seat 4, pin 7" is not merely useless on someone else's machine, it is
+  /// wrong. Nothing puts this in a routine code.
+  ///
+  /// Capped at 300 characters, which is a couple of settings and a reminder —
+  /// past that it stops being something you can read between sets.
+  TextColumn get notes => text().nullable().withLength(max: 300)();
+
   /// What *this* movement's bar weighs, in kg, when the gym's default is wrong
   /// for it. Null — the usual case — means the default from settings.
   ///
@@ -589,6 +603,21 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setExerciseWeightType(int id, WeightType type) =>
       (update(exercises)..where((e) => e.id.equals(id)))
           .write(ExercisesCompanion(weightType: Value(type)));
+
+  /// Writes this movement's personal note, or clears it.
+  ///
+  /// Blank and absent are the same state — a note of nothing but spaces is
+  /// stored as null, so no screen downstream has to ask whether an empty-looking
+  /// note is empty or merely blank. Editable for every exercise, starter or
+  /// custom, for the same reason the bar weight is: it is a fact about your gym.
+  Future<void> setExerciseNotes(int id, String? text) {
+    final trimmed = text?.trim();
+    return (update(exercises)..where((e) => e.id.equals(id))).write(
+      ExercisesCompanion(
+        notes: Value(trimmed == null || trimmed.isEmpty ? null : trimmed),
+      ),
+    );
+  }
 
   /// Gives one exercise a bar of its own, in kg. Null hands it back to the
   /// default on the settings screen.

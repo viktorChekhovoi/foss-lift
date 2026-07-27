@@ -105,6 +105,16 @@ class $ExercisesTable extends Exercises
         requiredDuringInsert: false,
         defaultValue: const Constant('machine'),
       ).withConverter<WeightType>($ExercisesTable.$converterweightType);
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 300),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _barWeightMeta = const VerificationMeta(
     'barWeight',
   );
@@ -126,6 +136,7 @@ class $ExercisesTable extends Exercises
     isCustom,
     measure,
     weightType,
+    notes,
     barWeight,
   ];
   @override
@@ -176,6 +187,12 @@ class $ExercisesTable extends Exercises
       context.handle(
         _isCustomMeta,
         isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
     if (data.containsKey('bar_weight')) {
@@ -229,6 +246,10 @@ class $ExercisesTable extends Exercises
           data['${effectivePrefix}weight_type'],
         )!,
       ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
       barWeight: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}bar_weight'],
@@ -266,6 +287,20 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// only reading that is never wrong.
   final WeightType weightType;
 
+  /// What you need to remember about this movement at your gym: the seat
+  /// setting, the rack pin, how far down you take it, which cable stack sticks.
+  ///
+  /// Personal, and deliberately so. This is not the coaching cue that used to
+  /// live here and was deleted — that was general advice, which travels badly
+  /// because it is long and because the demo link says it better. A note is
+  /// specific to one person at one gym, which is why it never travels at all:
+  /// "seat 4, pin 7" is not merely useless on someone else's machine, it is
+  /// wrong. Nothing puts this in a routine code.
+  ///
+  /// Capped at 300 characters, which is a couple of settings and a reminder —
+  /// past that it stops being something you can read between sets.
+  final String? notes;
+
   /// What *this* movement's bar weighs, in kg, when the gym's default is wrong
   /// for it. Null — the usual case — means the default from settings.
   ///
@@ -283,6 +318,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.isCustom,
     required this.measure,
     required this.weightType,
+    this.notes,
     this.barWeight,
   });
   @override
@@ -306,6 +342,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
         $ExercisesTable.$converterweightType.toSql(weightType),
       );
     }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
     if (!nullToAbsent || barWeight != null) {
       map['bar_weight'] = Variable<double>(barWeight);
     }
@@ -324,6 +363,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       isCustom: Value(isCustom),
       measure: Value(measure),
       weightType: Value(weightType),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
       barWeight: barWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(barWeight),
@@ -348,6 +390,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       weightType: $ExercisesTable.$converterweightType.fromJson(
         serializer.fromJson<String>(json['weightType']),
       ),
+      notes: serializer.fromJson<String?>(json['notes']),
       barWeight: serializer.fromJson<double?>(json['barWeight']),
     );
   }
@@ -367,6 +410,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'weightType': serializer.toJson<String>(
         $ExercisesTable.$converterweightType.toJson(weightType),
       ),
+      'notes': serializer.toJson<String?>(notes),
       'barWeight': serializer.toJson<double?>(barWeight),
     };
   }
@@ -380,6 +424,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     bool? isCustom,
     ExerciseMeasure? measure,
     WeightType? weightType,
+    Value<String?> notes = const Value.absent(),
     Value<double?> barWeight = const Value.absent(),
   }) => Exercise(
     id: id ?? this.id,
@@ -390,6 +435,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom: isCustom ?? this.isCustom,
     measure: measure ?? this.measure,
     weightType: weightType ?? this.weightType,
+    notes: notes.present ? notes.value : this.notes,
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
@@ -406,6 +452,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       weightType: data.weightType.present
           ? data.weightType.value
           : this.weightType,
+      notes: data.notes.present ? data.notes.value : this.notes,
       barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
     );
   }
@@ -421,6 +468,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('isCustom: $isCustom, ')
           ..write('measure: $measure, ')
           ..write('weightType: $weightType, ')
+          ..write('notes: $notes, ')
           ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
@@ -436,6 +484,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom,
     measure,
     weightType,
+    notes,
     barWeight,
   );
   @override
@@ -450,6 +499,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.isCustom == this.isCustom &&
           other.measure == this.measure &&
           other.weightType == this.weightType &&
+          other.notes == this.notes &&
           other.barWeight == this.barWeight);
 }
 
@@ -462,6 +512,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<bool> isCustom;
   final Value<ExerciseMeasure> measure;
   final Value<WeightType> weightType;
+  final Value<String?> notes;
   final Value<double?> barWeight;
   const ExercisesCompanion({
     this.id = const Value.absent(),
@@ -472,6 +523,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
     this.weightType = const Value.absent(),
+    this.notes = const Value.absent(),
     this.barWeight = const Value.absent(),
   });
   ExercisesCompanion.insert({
@@ -483,6 +535,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
     this.weightType = const Value.absent(),
+    this.notes = const Value.absent(),
     this.barWeight = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
@@ -494,6 +547,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<bool>? isCustom,
     Expression<String>? measure,
     Expression<String>? weightType,
+    Expression<String>? notes,
     Expression<double>? barWeight,
   }) {
     return RawValuesInsertable({
@@ -505,6 +559,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (isCustom != null) 'is_custom': isCustom,
       if (measure != null) 'measure': measure,
       if (weightType != null) 'weight_type': weightType,
+      if (notes != null) 'notes': notes,
       if (barWeight != null) 'bar_weight': barWeight,
     });
   }
@@ -518,6 +573,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<bool>? isCustom,
     Value<ExerciseMeasure>? measure,
     Value<WeightType>? weightType,
+    Value<String?>? notes,
     Value<double?>? barWeight,
   }) {
     return ExercisesCompanion(
@@ -529,6 +585,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       isCustom: isCustom ?? this.isCustom,
       measure: measure ?? this.measure,
       weightType: weightType ?? this.weightType,
+      notes: notes ?? this.notes,
       barWeight: barWeight ?? this.barWeight,
     );
   }
@@ -564,6 +621,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
         $ExercisesTable.$converterweightType.toSql(weightType.value),
       );
     }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
     if (barWeight.present) {
       map['bar_weight'] = Variable<double>(barWeight.value);
     }
@@ -581,6 +641,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('isCustom: $isCustom, ')
           ..write('measure: $measure, ')
           ..write('weightType: $weightType, ')
+          ..write('notes: $notes, ')
           ..write('barWeight: $barWeight')
           ..write(')'))
         .toString();
@@ -3300,7 +3361,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
   ///
   /// Stored rather than looked up from the template later: templates get
   /// edited, and progression has to know what you were actually chasing on the
-  /// day. Zero means "no goal recorded" — every set logged before schema v3.
+  /// day. Zero means "no goal recorded", which a set logged outside a template
+  /// can legitimately be.
   final int goalReps;
 
   /// The weight the template suggested, in kg. Null when it suggested none.
@@ -4477,6 +4539,7 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
       Value<WeightType> weightType,
+      Value<String?> notes,
       Value<double?> barWeight,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
@@ -4489,6 +4552,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
       Value<WeightType> weightType,
+      Value<String?> notes,
       Value<double?> barWeight,
     });
 
@@ -4564,6 +4628,11 @@ class $$ExercisesTableFilterComposer
   get weightType => $composableBuilder(
     column: $table.weightType,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
   );
 
   ColumnFilters<double> get barWeight => $composableBuilder(
@@ -4646,6 +4715,11 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get barWeight => $composableBuilder(
     column: $table.barWeight,
     builder: (column) => ColumnOrderings(column),
@@ -4689,6 +4763,9 @@ class $$ExercisesTableAnnotationComposer
         column: $table.weightType,
         builder: (column) => column,
       );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
 
   GeneratedColumn<double> get barWeight =>
       $composableBuilder(column: $table.barWeight, builder: (column) => column);
@@ -4755,6 +4832,7 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
                 Value<WeightType> weightType = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
@@ -4765,6 +4843,7 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 measure: measure,
                 weightType: weightType,
+                notes: notes,
                 barWeight: barWeight,
               ),
           createCompanionCallback:
@@ -4777,6 +4856,7 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
                 Value<WeightType> weightType = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
@@ -4787,6 +4867,7 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 measure: measure,
                 weightType: weightType,
+                notes: notes,
                 barWeight: barWeight,
               ),
           withReferenceMapper: (p0) => p0

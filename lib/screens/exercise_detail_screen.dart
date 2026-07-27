@@ -123,6 +123,12 @@ class _Body extends ConsumerWidget {
                     fontSize: 11.5, height: 1.5, color: AppColors.accent)),
           ),
         ],
+        const SizedBox(height: 22),
+        Text('MY NOTE',
+            style: kMono.copyWith(
+                fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+        const SizedBox(height: 8),
+        _NoteBlock(exercise: exercise),
         if (exercise.videoUrl != null) ...[
           const SizedBox(height: 22),
           Text('DEMO',
@@ -132,6 +138,63 @@ class _Body extends ConsumerWidget {
           _VideoLink(url: exercise.videoUrl!),
         ],
       ],
+    );
+  }
+}
+
+/// What you need to remember about this movement at your gym.
+///
+/// Tapping anywhere on it opens an editor — including when it is empty, which
+/// is why the empty state is a line of text rather than a blank space: there
+/// has to be something to aim at, and "nothing noted yet" reads as a state the
+/// app meant rather than a box it failed to fill.
+class _NoteBlock extends ConsumerWidget {
+  const _NoteBlock({required this.exercise});
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final note = exercise.notes;
+
+    Future<void> edit() async {
+      final written = await askNote(
+        context,
+        title: exercise.name,
+        initial: note,
+      );
+      if (written == null) return;
+      await ref.read(databaseProvider).setExerciseNotes(exercise.id, written);
+    }
+
+    return GestureDetector(
+      onTap: edit,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.line),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                note ?? 'Nothing noted yet',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: note == null ? AppColors.faint : AppColors.text,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(note == null ? Icons.add : Icons.edit_outlined,
+                size: 18, color: AppColors.accent),
+          ],
+        ),
+      ),
     );
   }
 }

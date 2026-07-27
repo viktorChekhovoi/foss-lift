@@ -132,6 +132,83 @@ class _WeightDialogState extends State<_WeightDialog> {
   }
 }
 
+/// The longest a personal note may be. Matches the column cap in
+/// `database.dart` — a couple of settings and a reminder, not an essay.
+const int kNoteMaxLength = 300;
+
+/// Asks for the personal note on a movement. Returns the text as typed, `''`
+/// to clear it, or null when the dialog was cancelled.
+///
+/// A dialog for the same reason [askWeight] is one: the value it edits comes
+/// off a stream, and a live field over a stream has to decide on every
+/// keystroke whether the user or the database is right.
+Future<String?> askNote(
+  BuildContext context, {
+  required String title,
+  String? initial,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (_) => _NoteDialog(title: title, initial: initial),
+  );
+}
+
+class _NoteDialog extends StatefulWidget {
+  const _NoteDialog({required this.title, this.initial});
+  final String title;
+  final String? initial;
+
+  @override
+  State<_NoteDialog> createState() => _NoteDialogState();
+}
+
+class _NoteDialogState extends State<_NoteDialog> {
+  late final TextEditingController _c =
+      TextEditingController(text: widget.initial ?? '');
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(widget.title),
+      content: TextField(
+        controller: _c,
+        autofocus: true,
+        maxLines: 4,
+        minLines: 2,
+        maxLength: kNoteMaxLength,
+        textCapitalization: TextCapitalization.sentences,
+        style: const TextStyle(fontSize: 15, height: 1.4),
+        decoration: builderInput('Seat 4, pin 7, stop at mid-shin'),
+      ),
+      actions: [
+        // Only offered when there is something to clear, so the common case —
+        // writing a first note — is two buttons, not three.
+        if ((widget.initial ?? '').isNotEmpty)
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+            onPressed: () => Navigator.pop<String>(context, ''),
+            child: const Text('Clear'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop<String>(context, _c.text),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 /// A settings row that states a value and opens something when tapped.
 class SettingRow extends StatelessWidget {
   const SettingRow({

@@ -77,6 +77,11 @@ exercises it depends on — as one line of text you can paste into a message.
 - **Built-in exercises travel by name.** The starter library is on both phones,
   so a shared routine names them rather than copying their instruction text.
   They are matched case-insensitively on import.
+- **Your own notes never travel, and are never overwritten.** The note you keep
+  on a movement — the seat setting, the rack pin — is a fact about your gym, so
+  it is not in the code you send and it survives an import of someone else's,
+  including **Replace**, which rewrites everything else about the exercise. See
+  [the exercise library](01-exercise-library.md).
 - **An exercise that already exists is reused, never duplicated.** Importing the
   same routine twice gives you two routines and one copy of each exercise.
 - **Replacing edits in place.** Choosing **Replace** rewrites the existing

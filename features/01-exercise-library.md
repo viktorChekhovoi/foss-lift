@@ -16,6 +16,8 @@ A curated, searchable starter set of exercises, plus custom exercises you create
     plate breakdown is shown (only barbell lifts get one).
   - **Bar** — an optional bar weight of its own (e.g. a 10 kg EZ curl bar),
     overriding the app-wide default bar.
+- Carries **your own note** on the movement — the seat setting, the rack pin,
+  how far down you take it. Personal, and it never leaves the phone.
 
 ## How to use it
 
@@ -28,6 +30,9 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   the **weight type** and its **own bar weight** — for *every* exercise, not just
   custom ones (whether your gym's bench has a 20 kg bar is something the starter
   library can't know).
+- **Write a note:** open any exercise → tap **My note** → type. During a workout
+  the movements you have written a note on show a note icon beside the name;
+  one tap opens it in place, without leaving the session.
 
 ## Behaviour & edge cases
 
@@ -58,6 +63,14 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   fits in a QR code. Both lists are free to change until the first public
   release; after it, reordering one would silently re-label every code already
   shared.
+- **A note is yours, and stays.** It is a fact about your gym — "seat 4, pin 7"
+  — so it never travels in a shared routine, and importing a routine never
+  overwrites one, not even when you choose **Replace** and every other field on
+  the exercise is rewritten. It is not the coaching cue coming back: a cue was
+  general advice that travelled badly because it was long; a note is specific to
+  one person at one machine and would be actively wrong anywhere else. Available
+  on every exercise, starter or custom, and capped at 300 characters. Blank and
+  absent are the same thing — a note of only spaces is stored as no note.
 - **Weight type is seeded from equipment:** Barbell → bar, Dumbbell → dumbbell,
   everything else (bodyweight included) → machine. You can override it afterward.
 - **Measure is fixed at creation** for custom exercises; in the starter library
@@ -79,3 +92,4 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 - [#1 Exercise library](https://github.com/viktorChekhovoi/foss-lift/issues/1) — shipped
 - [#13 Weight types and plate math](https://github.com/viktorChekhovoi/foss-lift/issues/13) — shipped
 - [#16 Expand the seeded exercise library](https://github.com/viktorChekhovoi/foss-lift/issues/16) — shipped
+- [#31 Per-exercise personal notes](https://github.com/viktorChekhovoi/foss-lift/issues/31) — shipped

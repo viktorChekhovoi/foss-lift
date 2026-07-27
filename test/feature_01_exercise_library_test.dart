@@ -8,6 +8,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/exercise_form_screen.dart';
 
 import 'support/harness.dart';
@@ -391,5 +392,101 @@ void main() {
     });
 
 
+  });
+
+  group('a personal note on a movement', () {
+    test('every exercise starts with no note', () async {
+      for (final e in await db.watchExercises().first) {
+        expect(e.notes, isNull, reason: '${e.name} was seeded with a note');
+      }
+    });
+
+    test('a note can be written, rewritten and cleared', () async {
+      final press = await exerciseNamed(db, 'Leg Press');
+
+      await db.setExerciseNotes(press.id, 'Seat 4, back pad on 2');
+      expect(
+        (await db.exerciseById(press.id)).notes,
+        'Seat 4, back pad on 2',
+      );
+
+      await db.setExerciseNotes(press.id, 'Seat 3 now');
+      expect((await db.exerciseById(press.id)).notes, 'Seat 3 now');
+
+      await db.setExerciseNotes(press.id, null);
+      expect((await db.exerciseById(press.id)).notes, isNull);
+    });
+
+    test('a note of nothing but whitespace is no note at all', () async {
+      final press = await exerciseNamed(db, 'Leg Press');
+
+      await db.setExerciseNotes(press.id, 'Seat 4');
+      await db.setExerciseNotes(press.id, '   \n ');
+
+      // Otherwise every screen has to ask "is it empty, or only blank?"
+      expect((await db.exerciseById(press.id)).notes, isNull);
+    });
+
+    test('a note is kept, trimmed, on a starter and on a custom alike',
+        () async {
+      final starter = await exerciseNamed(db, 'Bench Press');
+      final custom = await db.createExercise(
+        name: 'Zercher Squat',
+        muscle: 'Legs',
+        equipment: 'Barbell',
+      );
+
+      await db.setExerciseNotes(starter.id, '  Rack pin 7  ');
+      await db.setExerciseNotes(custom, 'Elbows hurt — use the pad');
+
+      expect((await db.exerciseById(starter.id)).notes, 'Rack pin 7');
+      expect(
+        (await db.exerciseById(custom)).notes,
+        'Elbows hurt — use the pad',
+      );
+    });
+
+    test('a note survives a rename', () async {
+      final press = await exerciseNamed(db, 'Leg Press');
+      await db.setExerciseNotes(press.id, 'Seat 4');
+
+      await (db.update(db.exercises)..where((e) => e.id.equals(press.id)))
+          .write(const ExercisesCompanion(
+              name: Value('Leg Press (the good one)')));
+
+      expect((await db.exerciseById(press.id)).notes, 'Seat 4');
+    });
+
+    testWidgets('the detail screen writes a note and reads it back',
+        (tester) async {
+      final press = (await tester.runAsync(() => exerciseNamed(db, 'Leg Press')))!;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(routedAppUnder(
+        container,
+        ExerciseDetailScreen(exerciseId: press.id),
+      ));
+      await tester.pumpAndSettle();
+
+      // Empty reads as deliberate, not broken.
+      expect(find.text('Nothing noted yet'), findsOneWidget);
+
+      await tester.tap(find.text('Nothing noted yet'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Seat 4, pin 7');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final saved =
+          (await tester.runAsync(() => db.exerciseById(press.id)))!;
+      expect(saved.notes, 'Seat 4, pin 7');
+      // And the screen is showing it, not the empty state.
+      await tester.pumpAndSettle();
+      expect(find.text('Seat 4, pin 7'), findsOneWidget);
+      expect(find.text('Nothing noted yet'), findsNothing);
+
+      await stop(tester);
+    });
   });
 }

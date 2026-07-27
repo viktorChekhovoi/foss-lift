@@ -706,6 +706,62 @@ void main() {
           reason: 'a starter exercise stays a starter exercise');
     });
 
+    test('my own note on a movement is never overwritten by an import',
+        () async {
+      // A personal note is the seat number at *my* gym. It is not in the code
+      // the sender built, and Replace — which rewrites everything else about
+      // the exercise — must still leave it alone.
+      final bench = (await _exerciseNamed(db, 'Bench Press'))!;
+      await db.setExerciseNotes(bench.id, 'Rack pin 7, bench squeaks');
+
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final senderBench = (await _exerciseNamed(sender, 'Bench Press'))!;
+      await sender.setExerciseBarWeight(senderBench.id, 15);
+      final routineId = await sender.createRoutine(
+        name: 'Theirs',
+        color: 'FF6A3D',
+        restSeconds: 60,
+      );
+      await sender.replaceRoutineWorkouts(routineId, [
+        (
+          id: null,
+          name: 'Day',
+          items: [
+            WorkoutItemsCompanion.insert(
+              workoutId: 0,
+              exerciseId: senderBench.id,
+            ),
+          ],
+        ),
+      ]);
+      final shared = await sender.sharedRoutine(routineId);
+
+      await db.importSharedRoutine(shared, replace: {0});
+
+      final mine = (await _exerciseNamed(db, 'Bench Press'))!;
+      expect(mine.barWeight, 15, reason: 'Replace did rewrite the definition');
+      expect(mine.notes, 'Rack pin 7, bench squeaks');
+    });
+
+    test('a note never leaves the phone in a shared routine', () async {
+      final bench = (await _exerciseNamed(db, 'Bench Press'))!;
+      await db.setExerciseNotes(bench.id, 'Rack pin 7');
+      final shared = await db.sharedRoutine(await _seedCustomRoutine(db));
+
+      final code = RoutineCode.encode(shared);
+      expect(code.contains('Rack pin 7'), isFalse);
+
+      // And the note is absent from what a recipient would create, too.
+      final receiver = memoryDb();
+      addTearDown(receiver.close);
+      final decoded = RoutineCode.decode(code) as RoutineCodeOk;
+      await receiver.importSharedRoutine(decoded.routine);
+      for (final e in await receiver.watchExercises().first) {
+        expect(e.notes, isNull, reason: '${e.name} arrived carrying a note');
+      }
+    });
+
     test('an identical exercise is no clash at all', () async {
       final sender = memoryDb();
       addTearDown(sender.close);

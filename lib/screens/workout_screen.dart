@@ -396,25 +396,7 @@ class _ExerciseBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  exercise.name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
+          _ExerciseHeading(name: exercise.name, note: exercise.notes),
           // The warm-up ramp, kept in a group of its own above the working sets
           // so the two are never confused. Only a weight-based slot with a load
           // gets one.
@@ -450,6 +432,84 @@ class _ExerciseBlock extends StatelessWidget {
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
       ),
+    );
+  }
+}
+
+/// The exercise's name, and — when you have written one — your own note on it,
+/// one tap from the set you are about to do.
+///
+/// The note expands in place rather than into a dialog: the seat setting is
+/// something you read *while* setting up, and a modal you have to dismiss to
+/// see the rows again is a modal you stop opening. Collapsed by default even
+/// when the note is short, so the block above the sets never changes height
+/// without being asked to.
+class _ExerciseHeading extends StatefulWidget {
+  const _ExerciseHeading({required this.name, this.note});
+  final String name;
+  final String? note;
+
+  @override
+  State<_ExerciseHeading> createState() => _ExerciseHeadingState();
+}
+
+class _ExerciseHeadingState extends State<_ExerciseHeading> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final note = widget.note;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                widget.name,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            // Only when there is something to read. An icon that opens nothing
+            // is worse than no icon.
+            if (note != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: Icon(
+                  Icons.sticky_note_2_outlined,
+                  size: 18,
+                  color: _open ? AppColors.accent : AppColors.muted,
+                ),
+                tooltip: 'My note',
+                onPressed: () => setState(() => _open = !_open),
+              ),
+          ],
+        ),
+        if (note != null && _open)
+          Padding(
+            padding: const EdgeInsets.only(left: 18, top: 2, bottom: 4),
+            child: Text(
+              note,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.muted,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -812,4 +812,44 @@ void main() {
       expect(logged(), 45);
     });
   });
+
+  group('a personal note follows the movement onto the board', () {
+    test('the note is loaded with the exercise, not looked up later', () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      await db.setExerciseNotes(bench.id, 'Rack pin 7');
+
+      await startPush();
+      final entry =
+          session().exercises.firstWhere((e) => e.name == 'Bench Press');
+
+      expect(entry.notes, 'Rack pin 7');
+    });
+
+    testWidgets('a note is readable without leaving the workout',
+        (tester) async {
+      await tester.runAsync(() async {
+        final bench = await exerciseNamed(db, 'Bench Press');
+        await db.setExerciseNotes(bench.id, 'Rack pin 7, bench squeaks');
+      });
+
+      await pumpPushScreen(tester);
+
+      // One tap, on the screen you are already on.
+      await tester.tap(find.byIcon(Icons.sticky_note_2_outlined).first);
+      await frames(tester);
+
+      expect(find.text('Rack pin 7, bench squeaks'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('an exercise with no note offers nothing to open',
+        (tester) async {
+      await pumpPushScreen(tester);
+
+      expect(find.byIcon(Icons.sticky_note_2_outlined), findsNothing);
+
+      await stop(tester);
+    });
+  });
 }
