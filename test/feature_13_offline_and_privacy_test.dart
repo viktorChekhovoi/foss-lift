@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/screens/about_screen.dart';
 import 'package:foss_lift/services/reminders.dart';
 
 import 'support/harness.dart';
@@ -92,6 +93,27 @@ void main() {
       );
 
       expect(await service.permitted(), isFalse);
+    });
+  });
+
+  group('About says what the app does with your data, and how to complain', () {
+    testWidgets('the promise and the contact address are both on the screen',
+        (tester) async {
+      final db = memoryDb();
+      addTearDown(db.close);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(appUnder(container, const AboutScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Nothing leaves this phone'), findsOneWidget);
+      // Printed as well as linked, so a phone with no mail app still leaves you
+      // an address you can write down.
+      expect(find.text(kContactEmail), findsOneWidget);
+      expect(find.text('Report a bug'), findsOneWidget);
+
+      await stop(tester);
     });
   });
 }

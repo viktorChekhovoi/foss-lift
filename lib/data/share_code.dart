@@ -19,30 +19,22 @@ import 'dart:typed_data';
 /// rot when nobody is paying for a server.
 const String kShareScheme = 'fosslift';
 
-/// The three ways reading a code can fail, kept apart because the user can act
-/// on the difference. [thing] in the messages is the noun for what was being
-/// read — "theme", "routine" — so the advice reads naturally either way.
+/// The two ways reading a code can fail, kept apart because the user can act on
+/// the difference: one is the wrong text entirely, the other is our text with a
+/// piece knocked out of it. [thing] is the noun for what was being read —
+/// "theme", "routine" — so both read naturally either way.
 enum ShareCodeProblem {
-  /// Not one of our codes at all — a URL, a stray paste, empty text, or a code
-  /// of the *other* kind.
+  /// Not one of our codes at all — a URL, a stray paste, empty text, a code of
+  /// the *other* kind, or one tagged with a version this build does not know.
   notACode,
-
-  /// One of our codes, in a format this build predates.
-  futureVersion,
 
   /// The right format, but the bytes did not survive the trip.
   damaged;
 
-  /// Wording for the user. Each case gets its own advice, because what to do
-  /// about it differs: retype it, update the app, or check what you scanned.
   String message(String thing) => switch (this) {
-        ShareCodeProblem.notACode => "That doesn't look like a $thing code.",
-        ShareCodeProblem.futureVersion =>
-          'That $thing was made by a newer version of Foss Lift. Update the '
-              'app to use it.',
+        ShareCodeProblem.notACode => 'Invalid $thing code.',
         ShareCodeProblem.damaged =>
-          'That $thing code looks damaged — some of it may be missing. Try '
-              'copying it again.',
+          'Invalid $thing code — characters missing.',
       };
 }
 
@@ -78,11 +70,11 @@ abstract final class ShareCodec {
   /// Reads a code, a `fosslift://<host>/` link, or either with whitespace
   /// through it, and hands back the body [pack] was given.
   ///
-  /// Never throws. A tag from the same family but a different number is
-  /// [ShareCodeProblem.futureVersion]; a tag from another family — a theme code
-  /// offered to the routine reader — is [ShareCodeProblem.notACode], because
-  /// telling someone to update the app would send them off after a version that
-  /// will never help.
+  /// Never throws. Any tag that is not exactly [version] — another family's, or
+  /// the same family at a number this build does not know — is
+  /// [ShareCodeProblem.notACode]. Nothing has shipped, so there is no older
+  /// build in the wild whose codes we would be turning away, and no newer one
+  /// to send anybody off to install.
   ///
   /// [minBody] is the shortest body the caller's format can possibly have; a
   /// code below it is damaged rather than parsed into a half-read anything.
@@ -105,12 +97,7 @@ abstract final class ShareCodec {
 
     final dot = s.indexOf('.');
     if (dot <= 0) return notACode;
-    final tag = RegExp(r'^(FL[A-Z])(\d+)$').firstMatch(s.substring(0, dot));
-    final family = RegExp(r'^(FL[A-Z])').firstMatch(version)!.group(1);
-    if (tag == null || tag.group(1) != family) return notACode;
-    if (tag.group(0) != version) {
-      return (body: null, problem: ShareCodeProblem.futureVersion);
-    }
+    if (s.substring(0, dot) != version) return notACode;
 
     final payload = s.substring(dot + 1);
     Uint8List bytes;

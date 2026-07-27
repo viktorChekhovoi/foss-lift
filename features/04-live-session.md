@@ -47,6 +47,13 @@ you're done.
 - **A session ends by finishing it or by aborting it.** Collapsing never
   discards it, and an abort always asks first — it is the one control on the
   screen that destroys work.
+- **Only one session runs at a time, and Start knows it.** Starting the workout
+  already in progress opens it rather than restarting it: you tapped the thing
+  you are already doing, so there is nothing to decide. Starting a *different*
+  one asks first — it names the session at risk, how many of its sets are logged
+  and how long it has been running, and defaults to keeping it. Every entry
+  point goes through the same check, and the check comes before the layoff offer
+  so nothing is cut for a session that never starts.
 - **The weight belongs to the exercise, not to each set.** Deciding mid-session
   that today's squat is 100 rather than 95 is one edit, not one per set row. The
   sets follow it; the ones already logged keep the weight they were actually
@@ -128,6 +135,8 @@ you're done.
   `loadLadder` in `lib/data/plates.dart`.
 - Screens/widgets: `lib/screens/workout_screen.dart`,
   `lib/widgets/resume_workout_bar.dart`.
+- Starting one: `lib/widgets/start_workout.dart` — the switch confirmation, the
+  layoff offer and the push to `/session`, in that order.
 
 ## Related issues
 
@@ -136,3 +145,4 @@ you're done.
 - [#26 Workout should persist until manually ended](https://github.com/viktorChekhovoi/foss-lift/issues/26) — shipped
 - [#25 Warmup calculator](https://github.com/viktorChekhovoi/foss-lift/issues/25) — shipped, in review
 - [#35 One weight per exercise, and a warm-up ramp that follows it](https://github.com/viktorChekhovoi/foss-lift/issues/35) — shipped, in review
+- [#39 Starting a workout while one is already live](https://github.com/viktorChekhovoi/foss-lift/issues/39) — shipped, in review

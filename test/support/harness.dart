@@ -56,6 +56,21 @@ Future<void> frames(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 400));
 }
 
+/// Lets work started by a tap finish when part of it goes through the database.
+///
+/// Neither tool does this alone. A handler fired by a tap runs in the test's
+/// *fake* zone, so its continuations only advance when the tree is pumped; the
+/// drift futures it awaits only complete on the *real* event loop, which is what
+/// `runAsync` turns — and pumping inside `runAsync` is forbidden. So they take
+/// turns until the work is through.
+Future<void> pumpThroughDatabase(WidgetTester tester, {int rounds = 12}) async {
+  for (var i = 0; i < rounds; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+  }
+}
+
 /// [appUnder], but with a real router underneath.
 ///
 /// Screens that finish by navigating — a form that pops on save — call
@@ -63,9 +78,17 @@ Future<void> frames(WidgetTester tester) async {
 /// bare works right up until the moment the test taps the button that leaves,
 /// so anything exercising that path wants this instead.
 ///
-/// The route it lands on afterwards is deliberately blank: this is for testing
-/// what the screen *did*, not where the app went next.
-Widget routedAppUnder(ProviderContainer container, Widget child) =>
+/// `/today` is deliberately blank — a screen that leaves for home needs
+/// somewhere to land, not a home screen to assert on.
+///
+/// [alsoRoutes] adds further destinations the screen under test can navigate
+/// to, each rendering `at /<path>` so a test can assert *where* it went when
+/// that is the point (`alsoRoutes: ['session']` → `find.text('at /session')`).
+Widget routedAppUnder(
+  ProviderContainer container,
+  Widget child, {
+  List<String> alsoRoutes = const [],
+}) =>
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
@@ -81,6 +104,12 @@ Widget routedAppUnder(ProviderContainer container, Widget child) =>
               builder: (_, _) => const SizedBox.shrink(),
               routes: [
                 GoRoute(path: 'under-test', builder: (_, _) => child),
+                GoRoute(path: 'today', builder: (_, _) => const SizedBox.shrink()),
+                for (final p in alsoRoutes)
+                  GoRoute(
+                    path: p,
+                    builder: (_, _) => Scaffold(body: Text('at /$p')),
+                  ),
               ],
             ),
           ],

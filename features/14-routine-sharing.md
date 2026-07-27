@@ -9,11 +9,12 @@ exercises it depends on — as one line of text you can paste into a message.
   base64 line beginning `FLR1.` It carries the routine's name, colour, default
   rest and training days; every workout in order; every exercise slot with its
   full configuration; and a definition of every exercise the routine references.
-- **Four ways out.** Show a QR, send a `fosslift://routine/…` link, copy the
-  code, or save it as a file. All four carry the same code — nothing is
-  uploaded, and none of it touches the network.
-- **Import.** A scanned QR, a tapped link, a pasted code or a saved file lands on
-  a confirmation screen. Nothing is written until you accept it.
+- **Two ways out.** Show a QR, or send a `fosslift://routine/…` link. Both carry
+  the same code — nothing is uploaded, and none of it touches the network. The
+  system share sheet is where "copy" lives; there is no separate copy button and
+  no file to save.
+- **Import.** A scanned QR, a tapped link or a pasted code lands on a
+  confirmation screen. Nothing is written until you accept it.
 - **Custom exercises travel with the routine.** A programme built around your own
   "Zercher Squat" arrives complete; the recipient does not need it beforehand.
   What travels is what identifies the movement and how it is loaded — the name,
@@ -25,10 +26,10 @@ exercises it depends on — as one line of text you can paste into a message.
 
 ## How to use it
 
-- **Send one:** Routines → open a routine → the share icon → **Show QR**,
-  **Send link**, **Copy code** or **Save file**.
-- **Receive one:** Routines → scroll past **+ New routine** to **SOMEONE SHARED
-  ONE** → **Scan QR** or **Paste code**. A `fosslift://routine/…` link tapped
+- **Send one:** Routines → open a routine → the share icon → **Show QR** or
+  **Send link**.
+- **Receive one:** Routines → scroll past **+ New routine** to **IMPORT A
+  ROUTINE** → **Scan QR** or **Paste code**. A `fosslift://routine/…` link tapped
   anywhere on the phone opens the same screen.
 - **Decide on clashes:** the confirmation screen lists every exercise that will
   be added, and every one whose name you already use. Each clash has a
@@ -63,7 +64,7 @@ exercises it depends on — as one line of text you can paste into a message.
   low rather than refused — a symbol with less redundancy still scans, and the
   alternative is no symbol. Past 2,953 the QR is withheld with an explanation
   rather than rendered as an unscannable smudge; the code is still perfectly
-  shareable as a link, a copy or a file. It takes a routine carrying dozens of
+  shareable as a link. It takes a routine carrying dozens of
   long, genuinely dissimilar custom-exercise descriptions to get there —
   ordinary wordy ones deflate away.
 - **The symbol is drawn as large as the screen allows.** Density is the real
@@ -90,9 +91,9 @@ exercises it depends on — as one line of text you can paste into a message.
 - **An import always creates a new routine.** Nothing existing is overwritten,
   and the new routine does not take over Today — the current routine is left
   where it was.
-- **A damaged or newer-format code is a dead end.** The three failures — not a
-  code, made by a newer version, damaged in transit — each say what to do, and
-  none of them offers a partial import.
+- **A code that will not read is a dead end.** The two failures — not a routine
+  code at all (which includes any tag that is not `FLR1`), or damaged in
+  transit — each say which, and neither offers a partial import.
 
 ## Where it lives
 

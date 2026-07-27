@@ -390,8 +390,107 @@ void main() {
 
       await stop(tester);
     });
+  });
 
+  group('a custom exercise stays editable after it is saved', () {
+    setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
 
+    Future<int> mine() => db.createExercise(
+          name: 'Copenhagen Plank',
+          muscle: 'Core',
+          equipment: 'Bodyweight',
+          videoUrl: 'https://youtu.be/aBcD1234_-x',
+          measure: ExerciseMeasure.time,
+          weightType: WeightType.machine,
+        );
+
+    Future<void> openEditor(WidgetTester tester, int id) async {
+      tester.view.physicalSize = const Size(1000, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+          routedAppUnder(container, ExerciseFormScreen(exerciseId: id)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the form opens on what was stored, not on a blank',
+        (tester) async {
+      final id = (await tester.runAsync(mine))!;
+      await openEditor(tester, id);
+
+      expect(find.text('Edit exercise'), findsOneWidget);
+      expect(find.text('Copenhagen Plank'), findsOneWidget);
+      expect(find.text('https://youtu.be/aBcD1234_-x'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('saving rewrites the exercise in place rather than adding one',
+        (tester) async {
+      final id = (await tester.runAsync(mine))!;
+      final before =
+          (await tester.runAsync(() => db.watchExercises().first))!.length;
+      await openEditor(tester, id);
+
+      await tester.enterText(
+          find.byType(TextField).first, 'Copenhagen Plank (long lever)');
+      // "Dumbbell" is both an equipment and a loading; the second is the
+      // "Loaded as" row, which sits below Equipment on the form.
+      await tester.tap(find.text('Dumbbell').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final all = (await tester.runAsync(() => db.watchExercises().first))!;
+      expect(all.length, before, reason: 'an edit is not a second exercise');
+      final saved = all.firstWhere((e) => e.id == id);
+      expect(saved.name, 'Copenhagen Plank (long lever)');
+      expect(saved.weightType, WeightType.dumbbell);
+      expect(saved.isCustom, isTrue);
+
+      await stop(tester);
+    });
+
+    testWidgets('the name field stops at the length the schema will take',
+        (tester) async {
+      final id = (await tester.runAsync(mine))!;
+      await openEditor(tester, id);
+
+      // Typing past the cap would otherwise be a failed insert rather than a
+      // truncated one — the column rejects it.
+      await tester.enterText(find.byType(TextField).first, 'x' * 200);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final all = (await tester.runAsync(() => db.watchExercises().first))!;
+      expect(all.firstWhere((e) => e.id == id).name.length, kMaxNameLength);
+
+      await stop(tester);
+    });
+
+    test('a starter exercise is not renameable through the same door',
+        () async {
+      final all = await db.watchExercises().first;
+      final starter = all.firstWhere((e) => !e.isCustom);
+
+      await db.updateCustomExercise(
+        starter.id,
+        name: 'Not Bench Press',
+        muscle: 'Chest',
+        equipment: 'Barbell',
+        videoUrl: null,
+        measure: ExerciseMeasure.reps,
+        weightType: WeightType.bar,
+      );
+
+      final after = await db.exerciseById(starter.id);
+      expect(after.name, starter.name,
+          reason: 'a starter name is shared vocabulary a routine code relies on');
+    });
   });
 
   group('a personal note on a movement', () {

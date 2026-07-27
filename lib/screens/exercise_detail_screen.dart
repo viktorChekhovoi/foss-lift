@@ -19,8 +19,24 @@ class ExerciseDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final library = ref.watch(exerciseLibraryProvider);
 
+    // The edit pencil hangs off the app bar, so it needs the exercise before
+    // the body has resolved it — hence the lookup here as well as below.
+    final ex = library.value?.where((e) => e.id == exerciseId).firstOrNull;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Exercise')),
+      appBar: AppBar(
+        title: const Text('Exercise'),
+        actions: [
+          // Only a custom exercise: the starter library's names and
+          // classifications are shared vocabulary — see updateCustomExercise.
+          if (ex != null && ex.isCustom)
+            IconButton(
+              tooltip: 'Edit',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => context.push('/exercise/$exerciseId/edit'),
+            ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: library.when(
@@ -83,7 +99,7 @@ class _Body extends ConsumerWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             icon: Icon(Icons.show_chart, color: AppColors.accent),
-            label: const Text('Progress & export'),
+            label: const Text('Progress'),
             onPressed: () => context.push('/exercise/${exercise.id}/progress'),
           ),
         ),
@@ -231,7 +247,7 @@ class _BarWeightRow extends ConsumerWidget {
 
     return SettingRow(
       label: 'Bar weight',
-      note: own == null ? 'the gym default' : 'set for this exercise',
+      note: own == null ? 'default' : 'set for this exercise',
       value: '${fmtPlateWeight(toDisplayWeight(own ?? fallback, unit))} $u',
       onTap: edit,
     );

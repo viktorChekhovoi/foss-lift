@@ -307,19 +307,30 @@ void main() {
   });
 
   group('persisting the choice in Settings', () {
-    test('a fresh install has no choice and paints the default', () async {
+    test('a fresh install has no choice and follows the system brightness',
+        () async {
       // The spec: themePresetId/customTheme both unset on a new install.
       final setting = await db.watchThemeSetting().first;
       expect(setting.presetId, isNull);
       expect(setting.customJson, isNull);
 
+      // With nothing stored the app paints the default look in whichever
+      // brightness the phone is set to, rather than forcing dark on a phone
+      // that asked for light.
+      final expected =
+          defaultPaletteFor(container.read(platformBrightnessProvider));
       final palette = await readWhen(
         container,
         activePaletteProvider,
-        (p) => p == kDefaultPalette,
-        reason: 'the first frame paints the default preset',
+        (p) => p == expected,
+        reason: 'the first frame follows the system brightness',
       );
-      expect(palette, equals(kDefaultPalette));
+      expect(palette, equals(expected));
+    });
+
+    test('the two system defaults are the plain dark and light looks', () {
+      expect(defaultPaletteFor(Brightness.dark).id, 'ignition');
+      expect(defaultPaletteFor(Brightness.light).id, 'daylight');
     });
 
     test('setThemePreset then watchThemeSetting round-trips the slug', () async {
@@ -503,6 +514,71 @@ void main() {
 
       await stop(tester);
     });
+
+    // Both share assertions are about what the screen does *not* offer, so
+    // they need the whole list built rather than the top of a lazy viewport.
+    Future<void> pumpWholePicker(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1000, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester
+          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    testWidgets('a preset offers nothing to share — everyone already has it',
+        (tester) async {
+      await pumpWholePicker(tester);
+
+      expect(find.text('SHARE THIS THEME'), findsNothing);
+      // Importing one is always on offer; it is only sending that is pointless.
+      expect(find.text('ADD A THEME'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('tapping AAA explains it, but only once the row is selected',
+        (tester) async {
+      final hc = kThemePresets
+          .firstWhere((p) => p.accessible && p.brightness == Brightness.dark);
+      await pumpWholePicker(tester);
+
+      // Unselected: the tap belongs to picking the theme, not to the badge.
+      await tester.tap(find.text('AAA').first);
+      await pumpUntil(tester,
+          () => container.read(themeSettingProvider).value?.presetId == hc.id);
+      expect(find.text('Meets WCAG AAA contrast'), findsNothing,
+          reason: 'the tap selected the theme rather than explaining the badge');
+
+      // Selected: the same tap has nothing else to mean, so it explains.
+      await tester.tap(find.text('AAA').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Meets WCAG AAA contrast'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('a custom theme is shareable, as a QR or a link and no more',
+        (tester) async {
+      await tester.runAsync(() async {
+        await db.setCustomTheme(
+            kThemePresets.last.copyWith(name: 'Mine').toJson());
+        await db.setThemePreset(kCustomThemeId);
+      });
+      await pumpWholePicker(tester);
+
+      expect(find.text('SHARE THIS THEME'), findsOneWidget);
+      expect(find.text('Show QR'), findsOneWidget);
+      expect(find.text('Send link'), findsOneWidget);
+      // The share sheet already offers "copy", and a JSON file saved beside the
+      // app is a theme you then have to go and find.
+      expect(find.text('Copy code'), findsNothing);
+      expect(find.text('Save file'), findsNothing);
+
+      await stop(tester);
+    });
   });
 
   group('the portable theme code', () {
@@ -554,12 +630,11 @@ void main() {
       expect(ThemeCode.encode(kDefaultPalette), startsWith('FLT1.'));
     });
 
-    test('a newer format version is reported as newer, not as broken', () {
-      final future = ThemeCode.encode(kDefaultPalette).replaceFirst('FLT1', 'FLT9');
-      final result = ThemeCode.decode(future);
+    test('a code tagged with another format version is simply not a code', () {
+      final other = ThemeCode.encode(kDefaultPalette).replaceFirst('FLT1', 'FLT9');
+      final result = ThemeCode.decode(other);
       expect(result, isA<ThemeCodeFailure>());
-      expect((result as ThemeCodeFailure).problem, ThemeCodeProblem.futureVersion);
-      expect(result.message.toLowerCase(), contains('newer version'));
+      expect((result as ThemeCodeFailure).problem, ThemeCodeProblem.notACode);
     });
 
     test('text that is not a theme code at all is rejected as such', () {
@@ -918,7 +993,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.textContaining('damaged'), findsOneWidget);
+      expect(find.textContaining('characters missing'), findsOneWidget);
       expect(find.text('Use this theme'), findsNothing,
           reason: 'there is nothing safe to apply');
       expect(find.byType(ThemePreview), findsNothing);
@@ -926,7 +1001,8 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a code from a newer app version says so', (tester) async {
+    testWidgets('a code tagged with another format version is refused',
+        (tester) async {
       await tester.pumpWidget(appUnder(
         container,
         ThemeImportScreen(
@@ -934,7 +1010,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.textContaining('newer version'), findsOneWidget);
+      expect(find.text('Invalid theme code.'), findsOneWidget);
       expect(find.text('Use this theme'), findsNothing);
 
       await stop(tester);
@@ -948,7 +1024,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.textContaining("doesn't look like a theme"), findsOneWidget);
+      expect(find.text('Invalid theme code.'), findsOneWidget);
       expect(find.text('Use this theme'), findsNothing);
 
       await stop(tester);

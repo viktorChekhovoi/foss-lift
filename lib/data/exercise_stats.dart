@@ -38,17 +38,6 @@ class ExerciseSetEntry {
   bool get timed => seconds != null;
 }
 
-/// Epley one-rep-max estimate from a working set: `w · (1 + reps/30)`.
-///
-/// A single rep is already a one-rep max, so it returns the weight untouched
-/// rather than inflating it; zero reps (a set that was logged but not really
-/// performed) has no estimate and returns zero.
-double estimatedOneRepMax(double weightKg, int reps) {
-  if (reps <= 0) return 0;
-  if (reps == 1) return weightKg;
-  return weightKg * (1 + reps / 30.0);
-}
-
 /// One point on the progress chart: the best set of a single session.
 ///
 /// A session contributes at most one point, so a chart reads one dot per time
@@ -58,7 +47,6 @@ class ExerciseProgressPoint {
     required this.date,
     required this.topWeightKg,
     required this.repsAtTop,
-    required this.est1RMKg,
     required this.bestSeconds,
   });
 
@@ -70,10 +58,6 @@ class ExerciseProgressPoint {
   /// Reps done on the set that set [topWeightKg] (the most reps, if it was hit
   /// at more than one rep count).
   final int repsAtTop;
-
-  /// The best estimated one-rep max across the session's completed sets — the
-  /// metric that credits an extra rep at the same weight, not only more load.
-  final double est1RMKg;
 
   /// The longest completed hold that session, for a timed movement.
   final int bestSeconds;
@@ -96,7 +80,6 @@ List<ExerciseProgressPoint> progressPoints(List<ExerciseSetEntry> sets) {
   for (final entries in bySession.values) {
     var topWeight = double.negativeInfinity;
     var repsAtTop = 0;
-    var est1RM = 0.0;
     var bestSeconds = 0;
     for (final e in entries) {
       if (e.weightKg > topWeight ||
@@ -104,15 +87,12 @@ List<ExerciseProgressPoint> progressPoints(List<ExerciseSetEntry> sets) {
         topWeight = e.weightKg;
         repsAtTop = e.reps;
       }
-      final oneRm = estimatedOneRepMax(e.weightKg, e.reps);
-      if (oneRm > est1RM) est1RM = oneRm;
       if ((e.seconds ?? 0) > bestSeconds) bestSeconds = e.seconds ?? 0;
     }
     points.add(ExerciseProgressPoint(
       date: entries.first.date,
       topWeightKg: topWeight == double.negativeInfinity ? 0 : topWeight,
       repsAtTop: repsAtTop,
-      est1RMKg: est1RM,
       bestSeconds: bestSeconds,
     ));
   }

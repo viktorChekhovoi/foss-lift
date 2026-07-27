@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
@@ -73,7 +74,7 @@ final historyProvider = StreamProvider<List<Session>>((ref) {
 });
 
 /// Every logged set of one exercise across finished sessions, oldest first —
-/// the source for its progress chart and CSV export.
+/// the source for its progress chart.
 final exerciseHistoryProvider =
     StreamProvider.family<List<ExerciseSetEntry>, int>((ref, exerciseId) {
   return ref.watch(databaseProvider).watchExerciseSetHistory(exerciseId);
@@ -151,13 +152,41 @@ final themeSettingProvider = StreamProvider<ThemeSetting>((ref) {
   return ref.watch(databaseProvider).watchThemeSetting();
 });
 
+/// The phone's own light/dark setting, kept current as it changes.
+///
+/// It decides only what an untouched install opens as — picking any theme
+/// stores that choice, and a stored choice outranks the system. Watched rather
+/// than read once so a phone that flips at sunset flips the app with it.
+class PlatformBrightness extends Notifier<Brightness>
+    with WidgetsBindingObserver {
+  @override
+  Brightness build() {
+    final binding = WidgetsBinding.instance;
+    binding.addObserver(this);
+    ref.onDispose(() => binding.removeObserver(this));
+    return binding.platformDispatcher.platformBrightness;
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    state = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+  }
+}
+
+final platformBrightnessProvider =
+    NotifierProvider<PlatformBrightness, Brightness>(PlatformBrightness.new);
+
 /// The palette to paint with, resolved against the shipped presets and any
 /// custom theme. Synchronous with a sensible default, so the very first frame
 /// is painted with the default preset rather than an unthemed flash while the
 /// settings row is read.
 final activePaletteProvider = Provider<AppPalette>((ref) {
   final setting = ref.watch(themeSettingProvider).value;
-  return resolvePalette(setting?.presetId, setting?.customJson);
+  return resolvePalette(
+    setting?.presetId,
+    setting?.customJson,
+    system: ref.watch(platformBrightnessProvider),
+  );
 });
 
 /// The bar and plate rack as stored — read [plateSettingsProvider] instead

@@ -6,10 +6,10 @@ import '../util/qr_capacity.dart';
 
 /// The chrome every "share this thing" screen is built from.
 ///
-/// Themes and routines share a transport — a code, a link, a QR, a file — so
-/// they share the buttons, the QR card, the paste dialog and the snackbar too.
-/// One copy means the two screens cannot drift into looking like different
-/// apps, and the QR advice below only has to be got right once.
+/// Themes and routines share a transport — a QR and a link — so they share the
+/// buttons, the QR card and the paste dialog too. One copy means the two
+/// screens cannot drift into looking like different apps, and the QR advice
+/// below only has to be got right once.
 
 /// Something shareable as a QR someone else can point a phone at.
 ///
@@ -114,8 +114,8 @@ class ShareQr extends StatelessWidget {
           border: Border.all(color: AppColors.line),
         ),
         child: Text(
-          'This one is too big for a QR code — send it as a link, a copied '
-          'code or a file instead. All three carry exactly the same thing.',
+          'Too big for a QR code. Send it as a link instead — same thing, '
+          'no camera needed.',
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
       );
@@ -143,12 +143,6 @@ Widget shareActionRow(List<(IconData, String, VoidCallback?)> actions) => Row(
         ],
       ],
     );
-
-/// A one-line snackbar. Every share action reports what it did — a copy or a
-/// file write is otherwise silent, and silence reads as failure.
-void saySnack(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-}
 
 /// Prompts for a pasted code or link and returns the trimmed text, or null if
 /// the dialog was dismissed or left empty.
@@ -188,32 +182,6 @@ Future<String?> promptForCode(
   controller.dispose();
   final text = pasted?.trim() ?? '';
   return text.isEmpty ? null : text;
-}
-
-/// A code shown as text, ready to be selected and copied by hand — the fallback
-/// when a payload is too long for a QR and the user is on the phone that has
-/// it.
-class ShareCodeBox extends StatelessWidget {
-  const ShareCodeBox({super.key, required this.code});
-  final String code;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line),
-      ),
-      child: SelectableText(
-        code,
-        maxLines: 4,
-        style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
-      ),
-    );
-  }
 }
 
 /// Leaves a screen that may have been pushed onto a stack (the in-app paths) or

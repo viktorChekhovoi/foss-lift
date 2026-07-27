@@ -6,6 +6,7 @@ import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/plate_line.dart';
+import '../widgets/start_workout.dart';
 
 /// One training day: the exercises it contains, and the button that starts it.
 class WorkoutDetailScreen extends ConsumerWidget {
@@ -83,85 +84,12 @@ class WorkoutDetailScreen extends ConsumerWidget {
             ),
             _StartBar(
               enabled: (items.value ?? const []).isNotEmpty,
-              onStart: () => _start(context, ref, workoutId,
+              onStart: () => startWorkout(context, ref, workoutId,
                   workout?.name ?? 'Workout'),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Starts the session, offering a back-off first if the workout has been left
-/// alone long enough to earn one.
-///
-/// The offer comes *before* the session is hydrated, so accepting it moves the
-/// template and the first set row is drawn at the new weight — there is no
-/// moment where the screen shows one number and the programme holds another.
-/// Declining is not remembered anywhere: training today resets the gap on its
-/// own, so the question cannot come back to nag.
-Future<void> _start(
-  BuildContext context,
-  WidgetRef ref,
-  int workoutId,
-  String name,
-) async {
-  final db = ref.read(databaseProvider);
-  final layoff = await db.layoffFor(workoutId);
-
-  String? notice;
-  if (layoff != null && context.mounted) {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (_) => _LayoffDialog(layoff: layoff, workoutName: name),
-    );
-    if (accepted == true) {
-      final moved = await db.applyLayoffDeload(workoutId, layoff.percent);
-      // Nothing moved means nothing here had a target to cut. Announcing a
-      // deload that did not happen is worse than saying nothing.
-      if (moved > 0) {
-        notice = 'Targets cut ${layoff.percent}% — '
-            '${layoff.gapDays} days since you last trained this.';
-      }
-    }
-  }
-
-  await ref
-      .read(activeWorkoutProvider.notifier)
-      .start(workoutId: workoutId, name: name, notice: notice);
-  if (context.mounted) context.push('/session');
-}
-
-/// The one place the user is asked about a layoff: what it noticed, what it
-/// proposes, and the option to say no.
-class _LayoffDialog extends StatelessWidget {
-  const _LayoffDialog({required this.layoff, required this.workoutName});
-  final LayoffDeload layoff;
-  final String workoutName;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: const Text('Been a while'),
-      content: Text(
-        'You last trained $workoutName ${layoff.gapDays} days ago. Coming back '
-        'at the same load is how people get hurt.\n\n'
-        'Foss Lift can drop every target in this workout by ${layoff.percent}% '
-        'to ease you back in. Your logged history is not touched.',
-        style: TextStyle(color: AppColors.muted, height: 1.5),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Keep weights'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: Text('Deload ${layoff.percent}%'),
-        ),
-      ],
     );
   }
 }

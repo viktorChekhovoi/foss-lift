@@ -48,7 +48,7 @@ class ThemeImportScreen extends ConsumerWidget {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
       const SizedBox(height: 6),
       Text(
-        'Someone shared this theme with you. Here is what it looks like.',
+        'Shared with you.',
         style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
       ),
       const SizedBox(height: 18),
@@ -77,8 +77,7 @@ class ThemeImportScreen extends ConsumerWidget {
       ),
       const SizedBox(height: 14),
       Text(
-        'This replaces your custom theme. The preset themes are untouched, so '
-        'you can switch back at any time.',
+        'Replaces your custom theme. Presets are untouched.',
         style: TextStyle(color: AppColors.faint, fontSize: 12, height: 1.5),
       ),
     ];

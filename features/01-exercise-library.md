@@ -7,7 +7,8 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 - Ships a starter library of ~85 exercises, each with a **demo-video link**.
 - Is **searchable** by name, and each exercise opens a detail page with its
   facts and demo link.
-- Lets you **add your own custom exercises**, which sit alongside the starter set.
+- Lets you **add your own custom exercises**, which sit alongside the starter
+  set, and **edit them afterwards** — every fact on the form stays changeable.
 - Every exercise carries three facts about the movement itself, not about any
   routine that uses it:
   - **Measure** — *counted* (done for reps) or *held* (a timed hold, e.g. a
@@ -30,6 +31,9 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   the **weight type** and its **own bar weight** — for *every* exercise, not just
   custom ones (whether your gym's bench has a 20 kg bar is something the starter
   library can't know).
+- **Edit a custom exercise outright:** open one you made → the pencil in the app
+  bar reopens the creation form on what you stored. The pencil is absent on a
+  starter exercise.
 - **Write a note:** open any exercise → tap **My note** → type. During a workout
   the movements you have written a note on show a note icon beside the name;
   one tap opens it in place, without leaving the session.
@@ -71,6 +75,15 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   one person at one machine and would be actively wrong anywhere else. Available
   on every exercise, starter or custom, and capped at 300 characters. Blank and
   absent are the same thing — a note of only spaces is stored as no note.
+- **Only a custom exercise is editable in full.** A starter exercise's name and
+  classification are shared vocabulary — a routine code that says "Bench Press"
+  means the movement everyone else calls that, and a local rename would quietly
+  break that agreement. What *is* yours about a starter exercise (its loading,
+  its bar, your note) is editable on its detail screen. The rule is enforced in
+  the database writer, not only by hiding the pencil.
+- **A name stops at 80 characters where it is typed**, on exercises, workouts
+  and routines alike. That is the schema's own limit, so a longer name would be
+  a failed write rather than a truncated one.
 - **Weight type is seeded from equipment:** Barbell → bar, Dumbbell → dumbbell,
   everything else (bodyweight included) → machine. You can override it afterward.
 - **Measure is fixed at creation** for custom exercises; in the starter library

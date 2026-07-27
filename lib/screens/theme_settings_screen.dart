@@ -1,12 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../providers/providers.dart';
@@ -31,7 +25,9 @@ class ThemeSettingsScreen extends ConsumerWidget {
     final db = ref.read(databaseProvider);
     final customJson = setting?.customJson;
     final custom = customJson == null ? null : AppPalette.tryParse(customJson);
-    final selectedId = setting?.presetId ?? kDefaultPalette.id;
+    // With nothing stored the picker marks whichever default the system
+    // brightness put on screen, so the radio agrees with what you can see.
+    final selectedId = setting?.presetId ?? active.id;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Colour theme')),
@@ -81,18 +77,18 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   : () => db.setThemePreset(kCustomThemeId),
               onEdit: () => context.push('/settings/theme/custom'),
             ),
-            const SizedBox(height: 26),
-            shareSectionLabel('SHARE THIS THEME'),
-            const SizedBox(height: 10),
-            shareActionRow([
-              (Icons.qr_code_2, 'Show QR', () => _showQr(context, active)),
-              (Icons.ios_share, 'Send link', () => _shareLink(context, active)),
-            ]),
-            const SizedBox(height: 10),
-            shareActionRow([
-              (Icons.content_copy, 'Copy code', () => _copyCode(context, active)),
-              (Icons.save_alt, 'Save file', () => _saveFile(context, active)),
-            ]),
+            // Only your own theme is shareable. The presets ship with every
+            // copy of the app, so sending someone a code for one is sending
+            // them something they already have.
+            if (selectedId == kCustomThemeId && custom != null) ...[
+              const SizedBox(height: 26),
+              shareSectionLabel('SHARE THIS THEME'),
+              const SizedBox(height: 10),
+              shareActionRow([
+                (Icons.qr_code_2, 'Show QR', () => _showQr(context, active)),
+                (Icons.ios_share, 'Send link', () => _shareLink(active)),
+              ]),
+            ],
             const SizedBox(height: 22),
             shareSectionLabel('ADD A THEME'),
             const SizedBox(height: 10),
@@ -104,15 +100,6 @@ class ThemeSettingsScreen extends ConsumerWidget {
               ),
               (Icons.content_paste, 'Paste code', () => _paste(context)),
             ]),
-            const SizedBox(height: 16),
-            Text(
-              'A theme code is a short line of text like FLT1.AA8… — the whole '
-              'palette, small enough to paste into a message or hold in a QR '
-              'code. Anything you scan or paste is shown to you first; nothing '
-              'changes until you say so. None of this touches the network.',
-              style:
-                  TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
-            ),
           ],
         ),
       ),
@@ -150,56 +137,23 @@ Future<void> _showQr(BuildContext context, AppPalette palette) {
 }
 
 /// Hands the theme link to the system share sheet — Quick Share, a chat app,
-/// wherever. Nothing is uploaded: the link *is* the theme.
-Future<void> _shareLink(BuildContext context, AppPalette palette) async {
-  final link = ThemeCode.link(palette);
+/// the clipboard. Nothing is uploaded: the link *is* the theme.
+Future<void> _shareLink(AppPalette palette) async {
   await SharePlus.instance.share(
-    ShareParams(text: link, subject: 'Foss Lift theme: ${palette.name}'),
+    ShareParams(
+      text: ThemeCode.link(palette),
+      subject: 'Foss Lift theme: ${palette.name}',
+    ),
   );
 }
 
-/// Copies the bare code. Kept separate from the link because chat apps do not
-/// turn a `fosslift://` URL into something tappable, so the code is often the
-/// more useful thing to paste.
-Future<void> _copyCode(BuildContext context, AppPalette palette) async {
-  await Clipboard.setData(ClipboardData(text: ThemeCode.encode(palette)));
-  if (context.mounted) saySnack(context, 'Theme code copied');
-}
-
-/// Writes the palette as JSON next to the app's documents. The long-standing
-/// file path, kept for backups — the code is for sharing, a file is for keeping.
-Future<void> _saveFile(BuildContext context, AppPalette palette) async {
-  final pretty = const JsonEncoder.withIndent('  ').convert(palette.toMap());
-  String? path;
-  try {
-    final dir = await getApplicationDocumentsDirectory();
-    final slug = palette.name
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'^_|_$'), '');
-    final file = File(p.join(dir.path, 'foss_lift_theme_$slug.json'));
-    await file.writeAsString(pretty);
-    path = file.path;
-  } catch (_) {
-    // A filesystem hiccup should report itself, not throw into the button.
-  }
-  if (!context.mounted) return;
-  saySnack(context,
-      path == null ? "Couldn't save the file" : 'Saved ${p.basename(path)}');
-}
-
-/// Prompts for a pasted code, link or JSON blob and hands it to the import
-/// screen, which is the only thing allowed to apply a theme.
+/// Prompts for a pasted code or link and hands it to the import screen, which
+/// is the only thing allowed to apply a theme.
 Future<void> _paste(BuildContext context) async {
   final text = await promptForCode(context,
       title: 'Paste a theme', hint: 'FLT1.… or a fosslift:// link');
   if (text == null || !context.mounted) return;
-
-  // Themes exported as a file before codes existed are still JSON. Accept
-  // either without making the user say which they have.
-  final asJson = AppPalette.tryParse(text);
-  final code = asJson != null ? ThemeCode.encode(asJson) : text;
-  context.push('/settings/theme/import?code=${Uri.encodeQueryComponent(code)}');
+  context.push('/settings/theme/import?code=${Uri.encodeQueryComponent(text)}');
 }
 
 /// A selectable theme row: a strip of its key colours, its name, and a radio.
@@ -249,22 +203,7 @@ class _ThemeOption extends StatelessWidget {
               if (palette.accessible)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: Tooltip(
-                    message: 'Meets WCAG AAA contrast',
-                    child: Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.line),
-                      ),
-                      child: Text('AAA',
-                          style: kMono.copyWith(
-                              fontSize: 10,
-                              letterSpacing: 0.8,
-                              color: AppColors.muted)),
-                    ),
-                  ),
+                  child: _AaaBadge(explainOnTap: selected),
                 ),
               if (onEdit != null)
                 IconButton(
@@ -282,6 +221,50 @@ class _ThemeOption extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The `AAA` mark on a row whose palette was designed and checked against WCAG.
+///
+/// A long press always explains it, as any tooltip does. A *tap* explains it too
+/// — but only on the row already selected, where a tap has nothing else to mean.
+/// On an unselected row the tap has to go on selecting the theme, so this stands
+/// aside and lets it through: three characters of jargon are worth a tooltip,
+/// not worth costing someone the tap they were actually making.
+class _AaaBadge extends StatefulWidget {
+  const _AaaBadge({required this.explainOnTap});
+  final bool explainOnTap;
+
+  @override
+  State<_AaaBadge> createState() => _AaaBadgeState();
+}
+
+class _AaaBadgeState extends State<_AaaBadge> {
+  final _tooltip = GlobalKey<TooltipState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.explainOnTap
+          ? () => _tooltip.currentState?.ensureTooltipVisible()
+          : null,
+      child: Tooltip(
+        key: _tooltip,
+        message: 'Meets WCAG AAA contrast',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.line),
+          ),
+          child: Text('AAA',
+              style: kMono.copyWith(
+                  fontSize: 10,
+                  letterSpacing: 0.8,
+                  color: AppColors.muted)),
         ),
       ),
     );

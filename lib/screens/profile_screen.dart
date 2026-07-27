@@ -86,19 +86,14 @@ class ProfileScreen extends ConsumerWidget {
             },
           ),
           _SettingsTile(
-            icon: Icons.cloud_outlined,
-            label: 'Backup & export',
-            soon: true,
-          ),
-          _SettingsTile(
             icon: Icons.brightness_6_outlined,
             label: 'Appearance',
-            soon: true,
+            onTap: () => context.push('/settings/theme'),
           ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             label: 'About Foss Lift',
-            soon: true,
+            onTap: () => context.push('/about'),
             last: true,
           ),
         ],
@@ -150,23 +145,18 @@ class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
     required this.label,
-    this.onTap,
-    this.soon = false,
+    required this.onTap,
     this.last = false,
   });
   final IconData icon;
   final String label;
-  final VoidCallback? onTap;
-  final bool soon;
+  final VoidCallback onTap;
   final bool last;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap ??
-          () => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('"$label" is coming soon')),
-              ),
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(
@@ -177,13 +167,6 @@ class _SettingsTile extends StatelessWidget {
             SizedBox(width: 26, child: Icon(icon, size: 20, color: AppColors.muted)),
             const SizedBox(width: 8),
             Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
-            if (soon)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Text('SOON',
-                    style: kMono.copyWith(
-                        fontSize: 10, letterSpacing: 1, color: AppColors.faint)),
-              ),
             Icon(Icons.chevron_right, color: AppColors.faint),
           ],
         ),

@@ -13,7 +13,7 @@ import '../widgets/share_widgets.dart';
 /// Confirms a routine that arrived from outside the app before adding it.
 ///
 /// Every inbound path lands here — a scanned QR, a tapped `fosslift://` link, a
-/// pasted code, a saved file — so the rule holds everywhere it needs to: **a
+/// pasted code — so the rule holds everywhere it needs to: **a
 /// routine is shown in full and accepted, never added on arrival.** A code from
 /// someone else's screen is untrusted input, and quietly writing exercises into
 /// a stranger's library because they pointed a camera at something would be a
@@ -87,7 +87,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
       const SizedBox(height: 6),
       Text(
-        'Someone shared this routine with you. Here is what it would add.',
+        'Shared with you. Here is what it would add.',
         style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
       ),
       const SizedBox(height: 18),
@@ -100,7 +100,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
         shareSectionLabel('NEW EXERCISES'),
         const SizedBox(height: 10),
         Text(
-          'These are not in your library yet. They will be added.',
+          'Added to your library.',
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 8),
@@ -116,9 +116,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
         shareSectionLabel('NAMES YOU ALREADY USE'),
         const SizedBox(height: 10),
         Text(
-          'You already have an exercise by each of these names, described '
-          'differently. Keep yours, or replace it with theirs — replacing edits '
-          'the exercise you already have, so its history is kept.',
+          'Keep yours, or take theirs. Either way the history stays.',
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 10),
@@ -145,8 +143,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
       ),
       const SizedBox(height: 14),
       Text(
-        'This adds a new routine. Nothing you already have is removed, and the '
-        'routine shown on Today does not change.',
+        'Adds a routine. Nothing you have is removed or replaced.',
         style: TextStyle(color: AppColors.faint, fontSize: 12, height: 1.5),
       ),
     ];

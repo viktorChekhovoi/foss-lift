@@ -64,6 +64,7 @@ lib/
 │   ├── share_widgets.dart        QR card, action rows, paste dialog (theme+routine)
 │   ├── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
 │   ├── resume_workout_bar.dart   Resume pill over the app for a collapsed session
+│   ├── start_workout.dart        The one way into /session: switch + layoff asks
 │   └── tutorial.dart             First-run coach-mark tour (overlay + anchors)
 └── screens/                      One file per screen (see table below)
 
@@ -199,8 +200,8 @@ a back-off before the session starts.
 - `applyLayoffDeload(workoutId, percent)` cuts every slot along its own axis and
   clears both streaks — sessions either side of a month off are not consecutive
   in any sense the progression rules mean.
-- **Nothing is applied without being asked.** `workout_detail_screen` offers the
-  deload on Start, before the session hydrates, so accepting it moves the
+- **Nothing is applied without being asked.** `widgets/start_workout.dart` offers
+  the deload on Start, before the session hydrates, so accepting it moves the
   template and the first set row is drawn at the new weight. Declining is not
   recorded anywhere: training today resets the gap by itself, so the question
   cannot come back to nag. What was cut is carried into the session as

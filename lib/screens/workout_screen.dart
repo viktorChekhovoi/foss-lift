@@ -10,14 +10,9 @@ import '../data/warmup.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
+import '../util/format.dart';
 import '../util/units.dart';
 import '../widgets/plate_line.dart';
-
-String fmtDuration(int seconds) {
-  final m = seconds ~/ 60;
-  final s = seconds % 60;
-  return '$m:${s.toString().padLeft(2, '0')}';
-}
 
 class WorkoutScreen extends ConsumerStatefulWidget {
   const WorkoutScreen({super.key});

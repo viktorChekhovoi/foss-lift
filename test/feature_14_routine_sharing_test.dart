@@ -465,14 +465,13 @@ void main() {
       expect(await aCode(), startsWith('FLR1.'));
     });
 
-    test('a newer format version is reported as newer, not as broken',
+    test('a code tagged with another format version is simply not a code',
         () async {
-      final future = (await aCode()).replaceFirst('FLR1', 'FLR9');
-      final result = RoutineCode.decode(future);
+      final other = (await aCode()).replaceFirst('FLR1', 'FLR9');
+      final result = RoutineCode.decode(other);
       expect(result, isA<RoutineCodeFailure>());
-      expect((result as RoutineCodeFailure).problem,
-          ShareCodeProblem.futureVersion);
-      expect(result.message.toLowerCase(), contains('newer version'));
+      expect(
+          (result as RoutineCodeFailure).problem, ShareCodeProblem.notACode);
     });
 
     test('text that is not a routine code at all is rejected as such',
@@ -803,7 +802,8 @@ void main() {
   });
 
   group('the screens', () {
-    testWidgets('sharing a routine offers the code four ways', (tester) async {
+    testWidgets('sharing a routine offers a QR and a link, and nothing else',
+        (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       final id = (await tester.runAsync(() => _seedCustomRoutine(db)))!;
@@ -816,11 +816,15 @@ void main() {
       // The QR is drawn as large as the screen allows, so the actions sit below
       // the fold — scroll to each rather than asserting on what happens to be
       // built.
-      for (final label in ['Show QR', 'Send link', 'Copy code', 'Save file']) {
+      for (final label in ['Show QR', 'Send link']) {
         await tester.scrollUntilVisible(find.text(label), 120,
             scrollable: find.byType(Scrollable).first);
         expect(find.text(label), findsOneWidget);
       }
+      // The share sheet already offers "copy", and a file saved beside the app
+      // is a code you then have to go and find. Both are gone.
+      expect(find.text('Copy code'), findsNothing);
+      expect(find.text('Save file'), findsNothing);
 
       await stop(tester);
     });
@@ -923,7 +927,7 @@ void main() {
           RoutineImportScreen(code: code.substring(0, code.length - 6))));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('damaged'), findsOneWidget);
+      expect(find.textContaining('characters missing'), findsOneWidget);
       expect(find.text('Add this routine'), findsNothing,
           reason: 'there is nothing safe to add');
 

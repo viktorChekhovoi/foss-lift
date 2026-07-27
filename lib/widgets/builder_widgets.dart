@@ -10,6 +10,10 @@ import '../util/units.dart';
 
 InputDecoration builderInput(String hint) => InputDecoration(
       hintText: hint,
+      // No "12/80" counter under the name fields that cap their length: the cap
+      // stops typing on its own, and a tally of a number nobody is approaching
+      // is a line of noise under every field.
+      counterText: '',
       // Set explicitly, not just via the theme: a field with its own `style`
       // would otherwise lend the hint its weight and size and make the
       // placeholder look like entered text.

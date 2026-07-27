@@ -12,8 +12,9 @@ and a per-exercise progress chart.
 - **Session history:** every finished session, newest first; tap one to reopen its
   recap.
 - **Lifetime totals:** running **volume, reps, and sets** on the Today screen.
-- **Per-exercise progress chart:** a movement's logged sets over time, with 1RM /
-  chart maths.
+- **Per-exercise progress chart:** a movement's **top set** over time — one point
+  per session, the heaviest weight it actually held (or the longest hold, for a
+  timed movement).
 
 ## How to use it
 
@@ -36,6 +37,10 @@ and a per-exercise progress chart.
   the exercise name denormalised.
 - **Timed sets don't inflate rep/volume totals** — a plank's seconds aren't
   counted as reps.
+- **The chart plots the top set, and only the top set.** An estimated 1RM was
+  offered beside it and taken back out: it is a formula's opinion about a lift
+  you did not do, and two numbers that disagree about whether you are
+  progressing is one number too many.
 
 ## Where it lives
 

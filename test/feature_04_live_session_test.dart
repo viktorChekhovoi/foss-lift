@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/util/units.dart';
@@ -321,6 +322,99 @@ void main() {
       expect(sessions, isEmpty,
           reason: 'an aborted workout is never written to history');
 
+      await stop(tester);
+    });
+  });
+
+  group('Starting a workout while one is already live', () {
+    /// The detail screen for [wid], with a `/session` to land on.
+    Future<void> pumpDetail(WidgetTester tester, int wid) async {
+      await tester.pumpWidget(routedAppUnder(
+        container!,
+        WorkoutDetailScreen(workoutId: wid),
+        alsoRoutes: const ['session'],
+      ));
+      await frames(tester);
+    }
+
+    /// Starts Push for real and returns the id of the day named [other].
+    Future<int> livePushThen(WidgetTester tester, String other) async {
+      late int id;
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        id = await workoutIdNamed(db, other);
+        await container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: await workoutIdNamed(db, 'Push'),
+              name: 'Push',
+            );
+      });
+      container!.read(activeWorkoutProvider.notifier).cycleSet(0, 0);
+      return id;
+    }
+
+    testWidgets('the one already running opens instead of restarting',
+        (tester) async {
+      final push = await livePushThen(tester, 'Push');
+      final startedAt = session().startedAt;
+
+      await pumpDetail(tester, push);
+      await tester.tap(find.text('Start workout'));
+      await frames(tester);
+
+      expect(find.text('at /session'), findsOneWidget);
+      // The same session, not a fresh one wearing its name.
+      expect(session().startedAt, startedAt);
+      expect(session().doneSets, 1);
+
+      await stop(tester);
+    });
+
+    testWidgets('a different one asks first, naming what would be lost',
+        (tester) async {
+      final pull = await livePushThen(tester, 'Pull');
+      await pumpDetail(tester, pull);
+      await tester.tap(find.text('Start workout'));
+      await frames(tester);
+
+      expect(find.text('Switch to Pull?'), findsOneWidget);
+      expect(
+        find.textContaining('Push is still running — 1 of $kPushTotalSets '
+            'sets logged'),
+        findsOneWidget,
+      );
+      // Nothing has happened yet.
+      expect(find.text('at /session'), findsNothing);
+
+      await tester.tap(find.text('Keep Push'));
+      await frames(tester);
+
+      expect(session().name, 'Push');
+      expect(session().doneSets, 1);
+      expect(find.text('at /session'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('confirming discards the live session and starts the new one',
+        (tester) async {
+      final pull = await livePushThen(tester, 'Pull');
+      await pumpDetail(tester, pull);
+      await tester.tap(find.text('Start workout'));
+      await frames(tester);
+
+      // Starting the new day reads the template, so it crosses the real loop.
+      await tester.tap(find.text('Discard Push'));
+      await pumpThroughDatabase(tester);
+
+      expect(session().name, 'Pull');
+      expect(session().workoutId, pull);
+      expect(session().doneSets, 0, reason: 'a fresh session logs nothing');
+      expect(find.text('at /session'), findsOneWidget);
+
+      // This session's duration timer was created under the fake clock (the
+      // start ran inside a pump), so it has to be cancelled before the tree
+      // goes or the binding sees a timer outliving it.
+      container!.read(activeWorkoutProvider.notifier).discard();
       await stop(tester);
     });
   });

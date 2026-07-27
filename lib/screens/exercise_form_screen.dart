@@ -18,9 +18,17 @@ const _weightTypes = {
   'Dumbbell': WeightType.dumbbell,
 };
 
-/// Form for creating a custom exercise that joins the library.
+/// Form for a custom exercise: creating one, or editing one you already made.
+///
+/// The same screen either way. Everything on it is a fact you decided when you
+/// created the movement, and none of those facts is any less wrong a week
+/// later — so the form that set them is the form that changes them, rather than
+/// a second screen that would drift out of step with this one.
 class ExerciseFormScreen extends ConsumerStatefulWidget {
-  const ExerciseFormScreen({super.key});
+  const ExerciseFormScreen({super.key, this.exerciseId});
+
+  /// The custom exercise being edited, or null to create a new one.
+  final int? exerciseId;
 
   @override
   ConsumerState<ExerciseFormScreen> createState() => _ExerciseFormScreenState();
@@ -34,6 +42,33 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   String _measure = 'Reps';
   WeightType _weightType = weightTypeForEquipment('Barbell');
   bool _saving = false;
+
+  bool get _isEdit => widget.exerciseId != null;
+
+  /// Whether the existing exercise has been read into the fields yet. Creating
+  /// starts ready; editing has a database round trip to wait for.
+  late bool _loaded = !_isEdit;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) _load();
+  }
+
+  Future<void> _load() async {
+    final ex =
+        await ref.read(databaseProvider).exerciseById(widget.exerciseId!);
+    if (!mounted) return;
+    setState(() {
+      _name.text = ex.name;
+      _video.text = ex.videoUrl ?? '';
+      _muscle = kMuscleGroups.contains(ex.muscleGroup) ? ex.muscleGroup : 'Other';
+      _equip = kEquipmentTypes.contains(ex.equipment) ? ex.equipment : 'Other';
+      _measure = ex.measure == ExerciseMeasure.time ? 'Time held' : 'Reps';
+      _weightType = ex.weightType;
+      _loaded = true;
+    });
+  }
 
   /// The demo link as it should be stored: a YouTube URL reduced to its
   /// canonical short form, anything else left exactly as typed.
@@ -75,28 +110,55 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
     }
     setState(() => _saving = true);
     final video = _tidyLink(_video.text);
-    await ref.read(databaseProvider).createExercise(
-          name: name,
-          muscle: _muscle,
-          equipment: _equip,
-          videoUrl: video,
-          measure: _measures[_measure]!,
-          weightType: _weightType,
-        );
+    final db = ref.read(databaseProvider);
+    if (_isEdit) {
+      await db.updateCustomExercise(
+        widget.exerciseId!,
+        name: name,
+        muscle: _muscle,
+        equipment: _equip,
+        videoUrl: video,
+        measure: _measures[_measure]!,
+        weightType: _weightType,
+      );
+    } else {
+      await db.createExercise(
+        name: name,
+        muscle: _muscle,
+        equipment: _equip,
+        videoUrl: video,
+        measure: _measures[_measure]!,
+        weightType: _weightType,
+      );
+    }
     if (mounted) context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New exercise')),
+      appBar: AppBar(
+        title: Text(_isEdit ? 'Edit exercise' : 'New exercise'),
+      ),
       body: SafeArea(
         top: false,
-        child: ListView(
+        child: !_loaded
+            ? Center(child: CircularProgressIndicator(color: AppColors.accent))
+            : _form(context),
+      ),
+    );
+  }
+
+  Widget _form(BuildContext context) {
+    return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
             _Label('Name'),
-            _Field(controller: _name, hint: 'e.g. Cable Lateral Raise'),
+            _Field(
+              controller: _name,
+              hint: 'e.g. Cable Lateral Raise',
+              maxLength: kMaxNameLength,
+            ),
             const SizedBox(height: 18),
             _Label('Muscle group'),
             _Choices(
@@ -150,8 +212,6 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
               ),
             ),
           ],
-        ),
-      ),
     );
   }
 }
@@ -173,18 +233,25 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.keyboardType,
+    this.maxLength,
   });
   final TextEditingController controller;
   final String hint;
   final TextInputType? keyboardType;
+  final int? maxLength;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      maxLength: maxLength,
       style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
+        // No "12/80" counter. The limit stops typing on its own, and a running
+        // tally of a number nobody is approaching is a line of noise under
+        // every field.
+        counterText: '',
         hintText: hint,
         filled: true,
         fillColor: AppColors.surface,

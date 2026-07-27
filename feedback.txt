@@ -1,0 +1,54 @@
+1. The tutorial should start with a welcome window, otherwise it's disorienting.
+2. I want filters for exercisee search - barbell, bodyweight, arms & glutes only, etc
+3. replace the seeded youtube videos with proper links to actual videos
+4. i should pick reps/time first, and then select loading method if i picked reps. unless of course you can think of commmon 'time held' exercisses that progress by weight
+5. I should be able to edit a saved custom exercise to add or change whatever i want
+6. try to find and reduce unnecessary captions - "the gym default" should just be "default"
+7. clicking 'start workout' when one is already sstarted should bring up the workout in progress if i tried to start the same one, and bring up a conformation screen to switch over toa  different one if i tried to open a new workout.
+8. the workout window should have the option to abort a workout in case of an accidental click
+9. i should be able to set exercise notes mid workout, not just see them
+10. adding a note in the exercise library screen, then resuming a workout in progress should display a note next to the exercise if a note did not exist before. currently it does not. although i guess if (9) is implemented, this wont matter
+11. if i deecide to up my weight for an entire exercisse mid workout, i should not have to eddit a box for every sest. there should be a separate, ONE, goal text box, that I should be able to edit. it should be designed in a way that implies it's not meant to be edited every time, but it's open to an occasional edit
+12. if I change the goal, the warmup should recalculate
+13. i set squat to 227.5kg, the warmups are 20x8, 110x8, 190x2. I change the stepper to 4, and while the goals are now 20x8, 70x8, 130x5, 190x2, the "kg" boxes to the left of the reps done box still say 20, 110, 190, 190.
+14. add to gh issues - rest prompts. when resting between warmups, the caption should tell the user to set up new warmup weight and lift. when the last rep of the warmup is done - set up new weight, rest, and lift. otherwise - rest and lift. in between exercises - set up weights, rest, and lift. not exact text but you get the point
+15. the 'live workout' widget is blocking some parts of the screen. it shouldd NOT do that, figure out a good way to show it
+16. the 'tap a set...' hint should stick to the top of the screen like duration and sets does
+17. clicking -15s when the rest timer is <15s should skip the rest
+18. Some kind of a ding should play when a timer ends naturally or gets skipped
+19. For timed exercises, the 'reps done' caption should be different to reflect its function - when i click on it, it should start counting up, and i click again when done. similar to rest timer, it shoudd play a ding when i'm done.
+20. when i start a workout and exit the app, it should persist as a thingy in the notifications bar. it should have the basic controls - if i'm resting, it should display the rest timer but do not let me skip. if there is an upcoming exercise, diplay the weight if applicable and reps. it should automatically pull up warmups for an exercise before working sets. i should have a button to log successful set; if i click 'failed' it should bring me to the app to enter it and pre-seed it to goal reps - 1 (so that it's gold). it should also handle timed exercies correctly
+21. rmove 'backup and export', move themes from Settings to Appearance, and populate the "about foss lift" tab
+22. when sharing a theme, only two buttons are needed - qr code and 'send link'. the latter allows copying, and safe file is outdated. same applies to routines!
+23. in theme menu, clicking the 'AAA' caption on high contrast themes should bring up the tooltip IF the theme is already selected. this is in addition to the long press pulling it up as well
+24. the default theme shouldd be the system theme - default dark (ignition) or default light (daylight)
+25. for high contrast themes, are the 'reps done' colors high contrast enough? they don't seem to be to me, but maybe that's fine
+26. the reps done colors definitely need adjusting - on light themes, the green and gold stand out a lot less
+27. for accessibility, add an ability to control font size
+28. on solarized dark, i can hardly tell the difference between the 'all reps done' green and 'some rep done' gold. same on solarized light
+29. when i change the theme and relaunch the app, the bottom nav bar is on the wrong theme, but then refreshes to the right one as soon as i click anything
+30. the sample UI box in the custom theme builder is great, but it's using the outdated design. it should use current design elements.
+31. when editing a custom theme, i should be able to directly edit the color hex, as well as copy and paste - it should have clear nice buttons for copy and pasting
+32. I should be able to create multiple custom color themes and rename them and delete them after a confirmation screen
+33. I should only be able to share custom color themes and NOT the default ones
+34. bug - on emulator, cliking the qr code button just makes the screen dimmer, and does not show the qr
+35. we do NOT need support for legacy json formats
+36. may be a bug - fosslift links are not recognized in other applies
+37. message for invalid theme code is bad - just say invalid theme code, characters missing
+38. remove the 'made by a newer version of Foss Lift' - useless for the near future
+39. change the 'someone shared one' caption to 'Import a routine'
+40. change the theme code explanation from below the 'add a theme' menu
+41. same export simplification applies to the 'send it' part for routine sharing. also remove the unnecessary 'The code is the whole programme' thingy
+42. make the routine links open the app.
+43. remove the 'export' feature
+44. add a bug report/dev contact button linking to birdie.software.studios@gmail.com
+45. remove the 'remindder' captions from when making a routine
+46. remove the 'a routine is made of training days' part of the caption. add a style specification to avoid the type of captions I'm describing here. i should not have to correct this again
+47. from the exercise select window when adding an exercise to a workout, i should be able to add a custom one
+48. there should be a limit on the lengths of custom routines, workouts, and exercises
+49. apply the same simplifications to the routine imports that i told you about the theme imports.
+50. when i put an invalid code, i see some flashes of a flutter error screen, idk why
+51. for progress tab, display just the top set
+52. I should be able to pick some common bars for an exercise - e.g., an ez curl bar
+53.
+

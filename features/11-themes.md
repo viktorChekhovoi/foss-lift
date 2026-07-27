@@ -9,27 +9,25 @@ Pick a preset theme, build your own, or bring in one someone shared.
   brightnesses.
 - Lets you build a **custom** theme by editing each colour role, with a **live
   preview** of the palette you are editing.
-- **Shares** a theme as a QR code, a link, a short code, or a JSON file, and
-  reads all four back.
+- **Shares your own** theme as a QR code or a link, and reads both back.
 
 ## How to use it
 
-- **Pick a theme:** Profile → Settings → **Colour theme** → tap a preset.
+- **Pick a theme:** Profile → **Appearance** → tap a preset.
 - **Build your own:** on the theme screen choose **Build your own**, then edit
   each colour role. The preview at the top follows every change. Tapping a role
   opens the picker, which says the same colour two ways — **RGB** with a hex
   field, or **HSL** — switchable with the toggle beside the hex.
-- **Share:** **Show QR** for someone to scan, **Send link** for the system share
-  sheet, **Copy code** for a short line of text you can paste anywhere, or
-  **Save file** for a JSON backup.
-- **Receive:** **Scan QR** to use the camera, or **Paste code** for a code, a
-  link, or an old JSON export.
+- **Share:** with your custom theme selected, **Show QR** for someone to scan or
+  **Send link** for the system share sheet (which is also where "copy" lives).
+- **Receive:** **Scan QR** to use the camera, or **Paste code** for a code or a
+  link.
 
 ## The lineup
 
 |  | Dark | Light |
 |---|---|---|
-| Everyday | Ignition (default) | Daylight |
+| Everyday | Ignition (dark default) | Daylight (light default) |
 | Everyday | Graphite | Paper |
 | Solarized | Solarized dark | Solarized light |
 | Accessible | High contrast dark | High contrast light |
@@ -39,8 +37,16 @@ Solarized, never also means accepting a brightness you did not want.
 
 ## Behaviour & edge cases
 
+- **An untouched install follows the phone.** With nothing stored the app paints
+  Ignition on a phone set to dark and Daylight on one set to light, and flips
+  with the system until a theme is picked. Picking one stores it, and a stored
+  choice outranks the system from then on.
+- **Only your own theme is shareable.** The presets ship with every copy of the
+  app, so the share row is hidden unless the custom theme is the one selected.
 - **The picker groups presets by brightness**, dark then light, with each
-  group's high-contrast option last and badged `AAA`.
+  group's high-contrast option last and badged `AAA`. Long-pressing the badge
+  explains it; so does *tapping* it, but only on the row already selected — on
+  any other row a tap has to go on picking the theme.
 - **Both accessible presets clear WCAG AAA** (7:1) for body text and AA (4.5:1)
   for secondary text, the accent, the completed marker and the record marker —
   over both the ground and a card — with borders above the 3:1 non-text floor.
@@ -96,21 +102,22 @@ A theme code is `FLT1.` followed by base64url — the whole palette in 65–84
 characters.
 
 - `FLT1` is a **format** version, read first and dispatched on, so a future
-  `FLT2` is declined with "made by a newer version" rather than misread.
+  `FLT2` is declined rather than misread.
 - Within `FLT1`, bytes between the name and the trailing checksum are ignored,
   so a later writer can add a field without breaking older readers.
 - **The role order is a wire format.** Reordering it silently changes the
   meaning of every code already shared.
 - A CRC-16 catches the damage codes actually suffer — a truncated paste, a
   mistyped character. It is not a security measure.
-- Reading distinguishes three failures, because the user can act on the
-  difference: not a theme code, a newer format, or damaged in transit.
+- Reading distinguishes two failures, because the user can act on the
+  difference: not a theme code at all (which includes any tag that is not
+  `FLT1`), or damaged in transit.
 
 Links are `fosslift://theme/<code>` — a custom scheme rather than an https App
 Link, so sharing needs no domain, no hosting and no network and cannot stop
 working when nobody is paying for a server. The trade-off is that chat apps do
-not linkify it, which is what **Copy code** is for. An https filter can be added
-alongside later without invalidating any code already shared.
+not linkify it. An https filter can be added alongside later without
+invalidating any code already shared.
 
 QR codes hold the full link, so one image serves both a system camera (which
 routes the scheme to the app) and the in-app scanner (which decodes the string

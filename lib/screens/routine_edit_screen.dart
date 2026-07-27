@@ -273,22 +273,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     setState(() => _reminderMinutes = picked.hour * 60 + picked.minute);
   }
 
-  String _reminderHint() {
-    if (_reminderMinutes == null) {
-      return 'No reminder. Nothing is sent anywhere — a reminder is an alarm '
-          'this phone sets for itself.';
-    }
-    if (_scheduleDays == kNoScheduleMask) {
-      return 'Pick at least one training day above, or there is no day for the '
-          'reminder to fire on.';
-    }
-    final when = _scheduleDays == kEveryDayMask
-        ? 'every day'
-        : 'on ${scheduleLabel(_scheduleDays)}';
-    return 'A notification at ${timeLabel(_reminderMinutes!)} $when, skipped '
-        'on any day you have already trained this routine.';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -322,6 +306,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           // that already has a name.
                           autofocus: !_isEdit,
                           textCapitalization: TextCapitalization.sentences,
+                          maxLength: kMaxNameLength,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration:
@@ -357,22 +342,13 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           onToggle: _toggleReminder,
                           onPickTime: _pickReminderTime,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _reminderHint(),
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.muted,
-                              height: 1.45),
-                        ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 16),
                         SectionLabel('Workouts · ${_workouts.length}'),
                         if (_workouts.isEmpty)
                           Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
                             child: Text(
-                              'No workouts yet — a routine is made of training '
-                              'days, like Push, Pull and Legs.',
+                              'No workouts yet.',
                               style: TextStyle(color: AppColors.muted),
                             ),
                           ),
@@ -403,15 +379,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           icon: const Icon(Icons.add),
                           label: const Text('Add workout'),
                         ),
-                        if (_workouts.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Text(
-                            'Tap a workout to rename it and pick its exercises. '
-                            'Nothing is written until you save the routine.',
-                            style: TextStyle(
-                                fontSize: 12.5, color: AppColors.muted),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -487,6 +454,7 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                     TextField(
                       controller: _name,
                       textCapitalization: TextCapitalization.sentences,
+                      maxLength: kMaxNameLength,
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w600),
                       decoration: builderInput('e.g. Push'),
@@ -556,6 +524,7 @@ class _NameDialogState extends State<_NameDialog> {
         controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
+        maxLength: kMaxNameLength,
         decoration: builderInput('e.g. Push'),
         onSubmitted: (v) => Navigator.pop(context, v),
       ),

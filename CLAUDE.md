@@ -137,6 +137,32 @@ the release happens, this section gets rewritten, not deleted.
 If a change seems to need compatibility code, you have found a case this rule
 did not anticipate — raise it rather than quietly writing the migration.
 
+## Writing UI text
+
+**Label the control. Do not explain the concept.** This is a rule about screens,
+not about source comments — comments explain as much as they need to.
+
+The recurring failure is a caption that teaches the user a noun they can already
+see: "No workouts yet — a routine is made of training days, like Push, Pull and
+Legs." They opened the routine builder. They know. Write "No workouts yet."
+
+Apply this on sight, without being asked again:
+
+- **Cut any sentence that defines a word the screen already shows.** If the
+  label says "Training days", nothing underneath needs to say what a training
+  day is.
+- **Cut reassurance nobody asked for.** "None of this touches the network",
+  "nothing is written until you save", "you can switch back at any time" — say
+  it once in About, or not at all. Repeated on every screen it reads as
+  nervousness.
+- **One line, or none.** A helper paragraph under a control is a sign the
+  control is wrong. Fix the control.
+- **Prefer the shorter word.** "the gym default" → "default". "Someone shared
+  one" → "Import a routine".
+- **A warning that changes what someone does is not a caption** and stays: the
+  unit-switch dialog, the contrast warning in the theme preview, "this is not
+  medical advice" on the warm-up ramp.
+
 ## Conventions
 
 - **UI never touches SQLite directly.** Screens watch Riverpod providers;

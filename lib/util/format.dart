@@ -14,6 +14,15 @@ String fmtTotal(num value) {
   return '${_oneDecimal(v / 1000000)}M';
 }
 
+/// A running clock: `m:ss`, counting minutes past the hour rather than wrapping
+/// to hours. A session that ran 95 minutes reads "95:12", which is what a lifter
+/// wants to know; "1:35:12" makes them do the arithmetic.
+String fmtDuration(int seconds) {
+  final m = seconds ~/ 60;
+  final s = seconds % 60;
+  return '$m:${s.toString().padLeft(2, '0')}';
+}
+
 /// One decimal place, with a bare `.0` dropped: 12.0 → "12", 12.45 → "12.5".
 String _oneDecimal(double v) {
   final s = v.toStringAsFixed(1);

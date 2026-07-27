@@ -24,11 +24,20 @@ part 'database.g.dart';
 // Tables
 // ---------------------------------------------------------------------------
 
+/// The longest a routine, workout or exercise may be named.
+///
+/// The schema enforces it on every one of those tables, which makes an
+/// over-long name a failed write rather than a truncated one — so every field
+/// that feeds them caps typing at this length instead of letting the insert
+/// find out. Long enough for the longest real movement name and short enough
+/// to stay on one line of a card.
+const int kMaxNameLength = 80;
+
 /// The exercise library (Bench Press, Squat, …). Ships with a curated set;
 /// users can add their own ([isCustom] == true).
 class Exercises extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text().withLength(min: 1, max: 80)();
+  TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
   TextColumn get muscleGroup => text().withDefault(const Constant('Other'))();
   TextColumn get equipment => text().withDefault(const Constant('Other'))();
   TextColumn get videoUrl => text().nullable()();
@@ -75,7 +84,7 @@ class Exercises extends Table {
 /// thing you actually train is one of its [Workouts].
 class Routines extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text().withLength(min: 1, max: 80)();
+  TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
   TextColumn get colorHex => text().withDefault(const Constant('FF6A3D'))();
   IntColumn get position => integer().withDefault(const Constant(0))();
 
@@ -99,7 +108,7 @@ class Workouts extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId =>
       integer().references(Routines, #id, onDelete: KeyAction.cascade)();
-  TextColumn get name => text().withLength(min: 1, max: 80)();
+  TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
   IntColumn get position => integer().withDefault(const Constant(0))();
 }
 
@@ -595,6 +604,37 @@ class AppDatabase extends _$AppDatabase {
         weightType: Value(weightType),
       ),
     );
+  }
+
+  /// Rewrites a custom exercise in place.
+  ///
+  /// Only the ones you made. A starter exercise's name and classification are
+  /// shared vocabulary — a routine code that says "Bench Press" means the
+  /// movement everyone else calls that, and renaming it locally would quietly
+  /// break that agreement. What *is* yours about a starter exercise (its
+  /// loading, its bar, your note) has its own writer.
+  ///
+  /// The `isCustom` guard is in the WHERE clause rather than checked first, so
+  /// a starter exercise is a no-op rather than a race.
+  Future<void> updateCustomExercise(
+    int id, {
+    required String name,
+    required String muscle,
+    required String equipment,
+    required String? videoUrl,
+    required ExerciseMeasure measure,
+    required WeightType weightType,
+  }) {
+    return (update(exercises)
+          ..where((e) => e.id.equals(id) & e.isCustom.equals(true)))
+        .write(ExercisesCompanion(
+      name: Value(name),
+      muscleGroup: Value(muscle),
+      equipment: Value(equipment),
+      videoUrl: Value(videoUrl),
+      measure: Value(measure),
+      weightType: Value(weightType),
+    ));
   }
 
   /// Reclassifies how an exercise is loaded. Editable for every exercise, not
@@ -1124,8 +1164,8 @@ class AppDatabase extends _$AppDatabase {
   /// Every completed-session set of one exercise, oldest first, each flattened
   /// with the date and name of the session it belongs to.
   ///
-  /// Read-only: it drives the per-exercise progress chart and the CSV export
-  /// and never writes anything. Matched on `exerciseId` rather than the
+  /// Read-only: it drives the per-exercise progress chart and never writes
+  /// anything. Matched on `exerciseId` rather than the
   /// denormalised name, so a movement renamed in the library still gathers its
   /// whole history; sets logged before the id was recorded (there are none from
   /// this app, but a hand-edited DB could hold some) simply do not match.

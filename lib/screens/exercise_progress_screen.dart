@@ -10,17 +10,14 @@ import '../state/active_workout.dart' show fmtWeight;
 import '../theme/app_theme.dart';
 import '../util/units.dart';
 
-/// Which number the chart plots for a weighted movement.
-enum _Metric {
-  est1RM('Est 1RM'),
-  topSet('Top set');
-
-  const _Metric(this.label);
-  final String label;
-}
-
 /// A per-exercise progress chart over every finished session. Read-only — it
 /// only ever reads the log.
+///
+/// A weighted movement is plotted as its **top set** — the heaviest weight the
+/// session actually held. An estimated 1RM was offered alongside it and taken
+/// back out: it is a formula's opinion about a lift you did not do, it moves
+/// when the reps move at a constant weight, and two numbers that disagree about
+/// whether you are progressing is one number too many.
 class ExerciseProgressScreen extends ConsumerWidget {
   const ExerciseProgressScreen({super.key, required this.exerciseId});
   final int exerciseId;
@@ -69,8 +66,6 @@ class _Body extends ConsumerStatefulWidget {
 }
 
 class _BodyState extends ConsumerState<_Body> {
-  _Metric _metric = _Metric.est1RM;
-
   bool get _timed => widget.exercise.measure == ExerciseMeasure.time;
 
   @override
@@ -104,17 +99,9 @@ class _BodyState extends ConsumerState<_Body> {
             if (points.isEmpty)
               _EmptyState(timed: _timed)
             else ...[
-              if (!_timed) ...[
-                _MetricToggle(
-                  value: _metric,
-                  onChanged: (m) => setState(() => _metric = m),
-                ),
-                const SizedBox(height: 16),
-              ],
-              _ChartCard(points: points, metric: _metric, timed: _timed, unit: unit),
+              _ChartCard(points: points, timed: _timed, unit: unit),
               const SizedBox(height: 20),
-              _LatestReadout(
-                  points: points, metric: _metric, timed: _timed, unit: unit),
+              _LatestReadout(points: points, timed: _timed, unit: unit),
             ],
           ],
         );
@@ -123,78 +110,25 @@ class _BodyState extends ConsumerState<_Body> {
   }
 }
 
-/// The value the chart and readout show for one session, in the display unit
-/// (weight metrics) or in seconds (a held movement).
-double _valueOf(
-    ExerciseProgressPoint p, _Metric metric, bool timed, String unit) {
-  if (timed) return p.bestSeconds.toDouble();
-  final kg = metric == _Metric.est1RM ? p.est1RMKg : p.topWeightKg;
-  return toDisplayWeight(kg, unit);
-}
-
-class _MetricToggle extends StatelessWidget {
-  const _MetricToggle({required this.value, required this.onChanged});
-  final _Metric value;
-  final ValueChanged<_Metric> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line),
-      ),
-      child: Row(
-        children: [
-          for (final m in _Metric.values)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(m),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  decoration: BoxDecoration(
-                    color: m == value
-                        ? AppColors.accent.withValues(alpha: 0.16)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Text(
-                    m.label,
-                    textAlign: TextAlign.center,
-                    style: kMono.copyWith(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: m == value ? AppColors.accent : AppColors.muted,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
+/// The value the chart and readout show for one session: the top set in the
+/// display unit, or the longest hold in seconds.
+double _valueOf(ExerciseProgressPoint p, bool timed, String unit) =>
+    timed ? p.bestSeconds.toDouble() : toDisplayWeight(p.topWeightKg, unit);
 
 class _ChartCard extends StatelessWidget {
   const _ChartCard({
     required this.points,
-    required this.metric,
     required this.timed,
     required this.unit,
   });
   final List<ExerciseProgressPoint> points;
-  final _Metric metric;
   final bool timed;
   final String unit;
 
   @override
   Widget build(BuildContext context) {
     final values = [
-      for (final p in points)
-        (date: p.date, value: _valueOf(p, metric, timed, unit)),
+      for (final p in points) (date: p.date, value: _valueOf(p, timed, unit)),
     ];
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
@@ -363,27 +297,23 @@ enum _Baseline { top, middle }
 class _LatestReadout extends StatelessWidget {
   const _LatestReadout({
     required this.points,
-    required this.metric,
     required this.timed,
     required this.unit,
   });
   final List<ExerciseProgressPoint> points;
-  final _Metric metric;
   final bool timed;
   final String unit;
 
   @override
   Widget build(BuildContext context) {
-    final first = _valueOf(points.first, metric, timed, unit);
-    final last = _valueOf(points.last, metric, timed, unit);
+    final first = _valueOf(points.first, timed, unit);
+    final last = _valueOf(points.last, timed, unit);
     final delta = last - first;
     final suffix = timed ? 's' : unitLabel(unit);
     final headline = timed
         ? '${last.round()}s'
         : '${fmtWeight(last)} $suffix';
-    final label = timed
-        ? 'Best hold'
-        : (metric == _Metric.est1RM ? 'Latest est. 1RM' : 'Latest top set');
+    final label = timed ? 'Best hold' : 'Latest top set';
 
     String deltaText;
     Color deltaColor;

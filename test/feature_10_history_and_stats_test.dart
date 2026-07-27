@@ -96,27 +96,8 @@ void main() {
   }
 
   // =========================================================================
-  // Per-exercise chart maths (pure — features/10 "1RM / chart maths").
+  // Per-exercise chart maths (pure — features/10 "top set over time").
   // =========================================================================
-
-  group('estimatedOneRepMax (Epley)', () {
-    test('a single rep is already a one-rep max — weight untouched', () {
-      expect(estimatedOneRepMax(100, 1), 100);
-    });
-
-    test('zero reps has no estimate', () {
-      expect(estimatedOneRepMax(100, 0), 0);
-    });
-
-    test('a logged-but-not-performed set (negative reps) estimates nothing', () {
-      expect(estimatedOneRepMax(100, -3), 0);
-    });
-
-    test('multi-rep set uses w·(1 + reps/30)', () {
-      expect(estimatedOneRepMax(100, 5), closeTo(116.667, 0.001));
-      expect(estimatedOneRepMax(60, 10), closeTo(80, 0.001));
-    });
-  });
 
   group('progressPoints', () {
     ExerciseSetEntry entry({
@@ -190,17 +171,17 @@ void main() {
       expect(p.repsAtTop, 8); // most reps at the top weight
     });
 
-    test('est1RM credits an extra rep, not only more load', () {
+    test('the top set is the heaviest weight, never a rep-adjusted estimate',
+        () {
       final points = progressPoints([
         // A heavy single sets the top weight…
         entry(sessionId: 1, date: DateTime(2026, 1, 1), weightKg: 105, reps: 1),
-        // …but 100×5 is the better estimated 1RM (116.67 > 105).
+        // …and 100×5 does not displace it, however many reps it carried.
         entry(sessionId: 1, date: DateTime(2026, 1, 1), setNumber: 2, weightKg: 100, reps: 5),
       ]);
       final p = points.single;
       expect(p.topWeightKg, 105);
       expect(p.repsAtTop, 1);
-      expect(p.est1RMKg, closeTo(116.667, 0.001));
     });
 
     test('a timed movement keeps the longest completed hold', () {

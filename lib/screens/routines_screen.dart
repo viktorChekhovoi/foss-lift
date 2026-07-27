@@ -58,7 +58,7 @@ class RoutinesScreen extends ConsumerWidget {
                   const SizedBox(height: 18),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: shareSectionLabel('SOMEONE SHARED ONE'),
+                    child: shareSectionLabel('IMPORT A ROUTINE'),
                   ),
                   const SizedBox(height: 10),
                   shareActionRow([
@@ -83,8 +83,8 @@ class RoutinesScreen extends ConsumerWidget {
   }
 }
 
-/// Takes a pasted routine code (or link, or the contents of a saved file) to
-/// the import screen — the only place a shared routine is ever added.
+/// Takes a pasted routine code or link to the import screen — the only place a
+/// shared routine is ever added.
 Future<void> _pasteRoutine(BuildContext context) async {
   final text = await promptForCode(context,
       title: 'Paste a routine', hint: 'FLR1.… or a fosslift:// link');

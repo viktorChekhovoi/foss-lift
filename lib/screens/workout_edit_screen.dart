@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/builder_widgets.dart';
@@ -128,6 +129,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                         TextField(
                           controller: _name,
                           textCapitalization: TextCapitalization.sentences,
+                          maxLength: kMaxNameLength,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration: builderInput('e.g. Push'),

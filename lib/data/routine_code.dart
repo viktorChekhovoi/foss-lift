@@ -33,10 +33,10 @@
 /// ## The wire format
 ///
 /// `FLR1` is a **format** version, not an app version: a future `FLR2` may
-/// change everything below and this reader will decline it with "made by a
-/// newer version" rather than mangling it. The envelope — the tag, the base64,
-/// the CRC-32, the link unwrapping, the three failure cases — is [ShareCodec],
-/// shared with the theme format.
+/// change everything below, and this reader declines anything not tagged `FLR1`
+/// rather than mangling it. The envelope — the tag, the base64, the CRC-32, the
+/// link unwrapping, the failure cases — is [ShareCodec], shared with the theme
+/// format.
 ///
 /// Inside the envelope: one flag byte (bit 0: the rest is deflated), then the
 /// body, raw or deflated:

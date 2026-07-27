@@ -469,28 +469,42 @@ const List<AppPalette> kThemePresets = [
   _highContrastLight,
 ];
 
-/// The default palette, used when nothing has been chosen or a stored/imported
-/// theme cannot be resolved.
+/// The fallback palette, used when a stored or imported theme cannot be
+/// resolved at all. Not what an untouched install gets — see [defaultPaletteFor].
 const AppPalette kDefaultPalette = _ignition;
+
+/// What to paint with before anything has been chosen: the default look in the
+/// brightness the phone itself asked for.
+///
+/// Following the system is the only defensible guess. A phone set to light and
+/// an app that opens dark is not a preference being honoured, it is one being
+/// overridden, and the person has to go and find the picker to undo it.
+AppPalette defaultPaletteFor(Brightness system) =>
+    system == Brightness.light ? _daylight : _ignition;
 
 /// Resolves the persisted theme choice into the palette to paint with.
 ///
-/// [presetId] is a preset slug, [kCustomThemeId], or null. When it is
-/// [kCustomThemeId] the user's [customJson] is parsed; anything unresolvable —
-/// an unknown id, a null or malformed custom theme — falls back to
-/// [kDefaultPalette] rather than leaving the app unpainted.
-AppPalette resolvePalette(String? presetId, String? customJson) {
+/// [presetId] is a preset slug, [kCustomThemeId], or null. Null means nothing
+/// has been chosen, which follows [system]. When it is [kCustomThemeId] the
+/// user's [customJson] is parsed; anything unresolvable — an unknown id, a null
+/// or malformed custom theme — falls back rather than leaving the app unpainted.
+AppPalette resolvePalette(
+  String? presetId,
+  String? customJson, {
+  Brightness system = Brightness.dark,
+}) {
+  final fallback = defaultPaletteFor(system);
   if (presetId == kCustomThemeId) {
     if (customJson != null) {
       final parsed = AppPalette.tryParse(customJson);
       if (parsed != null) return parsed.copyWith(id: kCustomThemeId);
     }
-    return kDefaultPalette;
+    return fallback;
   }
   for (final preset in kThemePresets) {
     if (preset.id == presetId) return preset;
   }
-  return kDefaultPalette;
+  return fallback;
 }
 
 // ---------------------------------------------------------------------------
