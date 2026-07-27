@@ -139,7 +139,7 @@ final tutorialProvider =
 // ---------------------------------------------------------------------------
 
 /// Wraps the whole app (mounted in `MaterialApp.router`'s builder, above the
-/// resume pill) so the coach marks can spotlight the bottom nav as readily as a
+/// resume bar) so the coach marks can spotlight the bottom nav as readily as a
 /// card on Today. On a genuine first run — the persisted `tutorialSeen` flag
 /// still false — it starts itself once; otherwise it only runs when replayed
 /// from the help menu.

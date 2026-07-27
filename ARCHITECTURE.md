@@ -63,7 +63,7 @@ lib/
 │   ├── routine_card.dart         The routine list-row card
 │   ├── share_widgets.dart        QR card, action rows, paste dialog (theme+routine)
 │   ├── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
-│   ├── resume_workout_bar.dart   Resume pill over the app for a collapsed session
+│   ├── resume_workout_bar.dart   Docked resume bar for a collapsed session
 │   ├── start_workout.dart        The one way into /session: switch + layoff asks
 │   └── tutorial.dart             First-run coach-mark tour (overlay + anchors)
 └── screens/                      One file per screen (see table below)
@@ -321,10 +321,14 @@ reminded on them.
   order, so a template never steps up without the history to justify it.
 - **The session survives being collapsed.** The controller is a plain
   `Notifier`, so leaving `/session` (the down-arrow just pops the route) does not
-  touch the state. `widgets/resume_workout_bar.dart`, mounted in
-  `MaterialApp.router`'s builder above every route, watches
-  `activeWorkoutProvider` and floats a "Resume workout" pill on any screen but
-  `/session` itself. A session only ends by finishing it.
+  touch the state. `widgets/resume_workout_bar.dart` watches
+  `activeWorkoutProvider` and puts a one-line resume bar on any screen but
+  `/session` itself. It **docks rather than floats** — a bar lying over the
+  screen hid the bottom of every list — so it has two mount points and takes
+  real room in both: `HomeShell` stacks it above the navigation bar on the four
+  tab roots, and `ResumeWorkoutOverlay` (in `MaterialApp.router`'s builder)
+  makes it the app's last row everywhere else, skipping the tab roots so only
+  one of them ever draws it. A session only ends by finishing it.
 - **`finish()` also stashes what progression did.** After advancing, it reads
   each slot back and records a `ProgressionOutcome` (where the target landed, how
   far it moved, the streaks) into a `ProgressionReport` tagged with the new

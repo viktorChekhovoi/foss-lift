@@ -16,13 +16,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/home_shell.dart';
+import 'package:foss_lift/screens/library_screen.dart';
+import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/units.dart';
+import 'package:foss_lift/widgets/resume_workout_bar.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
@@ -1144,6 +1150,107 @@ void main() {
       expect(logged(), isNull); // straight back to untouched, not 44
       ctl.cycleSet(0, 0);
       expect(logged(), 45);
+    });
+  });
+
+  group('The resume bar takes room rather than covering things', () {
+    /// Mounts [routes] under the overlay, with the same router the overlay is
+    /// told to read — the app's global one belongs to the app, not to a test.
+    Future<GoRouter> pumpUnderOverlay(
+      WidgetTester tester,
+      String at,
+      List<RouteBase> routes,
+    ) async {
+      final router = GoRouter(initialLocation: at, routes: routes);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container!,
+        child: MaterialApp.router(
+          theme: AppTheme.build(kDefaultPalette),
+          routerConfig: router,
+          builder: (context, child) =>
+              ResumeWorkoutOverlay(router: router, child: child!),
+        ),
+      ));
+      await frames(tester);
+      return router;
+    }
+
+    testWidgets('a pushed screen ends above the bar, not under it',
+        (tester) async {
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        await container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: await workoutIdNamed(db, 'Push'),
+              name: 'Push',
+            );
+      });
+      await pumpUnderOverlay(tester, '/library', [
+        GoRoute(path: '/library', builder: (_, _) => const LibraryScreen()),
+      ]);
+
+      expect(find.byKey(resumeWorkoutBarKey), findsOneWidget);
+      final bar = tester.getRect(find.byKey(resumeWorkoutBarKey));
+      final list = tester.getRect(find.byType(ListView).first);
+      expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
+          reason: 'the list runs on underneath the bar');
+
+      await stop(tester);
+    });
+
+    testWidgets('a tab screen keeps it above the nav bar and clear of the list',
+        (tester) async {
+      // A tab screen on a small phone is the worst case there is: a navigation
+      // bar and the resume bar out of 720 logical pixels.
+      tester.view.physicalSize = const Size(390, 720);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        await container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: await workoutIdNamed(db, 'Push'),
+              name: 'Push',
+            );
+      });
+      await pumpUnderOverlay(tester, '/today', [
+        StatefulShellRoute.indexedStack(
+          builder: (_, _, shell) => HomeShell(shell: shell),
+          branches: [
+            for (final p in const ['/today', '/routines', '/history', '/profile'])
+              StatefulShellBranch(
+                routes: [GoRoute(path: p, builder: (_, _) => const TodayScreen())],
+              ),
+          ],
+        ),
+      ]);
+
+      // One bar, not two: the shell owns it here and the overlay stands off.
+      expect(find.byKey(resumeWorkoutBarKey), findsOneWidget);
+      final bar = tester.getRect(find.byKey(resumeWorkoutBarKey));
+      final nav = tester.getRect(find.byType(NavigationBar));
+      final list = tester.getRect(find.byType(ListView).first);
+
+      expect(bar.bottom, lessThanOrEqualTo(nav.top + 0.5),
+          reason: 'the bar belongs above the navigation bar');
+      expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
+          reason: "Today's list runs on underneath the bar");
+
+      await stop(tester);
+    });
+
+    testWidgets('with no session live nothing is reserved at all',
+        (tester) async {
+      container = containerFor(db);
+      await pumpUnderOverlay(tester, '/library', [
+        GoRoute(path: '/library', builder: (_, _) => const LibraryScreen()),
+      ]);
+
+      expect(find.byKey(resumeWorkoutBarKey), findsNothing);
+      final list = tester.getRect(find.byType(ListView).first);
+      expect(list.bottom,
+          closeTo(tester.getSize(find.byType(MaterialApp)).height, 1.0));
+
+      await stop(tester);
     });
   });
 

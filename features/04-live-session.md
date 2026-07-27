@@ -17,8 +17,8 @@ you're done.
 - **Suggests warm-up sets** for barbell/weighted lifts — an ascending ramp toward
   the working weight, landing only on loads the gym can actually be set to —
   kept separate from the working sets.
-- **Survives being collapsed** — leave the session and a "Resume workout" pill
-  floats over every other screen.
+- **Survives being collapsed** — leave the session and a resume bar sits at the
+  bottom of every other screen, one tap from getting back to it.
 - **Can be aborted**, for the session started by a misplaced tap: a confirmed
   abort throws it away without writing anything or moving a target.
 - **On Finish**, writes only the completed sets, advances progression, and opens
@@ -39,7 +39,7 @@ you're done.
 - **Warm-ups:** expand the collapsed warm-up group above the working sets; adjust
   the number of warm-up sets with its stepper.
 - **Leave and come back:** the down-arrow collapses the session (it keeps
-  running); tap the **Resume workout** pill to return.
+  running); tap the resume bar at the bottom of the screen to return.
 - **Abort:** the bin icon beside Finish → **Abort** on the confirmation.
 - **Finish:** tap Finish → the recap screen appears.
 
@@ -54,6 +54,12 @@ you're done.
   library while a session runs shows up on that session. A note is a fact about
   the movement, not session state; everything else on the board stays the
   snapshot it started as.
+- **The resume bar docks, it does not float.** A control that hides what you are
+  trying to read is worse than one you have to go and find, so it takes real room
+  rather than lying over the screen: on a tab screen it stacks above the
+  navigation bar, everywhere else it is the last row of the app. Nothing is ever
+  underneath it, and the bottom of every list stays reachable while a session is
+  open. One line, because it is furniture for as long as the session lasts.
 - **A session ends by finishing it or by aborting it.** Collapsing never
   discards it, and an abort always asks first — it is the one control on the
   screen that destroys work.
@@ -157,3 +163,4 @@ you're done.
 - [#35 One weight per exercise, and a warm-up ramp that follows it](https://github.com/viktorChekhovoi/foss-lift/issues/35) — shipped, in review
 - [#39 Starting a workout while one is already live](https://github.com/viktorChekhovoi/foss-lift/issues/39) — shipped, in review
 - [#40 Exercise notes, editable during a workout](https://github.com/viktorChekhovoi/foss-lift/issues/40) — shipped, in review
+- [#41 The resume bar covered content it should not](https://github.com/viktorChekhovoi/foss-lift/issues/41) — shipped, in review
