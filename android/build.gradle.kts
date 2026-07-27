@@ -43,6 +43,21 @@ subprojects {
     }
 }
 
+// jni 1.0.1 applies the Kotlin plugin only when AGP is older than 9, then calls
+// the `kotlin { }` extension unconditionally further down its build file. On AGP
+// 9 that extension does not exist, so evaluating `:jni` fails with "Could not
+// find method kotlin()" before anything is compiled. Applying the plugin here
+// puts the extension back.
+//
+// jni arrives transitively (flutter_local_notifications 22.2 → jni_flutter →
+// jni); nothing in this app calls it directly. Remove this once jni ships a
+// build file that applies the plugin for itself.
+subprojects {
+    if (project.name == "jni") {
+        project.plugins.apply("org.jetbrains.kotlin.android")
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
