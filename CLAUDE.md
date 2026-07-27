@@ -16,6 +16,7 @@ Do not deviate from these rules. They describe important approaches to writing c
     3. Write the code to make the tests pass without a focus on efficiency.
     4. Refactor the code while keeping the tests passing to remove code duplication, inefficiencies, and suboptimal practices
 6. Do NOT write duplicate code. DO NOT NEVER EVER
+7. For every change, assume this app has no prior users. legacy formats do not need to be supported, data does not need migration
 
 ## What this is
 
@@ -101,6 +102,11 @@ rather than implementing it.
 - Adding sets during a live workout.
 - A "build" button next to "start a routine". That screen is for working out,
   not editing. An edit icon that navigates to the routine/workout editor is fine.
+- A live contrast ratio in the colour picker. Designing a palette to a number is
+  what the two high-contrast presets are for, and they are already checked
+  against WCAG so nobody has to do it by hand. The preview's binary "this text is
+  hard to read on this background" warning stays — that is guidance; a running
+  ratio would make the picker an accessibility workbench it is not meant to be.
 
 ## Nothing has shipped yet — do not write compatibility code
 

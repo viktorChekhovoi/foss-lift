@@ -511,8 +511,40 @@ String _hexOf(Color c) {
   return rgb.toRadixString(16).toUpperCase().padLeft(6, '0');
 }
 
-/// A self-contained RGB colour picker: three sliders and a live swatch, no
-/// third-party dependency.
+/// Reads a colour written as `#RGB`, `#RRGGBB` or bare `RRGGBB`.
+///
+/// Null for anything else, which is what keeps a half-typed or mistyped hex
+/// from repainting a role: the caller holds its colour until this returns one.
+Color? parseHex(String input) {
+  var s = input.trim();
+  if (s.startsWith('#')) s = s.substring(1);
+  if (s.length == 3) {
+    // CSS shorthand: each digit doubles, so #ABC is #AABBCC.
+    s = s.split('').map((d) => '$d$d').join();
+  }
+  if (s.length != 6 || !RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(s)) return null;
+  return Color(0xFF000000 | int.parse(s, radix: 16));
+}
+
+/// A self-contained colour picker — no third-party dependency.
+///
+/// It speaks two ways of writing the same colour, because they are for two
+/// different jobs. **RGB and hex** are for *transcribing* a colour that already
+/// exists: off a brand guide, out of the Solarized spec, from a screenshot.
+/// **HSL** is for *choosing* one, and the app leans on it twice over —
+///
+///  * the roles are families, not twelve loose colours. `surface`/`surface2`/
+///    `surface3` are one hue at three lightnesses, `accent`/`accentPress` one
+///    hue at two. In RGB that is arithmetic; in HSL it is one slider.
+///  * the preview warns when a palette falls under 4.5:1, and contrast is a
+///    function of lightness. Dragging L answers that warning without throwing
+///    away the colour that raised it. In RGB it takes three sliders moved in
+///    concert and the hue drifts while you do it.
+///
+/// Hue and saturation are held in state rather than recomputed from the colour,
+/// because a grey has no hue to recover: `HSLColor.fromColor` reports 0 for
+/// everything achromatic, so deriving them would snap the slider to red the
+/// moment saturation reached zero and lose the colour the user was working in.
 class _ColorPickerDialog extends StatefulWidget {
   const _ColorPickerDialog({required this.title, required this.initial});
   final String title;
@@ -523,53 +555,92 @@ class _ColorPickerDialog extends StatefulWidget {
 }
 
 class _ColorPickerDialogState extends State<_ColorPickerDialog> {
-  late double _r;
-  late double _g;
-  late double _b;
+  /// The colour itself. Both modes are views onto this; switching between them
+  /// never recomputes it, so a round trip cannot drift.
+  late Color _color;
+
+  /// Retained hue and saturation — see the note on the class.
+  late double _hue;
+  late double _sat;
+
+  bool _asHsl = false;
+  late final TextEditingController _hex;
 
   @override
   void initState() {
     super.initState();
-    _r = (widget.initial.r * 255).roundToDouble();
-    _g = (widget.initial.g * 255).roundToDouble();
-    _b = (widget.initial.b * 255).roundToDouble();
+    _color = widget.initial;
+    final hsl = HSLColor.fromColor(_color);
+    _hue = hsl.hue;
+    _sat = hsl.saturation;
+    _hex = TextEditingController(text: '#${_hexOf(_color)}');
   }
 
-  Color get _color =>
-      Color.fromARGB(255, _r.round(), _g.round(), _b.round());
+  @override
+  void dispose() {
+    _hex.dispose();
+    super.dispose();
+  }
+
+  double get _light => HSLColor.fromColor(_color).lightness;
+
+  /// Adopts [c] as the colour, refreshing the retained hue and saturation from
+  /// it — except when [c] is achromatic and has none to give.
+  void _adopt(Color c, {bool syncField = true}) {
+    final hsl = HSLColor.fromColor(c);
+    setState(() {
+      _color = c;
+      if (hsl.saturation > 0.001) {
+        _hue = hsl.hue;
+        _sat = hsl.saturation;
+      } else {
+        _sat = 0;
+      }
+      if (syncField) _hex.text = '#${_hexOf(c)}';
+    });
+  }
+
+  /// Rebuilds the colour from the HSL controls, which own hue and saturation
+  /// outright while this mode is showing.
+  void _fromHsl({double? h, double? s, double? l}) {
+    _hue = h ?? _hue;
+    _sat = s ?? _sat;
+    setState(() {
+      _color = HSLColor.fromAHSL(1, _hue, _sat, l ?? _light).toColor();
+      _hex.text = '#${_hexOf(_color)}';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 52,
-            decoration: BoxDecoration(
-              color: _color,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.line),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: _color,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.line),
+              ),
             ),
-            alignment: Alignment.center,
-            child: Text('#${_hexOf(_color)}',
-                style: kMono.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _color.computeLuminance() > 0.5
-                        ? Colors.black
-                        : Colors.white)),
-          ),
-          const SizedBox(height: 8),
-          _channel('R', _r, const Color(0xFFFF5D5D),
-              (v) => setState(() => _r = v)),
-          _channel('G', _g, const Color(0xFF3ED598),
-              (v) => setState(() => _g = v)),
-          _channel('B', _b, const Color(0xFF4C9AFF),
-              (v) => setState(() => _b = v)),
-        ],
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _hexField()),
+                const SizedBox(width: 10),
+                _modeToggle(),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (_asHsl) ..._hslChannels() else ..._rgbChannels(),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -584,23 +655,183 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     );
   }
 
-  Widget _channel(
-      String label, double value, Color tint, ValueChanged<double> onChanged) {
+  Widget _hexField() {
+    return TextField(
+      controller: _hex,
+      style: kMono.copyWith(fontSize: 14, color: AppColors.text),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.line),
+        ),
+      ),
+      // Typed as it goes: a hex that does not read yet simply does not move
+      // the colour, so backspacing through one is not destructive.
+      onChanged: (text) {
+        final parsed = parseHex(text);
+        if (parsed != null) _adopt(parsed, syncField: false);
+      },
+    );
+  }
+
+  /// RGB ⇄ HSL. Both describe the colour already on screen, so switching is a
+  /// change of notation and never of value.
+  Widget _modeToggle() {
+    Widget half(String label, bool hsl) {
+      final on = _asHsl == hsl;
+      return GestureDetector(
+        onTap: on ? null : () => setState(() => _asHsl = hsl),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          color: on ? AppColors.accent : Colors.transparent,
+          child: Text(
+            label,
+            style: kMono.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: on ? AppColors.onAccent : AppColors.muted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        decoration: BoxDecoration(border: Border.all(color: AppColors.line)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [half('RGB', false), half('HSL', true)],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _rgbChannels() {
+    final r = (_color.r * 255).roundToDouble();
+    final g = (_color.g * 255).roundToDouble();
+    final b = (_color.b * 255).roundToDouble();
+    Color at(int? nr, int? ng, int? nb) => Color.fromARGB(
+        255, nr ?? r.round(), ng ?? g.round(), nb ?? b.round());
+    return [
+      _channel(
+        label: 'R',
+        value: r,
+        max: 255,
+        gradient: [at(0, null, null), at(255, null, null)],
+        onChanged: (v) => _adopt(at(v.round(), null, null)),
+      ),
+      _channel(
+        label: 'G',
+        value: g,
+        max: 255,
+        gradient: [at(null, 0, null), at(null, 255, null)],
+        onChanged: (v) => _adopt(at(null, v.round(), null)),
+      ),
+      _channel(
+        label: 'B',
+        value: b,
+        max: 255,
+        gradient: [at(null, null, 0), at(null, null, 255)],
+        onChanged: (v) => _adopt(at(null, null, v.round())),
+      ),
+    ];
+  }
+
+  List<Widget> _hslChannels() {
+    Color hsl(double h, double s, double l) =>
+        HSLColor.fromAHSL(1, h, s, l).toColor();
+    return [
+      _channel(
+        label: 'H',
+        value: _hue,
+        max: 360,
+        gradient: [
+          for (var d = 0; d <= 360; d += 60) hsl(d.toDouble(), _sat, _light),
+        ],
+        onChanged: (v) => _fromHsl(h: v),
+      ),
+      _channel(
+        label: 'S',
+        value: _sat * 100,
+        max: 100,
+        gradient: [hsl(_hue, 0, _light), hsl(_hue, 1, _light)],
+        onChanged: (v) => _fromHsl(s: v / 100),
+      ),
+      _channel(
+        label: 'L',
+        value: _light * 100,
+        max: 100,
+        gradient: [
+          hsl(_hue, _sat, 0),
+          hsl(_hue, _sat, 0.5),
+          hsl(_hue, _sat, 1),
+        ],
+        onChanged: (v) => _fromHsl(l: v / 100),
+      ),
+    ];
+  }
+
+  /// One channel: a track painted with the colours it actually traverses, so
+  /// the slider previews its own effect instead of asking you to imagine it.
+  Widget _channel({
+    required String label,
+    required double value,
+    required double max,
+    required List<Color> gradient,
+    required ValueChanged<double> onChanged,
+  }) {
     return Row(
       children: [
         SizedBox(
           width: 16,
           child: Text(label,
               style: kMono.copyWith(
-                  color: tint, fontWeight: FontWeight.w700, fontSize: 13)),
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13)),
         ),
         Expanded(
-          child: Slider(
-            value: value,
-            min: 0,
-            max: 255,
-            activeColor: tint,
-            onChanged: onChanged,
+          child: SizedBox(
+            height: 40,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradient),
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(color: AppColors.line),
+                    ),
+                  ),
+                ),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 10,
+                    activeTrackColor: Colors.transparent,
+                    inactiveTrackColor: Colors.transparent,
+                    thumbColor: Colors.white,
+                    overlayColor: AppColors.accent.withValues(alpha: 0.15),
+                  ),
+                  child: Slider(
+                    value: value.clamp(0, max),
+                    max: max,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         SizedBox(

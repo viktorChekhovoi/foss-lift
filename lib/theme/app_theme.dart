@@ -523,6 +523,11 @@ class AppColors {
   static Color good = kDefaultPalette.good;
   static Color gold = kDefaultPalette.gold;
 
+  /// The measured label colour for anything painted on [accent] — mirrors
+  /// [AppPalette.onAccent] so a widget filling a shape with the accent does not
+  /// have to guess at, or re-derive, what reads on top of it.
+  static Color onAccent = kDefaultPalette.onAccent;
+
   /// Points the live colours at [p]. Call before building the theme/tree.
   static void apply(AppPalette p) {
     ground = p.ground;
@@ -537,6 +542,7 @@ class AppColors {
     accentPress = p.accentPress;
     good = p.good;
     gold = p.gold;
+    onAccent = p.onAccent;
   }
 }
 

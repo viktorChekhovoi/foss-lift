@@ -47,6 +47,19 @@ AppPalette _mineCustom() => kDefaultPalette.copyWith(
       gold: const Color(0xFFFFEB3B),
     );
 
+/// `RRGGBB` for [c], upper case — how the app writes a colour down.
+String _hexString(Color c) {
+  int ch(double v) => (v * 255).round().clamp(0, 255);
+  final rgb = (ch(c.r) << 16) | (ch(c.g) << 8) | ch(c.b);
+  return rgb.toRadixString(16).toUpperCase().padLeft(6, '0');
+}
+
+/// The inverse, for reading a colour back off the screen.
+Color? _colorOfHex(String s) {
+  final v = int.tryParse(s.replaceAll('#', ''), radix: 16);
+  return v == null ? null : Color(0xFF000000 | v);
+}
+
 void main() {
   late AppDatabase db;
   late ProviderContainer container;
@@ -832,8 +845,8 @@ void main() {
       await pumpUntil(tester,
           () => container.read(themeSettingProvider).value?.presetId != null);
 
-      final stored = AppPalette.tryParse(
-          container.read(themeSettingProvider).value!.customJson!);
+      final stored =
+          AppPalette.tryParse(container.read(themeSettingProvider).value!.customJson!);
       expect(stored!.accessible, isFalse,
           reason: 'a shared theme is yours now, and yours is never badged');
       expect(stored.ground, hc.ground,
@@ -865,6 +878,7 @@ void main() {
 
       expect(find.text('Custom'), findsOneWidget,
           reason: 'the custom row is on screen, so its badge would be too');
+
       // Both shipped accessible presets still carry the badge; the custom row
       // must not add a third.
       expect(find.text('AAA'), findsNWidgets(2),
@@ -936,6 +950,223 @@ void main() {
 
       expect(find.textContaining("doesn't look like a theme"), findsOneWidget);
       expect(find.text('Use this theme'), findsNothing);
+
+      await stop(tester);
+    });
+  });
+
+  group('the colour picker', () {
+    // The custom theme has to be able to say anything the shipped presets say.
+    // A picker that can only be driven in RGB can reach every colour in
+    // principle and none of them on purpose: the roles are families — three
+    // surfaces at one hue, an accent and its pressed state — and lightness is
+    // the axis contrast is a function of, so it has to be a control you can
+    // hold on its own.
+
+    /// Opens the custom editor and taps [role] to bring up its picker.
+    ///
+    /// The twelve roles live in a `ListView`, so a role below the fold is not
+    /// merely off screen — it is unbuilt, and cannot be found or tapped. A tall
+    /// surface builds the lot.
+    Future<void> openPicker(WidgetTester tester, String role) async {
+      tester.view.physicalSize = const Size(1200, 4800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+          routedAppUnder(container, const CustomThemeEditorScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text(role));
+      await frames(tester);
+    }
+
+    /// The hex the editor now shows for [role] — what the picker handed back.
+    String shownHex(WidgetTester tester, String role) {
+      final row = find.ancestor(
+        of: find.text(role),
+        matching: find.byType(Row),
+      );
+      final hex = find.descendant(
+        of: row.first,
+        matching: find.textContaining('#'),
+      );
+      return (tester.widget<Text>(hex.first)).data!;
+    }
+
+    Future<void> use(WidgetTester tester) async {
+      await tester.tap(find.text('Use'));
+      await frames(tester);
+    }
+
+    testWidgets('offers a colour in both RGB and HSL', (tester) async {
+      await openPicker(tester, 'Accent');
+
+      expect(find.text('RGB'), findsOneWidget);
+      expect(find.text('HSL'), findsOneWidget,
+          reason: 'hue and saturation are how a colour gets chosen');
+
+      await stop(tester);
+    });
+
+    testWidgets('confirming without touching anything changes nothing',
+        (tester) async {
+      await openPicker(tester, 'Accent');
+      final before = shownHex(tester, 'Accent');
+      await use(tester);
+
+      expect(shownHex(tester, 'Accent'), before,
+          reason: 'opening a picker is not an edit');
+
+      await stop(tester);
+    });
+
+    testWidgets('a colour survives the round trip through HSL and back',
+        (tester) async {
+      await openPicker(tester, 'Accent');
+      final before = shownHex(tester, 'Accent');
+      await tester.tap(find.text('HSL'));
+      await frames(tester);
+      await tester.tap(find.text('RGB'));
+      await frames(tester);
+      await use(tester);
+
+      expect(shownHex(tester, 'Accent'), before,
+          reason: 'switching how a colour is written down does not change it');
+
+      await stop(tester);
+    });
+
+    testWidgets('a grey keeps its hue rather than being randomised',
+        (tester) async {
+      // HSL has no hue to recover from a pure grey. The picker has to remember
+      // the one that was on screen instead of snapping the slider to red.
+      await openPicker(tester, 'Accent');
+      await tester.enterText(find.byType(TextField), '#808080');
+      await frames(tester);
+      await tester.tap(find.text('HSL'));
+      await frames(tester);
+      await tester.tap(find.text('RGB'));
+      await frames(tester);
+      await use(tester);
+
+      expect(shownHex(tester, 'Accent'), '#808080');
+
+      await stop(tester);
+    });
+
+    testWidgets('typing a hex sets the colour', (tester) async {
+      await openPicker(tester, 'Accent');
+      await tester.enterText(find.byType(TextField), '#AB12CD');
+      await frames(tester);
+      await use(tester);
+
+      expect(shownHex(tester, 'Accent'), '#AB12CD',
+          reason: 'a colour read off a palette elsewhere can be transcribed');
+
+      await stop(tester);
+    });
+
+    testWidgets('the short and bare hex forms are accepted too',
+        (tester) async {
+      await openPicker(tester, 'Accent');
+      await tester.enterText(find.byType(TextField), 'ABC');
+      await frames(tester);
+      await use(tester);
+      expect(shownHex(tester, 'Accent'), '#AABBCC',
+          reason: 'three digits expand the way CSS expands them');
+
+      await tester.ensureVisible(find.text('Accent'));
+      await tester.pump();
+      await tester.tap(find.text('Accent'));
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), '123456');
+      await frames(tester);
+      await use(tester);
+      expect(shownHex(tester, 'Accent'), '#123456',
+          reason: 'the hash is optional');
+
+      await stop(tester);
+    });
+
+    testWidgets('nonsense in the hex field leaves the colour alone',
+        (tester) async {
+      await openPicker(tester, 'Accent');
+      final before = shownHex(tester, 'Accent');
+      await tester.enterText(find.byType(TextField), 'not a colour');
+      await frames(tester);
+      await use(tester);
+
+      expect(shownHex(tester, 'Accent'), before,
+          reason: 'a typo must not silently repaint a role');
+
+      await stop(tester);
+    });
+
+    testWidgets('lightness moves on its own, leaving hue and saturation',
+        (tester) async {
+      // The whole reason HSL is here: the preview warns you a colour is
+      // illegible, and this is the slider that answers that warning without
+      // throwing away the colour you picked.
+      await openPicker(tester, 'Accent');
+      await tester.enterText(find.byType(TextField), '#268BD2');
+      await frames(tester);
+      await tester.tap(find.text('HSL'));
+      await frames(tester);
+
+      final before = HSLColor.fromColor(const Color(0xFF268BD2));
+      // Third slider in HSL order: H, S, then L.
+      await tester.drag(find.byType(Slider).at(2), const Offset(60, 0));
+      await frames(tester);
+      await use(tester);
+
+      final after = HSLColor.fromColor(
+          _colorOfHex(shownHex(tester, 'Accent'))!);
+      expect(after.lightness, greaterThan(before.lightness),
+          reason: 'the slider moved');
+      expect(after.hue, closeTo(before.hue, 1.0),
+          reason: 'and took the hue with it, unchanged');
+      expect(after.saturation, closeTo(before.saturation, 0.02),
+          reason: 'and the saturation too');
+
+      await stop(tester);
+    });
+
+    testWidgets('every colour the presets use is reachable by hand',
+        (tester) async {
+      // Capability parity, stated as a test: nothing shipped is out of reach
+      // of someone building their own.
+      final wanted = <Color>{
+        for (final p in kThemePresets) ...[
+          p.ground,
+          p.surface,
+          p.surface2,
+          p.surface3,
+          p.line,
+          p.text,
+          p.muted,
+          p.faint,
+          p.accent,
+          p.accentPress,
+          p.good,
+          p.gold,
+        ],
+      };
+
+      await openPicker(tester, 'Accent');
+      for (final c in wanted) {
+        final hex = '#${_hexString(c)}';
+        await tester.enterText(find.byType(TextField), hex);
+        await frames(tester);
+        await use(tester);
+        expect(shownHex(tester, 'Accent'), hex,
+            reason: '$hex is a colour the app itself ships');
+
+        await tester.ensureVisible(find.text('Accent'));
+        await tester.pump();
+        await tester.tap(find.text('Accent'));
+        await frames(tester);
+      }
 
       await stop(tester);
     });

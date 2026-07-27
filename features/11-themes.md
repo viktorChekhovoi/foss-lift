@@ -16,7 +16,9 @@ Pick a preset theme, build your own, or bring in one someone shared.
 
 - **Pick a theme:** Profile → Settings → **Colour theme** → tap a preset.
 - **Build your own:** on the theme screen choose **Build your own**, then edit
-  each colour role. The preview at the top follows every change.
+  each colour role. The preview at the top follows every change. Tapping a role
+  opens the picker, which says the same colour two ways — **RGB** with a hex
+  field, or **HSL** — switchable with the toggle beside the hex.
 - **Share:** **Show QR** for someone to scan, **Send link** for the system share
   sheet, **Copy code** for a short line of text you can paste anywhere, or
   **Save file** for a JSON backup.
@@ -59,6 +61,24 @@ Solarized, never also means accepting a brightness you did not want.
   is stored, so a palette that predates this rule cannot show one either.
 - **The preview warns when a palette is illegible**, comparing its own text
   against its ground and cards at the same 4.5:1 the presets are held to.
+- **The picker speaks RGB and HSL, because they are for different jobs.** RGB
+  and the hex field *transcribe* a colour that already exists — off a brand
+  guide, out of the Solarized spec. HSL *chooses* one, and the app needs it
+  twice over: the roles are families rather than twelve loose colours
+  (`surface`/`surface2`/`surface3` are one hue at three lightnesses), and
+  contrast is a function of lightness, so **L** is the slider that answers the
+  illegibility warning without discarding the colour that raised it. Every
+  colour the shipped presets use can be reached by hand — that is asserted, not
+  assumed.
+- **Hue and saturation are remembered, not recomputed.** A grey has no hue to
+  recover — `HSLColor` reports 0 for anything achromatic — so deriving them from
+  the colour would snap the hue slider to red the moment saturation reached
+  zero. Switching notation never changes the value, in either direction.
+- **The hex field takes `#RGB`, `#RRGGBB` or bare `RRGGBB`.** Anything that does
+  not read yet simply does not move the colour, so backspacing through a hex is
+  not destructive and a typo cannot silently repaint a role.
+- **Each slider track is painted with the colours it traverses**, so it previews
+  its own effect rather than asking you to imagine it.
 - **A shared theme is always previewed, never applied on arrival.** A scan, a
   tapped link and a pasted code all land on the same confirmation screen. A code
   that will not decode offers nothing to apply.
