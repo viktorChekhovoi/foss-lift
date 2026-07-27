@@ -57,10 +57,15 @@ class ThemeImportScreen extends ConsumerWidget {
       FilledButton(
         onPressed: () async {
           // Arrives as *your* custom theme: a shared code carries a palette,
-          // not a claim on one of the shipped preset slots.
-          await ref
-              .read(databaseProvider)
-              .setCustomTheme(palette.copyWith(id: kCustomThemeId).toJson());
+          // not a claim on one of the shipped preset slots — and not the AAA
+          // badge either. The claim means "designed and checked against WCAG",
+          // which is a fact about the two shipped presets, not about a palette
+          // sitting in a slot whose colours you can edit freely afterwards.
+          // Building your own from a high-contrast preset drops it for the
+          // same reason; arriving with one is the same situation by post.
+          await ref.read(databaseProvider).setCustomTheme(palette
+              .copyWith(id: kCustomThemeId, accessible: false)
+              .toJson());
           if (context.mounted) _leave(context);
         },
         child: const Text('Use this theme'),

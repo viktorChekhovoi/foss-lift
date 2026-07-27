@@ -68,7 +68,9 @@ class ThemeSettingsScreen extends ConsumerWidget {
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             _ThemeOption(
-              palette: custom ?? _seedCustom(active),
+              // Through _seedCustom either way: whatever is stored, the row
+              // that can be recoloured never shows an accessibility claim.
+              palette: _seedCustom(custom ?? active),
               label: custom == null ? 'Build your own' : 'Custom',
               selected: selectedId == kCustomThemeId,
               // With no custom theme yet, tapping goes straight to the editor to

@@ -50,8 +50,13 @@ Solarized, never also means accepting a brightness you did not want.
 - **The label on a filled button is measured, not assumed.** Whichever of a
   near-black tint or white reads better on the accent wins, so a custom or
   imported accent of any lightness still gets a legible label.
-- **A custom theme is never badged accessible**, even when built from a
-  high-contrast preset — the colours can be edited freely afterwards.
+- **A custom theme is never badged accessible**, however it got there — built
+  from a high-contrast preset, or arrived as a shared code from someone else's
+  phone. The badge means the palette was designed and checked against WCAG,
+  which is a fact about the two shipped presets; the custom slot can be
+  recoloured freely afterwards and nothing re-checks it. The claim is dropped
+  when an import is accepted *and* the row refuses to draw the badge whatever
+  is stored, so a palette that predates this rule cannot show one either.
 - **The preview warns when a palette is illegible**, comparing its own text
   against its ground and cards at the same 4.5:1 the presets are held to.
 - **A shared theme is always previewed, never applied on arrival.** A scan, a

@@ -811,6 +811,68 @@ void main() {
       await stop(tester);
     });
 
+    testWidgets('an accessible theme arrives without its AAA claim',
+        (tester) async {
+      // The badge means "designed and checked against WCAG". Once a palette is
+      // in the custom slot it can be recoloured freely and nothing re-checks
+      // it, so the claim cannot come along — the same reason building your own
+      // from a high-contrast preset drops it.
+      final hc = kThemePresets.firstWhere((p) => p.accessible);
+      final sub = container.listen(themeSettingProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await tester.pumpWidget(appUnder(
+        container,
+        ThemeImportScreen(code: ThemeCode.encode(hc)),
+      ));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Use this theme'));
+      await tester.pump();
+      await tester.tap(find.text('Use this theme'));
+      await pumpUntil(tester,
+          () => container.read(themeSettingProvider).value?.presetId != null);
+
+      final stored = AppPalette.tryParse(
+          container.read(themeSettingProvider).value!.customJson!);
+      expect(stored!.accessible, isFalse,
+          reason: 'a shared theme is yours now, and yours is never badged');
+      expect(stored.ground, hc.ground,
+          reason: 'only the claim is dropped — the colours are untouched');
+      expect(container.read(activePaletteProvider).accessible, isFalse);
+
+      await stop(tester);
+    });
+
+    testWidgets('and the picker does not badge it AAA afterwards',
+        (tester) async {
+      final hc = kThemePresets.firstWhere((p) => p.accessible);
+      // Stored the way a pre-fix import would have stored it, claim and all —
+      // so this fails if the badge is ever driven by the palette alone again.
+      await db.setCustomTheme(
+          hc.copyWith(id: kCustomThemeId, accessible: true).toJson());
+      await db.setThemePreset(kCustomThemeId);
+
+      // Tall enough that the whole picker builds: the custom row sits below
+      // both preset groups, and an unbuilt row cannot be asserted about.
+      tester.view.physicalSize = const Size(1200, 4800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester
+          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Custom'), findsOneWidget,
+          reason: 'the custom row is on screen, so its badge would be too');
+      // Both shipped accessible presets still carry the badge; the custom row
+      // must not add a third.
+      expect(find.text('AAA'), findsNWidgets(2),
+          reason: 'only the two checked presets may claim AAA');
+
+      await stop(tester);
+    });
+
     testWidgets('declining leaves the current theme untouched', (tester) async {
       await db.setThemePreset('graphite');
       final sub = container.listen(themeSettingProvider, (_, _) {});
