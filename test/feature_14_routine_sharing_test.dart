@@ -289,6 +289,33 @@ void main() {
           reason: 'and with room to spare for error correction');
     });
 
+    test('and still is once every starter carries a real video id', () async {
+      // The starter library's demo links are YouTube *searches* today, so
+      // `youTubeVideoId` finds nothing in them and no id travels (#43). When
+      // they are replaced with real videos, eleven characters per exercise
+      // start riding along inside every routine that uses one — which is the
+      // question worth answering before doing the work, not after.
+      //
+      // Id-shaped, not real: this measures what the wire format costs, and that
+      // does not depend on the ids pointing anywhere.
+      var n = 0;
+      for (final e in await db.watchExercises().first) {
+        await (db.update(db.exercises)..where((t) => t.id.equals(e.id)))
+            .write(ExercisesCompanion(
+          videoUrl: Value(youTubeUrl(_noise(n++, 11))),
+        ));
+      }
+
+      final ppl = await db
+          .sharedRoutine((await _routineNamed(db, 'Push / Pull / Legs')).id);
+      final link = RoutineCode.link(ppl);
+
+      expect(RoutineCode.fitsQr(link), isTrue,
+          reason: 'real demo links must not cost the demo routine its QR');
+      expect(qrEccFor(link.length), QrEcc.medium,
+          reason: 'and not cost it its error correction either');
+    });
+
     test('a routine too big for any QR says so rather than painting one',
         () async {
       // With cues gone, names are the only field a person can make long enough
