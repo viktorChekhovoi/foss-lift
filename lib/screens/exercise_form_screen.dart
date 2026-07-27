@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/video_links.dart';
 
 
 /// How the movement is counted, in the words a lifter would use.
@@ -35,6 +36,21 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   WeightType _weightType = weightTypeForEquipment('Barbell');
   bool _saving = false;
 
+  /// The demo link as it should be stored: a YouTube URL reduced to its
+  /// canonical short form, anything else left exactly as typed.
+  ///
+  /// Only YouTube is rewritten because only YouTube is understood. A coach's
+  /// own upload or a private clip is not ours to tidy, and it opens from the
+  /// exercise screen either way — it simply will not travel with a shared
+  /// routine, which the field says out loud rather than leaving to be
+  /// discovered later.
+  static String? _tidyLink(String text) {
+    final typed = text.trim();
+    if (typed.isEmpty) return null;
+    final id = youTubeVideoId(typed);
+    return id == null ? typed : youTubeUrl(id);
+  }
+
   /// Picking the equipment answers the loading question in almost every case,
   /// so it sets the weight type as it goes. Overwriting a choice made earlier
   /// is safe here because the two controls sit in that order on the screen —
@@ -61,13 +77,13 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
       return;
     }
     setState(() => _saving = true);
-    final video = _video.text.trim();
+    final video = _tidyLink(_video.text);
     await ref.read(databaseProvider).createExercise(
           name: name,
           muscle: _muscle,
           equipment: _equip,
           instructions: _instructions.text.trim(),
-          videoUrl: video.isEmpty ? null : video,
+          videoUrl: video,
           measure: _measures[_measure]!,
           weightType: _weightType,
         );
@@ -135,7 +151,10 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
               controller: _video,
               hint: 'https://…',
               keyboardType: TextInputType.url,
+              // Rebuilds the note below as the link is typed or pasted.
+              onChanged: (_) => setState(() {}),
             ),
+            _LinkNote(text: _video.text),
             const SizedBox(height: 28),
             SizedBox(
               width: double.infinity,
@@ -169,11 +188,13 @@ class _Field extends StatelessWidget {
     required this.hint,
     this.maxLines = 1,
     this.keyboardType,
+    this.onChanged,
   });
   final TextEditingController controller;
   final String hint;
   final int maxLines;
   final TextInputType? keyboardType;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +202,7 @@ class _Field extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
@@ -239,6 +261,42 @@ class _Choices extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// What will become of the demo link, said before it is saved rather than
+/// discovered on the other phone.
+///
+/// Three things a link can be: a video we can name (and will tidy), a YouTube
+/// page with no video behind it, or somebody else's site. Only the first
+/// travels with a shared routine, and the difference is invisible unless the
+/// form says so.
+class _LinkNote extends StatelessWidget {
+  const _LinkNote({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final typed = text.trim();
+    if (typed.isEmpty) return const SizedBox(height: 0);
+
+    final id = youTubeVideoId(typed);
+    final message = id != null
+        ? 'Saved as youtu.be/$id, and travels with a shared routine.'
+        : "Kept as typed. It won't travel when you share a routine — only a "
+            'link to a specific video does.';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        message,
+        style: kMono.copyWith(
+          fontSize: 11,
+          height: 1.5,
+          color: id != null ? AppColors.muted : AppColors.faint,
+        ),
+      ),
     );
   }
 }

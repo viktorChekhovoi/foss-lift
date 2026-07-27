@@ -5,8 +5,10 @@
 // and overridable for any exercise, a measure fixed at creation, and history
 // that survives library edits because logged sets store the name denormalised.
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/screens/exercise_form_screen.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -277,6 +279,101 @@ void main() {
 
       final logged = await db.setsForSession(sessionId);
       expect(logged.single.exerciseName, 'Landmine Press');
+    });
+  });
+
+  group('the demo link is tidied as it is entered', () {
+    // A surface tall enough for the whole form, so every field is built and can
+    // be addressed by position. On a phone-sized surface the demo-link box sits
+    // below the fold and is not in the tree at all.
+    setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
+
+    Future<void> openForm(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1000, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      // The form pops on save, so it needs a router above it.
+      await tester
+          .pumpWidget(routedAppUnder(container, const ExerciseFormScreen()));
+      await tester.pumpAndSettle();
+    }
+
+    /// The form's three text boxes, in the order they appear.
+    Finder nameField(WidgetTester t) => find.byType(TextField).at(0);
+    Finder linkField(WidgetTester t) => find.byType(TextField).at(2);
+
+    Future<Exercise> saveWith(WidgetTester tester, String link) async {
+      await openForm(tester);
+      await tester.enterText(nameField(tester), 'Copenhagen Plank');
+      await tester.enterText(linkField(tester), link);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final saved = (await tester.runAsync(() => db.watchExercises().first))!;
+      return saved.firstWhere((e) => e.name == 'Copenhagen Plank');
+    }
+
+    testWidgets('a YouTube link is stored in its short canonical form',
+        (tester) async {
+      final saved = await saveWith(
+          tester, 'https://www.youtube.com/watch?v=aBcD1234_-x&t=90s&list=PLx');
+
+      expect(saved.videoUrl, 'https://youtu.be/aBcD1234_-x',
+          reason: 'the timestamp, playlist and www. identify nothing');
+
+      await stop(tester);
+    });
+
+    testWidgets('a link to somewhere else is kept exactly as typed',
+        (tester) async {
+      // A coach's own upload, a private clip: not ours to rewrite, and it still
+      // opens from the exercise screen.
+      final saved = await saveWith(tester, 'https://example.com/my-technique');
+
+      expect(saved.videoUrl, 'https://example.com/my-technique');
+
+      await stop(tester);
+    });
+
+    testWidgets('an empty link stays empty', (tester) async {
+      final saved = await saveWith(tester, '   ');
+
+      expect(saved.videoUrl, isNull);
+
+      await stop(tester);
+    });
+
+    testWidgets('a search link is kept, and the form says it will not travel',
+        (tester) async {
+      await openForm(tester);
+      await tester.enterText(linkField(tester),
+          'https://www.youtube.com/results?search_query=copenhagen+plank');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining("won't travel"), findsOneWidget,
+          reason: 'a search has no video behind it to share');
+
+      await stop(tester);
+    });
+
+    testWidgets('a recognised video is confirmed back to you', (tester) async {
+      await openForm(tester);
+      await tester.enterText(
+          linkField(tester), 'https://youtu.be/aBcD1234_-x?t=42');
+      await tester.pumpAndSettle();
+
+      // The note, not the text box echoing itself back: "Saved as" is the part
+      // only the note says.
+      expect(find.textContaining('Saved as youtu.be/aBcD1234_-x'),
+          findsOneWidget);
+      expect(find.textContaining("won't travel"), findsNothing);
+
+      await stop(tester);
     });
   });
 }

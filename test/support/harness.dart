@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/theme/app_theme.dart';
@@ -54,3 +55,35 @@ Future<void> frames(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 }
+
+/// [appUnder], but with a real router underneath.
+///
+/// Screens that finish by navigating — a form that pops on save — call
+/// `context.pop()`, which needs a GoRouter above them. Pumping such a screen
+/// bare works right up until the moment the test taps the button that leaves,
+/// so anything exercising that path wants this instead.
+///
+/// The route it lands on afterwards is deliberately blank: this is for testing
+/// what the screen *did*, not where the app went next.
+Widget routedAppUnder(ProviderContainer container, Widget child) =>
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        theme: AppTheme.build(kDefaultPalette),
+        routerConfig: GoRouter(
+          initialLocation: '/under-test',
+          routes: [
+            // Nested, so go_router builds the blank page *underneath* the
+            // screen being tested. A screen that pops needs something to pop
+            // back to; as a top-level route it would be the whole stack.
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const SizedBox.shrink(),
+              routes: [
+                GoRoute(path: 'under-test', builder: (_, _) => child),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
