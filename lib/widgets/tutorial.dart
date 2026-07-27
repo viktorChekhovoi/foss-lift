@@ -32,16 +32,20 @@ final tutorialNavBarKey = GlobalKey();
 /// One coach mark: a target to spotlight and the text to show beside it.
 class TutorialStep {
   const TutorialStep({
-    required this.key,
+    this.key,
     required this.title,
     required this.body,
     this.navSlot,
     this.navSlotCount = 1,
   });
 
-  /// The widget to anchor to. When [navSlot] is set this is the nav bar and the
-  /// highlight is one equal slice of it.
-  final GlobalKey key;
+  /// The widget to anchor to, or **null for a step that points at nothing**.
+  /// The welcome card is the one of those: it is about the app rather than
+  /// about a control, so it sits in the middle of a plain dimmed screen.
+  ///
+  /// When [navSlot] is set this is the nav bar and the highlight is one equal
+  /// slice of it.
+  final GlobalKey? key;
 
   /// Which slot of [navSlotCount] to highlight, or null to use the whole widget.
   final int? navSlot;
@@ -51,12 +55,22 @@ class TutorialStep {
   final String body;
 }
 
-/// The first-run tour, in order. Five high-value targets, all reachable on the
-/// Today tab (the tab bar is always up, the workout and lifetime cards are on
-/// Today itself), so the tour never has to drive navigation to keep up.
+/// The first-run tour, in order: a greeting, then five high-value targets, all
+/// reachable on the Today tab (the tab bar is always up, the workout and
+/// lifetime cards are on Today itself), so the tour never has to drive
+/// navigation to keep up.
+///
+/// **It opens on the greeting, not on a coach mark.** Arriving straight into an
+/// arrow pointing at something, before the app has said what it is or that a
+/// tour is happening, reads as a malfunction rather than an introduction.
 ///
 /// Not `const`: the anchors are runtime [GlobalKey] instances.
 final List<TutorialStep> kTutorialSteps = [
+  const TutorialStep(
+    title: 'Welcome to Foss Lift',
+    body: 'Plan a routine, log your lifts, watch the numbers move. '
+        'Here is where it all is.',
+  ),
   TutorialStep(
     key: tutorialTodayWorkoutKey,
     title: 'Your next workout',
@@ -169,7 +183,8 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
   }
 
   Rect? _targetRect(TutorialStep step) {
-    final ctx = step.key.currentContext;
+    // A step with no anchor points at nothing on purpose — see TutorialStep.key.
+    final ctx = step.key?.currentContext;
     if (ctx == null) return null;
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return null;
@@ -209,8 +224,10 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
     final rect = _targetRect(step);
 
     // The target may not be laid out on the frame the tour opens (a fresh tab,
-    // a card still building). Try again next frame rather than guess a spot.
-    if (rect == null) {
+    // a card still building). Try again next frame rather than guess a spot —
+    // but only when there is a target to wait for, or the anchorless welcome
+    // step would re-schedule itself for ever.
+    if (rect == null && step.key != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() {});
       });
@@ -274,6 +291,10 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
     }
 
     final isLast = index == kTutorialSteps.length - 1;
+    // The greeting asks a question the rest of the tour does not: whether to
+    // have one at all. So its buttons answer that, rather than reading as
+    // navigation through something already under way.
+    final isWelcome = index == 0 && step.key == null;
 
     return Positioned(
       left: left,
@@ -328,8 +349,39 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                     fontSize: 13.5, height: 1.35, color: AppColors.muted),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
+              // The greeting stacks its two answers — a full-width "yes" over a
+              // quiet "no" — because side by side they are two long labels in a
+              // callout narrower than either the phone or the font can be
+              // relied on to be. Every later step is a short Skip/Back/Next and
+              // fits across.
+              if (isWelcome)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton(
+                      onPressed: _advance,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: AppColors.onAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                      child: const Text('Take the tour'),
+                    ),
+                    TextButton(
+                      onPressed: _dismiss,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.faint,
+                        minimumSize: const Size(0, 36),
+                      ),
+                      child: const Text('Not now'),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
                   // Always available, at every step: the way out of the tour.
                   TextButton(
                     onPressed: _dismiss,
@@ -370,7 +422,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                     child: Text(isLast ? 'Done' : 'Next'),
                   ),
                 ],
-              ),
+                ),
             ],
           ),
         ),

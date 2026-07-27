@@ -4,14 +4,17 @@ A one-time coach-mark tour that runs on first launch.
 
 ## What it does
 
-- On first launch, overlays a guided **coach-mark tour** that points at the key
-  parts of the UI to get a new user started.
+- On first launch, opens on a **welcome card** — what the app is, and the
+  choice to take the tour or not.
+- Then overlays a guided **coach-mark tour** that points at the key parts of
+  the UI to get a new user started.
 - Runs **once** — a flag records that it's been seen, so it never reappears.
 
 ## How to use it
 
-It appears by itself the first time the app is opened. To see it again, reset
-app data (a fresh install / cleared storage) so the "seen" flag is unset.
+It appears by itself the first time the app is opened: **Take the tour** to walk
+through it, **Not now** to dismiss. Replay it any time from Profile → Help &
+tour, which also starts at the welcome.
 
 ## Behaviour & edge cases
 
@@ -19,6 +22,17 @@ app data (a fresh install / cleared storage) so the "seen" flag is unset.
   has run.
 - **Anchored to real UI.** The overlay attaches its callouts to on-screen anchors
   rather than hard-coded positions.
+- **It introduces itself before it points at anything.** Opening straight into
+  an arrow aimed at a card, before the app has said what it is or that a tour is
+  happening, reads as a malfunction rather than a greeting. So the first step
+  has no anchor at all — a plain dimmed screen and a card in the middle of it —
+  and it is the step a replay starts from too.
+- **The greeting stacks its two answers.** "Take the tour" over "Not now",
+  rather than side by side: they are two long labels in a callout narrower than
+  either the phone or the font can be relied on to be. Every later step is a
+  short Skip / Back / Next and fits across.
+- **Declining ends it cleanly** — the same path as skipping mid-tour, including
+  recording that the tour has been seen.
 
 ## Where it lives
 
@@ -28,3 +42,4 @@ app data (a fresh install / cleared storage) so the "seen" flag is unset.
 ## Related issues
 
 - [#18 Interactive first-run tutorial](https://github.com/viktorChekhovoi/foss-lift/issues/18) — shipped, in review
+- [#44 The tour started mid-sentence](https://github.com/viktorChekhovoi/foss-lift/issues/44) — shipped, in review

@@ -93,21 +93,64 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
       }
 
-      // A robust proof the tour is up: the always-present "Skip" control. We do
-      // not assert on the callout body copy, which the spec says may change.
-      expect(find.text('Skip'), findsOneWidget,
-          reason: 'the coach-mark tour should auto-start on first run');
+      // It opens on the greeting, not mid-sentence on a coach mark: the app
+      // says what it is and offers the tour before pointing at anything.
+      expect(find.text(kTutorialSteps.first.title), findsOneWidget,
+          reason: 'the tour should open on its welcome step');
+      expect(find.text('Take the tour'), findsOneWidget);
+      expect(find.text('Not now'), findsOneWidget);
 
-      // Skipping means "don't run again on its own" — it must persist the flag.
-      await tester.tap(find.text('Skip'));
+      // Declining means "don't run again on its own" — it must persist the flag.
+      await tester.tap(find.text('Not now'));
       await pumpUntil(
           tester, () => container.read(tutorialSeenProvider).value == true);
 
       expect(container.read(tutorialSeenProvider).value, isTrue,
           reason: 'dismissing records that the tour has been seen');
 
-      // And the overlay is gone.
-      expect(find.text('Skip'), findsNothing);
+      // And the overlay is gone, cleanly — nothing of it left on screen.
+      expect(find.text(kTutorialSteps.first.title), findsNothing);
+      expect(find.text('Take the tour'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('taking it goes on to the first coach mark', (tester) async {
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      await tester.tap(find.text('Take the tour'));
+      await tester.pump();
+
+      // The second step is the first one that points at something, and its
+      // buttons go back to reading as navigation.
+      expect(find.text(kTutorialSteps[1].title), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('a replay from the help menu starts at the welcome too',
+        (tester) async {
+      // A returning user: the flag is already set, so nothing auto-starts.
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(find.text(kTutorialSteps.first.title), findsNothing);
+
+      // What Profile → Help & tour does.
+      container.read(tutorialProvider.notifier).start();
+      await tester.pump();
+
+      expect(find.text(kTutorialSteps.first.title), findsOneWidget,
+          reason: 'a replay begins at the greeting, not mid-tour');
 
       await stop(tester);
     });
@@ -123,7 +166,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
       }
 
-      expect(find.text('Skip'), findsNothing,
+      expect(find.text(kTutorialSteps.first.title), findsNothing,
           reason: 'a returning user must not see the tour again');
 
       await stop(tester);
