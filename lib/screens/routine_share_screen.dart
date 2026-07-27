@@ -64,32 +64,13 @@ class RoutineShareScreen extends ConsumerWidget {
           style: kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 18),
-        if (scannable)
-          Center(
-            child: ShareQr(
-              data: link,
-              caption: 'Point another phone at this. Foss Lift will ask before '
-                  'adding anything.',
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.line),
-            ),
-            child: Text(
-              'This routine is too big for a QR code that another phone could '
-              'reliably read — custom exercises carry their own instructions, '
-              'and this one has a lot of them. Send it as a link, a copied '
-              'code or a file instead; all three carry exactly the same '
-              'routine.',
-              style:
-                  TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
-            ),
+        Center(
+          child: ShareQr(
+            data: link,
+            caption: 'Point another phone at this. Foss Lift will ask before '
+                'adding anything.',
           ),
+        ),
         const SizedBox(height: 22),
         shareSectionLabel('SEND IT'),
         const SizedBox(height: 10),

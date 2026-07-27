@@ -73,6 +73,7 @@ library;
 
 import 'dart:io';
 
+import '../util/qr_capacity.dart';
 import 'exercise_taxonomy.dart';
 import 'plates.dart';
 import 'progression.dart';
@@ -228,16 +229,15 @@ abstract final class RoutineCode {
   /// The link host a routine lives under: `fosslift://routine/<code>`.
   static const String host = 'routine';
 
-  /// The longest link still worth painting as a QR code.
-  ///
-  /// Past this a symbol needs so many modules that a phone screen photographed
-  /// by another phone stops decoding reliably, and an unscannable QR is worse
-  /// than an honest "this one is too big — send the link". Roughly a version-25
-  /// symbol at medium error correction.
-  static const int qrLinkLimit = 900;
+  /// The longest link a QR code can hold at all — a version-40 symbol at low
+  /// error correction. See `util/qr_capacity.dart` for where the number comes
+  /// from and what it costs.
+  static const int qrLinkLimit = kQrBytesLowEcc;
 
-  /// Whether [link] is short enough to be worth showing as a QR code.
-  static bool fitsQr(String link) => link.length <= qrLinkLimit;
+  /// Whether [link] fits in a QR code. Past this the code is still perfectly
+  /// shareable as a link, a copy or a file — an honest "too big for a QR" beats
+  /// painting a symbol nothing can read.
+  static bool fitsQr(String link) => qrHolds(link.length);
 
   // -- Exercise flag bits (frozen) ------------------------------------------
   static const int _exCustom = 1 << 0;

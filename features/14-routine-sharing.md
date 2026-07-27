@@ -39,11 +39,19 @@ exercises it depends on — as one line of text you can paste into a message.
   differ from the app's defaults, and the increment/deload defaults are read per
   progression mode — so the common routine encodes small. The PPL demo routine
   encodes to 421 characters, well inside a QR code.
-- **A QR is offered only when it will scan.** Past
-  `RoutineCode.qrLinkLimit` characters the code is still perfectly shareable as a
-  link, a copy or a file, but the QR is withheld with an explanation rather than
-  rendered as an unscannable smudge. A routine with several long custom
-  exercises is the case that trips this.
+- **A QR is offered whenever one can hold the routine.** The ceiling is the
+  standard's, not an invented one: 2,331 bytes in a version-40 symbol at medium
+  error correction, 2,953 at low. A routine that outgrows medium is painted at
+  low rather than refused — a symbol with less redundancy still scans, and the
+  alternative is no symbol. Past 2,953 the QR is withheld with an explanation
+  rather than rendered as an unscannable smudge; the code is still perfectly
+  shareable as a link, a copy or a file. It takes a routine carrying dozens of
+  long, genuinely dissimilar custom-exercise descriptions to get there —
+  ordinary wordy ones deflate away.
+- **The symbol is drawn as large as the screen allows.** Density is the real
+  limit on scanning a screen with a camera, so the QR takes the available width
+  rather than a fixed 220 pixels: every logical pixel per module is one the
+  other phone does not have to guess at.
 - **Progress does not travel.** The success/failure streaks and the sender's
   reminder time are left behind: they are facts about the sender's training and
   their notifications, not about the programme. Everything else — including the
@@ -68,6 +76,9 @@ exercises it depends on — as one line of text you can paste into a message.
 - Wire format: `lib/data/routine_code.dart` (`FLR1`), on the shared primitives in
   `lib/data/share_code.dart` (varints, checksums, base64, version tags) that the
   theme code uses too.
+- What a QR can hold, and what error correction it can afford:
+  `lib/util/qr_capacity.dart` — read by both the codec (whether to offer one)
+  and the widget (how to paint it).
 - Landing an import: `lib/data/routine_import.dart` (which exercises are new,
   which clash) + `AppDatabase.importSharedRoutine`.
 - Screens: `lib/screens/routine_share_screen.dart`,

@@ -53,6 +53,7 @@ lib/
 │   │                             avoid an import cycle)
 │   └── providers.dart            All other providers (routines, library, unit…)
 ├── util/units.dart               kg⇄lb conversion helpers (pure functions)
+├── util/qr_capacity.dart         What a QR holds; how much error correction it affords
 ├── util/format.dart              fmtTotal — big running totals for stat tiles
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()

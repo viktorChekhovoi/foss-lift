@@ -27,9 +27,29 @@ import 'package:foss_lift/screens/routine_share_screen.dart';
 import 'package:foss_lift/services/deep_links.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
+import 'package:foss_lift/util/qr_capacity.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
+
+/// A run of [length] characters that will not compress, seeded by [seed].
+///
+/// Deflate is good enough at ordinary English that forty wordy-but-similar
+/// coaching cues still fit in a QR code — which is the format working, not a
+/// test fixture working. Only genuinely incompressible text gets a routine past
+/// the largest symbol, so that is what this makes.
+String _noise(int seed, int length) {
+  const alphabet =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  var state = seed * 2654435761 + 12345;
+  return String.fromCharCodes([
+    for (var i = 0; i < length; i++)
+      () {
+        state = (state * 1103515245 + 12345) & 0x7FFFFFFF;
+        return alphabet.codeUnitAt((state >> 16) % alphabet.length);
+      }(),
+  ]);
+}
 
 /// The seeded demo routine, looked up by name — ids are an implementation
 /// detail of the seed order.
@@ -257,6 +277,48 @@ void main() {
       expect(RoutineCode.fitsQr(link), isTrue,
           reason: 'the demo routine must be shareable as a QR');
       expect(link.length, lessThan(RoutineCode.qrLinkLimit));
+      expect(qrEccFor(link.length), QrEcc.medium,
+          reason: 'and with room to spare for error correction');
+    });
+
+    test('a routine too big for any QR says so rather than painting one',
+        () async {
+      // Custom exercises carry their own instructions, which is the only thing
+      // in the format big enough to run past a version-40 symbol.
+      final routineId = await db.createRoutine(
+          name: 'Everything', color: 'FF6A3D', restSeconds: 90);
+      final items = <WorkoutItemsCompanion>[];
+      for (var i = 0; i < 40; i++) {
+        final id = await db.createExercise(
+          name: 'Invented Movement $i',
+          muscle: 'Other',
+          equipment: 'Machine',
+          instructions: _noise(i, 260),
+        );
+        items.add(WorkoutItemsCompanion.insert(
+            workoutId: 0, exerciseId: id, position: Value(i)));
+      }
+      await db.replaceRoutineWorkouts(
+          routineId, [(id: null, name: 'All of it', items: items)]);
+
+      final link = RoutineCode.link(await db.sharedRoutine(routineId));
+      expect(link.length, greaterThan(RoutineCode.qrLinkLimit),
+          reason: 'this is the case the QR limit exists for');
+      expect(RoutineCode.fitsQr(link), isFalse);
+      expect(qrEccFor(link.length), isNull);
+
+      // Still perfectly shareable every other way — the code itself is fine.
+      expect((RoutineCode.decode(link) as RoutineCodeOk).routine.exercises,
+          hasLength(40));
+    });
+
+    test('a big routine spends its error correction to stay scannable', () {
+      // Between the two capacities a symbol is still worth painting, just with
+      // less redundancy — a worse QR beats no QR when the fallback is a link.
+      expect(qrEccFor(kQrBytesMediumEcc), QrEcc.medium);
+      expect(qrEccFor(kQrBytesMediumEcc + 1), QrEcc.low);
+      expect(qrEccFor(kQrBytesLowEcc), QrEcc.low);
+      expect(qrEccFor(kQrBytesLowEcc + 1), isNull);
     });
 
     test('defaults cost nothing to send', () async {
@@ -619,10 +681,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Elbow Day'), findsWidgets);
-      expect(find.text('Show QR'), findsOneWidget);
-      expect(find.text('Send link'), findsOneWidget);
-      expect(find.text('Copy code'), findsOneWidget);
-      expect(find.text('Save file'), findsOneWidget);
+      // The QR is drawn as large as the screen allows, so the actions sit below
+      // the fold — scroll to each rather than asserting on what happens to be
+      // built.
+      for (final label in ['Show QR', 'Send link', 'Copy code', 'Save file']) {
+        await tester.scrollUntilVisible(find.text(label), 120,
+            scrollable: find.byType(Scrollable).first);
+        expect(find.text(label), findsOneWidget);
+      }
 
       await stop(tester);
     });
