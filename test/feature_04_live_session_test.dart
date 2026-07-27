@@ -1147,29 +1147,24 @@ void main() {
     });
   });
 
-  group('a personal note follows the movement onto the board', () {
-    test('the note is loaded with the exercise, not looked up later', () async {
-      final bench = await exerciseNamed(db, 'Bench Press');
-      await db.setExerciseNotes(bench.id, 'Rack pin 7');
+  group('a personal note is read and written from the board', () {
+    /// The note the library holds for [name] right now.
+    Future<String?> storedNote(WidgetTester tester, String name) async =>
+        (await tester.runAsync(() => exerciseNamed(db, name)))!.notes;
 
-      await startPush();
-      final entry =
-          session().exercises.firstWhere((e) => e.name == 'Bench Press');
-
-      expect(entry.notes, 'Rack pin 7');
-    });
+    Future<void> noteOn(WidgetTester tester, String name, String text) =>
+        tester.runAsync(() async {
+          final e = await exerciseNamed(db, name);
+          await db.setExerciseNotes(e.id, text);
+        });
 
     testWidgets('a note is readable without leaving the workout',
         (tester) async {
-      await tester.runAsync(() async {
-        final bench = await exerciseNamed(db, 'Bench Press');
-        await db.setExerciseNotes(bench.id, 'Rack pin 7, bench squeaks');
-      });
-
+      await noteOn(tester, 'Bench Press', 'Rack pin 7, bench squeaks');
       await pumpPushScreen(tester);
 
       // One tap, on the screen you are already on.
-      await tester.tap(find.byIcon(Icons.sticky_note_2_outlined).first);
+      await tester.tap(find.byTooltip('My note').first);
       await frames(tester);
 
       expect(find.text('Rack pin 7, bench squeaks'), findsOneWidget);
@@ -1177,11 +1172,60 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('an exercise with no note offers nothing to open',
+    testWidgets('a movement with no note still offers somewhere to add one',
         (tester) async {
       await pumpPushScreen(tester);
 
-      expect(find.byIcon(Icons.sticky_note_2_outlined), findsNothing);
+      // Nothing to read, so nothing claims there is — but there is somewhere
+      // to write the first one.
+      expect(find.byTooltip('My note'), findsNothing);
+      expect(find.byTooltip('Add a note'), findsWidgets);
+
+      await tester.tap(find.byTooltip('Add a note').first);
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), 'Seat 4, pin 7');
+      await tester.tap(find.text('Save'));
+      await pumpThroughDatabase(tester);
+
+      // Written through to the library, and on the board without leaving it.
+      expect(await storedNote(tester, 'Bench Press'), 'Seat 4, pin 7');
+      expect(find.text('Seat 4, pin 7'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('an existing note is edited from the board', (tester) async {
+      await noteOn(tester, 'Bench Press', 'Rack pin 7');
+      await pumpPushScreen(tester);
+
+      await tester.tap(find.byTooltip('My note').first);
+      await frames(tester);
+      expect(find.text('Rack pin 7'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Edit note').first);
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), 'Rack pin 8');
+      await tester.tap(find.text('Save'));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('Rack pin 8'), findsOneWidget);
+      expect(await storedNote(tester, 'Bench Press'), 'Rack pin 8');
+
+      await stop(tester);
+    });
+
+    testWidgets('a note written elsewhere reaches a session already running',
+        (tester) async {
+      await pumpPushScreen(tester);
+      expect(find.byTooltip('My note'), findsNothing);
+
+      // Written from the library while the session runs.
+      await noteOn(tester, 'Bench Press', 'Bench squeaks');
+      await pumpThroughDatabase(tester);
+
+      await tester.tap(find.byTooltip('My note').first);
+      await frames(tester);
+      expect(find.text('Bench squeaks'), findsOneWidget);
 
       await stop(tester);
     });

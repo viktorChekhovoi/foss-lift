@@ -32,6 +32,9 @@ you're done.
   fewer → … → 0 → untouched); hold it to type an exact count.
 - **Change the weight:** tap the weight above the working sets to move the whole
   exercise; tap a single row's weight to move only that set.
+- **Your note:** tap the note icon beside an exercise to read it, the pencil
+  that appears to change it. On a movement you have not noted anything about,
+  the icon writes the first note.
 - **Rest:** logging a set starts the rest banner; use shorter / longer / skip.
 - **Warm-ups:** expand the collapsed warm-up group above the working sets; adjust
   the number of warm-up sets with its stepper.
@@ -44,6 +47,13 @@ you're done.
 
 - **The live session is in memory** and only writes to the DB on Finish, so
   editing sets is instant and a mid-session crash can't leave half-saved rows.
+- **The note is the one exception, and it goes both ways.** Mid-workout is when
+  you learn the thing worth noting — the seat was wrong, the pin is one lower
+  than you remembered — so a note can be written and edited from the board, and
+  it lands in the library at once. It is read live too, so one written from the
+  library while a session runs shows up on that session. A note is a fact about
+  the movement, not session state; everything else on the board stays the
+  snapshot it started as.
 - **A session ends by finishing it or by aborting it.** Collapsing never
   discards it, and an abort always asks first — it is the one control on the
   screen that destroys work.
@@ -146,3 +156,4 @@ you're done.
 - [#25 Warmup calculator](https://github.com/viktorChekhovoi/foss-lift/issues/25) — shipped, in review
 - [#35 One weight per exercise, and a warm-up ramp that follows it](https://github.com/viktorChekhovoi/foss-lift/issues/35) — shipped, in review
 - [#39 Starting a workout while one is already live](https://github.com/viktorChekhovoi/foss-lift/issues/39) — shipped, in review
+- [#40 Exercise notes, editable during a workout](https://github.com/viktorChekhovoi/foss-lift/issues/40) — shipped, in review

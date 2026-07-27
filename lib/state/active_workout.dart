@@ -84,7 +84,6 @@ class ExerciseEntry {
     this.mode = ProgressionMode.weight,
     this.weightType = WeightType.machine,
     this.barKg,
-    this.notes,
     this.restSeconds = 90,
     List<SetEntry>? warmups,
     this.warmupCount = kDefaultWarmupSets,
@@ -100,12 +99,6 @@ class ExerciseEntry {
   final int? itemId;
   final String name;
   final String muscle;
-
-  /// The personal note on the movement, copied in at Start along with
-  /// everything else about it. Read here rather than looked up live for the
-  /// same reason the bar weight is: the session is a snapshot of the template,
-  /// and the screen should not be querying the library mid-set.
-  final String? notes;
 
   /// The working sets — the ones the template asked for and the only ones that
   /// count. Progression, volume, the verdict and the saved history all read
@@ -361,7 +354,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           mode: mode,
           weightType: v.exercise.weightType,
           barKg: v.exercise.barWeight,
-          notes: v.exercise.notes,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           workingKg: w,
           warmupBarKg: warmupBar,

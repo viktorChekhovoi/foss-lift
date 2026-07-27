@@ -12,6 +12,7 @@ import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/units.dart';
+import '../widgets/builder_widgets.dart';
 import '../widgets/plate_line.dart';
 
 class WorkoutScreen extends ConsumerStatefulWidget {
@@ -525,7 +526,8 @@ class _ExerciseBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ExerciseHeading(name: exercise.name, note: exercise.notes),
+          _ExerciseHeading(
+              name: exercise.name, exerciseId: exercise.exerciseId),
           // The warm-up ramp, kept in a group of its own above the working sets
           // so the two are never confused. Only a weight-based slot with a load
           // gets one.
@@ -635,29 +637,66 @@ class _WorkingWeight extends StatelessWidget {
   }
 }
 
-/// The exercise's name, and — when you have written one — your own note on it,
-/// one tap from the set you are about to do.
+/// The exercise's name and your own note on it, one tap from the set you are
+/// about to do.
 ///
 /// The note expands in place rather than into a dialog: the seat setting is
 /// something you read *while* setting up, and a modal you have to dismiss to
 /// see the rows again is a modal you stop opening. Collapsed by default even
 /// when the note is short, so the block above the sets never changes height
 /// without being asked to.
-class _ExerciseHeading extends StatefulWidget {
-  const _ExerciseHeading({required this.name, this.note});
+///
+/// **It is read and written live.** Mid-workout is exactly when you learn the
+/// thing worth noting — the seat was wrong, the pin is one lower than you
+/// remembered — and by the time you are back on the library screen you have
+/// forgotten. So the note comes off [exerciseNoteProvider] rather than out of
+/// the session's snapshot, and writing one here writes it to the library.
+class _ExerciseHeading extends ConsumerStatefulWidget {
+  const _ExerciseHeading({required this.name, this.exerciseId});
   final String name;
-  final String? note;
+
+  /// Null for an ad-hoc entry with no library movement behind it — there is
+  /// nowhere to keep a note, so none is offered.
+  final int? exerciseId;
 
   @override
-  State<_ExerciseHeading> createState() => _ExerciseHeadingState();
+  ConsumerState<_ExerciseHeading> createState() => _ExerciseHeadingState();
 }
 
-class _ExerciseHeadingState extends State<_ExerciseHeading> {
+class _ExerciseHeadingState extends ConsumerState<_ExerciseHeading> {
   bool _open = false;
+
+  Future<void> _edit(int id, String? note) async {
+    final written = await askNote(
+      context,
+      title: widget.name,
+      initial: note,
+    );
+    if (written == null || !mounted) return;
+    await ref.read(databaseProvider).setExerciseNotes(id, written);
+    // A note just written is a note worth seeing; one just cleared has nothing
+    // left to show.
+    if (mounted) setState(() => _open = written.trim().isNotEmpty);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final note = widget.note;
+    final id = widget.exerciseId;
+    final note = id == null ? null : ref.watch(exerciseNoteProvider(id));
+    final open = _open && note != null;
+
+    Widget icon(IconData glyph, String tooltip, VoidCallback onPressed,
+            {bool lit = false}) =>
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          icon: Icon(glyph,
+              size: 18, color: lit ? AppColors.accent : AppColors.muted),
+          tooltip: tooltip,
+          onPressed: onPressed,
+        );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -679,24 +718,28 @@ class _ExerciseHeadingState extends State<_ExerciseHeading> {
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
-            // Only when there is something to read. An icon that opens nothing
-            // is worse than no icon.
-            if (note != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                icon: Icon(
+            if (id != null) ...[
+              // With a note the icon reads it; with none it writes the first
+              // one. Two states, one meaning each — an icon that sometimes
+              // opens a panel and sometimes a dialog is an icon nobody trusts.
+              if (note == null)
+                icon(Icons.note_add_outlined, 'Add a note',
+                    () => _edit(id, null))
+              else
+                icon(
                   Icons.sticky_note_2_outlined,
-                  size: 18,
-                  color: _open ? AppColors.accent : AppColors.muted,
+                  'My note',
+                  () => setState(() => _open = !_open),
+                  lit: open,
                 ),
-                tooltip: 'My note',
-                onPressed: () => setState(() => _open = !_open),
-              ),
+              // The pencil only exists once the note is on screen: editing what
+              // you cannot see is not something anybody sets out to do.
+              if (open)
+                icon(Icons.edit_outlined, 'Edit note', () => _edit(id, note)),
+            ],
           ],
         ),
-        if (note != null && _open)
+        if (open)
           Padding(
             padding: const EdgeInsets.only(left: 18, top: 2, bottom: 4),
             child: Text(

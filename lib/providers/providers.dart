@@ -68,6 +68,26 @@ final exerciseLibraryProvider = StreamProvider<List<Exercise>>((ref) {
   return ref.watch(databaseProvider).watchExercises();
 });
 
+/// One movement's personal note, live.
+///
+/// A note is a fact about the movement, not session state, so the live workout
+/// board watches this instead of reading the copy it hydrated with: a note
+/// written from the library halfway through a session belongs on that session's
+/// board, and one written *on* the board belongs in the library. It is the one
+/// thing the board reads through — everything else about a session is a
+/// deliberate snapshot of the template.
+///
+/// It rides the library stream that is already in memory, so watching it costs
+/// no further query.
+final exerciseNoteProvider = Provider.family<String?, int>((ref, id) {
+  final library = ref.watch(exerciseLibraryProvider).value;
+  if (library == null) return null;
+  for (final e in library) {
+    if (e.id == id) return e.notes;
+  }
+  return null;
+});
+
 /// Completed sessions, newest first (History tab).
 final historyProvider = StreamProvider<List<Session>>((ref) {
   return ref.watch(databaseProvider).watchHistory();

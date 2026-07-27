@@ -384,6 +384,9 @@ Thin bridge from widgets to data. Notable ones:
   — the schedule side. Watch the last one somewhere permanent (it is watched in
   `main.dart`); reading the other two directly is for the editor asking for the
   notification permission.
+- `exerciseNoteProvider(id)` — one movement's note, derived off the library
+  stream. The live board watches it so a note is current in both directions; it
+  is the only thing the board reads through rather than snapshotting.
 - `activeWorkoutProvider` — the live-session controller above.
 - `sessionSummaryProvider(id)` — one finished session + its sets.
 
