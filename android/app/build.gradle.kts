@@ -50,4 +50,10 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // The camera plugin (used to scan theme QR codes) compiles against
+    // androidx.camera, whose published API jar references CallbackToFutureAdapter
+    // without declaring it as an api dependency. javac needs the class on the
+    // compile classpath to resolve annotations on it, so name it here — without
+    // this, :camera_android_camerax fails to compile.
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
 }
