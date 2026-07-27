@@ -20,6 +20,7 @@ import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/theme_settings_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/widgets/common.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
 import 'package:foss_lift/widgets/theme_preview.dart';
@@ -481,6 +482,146 @@ void main() {
           reason: 'and Material agrees, so system widgets follow suit');
 
       await stop(tester);
+    });
+  });
+
+  group('the portable theme code', () {
+    test('every shipped preset round-trips through a code unchanged', () {
+      for (final preset in kThemePresets) {
+        final decoded = ThemeCode.decode(ThemeCode.encode(preset));
+        expect(decoded, isA<ThemeCodeOk>(),
+            reason: '${preset.id} should decode');
+        final palette = (decoded as ThemeCodeOk).palette;
+        // Every colour role, the name and the accessible flag survive. The id
+        // does not: a code carries a theme, not a claim to be a preset.
+        for (final role in [
+          (palette.ground, preset.ground),
+          (palette.surface, preset.surface),
+          (palette.surface2, preset.surface2),
+          (palette.surface3, preset.surface3),
+          (palette.line, preset.line),
+          (palette.text, preset.text),
+          (palette.muted, preset.muted),
+          (palette.faint, preset.faint),
+          (palette.accent, preset.accent),
+          (palette.accentPress, preset.accentPress),
+          (palette.good, preset.good),
+          (palette.gold, preset.gold),
+        ]) {
+          expect(role.$1, role.$2, reason: '${preset.id}: a role changed');
+        }
+        expect(palette.name, preset.name);
+        expect(palette.accessible, preset.accessible);
+      }
+    });
+
+    test('a custom palette round-trips, including a non-ASCII name', () {
+      final mine = _mineCustom().copyWith(name: 'Mörk höst 🏋');
+      final decoded = ThemeCode.decode(ThemeCode.encode(mine));
+      expect(decoded, isA<ThemeCodeOk>());
+      expect((decoded as ThemeCodeOk).palette.name, 'Mörk höst 🏋');
+      expect(decoded.palette.accent, mine.accent);
+    });
+
+    test('a code is short enough to paste into a chat message', () {
+      for (final preset in kThemePresets) {
+        expect(ThemeCode.encode(preset).length, lessThan(120),
+            reason: '${preset.id} encodes too long to share by hand');
+      }
+    });
+
+    test('the code is version-tagged, so a later format can be told apart', () {
+      expect(ThemeCode.encode(kDefaultPalette), startsWith('FLT1.'));
+    });
+
+    test('a newer format version is reported as newer, not as broken', () {
+      final future = ThemeCode.encode(kDefaultPalette).replaceFirst('FLT1', 'FLT9');
+      final result = ThemeCode.decode(future);
+      expect(result, isA<ThemeCodeFailure>());
+      expect((result as ThemeCodeFailure).problem, ThemeCodeProblem.futureVersion);
+      expect(result.message.toLowerCase(), contains('newer version'));
+    });
+
+    test('text that is not a theme code at all is rejected as such', () {
+      for (final junk in ['', 'hello', 'https://example.com', '{"colors":{}}']) {
+        final result = ThemeCode.decode(junk);
+        expect(result, isA<ThemeCodeFailure>(), reason: 'decoding "$junk"');
+        expect((result as ThemeCodeFailure).problem, ThemeCodeProblem.notACode,
+            reason: 'decoding "$junk"');
+      }
+    });
+
+    test('a truncated code is caught rather than importing wrong colours', () {
+      final code = ThemeCode.encode(kDefaultPalette);
+      // Chop characters off the end — the classic damage from a bad copy.
+      for (var cut = 1; cut < 12; cut++) {
+        final result = ThemeCode.decode(code.substring(0, code.length - cut));
+        expect(result, isA<ThemeCodeFailure>(),
+            reason: 'a code missing $cut characters must not decode');
+        expect((result as ThemeCodeFailure).problem, ThemeCodeProblem.damaged,
+            reason: 'a code missing $cut characters is damaged, not foreign');
+      }
+    });
+
+    test('a flipped character is caught by the checksum', () {
+      final code = ThemeCode.encode(kDefaultPalette);
+      var caught = 0;
+      // Corrupt one payload character at a time; every corruption must be
+      // either rejected or — never — silently decoded to a different palette.
+      for (var i = 'FLT1.'.length; i < code.length; i++) {
+        final ch = code[i] == 'A' ? 'B' : 'A';
+        final bent = code.replaceRange(i, i + 1, ch);
+        final result = ThemeCode.decode(bent);
+        if (result is ThemeCodeFailure) {
+          caught++;
+        } else {
+          fail('a one-character corruption at $i decoded silently');
+        }
+      }
+      expect(caught, greaterThan(0));
+    });
+
+    test('unknown trailing fields are ignored, not fatal', () {
+      // Forward compatibility: a later FLT1 writer may append a field this
+      // reader knows nothing about. It must still read the roles it does know.
+      final extended = ThemeCode.encodeWithExtraFields(
+          kDefaultPalette, [0x77, 0x88, 0x99, 0xAA]);
+      final result = ThemeCode.decode(extended);
+      expect(result, isA<ThemeCodeOk>(),
+          reason: 'an unknown trailing field must not break the import');
+      expect((result as ThemeCodeOk).palette.accent, kDefaultPalette.accent);
+      expect(result.palette.name, kDefaultPalette.name);
+    });
+
+    test('a code pasted with whitespace or line breaks still reads', () {
+      final code = ThemeCode.encode(kDefaultPalette);
+      for (final messy in [
+        '  $code  ',
+        '$code\n',
+        '${code.substring(0, 20)}\n${code.substring(20)}',
+        '${code.substring(0, 20)} ${code.substring(20)}',
+      ]) {
+        expect(ThemeCode.decode(messy), isA<ThemeCodeOk>(),
+            reason: 'pasted text is rarely clean');
+      }
+    });
+
+    test('a full share link decodes as readily as a bare code', () {
+      final code = ThemeCode.encode(kDefaultPalette);
+      final link = ThemeCode.link(kDefaultPalette);
+      expect(link, startsWith('fosslift://theme/'));
+      expect(link, endsWith(code));
+      final result = ThemeCode.decode(link);
+      expect(result, isA<ThemeCodeOk>(),
+          reason: 'scanning a QR yields the link, not the bare code');
+      expect((result as ThemeCodeOk).palette.accent, kDefaultPalette.accent);
+    });
+
+    test('the JSON path still works alongside the code', () {
+      // The code is an addition, not a replacement — a theme exported as a
+      // file before this existed must still import.
+      final mine = _mineCustom();
+      expect(AppPalette.tryParse(mine.toJson()), equals(mine));
     });
   });
 
