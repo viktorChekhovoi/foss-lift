@@ -1,6 +1,6 @@
 # Privacy Policy for Foss Lift
 
-**Last updated: 22 July 2026**
+**Last updated: 27 July 2026**
 
 Foss Lift is an offline workout tracker. This policy explains what happens to
 your information, and the short version is: nothing. The app has no account
@@ -18,7 +18,31 @@ Everything you enter — your routines, workouts, exercises, logged sets, weight
 and session history — is written to a database file in Foss Lift's own private
 storage on your device. Android prevents other apps from reading it.
 
+The only other files the app writes are the small share files described below,
+which go to the same private storage and only when you ask for one.
+
 That data is never uploaded anywhere by Foss Lift.
+
+## Sharing a routine or a theme
+
+Foss Lift can turn one of your routines, or a colour theme you have built, into
+a short code — shown on screen, copied to your clipboard, saved as a small file
+in the app's own storage, or handed to your phone's share sheet so you can send
+it to someone yourself.
+
+Three things are worth being clear about:
+
+- **Nothing is shared unless you ask for it.** There is no background sync and
+  no automatic upload. Sharing happens when you tap Share, and not otherwise.
+- **Once you hand a code to another app, this policy stops applying.** If you
+  choose a messaging app from the share sheet, the code travels under that app's
+  rules, not ours. Foss Lift has no say in what happens next and no way to take
+  it back.
+- **A code contains the plan, not your training.** It carries the routine's
+  shape — its workouts, exercise slots, targets and schedule — and the
+  definition of any exercise it uses. It does not carry your logged sets, your
+  weights, your history, your streaks or your reminder times. Somebody you send
+  a routine to learns what you intend to do, never what you have done.
 
 ## Network access
 
@@ -42,9 +66,15 @@ its own or in the background.
   notification passes through any server.
 - **Run at startup** (`RECEIVE_BOOT_COMPLETED`) — so that reminders you have
   already scheduled survive a reboot.
+- **Camera** (`CAMERA`) — only if you open the scanner to import a routine or a
+  colour theme from someone else's QR code. The camera is opened when that
+  screen is, and closed when you leave it. The image is examined on your device
+  for a QR code and then discarded: no frame is saved to storage, and nothing
+  is recorded. If you never scan a code, the app never asks.
 
-The app requests no other permissions. It does not use your location, camera,
-microphone, contacts, files, or advertising identifier.
+The app requests no other permissions. It does not use your location,
+microphone, contacts or advertising identifier, and it does not ask for access
+to your photos or to the shared storage on your device.
 
 ## Device backups
 

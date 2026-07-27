@@ -334,11 +334,11 @@ typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 
 /// The curated starter library, as muscle group → movement → equipment.
 ///
-/// Six groups have to hold everything, because both lists are a wire format —
-/// a shared routine sends "muscle group #4" rather than the word, see
-/// `exercise_taxonomy.dart`. So glute work is filed under Legs, traps under
-/// Back, forearms under Arms, and the movements that answer to no single group
-/// — a carry, a swing, a clean — under Other.
+/// Glutes and Forearms are groups in their own right — see
+/// `exercise_taxonomy.dart` for why. Traps stay under Back, because a shrug is
+/// something you do on a back day and nobody goes looking for a Traps heading.
+/// The movements that answer to no single group — a swing, a clean, a get-up —
+/// are under Other.
 ///
 /// Each group aims to cover the movement patterns that matter in it, at every
 /// kind of loading a gym offers, without turning the picker into a catalogue.
@@ -373,7 +373,6 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Chin-Up': 'Bodyweight',
     'Inverted Row': 'Bodyweight',
     'Back Extension': 'Bodyweight',
-    'Dead Hang': 'Bodyweight',
   },
   'Shoulders': {
     'Overhead Press': 'Barbell',
@@ -394,7 +393,6 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Sumo Deadlift': 'Barbell',
     'Romanian Deadlift': 'Barbell',
     'Good Morning': 'Barbell',
-    'Hip Thrust': 'Barbell',
     'Goblet Squat': 'Dumbbell',
     'Bulgarian Split Squat': 'Dumbbell',
     'Walking Lunge': 'Dumbbell',
@@ -405,6 +403,10 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Leg Extension': 'Machine',
     'Calf Raise': 'Machine',
     'Seated Calf Raise': 'Machine',
+  },
+  'Glutes': {
+    'Hip Thrust': 'Barbell',
+    'Glute Bridge': 'Bodyweight',
     'Hip Abduction': 'Machine',
     'Cable Pull-Through': 'Cable',
     'Glute Kickback': 'Cable',
@@ -412,17 +414,24 @@ const Map<String, Map<String, String>> _starterLibrary = {
   'Arms': {
     'Barbell Curl': 'Barbell',
     'Preacher Curl': 'Barbell',
-    'Reverse Curl': 'Barbell',
     'Close-Grip Bench Press': 'Barbell',
     'Skull Crusher': 'Barbell',
     'Dumbbell Curl': 'Dumbbell',
     'Hammer Curl': 'Dumbbell',
     'Incline Dumbbell Curl': 'Dumbbell',
-    'Wrist Curl': 'Dumbbell',
     'Triceps Pushdown': 'Cable',
     'Overhead Cable Extension': 'Cable',
     'Cable Curl': 'Cable',
     'Triceps Dip': 'Bodyweight',
+  },
+  'Forearms': {
+    // Reverse Curl earns its place here rather than in Arms: the forearm is
+    // what gives out first, which is the whole reason anyone programmes it.
+    'Reverse Curl': 'Barbell',
+    'Wrist Curl': 'Dumbbell',
+    'Reverse Wrist Curl': 'Dumbbell',
+    "Farmer's Carry": 'Dumbbell',
+    'Dead Hang': 'Bodyweight',
   },
   'Core': {
     'Cable Crunch': 'Cable',
@@ -438,10 +447,11 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Russian Twist': 'Bodyweight',
     'Dead Bug': 'Bodyweight',
   },
+  // Whole-body movements that would be a lie in any single group.
   'Other': {
     'Power Clean': 'Barbell',
-    "Farmer's Carry": 'Dumbbell',
     'Kettlebell Swing': 'Other',
+    'Turkish Get-Up': 'Other',
   },
 };
 

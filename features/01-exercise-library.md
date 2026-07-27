@@ -47,11 +47,17 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   YouTube *search* link, which names no video. See
   [sharing a routine](14-routine-sharing.md).
 
-- **Six muscle groups have to hold everything.** The group and equipment lists
-  are a wire format — a shared routine sends "muscle group #4" rather than the
-  word — so they cannot grow to suit the library. Glute work is filed under
-  Legs, traps under Back, forearms under Arms, and the movements that belong to
-  no one group (a carry, a kettlebell swing, a power clean) under Other.
+- **Glutes and Forearms are groups of their own.** Both are trained
+  deliberately, with their own movements — a hip thrust is not something anyone
+  files next to a calf raise — and a group you have to go looking for inside a
+  bigger one may as well not exist. Traps stay under Back, because a shrug is
+  something you do on a back day. The movements that answer to no single group
+  — a kettlebell swing, a power clean, a get-up — are under Other.
+- **The group and equipment lists are a wire format.** A shared routine sends
+  "muscle group #4" rather than the word, which is most of the reason a routine
+  fits in a QR code. Both lists are free to change until the first public
+  release; after it, reordering one would silently re-label every code already
+  shared.
 - **Weight type is seeded from equipment:** Barbell → bar, Dumbbell → dumbbell,
   everything else (bodyweight included) → machine. You can override it afterward.
 - **Measure is fixed at creation** for custom exercises; in the starter library
