@@ -44,4 +44,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-/android/build/*.claude/
+
+# Gradle's own output tree, distinct from the /build/ above: the root
+# build.gradle.kts redirects module output there, but Gradle still writes its
+# problem reports here — and one of them was committed once already.
+/android/build/
+
+# Packaged builds, wherever they land
+*.apk
+*.aab
+
+# Claude Code's local working state
+.claude/
