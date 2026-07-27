@@ -481,8 +481,14 @@ you never looked at.
   `AppPalette` value; several `kThemePresets` ship (the default, Ignition,
   mirrors `design/mockup.html`) and the user can build a `custom` one.
   `AppColors.*` are the live colours the whole UI reads — no longer `const`:
-  `AppTheme.dark(palette)` applies the active palette to them, and the app root
-  re-keys `MaterialApp` by `palette.signature` so every screen repaints.
+  `AppTheme.build(palette)` applies the active palette to them, and the app root
+  re-keys `MaterialApp` by `palette.signature` so every screen repaints. **Two
+  places must not rely on that.** The root paints nothing until
+  `themeSettingProvider` has a value, so no frame is ever drawn in the
+  system-default guess and then corrected; and `HomeShell` takes its colours
+  from a watched `activePaletteProvider` rather than the globals, because
+  go_router holds its branch navigators by `GlobalKey` and the re-key moves the
+  shell's elements instead of rebuilding them.
   `resolvePalette` turns the stored choice into a palette; `activePaletteProvider`
   exposes it. A routine's own `colorHex` is parsed by `hexColor()` and bypasses
   this entirely, so per-routine accents show through any theme. `kMono` is the

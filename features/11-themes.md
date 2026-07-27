@@ -37,6 +37,21 @@ Solarized, never also means accepting a brightness you did not want.
 
 ## Behaviour & edge cases
 
+- **Nothing is painted until the stored theme is known.** `activePaletteProvider`
+  is synchronous and falls back to the system-brightness default while the
+  settings row is still arriving, so building the app on that guess would paint
+  a frame of the wrong theme and then correct it — a flicker on every cold
+  launch. The root holds a bare ground-coloured frame instead, which is what the
+  launch screen is already showing.
+- **The tab shell takes its colours from the palette, not from `AppColors`.**
+  Everywhere else can read the live globals, because re-keying `MaterialApp` on
+  a palette change rebuilds the tree against the freshly applied values. The
+  shell is the exception: go_router holds its branch navigators by `GlobalKey`,
+  so the re-key *moves* its elements instead of rebuilding them, and a
+  `NavigationBarTheme` built from mutable globals keeps whatever it read first.
+  That is why a cold launch used to paint the navigation bar in the previous
+  theme and hold it there until any tap marked it dirty.
+
 - **An untouched install follows the phone.** With nothing stored the app paints
   Ignition on a phone set to dark and Daylight on one set to light, and flips
   with the system until a theme is picked. Picking one stores it, and a stored

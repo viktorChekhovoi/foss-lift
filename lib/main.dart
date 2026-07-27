@@ -28,6 +28,18 @@ class FossLiftApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(reminderSyncProvider);
     final palette = ref.watch(activePaletteProvider);
+
+    // Nothing is painted until the stored theme is known. `activePaletteProvider`
+    // is synchronous and falls back to the system-brightness default while the
+    // settings row is still on its way, so building the app now would paint a
+    // frame of the *wrong* theme and then correct it. That is a flicker on every
+    // cold launch even when nothing is stale — and a local SQLite read is a
+    // frame or two, behind the launch screen, so there is nothing to wait
+    // through. The holding frame is the ground colour the guess arrived at,
+    // which is what the launch screen is showing anyway.
+    if (!ref.watch(themeSettingProvider).hasValue) {
+      return ColoredBox(color: palette.ground, child: const SizedBox.expand());
+    }
     // Status-bar icons have to contrast with the app's ground: dark icons over a
     // light theme, light icons over a dark one. Re-applied here so switching to
     // a light theme flips them immediately rather than leaving them invisible.

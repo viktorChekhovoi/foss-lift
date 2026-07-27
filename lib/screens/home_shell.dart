@@ -1,17 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/resume_workout_bar.dart';
 import '../widgets/tutorial.dart';
 
 /// The bottom-tab scaffold that hosts Today / Routines / History / Profile.
-class HomeShell extends StatelessWidget {
+///
+/// **It takes its colours from the palette it watches, not from `AppColors`.**
+/// Everywhere else in the app can read the live globals, because the app root
+/// re-keys `MaterialApp` on a palette change and the tree underneath is rebuilt
+/// against the freshly applied values. This shell is the exception: go_router
+/// holds its branch navigators by `GlobalKey`, so the re-key *moves* the shell's
+/// elements instead of rebuilding them, and a `NavigationBarTheme` built from
+/// mutable globals keeps whatever it read the first time. That is how a cold
+/// launch came to paint the navigation bar in the previous theme and hold it
+/// there until any tap marked it dirty.
+class HomeShell extends ConsumerWidget {
   const HomeShell({super.key, required this.shell});
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watched, not read: this is the subscription that gets the shell rebuilt
+    // when nothing else will.
+    final palette = ref.watch(activePaletteProvider);
     return Scaffold(
       body: shell,
       // The resume bar rides in the bottom bar rather than over the body, so a
@@ -20,28 +35,28 @@ class HomeShell extends StatelessWidget {
       // the whole point — see ResumeWorkoutOverlay for the other mount point.
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [const ResumeWorkoutBar(), _navBar()],
+        children: [const ResumeWorkoutBar(), _navBar(palette)],
       ),
     );
   }
 
-  Widget _navBar() {
+  Widget _navBar(AppPalette palette) {
     return NavigationBarTheme(
       data: NavigationBarThemeData(
-        backgroundColor: AppColors.ground,
-        indicatorColor: AppColors.accent.withValues(alpha: 0.14),
+        backgroundColor: palette.ground,
+        indicatorColor: palette.accent.withValues(alpha: 0.14),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: selected ? AppColors.accent : AppColors.faint,
+            color: selected ? palette.accent : palette.faint,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? AppColors.accent : AppColors.faint,
+            color: selected ? palette.accent : palette.faint,
           );
         }),
       ),

@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/home_shell.dart';
 import 'package:foss_lift/screens/theme_import_screen.dart';
 import 'package:foss_lift/screens/theme_settings_screen.dart';
 import 'package:foss_lift/services/deep_links.dart';
@@ -30,6 +31,7 @@ import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/widgets/common.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
 import 'package:foss_lift/widgets/theme_preview.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr/qr.dart';
 
 import 'support/harness.dart';
@@ -1402,6 +1404,92 @@ void main() {
         expect(find.textContaining('hard to read'), findsNothing,
             reason: '${preset.id} should not trip its own legibility warning');
       }
+      await stop(tester);
+    });
+  });
+
+  group('a stored theme survives a cold launch', () {
+    /// The app root's shape: watch the palette, key the app by its signature,
+    /// build the theme (which points AppColors at it) on the way past.
+    Widget root(GoRouter router) => Consumer(
+          builder: (context, ref, _) {
+            final palette = ref.watch(activePaletteProvider);
+            return MaterialApp.router(
+              key: ValueKey(palette.signature),
+              theme: AppTheme.build(palette),
+              routerConfig: router,
+            );
+          },
+        );
+
+    GoRouter shellRouter() => GoRouter(
+          initialLocation: '/today',
+          routes: [
+            StatefulShellRoute.indexedStack(
+              builder: (_, _, shell) => HomeShell(shell: shell),
+              branches: [
+                for (final p in const [
+                  '/today',
+                  '/routines',
+                  '/history',
+                  '/profile'
+                ])
+                  StatefulShellBranch(
+                    routes: [
+                      GoRoute(path: p, builder: (_, _) => const SizedBox.shrink())
+                    ],
+                  ),
+              ],
+            ),
+          ],
+        );
+
+    testWidgets('the navigation bar paints the stored theme, untapped',
+        (tester) async {
+      // The bar built once from the default palette — the settings row had not
+      // arrived — and nothing rebuilt it when the real one did. go_router holds
+      // the shell's branch navigators by GlobalKey, so re-keying MaterialApp
+      // *moves* the shell's elements rather than rebuilding them, and a
+      // NavigationBarTheme built from the mutable AppColors globals kept
+      // whatever it read first. Any tap marked it dirty and it came right,
+      // which is exactly what was reported.
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.runAsync(() => db.setThemePreset('solarized_light'));
+
+      await tester.pumpWidget(UncontrolledProviderScope(
+          container: container, child: root(shellRouter())));
+      await tester.pumpAndSettle();
+
+      final stored = kThemePresets.firstWhere((p) => p.id == 'solarized_light');
+      final bar = NavigationBarTheme.of(
+          tester.element(find.byType(NavigationBar)));
+
+      expect(bar.backgroundColor, stored.ground,
+          reason: 'the navigation bar is painted in some other theme');
+
+      await stop(tester);
+    });
+
+    testWidgets('and follows a change of theme without being touched',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(UncontrolledProviderScope(
+          container: container, child: root(shellRouter())));
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(() => db.setThemePreset('solarized_dark'));
+      await tester.pumpAndSettle();
+
+      final stored = kThemePresets.firstWhere((p) => p.id == 'solarized_dark');
+      expect(
+        NavigationBarTheme.of(tester.element(find.byType(NavigationBar)))
+            .backgroundColor,
+        stored.ground,
+      );
+
       await stop(tester);
     });
   });
