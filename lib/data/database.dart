@@ -190,7 +190,8 @@ class SessionSets extends Table {
   ///
   /// Stored rather than looked up from the template later: templates get
   /// edited, and progression has to know what you were actually chasing on the
-  /// day. Zero means "no goal recorded" — every set logged before schema v3.
+  /// day. Zero means "no goal recorded", which a set logged outside a template
+  /// can legitimately be.
   IntColumn get goalReps => integer().withDefault(const Constant(0))();
 
   /// The weight the template suggested, in kg. Null when it suggested none.
@@ -472,9 +473,9 @@ int? nextWorkoutId(List<int> orderedIds, int? lastWorkoutId) {
 /// seconds) than the goal, or a weight below the one the template suggested.
 ///
 /// Dropping the weight counts as a miss even at full reps — deloading to finish
-/// the set is exactly the failure progression needs to see. Sets logged before
-/// schema v3 carry a zero goal and no goal weight, so old history never reads
-/// as a failure.
+/// the set is exactly the failure progression needs to see. A set that recorded
+/// no goal at all — zero reps to beat and no suggested weight — never reads as
+/// a failure, since there was nothing to fall short of.
 bool setMissedGoal(SessionSet s) {
   final short = s.goalSeconds == null
       ? s.reps < s.goalReps
