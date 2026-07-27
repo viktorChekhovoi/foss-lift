@@ -32,7 +32,7 @@ lib/
 ├── theme/app_theme.dart          Palette model + presets (AppColors), mono style, theme
 ├── data/
 │   ├── database.dart             Drift tables, queries, first-run seed  ← core
-│   ├── exercise_stats.dart       Per-exercise 1RM/chart maths (pure)
+│   ├── exercise_stats.dart       Per-exercise top-set/chart maths (pure)
 │   ├── exercise_taxonomy.dart    Muscle groups + equipment kinds (a wire format)
 │   ├── share_code.dart           Share-code plumbing: varints, CRC, base64, tags
 │   ├── routine_code.dart         FLR1 — a whole routine as one line of text
@@ -332,6 +332,14 @@ reminded on them.
   same screen reopened from History. Bodyweight slots with no target are omitted.
 - Also exports the tiny `fmtWeight()` helper used across screens, and the
   `ProgressionOutcome` / `ProgressionReport` / `lastProgressionProvider` trio.
+- **One weight per exercise.** `ExerciseEntry.workingKg` is the load the whole
+  exercise is being done at today, seeded from the template's suggestion.
+  `setWorkingWeight` moves every set that is not yet logged and rebuilds the
+  warm-up ramp around the new number; `setWeight` still moves one set on its own,
+  for the deload that finishes it. Sets already logged are never rewritten by
+  either. The unit and plate rack a rebuild needs are read once at `start()` and
+  carried on `ActiveWorkout` (`unit`/`plates`), so the board never awaits the
+  database mid-set.
 - **Warm-ups ride alongside the working sets, never among them.** A weight-based
   slot with a working load (`ExerciseEntry.hasWarmups`) gets a ramp computed at
   `start()` from `data/warmup.dart` — an ascending ramp toward the working
@@ -392,16 +400,18 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/workout/:id/edit` | workout_edit_screen | **The exercise builder** (see below) |
 | `/library` | library_screen | Searchable exercise library + FAB to add |
 | `/library/new` | exercise_form_screen | Create a custom exercise |
-| `/exercise/:id` | exercise_detail_screen | Instructions + demo link |
+| `/exercise/:id` | exercise_detail_screen | Its facts, your note, demo link; pencil to edit a custom one |
+| `/exercise/:id/edit` | exercise_form_screen | Edit a custom exercise (the create form, reopened) |
 | `/exercise/:id/progress` | exercise_progress_screen | Progress chart over time |
 | `/session` | workout_screen | **Live logging** (set rows, rest banner) |
 | `/summary/:id` | summary_screen | Post-session recap |
 | `/history` | history_screen | Past sessions |
 | `/profile` | profile_screen | Stats + settings entry points |
+| `/about` | about_screen | What the app does with your data, licence, bug report |
 | `/settings` | settings_screen | kg/lb toggle, bar & plates, layoff deload rules |
 | `/settings/bar` | bar_settings_screen | The default bar weight |
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
-| `/settings/theme` | theme_settings_screen | Pick a preset or custom theme; import/export |
+| `/settings/theme` | theme_settings_screen | Pick a preset or custom theme; share and receive (reached from Profile → Appearance) |
 | `/settings/theme/custom` | theme_settings_screen | Edit each colour role of the custom theme |
 
 Note `/workout/:id` is a *template*; `/session` is the live thing in progress.
@@ -440,12 +450,15 @@ Editing is split to match the hierarchy:
 untouched, a list replaces them wholesale. The routine builder only populates
 it for workouts it actually opened, so saving a routine cannot blank out a day
 you never looked at.
-- **`workout_screen.dart`** — live logging, StrongLifts-style. `_SetRow` has one
-  text field (the weight, converted kg⇄display unit) and one tap target (the
-  reps cell). Tapping runs `SetEntry.cycle()`, fires haptics, and starts the
-  rest timer on the *first* tap only; a long press opens `_RepsDialog` for
-  counts too high to tap down. Green means the goal was met, gold means it was
-  missed. Finish routes to the summary.
+- **`workout_screen.dart`** — live logging, StrongLifts-style. `_SetRow` has two
+  tap targets and no text field: the reps cell (keyed `set-result`) runs
+  `SetEntry.cycle()`, fires haptics, and starts the rest timer on the *first* tap
+  only — a long press opens `_ResultDialog` for counts too high to tap down —
+  and the weight cell (keyed `set-weight`) opens `_WeightDialog` for that one
+  set. The exercise's own weight is the `_WorkingWeight` value above the rows.
+  Rows reading their weight off the entry rather than out of a controller is
+  what keeps them in step when the ramp beneath them is recomputed. Green means
+  the goal was met, gold means it was missed. Finish routes to the summary.
 
   There is deliberately no "add set" button — sets come from the template, and
   one added live would have no goal to be measured against.

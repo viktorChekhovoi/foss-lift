@@ -87,8 +87,8 @@ class ExerciseEntry {
     this.notes,
     this.restSeconds = 90,
     List<SetEntry>? warmups,
-    this.warmupCount = 0,
-    this.warmupWorkingKg,
+    this.warmupCount = kDefaultWarmupSets,
+    this.workingKg,
     this.warmupBarKg = 0,
     this.warmupLadder = const [],
     this.warmupRestSeconds = kWarmupRestSeconds,
@@ -119,24 +119,33 @@ class ExerciseEntry {
   final List<SetEntry> warmups;
 
   /// How many warm-up sets are asked for. Adjustable live; the ramp is
-  /// regenerated from [warmupWorkingKg]/[warmupBarKg]/[warmupLadder] when it
-  /// changes. May exceed [warmups]`.length` when two steps want the same load.
+  /// regenerated from [workingKg]/[warmupBarKg]/[warmupLadder] when it changes.
+  /// May exceed [warmups]`.length` when two steps want the same load.
   int warmupCount;
 
-  /// The working weight the warm-up ramp climbs toward, or null when this
-  /// exercise gets no warm-ups (timed or unloaded). Stored so the ramp can be
-  /// rebuilt when the count changes without re-reading the template.
-  final double? warmupWorkingKg;
+  /// The load this exercise is being worked at today, in kg — **one weight for
+  /// the whole exercise**, not one per set.
+  ///
+  /// Deciding mid-session that today's squat is 100 rather than 95 is a fact
+  /// about the exercise, so it is set once and the sets follow (see
+  /// [ActiveWorkoutController.setWorkingWeight]). A single set may still stray
+  /// from it — dropping the last one to finish it is a real thing — which is why
+  /// [SetEntry.weight] survives alongside this.
+  ///
+  /// Starts as the template's suggestion, and is null when there is none: a
+  /// bodyweight movement whose load is yours to pick, or a hold with nothing on
+  /// it. The warm-up ramp climbs toward this, so changing it rebuilds the ramp.
+  double? workingKg;
 
   /// The bar the warm-up ramp stands on — the resolved bar for a barbell lift,
   /// 0 for a machine or dumbbell where there is no empty bar to start from.
   final double warmupBarKg;
 
   /// The loads this exercise can actually be set to at this gym — every rung the
-  /// ramp is allowed to land on. Resolved once at start (it needs the unit and
-  /// the plate rack) and carried so the ramp can be rebuilt without going back
-  /// to the database. See [loadLadder].
-  final List<LoadRung> warmupLadder;
+  /// ramp is allowed to land on. Rebuilt whenever [workingKg] moves (the ladder
+  /// is capped at the working weight); the unit and rack it needs are carried on
+  /// the session. See [loadLadder].
+  List<LoadRung> warmupLadder;
 
   /// Rest after a warm-up set — shorter than [restSeconds], see
   /// [kWarmupRestSeconds].
@@ -154,7 +163,15 @@ class ExerciseEntry {
 
   /// Whether this exercise offers warm-ups at all — a weight-based slot with a
   /// working load. When false the warm-up section is not drawn.
-  bool get hasWarmups => warmupWorkingKg != null;
+  ///
+  /// Derived rather than fixed at start: typing a load onto a bodyweight
+  /// movement earns it a ramp, and taking one off takes the ramp away.
+  bool get hasWarmups => !mode.timed && (workingKg ?? 0) > 0;
+
+  /// Whether this exercise is done under a load worth naming — everything but a
+  /// hold with nothing on it. What decides whether the board offers a working
+  /// weight to set at all.
+  bool get carriesLoad => !mode.timed || (workingKg ?? 0) > 0;
 
   /// The axis this exercise advances along, carried from the template.
   final ProgressionMode mode;
@@ -218,6 +235,8 @@ class ActiveWorkout {
     required this.startedAt,
     required this.exercises,
     required this.elapsed,
+    this.unit = 'kg',
+    this.plates = const [],
     this.notice,
     this.rev = 0,
   });
@@ -230,6 +249,14 @@ class ActiveWorkout {
   final DateTime startedAt;
   final List<ExerciseEntry> exercises;
   final int elapsed; // seconds
+
+  /// The display unit and the gym's plate rack, read once on the way in.
+  ///
+  /// They live on the session rather than being looked up again because a
+  /// warm-up ramp has to be rebuildable the moment a working weight changes,
+  /// and the board is not a place to be awaiting a database.
+  final String unit;
+  final List<PlateStack> plates;
 
   /// Something the session needs to say for itself — currently only that its
   /// targets were cut on the way in after a layoff.
@@ -261,6 +288,8 @@ class ActiveWorkout {
         startedAt: startedAt,
         exercises: exercises,
         elapsed: elapsed ?? this.elapsed,
+        unit: unit,
+        plates: plates,
         notice: notice,
         rev: rev + 1,
       );
@@ -293,22 +322,22 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     ref.read(lastProgressionProvider.notifier).clear();
     final exercises = <ExerciseEntry>[];
     int? routineId;
+    // Read once for the whole session: the warm-up ramp needs the gym's bar
+    // and rack to know which loads a barbell lift can be built to, and the
+    // unit to know what increments its dumbbells and stacks come in.
+    final unit = await _db.watchWeightUnit().first;
+    final stored = await _db.watchPlateSetup().first;
+    final setup = resolvePlateSettings(
+      unit: unit,
+      kgRack: stored.kgRack,
+      lbRack: stored.lbRack,
+      barKg: stored.barKg,
+    );
     if (workoutId != null) {
       final workout = await _db.workoutById(workoutId);
       routineId = workout.routineId;
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
-      // Read once for the whole session: the warm-up ramp needs the gym's bar
-      // and rack to know which loads a barbell lift can be built to, and the
-      // unit to know what increments its dumbbells and stacks come in.
-      final unit = await _db.watchWeightUnit().first;
-      final stored = await _db.watchPlateSetup().first;
-      final setup = resolvePlateSettings(
-        unit: unit,
-        kgRack: stored.kgRack,
-        lbRack: stored.lbRack,
-        barKg: stored.barKg,
-      );
       for (final v in items) {
         final mode = v.item.progression;
         // The goal is the hold for a timed exercise, and otherwise the top of
@@ -318,23 +347,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
         final goal =
             mode.timed ? v.item.holdSeconds : (v.item.repsMax ?? v.item.repsMin);
         final w = v.item.suggestedWeight;
-        // Warm-ups only make sense for a weight-based slot with a real working
-        // load: a plank or a bodyweight movement has nothing to ramp toward.
-        final hasLoad = !mode.timed && w != null && w > 0;
-        final warmupBar = hasLoad && v.exercise.weightType == WeightType.bar
+        // The bar this movement stands on, whatever it is loaded to today —
+        // resolved here because it cannot change mid-session, unlike the ramp
+        // above it.
+        final warmupBar = v.exercise.weightType == WeightType.bar
             ? (v.exercise.barWeight ?? setup.barKg)
             : 0.0;
-        final warmupCount = hasLoad ? kDefaultWarmupSets : 0;
-        final ladder = hasLoad
-            ? loadLadder(
-                type: v.exercise.weightType,
-                unit: unit,
-                maxKg: w,
-                barKg: warmupBar,
-                inventory: setup.plates,
-              )
-            : const <LoadRung>[];
-        exercises.add(ExerciseEntry(
+        final e = ExerciseEntry(
           exerciseId: v.exercise.id,
           itemId: v.item.id,
           name: v.exercise.name,
@@ -344,18 +363,15 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           barKg: v.exercise.barWeight,
           notes: v.exercise.notes,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
-          warmupWorkingKg: hasLoad ? w : null,
+          workingKg: w,
           warmupBarKg: warmupBar,
-          warmupLadder: ladder,
-          warmupCount: warmupCount,
-          warmups: hasLoad
-              ? _warmupSetsFor(w, warmupBar, ladder, warmupCount)
-              : null,
           sets: List.generate(
             v.item.targetSets,
             (_) => SetEntry(goal: goal, goalWeight: w, timed: mode.timed),
           ),
-        ));
+        );
+        _rebuildRamp(e, unit: unit, inventory: setup.plates);
+        exercises.add(e);
       }
     }
     state = ActiveWorkout(
@@ -365,6 +381,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       startedAt: DateTime.now(),
       exercises: exercises,
       elapsed: 0,
+      unit: unit,
+      plates: setup.plates,
       notice: notice,
     );
     _timer?.cancel();
@@ -382,10 +400,31 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     state = s.copyWith();
   }
 
+  /// One set's own weight — the exception, for the set you have to drop to
+  /// finish. The exercise's [ExerciseEntry.workingKg] is left alone: coming down
+  /// for one set is not a decision about the rest of them.
   void setWeight(int ei, int si, double value) {
     final s = state;
     if (s == null) return;
     s.exercises[ei].sets[si].weight = value;
+    state = s.copyWith();
+  }
+
+  /// The load this exercise is being worked at today. Every set still to come
+  /// moves with it and the warm-up ramp is rebuilt to climb toward it — a ramp
+  /// computed for a weight you are no longer doing is priming the wrong lift.
+  ///
+  /// Sets already logged keep the weight they were done at. What is in the log
+  /// is what happened, not what you decided afterwards.
+  void setWorkingWeight(int ei, double value) {
+    final s = state;
+    if (s == null) return;
+    final e = s.exercises[ei];
+    e.workingKg = value < 0 ? 0 : value;
+    for (final set in e.sets) {
+      if (!set.done) set.weight = e.workingKg!;
+    }
+    _rebuildRamp(e, unit: s.unit, inventory: s.plates);
     state = s.copyWith();
   }
 
@@ -401,21 +440,49 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   }
 
   /// Dials the warm-up ramp for one exercise up or down and rebuilds it. The
-  /// count is clamped to 0..[kMaxWarmupSets]; the ramp is regenerated from the
-  /// stored working weight, bar and ladder, so any warm-up already ticked off is
-  /// reset — a different ramp is a different set of numbers.
+  /// count is clamped to 0..[kMaxWarmupSets].
   void setWarmupCount(int ei, int count) {
     final s = state;
     if (s == null) return;
     final e = s.exercises[ei];
     if (!e.hasWarmups) return;
-    final n = count < 0 ? 0 : (count > kMaxWarmupSets ? kMaxWarmupSets : count);
-    e.warmupCount = n;
-    e.warmups
-      ..clear()
-      ..addAll(
-          _warmupSetsFor(e.warmupWorkingKg!, e.warmupBarKg, e.warmupLadder, n));
+    e.warmupCount =
+        count < 0 ? 0 : (count > kMaxWarmupSets ? kMaxWarmupSets : count);
+    _rebuildRamp(e, unit: s.unit, inventory: s.plates);
     state = s.copyWith();
+  }
+
+  /// Recomputes one exercise's warm-up ramp — the ladder of loads this gym can
+  /// set, and the rungs the ramp lands on — from its current working weight and
+  /// set count.
+  ///
+  /// **A rung already logged survives.** The plates were on the bar and you
+  /// lifted it; a recompute redraws what is still ahead of you and leaves what
+  /// is behind alone, which is the rule the working sets follow too. Rungs the
+  /// new ramp no longer has (you asked for fewer) go with it.
+  void _rebuildRamp(
+    ExerciseEntry e, {
+    required String unit,
+    required List<PlateStack> inventory,
+  }) {
+    final was = [...e.warmups];
+    e.warmups.clear();
+    if (!e.hasWarmups) {
+      e.warmupLadder = const [];
+      return;
+    }
+    e.warmupLadder = loadLadder(
+      type: e.weightType,
+      unit: unit,
+      maxKg: e.workingKg!,
+      barKg: e.warmupBarKg,
+      inventory: inventory,
+    );
+    final fresh = _warmupSetsFor(
+        e.workingKg!, e.warmupBarKg, e.warmupLadder, e.warmupCount);
+    for (var i = 0; i < fresh.length; i++) {
+      e.warmups.add(i < was.length && was[i].done ? was[i] : fresh[i]);
+    }
   }
 
   /// One tap on a warm-up set — the same cycle as a working set, but on the

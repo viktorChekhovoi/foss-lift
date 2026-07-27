@@ -7,7 +7,9 @@ you're done.
 
 - **Starts a training day** and hydrates set rows from the template.
 - **Logs sets by tapping.** Each row shows a goal (reps or seconds) and a weight;
-  tapping cycles the logged value, and you can edit weight/reps directly.
+  tapping cycles the logged value, and holding types an exact one in.
+- **Carries one weight per exercise.** The load is set once, above the working
+  sets, and every set follows it — a single set can still be dropped on its own.
 - **Tracks duration and set count live** — a 1-second timer ticks the elapsed
   time; the set counter updates as you log.
 - **Runs a rest timer** using each slot's configured rest, with
@@ -17,6 +19,8 @@ you're done.
   kept separate from the working sets.
 - **Survives being collapsed** — leave the session and a "Resume workout" pill
   floats over every other screen.
+- **Can be aborted**, for the session started by a misplaced tap: a confirmed
+  abort throws it away without writing anything or moving a target.
 - **On Finish**, writes only the completed sets, advances progression, and opens
   the [post-session recap](10-history-and-stats.md).
 
@@ -24,20 +28,42 @@ you're done.
 
 - **Start:** Today → tap a day → **Start workout**. (If a [layoff
   deload](06-layoff-deloads.md) is offered, accept or decline it here first.)
-- **Log a set:** tap the set row to cycle its value (goal → one fewer → … → 0 →
-  untouched); type a different weight or rep count to override.
+- **Log a set:** tap the set row's result cell to cycle its value (goal → one
+  fewer → … → 0 → untouched); hold it to type an exact count.
+- **Change the weight:** tap the weight above the working sets to move the whole
+  exercise; tap a single row's weight to move only that set.
 - **Rest:** logging a set starts the rest banner; use shorter / longer / skip.
 - **Warm-ups:** expand the collapsed warm-up group above the working sets; adjust
   the number of warm-up sets with its stepper.
 - **Leave and come back:** the down-arrow collapses the session (it keeps
   running); tap the **Resume workout** pill to return.
+- **Abort:** the bin icon beside Finish → **Abort** on the confirmation.
 - **Finish:** tap Finish → the recap screen appears.
 
 ## Behaviour & edge cases
 
 - **The live session is in memory** and only writes to the DB on Finish, so
   editing sets is instant and a mid-session crash can't leave half-saved rows.
-- **A session only ends by finishing it.** Collapsing never discards it.
+- **A session ends by finishing it or by aborting it.** Collapsing never
+  discards it, and an abort always asks first — it is the one control on the
+  screen that destroys work.
+- **The weight belongs to the exercise, not to each set.** Deciding mid-session
+  that today's squat is 100 rather than 95 is one edit, not one per set row. The
+  sets follow it; the ones already logged keep the weight they were actually
+  done at. Neither the exercise's weight nor a set's own is a text field sitting
+  open on the board — both are values you tap to edit, because the weight
+  changes now and then, not every set.
+- **Moving the weight rebuilds the warm-up.** A ramp computed for a weight you
+  are no longer lifting is priming the wrong lift. Rungs already logged survive
+  the recompute — the plates were on the bar and you lifted it — and only the
+  ones still ahead of you are redrawn. Changing the *count* follows the same
+  rule.
+- **−15s ends a rest with less than 15 seconds left.** Below that the button's
+  only honest readings are "skip" and "do nothing", and a button that does
+  nothing is the worse of the two.
+- **The tap-to-log hint is pinned**, beside the duration and set count, rather
+  than scrolled with the rows: "how do I log this?" occurs on whichever exercise
+  you are looking at, not only the first.
 - **Warm-ups are never persisted** — they're suggestions, not history, so logging
   them can't distort volume or lifetime totals. They ride alongside the working
   sets and are excluded from every working-set aggregate (verdict, volume, set
@@ -109,3 +135,4 @@ you're done.
 - [#9 Suggest the next workout, but allow choosing any](https://github.com/viktorChekhovoi/foss-lift/issues/9) — shipped
 - [#26 Workout should persist until manually ended](https://github.com/viktorChekhovoi/foss-lift/issues/26) — shipped
 - [#25 Warmup calculator](https://github.com/viktorChekhovoi/foss-lift/issues/25) — shipped, in review
+- [#35 One weight per exercise, and a warm-up ramp that follows it](https://github.com/viktorChekhovoi/foss-lift/issues/35) — shipped, in review

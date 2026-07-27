@@ -55,6 +55,17 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     super.dispose();
   }
 
+  /// Trims 15 seconds off the rest — or ends it, when there is less than that
+  /// left. Below 15s the button's only honest meanings are "skip" and "do
+  /// nothing", and a button that does nothing is the worse of the two.
+  void _trimRest() {
+    if (_restLeft > 15) {
+      setState(() => _restLeft -= 15);
+    } else {
+      _stopRest();
+    }
+  }
+
   void _startRest([int seconds = 90]) {
     _restTimer?.cancel();
     setState(() => _restLeft = seconds);
@@ -107,6 +118,64 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     }
   }
 
+  /// Asks for a weight in the display unit and hands back kilograms, or null if
+  /// the dialog was dismissed.
+  Future<double?> _askWeight({
+    required String title,
+    required String subtitle,
+    required double weightKg,
+  }) =>
+      showDialog<double>(
+        context: context,
+        builder: (_) => _WeightDialog(
+          title: title,
+          subtitle: subtitle,
+          weightKg: weightKg,
+          unit: ref.read(weightUnitProvider).value ?? 'kg',
+        ),
+      );
+
+  /// The exercise's weight for today. Every set still to come follows it and
+  /// the warm-up ramp is rebuilt around it — see
+  /// [ActiveWorkoutController.setWorkingWeight].
+  Future<void> _editWorkingWeight(int ei) async {
+    final e = ref.read(activeWorkoutProvider)?.exercises[ei];
+    if (e == null) return;
+    final kg = await _askWeight(
+      title: e.name,
+      subtitle: 'Every set of it, and the warm-up',
+      weightKg: e.workingKg ?? 0,
+    );
+    if (kg == null || !mounted) return;
+    ref.read(activeWorkoutProvider.notifier).setWorkingWeight(ei, kg);
+  }
+
+  /// One set's own weight — the deload-to-finish case, and nothing else on the
+  /// exercise moves with it.
+  Future<void> _editSetWeight(int ei, int si) async {
+    final e = ref.read(activeWorkoutProvider)?.exercises[ei];
+    if (e == null) return;
+    final kg = await _askWeight(
+      title: 'Set ${si + 1}',
+      subtitle: 'This set only',
+      weightKg: e.sets[si].weight,
+    );
+    if (kg == null || !mounted) return;
+    ref.read(activeWorkoutProvider.notifier).setWeight(ei, si, kg);
+  }
+
+  Future<void> _editWarmupWeight(int ei, int wi) async {
+    final e = ref.read(activeWorkoutProvider)?.exercises[ei];
+    if (e == null) return;
+    final kg = await _askWeight(
+      title: 'Warm-up ${wi + 1}',
+      subtitle: 'This rung only',
+      weightKg: e.warmups[wi].weight,
+    );
+    if (kg == null || !mounted) return;
+    ref.read(activeWorkoutProvider.notifier).setWarmupWeight(ei, wi, kg);
+  }
+
   Future<void> _finish() async {
     final id = await ref.read(activeWorkoutProvider.notifier).finish();
     if (!mounted) return;
@@ -115,6 +184,40 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     } else {
       context.go('/today');
     }
+  }
+
+  /// Throws the session away without writing it. For the workout started by a
+  /// misplaced tap — the one whose alternative was finishing a session you
+  /// never did, and having the progression believe it.
+  ///
+  /// Always confirmed, and never the default: it is the one button on this
+  /// screen that destroys work, so it asks even when nothing has been logged.
+  Future<void> _abort() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Abort this workout?'),
+        content: Text(
+          'Nothing from it is saved, and no target moves.',
+          style: TextStyle(color: AppColors.muted, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep going'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.gold),
+            child: const Text('Abort'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    ref.read(activeWorkoutProvider.notifier).discard();
+    if (mounted) context.go('/today');
   }
 
   @override
@@ -133,21 +236,31 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
           children: [
             Column(
               children: [
-                _Header(title: session.name, onFinish: _finish),
+                _Header(
+                  title: session.name,
+                  onFinish: _finish,
+                  onAbort: _abort,
+                ),
                 _StatStrip(session: session),
+                // Pinned beside the duration and set count rather than scrolled
+                // with the rows: it answers "how do I log this?", a question
+                // that occurs on whichever exercise you happen to be looking
+                // at, not only on the first one.
+                const _LoggingHint(),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                     children: [
                       if (session.notice != null)
                         _SessionNotice(text: session.notice!),
-                      const _LoggingHint(),
                       for (var ei = 0; ei < session.exercises.length; ei++)
                         _ExerciseBlock(
+                          index: ei,
                           exercise: session.exercises[ei],
                           unit: unit,
                           plates: plates,
                           onWarmupCount: (n) => controller.setWarmupCount(ei, n),
+                          onEditWorkingWeight: () => _editWorkingWeight(ei),
                           warmupRowBuilder: (wi) {
                             final entry = session.exercises[ei].warmups[wi];
                             return _SetRow(
@@ -155,8 +268,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               number: wi + 1,
                               entry: entry,
                               unit: unit,
-                              onWeight: (v) =>
-                                  controller.setWarmupWeight(ei, wi, v),
+                              onEditWeight: () => _editWarmupWeight(ei, wi),
                               onTap: () {
                                 final wasDone = entry.done;
                                 controller.cycleWarmup(ei, wi);
@@ -177,7 +289,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               number: si + 1,
                               entry: entry,
                               unit: unit,
-                              onWeight: (v) => controller.setWeight(ei, si, v),
+                              onEditWeight: () => _editSetWeight(ei, si),
                               onTap: () {
                                 final wasDone = entry.done;
                                 controller.cycleSet(ei, si);
@@ -201,8 +313,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
             if (_restLeft > 0)
               _RestBanner(
                 secondsLeft: _restLeft,
-                onSub: () => setState(() =>
-                    _restLeft = _restLeft > 15 ? _restLeft - 15 : _restLeft),
+                onSub: _trimRest,
                 onAdd: () => setState(() => _restLeft += 15),
                 onSkip: _stopRest,
               ),
@@ -214,9 +325,14 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.title, required this.onFinish});
+  const _Header({
+    required this.title,
+    required this.onFinish,
+    required this.onAbort,
+  });
   final String title;
   final VoidCallback onFinish;
+  final VoidCallback onAbort;
 
   @override
   Widget build(BuildContext context) {
@@ -235,6 +351,13 @@ class _Header extends StatelessWidget {
               title,
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
+          ),
+          // Deliberately an unfilled icon next to a filled button: the two are
+          // one tap apart, and only one of them should look like the way out.
+          IconButton(
+            onPressed: onAbort,
+            icon: Icon(Icons.delete_outline, color: AppColors.muted),
+            tooltip: 'Abort workout',
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -361,8 +484,12 @@ class _LoggingHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.line)),
+      ),
       child: Text(
         'Tap a set to log it at the goal · tap again for each rep you fell '
         'short · hold to type',
@@ -375,19 +502,26 @@ class _LoggingHint extends StatelessWidget {
 
 class _ExerciseBlock extends StatelessWidget {
   const _ExerciseBlock({
+    required this.index,
     required this.exercise,
     required this.unit,
     required this.plates,
     required this.rowBuilder,
     required this.warmupRowBuilder,
     required this.onWarmupCount,
+    required this.onEditWorkingWeight,
   });
+
+  /// Where this exercise sits in the session — only used to key its working
+  /// weight, which is the one control on the block that is not inside a row.
+  final int index;
   final ExerciseEntry exercise;
   final String unit;
   final PlateSettings plates;
   final Widget Function(int setIndex) rowBuilder;
   final Widget Function(int warmupIndex) warmupRowBuilder;
   final ValueChanged<int> onWarmupCount;
+  final VoidCallback onEditWorkingWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -407,13 +541,30 @@ class _ExerciseBlock extends StatelessWidget {
               onCount: onWarmupCount,
               rowBuilder: warmupRowBuilder,
             ),
-          if (exercise.hasWarmups)
+          // The label and the one weight the sets below are done at, on the same
+          // line: what the block is, and what it is loaded to.
+          if (exercise.hasWarmups || exercise.carriesLoad)
             Padding(
               padding: const EdgeInsets.only(top: 14, bottom: 2),
-              child: Text(
-                'WORKING SETS',
-                style: kMono.copyWith(
-                    fontSize: 10, letterSpacing: 1.0, color: AppColors.muted),
+              child: Row(
+                children: [
+                  if (exercise.hasWarmups)
+                    Text(
+                      'WORKING SETS',
+                      style: kMono.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                          color: AppColors.muted),
+                    ),
+                  const Spacer(),
+                  if (exercise.carriesLoad)
+                    _WorkingWeight(
+                      key: ValueKey('working-weight-$index'),
+                      weightKg: exercise.workingKg,
+                      unit: unit,
+                      onTap: onEditWorkingWeight,
+                    ),
+                ],
               ),
             ),
           // What to put on the bar for the set you are about to do — it follows
@@ -431,6 +582,59 @@ class _ExerciseBlock extends StatelessWidget {
           _ColumnHeaders(unit: unit, timed: exercise.mode.timed),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
+      ),
+    );
+  }
+}
+
+/// The one weight this exercise is being worked at today.
+///
+/// Drawn as a value, not a control: the number with a hairline under it and a
+/// small pencil beside, so it reads as a fact until you touch it. A filled box
+/// here would invite typing before every set, which is the habit the single
+/// weight exists to end — but a weight you cannot find is worse, so it keeps
+/// the size and the place your eye already goes.
+class _WorkingWeight extends StatelessWidget {
+  const _WorkingWeight({
+    super.key,
+    required this.weightKg,
+    required this.unit,
+    required this.onTap,
+  });
+  final double? weightKg;
+  final String unit;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = weightKg;
+    // Nothing suggested and nothing chosen: the load is yours to name.
+    final value =
+        w == null || w == 0 ? '—' : fmtWeight(toDisplayWeight(w, unit));
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(4, 3, 2, 3),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.line, width: 1.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 3),
+            Text(
+              unitLabel(unit),
+              style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
+            ),
+            const SizedBox(width: 7),
+            Icon(Icons.edit_outlined, size: 13, color: AppColors.faint),
+          ],
+        ),
       ),
     );
   }
@@ -723,34 +927,34 @@ class _ColumnHeaders extends StatelessWidget {
   }
 }
 
-/// One set. The weight stays a text field — deloading mid-session is a real
-/// thing you have to be able to do — but the reps cell is a tap target, not an
-/// editor: you log what you got against a goal you cannot edit.
-class _SetRow extends StatefulWidget {
+/// One set: a goal it cannot edit, the weight it is being done at, and the tap
+/// target that logs it.
+///
+/// **Neither cell is a text field.** The weight for the exercise is set once
+/// above the rows and these follow it; a row's own weight is the exception —
+/// dropping the last set to finish it — so it opens an editor on tap rather
+/// than sitting open as a box per set. That the row reads its weight straight
+/// off the entry on every build is also what keeps it honest when the ramp
+/// underneath it is recomputed: there is no controller left holding yesterday's
+/// number.
+class _SetRow extends StatelessWidget {
   const _SetRow({
     super.key,
     required this.number,
     required this.entry,
     required this.unit,
-    required this.onWeight,
+    required this.onEditWeight,
     required this.onTap,
     required this.onTypeResult,
   });
   final int number;
   final SetEntry entry;
   final String unit;
-  final ValueChanged<double> onWeight;
+  final VoidCallback onEditWeight;
   final VoidCallback onTap;
   final VoidCallback onTypeResult;
 
-  @override
-  State<_SetRow> createState() => _SetRowState();
-}
-
-class _SetRowState extends State<_SetRow> {
-  late final TextEditingController _w;
-
-  SetEntry get _entry => widget.entry;
+  SetEntry get _entry => entry;
 
   /// What the template asked for: "82.5×8", "BW×12", or "—×8" when it suggests
   /// no weight and the choice is yours. A timed set reads "45s", or "20×45s"
@@ -764,26 +968,13 @@ class _SetRowState extends State<_SetRow> {
     if (e.timed && (gw == null || gw == 0)) return target;
     final w = gw == null
         ? '—'
-        : (gw == 0 ? 'BW' : fmtWeight(toDisplayWeight(gw, widget.unit)));
+        : (gw == 0 ? 'BW' : fmtWeight(toDisplayWeight(gw, unit)));
     return '$w×$target';
   }
 
   /// Green for a set that met its goal, gold for one that came up short —
   /// including a set finished at a reduced weight.
   Color get _tone => _entry.missedGoal ? AppColors.gold : AppColors.good;
-
-  @override
-  void initState() {
-    super.initState();
-    _w = TextEditingController(
-        text: fmtWeight(toDisplayWeight(_entry.weight, widget.unit)));
-  }
-
-  @override
-  void dispose() {
-    _w.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -807,7 +998,7 @@ class _SetRowState extends State<_SetRow> {
                 ),
               ),
             ),
-            Expanded(child: _weightField()),
+            Expanded(child: _weightCell()),
             Expanded(child: _resultBox()),
           ],
         ),
@@ -826,7 +1017,7 @@ class _SetRowState extends State<_SetRow> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '${widget.number}',
+        '$number',
         style: kMono.copyWith(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
@@ -836,32 +1027,34 @@ class _SetRowState extends State<_SetRow> {
     );
   }
 
-  Widget _weightField() {
+  /// This set's own weight. Quieter than the reps cell it sits beside: it is
+  /// normally just the exercise's weight repeated, and only worth touching for
+  /// the set you have to come down on.
+  Widget _weightCell() {
     final done = _entry.done;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: TextField(
-        controller: _w,
-        onChanged: (v) =>
-            widget.onWeight(toKg(double.tryParse(v) ?? 0, widget.unit)),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textAlign: TextAlign.center,
-        style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          filled: true,
-          fillColor:
-              done ? _tone.withValues(alpha: 0.10) : AppColors.surface2,
-          enabledBorder: OutlineInputBorder(
+      child: GestureDetector(
+        key: const ValueKey('set-weight'),
+        onTap: onEditWeight,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: done ? _tone.withValues(alpha: 0.10) : Colors.transparent,
             borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide(
+            border: Border.all(
               color: done ? _tone.withValues(alpha: 0.30) : AppColors.line,
             ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide(color: AppColors.accent),
+          child: Text(
+            fmtWeight(toDisplayWeight(_entry.weight, unit)),
+            style: kMono.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: done ? _tone : AppColors.muted,
+            ),
           ),
         ),
       ),
@@ -876,8 +1069,9 @@ class _SetRowState extends State<_SetRow> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
-        onTap: widget.onTap,
-        onLongPress: widget.onTypeResult,
+        key: const ValueKey('set-result'),
+        onTap: onTap,
+        onLongPress: onTypeResult,
         behavior: HitTestBehavior.opaque,
         child: Container(
           alignment: Alignment.center,
@@ -899,6 +1093,92 @@ class _SetRowState extends State<_SetRow> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Types a weight in — the load for a whole exercise, or one set's own
+/// override. Shown and typed in the display unit; the value it returns is
+/// canonical kilograms, or null if the dialog was dismissed.
+class _WeightDialog extends StatefulWidget {
+  const _WeightDialog({
+    required this.title,
+    required this.subtitle,
+    required this.weightKg,
+    required this.unit,
+  });
+  final String title;
+  final String subtitle;
+  final double weightKg;
+  final String unit;
+
+  @override
+  State<_WeightDialog> createState() => _WeightDialogState();
+}
+
+class _WeightDialogState extends State<_WeightDialog> {
+  late final TextEditingController _c = TextEditingController(
+      text: fmtWeight(toDisplayWeight(widget.weightKg, widget.unit)));
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+    if (v == null) return Navigator.pop(context);
+    Navigator.pop(context, toKg(v < 0 ? 0 : v, widget.unit));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _c,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            style: kMono.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              filled: true,
+              fillColor: AppColors.surface2,
+              suffixText: unitLabel(widget.unit),
+              suffixStyle: kMono.copyWith(color: AppColors.muted),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.line),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.accent),
+              ),
+            ),
+            onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            widget.subtitle,
+            textAlign: TextAlign.center,
+            style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _save, child: const Text('Save')),
+      ],
     );
   }
 }

@@ -33,6 +33,30 @@ const kPushTotalSets = 17; // 4 + 4 + 3 + 3 + 3
 const benchGoal = 8; // 6–8 range → top of range
 const benchWeight = 80.0;
 
+/// A one-day routine with a single barbell slot at [weightKg]. The warm-up
+/// reproduction in issue #35 is a squat at 227.5 kg — a weight no seeded slot
+/// uses, and the point of it is the awkward number. Returns the workout id.
+Future<int> buildBarbellWorkout(
+  AppDatabase db, {
+  String exercise = 'Back Squat',
+  double weightKg = 227.5,
+  int sets = 3,
+}) async {
+  final ex = await exerciseNamed(db, exercise);
+  final rid = await db.createRoutine(
+    name: 'Heavy',
+    color: 'FF0000',
+    restSeconds: 120,
+  );
+  final wid = await db.createWorkout(rid, 'Squat Day');
+  final draft = ItemDraft.forExercise(ex)
+    ..sets = sets
+    ..repsMin = 5
+    ..weightKg = weightKg;
+  await db.replaceWorkoutItems(wid, itemCompanions([draft], workoutId: wid));
+  return wid;
+}
+
 /// A one-day routine with a single timed slot: Plank, [sets] × [holdSeconds].
 /// The library's Plank is the only held movement, so it is what a timed session
 /// is built from. Returns the workout id.
@@ -77,6 +101,18 @@ void main() {
   }
 
   ActiveWorkout session() => container!.read(activeWorkoutProvider)!;
+
+  // A set row has two tap targets — the reps cell logs the set, the weight cell
+  // opens that one set's own weight — so each is found by its own key rather
+  // than by being the row's only gesture.
+  Finder repsCell(String row) => find.descendant(
+        of: find.byKey(ValueKey(row)),
+        matching: find.byKey(const ValueKey('set-result')),
+      );
+  Finder weightCell(String row) => find.descendant(
+        of: find.byKey(ValueKey(row)),
+        matching: find.byKey(const ValueKey('set-weight')),
+      );
 
   // Starts the Push day and mounts WorkoutScreen, ready to pump.
   Future<void> pumpPushScreen(WidgetTester tester) async {
@@ -153,11 +189,7 @@ void main() {
       expect(find.text('0/$kPushTotalSets'), findsOneWidget);
       expect(find.text('0:00'), findsOneWidget); // duration stat
 
-      final row = find.byKey(const ValueKey('0-0-Bench Press'));
-      // The reps cell is the row's GestureDetector; the weight is a TextField.
-      await tester.tap(
-        find.descendant(of: row, matching: find.byType(GestureDetector)),
-      );
+      await tester.tap(repsCell('0-0-Bench Press'));
       await tester.pump();
 
       expect(find.text('1/$kPushTotalSets'), findsOneWidget);
@@ -191,10 +223,7 @@ void main() {
       tester,
     ) async {
       await pumpPushScreen(tester);
-      final row = find.byKey(const ValueKey('0-0-Bench Press'));
-      await tester.tap(
-        find.descendant(of: row, matching: find.byType(GestureDetector)),
-      );
+      await tester.tap(repsCell('0-0-Bench Press'));
       await tester.pump();
 
       // The banner opens at the slot's configured rest (routine default 120s).
@@ -219,6 +248,78 @@ void main() {
       await tester.tap(find.text('Skip'));
       await tester.pump();
       expect(find.text('REST'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('−15s ends a rest with less than 15s left, rather than doing '
+        'nothing', (tester) async {
+      await pumpPushScreen(tester);
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      // Run the 120s rest down to single figures.
+      await tester.pump(const Duration(seconds: 112));
+      expect(find.text('0:08'), findsOneWidget);
+
+      // Taking 15 off eight would be a negative rest; the only useful reading
+      // of the button here is "skip".
+      await tester.tap(find.text('−15s'));
+      await tester.pump();
+      expect(find.text('REST'), findsNothing);
+
+      await stop(tester);
+    });
+  });
+
+  group('A workout can be abandoned outright', () {
+    // Aborting leaves for Today, so this one needs a router over it.
+    Future<void> pumpRouted(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        final wid = await workoutIdNamed(db, 'Push');
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Push');
+      });
+      await tester
+          .pumpWidget(routedAppUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+    }
+
+    testWidgets('abort asks first, and a refusal keeps the session',
+        (tester) async {
+      await pumpRouted(tester);
+
+      await tester.tap(find.byTooltip('Abort workout'));
+      await frames(tester);
+      expect(find.text('Abort this workout?'), findsOneWidget);
+
+      await tester.tap(find.text('Keep going'));
+      await frames(tester);
+      expect(container!.read(activeWorkoutProvider), isNotNull);
+      expect(find.text('0/$kPushTotalSets'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('confirming throws the session away without writing it',
+        (tester) async {
+      await pumpRouted(tester);
+      // Log something, so the discarded session is one that had work in it.
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.text('1/$kPushTotalSets'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Abort workout'));
+      await frames(tester);
+      await tester.tap(find.text('Abort'));
+      await frames(tester);
+
+      expect(container!.read(activeWorkoutProvider), isNull);
+      final sessions = await tester.runAsync(() => db.watchHistory().first);
+      expect(sessions, isEmpty,
+          reason: 'an aborted workout is never written to history');
 
       await stop(tester);
     });
@@ -278,10 +379,7 @@ void main() {
       await tester.pump();
 
       // The first rung: the short warm-up rest.
-      await tester.tap(find.descendant(
-        of: find.byKey(const ValueKey('w0-0-Bench Press')),
-        matching: find.byType(GestureDetector),
-      ));
+      await tester.tap(repsCell('w0-0-Bench Press'));
       await tester.pump();
       expect(find.text('0:45'), findsOneWidget);
       await tester.tap(find.text('Skip'));
@@ -289,10 +387,7 @@ void main() {
 
       // The last rung: the routine's own 2:00, because the work is next.
       final last = session().exercises[0].warmups.length - 1;
-      await tester.tap(find.descendant(
-        of: find.byKey(ValueKey('w0-$last-Bench Press')),
-        matching: find.byType(GestureDetector),
-      ));
+      await tester.tap(repsCell('w0-$last-Bench Press'));
       await tester.pump();
       expect(find.text('2:00'), findsOneWidget);
 
@@ -374,6 +469,151 @@ void main() {
         await stop(tester);
       },
     );
+  });
+
+  group('One working weight for the exercise, not one box per set', () {
+    test('setting it moves every set that has not been logged yet', () async {
+      final ctl = await startPush();
+      // Bench: four sets at 80. Two are in the bag when today turns out to be
+      // an 85 day.
+      ctl.cycleSet(0, 0);
+      ctl.cycleSet(0, 1);
+      ctl.setWorkingWeight(0, 85);
+
+      final bench = session().exercises[0];
+      expect(bench.workingKg, 85);
+      // What is logged is what happened, and stays at the weight it happened at.
+      expect(bench.sets[0].weight, benchWeight);
+      expect(bench.sets[1].weight, benchWeight);
+      // Everything still to come follows the new goal.
+      expect(bench.sets[2].weight, 85);
+      expect(bench.sets[3].weight, 85);
+    });
+
+    test('a single set can still be dropped to finish it', () async {
+      final ctl = await startPush();
+      ctl.setWeight(0, 3, 70);
+
+      final bench = session().exercises[0];
+      expect(bench.sets[3].weight, 70);
+      expect(bench.sets.take(3).every((s) => s.weight == benchWeight), isTrue);
+      // Deloading one set does not restate what the exercise is being done at.
+      expect(bench.workingKg, benchWeight);
+    });
+
+    test('changing the working weight recomputes the warm-up ramp', () async {
+      final ctl = await startPush();
+      final before =
+          session().exercises[0].warmups.map((s) => s.weight).toList();
+
+      ctl.setWorkingWeight(0, benchWeight + 40);
+      final after =
+          session().exercises[0].warmups.map((s) => s.weight).toList();
+
+      expect(after, isNot(before), reason: 'the ramp primed the old weight');
+      expect(after.last, greaterThan(before.last));
+      // Still a ramp: ascending, and still under the work.
+      expect(after.every((w) => w < benchWeight + 40), isTrue);
+      for (var i = 1; i < after.length; i++) {
+        expect(after[i], greaterThan(after[i - 1]));
+      }
+    });
+
+    test('a warm-up already logged is not rewritten by a recompute', () async {
+      final ctl = await startPush();
+      // The middle rung is the one that moves when the work gets heavier.
+      ctl.cycleWarmup(0, 1);
+      final done = session().exercises[0].warmups[1];
+      final wasAt = done.weight;
+      final didReps = done.logged;
+
+      ctl.setWorkingWeight(0, benchWeight + 40);
+
+      final now = session().exercises[0].warmups[1];
+      expect(now.logged, didReps);
+      expect(now.weight, wasAt,
+          reason: 'the plates were already on the bar for that rung');
+    });
+
+    testWidgets('the weight is one control per exercise, not a box per set',
+        (tester) async {
+      await pumpPushScreen(tester);
+      // Nothing on the board asks to be typed into.
+      expect(find.byType(TextField), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('working-weight-0')));
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), '85');
+      await tester.tap(find.text('Save'));
+      await frames(tester);
+
+      final bench = session().exercises[0];
+      expect(bench.workingKg, 85);
+      expect(bench.sets.every((s) => s.weight == 85), isTrue);
+
+      await stop(tester);
+    });
+
+    testWidgets('one set can still be overridden from its own row',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await tester.tap(weightCell('0-3-Bench Press'));
+      await frames(tester);
+      await tester.enterText(find.byType(TextField), '70');
+      await tester.tap(find.text('Save'));
+      await frames(tester);
+
+      final bench = session().exercises[0];
+      expect(bench.sets[3].weight, 70);
+      expect(bench.sets[0].weight, benchWeight);
+
+      await stop(tester);
+    });
+
+    testWidgets('changing the warm-up count moves the weights, not only the '
+        'goals', (tester) async {
+      // Issue #35: a 227.5 kg squat with three warm-ups reads 20×8, 110×8,
+      // 190×2. Stepping to four moved the goals to 20/70/130/190 while the
+      // weight boxes beside them still said 20/110/190/190 — so the number you
+      // would load the bar from was the wrong one.
+      await tester.runAsync(() async {
+        final wid = await buildBarbellWorkout(db);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Squat Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      void expectRampOnScreen() {
+        final ramp = session().exercises[0].warmups;
+        expect(ramp, isNotEmpty);
+        for (var wi = 0; wi < ramp.length; wi++) {
+          expect(
+            find.descendant(
+              of: find.byKey(ValueKey('w0-$wi-Back Squat')),
+              matching: find.text(fmtWeight(ramp[wi].weight)),
+            ),
+            findsOneWidget,
+            reason: 'rung $wi should be loaded at ${ramp[wi].weight}',
+          );
+        }
+      }
+
+      expect(session().exercises[0].warmupCount, 3);
+      expectRampOnScreen();
+
+      await tester.tap(find.text('+'));
+      await tester.pump();
+
+      expect(session().exercises[0].warmupCount, 4);
+      expectRampOnScreen();
+
+      await stop(tester);
+    });
   });
 
   group('Warm-up rungs land on loads the gym can actually set', () {
