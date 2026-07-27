@@ -4,9 +4,13 @@
 // exercise slot. Two demo routines seeded on first launch; one current routine;
 // split editing where reordering days never disturbs their exercises; drafts
 // built in memory before saving; a deleted current routine degrading to "none".
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/widgets/builder_widgets.dart';
+import 'package:foss_lift/widgets/exercise_filters.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
@@ -250,6 +254,103 @@ void main() {
       // The stored active id still dangles at the deleted routine, but nothing
       // resolves it — Today falls back to the chooser.
       expect(container.read(currentRoutineProvider), isNull);
+    });
+  });
+
+  group('the picker: finding a movement, and making one that is missing', () {
+    /// A screen with one button that opens the picker, keeping whatever came
+    /// back. The picker is a sheet over a builder, so it is exercised the way
+    /// the builder uses it rather than pumped bare.
+    Future<Exercise?> Function() openPicker(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) {
+      Exercise? picked;
+      return () async {
+        await tester.pumpWidget(appUnder(
+          container,
+          Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async => picked = await pickExercise(context),
+                child: const Text('Add exercise'),
+              ),
+            ),
+          ),
+        ));
+        await tester.tap(find.text('Add exercise'));
+        await tester.pumpAndSettle();
+        return picked;
+      };
+    }
+
+    testWidgets('it filters by the same chips the library does', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await openPicker(tester, container)();
+
+      // The list opens on Arms, the first group by name.
+      expect(find.text('Barbell Curl'), findsOneWidget);
+
+      await tester.tap(find.byKey(filterChipKey('muscle', 'Legs')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Back Squat'), findsOneWidget);
+      expect(find.text('Barbell Curl'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('a movement it does not have can be made without leaving',
+        (tester) async {
+      // Tall enough for the whole creation form, so this test is about the
+      // route it takes and not about scrolling to a button.
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      Exercise? picked;
+
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => picked = await pickExercise(context),
+              child: const Text('Add exercise'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('Add exercise'));
+      await tester.pumpAndSettle();
+
+      // Nothing in the library is a Zercher squat.
+      await tester.enterText(find.byType(TextField).first, 'Zercher');
+      await tester.pumpAndSettle();
+      expect(find.text('Zercher Squat'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('picker-new-exercise')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Zercher Squat');
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      // It comes back selected — you asked for that exercise — and the sheet
+      // is gone, so the builder is where you left it.
+      expect(picked, isNotNull);
+      expect(picked!.name, 'Zercher Squat');
+      expect(picked!.isCustom, isTrue);
+      expect(find.byKey(const ValueKey('picker-new-exercise')), findsNothing);
+
+      // And it is in the library for next time.
+      final all = await tester.runAsync(() => db.watchExercises().first);
+      expect(all!.map((e) => e.name), contains('Zercher Squat'));
+
+      await stop(tester);
     });
   });
 }

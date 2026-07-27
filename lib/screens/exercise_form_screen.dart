@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
 import '../providers/providers.dart';
@@ -111,9 +110,11 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
     setState(() => _saving = true);
     final video = _tidyLink(_video.text);
     final db = ref.read(databaseProvider);
+    int id;
     if (_isEdit) {
+      id = widget.exerciseId!;
       await db.updateCustomExercise(
-        widget.exerciseId!,
+        id,
         name: name,
         muscle: _muscle,
         equipment: _equip,
@@ -122,7 +123,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
         weightType: _weightType,
       );
     } else {
-      await db.createExercise(
+      id = await db.createExercise(
         name: name,
         muscle: _muscle,
         equipment: _equip,
@@ -131,7 +132,12 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
         weightType: _weightType,
       );
     }
-    if (mounted) context.pop();
+    // The saved movement comes back with the pop, so a caller that opened this
+    // form to get one — the builder's picker — can go straight on with it
+    // instead of sending the user back to hunt for what they just made.
+    // Callers that only wanted the form closed ignore it.
+    final saved = await db.exerciseById(id);
+    if (mounted) Navigator.pop(context, saved);
   }
 
   @override

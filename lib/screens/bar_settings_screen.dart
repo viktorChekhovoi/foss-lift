@@ -25,11 +25,11 @@ class BarSettingsScreen extends ConsumerWidget {
     final isDefault = stored?.barKg == null;
 
     Future<void> edit() async {
-      final choice = await askWeight(
+      final choice = await askBar(
         context,
-        title: 'Default bar weight',
+        title: 'Default bar',
         unit: unit,
-        initialKg: setup.barKg,
+        currentKg: setup.barKg,
         defaultLabel: isDefault
             ? null
             : 'Standard ${fmtPlateWeight(toDisplayWeight(defaultBarKg(unit), unit))} $u',

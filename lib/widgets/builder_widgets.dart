@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/exercise_filter.dart';
 import '../providers/providers.dart';
+import '../screens/exercise_form_screen.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
+import 'exercise_filters.dart';
 
 /// Shared chrome for the routine and workout builders.
 
@@ -131,6 +134,144 @@ class _WeightDialogState extends State<_WeightDialog> {
           child: const Text('Cancel'),
         ),
         TextButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+}
+
+/// Asks *which bar* this is, and hands back what it weighs in kilograms.
+///
+/// A weight is what gets stored, but a weight is not what anybody knows: you
+/// know you curl on the EZ bar and deadlift off the trap bar, and the number
+/// follows from that. So the common bars are offered by name — see [namedBars]
+/// — with the free number kept behind "Something else" for the gym that racks
+/// something odd. Nothing new is stored: a named bar is a weight with a label
+/// on the way in.
+///
+/// [defaultLabel] adds a button that hands the setting back to whatever the app
+/// would otherwise assume. Null when it is already on the default.
+Future<WeightChoice?> askBar(
+  BuildContext context, {
+  required String title,
+  required String unit,
+  double? currentKg,
+  String? defaultLabel,
+}) async {
+  final pick = await showDialog<_BarPick>(
+    context: context,
+    builder: (_) => _BarDialog(
+      title: title,
+      unit: unit,
+      currentKg: currentKg,
+      defaultLabel: defaultLabel,
+    ),
+  );
+  if (pick == null) return null;
+  if (!pick.custom) return (kg: pick.kg);
+  if (!context.mounted) return null;
+  return askWeight(context, title: title, unit: unit, initialKg: currentKg);
+}
+
+/// What [_BarDialog] came back with: a weight, "use the default" (a null [kg]),
+/// or [custom] — go and ask for a number instead.
+typedef _BarPick = ({double? kg, bool custom});
+
+class _BarDialog extends StatelessWidget {
+  const _BarDialog({
+    required this.title,
+    required this.unit,
+    this.currentKg,
+    this.defaultLabel,
+  });
+  final String title;
+  final String unit;
+  final double? currentKg;
+  final String? defaultLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final bars = namedBars(unit);
+    // Within a hundred grams is the same bar: a 45 lb bar is 20.41 kg and will
+    // never compare equal to anything typed in kilograms.
+    bool isCurrent(double kg) =>
+        currentKg != null && (currentKg! - kg).abs() < 0.1;
+
+    Widget row({
+      required String label,
+      String? trailing,
+      required bool selected,
+      required VoidCallback onTap,
+    }) =>
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? AppColors.accent : AppColors.text,
+                    ),
+                  ),
+                ),
+                if (trailing != null)
+                  Text(
+                    trailing,
+                    style: kMono.copyWith(
+                      fontSize: 13,
+                      color: selected ? AppColors.accent : AppColors.muted,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(title),
+      contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final b in bars)
+              row(
+                label: b.name,
+                trailing:
+                    '${fmtPlateWeight(toDisplayWeight(b.weight, unit))} '
+                    '${unitLabel(unit)}',
+                selected: isCurrent(b.weight),
+                onTap: () =>
+                    Navigator.pop<_BarPick>(context, (kg: b.weight, custom: false)),
+              ),
+            Divider(height: 1, color: AppColors.line),
+            row(
+              label: 'Something else',
+              selected: false,
+              onTap: () =>
+                  Navigator.pop<_BarPick>(context, (kg: null, custom: true)),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        if (defaultLabel != null)
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.muted),
+            onPressed: () =>
+                Navigator.pop<_BarPick>(context, (kg: null, custom: false)),
+            child: Text(defaultLabel!),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
       ],
     );
   }
@@ -490,7 +631,20 @@ class ExercisePicker extends ConsumerStatefulWidget {
 }
 
 class _ExercisePickerState extends ConsumerState<ExercisePicker> {
-  String _query = '';
+  ExerciseFilter _filter = const ExerciseFilter();
+
+  /// Builds a movement the library does not have, without losing your place.
+  ///
+  /// Leaving the builder to make one and coming back to start again is a dead
+  /// end people work around by picking something close enough. The form goes on
+  /// the root navigator so it covers this sheet rather than fighting it, and
+  /// what it makes is what the picker returns — you asked for that exercise.
+  Future<void> _createOne() async {
+    final made = await Navigator.of(context, rootNavigator: true)
+        .push<Exercise>(MaterialPageRoute(builder: (_) => const ExerciseFormScreen()));
+    if (made == null || !mounted) return;
+    Navigator.pop(context, made);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -500,22 +654,29 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
       height: height,
       child: Padding(
         padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
           top: 14,
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Column(
           children: [
             const SheetGrabber(),
-            TextField(
-              autofocus: false,
-              onChanged: (v) => setState(() => _query = v),
-              decoration: builderInput('Search exercises…').copyWith(
-                prefixIcon: Icon(Icons.search, color: AppColors.muted),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                autofocus: false,
+                onChanged: (v) =>
+                    setState(() => _filter = _filter.withQuery(v)),
+                decoration: builderInput('Search exercises…').copyWith(
+                  prefixIcon: Icon(Icons.search, color: AppColors.muted),
+                ),
               ),
             ),
             const SizedBox(height: 8),
+            ExerciseFilterChips(
+              filter: _filter,
+              onChanged: (f) => setState(() => _filter = f),
+            ),
+            const SizedBox(height: 4),
             Expanded(
               child: library.when(
                 loading: () => Center(
@@ -524,20 +685,33 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                     child:
                         Text('$e', style: TextStyle(color: AppColors.muted))),
                 data: (all) {
-                  final q = _query.trim().toLowerCase();
-                  final list = q.isEmpty
-                      ? all
-                      : all
-                          .where((e) =>
-                              e.name.toLowerCase().contains(q) ||
-                              e.muscleGroup.toLowerCase().contains(q))
-                          .toList();
+                  final list = _filter.apply(all);
                   return ListView.separated(
-                    itemCount: list.length,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    // The new-exercise row rides at the top of the list, where
+                    // it is found by someone who has already looked and not
+                    // found what they wanted.
+                    itemCount: list.length + 1,
                     separatorBuilder: (_, _) =>
                         Divider(height: 1, color: AppColors.line),
                     itemBuilder: (_, i) {
-                      final e = list[i];
+                      if (i == 0) {
+                        return ListTile(
+                          key: const ValueKey('picker-new-exercise'),
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.add, color: AppColors.accent),
+                          title: Text(
+                            'New exercise',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                          onTap: _createOne,
+                        );
+                      }
+                      final e = list[i - 1];
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(e.name,

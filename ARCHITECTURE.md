@@ -34,6 +34,7 @@ lib/
 │   ├── database.dart             Drift tables, queries, first-run seed  ← core
 │   ├── exercise_stats.dart       Per-exercise top-set/chart maths (pure)
 │   ├── exercise_taxonomy.dart    Muscle groups + equipment kinds (a wire format)
+│   ├── exercise_filter.dart      Search text + equipment/muscle chips → a list
 │   ├── share_code.dart           Share-code plumbing: varints, CRC, base64, tags
 │   ├── routine_code.dart         FLR1 — a whole routine as one line of text
 │   ├── routine_import.dart       Routine ⇄ database, and what to do about clashes
@@ -59,6 +60,7 @@ lib/
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
 │   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
+│   ├── exercise_filters.dart     The muscle/equipment chip rows, library+picker
 │   ├── workout_items_editor.dart ItemDraft + the exercise-list editor
 │   ├── routine_card.dart         The routine list-row card
 │   ├── share_widgets.dart        QR card, action rows, paste dialog (theme+routine)
@@ -217,7 +219,10 @@ applies, and it is a property of the *exercise*, like `measure`.
   (null = use `Settings.barWeight`, itself null = the standard bar for the unit).
   A gym is not one bar — the EZ curl bar is 10 kg, the trap bar 25 — and which
   one a movement uses is a fact about the movement. Set on the exercise detail
-  screen; the default lives in Settings → Default bar.
+  screen; the default lives in Settings → Default bar. Both go through `askBar`,
+  which offers `namedBars(unit)` by name and falls through to `askWeight` for a
+  gym with something odd — **a named bar is a weight with a label on the way in,
+  and nothing new is stored.**
 - The type is stored on `Exercises.weightType` and seeded from `equipment`
   (Barbell → bar, Dumbbell → dumbbell, everything else → machine, bodyweight
   included). It is editable on the exercise detail screen for **every** exercise,

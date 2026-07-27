@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
+import '../data/exercise_filter.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/exercise_filters.dart';
 
 /// Browsable, searchable exercise library. Tap a row for details; the FAB adds
 /// a custom exercise.
@@ -16,7 +18,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
-  String _query = '';
+  ExerciseFilter _filter = const ExerciseFilter();
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +41,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           error: (e, _) =>
               Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (all) {
-            final q = _query.trim().toLowerCase();
-            final list = q.isEmpty
-                ? all
-                : all
-                    .where((e) =>
-                        e.name.toLowerCase().contains(q) ||
-                        e.muscleGroup.toLowerCase().contains(q) ||
-                        e.equipment.toLowerCase().contains(q))
-                    .toList();
+            final list = _filter.apply(all);
 
             // Group by muscle, preserving the already-sorted order.
             final groups = <String, List<Exercise>>{};
@@ -59,8 +53,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                  child: _SearchField(onChanged: (v) => setState(() => _query = v)),
+                  child: _SearchField(
+                      onChanged: (v) =>
+                          setState(() => _filter = _filter.withQuery(v))),
                 ),
+                ExerciseFilterChips(
+                  filter: _filter,
+                  onChanged: (f) => setState(() => _filter = f),
+                ),
+                const SizedBox(height: 4),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
@@ -69,7 +70,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         Padding(
                           padding: EdgeInsets.only(top: 60),
                           child: Center(
-                            child: Text('No exercises match your search.',
+                            child: Text('Nothing matches.',
                                 style: TextStyle(color: AppColors.muted)),
                           ),
                         ),

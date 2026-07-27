@@ -150,6 +150,45 @@ const _standardLb = <_Stock>[
 double defaultBarKg(String unit) =>
     unit == 'lb' ? toKg(kDefaultBarLb, 'lb') : kDefaultBarKg;
 
+/// One of the bars a gym actually racks: what it is called, and what it weighs
+/// in the unit its gym counts in.
+typedef NamedBar = ({String name, double weight});
+
+/// The bars worth offering by name, metric gym.
+///
+/// What a lifter knows is *which* bar — the EZ curl bar, the trap bar, the
+/// Smith carriage — and the weight follows from that. These are the common
+/// sizes, not a specification: an EZ bar runs 5.5–13.5 kg and a Smith carriage
+/// anywhere from 6 to 32 depending on the counterweight, so every one of them
+/// is a starting point a free number can still overrule.
+const List<NamedBar> _namedBarsKg = [
+  (name: 'Olympic bar', weight: 20),
+  (name: "Women's Olympic bar", weight: 15),
+  (name: 'EZ curl bar', weight: 10),
+  (name: 'Trap bar', weight: 25),
+  (name: 'Safety squat bar', weight: 25),
+  (name: 'Smith carriage', weight: 15),
+];
+
+/// The same bars as a pounds gym labels them. Converted by *name*, not by
+/// arithmetic: an Olympic bar is 45 lb and 20 kg, two round numbers that are
+/// not the same weight, and a lifter in either gym wants the round one.
+const List<NamedBar> _namedBarsLb = [
+  (name: 'Olympic bar', weight: 45),
+  (name: "Women's Olympic bar", weight: 35),
+  (name: 'EZ curl bar', weight: 25),
+  (name: 'Trap bar', weight: 55),
+  (name: 'Safety squat bar', weight: 55),
+  (name: 'Smith carriage', weight: 35),
+];
+
+/// The named bars for [unit], with their weights converted to canonical
+/// kilograms like every other weight in the app.
+List<NamedBar> namedBars(String unit) => [
+      for (final b in unit == 'lb' ? _namedBarsLb : _namedBarsKg)
+        (name: b.name, weight: toKg(b.weight, unit)),
+    ];
+
 /// The plate rack to assume for someone who has never said, in kilograms.
 List<PlateStack> defaultPlatesFor(String unit) => [
       for (final p in unit == 'lb' ? _standardLb : _standardKg)

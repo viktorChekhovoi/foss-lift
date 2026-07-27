@@ -232,11 +232,11 @@ class _BarWeightRow extends ConsumerWidget {
     final u = unitLabel(unit);
 
     Future<void> edit() async {
-      final choice = await askWeight(
+      final choice = await askBar(
         context,
         title: 'Bar for ${exercise.name}',
         unit: unit,
-        initialKg: own ?? fallback,
+        currentKg: own ?? fallback,
         defaultLabel: own == null ? null : 'Use default',
       );
       if (choice == null) return;

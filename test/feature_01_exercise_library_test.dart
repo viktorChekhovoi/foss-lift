@@ -8,8 +8,12 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/data/exercise_filter.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/exercise_form_screen.dart';
+import 'package:foss_lift/screens/library_screen.dart';
+import 'package:foss_lift/util/units.dart';
+import 'package:foss_lift/widgets/exercise_filters.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -584,6 +588,185 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Seat 4, pin 7'), findsOneWidget);
       expect(find.text('Nothing noted yet'), findsNothing);
+
+      await stop(tester);
+    });
+  });
+
+  group('finding a movement by what it is, not what it is called', () {
+    // "A barbell movement for legs" should not require knowing it is called a
+    // back squat. See features/01-exercise-library.md.
+
+    Future<List<Exercise>> filtered(ExerciseFilter f) async =>
+        f.apply(await db.watchExercises().first);
+
+    test('an untouched filter excludes nothing', () async {
+      final all = await db.watchExercises().first;
+      expect(const ExerciseFilter().apply(all).length, all.length);
+    });
+
+    test('equipment and muscle group narrow together', () async {
+      final legs = await filtered(const ExerciseFilter(
+        equipment: {'Barbell'},
+        muscles: {'Legs'},
+      ));
+
+      expect(legs, isNotEmpty);
+      expect(legs.every((e) => e.equipment == 'Barbell'), isTrue);
+      expect(legs.every((e) => e.muscleGroup == 'Legs'), isTrue);
+      expect(legs.map((e) => e.name), contains('Back Squat'));
+    });
+
+    test('several muscle groups are alternatives, not a narrower search',
+        () async {
+      final arms = await filtered(const ExerciseFilter(muscles: {'Arms'}));
+      final glutes = await filtered(const ExerciseFilter(muscles: {'Glutes'}));
+      final both =
+          await filtered(const ExerciseFilter(muscles: {'Arms', 'Glutes'}));
+
+      expect(both.length, arms.length + glutes.length);
+      expect(
+        both.every((e) => e.muscleGroup == 'Arms' || e.muscleGroup == 'Glutes'),
+        isTrue,
+      );
+    });
+
+    test('the same holds for equipment', () async {
+      final bar = await filtered(const ExerciseFilter(equipment: {'Barbell'}));
+      final db2 = await filtered(const ExerciseFilter(equipment: {'Dumbbell'}));
+      final both = await filtered(
+          const ExerciseFilter(equipment: {'Barbell', 'Dumbbell'}));
+
+      expect(both.length, bar.length + db2.length);
+    });
+
+    test('the chips compose with the search text', () async {
+      final pressed = await filtered(const ExerciseFilter(
+        query: 'press',
+        equipment: {'Dumbbell'},
+      ));
+
+      expect(pressed, isNotEmpty);
+      expect(
+        pressed.every((e) =>
+            e.equipment == 'Dumbbell' &&
+            e.name.toLowerCase().contains('press')),
+        isTrue,
+      );
+      // And the text alone finds more than the pair does.
+      final anyPress = await filtered(const ExerciseFilter(query: 'press'));
+      expect(anyPress.length, greaterThan(pressed.length));
+    });
+
+    test('letting the chips go keeps what was typed', () {
+      const f = ExerciseFilter(
+          query: 'squat', equipment: {'Barbell'}, muscles: {'Legs'});
+      expect(f.facetCount, 2);
+
+      final cleared = f.withoutFacets;
+      expect(cleared.query, 'squat');
+      expect(cleared.facetCount, 0);
+      expect(cleared.isEmpty, isFalse);
+    });
+
+    test('tapping a chip twice puts it back', () {
+      final on = const ExerciseFilter().toggleMuscle('Back');
+      expect(on.muscles, {'Back'});
+      expect(on.toggleMuscle('Back').muscles, isEmpty);
+    });
+
+    testWidgets('the library filters to what the chips say', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(routedAppUnder(container, const LibraryScreen()));
+      await tester.pumpAndSettle();
+
+      // Unfiltered, the whole library is grouped by muscle and Arms is the
+      // first group on screen.
+      expect(find.textContaining('ARMS ·'), findsOneWidget);
+
+      // A barbell movement for legs: two taps, and no name needed to get here.
+      await tester.tap(find.byKey(filterChipKey('equipment', 'Barbell')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(filterChipKey('muscle', 'Legs')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Back Squat'), findsOneWidget);
+      expect(find.textContaining('ARMS ·'), findsNothing);
+      expect(find.text('Leg Press'), findsNothing, reason: 'a machine');
+
+      // And letting the chips go brings the rest back.
+      await tester.tap(find.byKey(kFilterClearKey));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ARMS ·'), findsOneWidget);
+
+      await stop(tester);
+    });
+  });
+
+  group('a bar can be chosen by name', () {
+    test('the named bars are the ones a gym actually racks', () {
+      final kg = namedBars('kg');
+      expect(kg.map((b) => b.name), contains('EZ curl bar'));
+      expect(kg.map((b) => b.name), contains('Trap bar'));
+      expect(kg.map((b) => b.name), contains('Smith carriage'));
+
+      // Every one of them carries a real weight, in canonical kilograms.
+      expect(kg.every((b) => b.weight > 0), isTrue);
+      expect(
+        kg.firstWhere((b) => b.name == 'Olympic bar').weight,
+        20,
+      );
+    });
+
+    test('a pounds gym gets the round pounds number, not a converted kilo', () {
+      final lb = namedBars('lb');
+      final olympic = lb.firstWhere((b) => b.name == 'Olympic bar');
+      // 45 lb, which is 20.41 kg — not the metric bar's 20.
+      expect(toDisplayWeight(olympic.weight, 'lb'), closeTo(45, 0.01));
+      expect(olympic.weight, isNot(20));
+    });
+
+    testWidgets('picking one by name sets the exercise to its weight',
+        (tester) async {
+      final curl =
+          (await tester.runAsync(() => exerciseNamed(db, 'Barbell Curl')))!;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(routedAppUnder(
+          container, ExerciseDetailScreen(exerciseId: curl.id)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bar weight'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('EZ curl bar'));
+      await tester.pumpAndSettle();
+
+      final saved = (await tester.runAsync(() => db.exerciseById(curl.id)))!;
+      expect(saved.barWeight, 10);
+
+      await stop(tester);
+    });
+
+    testWidgets('an odd bar is still a number you can type', (tester) async {
+      final curl =
+          (await tester.runAsync(() => exerciseNamed(db, 'Barbell Curl')))!;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(routedAppUnder(
+          container, ExerciseDetailScreen(exerciseId: curl.id)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bar weight'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Something else'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '7.5');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final saved = (await tester.runAsync(() => db.exerciseById(curl.id)))!;
+      expect(saved.barWeight, 7.5);
 
       await stop(tester);
     });
