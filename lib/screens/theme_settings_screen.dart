@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/theme_preview.dart';
 
 /// Pick a colour theme: a shipped preset or your own, with import/export.
 ///
@@ -416,7 +417,7 @@ class _CustomThemeEditorScreenState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
-            _Preview(palette: draft),
+            ThemePreview(palette: draft),
             const SizedBox(height: 20),
             for (final role in _roles) ...[
               _RoleRow(
@@ -439,86 +440,6 @@ class _CustomThemeEditorScreenState
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// A miniature of the app painted in the draft palette, so edits are seen in
-/// context rather than as isolated chips.
-class _Preview extends StatelessWidget {
-  const _Preview({required this.palette});
-  final AppPalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.ground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: palette.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: palette.line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Bench Press',
-                    style: TextStyle(
-                        color: palette.text,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text('4 × 6–8 · working set',
-                    style: kMono.copyWith(
-                        color: palette.muted, fontSize: 12)),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text('80 kg',
-                        style: kMono.copyWith(
-                            color: palette.good,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 12),
-                    Text('PR 92.5',
-                        style: kMono.copyWith(
-                            color: palette.gold, fontSize: 13)),
-                    const Spacer(),
-                    Text('rest 90s',
-                        style: kMono.copyWith(
-                            color: palette.faint, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: palette.accent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text('Start workout',
-                  style: TextStyle(
-                      color: palette.onAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ],
       ),
     );
   }

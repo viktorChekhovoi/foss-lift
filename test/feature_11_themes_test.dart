@@ -22,6 +22,7 @@ import 'package:foss_lift/screens/theme_settings_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/common.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
+import 'package:foss_lift/widgets/theme_preview.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
@@ -479,6 +480,164 @@ void main() {
       expect(AppTheme.build(active).brightness, Brightness.light,
           reason: 'and Material agrees, so system widgets follow suit');
 
+      await stop(tester);
+    });
+  });
+
+  group('the custom theme preview', () {
+    /// A palette whose twelve roles are twelve colours found nowhere else, so
+    /// "this role is painted somewhere in the preview" is a real assertion.
+    AppPalette sentinels() => const AppPalette(
+          id: kCustomThemeId,
+          name: 'Sentinels',
+          ground: Color(0xFF010203),
+          surface: Color(0xFF040506),
+          surface2: Color(0xFF070809),
+          surface3: Color(0xFF0A0B0C),
+          line: Color(0xFF0D0E0F),
+          text: Color(0xFFF1F2F3),
+          muted: Color(0xFFE4E5E6),
+          faint: Color(0xFFD7D8D9),
+          accent: Color(0xFF102030),
+          accentPress: Color(0xFF405060),
+          good: Color(0xFF708090),
+          gold: Color(0xFFA0B0C0),
+        );
+
+    /// Every colour actually painted in the rendered subtree: fills, borders
+    /// and text/icon colours alike.
+    Set<Color> painted(WidgetTester tester) {
+      final found = <Color>{};
+      void addDecoration(Decoration? d) {
+        if (d is! BoxDecoration) return;
+        if (d.color != null) found.add(d.color!);
+        final border = d.border;
+        if (border is Border) {
+          for (final side in [
+            border.top,
+            border.bottom,
+            border.left,
+            border.right,
+          ]) {
+            if (side.style != BorderStyle.none) found.add(side.color);
+          }
+        }
+      }
+
+      for (final w in tester.allWidgets) {
+        switch (w) {
+          case DecoratedBox(:final decoration):
+            addDecoration(decoration);
+          case ColoredBox(:final color):
+            found.add(color);
+          case Text(:final style):
+            if (style?.color != null) found.add(style!.color!);
+          case Icon(:final color):
+            if (color != null) found.add(color);
+          case _:
+            break;
+        }
+      }
+      return found;
+    }
+
+    testWidgets('paints every one of the twelve roles', (tester) async {
+      // A role you cannot see while editing is a role you cannot edit with any
+      // confidence — surface2, surface3 and accentPress especially, which mean
+      // nothing as an isolated swatch.
+      final p = sentinels();
+      await tester
+          .pumpWidget(appUnder(container, ThemePreview(palette: p)));
+      await tester.pump();
+
+      final shown = painted(tester);
+      final roles = <String, Color>{
+        'ground': p.ground,
+        'surface': p.surface,
+        'surface2': p.surface2,
+        'surface3': p.surface3,
+        'line': p.line,
+        'text': p.text,
+        'muted': p.muted,
+        'faint': p.faint,
+        'accent': p.accent,
+        'accentPress': p.accentPress,
+        'good': p.good,
+        'gold': p.gold,
+      };
+      for (final role in roles.entries) {
+        expect(shown, contains(role.value),
+            reason: '${role.key} is never painted in the preview');
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('editing a role repaints the preview immediately',
+        (tester) async {
+      // "Live" is the whole point: the preview must follow the draft, not the
+      // saved theme.
+      var p = sentinels();
+      late StateSetter setState;
+      await tester.pumpWidget(appUnder(
+        container,
+        StatefulBuilder(builder: (_, s) {
+          setState = s;
+          return ThemePreview(palette: p);
+        }),
+      ));
+      await tester.pump();
+      expect(painted(tester), contains(const Color(0xFF102030)));
+
+      const changed = Color(0xFFAB12CD);
+      setState(() => p = p.copyWith(accent: changed));
+      await tester.pump();
+
+      final shown = painted(tester);
+      expect(shown, contains(changed),
+          reason: 'the new accent shows without saving');
+      expect(shown, isNot(contains(const Color(0xFF102030))),
+          reason: 'and the old one is gone');
+
+      await stop(tester);
+    });
+
+    testWidgets('warns when a custom palette makes its own text unreadable',
+        (tester) async {
+      // Nothing stops someone picking grey text on a grey ground. Say so
+      // rather than letting them save a theme they cannot read.
+      final bad = sentinels().copyWith(
+        ground: const Color(0xFF808080),
+        surface: const Color(0xFF828282),
+        text: const Color(0xFF888888),
+      );
+      expect(contrastRatio(bad.text, bad.ground), lessThan(4.5),
+          reason: 'the fixture really is unreadable');
+
+      await tester
+          .pumpWidget(appUnder(container, ThemePreview(palette: bad)));
+      await tester.pump();
+      expect(find.textContaining('hard to read'), findsOneWidget);
+      await stop(tester);
+    });
+
+    testWidgets('stays quiet when the palette is legible', (tester) async {
+      await tester.pumpWidget(
+          appUnder(container, ThemePreview(palette: kDefaultPalette)));
+      await tester.pump();
+      expect(find.textContaining('hard to read'), findsNothing);
+      await stop(tester);
+    });
+
+    testWidgets('every shipped preset previews without a warning',
+        (tester) async {
+      for (final preset in kThemePresets) {
+        await tester
+            .pumpWidget(appUnder(container, ThemePreview(palette: preset)));
+        await tester.pump();
+        expect(find.textContaining('hard to read'), findsNothing,
+            reason: '${preset.id} should not trip its own legibility warning');
+      }
       await stop(tester);
     });
   });
