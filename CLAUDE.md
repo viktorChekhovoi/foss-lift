@@ -143,6 +143,13 @@ did not anticipate — raise it rather than quietly writing the migration.
   `dart run build_runner build --delete-conflicting-outputs` after schema
   changes.
 - Update the table list in `ARCHITECTURE.md` when the drift schema changes.
+- **Android today, iOS later — write nothing that assumes otherwise.** There is
+  no `ios/` directory yet, but the port is planned, so new code has to survive
+  it. In particular: **never store an absolute path** (the iOS app-container
+  path contains a UUID that changes on reinstall and restore, so an absolute
+  path works on Android and silently dangles on iOS), and gate platform-specific
+  features on `Platform.is*` so they degrade rather than crash — as
+  `Reminders.supported` does. See issue #33.
 
 ## Commands
 
