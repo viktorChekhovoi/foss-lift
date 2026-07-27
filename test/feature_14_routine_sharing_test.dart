@@ -26,6 +26,7 @@ import 'package:foss_lift/data/share_code.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/routine_import_screen.dart';
 import 'package:foss_lift/screens/routine_share_screen.dart';
+import 'package:foss_lift/widgets/share_widgets.dart';
 import 'package:foss_lift/services/deep_links.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
@@ -461,8 +462,91 @@ void main() {
   });
 
   group('a code that will not read', () {
+    /// Text a paste box will actually see: empty, junk, truncated, the wrong
+    /// kind of code, and one carrying characters a URL treats as punctuation.
+    const hostile = [
+      '',
+      '   ',
+      'hello',
+      'FLR1',
+      'FLR1.',
+      'FLR1.@@@@',
+      'FLR1.AAAA',
+      'FLT1.AAAA',
+      'fosslift://routine/FLR1.AAAA',
+      'code with & and # and ? in it',
+      'FLR1.a+b/c=',
+    ];
+
     Future<String> aCode() async =>
         RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+    test('nothing a paste box can hold makes the decoder throw', () {
+      for (final text in hostile) {
+        expect(() => RoutineCode.decode(text), returnsNormally,
+            reason: 'decoding "$text"');
+        expect(() => ThemeCode.decode(text), returnsNormally,
+            reason: 'decoding "$text" as a theme');
+      }
+    });
+
+    testWidgets('refusing one paints no error frame', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      for (final text in hostile) {
+        await tester.pumpWidget(
+            routedAppUnder(container, RoutineImportScreen(code: text)));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'importing "$text"');
+      }
+      await stop(tester);
+    });
+
+    testWidgets('and neither does the paste box on its way out', (tester) async {
+      // The red frames reported against an invalid code were not about the code
+      // at all: promptForCode disposed its controller the moment showDialog's
+      // future completed, which is when the route is *popped* — the field is
+      // still mounted and still using it for the length of the dismissal.
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      String? got;
+
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => got = await promptForCode(context,
+                  title: 'Paste a routine', hint: 'FLR1.…'),
+              child: const Text('Paste'),
+            ),
+          ),
+        ),
+      ));
+
+      // Both ways out: the one that carries the text on, and the one that
+      // throws it away. Neither may paint a red frame on the way.
+      for (final (ending, expected) in [
+        ('Continue', 'not a code'),
+        ('Cancel', null),
+      ]) {
+        got = null;
+        await tester.tap(find.text('Paste'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'not a code');
+        await tester.tap(find.text(ending));
+        // Every frame of the dismissal, not just where it settles.
+        for (var i = 0; i < 12; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          expect(tester.takeException(), isNull,
+              reason: '$ending, frame $i of the dismissal');
+        }
+        await tester.pumpAndSettle();
+        expect(got, expected, reason: 'after $ending');
+      }
+
+      await stop(tester);
+    });
 
     test('is version-tagged so a later format can be told apart', () async {
       expect(await aCode(), startsWith('FLR1.'));

@@ -75,6 +75,13 @@ exercises it depends on — as one line of text you can paste into a message.
   parent how big it is and a dialog asks its content the same question in a
   form that cannot be answered that way — which is how **Show QR** came to dim
   the screen and paint nothing at all.
+- **The paste box owns its own field.** A dialog's controller has to belong to
+  something that dies with the dialog: `showDialog`'s future completes when the
+  route is *popped*, which is the start of the dismissal and not the end of it,
+  so disposing at the await left the field using a dead controller for the
+  length of the fade. That threw a red frame on every paste — the one reported
+  against invalid codes, though a good code and a plain Cancel did it just as
+  much.
 - **Every host the app shares needs an Android intent filter**, or the link is
   inert outside the app however well the routing handles it. Routines were
   shareable for a while against a manifest that named only `theme`, so a

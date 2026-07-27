@@ -186,19 +186,54 @@ Future<String?> promptForCode(
   required String title,
   required String hint,
 }) async {
-  final controller = TextEditingController();
   final pasted = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (_) => _PasteDialog(title: title, hint: hint),
+  );
+  final text = pasted?.trim() ?? '';
+  return text.isEmpty ? null : text;
+}
+
+/// The paste dialog, owning its own controller.
+///
+/// The controller has to belong to a `State` that lives and dies with the
+/// dialog, and not to [promptForCode]. `showDialog`'s future completes when the
+/// route is *popped*, which is the start of the dismissal and not the end of
+/// it: the field is still mounted, still painting and still about to unsubscribe
+/// from its controller. Disposing it at the await threw
+/// "A TextEditingController was used after being disposed" for the length of
+/// the fade — the red frames that looked like an invalid code crashing the app,
+/// though it happened just as much on a good one, and on Cancel.
+class _PasteDialog extends StatefulWidget {
+  const _PasteDialog({required this.title, required this.hint});
+  final String title;
+  final String hint;
+
+  @override
+  State<_PasteDialog> createState() => _PasteDialogState();
+}
+
+class _PasteDialogState extends State<_PasteDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: Text(title),
+      title: Text(widget.title),
       content: TextField(
-        controller: controller,
+        controller: _controller,
         maxLines: 4,
         autofocus: true,
         style: kMono.copyWith(fontSize: 12, color: AppColors.text),
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: widget.hint,
           border: const OutlineInputBorder(),
         ),
       ),
@@ -208,15 +243,12 @@ Future<String?> promptForCode(
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, controller.text),
+          onPressed: () => Navigator.pop(context, _controller.text),
           child: const Text('Continue'),
         ),
       ],
-    ),
-  );
-  controller.dispose();
-  final text = pasted?.trim() ?? '';
-  return text.isEmpty ? null : text;
+    );
+  }
 }
 
 /// Leaves a screen that may have been pushed onto a stack (the in-app paths) or
