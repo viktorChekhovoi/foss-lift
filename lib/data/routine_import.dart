@@ -9,6 +9,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../util/video_links.dart';
 import 'database.dart';
 import 'routine_code.dart';
 
@@ -41,10 +42,10 @@ class ExerciseArrival {
 /// Matches each of [incoming] against [library] by name, case-insensitively,
 /// and says which ones the user has to rule on.
 ///
-/// A built-in exercise carries no instructions or video (the recipient has
-/// their own copy), so those are only compared when the sender actually sent
-/// them — otherwise every shared starter movement would look like a clash that
-/// wants to blank out a coaching cue.
+/// Only the fields a code actually carries are compared. Coaching cues do not
+/// travel at all, and a video link only travels when it resolves to a video —
+/// so a difference in either is invisible here, which is right: the import
+/// cannot offer to replace what it was never given.
 List<ExerciseArrival> planExerciseArrivals(
   List<SharedExercise> incoming,
   List<Exercise> library,
@@ -72,14 +73,8 @@ bool _differs(SharedExercise incoming, Exercise existing) {
   if (incoming.measure != existing.measure) return true;
   if (incoming.weightType != existing.weightType) return true;
   if (incoming.barWeight != existing.barWeight) return true;
-  if (incoming.instructions.isNotEmpty &&
-      incoming.instructions != existing.instructions) {
-    return true;
-  }
   final video = incoming.videoUrl;
-  if (video != null && video.isNotEmpty && video != existing.videoUrl) {
-    return true;
-  }
+  if (video != null && video != existing.videoUrl) return true;
   return false;
 }
 
@@ -215,9 +210,11 @@ extension RoutineSharing on AppDatabase {
   }
 }
 
-/// An exercise as it should travel: a custom one whole, a starter-library one
-/// by name alone. Sending the shipped coaching text would be paying QR density
-/// for a copy of something the recipient already has.
+/// An exercise as it should travel: what identifies the movement and how it is
+/// loaded, and nothing else. The coaching cue stays behind — it is the largest
+/// field on the row and the least worth carrying, since whoever receives the
+/// routine can read the movement's name and already knows, or can look it up
+/// with the link that does travel.
 SharedExercise _share(Exercise e) => SharedExercise(
       name: e.name,
       muscleGroup: e.muscleGroup,
@@ -225,16 +222,27 @@ SharedExercise _share(Exercise e) => SharedExercise(
       isCustom: e.isCustom,
       measure: e.measure,
       weightType: e.weightType,
-      instructions: e.isCustom ? e.instructions : '',
-      videoUrl: e.isCustom ? e.videoUrl : null,
+      // Canonicalised here rather than in the codec, so a [SharedRoutine] holds
+      // the same link whether it came off this database or off a decoded code.
+      videoUrl: _canonicalVideo(e.videoUrl),
       barWeight: e.barWeight,
     );
 
+/// A stored link reduced to the canonical short form, or null when there is no
+/// video behind it — a search results page, a link to somewhere else entirely.
+String? _canonicalVideo(String? url) {
+  if (url == null) return null;
+  final id = youTubeVideoId(url);
+  return id == null ? null : youTubeUrl(id);
+}
+
 /// The incoming definition as a row patch.
 ///
-/// Instructions and the video link are only written when the sender actually
-/// sent them: a built-in arrives without them, and blanking a starter movement's
-/// coaching cue because a routine mentioned it would be a poor trade.
+/// Touches only what the code carried. The instruction column is never written:
+/// a cue does not travel, so replacing an exercise leaves whatever description
+/// the recipient had — including, on a starter movement, the one the app
+/// shipped. The video link is written only when one arrived, for the same
+/// reason.
 ExercisesCompanion _companion(SharedExercise e) => ExercisesCompanion(
       name: Value(e.name),
       muscleGroup: Value(e.muscleGroup),
@@ -242,9 +250,6 @@ ExercisesCompanion _companion(SharedExercise e) => ExercisesCompanion(
       measure: Value(e.measure),
       weightType: Value(e.weightType),
       barWeight: Value(e.barWeight),
-      instructions:
-          e.instructions.isEmpty ? const Value.absent() : Value(e.instructions),
-      videoUrl: (e.videoUrl?.isEmpty ?? true)
-          ? const Value.absent()
-          : Value(e.videoUrl),
+      videoUrl:
+          e.videoUrl == null ? const Value.absent() : Value(e.videoUrl),
     );

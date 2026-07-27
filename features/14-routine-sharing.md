@@ -16,6 +16,9 @@ exercises it depends on — as one line of text you can paste into a message.
   a confirmation screen. Nothing is written until you accept it.
 - **Custom exercises travel with the routine.** A programme built around your own
   "Zercher Squat" arrives complete; the recipient does not need it beforehand.
+  What travels is what identifies the movement and how it is loaded — the name,
+  muscle group, equipment, weight type and bar — plus a video link, if there is
+  a video behind it.
 - **A name clash is your call.** If an incoming exercise has the same name as one
   already in the library — and its definition differs — the import asks whether
   to replace yours or keep it. Keeping is the default.
@@ -35,6 +38,23 @@ exercises it depends on — as one line of text you can paste into a message.
 
 - **The code is the whole routine.** There is no server, no id to look up, and
   nothing to expire. A code shared in 2026 still imports in 2030.
+- **Coaching cues do not travel.** The instructions field was the largest thing
+  on an exercise row and the least worth carrying: whoever receives a routine
+  can read the movement's name, and the link that does travel shows them the
+  rest. Dropping it took a custom exercise from about 55 characters on the wire
+  to a handful. An imported exercise arrives with no description, and an
+  exercise you choose to *replace* keeps yours — a cue that never travelled
+  cannot be overwritten by one.
+- **A video link travels as its id.** Any YouTube URL — `watch?v=`, `youtu.be`,
+  `/shorts/`, `/embed/`, with or without timestamps, playlists and tracking
+  parameters — is reduced to its eleven-character id and rebuilt as
+  `https://youtu.be/<id>` at the other end. A link with no video behind it does
+  not travel at all: the starter library's demo links are YouTube *searches*, and
+  a search costs ninety characters to say nothing.
+- **Names are capped at 200 UTF-8 bytes** on the wire — generous next to the 80
+  the app itself enforces, so a legal name never loses characters here first,
+  and bounded so a corrupt code cannot claim a megabyte of routine name. A
+  longer one is cut rather than refused.
 - **Defaults are not transmitted.** A slot only spends bytes on the fields that
   differ from the app's defaults, and the increment/deload defaults are read per
   progression mode — so the common routine encodes small. The PPL demo routine

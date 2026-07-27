@@ -28,16 +28,18 @@ import 'package:foss_lift/services/deep_links.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/util/qr_capacity.dart';
+import 'package:foss_lift/util/video_links.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
 
 /// A run of [length] characters that will not compress, seeded by [seed].
 ///
-/// Deflate is good enough at ordinary English that forty wordy-but-similar
-/// coaching cues still fit in a QR code — which is the format working, not a
-/// test fixture working. Only genuinely incompressible text gets a routine past
-/// the largest symbol, so that is what this makes.
+/// Deflate is good enough at ordinary English that a routine of realistically
+/// named exercises fits in a QR code however many of them there are — which is
+/// the format working, not a test fixture working. Only genuinely
+/// incompressible text gets a routine past the largest symbol, so that is what
+/// this makes.
 String _noise(int seed, int length) {
   const alphabet =
       'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -76,7 +78,7 @@ Future<int> _seedCustomRoutine(AppDatabase db) async {
     muscle: 'Legs',
     equipment: 'Barbell',
     instructions: 'Hold the bar in the crook of your elbows and squat.',
-    videoUrl: 'https://example.com/zercher',
+    videoUrl: 'https://www.youtube.com/watch?v=aBcD1234_-x&t=90s',
     measure: ExerciseMeasure.reps,
     weightType: WeightType.bar,
   );
@@ -231,11 +233,12 @@ void main() {
       expect(theirs.isCustom, isTrue);
       expect(theirs.muscleGroup, 'Legs');
       expect(theirs.equipment, 'Barbell');
-      expect(theirs.instructions, contains('crook of your elbows'));
-      expect(theirs.videoUrl, 'https://example.com/zercher');
       expect(theirs.weightType, WeightType.bar);
       expect(theirs.barWeight, 15,
           reason: "the sender's bar for this movement is part of the exercise");
+      // The link travels as its video id and comes back canonical: the
+      // timestamp, the tracking parameters and the www. are all noise.
+      expect(theirs.videoUrl, 'https://youtu.be/aBcD1234_-x');
 
       // A starter-library movement is on both phones already: spending 120
       // characters on its coaching cue would be paying for a copy of something
@@ -247,7 +250,9 @@ void main() {
               .exercises
               .firstWhere((e) => e.name == 'Bench Press');
       expect(builtIn.isCustom, isFalse);
-      expect(builtIn.instructions, isEmpty);
+      // The starter library's demo links are YouTube *searches* — there is no
+      // video behind them to name, so nothing travels.
+      expect(builtIn.videoUrl, isNull);
     });
 
     test('the sender\'s streaks and reminder stay behind', () async {
@@ -283,17 +288,18 @@ void main() {
 
     test('a routine too big for any QR says so rather than painting one',
         () async {
-      // Custom exercises carry their own instructions, which is the only thing
-      // in the format big enough to run past a version-40 symbol.
+      // With cues gone, names are the only field a person can make long enough
+      // to run a routine past a version-40 symbol — and it takes sixty of them
+      // at the full length, in text that will not compress.
       final routineId = await db.createRoutine(
           name: 'Everything', color: 'FF6A3D', restSeconds: 90);
       final items = <WorkoutItemsCompanion>[];
-      for (var i = 0; i < 40; i++) {
+      for (var i = 0; i < 60; i++) {
         final id = await db.createExercise(
-          name: 'Invented Movement $i',
+          name: _noise(i, 80),
           muscle: 'Other',
           equipment: 'Machine',
-          instructions: _noise(i, 260),
+          instructions: '',
         );
         items.add(WorkoutItemsCompanion.insert(
             workoutId: 0, exerciseId: id, position: Value(i)));
@@ -309,7 +315,7 @@ void main() {
 
       // Still perfectly shareable every other way — the code itself is fine.
       expect((RoutineCode.decode(link) as RoutineCodeOk).routine.exercises,
-          hasLength(40));
+          hasLength(60));
     });
 
     test('a big routine spends its error correction to stay scannable', () {
@@ -375,6 +381,81 @@ void main() {
       final loudCode = RoutineCode.encode(await db.sharedRoutine(loud));
       expect(plainCode.length, lessThan(loudCode.length),
           reason: 'a slot left at its defaults must not be spelled out');
+    });
+  });
+
+  group('what a code refuses to carry', () {
+    test('a video link travels as its id, whatever form it arrived in', () {
+      // Every shape a person might paste, and the one canonical form back.
+      const id = 'aBcD1234_-x';
+      for (final url in [
+        'https://www.youtube.com/watch?v=$id',
+        'https://www.youtube.com/watch?v=$id&list=PLxyz&index=2',
+        'https://youtu.be/$id',
+        'https://youtu.be/$id?t=42',
+        'https://m.youtube.com/watch?v=$id',
+        'https://www.youtube.com/shorts/$id',
+        'https://www.youtube.com/embed/$id',
+        'youtube.com/watch?v=$id',
+      ]) {
+        expect(youTubeVideoId(url), id, reason: url);
+      }
+    });
+
+    test('a link with no video behind it does not travel', () {
+      for (final url in [
+        // What the starter library generates: a search, not a video.
+        'https://www.youtube.com/results?search_query=bench+press+proper+form',
+        'https://example.com/my-technique',
+        'https://youtu.be/tooshort',
+        'not a url at all',
+        '',
+      ]) {
+        expect(youTubeVideoId(url), isNull, reason: url);
+      }
+    });
+
+    test('a name longer than the format carries is cut, not refused', () async {
+      final long = 'Z' * (RoutineCode.maxNameBytes + 200);
+      final routineId = await db.createRoutine(
+          name: 'Fine', color: 'FF6A3D', restSeconds: 90);
+      await db.replaceRoutineWorkouts(routineId, [
+        (
+          id: null,
+          name: long.substring(0, 80),
+          items: [
+            WorkoutItemsCompanion.insert(
+                workoutId: 0,
+                exerciseId: (await _exerciseNamed(db, 'Plank'))!.id),
+          ],
+        ),
+      ]);
+
+      // The database caps names at 80, so the only way to get an over-long one
+      // onto the wire is to build the shared routine by hand — which is exactly
+      // what a hostile or buggy sender would do.
+      final shared = await db.sharedRoutine(routineId);
+      final oversized = SharedRoutine(
+        name: long,
+        colorHex: shared.colorHex,
+        restSeconds: shared.restSeconds,
+        scheduleDays: shared.scheduleDays,
+        exercises: shared.exercises,
+        workouts: shared.workouts,
+      );
+
+      final back = (RoutineCode.decode(RoutineCode.encode(oversized))
+              as RoutineCodeOk)
+          .routine;
+      expect(back.name.length, RoutineCode.maxNameBytes,
+          reason: 'cut to the limit rather than failing the whole export');
+      expect(back.name, long.substring(0, RoutineCode.maxNameBytes));
+    });
+
+    test('a name limit generous enough that nobody meets it', () {
+      // The database stops at 80; the wire format leaves room above that so a
+      // future longer name never silently loses characters here first.
+      expect(RoutineCode.maxNameBytes, greaterThan(80));
     });
   });
 
@@ -513,9 +594,11 @@ void main() {
       final landed = await _exerciseNamed(db, 'Zercher Squat');
       expect(landed, isNotNull);
       expect(landed!.isCustom, isTrue);
-      expect(landed.instructions, contains('crook of your elbows'));
       expect(landed.weightType, WeightType.bar);
       expect(landed.barWeight, 15);
+      expect(landed.videoUrl, 'https://youtu.be/aBcD1234_-x');
+      expect(landed.instructions, isEmpty,
+          reason: 'coaching cues do not travel — see features/14');
 
       final day = (await db.workoutsForRoutine(id)).single;
       expect((await db.itemsForWorkout(day.id)).single.exercise.id, landed.id);
@@ -586,8 +669,9 @@ void main() {
 
       final now = await db.exerciseById(mine.id);
       expect(now.id, mine.id, reason: 'the same row, rewritten');
-      expect(now.instructions, contains('crook of your elbows'));
       expect(now.equipment, 'Barbell');
+      expect(now.instructions, 'My own note.',
+          reason: 'a cue that never travelled cannot be replaced by one');
       expect(now.muscleGroup, 'Legs');
       expect(now.weightType, WeightType.bar);
       expect(now.barWeight, 15);

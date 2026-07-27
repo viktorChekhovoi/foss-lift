@@ -24,6 +24,12 @@
 /// 3. **The rest is deflated**, when deflating actually helps — a short routine
 ///    is often smaller raw, and the flag byte says which happened.
 ///
+/// And one thing is simply not carried: an exercise's coaching cue. It was the
+/// largest field on the row and the least worth the space — the recipient can
+/// read the movement's name, and the video link that *does* travel shows them
+/// the rest. That link travels as its eleven-character id rather than as a URL,
+/// which is why a search results page (no video behind it) travels as nothing.
+///
 /// ## The wire format
 ///
 /// `FLR1` is a **format** version, not an app version: a future `FLR2` may
@@ -45,8 +51,7 @@
 ///   string  name
 ///   byte    muscle group: an index into kMuscleGroups + 1, or 0 + a string
 ///   byte    equipment: the same, over kEquipmentTypes
-///   string  instructions   — custom exercises only
-///   string  video URL      — custom exercises only, and only if it has one
+///   string  video id       — 11 chars, only when a link resolves to a video
 ///   byte    weight type    — only when it is not the default for the equipment
 ///   varint  bar weight ×100
 /// varint  workout count, then that many workouts:
@@ -74,6 +79,7 @@ library;
 import 'dart:io';
 
 import '../util/qr_capacity.dart';
+import '../util/video_links.dart';
 import 'exercise_taxonomy.dart';
 import 'plates.dart';
 import 'progression.dart';
@@ -89,7 +95,6 @@ class SharedExercise {
     required this.isCustom,
     required this.measure,
     required this.weightType,
-    this.instructions = '',
     this.videoUrl,
     this.barWeight,
   });
@@ -106,8 +111,9 @@ class SharedExercise {
   final ExerciseMeasure measure;
   final WeightType weightType;
 
-  /// The coaching cue. Empty for a built-in — the recipient has their own copy.
-  final String instructions;
+  /// A link to the movement, always in canonical `https://youtu.be/<id>` form —
+  /// see [youTubeVideoId] for what does and does not survive the trip. Null
+  /// when the sender had none, or had one with no video behind it.
   final String? videoUrl;
 
   /// What this movement's own bar weighs, in kg, when the sender said it
@@ -234,6 +240,21 @@ abstract final class RoutineCode {
   /// from and what it costs.
   static const int qrLinkLimit = kQrBytesLowEcc;
 
+  /// The longest name a code will carry, in UTF-8 bytes.
+  ///
+  /// Generous next to the 80 characters the database enforces, so a name that
+  /// is legal in the app never loses characters here first — and bounded all
+  /// the same, so a corrupt or hostile code cannot claim a megabyte of routine
+  /// name and be believed. Names past it are cut rather than rejected: losing
+  /// the tail of a label is a smaller harm than refusing the whole programme.
+  static const int maxNameBytes = 200;
+
+  /// Cuts [name] to [maxNameBytes], on a boundary that still decodes.
+  static String _clampName(String name) {
+    if (name.length <= maxNameBytes) return name;
+    return name.substring(0, maxNameBytes);
+  }
+
   /// Whether [link] fits in a QR code. Past this the code is still perfectly
   /// shareable as a link, a copy or a file — an honest "too big for a QR" beats
   /// painting a symbol nothing can read.
@@ -241,7 +262,10 @@ abstract final class RoutineCode {
 
   // -- Exercise flag bits (frozen) ------------------------------------------
   static const int _exCustom = 1 << 0;
-  static const int _exInstructions = 1 << 1;
+  // Bit 1 was the instructions field and is now reserved. Left as a hole rather
+  // than renumbering: the bits above it are meaningful in codes people may
+  // already hold, and a gap in a constant list is cheaper than a subtle
+  // off-by-one in a wire format.
   static const int _exVideo = 1 << 2;
   static const int _exTimed = 1 << 3;
   static const int _exWeightType = 1 << 4;
@@ -268,36 +292,36 @@ abstract final class RoutineCode {
   /// Encodes [routine] as a shareable code.
   static String encode(SharedRoutine routine) {
     final body = ByteWriter();
-    body.string(routine.name);
+    body.string(_clampName(routine.name));
     body.bytes(_rgb(routine.colorHex));
     body.varint(routine.restSeconds);
     body.varint(routine.scheduleDays);
 
     body.varint(routine.exercises.length);
     for (final e in routine.exercises) {
-      final hasVideo = e.isCustom && (e.videoUrl?.isNotEmpty ?? false);
-      final hasInstructions = e.isCustom && e.instructions.isNotEmpty;
+      // Eleven characters, or nothing: a link we cannot resolve to a video is a
+      // page, and a page is not worth the ninety bytes it costs.
+      final videoId =
+          e.videoUrl == null ? null : youTubeVideoId(e.videoUrl!);
       // Only worth sending when it is not what this equipment implies anyway.
       final typed = e.weightType != weightTypeForEquipment(e.equipment);
 
       body.byte((e.isCustom ? _exCustom : 0) |
-          (hasInstructions ? _exInstructions : 0) |
-          (hasVideo ? _exVideo : 0) |
+          (videoId != null ? _exVideo : 0) |
           (e.measure == ExerciseMeasure.time ? _exTimed : 0) |
           (typed ? _exWeightType : 0) |
           (e.barWeight != null ? _exBarWeight : 0));
-      body.string(e.name);
+      body.string(_clampName(e.name));
       _writeWord(body, e.muscleGroup, kMuscleGroups);
       _writeWord(body, e.equipment, kEquipmentTypes);
-      if (hasInstructions) body.string(e.instructions);
-      if (hasVideo) body.string(e.videoUrl!);
+      if (videoId != null) body.string(videoId);
       if (typed) body.byte(e.weightType.index);
       if (e.barWeight != null) body.fixed2(e.barWeight!);
     }
 
     body.varint(routine.workouts.length);
     for (final w in routine.workouts) {
-      body.string(w.name);
+      body.string(_clampName(w.name));
       body.varint(w.items.length);
       for (final it in w.items) {
         body.varint(it.exercise);
@@ -355,7 +379,7 @@ abstract final class RoutineCode {
   }
 
   static SharedRoutine _read(ByteReader r) {
-    final name = r.string();
+    final name = _clampName(r.string());
     final color = _hex(r.byte(), r.byte(), r.byte());
     final rest = r.varint();
     final days = r.varint();
@@ -364,13 +388,12 @@ abstract final class RoutineCode {
     final exerciseCount = r.varint();
     for (var i = 0; i < exerciseCount; i++) {
       final flags = r.byte();
-      final exName = r.string();
+      final exName = _clampName(r.string());
       final muscle = _readWord(r, kMuscleGroups);
       final equipment = _readWord(r, kEquipmentTypes);
       // Read in wire order, into locals: the fields are positional in the byte
       // stream even though they are named in the constructor.
-      final instructions = flags & _exInstructions != 0 ? r.string() : '';
-      final video = flags & _exVideo != 0 ? r.string() : null;
+      final video = flags & _exVideo != 0 ? youTubeUrl(r.string()) : null;
       final weightType = flags & _exWeightType != 0
           ? _weightType(r.byte())
           : weightTypeForEquipment(equipment);
@@ -384,7 +407,6 @@ abstract final class RoutineCode {
         measure: flags & _exTimed != 0
             ? ExerciseMeasure.time
             : ExerciseMeasure.reps,
-        instructions: instructions,
         videoUrl: video,
         weightType: weightType,
         barWeight: barWeight,
@@ -394,7 +416,7 @@ abstract final class RoutineCode {
     final workouts = <SharedWorkout>[];
     final workoutCount = r.varint();
     for (var i = 0; i < workoutCount; i++) {
-      final dayName = r.string();
+      final dayName = _clampName(r.string());
       final items = <SharedItem>[];
       final itemCount = r.varint();
       for (var j = 0; j < itemCount; j++) {
