@@ -172,7 +172,8 @@ the starter library only the Plank is held.
   pending back-off.
 - A weight-mode slot with no `suggestedWeight` has no target to move — nothing
   happens, rather than inventing "load 2.5 kg onto a push-up".
-`_seed()` populates the starter library (~30 exercises) plus two demo routines
+`_seed()` populates the starter library (~85 exercises, from the
+`_starterLibrary` table above it) plus two demo routines
 (PPL and Upper/Lower) on first launch.
 
 `database.g.dart` is generated — after editing tables/`@DriftDatabase`, run:

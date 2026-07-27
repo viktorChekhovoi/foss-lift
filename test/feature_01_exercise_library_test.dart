@@ -24,9 +24,58 @@ void main() {
       final all = await db.watchExercises().first;
       final starters = all.where((e) => !e.isCustom).toList();
 
-      // ~30 curated movements. Exactly the seeded set is custom-free.
-      expect(starters.length, greaterThanOrEqualTo(30));
+      // ~85 curated movements. Exactly the seeded set is custom-free.
+      expect(starters.length, greaterThanOrEqualTo(80));
       expect(all.every((e) => !e.isCustom), isTrue);
+    });
+
+    test('no movement is seeded twice', () async {
+      final names = (await db.watchExercises().first).map((e) => e.name);
+      expect(names.toSet().length, names.length);
+    });
+
+    test('the starter set covers every muscle group and every equipment kind',
+        () async {
+      final all = await db.watchExercises().first;
+
+      // A group nobody can fill from the library is a group the picker offers
+      // for nothing.
+      for (final group in kMuscleGroups) {
+        expect(all.where((e) => e.muscleGroup == group).length,
+            greaterThanOrEqualTo(3),
+            reason: '$group is thin in the starter library');
+      }
+      for (final kind in kEquipmentTypes) {
+        expect(all.any((e) => e.equipment == kind), isTrue,
+            reason: 'nothing in the library is $kind');
+      }
+    });
+
+    test('the movements a thin library was missing are all present', () async {
+      final names = (await db.watchExercises().first).map((e) => e.name);
+
+      expect(
+        names,
+        containsAll([
+          'Hip Thrust', // glutes
+          'Romanian Deadlift', // hip hinge
+          'Chest Dip', // dip
+          'Chin-Up', // vertical pull, supinated
+          'Barbell Shrug', // traps
+          'Wrist Curl', // forearms
+        ]),
+      );
+    });
+
+    test('the starter library invents no new vocabulary', () async {
+      final all = await db.watchExercises().first;
+
+      // Both lists are a wire format for a shared routine — a word outside
+      // them costs bytes in every code that carries it.
+      for (final e in all) {
+        expect(kMuscleGroups, contains(e.muscleGroup), reason: e.name);
+        expect(kEquipmentTypes, contains(e.equipment), reason: e.name);
+      }
     });
 
     test('every starter carries a demo-video link', () async {
@@ -145,11 +194,15 @@ void main() {
   });
 
   group('measure is a fixed fact of the movement', () {
-    test('only the Plank is held in the starter library', () async {
+    test('the held starters are exactly the movements with no rep to count',
+        () async {
       final all = await db.watchExercises().first;
       final held = all.where((e) => e.measure == ExerciseMeasure.time).toList();
 
-      expect(held.map((e) => e.name), ['Plank']);
+      expect(
+        held.map((e) => e.name).toSet(),
+        {'Plank', 'Side Plank', 'Hollow Hold', 'Dead Hang', "Farmer's Carry"},
+      );
       expect(
         (await exerciseNamed(db, 'Bench Press')).measure,
         ExerciseMeasure.reps,

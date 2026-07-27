@@ -331,6 +331,129 @@ typedef ThemeSetting = ({String? presetId, String? customJson});
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 
+/// The curated starter library, as muscle group → movement → equipment.
+///
+/// Six groups have to hold everything, because both lists are a wire format —
+/// a shared routine sends "muscle group #4" rather than the word, see
+/// `exercise_taxonomy.dart`. So glute work is filed under Legs, traps under
+/// Back, forearms under Arms, and the movements that answer to no single group
+/// — a carry, a swing, a clean — under Other.
+///
+/// Each group aims to cover the movement patterns that matter in it, at every
+/// kind of loading a gym offers, without turning the picker into a catalogue.
+/// How a movement is loaded is left to `weightTypeForEquipment`, and its demo
+/// link to a YouTube search, which cannot rot the way a video id can.
+const Map<String, Map<String, String>> _starterLibrary = {
+  'Chest': {
+    'Bench Press': 'Barbell',
+    'Incline Bench Press': 'Barbell',
+    'Decline Bench Press': 'Barbell',
+    'Dumbbell Bench Press': 'Dumbbell',
+    'Incline DB Press': 'Dumbbell',
+    'Dumbbell Fly': 'Dumbbell',
+    'Machine Chest Press': 'Machine',
+    'Pec Deck': 'Machine',
+    'Cable Fly': 'Cable',
+    'Push-Up': 'Bodyweight',
+    'Chest Dip': 'Bodyweight',
+  },
+  'Back': {
+    'Deadlift': 'Barbell',
+    'Barbell Row': 'Barbell',
+    'Barbell Shrug': 'Barbell',
+    'Dumbbell Row': 'Dumbbell',
+    'T-Bar Row': 'Machine',
+    'Chest-Supported Row': 'Machine',
+    'Lat Pulldown': 'Cable',
+    'Seated Cable Row': 'Cable',
+    'Straight-Arm Pulldown': 'Cable',
+    'Face Pull': 'Cable',
+    'Pull-Up': 'Bodyweight',
+    'Chin-Up': 'Bodyweight',
+    'Inverted Row': 'Bodyweight',
+    'Back Extension': 'Bodyweight',
+    'Dead Hang': 'Bodyweight',
+  },
+  'Shoulders': {
+    'Overhead Press': 'Barbell',
+    'Push Press': 'Barbell',
+    'Upright Row': 'Barbell',
+    'Dumbbell Shoulder Press': 'Dumbbell',
+    'Arnold Press': 'Dumbbell',
+    'Lateral Raise': 'Dumbbell',
+    'Front Raise': 'Dumbbell',
+    'Rear Delt Fly': 'Dumbbell',
+    'Machine Shoulder Press': 'Machine',
+    'Reverse Pec Deck': 'Machine',
+    'Cable Lateral Raise': 'Cable',
+  },
+  'Legs': {
+    'Back Squat': 'Barbell',
+    'Front Squat': 'Barbell',
+    'Sumo Deadlift': 'Barbell',
+    'Romanian Deadlift': 'Barbell',
+    'Good Morning': 'Barbell',
+    'Hip Thrust': 'Barbell',
+    'Goblet Squat': 'Dumbbell',
+    'Bulgarian Split Squat': 'Dumbbell',
+    'Walking Lunge': 'Dumbbell',
+    'Step-Up': 'Dumbbell',
+    'Leg Press': 'Machine',
+    'Hack Squat': 'Machine',
+    'Leg Curl': 'Machine',
+    'Leg Extension': 'Machine',
+    'Calf Raise': 'Machine',
+    'Seated Calf Raise': 'Machine',
+    'Hip Abduction': 'Machine',
+    'Cable Pull-Through': 'Cable',
+    'Glute Kickback': 'Cable',
+  },
+  'Arms': {
+    'Barbell Curl': 'Barbell',
+    'Preacher Curl': 'Barbell',
+    'Reverse Curl': 'Barbell',
+    'Close-Grip Bench Press': 'Barbell',
+    'Skull Crusher': 'Barbell',
+    'Dumbbell Curl': 'Dumbbell',
+    'Hammer Curl': 'Dumbbell',
+    'Incline Dumbbell Curl': 'Dumbbell',
+    'Wrist Curl': 'Dumbbell',
+    'Triceps Pushdown': 'Cable',
+    'Overhead Cable Extension': 'Cable',
+    'Cable Curl': 'Cable',
+    'Triceps Dip': 'Bodyweight',
+  },
+  'Core': {
+    'Cable Crunch': 'Cable',
+    'Pallof Press': 'Cable',
+    'Machine Crunch': 'Machine',
+    'Ab Wheel Rollout': 'Other',
+    'Plank': 'Bodyweight',
+    'Side Plank': 'Bodyweight',
+    'Hollow Hold': 'Bodyweight',
+    'Hanging Leg Raise': 'Bodyweight',
+    'Crunch': 'Bodyweight',
+    'Reverse Crunch': 'Bodyweight',
+    'Russian Twist': 'Bodyweight',
+    'Dead Bug': 'Bodyweight',
+  },
+  'Other': {
+    'Power Clean': 'Barbell',
+    "Farmer's Carry": 'Dumbbell',
+    'Kettlebell Swing': 'Other',
+  },
+};
+
+/// The starters with no rep to count, so the clock is the only thing that can
+/// go up. Everything else in [_starterLibrary] is measured in reps.
+const Set<String> _heldStarters = {
+  'Plank',
+  'Side Plank',
+  'Hollow Hold',
+  'Dead Hang',
+  "Farmer's Carry",
+};
+
 /// The workout a routine should suggest next, given its workouts in order and
 /// the workout logged by the most recent finished session.
 ///
@@ -1190,46 +1313,18 @@ class AppDatabase extends _$AppDatabase {
       );
     }
 
-    // Chest
-    await ex('Bench Press', 'Chest', 'Barbell');
-    await ex('Incline DB Press', 'Chest', 'Dumbbell');
-    await ex('Push-Up', 'Chest', 'Bodyweight');
-    await ex('Cable Fly', 'Chest', 'Cable');
-    await ex('Machine Chest Press', 'Chest', 'Machine');
-    // Back
-    await ex('Deadlift', 'Back', 'Barbell');
-    await ex('Pull-Up', 'Back', 'Bodyweight');
-    await ex('Barbell Row', 'Back', 'Barbell');
-    await ex('Lat Pulldown', 'Back', 'Cable');
-    await ex('Seated Cable Row', 'Back', 'Cable');
-    await ex('Face Pull', 'Back', 'Cable');
-    // Shoulders
-    await ex('Overhead Press', 'Shoulders', 'Barbell');
-    await ex('Lateral Raise', 'Shoulders', 'Dumbbell');
-    await ex('Rear Delt Fly', 'Shoulders', 'Dumbbell');
-    await ex('Arnold Press', 'Shoulders', 'Dumbbell');
-    // Legs
-    await ex('Back Squat', 'Legs', 'Barbell');
-    await ex('Front Squat', 'Legs', 'Barbell');
-    await ex('Romanian Deadlift', 'Legs', 'Barbell');
-    await ex('Leg Press', 'Legs', 'Machine');
-    await ex('Leg Curl', 'Legs', 'Machine');
-    await ex('Leg Extension', 'Legs', 'Machine');
-    await ex('Calf Raise', 'Legs', 'Machine');
-    await ex('Walking Lunge', 'Legs', 'Dumbbell');
-    // Arms
-    await ex('Barbell Curl', 'Arms', 'Barbell');
-    await ex('Dumbbell Curl', 'Arms', 'Dumbbell');
-    await ex('Hammer Curl', 'Arms', 'Dumbbell');
-    await ex('Triceps Pushdown', 'Arms', 'Cable');
-    await ex('Skull Crusher', 'Arms', 'Barbell');
-    // Core
-    // The one held movement in the starter library: no rep count to progress,
-    // so the only axis it offers is time.
-    await ex('Plank', 'Core', 'Bodyweight',
-        measure: ExerciseMeasure.time);
-    await ex('Hanging Leg Raise', 'Core', 'Bodyweight');
-    await ex('Cable Crunch', 'Core', 'Cable');
+    for (final group in _starterLibrary.entries) {
+      for (final movement in group.value.entries) {
+        await ex(
+          movement.key,
+          group.key,
+          movement.value,
+          measure: _heldStarters.contains(movement.key)
+              ? ExerciseMeasure.time
+              : ExerciseMeasure.reps,
+        );
+      }
+    }
 
     // Two starter programmes, each split into its training days. Upper/Lower
     // deliberately repeats a day name — that is legal and worth demonstrating.

@@ -4,7 +4,7 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 
 ## What it does
 
-- Ships a starter library of ~30 exercises, each with a **demo-video link**.
+- Ships a starter library of ~85 exercises, each with a **demo-video link**.
 - Is **searchable** by name, and each exercise opens a detail page with its
   facts and demo link.
 - Lets you **add your own custom exercises**, which sit alongside the starter set.
@@ -47,11 +47,17 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   YouTube *search* link, which names no video. See
   [sharing a routine](14-routine-sharing.md).
 
+- **Six muscle groups have to hold everything.** The group and equipment lists
+  are a wire format — a shared routine sends "muscle group #4" rather than the
+  word — so they cannot grow to suit the library. Glute work is filed under
+  Legs, traps under Back, forearms under Arms, and the movements that belong to
+  no one group (a carry, a kettlebell swing, a power clean) under Other.
 - **Weight type is seeded from equipment:** Barbell → bar, Dumbbell → dumbbell,
   everything else (bodyweight included) → machine. You can override it afterward.
 - **Measure is fixed at creation** for custom exercises; in the starter library
-  only the Plank is *held*. A held exercise offers only the *time* progression
-  axis; a counted one offers *weight* and *reps*.
+  the *held* movements are the ones with no rep to count — Plank, Side Plank,
+  Hollow Hold, Dead Hang and Farmer's Carry. A held exercise offers only the
+  *time* progression axis; a counted one offers *weight* and *reps*.
 - **History survives library edits.** Logged sets store the exercise name
   denormalised, so renaming or deleting an exercise never rewrites past sessions.
 
@@ -66,4 +72,4 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 
 - [#1 Exercise library](https://github.com/viktorChekhovoi/foss-lift/issues/1) — shipped
 - [#13 Weight types and plate math](https://github.com/viktorChekhovoi/foss-lift/issues/13) — shipped
-- [#16 Exercise library export / import](https://github.com/viktorChekhovoi/foss-lift/issues/16) — planned
+- [#16 Expand the seeded exercise library](https://github.com/viktorChekhovoi/foss-lift/issues/16) — shipped

@@ -9,8 +9,8 @@ you miss or come back from a break, and tells you which plates to put on the bar
 
 ## Features
 
-- **Exercise library** — a curated, searchable starter set (~30 exercises, each
-  with a form cue and a demo link), plus your own **custom exercises**. Every
+- **Exercise library** — a curated, searchable starter set (~85 exercises, each
+  with a demo link), plus your own **custom exercises**. Every
   exercise carries how it's measured (**reps** or a **timed hold**), its
   **weight type** (barbell / machine / dumbbell), and an optional bar of its own.
 - **Routines, workouts, days** — a programme is three levels deep: a **routine**
