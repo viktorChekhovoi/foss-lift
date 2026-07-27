@@ -511,25 +511,26 @@ class AppDatabase extends _$AppDatabase {
   /// For unit tests: pass an in-memory `NativeDatabase.memory()`.
   AppDatabase.forTesting(super.e);
 
-  @override
-  int get schemaVersion => 2;
-
-  /// A fresh install creates every table at its current shape and seeds it;
-  /// an existing one climbs the ladder below.
+  /// Still v1, and staying there until the app ships.
   ///
-  /// **v2 removed `Exercises.instructions`.** The coaching cue was a paragraph
-  /// nobody read on a screen they had already decided to open, and the demo
-  /// link says the same thing better. Dropping a column in SQLite means
-  /// rebuilding the table, which [TableMigration] does from the current
-  /// definition — the text in that column is gone for good, which is the point.
+  /// Nothing is installed anywhere, so there is no older database in the world
+  /// to climb a ladder from. A schema change is made by editing the table and
+  /// regenerating — not by appending a migration step whose only possible input
+  /// is a database that has never existed. There was a v2 here once, for
+  /// dropping the coaching cue from `Exercises`; it was carrying a rung nobody
+  /// could ever stand on, and the column is simply absent now.
+  ///
+  /// **This changes on the first public release.** From that build onward the
+  /// shipped shape is v1 for real, every later change is a rung, and none of
+  /// them may be rewritten.
+  @override
+  int get schemaVersion => 1;
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _seed();
-        },
-        onUpgrade: (m, from, to) async {
-          if (from < 2) await m.alterTable(TableMigration(exercises));
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

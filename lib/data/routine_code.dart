@@ -260,16 +260,16 @@ abstract final class RoutineCode {
   /// painting a symbol nothing can read.
   static bool fitsQr(String link) => qrHolds(link.length);
 
-  // -- Exercise flag bits (frozen) ------------------------------------------
+  // -- Exercise flag bits ---------------------------------------------------
+  // Frozen from the first public release, not before it. Bit 1 was the
+  // instructions field and was briefly held open as a reserved hole, on the
+  // reasoning that codes people already hold would be misread otherwise —
+  // except the app has never shipped, so nobody holds one. The hole is closed.
   static const int _exCustom = 1 << 0;
-  // Bit 1 was the instructions field and is now reserved. Left as a hole rather
-  // than renumbering: the bits above it are meaningful in codes people may
-  // already hold, and a gap in a constant list is cheaper than a subtle
-  // off-by-one in a wire format.
-  static const int _exVideo = 1 << 2;
-  static const int _exTimed = 1 << 3;
-  static const int _exWeightType = 1 << 4;
-  static const int _exBarWeight = 1 << 5;
+  static const int _exVideo = 1 << 1;
+  static const int _exTimed = 1 << 2;
+  static const int _exWeightType = 1 << 3;
+  static const int _exBarWeight = 1 << 4;
 
   // -- Slot field bits (frozen; read in ascending order) --------------------
   static const int _fSets = 1 << 0;

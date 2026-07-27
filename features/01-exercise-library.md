@@ -32,7 +32,7 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 ## Behaviour & edge cases
 
 - **An exercise has no written instructions.** There was a coaching-cue field;
-  it was removed in schema v2, along with everything anyone had typed into it. A
+  it was removed, along with everything anyone had typed into it. A
   paragraph of technique advice is not what an exercise row is for, and the demo
   link does the same job better. The movement is identified by its name and its
   facts — muscle group, equipment, how it is loaded, how it is measured.

@@ -114,8 +114,8 @@ a dangling pointer resolves to null in the UI rather than failing a constraint.
 Settings writes go through `_writeSettings`, which upserts only the columns you
 pass — so setting the unit never clobbers the current routine, and vice versa.
 
-Watch the vocabulary — before schema v2, `Workouts` meant a logged session.
-It now means a day template; the logged thing is a `Session`.
+Watch the vocabulary — `Workouts` once meant a logged session. It now means a
+day template; the logged thing is a `Session`.
 
 A set is measured **either** in reps **or** in seconds, never both: a timed set
 stores `seconds`/`goalSeconds` and leaves `reps`/`goalReps` at zero, which keeps
@@ -469,13 +469,14 @@ you never looked at.
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
   `build_runner`, add a query method, expose it via a provider. The schema is at
-  **v2**: `onCreate` builds every table at its current shape and seeds it, and
-  `onUpgrade` carries an installed phone forward. v2 dropped
-  `Exercises.instructions` — a column removal in SQLite means rebuilding the
-  table, which `m.alterTable(TableMigration(exercises))` does from the current
-  definition. Bump `schemaVersion` and add an `onUpgrade` step for anything that
-  has to preserve installed data; a step that writes DDL by hand must build the
-  shape of *its own era*, never `m.createTable`.
+  **v1 and stays there until the app ships** — `onCreate` builds every table at
+  its current shape and seeds it, and there is no `onUpgrade`, because no
+  installed database exists to carry forward. Change tables in place. Do not
+  bump `schemaVersion` and do not add a migration rung; see the "nothing has
+  shipped yet" rule in `CLAUDE.md`. **From the first public release this
+  inverts:** the shipped shape is v1 for real, and every change after it needs
+  an `onUpgrade` step — one that writes DDL by hand must build the shape of
+  *its own era*, never `m.createTable`.
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,
   and a control in `settings_screen.dart`.
 - **Roadmap features** (plate math, charts, sharing, themes) are ranked in the GitHub issue tracker. Most build on the data model already in

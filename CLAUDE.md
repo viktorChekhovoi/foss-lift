@@ -102,6 +102,35 @@ rather than implementing it.
 - A "build" button next to "start a routine". That screen is for working out,
   not editing. An edit icon that navigates to the routine/workout editor is fine.
 
+## Nothing has shipped yet — do not write compatibility code
+
+**There are no existing installs.** No phone anywhere holds a FossLift
+database, a shared routine code or an exported file. Every user is a fresh
+install, today and until the first public release.
+
+So: **change formats in place. Never add a compatibility layer for a past that
+does not exist.**
+
+- **The drift schema stays at v1.** Change the table, run build_runner, done.
+  Do not bump `schemaVersion` and do not add an `onUpgrade` rung — its only
+  possible input is a database that has never existed. A migration written now
+  is untestable, unreachable, and a lie about the app's history.
+- **Wire formats are not frozen yet.** `kMuscleGroups`, `kEquipmentTypes`, the
+  `FLR1` flag bits — reorder, renumber and reuse them freely. Do not leave
+  reserved holes, do not renumber around a "codes people may already hold": no
+  one holds one.
+- **Data loss is not a consideration for shipped data.** There is none. A
+  removed column takes nothing with it.
+
+This is the one rule with an expiry date. **On the first public release it
+inverts:** the shipped schema becomes v1 for real, every later change is a
+migration rung, and every wire format is frozen for good. Anything relying on
+this rule should say so where it lives, so it can be found again then. When
+the release happens, this section gets rewritten, not deleted.
+
+If a change seems to need compatibility code, you have found a case this rule
+did not anticipate — raise it rather than quietly writing the migration.
+
 ## Conventions
 
 - **UI never touches SQLite directly.** Screens watch Riverpod providers;
