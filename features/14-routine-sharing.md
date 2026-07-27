@@ -68,9 +68,22 @@ exercises it depends on — as one line of text you can paste into a message.
   long, genuinely dissimilar custom-exercise descriptions to get there —
   ordinary wordy ones deflate away.
 - **The symbol is drawn as large as the screen allows.** Density is the real
-  limit on scanning a screen with a camera, so the QR takes the available width
+  limit on scanning a screen with a camera, so the QR is sized off the screen
   rather than a fixed 220 pixels: every logical pixel per module is one the
-  other phone does not have to guess at.
+  other phone does not have to guess at. It measures the *screen* and not its
+  parent, and pins the result with a fixed box, because `QrImageView` asks its
+  parent how big it is and a dialog asks its content the same question in a
+  form that cannot be answered that way — which is how **Show QR** came to dim
+  the screen and paint nothing at all.
+- **Every host the app shares needs an Android intent filter**, or the link is
+  inert outside the app however well the routing handles it. Routines were
+  shareable for a while against a manifest that named only `theme`, so a
+  routine link opened nothing; a test now reads the manifest and checks each
+  host is listed. Chat apps still show a `fosslift://` link as plain text
+  rather than a tappable one — a custom scheme is not auto-linkified the way
+  `https` is, and that trade-off is the price of needing no domain and no
+  server. Long-pressing and opening it works; an https App Link can be added
+  alongside later without invalidating a single code already shared.
 - **Progress does not travel.** The success/failure streaks and the sender's
   reminder time are left behind: they are facts about the sender's training and
   their notifications, not about the programme. Everything else — including the
@@ -108,9 +121,12 @@ exercises it depends on — as one line of text you can paste into a message.
 - Screens: `lib/screens/routine_share_screen.dart`,
   `lib/screens/routine_import_screen.dart`; the scanner is
   `lib/screens/scan_screen.dart`, shared with themes.
-- Links: `lib/services/deep_links.dart` maps `fosslift://routine/<code>`.
+- Links: `lib/services/deep_links.dart` maps `fosslift://routine/<code>`; the
+  intent filter that gets Android to hand one over is in
+  `android/app/src/main/AndroidManifest.xml`.
 
 ## Related issues
 
 - [#15 Share routines: export / import](https://github.com/viktorChekhovoi/foss-lift/issues/15)
 - [#27 Portable theme code](https://github.com/viktorChekhovoi/foss-lift/issues/27) — the same idea, one feature earlier
+- [#50 Share links do not open the app, and the QR dialog comes up blank](https://github.com/viktorChekhovoi/foss-lift/issues/50) — shipped, in review

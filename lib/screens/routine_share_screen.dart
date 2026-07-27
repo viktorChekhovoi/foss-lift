@@ -57,15 +57,10 @@ class RoutineShareScreen extends ConsumerWidget {
           '${routine.exercises.length == 1 ? 'exercise' : 'exercises'}',
           style: kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
         ),
-        const SizedBox(height: 18),
-        Center(
-          child: ShareQr(
-            data: link,
-            caption: 'Point another phone at this. Foss Lift will ask before '
-                'adding anything.',
-          ),
-        ),
         const SizedBox(height: 22),
+        // No QR on the page as well as behind the button. Two of the same
+        // symbol on one screen is one too many, and the button is the one the
+        // theme screen has.
         shareSectionLabel('SEND IT'),
         const SizedBox(height: 10),
         shareActionRow([

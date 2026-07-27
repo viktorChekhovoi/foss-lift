@@ -63,13 +63,26 @@ class DeepLinkListener extends StatefulWidget {
 class _DeepLinkListenerState extends State<DeepLinkListener> {
   Object? _subscription;
 
+  /// The last link actually routed, across every instance of this widget.
+  ///
+  /// Static because the instance does not outlive the reason to remember. The
+  /// app root re-keys `MaterialApp` on a palette change, which tears this down
+  /// and builds a fresh one; the fresh one subscribes and `uriLinkStream`
+  /// replays the link that launched the app. Without this, changing the theme
+  /// after opening a shared theme drops you back on the import screen you just
+  /// came from.
+  static Uri? _routed;
+
   @override
   void initState() {
     super.initState();
     _subscription = AppLinks().uriLinkStream.listen(
       (uri) {
+        if (uri == _routed) return;
         final route = routeForLink(uri);
-        if (route != null && mounted) widget.router.push(route);
+        if (route == null || !mounted) return;
+        _routed = uri;
+        widget.router.push(route);
       },
       // A malformed link from the OS is not worth crashing over; the user gets
       // the app they tapped to open, just not the import.

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -36,11 +38,50 @@ class ShareQr extends StatelessWidget {
   /// One line under the symbol saying what to do with it.
   final String caption;
 
-  /// The largest the symbol will be drawn. It otherwise takes whatever width it
-  /// is given: a long payload is a denser grid, and every logical pixel per
+  /// The largest the symbol will be drawn. It is otherwise sized off the
+  /// screen: a long payload is a denser grid, and every logical pixel per
   /// module is one the scanning camera does not have to guess at. Capped so it
   /// does not become a billboard on a tablet.
   final double maxSize;
+
+  /// The side of the symbol, in logical pixels.
+  ///
+  /// Measured from the **screen**, not from the parent's constraints, and then
+  /// nailed down with a tight [SizedBox]. Both halves of that matter, and the
+  /// blank QR dialog needed both.
+  ///
+  /// `AlertDialog` sizes its content through `IntrinsicWidth`, and a
+  /// `LayoutBuilder` cannot answer an intrinsic-width query — it would have to
+  /// run its layout callback speculatively. `QrImageView` *is* a
+  /// `LayoutBuilder` inside, whatever size it is handed, so every QR in a
+  /// dialog threw during layout and left a barrier dimming the screen over
+  /// nothing at all. A `SizedBox` with a tight width and height answers the
+  /// intrinsic query out of its own constraints without ever descending into
+  /// the child, which is what keeps the question away from the builder.
+  ///
+  /// Both dimensions are consulted because a dialog is short as well as narrow.
+  /// [_chromeAcross] and [_chromeDown] are what surrounds a symbol at its most
+  /// cramped. On any real phone the width is what binds, so the generous
+  /// vertical allowance costs nothing where it matters and keeps a short screen
+  /// from overflowing its own dialog.
+  ///
+  /// Below 160 a symbol stops being worth pointing a camera at, so it stops
+  /// shrinking there rather than degrading into an unreadable one.
+  double _sideFor(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    return math
+        .min(screen.width - _chromeAcross, screen.height - _chromeDown)
+        .clamp(160.0, maxSize);
+  }
+
+  /// A dialog's own side insets, plus its content padding, plus the white
+  /// card's.
+  static const _chromeAcross = 96.0;
+
+  /// A dialog's top and bottom insets, its title, its buttons, the white card's
+  /// padding and the caption under the symbol — which wraps to three lines at a
+  /// large font scale, so this is rounded up rather than measured.
+  static const _chromeDown = 320.0;
 
   @override
   Widget build(BuildContext context) {
@@ -48,59 +89,53 @@ class ShareQr extends StatelessWidget {
     // when only low will hold it. See `util/qr_capacity.dart`.
     final ecc = qrEccFor(data.length);
     if (ecc == null) return _tooBig();
+    final side = _sideFor(context);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 24 is the white card's padding; the symbol gets the rest.
-        final available = constraints.hasBoundedWidth
-            ? constraints.maxWidth - 24
-            : maxSize;
-        final size = available.clamp(160.0, maxSize);
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: SizedBox(
+            width: side,
+            height: side,
+            child: QrImageView(
+              data: data,
+              size: side,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Colors.black,
               ),
-              child: QrImageView(
-                data: data,
-                size: size,
-                backgroundColor: Colors.white,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: Colors.black,
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Colors.black,
-                ),
-                // The margin is the quiet zone every scanner needs to find the
-                // symbol at all.
-                padding: const EdgeInsets.all(8),
-                errorCorrectionLevel: switch (ecc) {
-                  QrEcc.medium => QrErrorCorrectLevel.M,
-                  QrEcc.low => QrErrorCorrectLevel.L,
-                },
-                // The capacity check above should make this unreachable; it is
-                // here because a QR library refusing to encode must show the
-                // honest card, never throw into a build.
-                errorStateBuilder: (_, _) => _tooBig(),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Colors.black,
               ),
+              // The margin is the quiet zone every scanner needs to find the
+              // symbol at all.
+              padding: const EdgeInsets.all(8),
+              errorCorrectionLevel: switch (ecc) {
+                QrEcc.medium => QrErrorCorrectLevel.M,
+                QrEcc.low => QrErrorCorrectLevel.L,
+              },
+              // The capacity check above should make this unreachable; it is
+              // here because a QR library refusing to encode must show the
+              // honest card, never throw into a build.
+              errorStateBuilder: (_, _) => _tooBig(),
             ),
-            const SizedBox(height: 12),
-            Text(
-              caption,
-              textAlign: TextAlign.center,
-              style:
-                  TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          caption,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4),
+        ),
+      ],
     );
   }
 

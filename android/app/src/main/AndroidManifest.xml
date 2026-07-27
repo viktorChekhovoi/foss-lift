@@ -30,9 +30,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Shared colour themes arrive as fosslift://theme/FLT1.<code>,
-                 which is what a shared link and a scanned QR both contain. A
-                 custom scheme rather than an https App Link on purpose: it
+            <!-- Shared things arrive as fosslift://<host>/<code>, which is what
+                 a shared link and a scanned QR both contain: theme/FLT1.… for a
+                 colour theme, routine/FLR1.… for a routine. **Every host the
+                 app shares needs a filter here**, or the link is inert outside
+                 the app however well routeForLink handles it — routines were
+                 shareable for a while with no filter to catch them.
+
+                 A custom scheme rather than an https App Link on purpose: it
                  needs no domain, no hosting and no network, so it cannot stop
                  working when nobody is paying for a server. An https filter can
                  be added alongside this one later without invalidating any code
@@ -42,6 +47,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="fosslift" android:host="theme"/>
+                <data android:scheme="fosslift" android:host="routine"/>
             </intent-filter>
         </activity>
         <!-- The notification plugin's receivers: one to show a scheduled

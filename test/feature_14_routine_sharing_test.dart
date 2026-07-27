@@ -14,6 +14,8 @@
 //
 // Exercised through the real public surface: the codec, the arrival plan, the
 // database methods, the link mapping and the two screens.
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +31,7 @@ import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/util/qr_capacity.dart';
 import 'package:foss_lift/util/video_links.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
@@ -799,6 +802,25 @@ void main() {
         expect(routeForLink(Uri.parse(uri)), isNull, reason: uri);
       }
     });
+
+    test('Android is told to hand us every host we share', () {
+      // Routing a link is only half of it: with no intent filter for the host,
+      // Android never launches the app and `routeForLink` is never asked. That
+      // is exactly how routine links came to be inert while theme links worked
+      // — the filter named one host and the app shared two.
+      final manifest =
+          File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+
+      for (final host in [RoutineCode.host, ThemeCode.host]) {
+        expect(
+          manifest,
+          contains('android:scheme="$kShareScheme" android:host="$host"'),
+          reason: 'nothing in the manifest catches $kShareScheme://$host/…',
+        );
+      }
+      // And they are catchable from outside the app at all.
+      expect(manifest, contains('android.intent.category.BROWSABLE'));
+    });
   });
 
   group('the screens', () {
@@ -813,18 +835,47 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Elbow Day'), findsWidgets);
-      // The QR is drawn as large as the screen allows, so the actions sit below
-      // the fold — scroll to each rather than asserting on what happens to be
-      // built.
       for (final label in ['Show QR', 'Send link']) {
-        await tester.scrollUntilVisible(find.text(label), 120,
-            scrollable: find.byType(Scrollable).first);
         expect(find.text(label), findsOneWidget);
       }
       // The share sheet already offers "copy", and a file saved beside the app
       // is a code you then have to go and find. Both are gone.
       expect(find.text('Copy code'), findsNothing);
       expect(find.text('Save file'), findsNothing);
+      // And the symbol lives behind the button, not on the page as well.
+      expect(find.byType(QrImageView), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('Show QR paints a symbol, not an empty dialog', (tester) async {
+      // The dialog came up as a dimmed screen and nothing else: ShareQr asked
+      // its parent how wide it was through a LayoutBuilder, and AlertDialog
+      // sizes its content by an intrinsic-width query a LayoutBuilder cannot
+      // answer, so the content measured zero.
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final id = (await tester.runAsync(() => _seedCustomRoutine(db)))!;
+
+      await tester
+          .pumpWidget(appUnder(container, RoutineShareScreen(routineId: id)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Show QR'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      final qr = find.byType(QrImageView);
+      expect(qr, findsOneWidget, reason: 'the dialog drew no symbol');
+
+      // Big enough for a camera to resolve, and inside the dialog it sits in.
+      final drawn = tester.getSize(qr);
+      expect(drawn.width, greaterThanOrEqualTo(160));
+      expect(drawn.height, greaterThanOrEqualTo(160));
+      expect(
+        tester.getRect(qr).width,
+        lessThanOrEqualTo(tester.getSize(find.byType(AlertDialog)).width),
+      );
 
       await stop(tester);
     });
