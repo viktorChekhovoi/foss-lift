@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
+import '../widgets/share_widgets.dart';
 
 class RoutinesScreen extends ConsumerWidget {
   const RoutinesScreen({super.key});
@@ -54,6 +55,24 @@ class RoutinesScreen extends ConsumerWidget {
                   ],
                   const SizedBox(height: 4),
                   _NewRoutineButton(),
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: shareSectionLabel('SOMEONE SHARED ONE'),
+                  ),
+                  const SizedBox(height: 10),
+                  shareActionRow([
+                    (
+                      Icons.qr_code_scanner,
+                      'Scan QR',
+                      () => context.push('/scan?for=routine')
+                    ),
+                    (
+                      Icons.content_paste,
+                      'Paste code',
+                      () => _pasteRoutine(context)
+                    ),
+                  ]),
                 ],
               ),
             ),
@@ -62,6 +81,15 @@ class RoutinesScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Takes a pasted routine code (or link, or the contents of a saved file) to
+/// the import screen — the only place a shared routine is ever added.
+Future<void> _pasteRoutine(BuildContext context) async {
+  final text = await promptForCode(context,
+      title: 'Paste a routine', hint: 'FLR1.… or a fosslift:// link');
+  if (text == null || !context.mounted) return;
+  context.push('/routine/import?code=${Uri.encodeQueryComponent(text)}');
 }
 
 class _NewRoutineButton extends StatelessWidget {

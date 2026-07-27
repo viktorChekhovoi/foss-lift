@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../data/share_code.dart';
 import 'app_theme.dart';
 
 /// A palette squeezed into something a person can paste into a chat message or
@@ -23,6 +24,10 @@ import 'app_theme.dart';
 /// read and everything else is dispatched on it, so a future `FLT2` may change
 /// the layout wholesale and this reader will decline it with "made by a newer
 /// version" rather than mangling it.
+///
+/// The envelope — the tag, the base64, the checksum, the link unwrapping and
+/// the three failure cases — is [ShareCodec], shared with the routine format.
+/// What is written *inside* it is this file's business:
 ///
 /// After the dot, base64url (unpadded) of:
 ///
@@ -50,8 +55,11 @@ abstract final class ThemeCode {
   /// The URL a shared theme travels as. A custom scheme rather than an https
   /// App Link: it needs no domain, no hosting and no network, and so cannot rot
   /// when nobody is paying for a server. See issue #29.
-  static const String scheme = 'fosslift';
-  static const String _linkPrefix = '$scheme://theme/';
+  static const String scheme = kShareScheme;
+
+  /// The link host a theme lives under, so `fosslift://theme/…` and
+  /// `fosslift://routine/…` route to different screens.
+  static const String host = 'theme';
 
   /// The twelve roles, in the order their bytes appear. **Frozen** — see the
   /// class docs.
@@ -79,7 +87,6 @@ abstract final class ThemeCode {
   static const int _colorsAt = 1;
   static const int _nameLenAt = _colorsAt + 12 * _colorBytes; // 37
   static const int _nameAt = _nameLenAt + 1; // 38
-  static const int _checksumBytes = 2;
 
   /// The longest name a code can carry, in UTF-8 bytes — one length byte.
   static const int maxNameBytes = 255;
@@ -111,20 +118,14 @@ abstract final class ThemeCode {
     body.add(name);
     body.add(extra);
 
-    final bytes = body.takeBytes();
-    final sum = _crc16(bytes);
-    final full = Uint8List(bytes.length + _checksumBytes)
-      ..setAll(0, bytes)
-      ..[bytes.length] = (sum >> 8) & 0xFF
-      ..[bytes.length + 1] = sum & 0xFF;
-
-    return '$version.${base64Url.encode(full).replaceAll('=', '')}';
+    return ShareCodec.pack(version, body.takeBytes());
   }
 
   /// The full share link for [palette] — what a QR code holds, so one image
   /// serves both a system camera (which routes the scheme to the app) and the
   /// in-app scanner (which strips the prefix and imports directly).
-  static String link(AppPalette palette) => '$_linkPrefix${encode(palette)}';
+  static String link(AppPalette palette) =>
+      '${ShareCodec.linkPrefix(host)}${encode(palette)}';
 
   /// Reads a code, a share link, or either with whitespace through it.
   ///
@@ -132,40 +133,12 @@ abstract final class ThemeCode {
   /// [ThemeCodeOk] with a complete theme or a [ThemeCodeFailure] saying which
   /// of the three things went wrong.
   static ThemeCodeResult decode(String source) {
-    // Pasted text arrives wrapped, indented, or with a trailing newline; a QR
-    // scan arrives as the whole link.
-    var s = source.replaceAll(RegExp(r'\s+'), '');
-    final at = s.indexOf(_linkPrefix);
-    if (at >= 0) s = s.substring(at + _linkPrefix.length);
-
-    final dot = s.indexOf('.');
-    if (dot <= 0) return const ThemeCodeFailure(ThemeCodeProblem.notACode);
-    final tag = s.substring(0, dot);
-    if (!RegExp(r'^FLT\d+$').hasMatch(tag)) {
-      return const ThemeCodeFailure(ThemeCodeProblem.notACode);
-    }
-    if (tag != version) {
-      return const ThemeCodeFailure(ThemeCodeProblem.futureVersion);
-    }
-
-    final payload = s.substring(dot + 1);
-    Uint8List bytes;
-    try {
-      bytes = base64Url.decode(payload.padRight(
-          payload.length + ((4 - payload.length % 4) % 4), '='));
-    } catch (_) {
-      return const ThemeCodeFailure(ThemeCodeProblem.damaged);
-    }
-
-    // Long enough for the fixed header, an empty name and the checksum.
-    if (bytes.length < _nameAt + _checksumBytes) {
-      return const ThemeCodeFailure(ThemeCodeProblem.damaged);
-    }
-    final bodyEnd = bytes.length - _checksumBytes;
-    final expected = (bytes[bodyEnd] << 8) | bytes[bodyEnd + 1];
-    if (_crc16(bytes.sublist(0, bodyEnd)) != expected) {
-      return const ThemeCodeFailure(ThemeCodeProblem.damaged);
-    }
+    // Long enough for the fixed header and an empty name.
+    final read = ShareCodec.unpack(source,
+        version: version, host: host, minBody: _nameAt);
+    if (read.problem != null) return ThemeCodeFailure(read.problem!);
+    final bytes = read.body!;
+    final bodyEnd = bytes.length;
 
     final nameLen = bytes[_nameLenAt];
     if (_nameAt + nameLen > bodyEnd) {
@@ -207,22 +180,6 @@ abstract final class ThemeCode {
   }
 
   static int _channel(double v) => (v * 255).round().clamp(0, 255);
-
-  /// CRC-16/CCITT-FALSE. Enough to catch the damage a code actually suffers —
-  /// a truncated copy-paste, a mistyped character — without the weight of a
-  /// real hash, which would cost QR density for no gain against an attacker
-  /// who could simply share a different theme.
-  static int _crc16(List<int> bytes) {
-    var crc = 0xFFFF;
-    for (final byte in bytes) {
-      crc ^= byte << 8;
-      for (var i = 0; i < 8; i++) {
-        crc = (crc & 0x8000) != 0 ? ((crc << 1) ^ 0x1021) : (crc << 1);
-        crc &= 0xFFFF;
-      }
-    }
-    return crc;
-  }
 }
 
 /// What came of reading a theme code.
@@ -241,29 +198,11 @@ final class ThemeCodeFailure extends ThemeCodeResult {
   const ThemeCodeFailure(this.problem);
   final ThemeCodeProblem problem;
 
-  /// Wording for the user. Each case gets its own advice, because what to do
-  /// about it differs: retype it, update the app, or check what you scanned.
-  String get message => switch (problem) {
-        ThemeCodeProblem.notACode =>
-          "That doesn't look like a theme code.",
-        ThemeCodeProblem.futureVersion =>
-          'That theme was made by a newer version of Foss Lift. Update the app '
-              'to use it.',
-        ThemeCodeProblem.damaged =>
-          'That theme code looks damaged — some of it may be missing. Try '
-              'copying it again.',
-      };
+  /// Wording for the user, in the shared phrasing — see [ShareCodeProblem].
+  String get message => problem.message('theme');
 }
 
-/// The three ways reading a code can fail, kept apart because the user can act
-/// on the difference.
-enum ThemeCodeProblem {
-  /// Not a theme code at all — a URL, a stray paste, empty text.
-  notACode,
-
-  /// A theme code, but in a format this build predates.
-  futureVersion,
-
-  /// The right format, but the bytes did not survive the trip.
-  damaged,
-}
+/// The three ways reading a theme code can fail. The same three as every other
+/// share code, so the wording and the handling stay in step — see
+/// [ShareCodeProblem].
+typedef ThemeCodeProblem = ShareCodeProblem;

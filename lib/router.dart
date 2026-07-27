@@ -11,11 +11,13 @@ import 'screens/plate_inventory_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/routine_detail_screen.dart';
 import 'screens/routine_edit_screen.dart';
+import 'screens/routine_import_screen.dart';
+import 'screens/routine_share_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
+import 'screens/scan_screen.dart';
 import 'screens/theme_import_screen.dart';
-import 'screens/theme_scan_screen.dart';
 import 'screens/theme_settings_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/workout_detail_screen.dart';
@@ -42,8 +44,21 @@ final appRouter = GoRouter(
         ),
       ],
     ),
-    // Routine builder (static path first so "/new" isn't captured by ":id").
+    // Routine builder (static paths first so they aren't captured by ":id").
     GoRoute(path: '/routine/new', builder: (c, s) => const RoutineEditScreen()),
+    // Where a shared routine lands, however it arrived: a scanned QR, a pasted
+    // code, a saved file, or a `fosslift://routine/...` link the OS handed us.
+    // Never adds anything on its own — see RoutineImportScreen.
+    GoRoute(
+      path: '/routine/import',
+      builder: (c, s) =>
+          RoutineImportScreen(code: s.uri.queryParameters['code'] ?? ''),
+    ),
+    GoRoute(
+      path: '/routine/:id/share',
+      builder: (c, s) =>
+          RoutineShareScreen(routineId: int.parse(s.pathParameters['id']!)),
+    ),
     GoRoute(
       path: '/routine/:id/edit',
       builder: (c, s) =>
@@ -99,14 +114,19 @@ final appRouter = GoRouter(
     // Where a shared theme lands, however it arrived: a scanned QR, a pasted
     // code, or a `fosslift://theme/...` link the OS handed us. Never applies
     // anything on its own — see ThemeImportScreen.
-    GoRoute(
-      path: '/settings/theme/scan',
-      builder: (c, s) => const ThemeScanScreen(),
-    ),
+
     GoRoute(
       path: '/settings/theme/import',
       builder: (c, s) =>
           ThemeImportScreen(code: s.uri.queryParameters['code'] ?? ''),
+    ),
+    // One camera screen for everything shareable; "for" says which.
+    GoRoute(
+      path: '/scan',
+      builder: (c, s) => switch (s.uri.queryParameters['for']) {
+        'routine' => const ScanScreen(host: 'routine', noun: 'routine'),
+        _ => const ScanScreen(host: 'theme', noun: 'theme'),
+      },
     ),
     // The live session in progress (distinct from /workout/:id, its template).
     GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),

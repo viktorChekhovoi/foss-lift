@@ -2,6 +2,8 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/routine_code.dart';
+import '../data/share_code.dart';
 import '../theme/theme_code.dart';
 
 /// Turns a `fosslift://` URI into an in-app route.
@@ -13,15 +15,34 @@ import '../theme/theme_code.dart';
 /// than guessed at: a link is untrusted input, and navigating somewhere
 /// arbitrary because a URL looked vaguely right is worse than doing nothing.
 String? routeForLink(Uri uri) {
-  if (uri.scheme != ThemeCode.scheme) return null;
-  // fosslift://theme/<code> — the host is "theme", the code is the path. Some
-  // senders normalise the slashes differently, so accept the code wherever it
-  // lands rather than insisting on one exact shape.
-  if (uri.host != 'theme') return null;
+  if (uri.scheme != kShareScheme) return null;
+  // fosslift://<host>/<code> — the host says what was shared, the code is the
+  // path. Some senders normalise the slashes differently, so accept the code
+  // wherever it lands rather than insisting on one exact shape.
   final code = uri.pathSegments.isEmpty ? '' : uri.pathSegments.join('/');
   if (code.isEmpty) return null;
-  return '/settings/theme/import?code=${Uri.encodeQueryComponent(code)}';
+  return importRoute(uri.host, code);
 }
+
+/// Where a code of [host] is confirmed — the only screens allowed to apply one.
+/// Null for a host this build does not share.
+String? importRoute(String host, String code) {
+  final encoded = Uri.encodeQueryComponent(code);
+  return switch (host) {
+    ThemeCode.host => '/settings/theme/import?code=$encoded',
+    RoutineCode.host => '/routine/import?code=$encoded',
+    _ => null,
+  };
+}
+
+/// Whether [text] actually reads as a shared [host] — a whole theme, a whole
+/// routine. Used by the scanner to ignore the Wi-Fi QR on a café wall instead
+/// of yanking the user into an import screen.
+bool readsAsShare(String host, String text) => switch (host) {
+      ThemeCode.host => ThemeCode.decode(text) is ThemeCodeOk,
+      RoutineCode.host => RoutineCode.decode(text) is RoutineCodeOk,
+      _ => false,
+    };
 
 /// Listens for `fosslift://` links and routes them.
 ///

@@ -49,6 +49,9 @@ Routine  "Push / Pull / Legs"   ← the programme; you never train "a routine"
   falls back to the routine chooser.
 - **You never train "a routine".** There is no "build" button next to "start a
   routine"; that screen is for working out, not editing.
+- **A routine can be handed to someone else** — as a QR, a link, a code or a
+  file, custom exercises and all. See
+  [sharing a routine](14-routine-sharing.md).
 
 ## Where it lives
 
@@ -64,4 +67,4 @@ Routine  "Push / Pull / Legs"   ← the programme; you never train "a routine"
 - [#7 A routine contains workouts](https://github.com/viktorChekhovoi/foss-lift/issues/7) — shipped
 - [#20 Current routine: Today shows its workouts](https://github.com/viktorChekhovoi/foss-lift/issues/20) — shipped
 - [#21 Build a routine's exercises without saving first](https://github.com/viktorChekhovoi/foss-lift/issues/21) — shipped
-- [#15 Share routines: export / import](https://github.com/viktorChekhovoi/foss-lift/issues/15) — planned
+- [#15 Share routines: export / import](https://github.com/viktorChekhovoi/foss-lift/issues/15) — see [14 — sharing a routine](14-routine-sharing.md)

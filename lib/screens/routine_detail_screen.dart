@@ -48,6 +48,11 @@ class RoutineDetailScreen extends ConsumerWidget {
                     .setActiveRoutineId(routineId),
           ),
           IconButton(
+            tooltip: 'Share',
+            icon: const Icon(Icons.ios_share),
+            onPressed: () => context.push('/routine/$routineId/share'),
+          ),
+          IconButton(
             tooltip: 'Edit',
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => context.push('/routine/$routineId/edit'),

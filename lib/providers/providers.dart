@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/routine_code.dart';
+import '../data/routine_import.dart';
 import '../services/reminders.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
@@ -17,6 +19,17 @@ final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
 final routineWorkoutsProvider =
     StreamProvider.family<List<WorkoutWithCount>, int>((ref, routineId) {
   return ref.watch(databaseProvider).watchWorkoutsForRoutine(routineId);
+});
+
+/// One routine gathered into the shape it travels in — see `routine_code.dart`.
+///
+/// Watches the routine's workouts as well as reading it, so the code on the
+/// share screen re-gathers if the programme is edited underneath it rather than
+/// handing someone a QR of a routine that no longer exists.
+final sharedRoutineProvider =
+    FutureProvider.family<SharedRoutine, int>((ref, routineId) async {
+  ref.watch(routineWorkoutsProvider(routineId));
+  return ref.watch(databaseProvider).sharedRoutine(routineId);
 });
 
 /// The most recent finished session of a routine, or null if never trained.

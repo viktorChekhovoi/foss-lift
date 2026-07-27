@@ -2,28 +2,35 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../services/deep_links.dart';
 import '../services/qr_decoder.dart';
 import '../theme/app_theme.dart';
-import '../theme/theme_code.dart';
 
-/// Points the camera at a theme QR code and hands what it finds to the import
-/// screen.
+/// Points the camera at a Foss Lift QR code and hands what it finds to the
+/// matching import screen.
 ///
+/// One scanner for everything shareable — [host] says which: `theme`, `routine`.
 /// Nothing is applied here — a scan navigates to the confirmation, which is the
-/// only place a theme is ever adopted.
+/// only place a shared anything is ever adopted.
 ///
 /// On Android the system camera can already open a `fosslift://` link, so this
 /// is a convenience. It would not be on iOS: Apple's Camera app is unreliable
 /// about offering to open third-party URL schemes, and this path bypasses OS
 /// URL routing entirely by decoding the string itself.
-class ThemeScanScreen extends StatefulWidget {
-  const ThemeScanScreen({super.key});
+class ScanScreen extends StatefulWidget {
+  const ScanScreen({super.key, required this.host, required this.noun});
+
+  /// What is being scanned for, as the link host: `theme` or `routine`.
+  final String host;
+
+  /// The same thing in the words shown to the user: "theme", "routine".
+  final String noun;
 
   @override
-  State<ThemeScanScreen> createState() => _ThemeScanScreenState();
+  State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ThemeScanScreenState extends State<ThemeScanScreen> {
+class _ScanScreenState extends State<ScanScreen> {
   CameraController? _camera;
   String? _problem;
   bool _busy = false;
@@ -66,7 +73,7 @@ class _ThemeScanScreenState extends State<ThemeScanScreen> {
       // than a fault — say what it means and offer the way round it.
       setState(() => _problem = e.code == 'CameraAccessDenied'
           ? 'Foss Lift needs the camera to scan a code. You can still paste a '
-              'theme code instead.'
+              '${widget.noun} code instead.'
           : 'The camera could not be started.');
     } catch (_) {
       setState(() => _problem = 'The camera could not be started.');
@@ -95,14 +102,16 @@ class _ThemeScanScreenState extends State<ThemeScanScreen> {
   }
 
   void _found(String text) {
-    // Only act on something that actually reads as a theme; pointing the phone
-    // at a Wi-Fi QR on a café wall should not yank you into an import screen.
-    if (ThemeCode.decode(text) is! ThemeCodeOk) return;
+    // Only act on something that actually reads as what we are scanning for;
+    // pointing the phone at a Wi-Fi QR on a café wall should not yank you into
+    // an import screen.
+    if (!readsAsShare(widget.host, text)) return;
+    final route = importRoute(widget.host, text);
+    if (route == null) return;
     _handled = true;
     _camera?.stopImageStream();
     if (!mounted) return;
-    context.pushReplacement(
-        '/settings/theme/import?code=${Uri.encodeQueryComponent(text)}');
+    context.pushReplacement(route);
   }
 
   @override
@@ -115,7 +124,7 @@ class _ThemeScanScreenState extends State<ThemeScanScreen> {
   Widget build(BuildContext context) {
     final camera = _camera;
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan a theme')),
+      appBar: AppBar(title: Text('Scan a ${widget.noun}')),
       body: SafeArea(
         child: _problem != null
             ? _message(_problem!)
@@ -127,7 +136,8 @@ class _ThemeScanScreenState extends State<ThemeScanScreen> {
                       Padding(
                         padding: const EdgeInsets.all(20),
                         child: Text(
-                          'Point the camera at a Foss Lift theme QR code.',
+                          'Point the camera at a Foss Lift ${widget.noun} QR '
+                          'code.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: AppColors.muted, fontSize: 13),

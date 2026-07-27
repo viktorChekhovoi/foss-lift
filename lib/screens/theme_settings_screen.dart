@@ -12,7 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_code.dart';
-import '../widgets/theme_qr.dart';
+import '../widgets/share_widgets.dart';
 import '../widgets/theme_preview.dart';
 
 /// Pick a colour theme: a shipped preset or your own, with import/export.
@@ -80,25 +80,25 @@ class ThemeSettingsScreen extends ConsumerWidget {
               onEdit: () => context.push('/settings/theme/custom'),
             ),
             const SizedBox(height: 26),
-            _sectionLabel('SHARE THIS THEME'),
+            shareSectionLabel('SHARE THIS THEME'),
             const SizedBox(height: 10),
-            _actionRow([
+            shareActionRow([
               (Icons.qr_code_2, 'Show QR', () => _showQr(context, active)),
               (Icons.ios_share, 'Send link', () => _shareLink(context, active)),
             ]),
             const SizedBox(height: 10),
-            _actionRow([
+            shareActionRow([
               (Icons.content_copy, 'Copy code', () => _copyCode(context, active)),
               (Icons.save_alt, 'Save file', () => _saveFile(context, active)),
             ]),
             const SizedBox(height: 22),
-            _sectionLabel('ADD A THEME'),
+            shareSectionLabel('ADD A THEME'),
             const SizedBox(height: 10),
-            _actionRow([
+            shareActionRow([
               (
                 Icons.qr_code_scanner,
                 'Scan QR',
-                () => context.push('/settings/theme/scan')
+                () => context.push('/scan?for=theme')
               ),
               (Icons.content_paste, 'Paste code', () => _paste(context)),
             ]),
@@ -125,35 +125,6 @@ class ThemeSettingsScreen extends ConsumerWidget {
 AppPalette _seedCustom(AppPalette from) =>
     from.copyWith(id: kCustomThemeId, name: 'Custom', accessible: false);
 
-/// A small all-caps section heading, matching the picker's group labels.
-Widget _sectionLabel(String text) => Builder(
-      builder: (_) => Text(text,
-          style: kMono.copyWith(
-              fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-    );
-
-/// A row of equal-width outlined actions. Two per row keeps the labels legible
-/// at large font scales, where a four-across row would truncate.
-Widget _actionRow(List<(IconData, String, VoidCallback)> actions) => Row(
-      children: [
-        for (final (i, action) in actions.indexed) ...[
-          if (i > 0) const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: action.$3,
-              icon: Icon(action.$1, size: 18),
-              label: Text(action.$2, overflow: TextOverflow.ellipsis),
-            ),
-          ),
-        ],
-      ],
-    );
-
-void _say(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(message)));
-}
-
 /// Shows [palette] as a QR someone else can point a phone at.
 Future<void> _showQr(BuildContext context, AppPalette palette) {
   return showDialog<void>(
@@ -161,7 +132,11 @@ Future<void> _showQr(BuildContext context, AppPalette palette) {
     builder: (_) => AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(palette.name),
-      content: ThemeQr(palette: palette),
+      content: ShareQr(
+        data: ThemeCode.link(palette),
+        caption: 'Point another phone at this. Foss Lift will ask before '
+            'changing anything.',
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -186,7 +161,7 @@ Future<void> _shareLink(BuildContext context, AppPalette palette) async {
 /// more useful thing to paste.
 Future<void> _copyCode(BuildContext context, AppPalette palette) async {
   await Clipboard.setData(ClipboardData(text: ThemeCode.encode(palette)));
-  if (context.mounted) _say(context, 'Theme code copied');
+  if (context.mounted) saySnack(context, 'Theme code copied');
 }
 
 /// Writes the palette as JSON next to the app's documents. The long-standing
@@ -207,44 +182,16 @@ Future<void> _saveFile(BuildContext context, AppPalette palette) async {
     // A filesystem hiccup should report itself, not throw into the button.
   }
   if (!context.mounted) return;
-  _say(context,
+  saySnack(context,
       path == null ? "Couldn't save the file" : 'Saved ${p.basename(path)}');
 }
 
 /// Prompts for a pasted code, link or JSON blob and hands it to the import
 /// screen, which is the only thing allowed to apply a theme.
 Future<void> _paste(BuildContext context) async {
-  final controller = TextEditingController();
-  final pasted = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: const Text('Paste a theme'),
-      content: TextField(
-        controller: controller,
-        maxLines: 4,
-        autofocus: true,
-        style: kMono.copyWith(fontSize: 12, color: AppColors.text),
-        decoration: const InputDecoration(
-          hintText: 'FLT1.… or a fosslift:// link',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, controller.text),
-          child: const Text('Continue'),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-  final text = pasted?.trim() ?? '';
-  if (text.isEmpty || !context.mounted) return;
+  final text = await promptForCode(context,
+      title: 'Paste a theme', hint: 'FLT1.… or a fosslift:// link');
+  if (text == null || !context.mounted) return;
 
   // Themes exported as a file before codes existed are still JSON. Accept
   // either without making the user say which they have.

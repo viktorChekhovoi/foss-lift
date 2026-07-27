@@ -6,8 +6,6 @@ import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 
-const _muscles = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Other'];
-const _equipment = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'Other'];
 
 /// How the movement is counted, in the words a lifter would use.
 const _measures = {'Reps': ExerciseMeasure.reps, 'Time held': ExerciseMeasure.time};
@@ -90,14 +88,14 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
             const SizedBox(height: 18),
             _Label('Muscle group'),
             _Choices(
-              options: _muscles,
+              options: kMuscleGroups,
               selected: _muscle,
               onSelect: (v) => setState(() => _muscle = v),
             ),
             const SizedBox(height: 18),
             _Label('Equipment'),
             _Choices(
-              options: _equipment,
+              options: kEquipmentTypes,
               selected: _equip,
               onSelect: _setEquipment,
             ),

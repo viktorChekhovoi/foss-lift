@@ -12,6 +12,7 @@ import 'progression.dart';
 import 'schedule.dart';
 
 export 'exercise_stats.dart';
+export 'exercise_taxonomy.dart';
 export 'layoff.dart';
 export 'plates.dart';
 export 'progression.dart';
