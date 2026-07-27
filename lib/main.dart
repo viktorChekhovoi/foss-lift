@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/providers.dart';
 import 'router.dart';
+import 'services/deep_links.dart';
 import 'theme/app_theme.dart';
 import 'widgets/resume_workout_bar.dart';
 import 'widgets/tutorial.dart';
@@ -48,8 +49,11 @@ class FossLiftApp extends ConsumerWidget {
       routerConfig: appRouter,
       // Wraps every route so a collapsed workout can be resumed from anywhere,
       // and — on top of that — so the first-run tour can spotlight any of it.
-      builder: (context, child) => TutorialOverlay(
-        child: ResumeWorkoutOverlay(child: child!),
+      builder: (context, child) => DeepLinkListener(
+        router: appRouter,
+        child: TutorialOverlay(
+          child: ResumeWorkoutOverlay(child: child!),
+        ),
       ),
     );
   }

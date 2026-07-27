@@ -1,11 +1,12 @@
 // Integration tests for features/11-themes.md — colour themes.
 //
 // The behaviour under test, straight from the spec:
-//   * six presets ship — two dark, two light, and an accessible (high-contrast)
-//     one of each brightness;
-//   * a custom theme edits each colour role;
-//   * import/export carries the palette itself (as JSON), so a shared theme
-//     does not depend on the recipient having the preset installed;
+//   * eight presets ship as four dark/light pairs — two everyday looks,
+//     Solarized, and a high-contrast option, each in both brightnesses;
+//   * a custom theme edits each colour role, with a live preview;
+//   * sharing carries the palette itself — as a code, a link, a QR or JSON —
+//     so a shared theme does not depend on the recipient having the preset;
+//   * a shared theme is previewed and accepted, never applied on arrival;
 //   * the choice is stored as a preset slug OR a full custom palette, and
 //     resolving a stored choice maps it back to a palette, falling back to the
 //     default when nothing (or nothing valid) is chosen.
@@ -13,17 +14,23 @@
 // These are exercised through the real public surface: the [AppPalette] value
 // model + [resolvePalette], the [AppDatabase] theme settings, the providers,
 // and the picker widget — never private internals or generated code.
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/theme_import_screen.dart';
 import 'package:foss_lift/screens/theme_settings_screen.dart';
+import 'package:foss_lift/services/deep_links.dart';
+import 'package:foss_lift/services/qr_decoder.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/widgets/common.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
 import 'package:foss_lift/widgets/theme_preview.dart';
+import 'package:qr/qr.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
@@ -622,6 +629,253 @@ void main() {
       // file before this existed must still import.
       final mine = _mineCustom();
       expect(AppPalette.tryParse(mine.toJson()), equals(mine));
+    });
+  });
+
+  group('reading a QR code off a camera frame', () {
+    /// Renders [text] as a QR and returns it as an 8-bit greyscale image —
+    /// what a camera frame's luma plane looks like, without a camera.
+    (Uint8List, int) renderQr(String text, {int scale = 4, int quiet = 16}) {
+      final code = QrCode.fromData(
+        data: text,
+        errorCorrectLevel: QrErrorCorrectLevel.M,
+      );
+      final matrix = QrImage(code);
+      final side = matrix.moduleCount * scale + quiet * 2;
+      // 0xFF is white; QR modules are painted black.
+      final luma = Uint8List(side * side)..fillRange(0, side * side, 0xFF);
+      for (var y = 0; y < matrix.moduleCount; y++) {
+        for (var x = 0; x < matrix.moduleCount; x++) {
+          if (!matrix.isDark(y, x)) continue;
+          for (var dy = 0; dy < scale; dy++) {
+            for (var dx = 0; dx < scale; dx++) {
+              final px = quiet + x * scale + dx;
+              final py = quiet + y * scale + dy;
+              luma[py * side + px] = 0x00;
+            }
+          }
+        }
+      }
+      return (luma, side);
+    }
+
+    test('a rendered theme QR decodes back to the same link', () {
+      // The full loop the feature rests on: a palette becomes a QR, a camera
+      // sees it, and the same palette comes back out.
+      final link = ThemeCode.link(_mineCustom());
+      final (luma, side) = renderQr(link);
+
+      final text = QrDecoder.decodeLuminance(luma, side, side);
+      expect(text, link, reason: 'the QR must survive being read back');
+      final result = ThemeCode.decode(text!);
+      expect(result, isA<ThemeCodeOk>());
+      expect((result as ThemeCodeOk).palette.accent, _mineCustom().accent);
+    });
+
+    test('every shipped preset fits in a scannable QR', () {
+      for (final preset in kThemePresets) {
+        final link = ThemeCode.link(preset);
+        final (luma, side) = renderQr(link);
+        expect(QrDecoder.decodeLuminance(luma, side, side), link,
+            reason: '${preset.id} should round-trip through a QR');
+      }
+    });
+
+    test('a frame with nothing in it is not an error', () {
+      // The normal case, arriving thirty times a second.
+      final blank = Uint8List(120 * 120)..fillRange(0, 120 * 120, 0xFF);
+      expect(QrDecoder.decodeLuminance(blank, 120, 120), isNull);
+    });
+
+    test('a nonsense or truncated frame is refused, not crashed on', () {
+      expect(QrDecoder.decodeLuminance(Uint8List(0), 0, 0), isNull);
+      expect(QrDecoder.decodeLuminance(Uint8List(10), 100, 100), isNull,
+          reason: 'a buffer shorter than the stated size must not read past it');
+    });
+
+    test('a padded camera row stride is unwound, not read straight through',
+        () {
+      // Cameras pad each row out to a stride wider than the image. Reading
+      // through that without accounting for it shears the picture and nothing
+      // ever decodes — the classic reason a hand-rolled scanner "just doesn't
+      // work" on one device and is fine on another.
+      final link = ThemeCode.link(kDefaultPalette);
+      final (luma, side) = renderQr(link);
+      const pad = 37;
+      final stride = side + pad;
+      final padded = Uint8List(stride * side);
+      for (var row = 0; row < side; row++) {
+        padded.setRange(row * stride, row * stride + side, luma, row * side);
+      }
+
+      final unwound = QrDecoder.lumaFromPlane(padded, side, side, stride);
+      expect(unwound, isNotNull);
+      expect(QrDecoder.decodeLuminance(unwound!, side, side), link);
+
+      // And the same bytes read without unwinding the stride do not decode,
+      // so the test above is actually proving something.
+      expect(
+          QrDecoder.decodeLuminance(
+              Uint8List.sublistView(padded, 0, side * side), side, side),
+          isNot(link));
+    });
+
+    test('an unpadded plane is passed through without copying it about', () {
+      final link = ThemeCode.link(kDefaultPalette);
+      final (luma, side) = renderQr(link);
+      final same = QrDecoder.lumaFromPlane(luma, side, side, side);
+      expect(same, isNotNull);
+      expect(QrDecoder.decodeLuminance(same!, side, side), link);
+    });
+
+    test('a plane too short for the stated frame is refused', () {
+      expect(QrDecoder.lumaFromPlane(Uint8List(10), 100, 100, 100), isNull);
+    });
+  });
+
+  group('a link from outside the app', () {
+    test('a theme link routes to the import screen carrying its code', () {
+      final code = ThemeCode.encode(_mineCustom());
+      final route = routeForLink(Uri.parse(ThemeCode.link(_mineCustom())));
+      expect(route, isNotNull);
+      expect(route, startsWith('/settings/theme/import?code='));
+      // The route has to survive being parsed back out again, or the import
+      // screen gets a mangled code.
+      final back = Uri.parse(route!).queryParameters['code'];
+      expect(back, code);
+      expect(ThemeCode.decode(back!), isA<ThemeCodeOk>());
+    });
+
+    test('links we do not recognise are ignored rather than guessed at', () {
+      for (final uri in [
+        'https://example.com/theme/FLT1.abc',
+        'fosslift://something-else/FLT1.abc',
+        'fosslift://theme/',
+        'fosslift://theme',
+        'mailto:someone@example.com',
+      ]) {
+        expect(routeForLink(Uri.parse(uri)), isNull, reason: uri);
+      }
+    });
+  });
+
+  group('importing a shared theme', () {
+    /// A theme someone else built, as it would arrive.
+    AppPalette theirs() => _mineCustom().copyWith(name: 'Gym Bro Blue');
+
+    testWidgets('a shared theme is previewed, not applied on arrival',
+        (tester) async {
+      // A code from outside the app is untrusted input. It must never
+      // overwrite the current theme on the strength of a scan or a tapped URL.
+      await tester.pumpWidget(appUnder(
+        container,
+        ThemeImportScreen(code: ThemeCode.encode(theirs())),
+      ));
+      await tester.pump();
+
+      expect(find.byType(ThemePreview), findsOneWidget,
+          reason: 'you see what you are about to get');
+      expect(find.text('Gym Bro Blue'), findsOneWidget,
+          reason: 'the shared theme names itself');
+      expect(container.read(themeSettingProvider).value?.presetId, isNull,
+          reason: 'nothing has been applied yet');
+
+      await stop(tester);
+    });
+
+    testWidgets('confirming applies it as the custom theme', (tester) async {
+      final incoming = theirs();
+      // The import screen doesn't watch the setting, so keep the stream alive
+      // for the assertions.
+      final sub = container.listen(themeSettingProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await tester.pumpWidget(appUnder(
+        container,
+        ThemeImportScreen(code: ThemeCode.link(incoming)),
+      ));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('Use this theme'));
+      await tester.pump();
+      await tester.tap(find.text('Use this theme'));
+      await pumpUntil(tester,
+          () => container.read(themeSettingProvider).value?.presetId != null);
+
+      expect(container.read(themeSettingProvider).value?.presetId,
+          kCustomThemeId);
+      final active = container.read(activePaletteProvider);
+      expect(active.accent, incoming.accent);
+      expect(active.name, 'Gym Bro Blue');
+
+      await stop(tester);
+    });
+
+    testWidgets('declining leaves the current theme untouched', (tester) async {
+      await db.setThemePreset('graphite');
+      final sub = container.listen(themeSettingProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await tester.pumpWidget(appUnder(
+        container,
+        ThemeImportScreen(code: ThemeCode.encode(theirs())),
+      ));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Cancel'));
+      await tester.pump();
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(themeSettingProvider).value?.presetId, 'graphite',
+          reason: 'declining an import changes nothing');
+
+      await stop(tester);
+    });
+
+    testWidgets('a damaged code explains itself and offers nothing to apply',
+        (tester) async {
+      final code = ThemeCode.encode(theirs());
+      await tester.pumpWidget(appUnder(
+        container,
+        ThemeImportScreen(code: code.substring(0, code.length - 6)),
+      ));
+      await tester.pump();
+
+      expect(find.textContaining('damaged'), findsOneWidget);
+      expect(find.text('Use this theme'), findsNothing,
+          reason: 'there is nothing safe to apply');
+      expect(find.byType(ThemePreview), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('a code from a newer app version says so', (tester) async {
+      await tester.pumpWidget(appUnder(
+        container,
+        ThemeImportScreen(
+            code: ThemeCode.encode(theirs()).replaceFirst('FLT1', 'FLT7')),
+      ));
+      await tester.pump();
+
+      expect(find.textContaining('newer version'), findsOneWidget);
+      expect(find.text('Use this theme'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('junk that is not a theme at all is rejected plainly',
+        (tester) async {
+      await tester.pumpWidget(appUnder(
+        container,
+        const ThemeImportScreen(code: 'have a nice day'),
+      ));
+      await tester.pump();
+
+      expect(find.textContaining("doesn't look like a theme"), findsOneWidget);
+      expect(find.text('Use this theme'), findsNothing);
+
+      await stop(tester);
     });
   });
 

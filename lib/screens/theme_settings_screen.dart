@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
-import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_code.dart';
+import '../widgets/theme_qr.dart';
 import '../widgets/theme_preview.dart';
 
 /// Pick a colour theme: a shipped preset or your own, with import/export.
@@ -77,34 +79,37 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   : () => db.setThemePreset(kCustomThemeId),
               onEdit: () => context.push('/settings/theme/custom'),
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _export(context, active),
-                    icon: const Icon(Icons.ios_share, size: 18),
-                    label: const Text('Export'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _import(context, db),
-                    icon: const Icon(Icons.download, size: 18),
-                    label: const Text('Import'),
-                  ),
-                ),
-              ],
-            ),
+            const SizedBox(height: 26),
+            _sectionLabel('SHARE THIS THEME'),
+            const SizedBox(height: 10),
+            _actionRow([
+              (Icons.qr_code_2, 'Show QR', () => _showQr(context, active)),
+              (Icons.ios_share, 'Send link', () => _shareLink(context, active)),
+            ]),
+            const SizedBox(height: 10),
+            _actionRow([
+              (Icons.content_copy, 'Copy code', () => _copyCode(context, active)),
+              (Icons.save_alt, 'Save file', () => _saveFile(context, active)),
+            ]),
+            const SizedBox(height: 22),
+            _sectionLabel('ADD A THEME'),
+            const SizedBox(height: 10),
+            _actionRow([
+              (
+                Icons.qr_code_scanner,
+                'Scan QR',
+                () => context.push('/settings/theme/scan')
+              ),
+              (Icons.content_paste, 'Paste code', () => _paste(context)),
+            ]),
             const SizedBox(height: 16),
             Text(
-              'Export copies the current theme to your clipboard and saves it as '
-              'a .json file you can back up or share. Import reads one back — '
-              'paste the JSON to load it as your custom theme. Everything stays '
-              'on your device.',
-              style: TextStyle(
-                  color: AppColors.muted, fontSize: 13, height: 1.5),
+              'A theme code is a short line of text like FLT1.AA8… — the whole '
+              'palette, small enough to paste into a message or hold in a QR '
+              'code. Anything you scan or paste is shown to you first; nothing '
+              'changes until you say so. None of this touches the network.',
+              style:
+                  TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
           ],
         ),
@@ -120,10 +125,74 @@ class ThemeSettingsScreen extends ConsumerWidget {
 AppPalette _seedCustom(AppPalette from) =>
     from.copyWith(id: kCustomThemeId, name: 'Custom', accessible: false);
 
-/// Writes [palette] to a file, copies its JSON to the clipboard, and says so.
-Future<void> _export(BuildContext context, AppPalette palette) async {
+/// A small all-caps section heading, matching the picker's group labels.
+Widget _sectionLabel(String text) => Builder(
+      builder: (_) => Text(text,
+          style: kMono.copyWith(
+              fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+    );
+
+/// A row of equal-width outlined actions. Two per row keeps the labels legible
+/// at large font scales, where a four-across row would truncate.
+Widget _actionRow(List<(IconData, String, VoidCallback)> actions) => Row(
+      children: [
+        for (final (i, action) in actions.indexed) ...[
+          if (i > 0) const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: action.$3,
+              icon: Icon(action.$1, size: 18),
+              label: Text(action.$2, overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        ],
+      ],
+    );
+
+void _say(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Shows [palette] as a QR someone else can point a phone at.
+Future<void> _showQr(BuildContext context, AppPalette palette) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(palette.name),
+      content: ThemeQr(palette: palette),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Done'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Hands the theme link to the system share sheet — Quick Share, a chat app,
+/// wherever. Nothing is uploaded: the link *is* the theme.
+Future<void> _shareLink(BuildContext context, AppPalette palette) async {
+  final link = ThemeCode.link(palette);
+  await SharePlus.instance.share(
+    ShareParams(text: link, subject: 'Foss Lift theme: ${palette.name}'),
+  );
+}
+
+/// Copies the bare code. Kept separate from the link because chat apps do not
+/// turn a `fosslift://` URL into something tappable, so the code is often the
+/// more useful thing to paste.
+Future<void> _copyCode(BuildContext context, AppPalette palette) async {
+  await Clipboard.setData(ClipboardData(text: ThemeCode.encode(palette)));
+  if (context.mounted) _say(context, 'Theme code copied');
+}
+
+/// Writes the palette as JSON next to the app's documents. The long-standing
+/// file path, kept for backups — the code is for sharing, a file is for keeping.
+Future<void> _saveFile(BuildContext context, AppPalette palette) async {
   final pretty = const JsonEncoder.withIndent('  ').convert(palette.toMap());
-  await Clipboard.setData(ClipboardData(text: pretty));
   String? path;
   try {
     final dir = await getApplicationDocumentsDirectory();
@@ -135,33 +204,29 @@ Future<void> _export(BuildContext context, AppPalette palette) async {
     await file.writeAsString(pretty);
     path = file.path;
   } catch (_) {
-    // A file is a nicety; the clipboard copy is the thing that matters and has
-    // already happened, so a filesystem hiccup should not fail the export.
+    // A filesystem hiccup should report itself, not throw into the button.
   }
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(path == null
-        ? 'Theme copied to clipboard'
-        : 'Theme copied to clipboard · saved to ${p.basename(path)}'),
-  ));
+  _say(context,
+      path == null ? "Couldn't save the file" : 'Saved ${p.basename(path)}');
 }
 
-/// Prompts for pasted theme JSON and, if it parses, stores it as the custom
-/// theme and makes it active.
-Future<void> _import(BuildContext context, AppDatabase db) async {
+/// Prompts for a pasted code, link or JSON blob and hands it to the import
+/// screen, which is the only thing allowed to apply a theme.
+Future<void> _paste(BuildContext context) async {
   final controller = TextEditingController();
-  final json = await showDialog<String>(
+  final pasted = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       backgroundColor: AppColors.surface,
-      title: const Text('Import theme'),
+      title: const Text('Paste a theme'),
       content: TextField(
         controller: controller,
-        maxLines: 6,
+        maxLines: 4,
         autofocus: true,
         style: kMono.copyWith(fontSize: 12, color: AppColors.text),
         decoration: const InputDecoration(
-          hintText: 'Paste theme JSON here',
+          hintText: 'FLT1.… or a fosslift:// link',
           border: OutlineInputBorder(),
         ),
       ),
@@ -172,26 +237,20 @@ Future<void> _import(BuildContext context, AppDatabase db) async {
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, controller.text),
-          child: const Text('Import'),
+          child: const Text('Continue'),
         ),
       ],
     ),
   );
   controller.dispose();
-  if (json == null || json.trim().isEmpty) return;
-  final parsed = AppPalette.tryParse(json);
-  if (!context.mounted) return;
-  if (parsed == null) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('That does not look like a theme'),
-    ));
-    return;
-  }
-  await db.setCustomTheme(parsed.toJson());
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-    content: Text('Theme imported'),
-  ));
+  final text = pasted?.trim() ?? '';
+  if (text.isEmpty || !context.mounted) return;
+
+  // Themes exported as a file before codes existed are still JSON. Accept
+  // either without making the user say which they have.
+  final asJson = AppPalette.tryParse(text);
+  final code = asJson != null ? ThemeCode.encode(asJson) : text;
+  context.push('/settings/theme/import?code=${Uri.encodeQueryComponent(code)}');
 }
 
 /// A selectable theme row: a strip of its key colours, its name, and a radio.

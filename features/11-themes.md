@@ -1,49 +1,112 @@
 # Colour themes
 
-Pick a preset theme, build your own, or import one someone shared.
+Pick a preset theme, build your own, or bring in one someone shared.
 
 ## What it does
 
-- Ships six **preset** colour themes: two dark, two light, and a
-  **high-contrast** option in each brightness.
-- Lets you build a **custom** theme by editing each colour role.
-- **Imports and exports** a theme (the palette as JSON), so a theme can be shared.
+- Ships eight **preset** themes as four dark/light pairs: two everyday looks,
+  **Solarized**, and a **high-contrast** option — each available in both
+  brightnesses.
+- Lets you build a **custom** theme by editing each colour role, with a **live
+  preview** of the palette you are editing.
+- **Shares** a theme as a QR code, a link, a short code, or a JSON file, and
+  reads all four back.
 
 ## How to use it
 
-- **Pick a theme:** Profile → Settings → **Theme** → tap a preset.
-- **Build your own:** on the theme screen choose **custom**, then edit each colour
-  role.
-- **Share:** export the current theme to a file / string, or import one you were
-  given.
+- **Pick a theme:** Profile → Settings → **Colour theme** → tap a preset.
+- **Build your own:** on the theme screen choose **Build your own**, then edit
+  each colour role. The preview at the top follows every change.
+- **Share:** **Show QR** for someone to scan, **Send link** for the system share
+  sheet, **Copy code** for a short line of text you can paste anywhere, or
+  **Save file** for a JSON backup.
+- **Receive:** **Scan QR** to use the camera, or **Paste code** for a code, a
+  link, or an old JSON export.
+
+## The lineup
+
+|  | Dark | Light |
+|---|---|---|
+| Everyday | Ignition (default) | Daylight |
+| Everyday | Graphite | Paper |
+| Solarized | Solarized dark | Solarized light |
+| Accessible | High contrast dark | High contrast light |
+
+Every look exists in both brightnesses. Choosing legibility, or choosing
+Solarized, never also means accepting a brightness you did not want.
 
 ## Behaviour & edge cases
 
 - **The picker groups presets by brightness**, dark then light, with each
   group's high-contrast option last and badged `AAA`.
-- **An accessible theme never forces a brightness.** Both high-contrast presets
-  clear WCAG AAA (7:1) for body text and AA (4.5:1) for secondary text, the
-  accent, the completed marker and the record marker — over both the ground and
-  a card — with borders above the 3:1 non-text floor.
+- **Both accessible presets clear WCAG AAA** (7:1) for body text and AA (4.5:1)
+  for secondary text, the accent, the completed marker and the record marker —
+  over both the ground and a card — with borders above the 3:1 non-text floor.
+  Every other preset clears 4.5:1 for body text.
+- **Solarized ships as published**, with two documented departures: body text
+  takes the palette's emphasized tier rather than its body tier (Solarized's own
+  body tones sit near 4.1:1), and the two intermediate surfaces are blends,
+  since the palette defines two background tones and the app paints four.
 - **The label on a filled button is measured, not assumed.** Whichever of a
   near-black tint or white reads better on the accent wins, so a custom or
   imported accent of any lightness still gets a legible label.
 - **A custom theme is never badged accessible**, even when built from a
   high-contrast preset — the colours can be edited freely afterwards.
+- **The preview warns when a palette is illegible**, comparing its own text
+  against its ground and cards at the same 4.5:1 the presets are held to.
+- **A shared theme is always previewed, never applied on arrival.** A scan, a
+  tapped link and a pasted code all land on the same confirmation screen. A code
+  that will not decode offers nothing to apply.
+- **An arriving theme becomes *your* custom theme.** It never claims a preset
+  slot, so the shipped presets are always there to switch back to.
 - **The choice is stored as a preset slug or a full custom palette.** Settings
   holds `themePresetId` (a preset slug, `custom`, or none) and `customTheme` (the
   user's palette as JSON).
-- **Import/export carries the palette itself**, so a shared theme doesn't depend on
-  the recipient having the same preset installed.
+- **A stored slug naming a preset that no longer exists** falls back to the
+  default, as any unknown slug does.
+
+## Sharing formats
+
+A theme code is `FLT1.` followed by base64url — the whole palette in 65–84
+characters.
+
+- `FLT1` is a **format** version, read first and dispatched on, so a future
+  `FLT2` is declined with "made by a newer version" rather than misread.
+- Within `FLT1`, bytes between the name and the trailing checksum are ignored,
+  so a later writer can add a field without breaking older readers.
+- **The role order is a wire format.** Reordering it silently changes the
+  meaning of every code already shared.
+- A CRC-16 catches the damage codes actually suffer — a truncated paste, a
+  mistyped character. It is not a security measure.
+- Reading distinguishes three failures, because the user can act on the
+  difference: not a theme code, a newer format, or damaged in transit.
+
+Links are `fosslift://theme/<code>` — a custom scheme rather than an https App
+Link, so sharing needs no domain, no hosting and no network and cannot stop
+working when nobody is paying for a server. The trade-off is that chat apps do
+not linkify it, which is what **Copy code** is for. An https filter can be added
+alongside later without invalidating any code already shared.
+
+QR codes hold the full link, so one image serves both a system camera (which
+routes the scheme to the app) and the in-app scanner (which decodes the string
+itself). QR decoding is pure Dart via `zxing2`, not Google's ML Kit, keeping the
+app free of proprietary binaries.
 
 ## Where it lives
 
 - Palette model + presets: `lib/theme/app_theme.dart` (`AppColors`).
-- Screen: `lib/screens/theme_settings_screen.dart` (picker + custom editor +
-  import/export).
+- Code format: `lib/theme/theme_code.dart`.
+- Preview: `lib/widgets/theme_preview.dart`; QR: `lib/widgets/theme_qr.dart`.
+- Screens: `lib/screens/theme_settings_screen.dart` (picker + share/receive),
+  `theme_import_screen.dart` (confirmation), `theme_scan_screen.dart` (camera).
+- Link handling: `lib/services/deep_links.dart`; frame decoding:
+  `lib/services/qr_decoder.dart`.
 - Stored in `Settings` (`themePresetId`, `customTheme`) in
   `lib/data/database.dart`.
 
 ## Related issues
 
-- [#19 Colour themes](https://github.com/viktorChekhovoi/foss-lift/issues/19) — shipped, in review
+- [#19 Colour themes](https://github.com/viktorChekhovoi/foss-lift/issues/19) — presets, custom editing, preview
+- [#27 Portable theme code](https://github.com/viktorChekhovoi/foss-lift/issues/27) — the `FLT1.` format
+- [#28 QR share and scan](https://github.com/viktorChekhovoi/foss-lift/issues/28)
+- [#29 Shared theme links](https://github.com/viktorChekhovoi/foss-lift/issues/29)

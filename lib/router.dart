@@ -14,6 +14,8 @@ import 'screens/routine_edit_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/summary_screen.dart';
+import 'screens/theme_import_screen.dart';
+import 'screens/theme_scan_screen.dart';
 import 'screens/theme_settings_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/workout_detail_screen.dart';
@@ -93,6 +95,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/theme/custom',
       builder: (c, s) => const CustomThemeEditorScreen(),
+    ),
+    // Where a shared theme lands, however it arrived: a scanned QR, a pasted
+    // code, or a `fosslift://theme/...` link the OS handed us. Never applies
+    // anything on its own — see ThemeImportScreen.
+    GoRoute(
+      path: '/settings/theme/scan',
+      builder: (c, s) => const ThemeScanScreen(),
+    ),
+    GoRoute(
+      path: '/settings/theme/import',
+      builder: (c, s) =>
+          ThemeImportScreen(code: s.uri.queryParameters['code'] ?? ''),
     ),
     // The live session in progress (distinct from /workout/:id, its template).
     GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),
