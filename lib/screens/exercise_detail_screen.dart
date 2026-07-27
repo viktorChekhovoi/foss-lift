@@ -123,19 +123,8 @@ class _Body extends ConsumerWidget {
                     fontSize: 11.5, height: 1.5, color: AppColors.accent)),
           ),
         ],
-        const SizedBox(height: 22),
-        Text('HOW TO',
-            style: kMono.copyWith(
-                fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-        const SizedBox(height: 8),
-        Text(
-          exercise.instructions.isEmpty
-              ? 'No instructions yet.'
-              : exercise.instructions,
-          style: TextStyle(fontSize: 15, height: 1.55, color: AppColors.text),
-        ),
         if (exercise.videoUrl != null) ...[
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           Text('DEMO',
               style: kMono.copyWith(
                   fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),

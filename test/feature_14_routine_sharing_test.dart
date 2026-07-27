@@ -77,7 +77,6 @@ Future<int> _seedCustomRoutine(AppDatabase db) async {
     name: 'Zercher Squat',
     muscle: 'Legs',
     equipment: 'Barbell',
-    instructions: 'Hold the bar in the crook of your elbows and squat.',
     videoUrl: 'https://www.youtube.com/watch?v=aBcD1234_-x&t=90s',
     measure: ExerciseMeasure.reps,
     weightType: WeightType.bar,
@@ -299,7 +298,6 @@ void main() {
           name: _noise(i, 80),
           muscle: 'Other',
           equipment: 'Machine',
-          instructions: '',
         );
         items.add(WorkoutItemsCompanion.insert(
             workoutId: 0, exerciseId: id, position: Value(i)));
@@ -597,8 +595,6 @@ void main() {
       expect(landed.weightType, WeightType.bar);
       expect(landed.barWeight, 15);
       expect(landed.videoUrl, 'https://youtu.be/aBcD1234_-x');
-      expect(landed.instructions, isEmpty,
-          reason: 'coaching cues do not travel — see features/14');
 
       final day = (await db.workoutsForRoutine(id)).single;
       expect((await db.itemsForWorkout(day.id)).single.exercise.id, landed.id);
@@ -629,7 +625,6 @@ void main() {
         name: 'Zercher Squat',
         muscle: 'Other',
         equipment: 'Machine',
-        instructions: 'My own note.',
         weightType: WeightType.machine,
       );
       return db.exerciseById(id);
@@ -649,7 +644,6 @@ void main() {
       // Default: keep mine.
       final id = await db.importSharedRoutine(shared);
       final kept = await db.exerciseById(mine.id);
-      expect(kept.instructions, 'My own note.');
       expect(kept.equipment, 'Machine');
       expect(kept.barWeight, isNull);
 
@@ -670,8 +664,6 @@ void main() {
       final now = await db.exerciseById(mine.id);
       expect(now.id, mine.id, reason: 'the same row, rewritten');
       expect(now.equipment, 'Barbell');
-      expect(now.instructions, 'My own note.',
-          reason: 'a cue that never travelled cannot be replaced by one');
       expect(now.muscleGroup, 'Legs');
       expect(now.weightType, WeightType.bar);
       expect(now.barWeight, 15);
@@ -825,7 +817,6 @@ void main() {
           name: 'Zercher Squat',
           muscle: 'Other',
           equipment: 'Machine',
-          instructions: 'My own note.',
         );
         final sender = memoryDb();
         addTearDown(sender.close);
@@ -858,7 +849,7 @@ void main() {
 
       final library = container.read(exerciseLibraryProvider).value!;
       final mine = library.firstWhere((e) => e.name == 'Zercher Squat');
-      expect(mine.instructions, 'My own note.',
+      expect(mine.equipment, 'Machine',
           reason: 'the switch was left off, so my definition stands');
       expect(library.where((e) => e.name == 'Zercher Squat'), hasLength(1));
 

@@ -59,18 +59,6 @@ class $ExercisesTable extends Exercises
     requiredDuringInsert: false,
     defaultValue: const Constant('Other'),
   );
-  static const VerificationMeta _instructionsMeta = const VerificationMeta(
-    'instructions',
-  );
-  @override
-  late final GeneratedColumn<String> instructions = GeneratedColumn<String>(
-    'instructions',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
-  );
   static const VerificationMeta _videoUrlMeta = const VerificationMeta(
     'videoUrl',
   );
@@ -134,7 +122,6 @@ class $ExercisesTable extends Exercises
     name,
     muscleGroup,
     equipment,
-    instructions,
     videoUrl,
     isCustom,
     measure,
@@ -177,15 +164,6 @@ class $ExercisesTable extends Exercises
       context.handle(
         _equipmentMeta,
         equipment.isAcceptableOrUnknown(data['equipment']!, _equipmentMeta),
-      );
-    }
-    if (data.containsKey('instructions')) {
-      context.handle(
-        _instructionsMeta,
-        instructions.isAcceptableOrUnknown(
-          data['instructions']!,
-          _instructionsMeta,
-        ),
       );
     }
     if (data.containsKey('video_url')) {
@@ -231,10 +209,6 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}equipment'],
       )!,
-      instructions: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}instructions'],
-      )!,
       videoUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}video_url'],
@@ -278,7 +252,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String name;
   final String muscleGroup;
   final String equipment;
-  final String instructions;
   final String? videoUrl;
   final bool isCustom;
 
@@ -306,7 +279,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.name,
     required this.muscleGroup,
     required this.equipment,
-    required this.instructions,
     this.videoUrl,
     required this.isCustom,
     required this.measure,
@@ -320,7 +292,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     map['name'] = Variable<String>(name);
     map['muscle_group'] = Variable<String>(muscleGroup);
     map['equipment'] = Variable<String>(equipment);
-    map['instructions'] = Variable<String>(instructions);
     if (!nullToAbsent || videoUrl != null) {
       map['video_url'] = Variable<String>(videoUrl);
     }
@@ -347,7 +318,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       name: Value(name),
       muscleGroup: Value(muscleGroup),
       equipment: Value(equipment),
-      instructions: Value(instructions),
       videoUrl: videoUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(videoUrl),
@@ -370,7 +340,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       name: serializer.fromJson<String>(json['name']),
       muscleGroup: serializer.fromJson<String>(json['muscleGroup']),
       equipment: serializer.fromJson<String>(json['equipment']),
-      instructions: serializer.fromJson<String>(json['instructions']),
       videoUrl: serializer.fromJson<String?>(json['videoUrl']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       measure: $ExercisesTable.$convertermeasure.fromJson(
@@ -390,7 +359,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'name': serializer.toJson<String>(name),
       'muscleGroup': serializer.toJson<String>(muscleGroup),
       'equipment': serializer.toJson<String>(equipment),
-      'instructions': serializer.toJson<String>(instructions),
       'videoUrl': serializer.toJson<String?>(videoUrl),
       'isCustom': serializer.toJson<bool>(isCustom),
       'measure': serializer.toJson<String>(
@@ -408,7 +376,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     String? name,
     String? muscleGroup,
     String? equipment,
-    String? instructions,
     Value<String?> videoUrl = const Value.absent(),
     bool? isCustom,
     ExerciseMeasure? measure,
@@ -419,7 +386,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     name: name ?? this.name,
     muscleGroup: muscleGroup ?? this.muscleGroup,
     equipment: equipment ?? this.equipment,
-    instructions: instructions ?? this.instructions,
     videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
     isCustom: isCustom ?? this.isCustom,
     measure: measure ?? this.measure,
@@ -434,9 +400,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ? data.muscleGroup.value
           : this.muscleGroup,
       equipment: data.equipment.present ? data.equipment.value : this.equipment,
-      instructions: data.instructions.present
-          ? data.instructions.value
-          : this.instructions,
       videoUrl: data.videoUrl.present ? data.videoUrl.value : this.videoUrl,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       measure: data.measure.present ? data.measure.value : this.measure,
@@ -454,7 +417,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('name: $name, ')
           ..write('muscleGroup: $muscleGroup, ')
           ..write('equipment: $equipment, ')
-          ..write('instructions: $instructions, ')
           ..write('videoUrl: $videoUrl, ')
           ..write('isCustom: $isCustom, ')
           ..write('measure: $measure, ')
@@ -470,7 +432,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     name,
     muscleGroup,
     equipment,
-    instructions,
     videoUrl,
     isCustom,
     measure,
@@ -485,7 +446,6 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.name == this.name &&
           other.muscleGroup == this.muscleGroup &&
           other.equipment == this.equipment &&
-          other.instructions == this.instructions &&
           other.videoUrl == this.videoUrl &&
           other.isCustom == this.isCustom &&
           other.measure == this.measure &&
@@ -498,7 +458,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String> name;
   final Value<String> muscleGroup;
   final Value<String> equipment;
-  final Value<String> instructions;
   final Value<String?> videoUrl;
   final Value<bool> isCustom;
   final Value<ExerciseMeasure> measure;
@@ -509,7 +468,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.name = const Value.absent(),
     this.muscleGroup = const Value.absent(),
     this.equipment = const Value.absent(),
-    this.instructions = const Value.absent(),
     this.videoUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
@@ -521,7 +479,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     required String name,
     this.muscleGroup = const Value.absent(),
     this.equipment = const Value.absent(),
-    this.instructions = const Value.absent(),
     this.videoUrl = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.measure = const Value.absent(),
@@ -533,7 +490,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? name,
     Expression<String>? muscleGroup,
     Expression<String>? equipment,
-    Expression<String>? instructions,
     Expression<String>? videoUrl,
     Expression<bool>? isCustom,
     Expression<String>? measure,
@@ -545,7 +501,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (name != null) 'name': name,
       if (muscleGroup != null) 'muscle_group': muscleGroup,
       if (equipment != null) 'equipment': equipment,
-      if (instructions != null) 'instructions': instructions,
       if (videoUrl != null) 'video_url': videoUrl,
       if (isCustom != null) 'is_custom': isCustom,
       if (measure != null) 'measure': measure,
@@ -559,7 +514,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String>? name,
     Value<String>? muscleGroup,
     Value<String>? equipment,
-    Value<String>? instructions,
     Value<String?>? videoUrl,
     Value<bool>? isCustom,
     Value<ExerciseMeasure>? measure,
@@ -571,7 +525,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       name: name ?? this.name,
       muscleGroup: muscleGroup ?? this.muscleGroup,
       equipment: equipment ?? this.equipment,
-      instructions: instructions ?? this.instructions,
       videoUrl: videoUrl ?? this.videoUrl,
       isCustom: isCustom ?? this.isCustom,
       measure: measure ?? this.measure,
@@ -594,9 +547,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     }
     if (equipment.present) {
       map['equipment'] = Variable<String>(equipment.value);
-    }
-    if (instructions.present) {
-      map['instructions'] = Variable<String>(instructions.value);
     }
     if (videoUrl.present) {
       map['video_url'] = Variable<String>(videoUrl.value);
@@ -627,7 +577,6 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('name: $name, ')
           ..write('muscleGroup: $muscleGroup, ')
           ..write('equipment: $equipment, ')
-          ..write('instructions: $instructions, ')
           ..write('videoUrl: $videoUrl, ')
           ..write('isCustom: $isCustom, ')
           ..write('measure: $measure, ')
@@ -4524,7 +4473,6 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       required String name,
       Value<String> muscleGroup,
       Value<String> equipment,
-      Value<String> instructions,
       Value<String?> videoUrl,
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
@@ -4537,7 +4485,6 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> muscleGroup,
       Value<String> equipment,
-      Value<String> instructions,
       Value<String?> videoUrl,
       Value<bool> isCustom,
       Value<ExerciseMeasure> measure,
@@ -4594,11 +4541,6 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get equipment => $composableBuilder(
     column: $table.equipment,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get instructions => $composableBuilder(
-    column: $table.instructions,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4684,11 +4626,6 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get instructions => $composableBuilder(
-    column: $table.instructions,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get videoUrl => $composableBuilder(
     column: $table.videoUrl,
     builder: (column) => ColumnOrderings(column),
@@ -4737,11 +4674,6 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get equipment =>
       $composableBuilder(column: $table.equipment, builder: (column) => column);
-
-  GeneratedColumn<String> get instructions => $composableBuilder(
-    column: $table.instructions,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get videoUrl =>
       $composableBuilder(column: $table.videoUrl, builder: (column) => column);
@@ -4819,7 +4751,6 @@ class $$ExercisesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> muscleGroup = const Value.absent(),
                 Value<String> equipment = const Value.absent(),
-                Value<String> instructions = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
@@ -4830,7 +4761,6 @@ class $$ExercisesTableTableManager
                 name: name,
                 muscleGroup: muscleGroup,
                 equipment: equipment,
-                instructions: instructions,
                 videoUrl: videoUrl,
                 isCustom: isCustom,
                 measure: measure,
@@ -4843,7 +4773,6 @@ class $$ExercisesTableTableManager
                 required String name,
                 Value<String> muscleGroup = const Value.absent(),
                 Value<String> equipment = const Value.absent(),
-                Value<String> instructions = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<ExerciseMeasure> measure = const Value.absent(),
@@ -4854,7 +4783,6 @@ class $$ExercisesTableTableManager
                 name: name,
                 muscleGroup: muscleGroup,
                 equipment: equipment,
-                instructions: instructions,
                 videoUrl: videoUrl,
                 isCustom: isCustom,
                 measure: measure,

@@ -31,7 +31,6 @@ class Exercises extends Table {
   TextColumn get name => text().withLength(min: 1, max: 80)();
   TextColumn get muscleGroup => text().withDefault(const Constant('Other'))();
   TextColumn get equipment => text().withDefault(const Constant('Other'))();
-  TextColumn get instructions => text().withDefault(const Constant(''))();
   TextColumn get videoUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 
@@ -390,17 +389,24 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
-  /// Version 1 is the whole schema. The app has only ever run on one phone, so
-  /// there is no installed base to migrate: a fresh install creates every table
-  /// at its current shape and seeds it. If the schema changes again, add an
-  /// `onUpgrade` ladder from here.
+  /// A fresh install creates every table at its current shape and seeds it;
+  /// an existing one climbs the ladder below.
+  ///
+  /// **v2 removed `Exercises.instructions`.** The coaching cue was a paragraph
+  /// nobody read on a screen they had already decided to open, and the demo
+  /// link says the same thing better. Dropping a column in SQLite means
+  /// rebuilding the table, which [TableMigration] does from the current
+  /// definition — the text in that column is gone for good, which is the point.
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _seed();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.alterTable(TableMigration(exercises));
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -425,7 +431,6 @@ class AppDatabase extends _$AppDatabase {
     required String name,
     required String muscle,
     required String equipment,
-    required String instructions,
     String? videoUrl,
     ExerciseMeasure measure = ExerciseMeasure.reps,
     WeightType weightType = WeightType.machine,
@@ -435,7 +440,6 @@ class AppDatabase extends _$AppDatabase {
         name: name,
         muscleGroup: Value(muscle),
         equipment: Value(equipment),
-        instructions: Value(instructions),
         videoUrl: Value(videoUrl),
         isCustom: const Value(true),
         measure: Value(measure),
@@ -1157,15 +1161,14 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
 
-    // A curated starter library. Each ships with a one-line cue and a demo
-    // link (a YouTube search, so the link never rots).
+    // A curated starter library. Each ships with a demo link (a YouTube
+    // search, so the link never rots).
     final ids = <String, int>{};
     final measures = <String, ExerciseMeasure>{};
     Future<int> ex(
       String name,
       String muscle,
-      String equip,
-      String how, {
+      String equip, {
       ExerciseMeasure measure = ExerciseMeasure.reps,
     }) async {
       measures[name] = measure;
@@ -1174,7 +1177,6 @@ class AppDatabase extends _$AppDatabase {
           name: name,
           muscleGroup: Value(muscle),
           equipment: Value(equip),
-          instructions: Value(how),
           measure: Value(measure),
           // The equipment already says how these are loaded — a barbell lift
           // is a bar, a dumbbell lift is a dumbbell, and the cables, machines
@@ -1189,76 +1191,45 @@ class AppDatabase extends _$AppDatabase {
     }
 
     // Chest
-    await ex('Bench Press', 'Chest', 'Barbell',
-        'Lie flat, lower the bar to mid-chest, and press up while keeping your shoulder blades pinched.');
-    await ex('Incline DB Press', 'Chest', 'Dumbbell',
-        'On a 30° bench, press the dumbbells up and slightly together without clanking them.');
-    await ex('Push-Up', 'Chest', 'Bodyweight',
-        'Keep a straight line from head to heels; lower until your chest nearly touches the floor.');
-    await ex('Cable Fly', 'Chest', 'Cable',
-        'With a slight elbow bend, sweep the handles together in a wide hugging arc.');
-    await ex('Machine Chest Press', 'Chest', 'Machine',
-        'Set the seat so the handles are at mid-chest, then press without locking out hard.');
+    await ex('Bench Press', 'Chest', 'Barbell');
+    await ex('Incline DB Press', 'Chest', 'Dumbbell');
+    await ex('Push-Up', 'Chest', 'Bodyweight');
+    await ex('Cable Fly', 'Chest', 'Cable');
+    await ex('Machine Chest Press', 'Chest', 'Machine');
     // Back
-    await ex('Deadlift', 'Back', 'Barbell',
-        'Brace your core, push the floor away, and drag the bar up your legs to a tall lockout.');
-    await ex('Pull-Up', 'Back', 'Bodyweight',
-        'Start from a dead hang and pull your chest toward the bar, leading with your elbows.');
-    await ex('Barbell Row', 'Back', 'Barbell',
-        'Hinge to ~45°, keep a flat back, and row the bar to your lower ribs.');
-    await ex('Lat Pulldown', 'Back', 'Cable',
-        'Pull the bar to your upper chest, driving your elbows down and back.');
-    await ex('Seated Cable Row', 'Back', 'Cable',
-        'Sit tall, pull to your stomach, and squeeze your shoulder blades together.');
-    await ex('Face Pull', 'Back', 'Cable',
-        'Pull the rope toward your face, splitting the ends apart at eye level.');
+    await ex('Deadlift', 'Back', 'Barbell');
+    await ex('Pull-Up', 'Back', 'Bodyweight');
+    await ex('Barbell Row', 'Back', 'Barbell');
+    await ex('Lat Pulldown', 'Back', 'Cable');
+    await ex('Seated Cable Row', 'Back', 'Cable');
+    await ex('Face Pull', 'Back', 'Cable');
     // Shoulders
-    await ex('Overhead Press', 'Shoulders', 'Barbell',
-        'Press the bar overhead in a straight line, moving your head "through the window" at lockout.');
-    await ex('Lateral Raise', 'Shoulders', 'Dumbbell',
-        'Raise the dumbbells out to the sides to shoulder height, leading with your elbows.');
-    await ex('Rear Delt Fly', 'Shoulders', 'Dumbbell',
-        'Hinge forward and raise the dumbbells out wide, squeezing your rear delts.');
-    await ex('Arnold Press', 'Shoulders', 'Dumbbell',
-        'Start palms-in at your chest, rotate out as you press overhead.');
+    await ex('Overhead Press', 'Shoulders', 'Barbell');
+    await ex('Lateral Raise', 'Shoulders', 'Dumbbell');
+    await ex('Rear Delt Fly', 'Shoulders', 'Dumbbell');
+    await ex('Arnold Press', 'Shoulders', 'Dumbbell');
     // Legs
-    await ex('Back Squat', 'Legs', 'Barbell',
-        'Brace, sit down between your hips to at least parallel, and drive up through mid-foot.');
-    await ex('Front Squat', 'Legs', 'Barbell',
-        'Keep your elbows high and torso upright as you squat down and stand.');
-    await ex('Romanian Deadlift', 'Legs', 'Barbell',
-        'Push your hips back with soft knees until you feel a hamstring stretch, then stand tall.');
-    await ex('Leg Press', 'Legs', 'Machine',
-        'Lower until your knees reach ~90°, then press without locking out sharply.');
-    await ex('Leg Curl', 'Legs', 'Machine',
-        'Curl the pad toward your glutes with control; don’t let it snap back.');
-    await ex('Leg Extension', 'Legs', 'Machine',
-        'Extend your knees fully and pause briefly at the top.');
-    await ex('Calf Raise', 'Legs', 'Machine',
-        'Rise onto your toes as high as possible, pause, then lower for a full stretch.');
-    await ex('Walking Lunge', 'Legs', 'Dumbbell',
-        'Step forward and lower your back knee toward the floor, then drive through your front heel.');
+    await ex('Back Squat', 'Legs', 'Barbell');
+    await ex('Front Squat', 'Legs', 'Barbell');
+    await ex('Romanian Deadlift', 'Legs', 'Barbell');
+    await ex('Leg Press', 'Legs', 'Machine');
+    await ex('Leg Curl', 'Legs', 'Machine');
+    await ex('Leg Extension', 'Legs', 'Machine');
+    await ex('Calf Raise', 'Legs', 'Machine');
+    await ex('Walking Lunge', 'Legs', 'Dumbbell');
     // Arms
-    await ex('Barbell Curl', 'Arms', 'Barbell',
-        'Curl the bar with your elbows pinned to your sides; no swinging.');
-    await ex('Dumbbell Curl', 'Arms', 'Dumbbell',
-        'Curl and supinate (turn your pinky up) at the top of each rep.');
-    await ex('Hammer Curl', 'Arms', 'Dumbbell',
-        'Curl with a neutral (palms-facing) grip to hit the forearms and biceps.');
-    await ex('Triceps Pushdown', 'Arms', 'Cable',
-        'Keep your elbows tucked and push down until your arms are fully straight.');
-    await ex('Skull Crusher', 'Arms', 'Barbell',
-        'Lower the bar toward your forehead by bending only at the elbows, then extend.');
+    await ex('Barbell Curl', 'Arms', 'Barbell');
+    await ex('Dumbbell Curl', 'Arms', 'Dumbbell');
+    await ex('Hammer Curl', 'Arms', 'Dumbbell');
+    await ex('Triceps Pushdown', 'Arms', 'Cable');
+    await ex('Skull Crusher', 'Arms', 'Barbell');
     // Core
     // The one held movement in the starter library: no rep count to progress,
     // so the only axis it offers is time.
     await ex('Plank', 'Core', 'Bodyweight',
-        'Hold a straight line on your forearms; squeeze your glutes and brace your abs.',
         measure: ExerciseMeasure.time);
-    await ex('Hanging Leg Raise', 'Core', 'Bodyweight',
-        'From a hang, raise your legs to hip height (or higher) without swinging.');
-    await ex('Cable Crunch', 'Core', 'Cable',
-        'Kneel and crunch your ribs toward your hips, rounding your spine.');
+    await ex('Hanging Leg Raise', 'Core', 'Bodyweight');
+    await ex('Cable Crunch', 'Core', 'Cable');
 
     // Two starter programmes, each split into its training days. Upper/Lower
     // deliberately repeats a day name — that is legal and worth demonstrating.

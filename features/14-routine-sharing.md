@@ -38,13 +38,11 @@ exercises it depends on — as one line of text you can paste into a message.
 
 - **The code is the whole routine.** There is no server, no id to look up, and
   nothing to expire. A code shared in 2026 still imports in 2030.
-- **Coaching cues do not travel.** The instructions field was the largest thing
-  on an exercise row and the least worth carrying: whoever receives a routine
-  can read the movement's name, and the link that does travel shows them the
-  rest. Dropping it took a custom exercise from about 55 characters on the wire
-  to a handful. An imported exercise arrives with no description, and an
-  exercise you choose to *replace* keeps yours — a cue that never travelled
-  cannot be overwritten by one.
+- **There is nothing wordy left to carry.** An exercise used to hold a coaching
+  cue, which was both the largest field on the row and the largest thing in a
+  routine code; it was removed from the app entirely in schema v2. Dropping it
+  took a custom exercise from about 55 characters on the wire to a handful. See
+  [the exercise library](01-exercise-library.md).
 - **A video link travels as its id.** Any YouTube URL — `watch?v=`, `youtu.be`,
   `/shorts/`, `/embed/`, with or without timestamps, playlists and tracking
   parameters — is reduced to its eleven-character id and rebuilt as

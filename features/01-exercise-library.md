@@ -4,10 +4,9 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 
 ## What it does
 
-- Ships a starter library of ~30 exercises, each with a **form cue** and a
-  **demo-video link**.
+- Ships a starter library of ~30 exercises, each with a **demo-video link**.
 - Is **searchable** by name, and each exercise opens a detail page with its
-  instructions and demo link.
+  facts and demo link.
 - Lets you **add your own custom exercises**, which sit alongside the starter set.
 - Every exercise carries three facts about the movement itself, not about any
   routine that uses it:
@@ -23,8 +22,8 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 - **Browse / search:** open the library from **Profile** (or via the exercise
   picker while building a workout). Type in the search box to filter.
 - **Add a custom exercise:** Library → **＋** (FAB) → fill in name, muscle group,
-  equipment, measure, and optional instructions/video → Save. Paste a YouTube
-  link in any form; the field tells you what it will be saved as.
+  equipment, measure, and an optional demo link → Save. Paste a YouTube link in
+  any shape you like.
 - **Edit a movement's facts:** open any exercise → its detail screen lets you set
   the **weight type** and its **own bar weight** — for *every* exercise, not just
   custom ones (whether your gym's bench has a 20 kg bar is something the starter
@@ -32,6 +31,11 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 
 ## Behaviour & edge cases
 
+- **An exercise has no written instructions.** There was a coaching-cue field;
+  it was removed in schema v2, along with everything anyone had typed into it. A
+  paragraph of technique advice is not what an exercise row is for, and the demo
+  link does the same job better. The movement is identified by its name and its
+  facts — muscle group, equipment, how it is loaded, how it is measured.
 - **A YouTube demo link is tidied on the way in.** Any form of it — `watch?v=`,
   `youtu.be`, `/shorts/`, `/embed/`, with timestamps, playlists and tracking
   parameters — is stored as `https://youtu.be/<id>`. None of the rest identifies
@@ -40,9 +44,8 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 - **A link to anywhere else is kept exactly as typed.** Someone's own upload or
   a private clip is not ours to rewrite, and it still opens from the exercise
   screen. It just will not travel when the exercise is shared — nor will a
-  YouTube *search* link, which names no video. The form says which of the two
-  you have as you type it, rather than leaving it to be discovered on someone
-  else's phone. See [sharing a routine](14-routine-sharing.md).
+  YouTube *search* link, which names no video. See
+  [sharing a routine](14-routine-sharing.md).
 
 - **Weight type is seeded from equipment:** Barbell → bar, Dumbbell → dumbbell,
   everything else (bodyweight included) → machine. You can override it afterward.

@@ -54,6 +54,7 @@ lib/
 │   └── providers.dart            All other providers (routines, library, unit…)
 ├── util/units.dart               kg⇄lb conversion helpers (pure functions)
 ├── util/qr_capacity.dart         What a QR holds; how much error correction it affords
+├── util/video_links.dart         A YouTube URL reduced to its video id
 ├── util/format.dart              fmtTotal — big running totals for stat tiles
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
@@ -93,7 +94,7 @@ has "Upper 1" and "Upper 2".
 
 | Table          | Holds |
 |----------------|-------|
-| `Exercises`    | The library. name, muscleGroup, equipment, instructions, videoUrl, isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell), `barWeight` (nullable — this movement's own bar) |
+| `Exercises`    | The library. name, muscleGroup, equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell), `barWeight` (nullable — this movement's own bar) |
 | `Routines`     | A programme. name, colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
@@ -466,12 +467,14 @@ you never looked at.
 
 - **A new screen** → add a file in `screens/`, register a route in `router.dart`.
 - **A new persisted field/table** → edit `data/database.dart`, rerun
-  `build_runner`, add a query method, expose it via a provider. The schema is a
-  single clean **v1** (`schemaVersion => 1`, `onCreate` builds every table and
-  seeds it) — the app has only ever run on one phone, so the old migration
-  ladder was collapsed. If a future change needs to preserve installed data,
-  bump `schemaVersion` and add an `onUpgrade` step; a migration step must build
-  the shape of *its own era* (explicit DDL, never `m.createTable`).
+  `build_runner`, add a query method, expose it via a provider. The schema is at
+  **v2**: `onCreate` builds every table at its current shape and seeds it, and
+  `onUpgrade` carries an installed phone forward. v2 dropped
+  `Exercises.instructions` — a column removal in SQLite means rebuilding the
+  table, which `m.alterTable(TableMigration(exercises))` does from the current
+  definition. Bump `schemaVersion` and add an `onUpgrade` step for anything that
+  has to preserve installed data; a step that writes DDL by hand must build the
+  shape of *its own era*, never `m.createTable`.
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,
   and a control in `settings_screen.dart`.
 - **Roadmap features** (plate math, charts, sharing, themes) are ranked in the GitHub issue tracker. Most build on the data model already in

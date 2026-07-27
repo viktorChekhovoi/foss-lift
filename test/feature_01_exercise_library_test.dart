@@ -1,9 +1,9 @@
 // Integration tests for features/01-exercise-library.md
 //
-// The exercise library: a curated starter set (form cue + demo link on every
-// entry), custom exercises alongside it, a weight type seeded from equipment
-// and overridable for any exercise, a measure fixed at creation, and history
-// that survives library edits because logged sets store the name denormalised.
+// The exercise library: a curated starter set (a demo link on every entry),
+// custom exercises alongside it, a weight type seeded from equipment and
+// overridable for any exercise, a measure fixed at creation, and history that
+// survives library edits because logged sets store the name denormalised.
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,17 +29,11 @@ void main() {
       expect(all.every((e) => !e.isCustom), isTrue);
     });
 
-    test('every starter carries a form cue and a demo-video link', () async {
+    test('every starter carries a demo-video link', () async {
       final all = await db.watchExercises().first;
 
-      for (final e in all) {
-        expect(
-          e.instructions.trim(),
-          isNotEmpty,
-          reason: '${e.name} has no form cue',
-        );
+      for (final e in all.where((e) => !e.isCustom)) {
         expect(e.videoUrl, isNotNull, reason: '${e.name} has no demo link');
-        expect(e.videoUrl!.trim(), isNotEmpty);
       }
     });
 
@@ -48,7 +42,6 @@ void main() {
         name: 'Zercher Squat',
         muscle: 'Legs',
         equipment: 'Barbell',
-        instructions: 'Cradle the bar in your elbows and squat.',
       );
 
       final all = await db.watchExercises().first;
@@ -106,7 +99,6 @@ void main() {
           name: 'Sled Push',
           muscle: 'Legs',
           equipment: 'Sled',
-          instructions: 'Drive it.',
         );
         expect((await db.exerciseById(id)).weightType, WeightType.machine);
       },
@@ -142,7 +134,6 @@ void main() {
         name: 'EZ Curl',
         muscle: 'Arms',
         equipment: 'Barbell',
-        instructions: 'Curl.',
       );
       await db.setExerciseWeightType(id, WeightType.bar);
       await db.setExerciseBarWeight(id, 10);
@@ -170,7 +161,6 @@ void main() {
         name: 'Wall Sit',
         muscle: 'Legs',
         equipment: 'Bodyweight',
-        instructions: 'Sit against the wall.',
         measure: ExerciseMeasure.time,
       );
       expect((await db.exerciseById(id)).measure, ExerciseMeasure.time);
@@ -271,7 +261,6 @@ void main() {
         name: 'Landmine Press',
         muscle: 'Shoulders',
         equipment: 'Barbell',
-        instructions: 'Press the end of the bar up and across.',
       );
       final sessionId = await logOneSet(id, 'Landmine Press');
 
@@ -301,9 +290,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// The form's three text boxes, in the order they appear.
-    Finder nameField(WidgetTester t) => find.byType(TextField).at(0);
-    Finder linkField(WidgetTester t) => find.byType(TextField).at(2);
+    /// The form's two text boxes: the name, and the demo link below it.
+    Finder nameField(WidgetTester t) => find.byType(TextField).first;
+    Finder linkField(WidgetTester t) => find.byType(TextField).last;
 
     Future<Exercise> saveWith(WidgetTester tester, String link) async {
       await openForm(tester);
@@ -348,32 +337,6 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a search link is kept, and the form says it will not travel',
-        (tester) async {
-      await openForm(tester);
-      await tester.enterText(linkField(tester),
-          'https://www.youtube.com/results?search_query=copenhagen+plank');
-      await tester.pumpAndSettle();
 
-      expect(find.textContaining("won't travel"), findsOneWidget,
-          reason: 'a search has no video behind it to share');
-
-      await stop(tester);
-    });
-
-    testWidgets('a recognised video is confirmed back to you', (tester) async {
-      await openForm(tester);
-      await tester.enterText(
-          linkField(tester), 'https://youtu.be/aBcD1234_-x?t=42');
-      await tester.pumpAndSettle();
-
-      // The note, not the text box echoing itself back: "Saved as" is the part
-      // only the note says.
-      expect(find.textContaining('Saved as youtu.be/aBcD1234_-x'),
-          findsOneWidget);
-      expect(find.textContaining("won't travel"), findsNothing);
-
-      await stop(tester);
-    });
   });
 }
