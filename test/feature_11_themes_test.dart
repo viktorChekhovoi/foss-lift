@@ -20,6 +20,8 @@ import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/theme_settings_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/widgets/common.dart';
+import 'package:foss_lift/widgets/routine_card.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
@@ -151,6 +153,60 @@ void main() {
       // ...and no two presets are the same palette.
       expect(kThemePresets.toSet(), hasLength(kThemePresets.length),
           reason: 'presets must be pairwise distinct');
+    });
+  });
+
+  group('a routine keeps its own accent over any theme', () {
+    test('a routine colour resolves the same under every preset', () {
+      // A routine's accent is its own property, not a theme role: switching
+      // theme must not repaint it. Asserted against every preset so a new one
+      // cannot quietly start overriding it.
+      const routineHex = 'FF6A3D';
+      for (final preset in kThemePresets) {
+        AppTheme.build(preset); // points AppColors at this theme
+        expect(hexColor(routineHex), const Color(0xFFFF6A3D),
+            reason: '${preset.id} must not tint a routine colour');
+      }
+    });
+
+    testWidgets('a routine card shows its colour under a light theme',
+        (tester) async {
+      // The one that would break first if a theme ever won: a routine painted
+      // in the dark default's orange, shown while a light theme is active.
+      final routineId = await db.createRoutine(
+          name: 'Push/Pull', color: 'FF6A3D', restSeconds: 120);
+      final routine = await (db.select(db.routines)
+            ..where((r) => r.id.equals(routineId)))
+          .getSingle();
+
+      // Nothing in this tree watches the theme, so keep the stream subscribed
+      // for the duration or it never settles.
+      final sub = container.listen(themeSettingProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: RoutineCard(
+            data: RoutineWithCount(routine, 3),
+            isCurrent: true,
+            onTap: () {},
+          ),
+        ),
+      ));
+      await tester.pump();
+
+      await db.setThemePreset('high_contrast_light');
+      await pumpUntil(tester,
+          () => container.read(activePaletteProvider).id == 'high_contrast_light');
+
+      expect(container.read(activePaletteProvider).brightness, Brightness.light,
+          reason: 'the light accessible theme is the one being painted');
+      expect(find.text('Push/Pull'), findsOneWidget);
+      expect(hexColor(routine.colorHex), const Color(0xFFFF6A3D),
+          reason: 'the routine is still painted in its own colour');
+
+      await stop(tester);
     });
   });
 
