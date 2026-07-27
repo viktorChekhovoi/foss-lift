@@ -57,17 +57,63 @@ void main() {
         kThemePresets
             .where((p) => p.brightness == b && p.accessible == accessible);
 
-    test('two dark, two light, and an accessible one of each', () {
-      expect(of(Brightness.dark, accessible: false), hasLength(2),
-          reason: 'two everyday dark themes ship');
-      expect(of(Brightness.light, accessible: false), hasLength(2),
-          reason: 'two everyday light themes ship');
+    // The organising idea of the lineup: every look exists in both
+    // brightnesses, so choosing one never forces the other on you.
+    const pairs = {
+      'ignition': 'daylight',
+      'graphite': 'paper',
+      'solarized_dark': 'solarized_light',
+      'high_contrast': 'high_contrast_light',
+    };
+
+    test('eight presets, as four dark/light pairs', () {
+      expect(kThemePresets, hasLength(8),
+          reason: 'four pairs and nothing else');
+      for (final pair in pairs.entries) {
+        final dark = kThemePresets.singleWhere((p) => p.id == pair.key,
+            orElse: () => throw StateError('no preset ${pair.key}'));
+        final light = kThemePresets.singleWhere((p) => p.id == pair.value,
+            orElse: () => throw StateError('no preset ${pair.value}'));
+        expect(dark.brightness, Brightness.dark, reason: pair.key);
+        expect(light.brightness, Brightness.light, reason: pair.value);
+        expect(dark.accessible, light.accessible,
+            reason: '${pair.key}/${pair.value}: a pair agrees on whether it '
+                'is an accessibility option');
+      }
+    });
+
+    test('the accessible option exists in both brightnesses', () {
       expect(of(Brightness.dark, accessible: true), hasLength(1),
           reason: 'one accessible dark theme ships');
       expect(of(Brightness.light, accessible: true), hasLength(1),
-          reason: 'one accessible light theme ships');
-      expect(kThemePresets, hasLength(6),
-          reason: 'and nothing else — six presets in total');
+          reason: 'one accessible light theme ships — wanting legibility must '
+              'not mean accepting a dark screen');
+      expect(of(Brightness.dark, accessible: false), hasLength(3));
+      expect(of(Brightness.light, accessible: false), hasLength(3));
+    });
+
+    test('Solarized ships as the published palette, in both brightnesses', () {
+      // Solarized is a named, published palette; someone choosing it wants
+      // those exact hues, so the accent/good/gold triple is shared by the two
+      // and is Schoonover's blue, green and yellow.
+      final dark =
+          kThemePresets.singleWhere((p) => p.id == 'solarized_dark');
+      final light =
+          kThemePresets.singleWhere((p) => p.id == 'solarized_light');
+      expect(dark.accent, const Color(0xFF268BD2), reason: 'Solarized blue');
+      expect(dark.good, const Color(0xFF859900), reason: 'Solarized green');
+      expect(dark.gold, const Color(0xFFB58900), reason: 'Solarized yellow');
+      for (final role in [
+        (dark.accent, light.accent),
+        (dark.good, light.good),
+        (dark.gold, light.gold),
+      ]) {
+        expect(role.$1, role.$2,
+            reason: 'both Solarized themes share the same accent hues');
+      }
+      // The grounds are the palette's own base3/base03, not invented paper.
+      expect(dark.ground, const Color(0xFF002B36), reason: 'base03');
+      expect(light.ground, const Color(0xFFFDF6E3), reason: 'base3');
     });
 
     test('the default preset is a dark, everyday one', () {
@@ -416,6 +462,10 @@ void main() {
 
       final light = kThemePresets
           .firstWhere((p) => p.accessible && p.brightness == Brightness.light);
+      // The accessible themes sit last in their group, off the bottom of a
+      // small test viewport.
+      await tester.ensureVisible(find.text(light.name));
+      await tester.pump();
       await tester.tap(find.text(light.name));
       await pumpUntil(
           tester,

@@ -300,6 +300,68 @@ const AppPalette _graphite = AppPalette(
   gold: Color(0xFFFFC24B),
 );
 
+// --- Solarized -------------------------------------------------------------
+// Ethan Schoonover's published palette (ethanschoonover.com/solarized), whose
+// whole point is that the sixteen tones are fixed: someone choosing Solarized
+// wants *that* Solarized, so the hues are used as specified rather than
+// re-tuned to taste.
+//
+// Two deliberate departures, both about legibility. The body text uses the
+// palette's *emphasized* tier (base1 on dark, base02 on light) rather than its
+// designated body tier — Solarized's own body tones land at roughly 4.1:1 on
+// their backgrounds, under the 4.5:1 floor every preset here has to clear, and
+// a workout log read at arm's length mid-set is not prose on a laptop. The
+// intermediate surfaces are blends between base03 and base02, since the
+// palette defines only two background tones and the app paints four.
+
+const Color _solBase03 = Color(0xFF002B36);
+const Color _solBase02 = Color(0xFF073642);
+const Color _solBase01 = Color(0xFF586E75);
+const Color _solBase00 = Color(0xFF657B83);
+const Color _solBase0 = Color(0xFF839496);
+const Color _solBase1 = Color(0xFF93A1A1);
+const Color _solBase2 = Color(0xFFEEE8D5);
+const Color _solBase3 = Color(0xFFFDF6E3);
+const Color _solBlue = Color(0xFF268BD2);
+const Color _solGreen = Color(0xFF859900);
+const Color _solYellow = Color(0xFFB58900);
+
+/// Solarized dark: base03 ground, base02 cards, blue accent.
+const AppPalette _solarizedDark = AppPalette(
+  id: 'solarized_dark',
+  name: 'Solarized dark',
+  ground: _solBase03,
+  surface: _solBase02,
+  surface2: Color(0xFF0D4250),
+  surface3: Color(0xFF124E5E),
+  line: Color(0xFF14505F),
+  text: _solBase1,
+  muted: _solBase0,
+  faint: _solBase01,
+  accent: _solBlue,
+  accentPress: Color(0xFF1B6FA8),
+  good: _solGreen,
+  gold: _solYellow,
+);
+
+/// Solarized light: base3 ground, base2 cards, the same blue accent.
+const AppPalette _solarizedLight = AppPalette(
+  id: 'solarized_light',
+  name: 'Solarized light',
+  ground: _solBase3,
+  surface: _solBase2,
+  surface2: Color(0xFFE6DFC8),
+  surface3: Color(0xFFDCD4BA),
+  line: _solBase1,
+  text: _solBase02,
+  muted: _solBase01,
+  faint: _solBase00,
+  accent: _solBlue,
+  accentPress: Color(0xFF1F6FA8),
+  good: _solGreen,
+  gold: _solYellow,
+);
+
 // --- Light presets ---------------------------------------------------------
 // Pale grounds with dark text. Their accents are saturated and dark enough to
 // read on white; `good`/`gold` stay a medium tone that works both as a coloured
@@ -389,15 +451,21 @@ const AppPalette _highContrastLight = AppPalette(
   gold: Color(0xFF8A5A00),
 );
 
-/// Every preset that ships with the app. The first is the default. Ordered dark
-/// then light, with each brightness's accessible option last in its group — the
-/// picker groups them by [AppPalette.brightness] and renders them in this order.
+/// Every preset that ships with the app, as four dark/light pairs: two everyday
+/// looks, Solarized, and the accessible option. Every look exists in both
+/// brightnesses, so choosing one never forces the other on you.
+///
+/// The first is the default. Ordered dark then light, each brightness's
+/// accessible option last in its group — the picker groups them by
+/// [AppPalette.brightness] and renders them in this order.
 const List<AppPalette> kThemePresets = [
   _ignition,
   _graphite,
+  _solarizedDark,
   _highContrastDark,
   _daylight,
   _paper,
+  _solarizedLight,
   _highContrastLight,
 ];
 
