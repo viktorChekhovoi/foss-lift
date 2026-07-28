@@ -43,7 +43,7 @@ class VideoSettingsScreen extends ConsumerWidget {
               onSelect: db.setVideoHeight,
             ),
             const SizedBox(height: 22),
-            Text('LONGEST CLIP',
+            Text('MAX CLIP LENGTH',
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
@@ -52,12 +52,6 @@ class VideoSettingsScreen extends ConsumerWidget {
               chosen: maxSeconds,
               label: (v) => v < 60 ? '$v s' : '${v ~/ 60} min',
               onSelect: db.setVideoMaxSeconds,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Recording stops itself here.',
-              style:
-                  TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 28),
             Text('STORAGE',

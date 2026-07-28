@@ -73,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             SettingRow(
-              label: 'Quality & storage',
+              label: 'Storage',
               value: fmtBytes(ref.watch(videoUsageProvider).value ?? 0),
               onTap: () => context.push('/settings/videos'),
             ),

@@ -24,8 +24,9 @@ network, and it stays that way.
 - **Watch one back:** Library → the exercise → **N clips**, which is every clip
   of that movement in date order. Or from a session: History → the session →
   tap an exercise marked with a play symbol.
-- **See the cost:** Profile → Settings → **Set videos**. Quality, the longest a
-  clip may run, and how much space they are taking.
+- **See the cost:** Profile → Settings → **Storage**, under Set videos — the
+  row shows what the clips are taking. The screen behind it holds the quality,
+  the max clip length and the way to get the space back.
 
 ## Behaviour & edge cases
 
@@ -37,10 +38,12 @@ network, and it stays that way.
   it off avoids the microphone permission prompt on both platforms.
 - **The camera is opened only while filming**, and released the moment the
   recording screen closes. It is never held open in the background.
-- **Recording stops itself.** 60 seconds by default, 3 minutes if asked for. The
-  failure mode that fills a phone is a recording nobody stopped — you rack the
-  bar, walk off, and the app films the ceiling. The last five seconds count
-  down, so the stop is never a surprise.
+- **Recording stops itself at the max clip length.** 60 seconds by default, 3
+  minutes if asked for. The failure mode that fills a phone is a recording
+  nobody stopped — you rack the bar, walk off, and the app films the ceiling.
+  The last five seconds count down, so the stop is never a surprise. The
+  settings screen does not explain any of this: the control is called "Max clip
+  length", which is the whole of what a caption underneath it was saying.
 - **720p by default, 480p on request. 1080p is not offered** — roughly two and a
   half times the bytes for a judgement 720p already answers.
 - **Warm-ups cannot be filmed.** They are suggestions that are never saved, so
