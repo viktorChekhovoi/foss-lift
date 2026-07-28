@@ -30,6 +30,8 @@ class FossLiftApp extends ConsumerWidget {
     ref.watch(reminderSyncProvider);
     // Puts the live workout in the notification shade and keeps it current.
     ref.watch(workoutShadeSyncProvider);
+    // Collects any clip file a crash stranded. Once, on launch.
+    ref.watch(orphanSweepProvider);
     final palette = ref.watch(activePaletteProvider);
 
     // Nothing is painted until the stored theme is known. `activePaletteProvider`

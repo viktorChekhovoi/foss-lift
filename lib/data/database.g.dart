@@ -3164,6 +3164,17 @@ class $SessionSetsTable extends SessionSets
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _videoPathMeta = const VerificationMeta(
+    'videoPath',
+  );
+  @override
+  late final GeneratedColumn<String> videoPath = GeneratedColumn<String>(
+    'video_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3178,6 +3189,7 @@ class $SessionSetsTable extends SessionSets
     goalWeight,
     seconds,
     goalSeconds,
+    videoPath,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3272,6 +3284,12 @@ class $SessionSetsTable extends SessionSets
         ),
       );
     }
+    if (data.containsKey('video_path')) {
+      context.handle(
+        _videoPathMeta,
+        videoPath.isAcceptableOrUnknown(data['video_path']!, _videoPathMeta),
+      );
+    }
     return context;
   }
 
@@ -3329,6 +3347,10 @@ class $SessionSetsTable extends SessionSets
         DriftSqlType.int,
         data['${effectivePrefix}goal_seconds'],
       ),
+      videoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}video_path'],
+      ),
     );
   }
 
@@ -3369,6 +3391,18 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
   /// The hold the template was asking for, in seconds. Null when the set was
   /// counted in reps.
   final int? goalSeconds;
+
+  /// The clip filmed of this set, as a path **relative** to the app support
+  /// directory (`set_videos/<id>.mp4`). Null on a set nobody filmed, which is
+  /// nearly all of them.
+  ///
+  /// Relative, never absolute: the iOS app-container path carries a UUID that
+  /// changes on reinstall and on restore from backup, so an absolute path works
+  /// on Android and silently dangles on iOS. See `SetVideoStore`.
+  ///
+  /// One column rather than a table: one clip per set is the feature, and
+  /// several angles of the same set is not.
+  final String? videoPath;
   const SessionSet({
     required this.id,
     required this.sessionId,
@@ -3382,6 +3416,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     this.goalWeight,
     this.seconds,
     this.goalSeconds,
+    this.videoPath,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3405,6 +3440,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     }
     if (!nullToAbsent || goalSeconds != null) {
       map['goal_seconds'] = Variable<int>(goalSeconds);
+    }
+    if (!nullToAbsent || videoPath != null) {
+      map['video_path'] = Variable<String>(videoPath);
     }
     return map;
   }
@@ -3431,6 +3469,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       goalSeconds: goalSeconds == null && nullToAbsent
           ? const Value.absent()
           : Value(goalSeconds),
+      videoPath: videoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(videoPath),
     );
   }
 
@@ -3452,6 +3493,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       goalWeight: serializer.fromJson<double?>(json['goalWeight']),
       seconds: serializer.fromJson<int?>(json['seconds']),
       goalSeconds: serializer.fromJson<int?>(json['goalSeconds']),
+      videoPath: serializer.fromJson<String?>(json['videoPath']),
     );
   }
   @override
@@ -3470,6 +3512,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       'goalWeight': serializer.toJson<double?>(goalWeight),
       'seconds': serializer.toJson<int?>(seconds),
       'goalSeconds': serializer.toJson<int?>(goalSeconds),
+      'videoPath': serializer.toJson<String?>(videoPath),
     };
   }
 
@@ -3486,6 +3529,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     Value<double?> goalWeight = const Value.absent(),
     Value<int?> seconds = const Value.absent(),
     Value<int?> goalSeconds = const Value.absent(),
+    Value<String?> videoPath = const Value.absent(),
   }) => SessionSet(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -3499,6 +3543,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     goalWeight: goalWeight.present ? goalWeight.value : this.goalWeight,
     seconds: seconds.present ? seconds.value : this.seconds,
     goalSeconds: goalSeconds.present ? goalSeconds.value : this.goalSeconds,
+    videoPath: videoPath.present ? videoPath.value : this.videoPath,
   );
   SessionSet copyWithCompanion(SessionSetsCompanion data) {
     return SessionSet(
@@ -3522,6 +3567,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       goalSeconds: data.goalSeconds.present
           ? data.goalSeconds.value
           : this.goalSeconds,
+      videoPath: data.videoPath.present ? data.videoPath.value : this.videoPath,
     );
   }
 
@@ -3539,7 +3585,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ..write('goalReps: $goalReps, ')
           ..write('goalWeight: $goalWeight, ')
           ..write('seconds: $seconds, ')
-          ..write('goalSeconds: $goalSeconds')
+          ..write('goalSeconds: $goalSeconds, ')
+          ..write('videoPath: $videoPath')
           ..write(')'))
         .toString();
   }
@@ -3558,6 +3605,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     goalWeight,
     seconds,
     goalSeconds,
+    videoPath,
   );
   @override
   bool operator ==(Object other) =>
@@ -3574,7 +3622,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           other.goalReps == this.goalReps &&
           other.goalWeight == this.goalWeight &&
           other.seconds == this.seconds &&
-          other.goalSeconds == this.goalSeconds);
+          other.goalSeconds == this.goalSeconds &&
+          other.videoPath == this.videoPath);
 }
 
 class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
@@ -3590,6 +3639,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
   final Value<double?> goalWeight;
   final Value<int?> seconds;
   final Value<int?> goalSeconds;
+  final Value<String?> videoPath;
   const SessionSetsCompanion({
     this.id = const Value.absent(),
     this.sessionId = const Value.absent(),
@@ -3603,6 +3653,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.goalWeight = const Value.absent(),
     this.seconds = const Value.absent(),
     this.goalSeconds = const Value.absent(),
+    this.videoPath = const Value.absent(),
   });
   SessionSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -3617,6 +3668,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.goalWeight = const Value.absent(),
     this.seconds = const Value.absent(),
     this.goalSeconds = const Value.absent(),
+    this.videoPath = const Value.absent(),
   }) : sessionId = Value(sessionId),
        exerciseName = Value(exerciseName),
        setNumber = Value(setNumber);
@@ -3633,6 +3685,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Expression<double>? goalWeight,
     Expression<int>? seconds,
     Expression<int>? goalSeconds,
+    Expression<String>? videoPath,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3647,6 +3700,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       if (goalWeight != null) 'goal_weight': goalWeight,
       if (seconds != null) 'seconds': seconds,
       if (goalSeconds != null) 'goal_seconds': goalSeconds,
+      if (videoPath != null) 'video_path': videoPath,
     });
   }
 
@@ -3663,6 +3717,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Value<double?>? goalWeight,
     Value<int?>? seconds,
     Value<int?>? goalSeconds,
+    Value<String?>? videoPath,
   }) {
     return SessionSetsCompanion(
       id: id ?? this.id,
@@ -3677,6 +3732,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       goalWeight: goalWeight ?? this.goalWeight,
       seconds: seconds ?? this.seconds,
       goalSeconds: goalSeconds ?? this.goalSeconds,
+      videoPath: videoPath ?? this.videoPath,
     );
   }
 
@@ -3719,6 +3775,9 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     if (goalSeconds.present) {
       map['goal_seconds'] = Variable<int>(goalSeconds.value);
     }
+    if (videoPath.present) {
+      map['video_path'] = Variable<String>(videoPath.value);
+    }
     return map;
   }
 
@@ -3736,7 +3795,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
           ..write('goalReps: $goalReps, ')
           ..write('goalWeight: $goalWeight, ')
           ..write('seconds: $seconds, ')
-          ..write('goalSeconds: $goalSeconds')
+          ..write('goalSeconds: $goalSeconds, ')
+          ..write('videoPath: $videoPath')
           ..write(')'))
         .toString();
   }
@@ -3890,6 +3950,30 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _videoHeightMeta = const VerificationMeta(
+    'videoHeight',
+  );
+  @override
+  late final GeneratedColumn<int> videoHeight = GeneratedColumn<int>(
+    'video_height',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultVideoHeight),
+  );
+  static const VerificationMeta _videoMaxSecondsMeta = const VerificationMeta(
+    'videoMaxSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> videoMaxSeconds = GeneratedColumn<int>(
+    'video_max_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultVideoSeconds),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3904,6 +3988,8 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     restSound,
     textScale,
     themePresetId,
+    videoHeight,
+    videoMaxSeconds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4004,6 +4090,24 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
+    if (data.containsKey('video_height')) {
+      context.handle(
+        _videoHeightMeta,
+        videoHeight.isAcceptableOrUnknown(
+          data['video_height']!,
+          _videoHeightMeta,
+        ),
+      );
+    }
+    if (data.containsKey('video_max_seconds')) {
+      context.handle(
+        _videoMaxSecondsMeta,
+        videoMaxSeconds.isAcceptableOrUnknown(
+          data['video_max_seconds']!,
+          _videoMaxSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4061,6 +4165,14 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}theme_preset_id'],
       ),
+      videoHeight: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}video_height'],
+      )!,
+      videoMaxSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}video_max_seconds'],
+      )!,
     );
   }
 
@@ -4144,6 +4256,22 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// any other route resolves to the default rather than to nothing — see
   /// `resolvePalette`.
   final String? themePresetId;
+
+  /// The height a set clip is filmed at, in pixels: 480 or 720.
+  ///
+  /// 720 by default. 1080 is deliberately not on offer — it is roughly two and
+  /// a half times the bytes of 720 for a judgement (depth, bar path) that 720
+  /// already answers, and video is the only thing this app stores that can fill
+  /// a phone. See `kVideoHeights`.
+  final int videoHeight;
+
+  /// The hard stop on one clip, in seconds: 60 or 180.
+  ///
+  /// Recording ends itself here rather than warning. The failure mode that
+  /// fills a phone is a recording nobody stopped — you rack the bar, walk off,
+  /// and the app films the ceiling. 60 covers any straight set; the longer step
+  /// exists for a 20-rep squat set or a held exercise.
+  final int videoMaxSeconds;
   const Setting({
     required this.id,
     required this.weightUnit,
@@ -4157,6 +4285,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     required this.restSound,
     required this.textScale,
     this.themePresetId,
+    required this.videoHeight,
+    required this.videoMaxSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4183,6 +4313,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     if (!nullToAbsent || themePresetId != null) {
       map['theme_preset_id'] = Variable<String>(themePresetId);
     }
+    map['video_height'] = Variable<int>(videoHeight);
+    map['video_max_seconds'] = Variable<int>(videoMaxSeconds);
     return map;
   }
 
@@ -4210,6 +4342,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       themePresetId: themePresetId == null && nullToAbsent
           ? const Value.absent()
           : Value(themePresetId),
+      videoHeight: Value(videoHeight),
+      videoMaxSeconds: Value(videoMaxSeconds),
     );
   }
 
@@ -4231,6 +4365,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       restSound: serializer.fromJson<bool>(json['restSound']),
       textScale: serializer.fromJson<double>(json['textScale']),
       themePresetId: serializer.fromJson<String?>(json['themePresetId']),
+      videoHeight: serializer.fromJson<int>(json['videoHeight']),
+      videoMaxSeconds: serializer.fromJson<int>(json['videoMaxSeconds']),
     );
   }
   @override
@@ -4249,6 +4385,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       'restSound': serializer.toJson<bool>(restSound),
       'textScale': serializer.toJson<double>(textScale),
       'themePresetId': serializer.toJson<String?>(themePresetId),
+      'videoHeight': serializer.toJson<int>(videoHeight),
+      'videoMaxSeconds': serializer.toJson<int>(videoMaxSeconds),
     };
   }
 
@@ -4265,6 +4403,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     bool? restSound,
     double? textScale,
     Value<String?> themePresetId = const Value.absent(),
+    int? videoHeight,
+    int? videoMaxSeconds,
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -4286,6 +4426,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     themePresetId: themePresetId.present
         ? themePresetId.value
         : this.themePresetId,
+    videoHeight: videoHeight ?? this.videoHeight,
+    videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -4317,6 +4459,12 @@ class Setting extends DataClass implements Insertable<Setting> {
       themePresetId: data.themePresetId.present
           ? data.themePresetId.value
           : this.themePresetId,
+      videoHeight: data.videoHeight.present
+          ? data.videoHeight.value
+          : this.videoHeight,
+      videoMaxSeconds: data.videoMaxSeconds.present
+          ? data.videoMaxSeconds.value
+          : this.videoMaxSeconds,
     );
   }
 
@@ -4334,7 +4482,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('tutorialSeen: $tutorialSeen, ')
           ..write('restSound: $restSound, ')
           ..write('textScale: $textScale, ')
-          ..write('themePresetId: $themePresetId')
+          ..write('themePresetId: $themePresetId, ')
+          ..write('videoHeight: $videoHeight, ')
+          ..write('videoMaxSeconds: $videoMaxSeconds')
           ..write(')'))
         .toString();
   }
@@ -4353,6 +4503,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     restSound,
     textScale,
     themePresetId,
+    videoHeight,
+    videoMaxSeconds,
   );
   @override
   bool operator ==(Object other) =>
@@ -4369,7 +4521,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.tutorialSeen == this.tutorialSeen &&
           other.restSound == this.restSound &&
           other.textScale == this.textScale &&
-          other.themePresetId == this.themePresetId);
+          other.themePresetId == this.themePresetId &&
+          other.videoHeight == this.videoHeight &&
+          other.videoMaxSeconds == this.videoMaxSeconds);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -4385,6 +4539,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<bool> restSound;
   final Value<double> textScale;
   final Value<String?> themePresetId;
+  final Value<int> videoHeight;
+  final Value<int> videoMaxSeconds;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -4398,6 +4554,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.restSound = const Value.absent(),
     this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
+    this.videoHeight = const Value.absent(),
+    this.videoMaxSeconds = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -4412,6 +4570,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.restSound = const Value.absent(),
     this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
+    this.videoHeight = const Value.absent(),
+    this.videoMaxSeconds = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -4426,6 +4586,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<bool>? restSound,
     Expression<double>? textScale,
     Expression<String>? themePresetId,
+    Expression<int>? videoHeight,
+    Expression<int>? videoMaxSeconds,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4440,6 +4602,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (restSound != null) 'rest_sound': restSound,
       if (textScale != null) 'text_scale': textScale,
       if (themePresetId != null) 'theme_preset_id': themePresetId,
+      if (videoHeight != null) 'video_height': videoHeight,
+      if (videoMaxSeconds != null) 'video_max_seconds': videoMaxSeconds,
     });
   }
 
@@ -4456,6 +4620,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<bool>? restSound,
     Value<double>? textScale,
     Value<String?>? themePresetId,
+    Value<int>? videoHeight,
+    Value<int>? videoMaxSeconds,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -4470,6 +4636,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       restSound: restSound ?? this.restSound,
       textScale: textScale ?? this.textScale,
       themePresetId: themePresetId ?? this.themePresetId,
+      videoHeight: videoHeight ?? this.videoHeight,
+      videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
     );
   }
 
@@ -4512,6 +4680,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (themePresetId.present) {
       map['theme_preset_id'] = Variable<String>(themePresetId.value);
     }
+    if (videoHeight.present) {
+      map['video_height'] = Variable<int>(videoHeight.value);
+    }
+    if (videoMaxSeconds.present) {
+      map['video_max_seconds'] = Variable<int>(videoMaxSeconds.value);
+    }
     return map;
   }
 
@@ -4529,7 +4703,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('tutorialSeen: $tutorialSeen, ')
           ..write('restSound: $restSound, ')
           ..write('textScale: $textScale, ')
-          ..write('themePresetId: $themePresetId')
+          ..write('themePresetId: $themePresetId, ')
+          ..write('videoHeight: $videoHeight, ')
+          ..write('videoMaxSeconds: $videoMaxSeconds')
           ..write(')'))
         .toString();
   }
@@ -6950,6 +7126,7 @@ typedef $$SessionSetsTableCreateCompanionBuilder =
       Value<double?> goalWeight,
       Value<int?> seconds,
       Value<int?> goalSeconds,
+      Value<String?> videoPath,
     });
 typedef $$SessionSetsTableUpdateCompanionBuilder =
     SessionSetsCompanion Function({
@@ -6965,6 +7142,7 @@ typedef $$SessionSetsTableUpdateCompanionBuilder =
       Value<double?> goalWeight,
       Value<int?> seconds,
       Value<int?> goalSeconds,
+      Value<String?> videoPath,
     });
 
 final class $$SessionSetsTableReferences
@@ -7050,6 +7228,11 @@ class $$SessionSetsTableFilterComposer
 
   ColumnFilters<int> get goalSeconds => $composableBuilder(
     column: $table.goalSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get videoPath => $composableBuilder(
+    column: $table.videoPath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7141,6 +7324,11 @@ class $$SessionSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get videoPath => $composableBuilder(
+    column: $table.videoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SessionsTableOrderingComposer get sessionId {
     final $$SessionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7215,6 +7403,9 @@ class $$SessionSetsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get videoPath =>
+      $composableBuilder(column: $table.videoPath, builder: (column) => column);
+
   $$SessionsTableAnnotationComposer get sessionId {
     final $$SessionsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -7279,6 +7470,7 @@ class $$SessionSetsTableTableManager
                 Value<double?> goalWeight = const Value.absent(),
                 Value<int?> seconds = const Value.absent(),
                 Value<int?> goalSeconds = const Value.absent(),
+                Value<String?> videoPath = const Value.absent(),
               }) => SessionSetsCompanion(
                 id: id,
                 sessionId: sessionId,
@@ -7292,6 +7484,7 @@ class $$SessionSetsTableTableManager
                 goalWeight: goalWeight,
                 seconds: seconds,
                 goalSeconds: goalSeconds,
+                videoPath: videoPath,
               ),
           createCompanionCallback:
               ({
@@ -7307,6 +7500,7 @@ class $$SessionSetsTableTableManager
                 Value<double?> goalWeight = const Value.absent(),
                 Value<int?> seconds = const Value.absent(),
                 Value<int?> goalSeconds = const Value.absent(),
+                Value<String?> videoPath = const Value.absent(),
               }) => SessionSetsCompanion.insert(
                 id: id,
                 sessionId: sessionId,
@@ -7320,6 +7514,7 @@ class $$SessionSetsTableTableManager
                 goalWeight: goalWeight,
                 seconds: seconds,
                 goalSeconds: goalSeconds,
+                videoPath: videoPath,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7402,6 +7597,8 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<bool> restSound,
       Value<double> textScale,
       Value<String?> themePresetId,
+      Value<int> videoHeight,
+      Value<int> videoMaxSeconds,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -7417,6 +7614,8 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<bool> restSound,
       Value<double> textScale,
       Value<String?> themePresetId,
+      Value<int> videoHeight,
+      Value<int> videoMaxSeconds,
     });
 
 class $$SettingsTableFilterComposer
@@ -7485,6 +7684,16 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get themePresetId => $composableBuilder(
     column: $table.themePresetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get videoHeight => $composableBuilder(
+    column: $table.videoHeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get videoMaxSeconds => $composableBuilder(
+    column: $table.videoMaxSeconds,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7557,6 +7766,16 @@ class $$SettingsTableOrderingComposer
     column: $table.themePresetId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get videoHeight => $composableBuilder(
+    column: $table.videoHeight,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get videoMaxSeconds => $composableBuilder(
+    column: $table.videoMaxSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -7619,6 +7838,16 @@ class $$SettingsTableAnnotationComposer
     column: $table.themePresetId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get videoHeight => $composableBuilder(
+    column: $table.videoHeight,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get videoMaxSeconds => $composableBuilder(
+    column: $table.videoMaxSeconds,
+    builder: (column) => column,
+  );
 }
 
 class $$SettingsTableTableManager
@@ -7661,6 +7890,8 @@ class $$SettingsTableTableManager
                 Value<bool> restSound = const Value.absent(),
                 Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
+                Value<int> videoHeight = const Value.absent(),
+                Value<int> videoMaxSeconds = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -7674,6 +7905,8 @@ class $$SettingsTableTableManager
                 restSound: restSound,
                 textScale: textScale,
                 themePresetId: themePresetId,
+                videoHeight: videoHeight,
+                videoMaxSeconds: videoMaxSeconds,
               ),
           createCompanionCallback:
               ({
@@ -7689,6 +7922,8 @@ class $$SettingsTableTableManager
                 Value<bool> restSound = const Value.absent(),
                 Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
+                Value<int> videoHeight = const Value.absent(),
+                Value<int> videoMaxSeconds = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -7702,6 +7937,8 @@ class $$SettingsTableTableManager
                 restSound: restSound,
                 textScale: textScale,
                 themePresetId: themePresetId,
+                videoHeight: videoHeight,
+                videoMaxSeconds: videoMaxSeconds,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

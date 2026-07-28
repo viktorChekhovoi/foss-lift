@@ -467,6 +467,7 @@ class _SessionExerciseRow extends StatelessWidget {
       if (better) best = s;
     }
     final missed = sets.where(setMissedGoal).length;
+    final filmed = sets.where((s) => s.videoPath != null).length;
     final w =
         best.weight == 0 ? 'BW' : fmtWeight(toDisplayWeight(best.weight, unit));
 
@@ -501,6 +502,13 @@ class _SessionExerciseRow extends StatelessWidget {
                         TextSpan(
                           text: ' · $missed missed',
                           style: TextStyle(color: AppColors.gold),
+                        ),
+                      // A set carrying a clip has to be findable from here, or
+                      // the recording is one nobody will ever watch again.
+                      if (filmed > 0)
+                        TextSpan(
+                          text: ' · $filmed filmed',
+                          style: TextStyle(color: AppColors.accent),
                         ),
                     ],
                   ),

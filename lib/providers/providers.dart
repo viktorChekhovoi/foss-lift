@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
 import '../services/reminders.dart';
+import '../services/set_video_store.dart';
 import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
@@ -17,6 +18,7 @@ export 'db_provider.dart' show databaseProvider;
 // The rest clock lives on the session controller, so the two providers it needs
 // live beside it — see the note on db_provider.dart for why that shape exists.
 export '../state/active_workout.dart' show restSoundProvider, restToneProvider;
+export '../services/set_video_store.dart';
 
 /// All routines with their workout counts (Today + Routines tabs).
 final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
@@ -326,4 +328,46 @@ final sessionSummaryProvider = FutureProvider.family<
       await (db.select(db.sessions)..where((t) => t.id.equals(id))).getSingle();
   final sets = await db.setsForSession(id);
   return (session: session, sets: sets);
+});
+
+// ---------------------------------------------------------------------------
+// Set clips
+// ---------------------------------------------------------------------------
+
+/// How a clip is filmed: the height, and the hard stop on its length.
+final videoSettingProvider = StreamProvider<VideoSetting>((ref) {
+  return ref.watch(databaseProvider).watchVideoSetting();
+});
+
+/// Every clip path a set points at, kept current.
+final videoPathsProvider = StreamProvider<List<String>>((ref) {
+  return ref.watch(databaseProvider).watchVideoPaths();
+});
+
+/// Bytes held by clips on disk.
+///
+/// Recomputed whenever the set of referenced paths changes, so deleting a clip
+/// moves the number without a reload. It measures the *folder*, not the rows —
+/// a stranded file is space the user has lost, and a storage screen that did
+/// not count it would be lying about the thing it exists to report.
+final videoUsageProvider = FutureProvider<int>((ref) async {
+  ref.watch(videoPathsProvider);
+  return ref.watch(setVideoStoreProvider).bytesUsed();
+});
+
+/// Sweeps clip files that nothing points at, once per launch.
+///
+/// A provider rather than a call in `main()` so it runs inside the same scope
+/// as the database it has to ask, and so a test can await it. Watched high up —
+/// see `main.dart`. Files younger than [kOrphanGrace] are left alone, which is
+/// what keeps it from deleting the set somebody is filming right now.
+final orphanSweepProvider = FutureProvider<int>((ref) async {
+  final db = ref.watch(databaseProvider);
+  return ref.watch(setVideoStoreProvider).sweepOrphans(await db.allVideoPaths());
+});
+
+/// Every clip of one exercise, newest first — the film reel for that movement.
+final exerciseClipsProvider =
+    StreamProvider.family<List<ExerciseSetEntry>, int>((ref, exerciseId) {
+  return ref.watch(databaseProvider).watchExerciseClips(exerciseId);
 });

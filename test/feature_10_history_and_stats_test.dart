@@ -110,6 +110,8 @@ void main() {
       bool done = true,
     }) =>
         ExerciseSetEntry(
+          // The maths under test groups by session, never by set id.
+          setId: sessionId * 100 + setNumber,
           sessionId: sessionId,
           date: date,
           sessionName: 'S$sessionId',

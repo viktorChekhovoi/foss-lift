@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../data/warmup.dart';
 import '../providers/db_provider.dart';
 import '../services/rest_tone.dart';
+import '../services/set_video_store.dart';
 import 'workout_cue.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
@@ -29,6 +30,7 @@ class SetEntry {
     this.timed = false,
     double? weight,
     this.logged,
+    this.videoPath,
   }) : weight = weight ?? goalWeight ?? 0;
 
   /// The target from the template — reps, or seconds when [timed]. Immutable.
@@ -47,6 +49,18 @@ class SetEntry {
   /// Null means the set has not been logged yet; 0 is a logged set where
   /// nothing was managed at all.
   int? logged;
+
+  /// The clip filmed of this set, relative to the app support directory, or
+  /// null if nobody filmed it.
+  ///
+  /// **The file is on disk from the moment recording stops; only this pointer
+  /// is in memory.** The live session does not touch the database until Finish,
+  /// so a clip filmed mid-session is a file plus a path held here, written
+  /// alongside the set when the session is saved — and deleted again if the
+  /// session is abandoned. A crash in between strands a file, which the orphan
+  /// sweep collects; the ordering is chosen so it can never strand a row
+  /// pointing at nothing.
+  String? videoPath;
 
   bool get done => logged != null;
 
@@ -540,6 +554,46 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     state = s.copyWith();
   }
 
+  /// Hangs a freshly recorded clip on a set, replacing any clip it already had
+  /// — one clip per set, so re-filming a set means the old take goes.
+  ///
+  /// The file is already on disk; this is only the pointer. Deleting the
+  /// replaced file happens here rather than being left to the sweep, so
+  /// re-filming a set five times does not sit on five files for a day.
+  Future<void> attachVideo(int ei, int si, String relativePath) async {
+    final s = state;
+    if (s == null) return;
+    final set = s.exercises[ei].sets[si];
+    final replaced = set.videoPath;
+    set.videoPath = relativePath;
+    state = s.copyWith();
+    if (replaced != null) {
+      await ref.read(setVideoStoreProvider).delete(replaced);
+    }
+  }
+
+  /// Drops the clip on a set, leaving the set itself untouched — a bad take is
+  /// not a set that did not happen.
+  Future<void> removeVideo(int ei, int si) async {
+    final s = state;
+    if (s == null) return;
+    final set = s.exercises[ei].sets[si];
+    final gone = set.videoPath;
+    if (gone == null) return;
+    set.videoPath = null;
+    state = s.copyWith();
+    await ref.read(setVideoStoreProvider).delete(gone);
+  }
+
+  /// Every clip this session is holding, saved or not.
+  Iterable<String> get _clipPaths sync* {
+    for (final e in state?.exercises ?? const <ExerciseEntry>[]) {
+      for (final set in e.sets) {
+        if (set.videoPath case final path?) yield path;
+      }
+    }
+  }
+
   /// One set's own weight — the exception, for the set you have to drop to
   /// finish. The exercise's [ExerciseEntry.workingKg] is left alone: coming down
   /// for one set is not a decision about the rest of them.
@@ -708,10 +762,17 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     _restTimer = null;
 
     final rows = <SessionSetsCompanion>[];
+    // Clips filmed against a set that was never logged. The set is not saved,
+    // so nothing would point at them — they go with the rest of the session
+    // rather than waiting a day for the sweep.
+    final unsaved = <String>[];
     for (final e in s.exercises) {
       var n = 1;
       for (final set in e.sets) {
-        if (!set.done) continue;
+        if (!set.done) {
+          if (set.videoPath case final path?) unsaved.add(path);
+          continue;
+        }
         rows.add(SessionSetsCompanion.insert(
           sessionId: 0, // replaced inside saveSession
           exerciseName: e.name,
@@ -726,6 +787,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           goalReps: Value(set.timed ? 0 : set.goal),
           goalSeconds: Value(set.timed ? set.goal : null),
           goalWeight: Value(set.goalWeight),
+          videoPath: Value(set.videoPath),
         ));
       }
     }
@@ -740,6 +802,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       totalVolume: s.volume,
       sets: rows,
     );
+
+    // Only now that the rows are on disk: a clip whose set was saved is
+    // referenced, and a clip whose set was not is rubbish. Deleting before the
+    // write would risk taking a file the write then points at.
+    await ref.read(setVideoStoreProvider).deleteAll(unsaved);
 
     // Progression moves only once the session it is based on is safely on
     // disk. A template that stepped up without the history to justify it is
@@ -789,11 +856,18 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     return id;
   }
 
-  void discard() {
+  /// Throws the session away, and the clips it filmed with it.
+  ///
+  /// Nothing was ever written to the database, so nothing points at those
+  /// files — abandoning a workout that leaves footage behind would be an app
+  /// quietly hoarding video of somebody for a session they chose to bin.
+  Future<void> discard() async {
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
+    final clips = _clipPaths.toList();
     state = null;
+    await ref.read(setVideoStoreProvider).deleteAll(clips);
   }
 }
 

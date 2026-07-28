@@ -51,7 +51,9 @@ lib/
 │   ├── rest_tone.dart            The sound the rest timer makes when it ends
 │   ├── workout_shade.dart        The live workout as an Android foreground service
 │   ├── deep_links.dart           fosslift:// links → in-app routes
-│   └── qr_decoder.dart           Camera frame → the string in a QR code
+│   ├── qr_decoder.dart           Camera frame → the string in a QR code
+│   ├── set_video_store.dart      Where set clips live on disk + the orphan sweep
+│   └── set_video_recorder.dart   The camera, behind an interface so it can be faked
 ├── providers/
 │   ├── db_provider.dart          The single AppDatabase provider (own file to
 │   │                             avoid an import cycle)
@@ -83,7 +85,7 @@ test/                             Unit tests (formatting, units, schema+seed)
 ## Layers in detail
 
 ### Data — `data/database.dart`
-The heart of the app. Defines six drift tables and every query as a method on
+The heart of the app. Defines eight drift tables and every query as a method on
 `AppDatabase`:
 
 The template side is three levels deep — **a routine contains workouts, a
@@ -106,8 +108,8 @@ has "Upper 1" and "Upper 2".
 | `Workouts`     | A training day inside a routine. routineId, name, position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
-| `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), `textScale` (the user's text-size nudge on top of the phone's), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null) |
+| `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, and `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null) |
 | `CustomThemes` | One row per theme the user built or imported: just the palette as JSON, name included (`AppPalette.toJson`). Presets are code, not rows |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
@@ -429,6 +431,8 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/settings` | settings_screen | kg/lb toggle, bar & plates, layoff deload rules |
 | `/settings/bar` | bar_settings_screen | The default bar weight |
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
+| `/settings/videos` | video_settings_screen | Set-video quality, the clip cap, and what the clips cost |
+| `/session/record/:ei/:si` | set_video_screen | Films one set of the live session |
 | `/settings/theme` | theme_settings_screen | Pick a preset or custom theme; share and receive (reached from Profile → Appearance) |
 | `/settings/theme/custom`, `/settings/theme/custom/:id` | theme_settings_screen | Build a new theme, or name/recolour/delete an existing one |
 

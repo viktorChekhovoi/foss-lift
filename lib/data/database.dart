@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../services/set_video_store.dart';
 import '../theme/theme_id.dart';
 import '../util/video_links.dart';
 import 'exercise_stats.dart';
@@ -232,6 +233,18 @@ class SessionSets extends Table {
   /// The hold the template was asking for, in seconds. Null when the set was
   /// counted in reps.
   IntColumn get goalSeconds => integer().nullable()();
+
+  /// The clip filmed of this set, as a path **relative** to the app support
+  /// directory (`set_videos/<id>.mp4`). Null on a set nobody filmed, which is
+  /// nearly all of them.
+  ///
+  /// Relative, never absolute: the iOS app-container path carries a UUID that
+  /// changes on reinstall and on restore from backup, so an absolute path works
+  /// on Android and silently dangles on iOS. See `SetVideoStore`.
+  ///
+  /// One column rather than a table: one clip per set is the feature, and
+  /// several angles of the same set is not.
+  TextColumn get videoPath => text().nullable()();
 }
 
 /// A single-row key/value store for app-wide preferences (always id == 1).
@@ -311,6 +324,24 @@ class Settings extends Table {
   /// any other route resolves to the default rather than to nothing — see
   /// `resolvePalette`.
   TextColumn get themePresetId => text().nullable()();
+
+  /// The height a set clip is filmed at, in pixels: 480 or 720.
+  ///
+  /// 720 by default. 1080 is deliberately not on offer — it is roughly two and
+  /// a half times the bytes of 720 for a judgement (depth, bar path) that 720
+  /// already answers, and video is the only thing this app stores that can fill
+  /// a phone. See `kVideoHeights`.
+  IntColumn get videoHeight =>
+      integer().withDefault(const Constant(kDefaultVideoHeight))();
+
+  /// The hard stop on one clip, in seconds: 60 or 180.
+  ///
+  /// Recording ends itself here rather than warning. The failure mode that
+  /// fills a phone is a recording nobody stopped — you rack the bar, walk off,
+  /// and the app films the ceiling. 60 covers any straight set; the longer step
+  /// exists for a 20-rep squat set or a held exercise.
+  IntColumn get videoMaxSeconds =>
+      integer().withDefault(const Constant(kDefaultVideoSeconds))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -394,6 +425,11 @@ class LifetimeTotals {
 /// see [resolvePlateSettings].
 typedef StoredPlateSetup = ({String? kgRack, String? lbRack, double? barKg});
 
+
+/// How a set clip is filmed: the height in pixels and the hard stop on its
+/// length in seconds. Both come from `Settings`; see `set_video_store.dart` for
+/// the values on offer and why.
+typedef VideoSetting = ({int height, int maxSeconds});
 
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
@@ -1317,6 +1353,72 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // ---- Set clips ----------------------------------------------------------
+
+  /// Every clip path any set points at. What the orphan sweep is measured
+  /// against: a file on disk that is not in here has nothing referring to it.
+  Future<Set<String>> allVideoPaths() async {
+    final q = selectOnly(sessionSets)
+      ..addColumns([sessionSets.videoPath])
+      ..where(sessionSets.videoPath.isNotNull());
+    final rows = await q.get();
+    return {for (final r in rows) ?r.read(sessionSets.videoPath)};
+  }
+
+  /// The same, kept current — the storage screen watches it so deleting a clip
+  /// updates the total without a reload.
+  Stream<List<String>> watchVideoPaths() {
+    final q = selectOnly(sessionSets)
+      ..addColumns([sessionSets.videoPath])
+      ..where(sessionSets.videoPath.isNotNull());
+    return q
+        .watch()
+        .map((rows) => [for (final r in rows) ?r.read(sessionSets.videoPath)]);
+  }
+
+  /// Forgets the clip on set [setId], leaving the set itself exactly as it was.
+  /// Deleting the file is the caller's job — see `SetVideoStore` — and happens
+  /// after this, so a crash strands a file rather than a dead reference.
+  Future<void> clearSetVideo(int setId) =>
+      (update(sessionSets)..where((s) => s.id.equals(setId)))
+          .write(const SessionSetsCompanion(videoPath: Value(null)));
+
+  /// Forgets every clip, leaving every set exactly as it was. The files are
+  /// the caller's to remove afterwards — an orphan sweep with no grace does it.
+  Future<void> clearAllSetVideos() =>
+      (update(sessionSets)..where((s) => s.videoPath.isNotNull()))
+          .write(const SessionSetsCompanion(videoPath: Value(null)));
+
+  /// Every clip belonging to one exercise, newest first, each carrying the set
+  /// and session it came from. This is the per-exercise film reel: your squat
+  /// over months, in one list.
+  ///
+  /// Matched on `exerciseId`, like the rest of the exercise history, so a
+  /// movement renamed in the library keeps its clips.
+  Stream<List<ExerciseSetEntry>> watchExerciseClips(int exerciseId) {
+    return watchExerciseSetHistory(exerciseId).map((sets) => [
+          for (final s in sets.reversed)
+            if (s.videoPath != null) s,
+        ]);
+  }
+
+  /// How the camera is set up for a set clip: the height to film at and the
+  /// hard stop on its length.
+  Stream<VideoSetting> watchVideoSetting() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => (
+              height: s?.videoHeight ?? kDefaultVideoHeight,
+              maxSeconds: s?.videoMaxSeconds ?? kDefaultVideoSeconds,
+            ));
+  }
+
+  Future<void> setVideoHeight(int height) =>
+      _writeSettings(SettingsCompanion(videoHeight: Value(height)));
+
+  Future<void> setVideoMaxSeconds(int seconds) =>
+      _writeSettings(SettingsCompanion(videoMaxSeconds: Value(seconds)));
+
   // ---- Exercise history ---------------------------------------------------
 
   /// Every completed-session set of one exercise, oldest first, each flattened
@@ -1345,6 +1447,7 @@ class AppDatabase extends _$AppDatabase {
             final set = r.readTable(sessionSets);
             final session = r.readTable(sessions);
             return ExerciseSetEntry(
+              setId: set.id,
               sessionId: set.sessionId,
               date: session.startedAt,
               sessionName: session.name,
@@ -1353,6 +1456,7 @@ class AppDatabase extends _$AppDatabase {
               reps: set.reps,
               seconds: set.seconds,
               done: set.done,
+              videoPath: set.videoPath,
             );
           }).toList(),
         );

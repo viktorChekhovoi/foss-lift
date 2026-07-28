@@ -15,7 +15,9 @@ import 'screens/routine_edit_screen.dart';
 import 'screens/routine_import_screen.dart';
 import 'screens/routine_share_screen.dart';
 import 'screens/routines_screen.dart';
+import 'screens/set_video_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/video_settings_screen.dart';
 import 'screens/summary_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/theme_import_screen.dart';
@@ -111,6 +113,10 @@ final appRouter = GoRouter(
       builder: (c, s) => const PlateInventoryScreen(),
     ),
     GoRoute(
+      path: '/settings/videos',
+      builder: (c, s) => const VideoSettingsScreen(),
+    ),
+    GoRoute(
       path: '/settings/theme',
       builder: (c, s) => const ThemeSettingsScreen(),
     ),
@@ -144,6 +150,15 @@ final appRouter = GoRouter(
     ),
     // The live session in progress (distinct from /workout/:id, its template).
     GoRoute(path: '/session', builder: (c, s) => const WorkoutScreen()),
+    // Filming one set of it. Indexes into the live session in memory, which is
+    // the only place the set exists until Finish.
+    GoRoute(
+      path: '/session/record/:ei/:si',
+      builder: (c, s) => SetVideoScreen(
+        exerciseIndex: int.parse(s.pathParameters['ei']!),
+        setIndex: int.parse(s.pathParameters['si']!),
+      ),
+    ),
     GoRoute(
       path: '/summary/:id',
       builder: (c, s) => SummaryScreen(

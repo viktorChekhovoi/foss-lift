@@ -12,6 +12,7 @@ library;
 /// can be tested against plain constructions.
 class ExerciseSetEntry {
   const ExerciseSetEntry({
+    required this.setId,
     required this.sessionId,
     required this.date,
     required this.sessionName,
@@ -20,8 +21,11 @@ class ExerciseSetEntry {
     required this.reps,
     required this.seconds,
     required this.done,
+    this.videoPath,
   });
 
+  /// The `SessionSets` row this came from — what a clip is deleted by.
+  final int setId;
   final int sessionId;
   final DateTime date;
   final String sessionName;
@@ -34,6 +38,10 @@ class ExerciseSetEntry {
   /// Seconds held on a timed set, or null when the set was counted in reps.
   final int? seconds;
   final bool done;
+
+  /// The clip filmed of this set, relative to the app support directory, or
+  /// null if nobody filmed it.
+  final String? videoPath;
 
   bool get timed => seconds != null;
 }

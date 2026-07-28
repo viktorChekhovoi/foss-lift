@@ -206,6 +206,46 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   /// One set's own weight — the deload-to-finish case, and nothing else on the
   /// exercise moves with it.
+  /// The camera on a set row. With no clip it goes straight to filming — that
+  /// is the whole of what the control is for. With one it offers the two things
+  /// left to do with it, because a second tap must not silently overwrite a
+  /// take somebody meant to keep.
+  Future<void> _video(int ei, int si, SetEntry entry) async {
+    if (entry.videoPath == null) {
+      await context.push('/session/record/$ei/$si');
+      return;
+    }
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.videocam_rounded, color: AppColors.accent),
+              title: const Text('Film it again'),
+              subtitle: const Text('Replaces this clip'),
+              onTap: () => Navigator.pop(sheet, 'again'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: AppColors.muted),
+              title: const Text('Delete the clip'),
+              subtitle: const Text('The set stays'),
+              onTap: () => Navigator.pop(sheet, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'again') {
+      await context.push('/session/record/$ei/$si');
+    } else if (choice == 'delete') {
+      await ref.read(activeWorkoutProvider.notifier).removeVideo(ei, si);
+    }
+  }
+
   Future<void> _editSetWeight(int ei, int si) async {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
@@ -374,6 +414,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                 }
                               },
                               onTypeResult: () => _editResult(ei, si, entry),
+                              onVideo: () => _video(ei, si, entry),
                             );
                           },
                         ),
@@ -1082,6 +1123,7 @@ class _SetRow extends StatelessWidget {
     required this.onEditWeight,
     required this.onTap,
     required this.onTypeResult,
+    this.onVideo,
     this.holdingSeconds,
   });
   final int number;
@@ -1090,6 +1132,10 @@ class _SetRow extends StatelessWidget {
   final VoidCallback onEditWeight;
   final VoidCallback onTap;
   final VoidCallback onTypeResult;
+  /// Films this set. Null on a warm-up row: warm-ups are suggestions that are
+  /// never saved, so there is no logged set for a clip to belong to. The column
+  /// is still reserved on those rows, so the two sections line up.
+  final VoidCallback? onVideo;
 
   /// Seconds elapsed on this set's stopwatch, or null when it is not running.
   /// Only a timed set ever has one — see `_tapTimed`.
@@ -1144,7 +1190,36 @@ class _SetRow extends StatelessWidget {
             ),
             Expanded(child: _weightCell()),
             Expanded(child: _resultBox()),
+            SizedBox(
+              width: 36,
+              child: onVideo == null
+                  ? const SizedBox.shrink()
+                  : Center(child: _cameraCell()),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Film this set, or deal with the clip it already has.
+  ///
+  /// Filled and in the accent when there is one, hollow and faint when there is
+  /// not — this is also the "a set carrying a clip is visually distinct" marker
+  /// on the live board, because a second badge saying the same thing would be
+  /// one control and one decoration for one fact.
+  Widget _cameraCell() {
+    final has = _entry.videoPath != null;
+    return GestureDetector(
+      key: const ValueKey('set-video'),
+      onTap: onVideo,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Icon(
+          has ? Icons.videocam_rounded : Icons.videocam_outlined,
+          size: 20,
+          color: has ? AppColors.accent : AppColors.faint,
         ),
       ),
     );

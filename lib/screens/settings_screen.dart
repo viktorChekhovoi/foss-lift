@@ -68,6 +68,16 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push('/settings/plates'),
             ),
             const SizedBox(height: 28),
+            Text('SET VIDEOS',
+                style: kMono.copyWith(
+                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+            const SizedBox(height: 10),
+            SettingRow(
+              label: 'Quality & storage',
+              value: fmtBytes(ref.watch(videoUsageProvider).value ?? 0),
+              onTap: () => context.push('/settings/videos'),
+            ),
+            const SizedBox(height: 28),
             Text('TEXT SIZE',
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),

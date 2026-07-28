@@ -36,6 +36,7 @@ worth knowing), **Where it lives** (code pointers), and **Related issues**.
 | 13 | [Offline & privacy](13-offline-and-privacy.md) | No network, no account, no telemetry — everything is on-device |
 | 14 | [Sharing a routine](14-routine-sharing.md) | A whole programme as one line of text: QR, link, code or file |
 | 15 | [Text size](15-text-size.md) | Follows the phone's text setting, with a nudge of its own — and every screen checked at every size |
+| 16 | [Set videos](16-set-videos.md) | Film a set from the live board; the clip stays on that set, and on the phone |
 
 ## App map (where features live on screen)
 

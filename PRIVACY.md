@@ -66,15 +66,41 @@ its own or in the background.
   notification passes through any server.
 - **Run at startup** (`RECEIVE_BOOT_COMPLETED`) — so that reminders you have
   already scheduled survive a reboot.
-- **Camera** (`CAMERA`) — only if you open the scanner to import a routine or a
-  colour theme from someone else's QR code. The camera is opened when that
-  screen is, and closed when you leave it. The image is examined on your device
-  for a QR code and then discarded: no frame is saved to storage, and nothing
-  is recorded. If you never scan a code, the app never asks.
+- **Camera** (`CAMERA`) — for two things, and only when you ask for either. If
+  you never scan a code and never film a set, the app never asks.
+  - **Scanning a QR code** to import a routine or a colour theme. The image is
+    examined on your device for a code and then discarded: no frame is saved,
+    and nothing is recorded.
+  - **Filming a set**, which does write a file. See below.
 
 The app requests no other permissions. It does not use your location,
 microphone, contacts or advertising identifier, and it does not ask for access
-to your photos or to the shared storage on your device.
+to your photos or to the shared storage on your device. **Recording a set
+captures no audio**, which is why the microphone is not on that list.
+
+## Videos you record
+
+Foss Lift can film a set while you train, and keep the clip attached to the set
+it was. This is the only part of the app that stores something recognisably a
+person, so it is worth being precise about.
+
+- **Recording is the only way a video gets in.** You cannot import one from your
+  gallery, and the app never asks for access to your photos.
+- **Clips are stored in the app's own private storage**, not in your camera roll
+  or gallery. No other app can list or read them. They do not appear in your
+  photo library, and nothing else on your phone is told they exist.
+- **No audio is captured.** A recording is picture only.
+- **The camera runs only while you are filming it**, and is released the moment
+  the recording screen closes. It is never opened in the background.
+- **There is no way to upload or share a clip from this app.** Routines and
+  themes have a share sheet; videos deliberately do not. A clip leaves your
+  phone only if you move the file yourself by some other means.
+- **Deleting is yours to do, and the app never does it for you.** Nothing is
+  removed on a schedule or to save space. Settings shows how much room your
+  clips take and lets you delete them — all of them, or one at a time. A deleted
+  clip is gone from the device and does not come back.
+- **A recording stops itself** after 60 seconds (or 3 minutes, if you raise it),
+  so a camera left running cannot quietly fill your phone.
 
 ## Device backups
 
@@ -83,6 +109,10 @@ may include Foss Lift's data in the encrypted backup it makes to your Google
 account. That copy is made by Android, not by Foss Lift, and it is governed by
 Google's privacy policy and your own device settings. You can turn it off in
 Android's system settings under Backup.
+
+This applies to videos you have recorded as well as to your training data. If
+you would rather your clips never left the device even in an encrypted backup,
+turn Android's backup off.
 
 ## Third parties
 
