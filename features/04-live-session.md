@@ -13,7 +13,8 @@ you're done.
 - **Tracks duration and set count live** — a 1-second timer ticks the elapsed
   time; the set counter updates as you log.
 - **Runs a rest timer** using each slot's configured rest, with
-  shorter / longer / skip controls.
+  shorter / longer / skip controls — captioned with what to do with the rest,
+  and sounding a tone when it ends.
 - **Suggests warm-up sets** for barbell/weighted lifts — an ascending ramp toward
   the working weight, landing only on loads the gym can actually be set to —
   kept separate from the working sets.
@@ -81,6 +82,34 @@ you're done.
   the recompute — the plates were on the bar and you lifted it — and only the
   ones still ahead of you are redrawn. Changing the *count* follows the same
   rule.
+- **A rest says what it is for.** What you should be doing during one differs
+  by where in the session you are, and the app knows which case it is in, so the
+  banner says rather than just counting:
+  - *between warm-up rungs* — the next rung is a different load: "Set up 60 kg,
+    then lift."
+  - *after the last rung* — the working weight is different again, and this is
+    the longest rest of the ramp: "Set up 100 kg, rest, then lift."
+  - *between working sets* — nothing to change: "Rest, then lift."
+  - *between exercises* — a different movement and a different setup: "Set up
+    Overhead Press, rest, then lift."
+
+  The weight named is the one about to be lifted, in the display unit. The line
+  replaces the word "REST": a banner counting down is self-evidently a rest.
+  "Between exercises" skips past any exercise already finished — walking to a
+  machine you are done with is not advice.
+- **It makes a sound when it ends, and when it is skipped.** A rest that ends
+  silently is one you overrun with the phone in your pocket. The tone is
+  *synthesised* and shipped as an asset, so there is no licence attached to it
+  and nothing to attribute, and it is declared as an **alarm** on Android: that
+  puts it on the alarm stream, where it follows the phone's own silent and
+  Do-Not-Disturb behaviour rather than overriding it, and it ducks rather than
+  stops whatever music is already playing. Switchable off under Settings → Rest
+  timer; the phone's silent mode outranks that switch either way. No network
+  permission, and the player is MIT-licensed.
+
+  It plays while the app is running. Sounding with the screen off and the app
+  in the background is a notification's job rather than a media player's, and
+  belongs with [#37](https://github.com/viktorChekhovoi/foss-lift/issues/37).
 - **−15s ends a rest with less than 15 seconds left.** Below that the button's
   only honest readings are "skip" and "do nothing", and a button that does
   nothing is the worse of the two.
@@ -151,6 +180,8 @@ you're done.
   `loadLadder` in `lib/data/plates.dart`.
 - Screens/widgets: `lib/screens/workout_screen.dart`,
   `lib/widgets/resume_workout_bar.dart`.
+- The rest tone: `lib/services/rest_tone.dart`, with the asset in
+  `assets/sound/`.
 - Starting one: `lib/widgets/start_workout.dart` — the switch confirmation, the
   layoff offer and the push to `/session`, in that order.
 
@@ -164,3 +195,4 @@ you're done.
 - [#39 Starting a workout while one is already live](https://github.com/viktorChekhovoi/foss-lift/issues/39) — shipped, in review
 - [#40 Exercise notes, editable during a workout](https://github.com/viktorChekhovoi/foss-lift/issues/40) — shipped, in review
 - [#41 The resume bar covered content it should not](https://github.com/viktorChekhovoi/foss-lift/issues/41) — shipped, in review
+- [#36 Rest prompts, and a sound when the timer ends](https://github.com/viktorChekhovoi/foss-lift/issues/36) — shipped, in review

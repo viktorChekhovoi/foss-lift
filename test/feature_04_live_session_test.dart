@@ -13,6 +13,7 @@
 // advance under a widget test's fake clock — duration ticks are covered by a
 // controller test instead. The rest banner's countdown *is* a fake-zone timer,
 // so it advances with `pump(Duration(...))`.
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,7 @@ import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
+import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/units.dart';
@@ -234,7 +236,7 @@ void main() {
       await tester.pump();
 
       // The banner opens at the slot's configured rest (routine default 120s).
-      expect(find.text('REST'), findsOneWidget);
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
       expect(find.text('2:00'), findsOneWidget);
 
       // It counts down a second at a time (fake-zone timer).
@@ -254,7 +256,7 @@ void main() {
       // Skip clears it entirely.
       await tester.tap(find.text('Skip'));
       await tester.pump();
-      expect(find.text('REST'), findsNothing);
+      expect(find.byKey(kRestBannerKey), findsNothing);
 
       await stop(tester);
     });
@@ -273,7 +275,7 @@ void main() {
       // of the button here is "skip".
       await tester.tap(find.text('−15s'));
       await tester.pump();
-      expect(find.text('REST'), findsNothing);
+      expect(find.byKey(kRestBannerKey), findsNothing);
 
       await stop(tester);
     });
@@ -1153,6 +1155,132 @@ void main() {
     });
   });
 
+  group('A rest says what to do with it', () {
+    // The four cases from features/04: another rung, the work, another set, a
+    // different movement. What differs between them is what you have to set up,
+    // which is the only part worth a line of screen.
+
+    test('between warm-up rungs it names the next rung', () async {
+      await startPush();
+      final ramp = session().exercises[0].warmups;
+      expect(ramp.length, greaterThan(1));
+
+      final p = session().restAfterWarmup(0, 0);
+      expect(p.purpose, RestPurpose.anotherWarmup);
+      expect(p.weightKg, ramp[1].weight,
+          reason: 'the load about to go on the bar, not the one just lifted');
+    });
+
+    test('after the last rung it names the working weight', () async {
+      await startPush();
+      final last = session().exercises[0].warmups.length - 1;
+
+      final p = session().restAfterWarmup(0, last);
+      expect(p.purpose, RestPurpose.theWorkingSet);
+      expect(p.weightKg, benchWeight);
+    });
+
+    test('between working sets there is nothing to set up', () async {
+      final ctl = await startPush();
+      ctl.cycleSet(0, 0);
+
+      final p = session().restAfterSet(0, 0);
+      expect(p.purpose, RestPurpose.anotherSet);
+      expect(p.weightKg, isNull);
+      expect(p.exercise, isNull);
+    });
+
+    test('the last set of an exercise points at the next movement', () async {
+      final ctl = await startPush();
+      // Bench has four sets; log all of them.
+      for (var si = 0; si < 4; si++) {
+        ctl.cycleSet(0, si);
+      }
+
+      final p = session().restAfterSet(0, 3);
+      expect(p.purpose, RestPurpose.nextExercise);
+      expect(p.exercise, session().exercises[1].name);
+    });
+
+    test('an exercise already finished is not what comes next', () async {
+      final ctl = await startPush();
+      for (var si = 0; si < 4; si++) {
+        ctl.cycleSet(0, si); // Bench, done
+      }
+      for (var si = 0; si < 4; si++) {
+        ctl.cycleSet(1, si); // Overhead Press, also done
+      }
+
+      // Walking to the machine you have already finished with is not advice.
+      final p = session().restAfterSet(0, 3);
+      expect(p.exercise, session().exercises[2].name);
+    });
+
+    testWidgets('and the banner says so, in the display unit', (tester) async {
+      await pumpPushScreen(tester);
+
+      // Between working sets: nothing to change.
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.text('Rest, then lift.'), findsOneWidget);
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+
+      // After the last warm-up rung: the working weight is next.
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+      final last = session().exercises[0].warmups.length - 1;
+      await tester.tap(repsCell('w0-$last-Bench Press'));
+      await tester.pump();
+      expect(find.text('Set up 80 kg, rest, then lift.'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('the weight is named in pounds when that is the unit',
+        (tester) async {
+      await tester.runAsync(() => db.setWeightUnit('lb'));
+      await pumpPushScreen(tester);
+
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+      final last = session().exercises[0].warmups.length - 1;
+      await tester.tap(repsCell('w0-$last-Bench Press'));
+      await tester.pump();
+
+      // 80 kg is 176.4 lb — the number you would set the bar to, not the
+      // number the database happens to hold.
+      expect(find.textContaining('Set up 176.4 lb'), findsOneWidget);
+
+      await stop(tester);
+    });
+  });
+
+  group('And it makes a sound when it is over', () {
+    test('the tone is on by default, and can be turned off', () async {
+      // On by default: a rest that ends silently is a rest you overrun with
+      // the phone in your pocket, which is what the timer is for.
+      expect(await db.watchRestSound().first, isTrue);
+
+      await db.setRestSound(false);
+      expect(await db.watchRestSound().first, isFalse);
+
+      await db.setRestSound(true);
+      expect(await db.watchRestSound().first, isTrue);
+    });
+
+    test('switched off, it does not go near the player', () async {
+      // The switch is checked before anything is touched, which is what makes
+      // "off" free rather than "played into a muted channel". The enabled path
+      // is a platform channel a widget test has none of, so it is not exercised
+      // here — see the note on RestTone.
+      final tone = RestTone(player: _NoPlayer());
+      addTearDown(tone.dispose);
+
+      await expectLater(tone.play(enabled: false), completes);
+    });
+  });
+
   group('A short set says so without relying on its colour', () {
     testWidgets('a set that fell short carries a downward arrow; a hit does not',
         (tester) async {
@@ -1376,4 +1504,13 @@ void main() {
       await stop(tester);
     });
   });
+}
+
+/// An [AudioPlayer] that would throw if the tone ever reached it. Standing in
+/// for the platform channel a widget test does not have, so "switched off does
+/// nothing" is a real assertion rather than an absence of one.
+class _NoPlayer implements AudioPlayer {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('the tone reached the player while switched off');
 }

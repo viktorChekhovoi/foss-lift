@@ -25,6 +25,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   Timer? _restTimer;
   int _restLeft = 0;
 
+  /// What the rest currently running is for, so the banner can say. Null when
+  /// no rest is running.
+  RestPrompt? _restPrompt;
+
   /// The resume-overlay's visibility flag, captured up front so `dispose` need
   /// not touch `ref` (unsafe once the element is deactivating).
   late final WorkoutScreenVisible _visibility =
@@ -62,9 +66,12 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     }
   }
 
-  void _startRest([int seconds = 90]) {
+  void _startRest(int seconds, RestPrompt? prompt) {
     _restTimer?.cancel();
-    setState(() => _restLeft = seconds);
+    setState(() {
+      _restLeft = seconds;
+      _restPrompt = prompt;
+    });
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _restLeft--);
@@ -72,10 +79,19 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     });
   }
 
+  /// Ends the rest and sounds the tone.
+  ///
+  /// Both ways out get it: running down to zero is the case it exists for, and
+  /// skipping is still "the rest is over" — the phone may well be in a pocket
+  /// either way, since Skip is as often a tap on a notification-free guess as a
+  /// deliberate one.
   void _stopRest() {
     _restTimer?.cancel();
     _restTimer = null;
     if (mounted) setState(() => _restLeft = 0);
+    ref.read(restToneProvider).play(
+          enabled: ref.read(restSoundProvider).value ?? true,
+        );
   }
 
   /// The escape hatch for high rep counts, where tapping down from a goal of 20
@@ -91,7 +107,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setLogged(ei, si, result.value);
     if (!wasDone && result.value != null) {
       final session = ref.read(activeWorkoutProvider);
-      if (session != null) _startRest(session.exercises[ei].restSeconds);
+      if (session != null) {
+        _startRest(session.exercises[ei].restSeconds,
+            session.restAfterSet(ei, si));
+      }
     }
   }
 
@@ -109,7 +128,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (!wasDone && result.value != null) {
       final session = ref.read(activeWorkoutProvider);
       if (session != null) {
-        _startRest(session.exercises[ei].restAfterWarmup(wi));
+        _startRest(session.exercises[ei].restAfterWarmup(wi),
+            session.restAfterWarmup(ei, wi));
       }
     }
   }
@@ -270,8 +290,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                 controller.cycleWarmup(ei, wi);
                                 HapticFeedback.selectionClick();
                                 if (!wasDone) {
-                                  _startRest(session.exercises[ei]
-                                      .restAfterWarmup(wi));
+                                  _startRest(
+                                    session.exercises[ei].restAfterWarmup(wi),
+                                    session.restAfterWarmup(ei, wi),
+                                  );
                                 }
                               },
                               onTypeResult: () =>
@@ -294,7 +316,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                 // correcting the count afterwards must not
                                 // restart the clock you are already resting on.
                                 if (!wasDone) {
-                                  _startRest(session.exercises[ei].restSeconds);
+                                  _startRest(
+                                    session.exercises[ei].restSeconds,
+                                    session.restAfterSet(ei, si),
+                                  );
                                 }
                               },
                               onTypeResult: () => _editResult(ei, si, entry),
@@ -309,6 +334,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
             if (_restLeft > 0)
               _RestBanner(
                 secondsLeft: _restLeft,
+                prompt: _restPrompt,
+                unit: unit,
                 onSub: _trimRest,
                 onAdd: () => setState(() => _restLeft += 15),
                 onSkip: _stopRest,
@@ -1320,17 +1347,53 @@ class _ResultDialogState extends State<_ResultDialog> {
   }
 }
 
+/// Finds the rest banner in a test. Its caption is the thing under test in
+/// several of them, so it cannot also be what identifies the banner.
+const kRestBannerKey = ValueKey('rest-banner');
+
 class _RestBanner extends StatelessWidget {
   const _RestBanner({
     required this.secondsLeft,
+    required this.prompt,
+    required this.unit,
     required this.onSub,
     required this.onAdd,
     required this.onSkip,
   });
   final int secondsLeft;
+
+  /// What this rest is for — see [RestPrompt]. Null while a session has not
+  /// said, which the banner reads as the plain case.
+  final RestPrompt? prompt;
+  final String unit;
   final VoidCallback onSub;
   final VoidCallback onAdd;
   final VoidCallback onSkip;
+
+  /// One line saying what to do, not what is happening: the clock underneath
+  /// already says that. Names the weight about to be lifted, because "set up"
+  /// is only useful if it says what to set up to.
+  String get _caption {
+    final p = prompt;
+    if (p == null) return 'Rest, then lift.';
+    String weight() {
+      final w = p.weightKg;
+      return w == null
+          ? ''
+          : '${fmtWeight(toDisplayWeight(w, unit))} ${unitLabel(unit)}';
+    }
+
+    return switch (p.purpose) {
+      RestPurpose.anotherWarmup =>
+        p.weightKg == null ? 'Rest, then lift.' : 'Set up ${weight()}, then lift.',
+      RestPurpose.theWorkingSet => p.weightKg == null
+          ? 'Rest, then lift.'
+          : 'Set up ${weight()}, rest, then lift.',
+      RestPurpose.anotherSet => 'Rest, then lift.',
+      RestPurpose.nextExercise =>
+        'Set up ${p.exercise}, rest, then lift.',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1339,6 +1402,7 @@ class _RestBanner extends StatelessWidget {
       right: 16,
       bottom: 16,
       child: Container(
+        key: kRestBannerKey,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.surface3,
@@ -1358,8 +1422,15 @@ class _RestBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('REST',
-                      style: kMono.copyWith(fontSize: 11, letterSpacing: 1.0, color: AppColors.muted)),
+                  // The caption replaces the word "REST": a banner counting
+                  // down is self-evidently a rest, and the line is worth more
+                  // spent on what to do with it.
+                  Text(
+                    _caption,
+                    style: kMono.copyWith(
+                        fontSize: 11, height: 1.3, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 2),
                   Text(
                     fmtDuration(secondsLeft),
                     style: kMono.copyWith(

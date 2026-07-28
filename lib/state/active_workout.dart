@@ -217,6 +217,31 @@ class ExerciseEntry {
   }
 }
 
+/// What a rest is *for* — what has to be set up before the next thing.
+///
+/// A rest is not one situation. Between warm-up rungs the bar changes every
+/// time; after the last rung it changes again and this is the long one; between
+/// working sets there is nothing to do but wait; and between exercises you are
+/// walking to a different machine. The app knows which it is in, so the banner
+/// may as well say.
+enum RestPurpose {
+  /// Another warm-up rung follows, at a different load.
+  anotherWarmup,
+
+  /// The ramp is done and the working sets are next.
+  theWorkingSet,
+
+  /// Another set of the same thing, at the same weight.
+  anotherSet,
+
+  /// This exercise is finished; a different movement is next.
+  nextExercise,
+}
+
+/// [RestPurpose] plus whatever the caption needs to name. Weights stay in
+/// kilograms — the view converts, like everywhere else.
+typedef RestPrompt = ({RestPurpose purpose, double? weightKg, String? exercise});
+
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
 /// mutation so Riverpod always sees a new value and rebuilds listeners, even
 /// though the nested lists are edited in place.
@@ -273,6 +298,51 @@ class ActiveWorkout {
             e.sets.where((s) => s.done).fold(
                 0.0, (b, s) => b + (s.timed ? 0 : s.weight * s.logged!)),
       );
+
+  /// What the rest that starts after warm-up rung [wi] of exercise [ei] is for.
+  ///
+  /// Another rung means another load to put on; the last rung means the working
+  /// weight, which is different again and is why this rest is the long one.
+  RestPrompt restAfterWarmup(int ei, int wi) {
+    final e = exercises[ei];
+    if (wi < e.warmups.length - 1) {
+      return (
+        purpose: RestPurpose.anotherWarmup,
+        weightKg: e.warmups[wi + 1].weight,
+        exercise: null,
+      );
+    }
+    return (
+      purpose: RestPurpose.theWorkingSet,
+      weightKg: e.nextWeight,
+      exercise: null,
+    );
+  }
+
+  /// What the rest that starts after working set [si] of exercise [ei] is for.
+  ///
+  /// The last set of an exercise is the one that ends it, so the next thing is
+  /// a different movement — and that is a walk across the gym, not a wait.
+  RestPrompt restAfterSet(int ei, int si) {
+    final e = exercises[ei];
+    final more = e.sets.skip(si + 1).any((s) => !s.done);
+    if (more) {
+      return (purpose: RestPurpose.anotherSet, weightKg: null, exercise: null);
+    }
+    // The next exercise is the next one with anything left to do — skipping
+    // past any that are already finished.
+    for (var i = ei + 1; i < exercises.length; i++) {
+      if (exercises[i].sets.any((s) => !s.done)) {
+        return (
+          purpose: RestPurpose.nextExercise,
+          weightKg: null,
+          exercise: exercises[i].name,
+        );
+      }
+    }
+    // Nothing left anywhere: this was the last set of the session.
+    return (purpose: RestPurpose.anotherSet, weightKg: null, exercise: null);
+  }
 
   ActiveWorkout copyWith({int? elapsed}) => ActiveWorkout(
         routineId: routineId,

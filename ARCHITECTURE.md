@@ -47,6 +47,7 @@ lib/
 ├── state/active_workout.dart     In-memory live-session model + controller
 ├── services/
 │   ├── reminders.dart            Local notification scheduling (Android)
+│   ├── rest_tone.dart            The sound the rest timer makes when it ends
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   └── qr_decoder.dart           Camera frame → the string in a QR code
 ├── providers/
@@ -103,7 +104,7 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), and the colour theme (`themePresetId` — a preset slug/`custom`/null; `customTheme` — the user's palette as JSON) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), and the colour theme (`themePresetId` — a preset slug/`custom`/null; `customTheme` — the user's palette as JSON) |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the

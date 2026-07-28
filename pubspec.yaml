@@ -50,6 +50,7 @@ dependencies:
   share_plus: ^13.3.0
   camera: ^0.12.0+2
   zxing2: ^0.2.4
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +76,11 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # The rest-timer tone. Synthesised rather than sourced, so there is no licence
+  # attached to it and nothing to attribute — see lib/services/rest_tone.dart.
+  assets:
+    - assets/sound/rest_done.wav
 
   # To add assets to your application, add an assets section, like this:
   # assets:

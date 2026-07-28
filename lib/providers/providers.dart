@@ -5,6 +5,7 @@ import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
 import '../services/reminders.dart';
+import '../services/rest_tone.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
 import 'db_provider.dart';
@@ -153,6 +154,23 @@ final reminderServiceProvider =
 final reminderSyncProvider = Provider<void>((ref) {
   final reminders = ref.watch(routineRemindersProvider).value;
   if (reminders != null) ref.watch(reminderServiceProvider).sync(reminders);
+});
+
+/// Whether the rest timer sounds when it ends. Read as `.value ?? true` — on
+/// is the default, and a frame before the settings row arrives is not a reason
+/// to stay quiet.
+final restSoundProvider = StreamProvider<bool>((ref) {
+  return ref.watch(databaseProvider).watchRestSound();
+});
+
+/// The one player for the rest tone, disposed with the scope that made it.
+///
+/// One instance rather than one per rest: an `AudioPlayer` holds a platform
+/// resource, and a session is dozens of rests.
+final restToneProvider = Provider<RestTone>((ref) {
+  final tone = RestTone();
+  ref.onDispose(tone.dispose);
+  return tone;
 });
 
 /// The layoff rules: the gap that earns a back-off and how deep it cuts.
