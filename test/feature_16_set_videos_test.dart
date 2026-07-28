@@ -19,7 +19,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/services/set_video_recorder.dart';
+import 'package:foss_lift/screens/exercise_clips_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/util/clip_label.dart';
 import 'package:path/path.dart' as p;
 
 import 'support/harness.dart';
@@ -492,6 +494,153 @@ void main() {
       expect(await db.watchExerciseClips(bench.id).first, isEmpty);
       expect(await db.watchExerciseSetHistory(bench.id).first, hasLength(1),
           reason: 'the set is still history; it just has no clip');
+    });
+  });
+
+  group('what a clip says it is', () {
+    ExerciseSetEntry entry({
+      double weightKg = 100,
+      int reps = 5,
+      int? seconds,
+      int setNumber = 3,
+    }) =>
+        ExerciseSetEntry(
+          setId: 1,
+          sessionId: 1,
+          date: DateTime(2026, 3, 12),
+          sessionName: 'Push',
+          setNumber: setNumber,
+          weightKg: weightKg,
+          reps: reps,
+          seconds: seconds,
+          done: true,
+          videoPath: 'set_videos/x.mp4',
+        );
+
+    test('the date, the set, and what was done', () {
+      expect(clipLabel(entry(), 'kg'), '12 Mar · set 3 · 100 kg × 5');
+    });
+
+    test('it follows the display unit', () {
+      expect(clipLabel(entry(weightKg: 100), 'lb'), contains('lb'));
+      expect(clipLabel(entry(weightKg: 100), 'lb'), isNot(contains('kg')));
+    });
+
+    test('a held set reads its duration, not a rep count', () {
+      expect(clipLabel(entry(weightKg: 0, reps: 0, seconds: 45), 'kg'),
+          '12 Mar · set 3 · 45s');
+    });
+
+    test('an unloaded set does not claim to have been 0 kg', () {
+      expect(clipLabel(entry(weightKg: 0, reps: 12), 'kg'),
+          '12 Mar · set 3 · 12 reps');
+    });
+
+    test('a half-kilo weight keeps its decimal, a whole one loses it', () {
+      expect(clipLabel(entry(weightKg: 102.5), 'kg'), contains('102.5 kg'));
+      expect(clipLabel(entry(weightKg: 100), 'kg'), contains('100 kg'));
+    });
+
+    test('the recap and the reel say the same thing about the same set', () {
+      final e = entry();
+      expect(
+        clipLabelOf(
+          date: e.date,
+          setNumber: e.setNumber,
+          weightKg: e.weightKg,
+          reps: e.reps,
+          seconds: e.seconds,
+          unit: 'kg',
+        ),
+        clipLabel(e, 'kg'),
+      );
+    });
+  });
+
+  group('playing one back', () {
+    test('slow motion goes down, never up', () {
+      expect(kPlaybackSpeeds, [1.0, 0.5, 0.25]);
+      expect(kPlaybackSpeeds.every((s) => s <= 1.0), isTrue,
+          reason: 'this is for inspecting a rep, not skipping one');
+    });
+
+    test('the speed control cycles and wraps', () {
+      expect(nextPlaybackSpeed(1.0), 0.5);
+      expect(nextPlaybackSpeed(0.5), 0.25);
+      expect(nextPlaybackSpeed(0.25), 1.0);
+    });
+
+    test('a speed from nowhere resolves to full rather than sticking', () {
+      expect(nextPlaybackSpeed(2.0), 1.0);
+    });
+
+    test('a speed reads the way somebody would say it', () {
+      expect(fmtPlaybackSpeed(1.0), '1×');
+      expect(fmtPlaybackSpeed(0.5), '0.5×');
+      expect(fmtPlaybackSpeed(0.25), '0.25×');
+    });
+  });
+
+  group('the reel on screen', () {
+    testWidgets('lists every clip of the movement, newest first',
+        (tester) async {
+      final bench = await tester.runAsync(
+              () async => exerciseNamed(db, 'Bench Press')) as Exercise;
+      await tester.runAsync(() async {
+        for (final (index, weight) in [80.0, 90.0].indexed) {
+          await db.saveSession(
+            routineId: null,
+            workoutId: null,
+            name: 'Push',
+            startedAt: DateTime(2026, 3, 1 + index),
+            endedAt: DateTime(2026, 3, 1 + index, 1),
+            durationSeconds: 600,
+            totalVolume: 100,
+            sets: [
+              SessionSetsCompanion.insert(
+                sessionId: 0,
+                exerciseName: 'Bench Press',
+                setNumber: 1,
+                exerciseId: Value(bench.id),
+                weight: Value(weight),
+                reps: const Value(5),
+                done: const Value(true),
+                videoPath: Value(await plantClip()),
+              ),
+            ],
+          );
+        }
+      });
+
+      container = withStore();
+      await tester.pumpWidget(
+          routedAppUnder(container!, ExerciseClipsScreen(exerciseId: bench.id)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('2 Mar · set 1 · 90 kg × 5'), findsOneWidget);
+      expect(find.text('1 Mar · set 1 · 80 kg × 5'), findsOneWidget);
+      // Newest first: the 2 Mar row is above the 1 Mar one.
+      expect(
+        tester.getTopLeft(find.text('2 Mar · set 1 · 90 kg × 5')).dy,
+        lessThan(tester.getTopLeft(find.text('1 Mar · set 1 · 80 kg × 5')).dy),
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('a movement nobody has filmed says so plainly', (tester) async {
+      final bench = await tester.runAsync(
+              () async => exerciseNamed(db, 'Bench Press')) as Exercise;
+      container = withStore();
+      await tester.pumpWidget(
+          routedAppUnder(container!, ExerciseClipsScreen(exerciseId: bench.id)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Nothing filmed yet.'), findsOneWidget);
+
+      await stop(tester);
     });
   });
 

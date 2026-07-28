@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'screens/about_screen.dart';
 import 'screens/bar_settings_screen.dart';
 import 'screens/exercise_detail_screen.dart';
+import 'screens/clip_player_screen.dart';
+import 'screens/exercise_clips_screen.dart';
 import 'screens/exercise_form_screen.dart';
 import 'screens/exercise_progress_screen.dart';
 import 'screens/history_screen.dart';
@@ -93,6 +95,11 @@ final appRouter = GoRouter(
     // Progress chart for one exercise (the static segment before ":id" catches
     // nothing here, but keep the more specific path listed first).
     GoRoute(
+      path: '/exercise/:id/clips',
+      builder: (c, s) =>
+          ExerciseClipsScreen(exerciseId: int.parse(s.pathParameters['id']!)),
+    ),
+    GoRoute(
       path: '/exercise/:id/progress',
       builder: (c, s) =>
           ExerciseProgressScreen(exerciseId: int.parse(s.pathParameters['id']!)),
@@ -157,6 +164,16 @@ final appRouter = GoRouter(
       builder: (c, s) => SetVideoScreen(
         exerciseIndex: int.parse(s.pathParameters['ei']!),
         setIndex: int.parse(s.pathParameters['si']!),
+      ),
+    ),
+    // One clip, full screen. Carries what it is and — when it is a saved set —
+    // the row it hangs on, which is what makes it deletable from here.
+    GoRoute(
+      path: '/clip',
+      builder: (c, s) => ClipPlayerScreen(
+        relativePath: s.uri.queryParameters['path'] ?? '',
+        caption: s.uri.queryParameters['caption'],
+        setId: int.tryParse(s.uri.queryParameters['set'] ?? ''),
       ),
     ),
     GoRoute(

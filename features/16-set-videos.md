@@ -12,6 +12,8 @@ network, and it stays that way.
 - Records **one clip per set**, from the live workout board, against the set in
   front of you.
 - Marks a set that carries a clip so it can be found again.
+- **Plays one back full screen**, looping, at half or quarter speed.
+- Lists **every clip of one movement** in date order — the same lift over months.
 - Shows what the clips cost, and offers to reclaim it.
 
 ## How to use it
@@ -19,6 +21,9 @@ network, and it stays that way.
 - **Film a set:** during a workout, tap the camera on the set's row, then the
   shutter. It stops itself at the cap, or when you tap stop.
 - **Re-film or delete:** tap the camera again on a set that already has a clip.
+- **Watch one back:** Library → the exercise → **N clips**, which is every clip
+  of that movement in date order. Or from a session: History → the session →
+  tap an exercise marked with a play symbol.
 - **See the cost:** Profile → Settings → **Set videos**. Quality, the longest a
   clip may run, and how much space they are taking.
 
@@ -53,6 +58,39 @@ network, and it stays that way.
   happen.
 - **Re-filming replaces**, and the take it replaces is deleted then and there
   rather than left for the sweep.
+
+## Playing one back
+
+- **Full screen, on black**, with play/pause, a scrubber you can drag, and a
+  loop that is **on by default** — a single rep replays without anybody fishing
+  for the scrubber.
+- **Slow motion at 0.5× and 0.25×**, on a cycling control. Nothing above 1×:
+  this is for inspecting a rep, not skipping one. A sticking point goes past in
+  an instant at full speed and is plain at a quarter.
+- **Frame-by-frame stepping is out of scope**, deliberately. Landing on an exact
+  frame means seeking past the nearest keyframe and decoding forward, which the
+  player cannot be relied on to do — a step control that sometimes lands a
+  second away from where you dragged is worse than no step control. Revisit it
+  if the underlying player gains an exact-seek option.
+- **A clip whose file has gone says so** rather than sitting at nought seconds.
+  A row can outlive its file if one is removed by hand.
+- **Deleting from the player** clears the row first, then the file — the same
+  ordering as everywhere else.
+
+## Finding one again
+
+- **The exercise's own reel** is the view that makes the feature worth having: a
+  flat list of every clip of that movement, newest first, each labelled with the
+  set it came from — `12 Mar · set 3 · 100 kg × 5`. Your squat over months, in
+  one place.
+- **The button appears only once there is something to watch.** An empty reel is
+  a button that teaches you the feature exists by disappointing you.
+- **The session recap** marks a filmed exercise with a play symbol and a
+  "N filmed" count. With more than one filmed set of the same movement the
+  choice is offered rather than guessed at.
+- **The label reads identically in both places.** One implementation
+  (`clipLabelOf`), two callers — the same clip must not appear to be two
+  different things.
 
 ## Storage — the policy, stated
 
@@ -99,6 +137,8 @@ session by foreign-key cascade and the files become orphans the sweep collects.
 - The camera, behind an interface so the rules can be tested without one:
   `lib/services/set_video_recorder.dart`.
 - Recording screen: `lib/screens/set_video_screen.dart`.
+- Playback: `lib/screens/clip_player_screen.dart`; the reel:
+  `exercise_clips_screen.dart`; the label and the speeds: `util/clip_label.dart`.
 - Quality, cap and reclaim: `lib/screens/video_settings_screen.dart`.
 - The path on a live set: `SetEntry.videoPath` in
   `lib/state/active_workout.dart`; on a saved one, `SessionSets.videoPath`.

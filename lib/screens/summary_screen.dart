@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
+import '../util/clip_label.dart';
 import '../util/units.dart';
 import '../widgets/common.dart';
 
@@ -211,6 +212,7 @@ class _SummaryBody extends StatelessWidget {
                               name: entry.value.key,
                               sets: entry.value.value,
                               unit: unit,
+                              date: session.startedAt,
                               last: entry.key == grouped.length - 1,
                             ),
                           if (grouped.isEmpty)
@@ -446,12 +448,17 @@ class _SessionExerciseRow extends StatelessWidget {
     required this.name,
     required this.sets,
     required this.unit,
+    required this.date,
     required this.last,
   });
   final int index;
   final String name;
   final List<SessionSet> sets;
   final String unit;
+
+  /// The session's date, for the caption a clip opens with — so a clip reached
+  /// from here says the same thing it says in the exercise's own reel.
+  final DateTime date;
   final bool last;
 
   @override
@@ -471,7 +478,15 @@ class _SessionExerciseRow extends StatelessWidget {
     final w =
         best.weight == 0 ? 'BW' : fmtWeight(toDisplayWeight(best.weight, unit));
 
-    return Container(
+    final filmedSets = sets.where((s) => s.videoPath != null).toList();
+    return GestureDetector(
+      // Only a row with something to play is tappable. A row that responds to a
+      // tap by doing nothing is worse than one that does not respond.
+      onTap: filmedSets.isEmpty
+          ? null
+          : () => _openClips(context, filmedSets),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
         border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
@@ -535,8 +550,64 @@ class _SessionExerciseRow extends StatelessWidget {
                     ],
             ),
           ),
+          if (filmedSets.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Icon(Icons.play_circle_outline,
+                  size: 20, color: AppColors.accent),
+            ),
         ],
+      ),
       ),
     );
   }
+
+  /// Opens the clip. With more than one filmed set of the same movement there
+  /// is a choice to make, so it is offered rather than guessed at.
+  Future<void> _openClips(
+    BuildContext context,
+    List<SessionSet> filmed,
+  ) async {
+    SessionSet? chosen = filmed.first;
+    if (filmed.length > 1) {
+      chosen = await showModalBottomSheet<SessionSet>(
+        context: context,
+        backgroundColor: AppColors.surface,
+        builder: (sheet) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final s in filmed)
+                ListTile(
+                  leading: Icon(Icons.play_circle_outline,
+                      color: AppColors.accent),
+                  title: Text(_labelFor(s)),
+                  onTap: () => Navigator.pop(sheet, s),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (chosen == null || !context.mounted) return;
+    context.push(
+      Uri(
+        path: '/clip',
+        queryParameters: {
+          'path': chosen.videoPath!,
+          'caption': _labelFor(chosen),
+          'set': '${chosen.id}',
+        },
+      ).toString(),
+    );
+  }
+
+  String _labelFor(SessionSet s) => clipLabelOf(
+        date: date,
+        setNumber: s.setNumber,
+        weightKg: s.weight,
+        reps: s.reps,
+        seconds: s.seconds,
+        unit: unit,
+      );
 }

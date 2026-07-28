@@ -72,6 +72,8 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final clipCount =
+        ref.watch(exerciseClipsProvider(exercise.id)).value?.length ?? 0;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
@@ -103,6 +105,27 @@ class _Body extends ConsumerWidget {
             onPressed: () => context.push('/exercise/${exercise.id}/progress'),
           ),
         ),
+        // Only once there is something to watch. An empty reel is a button
+        // that teaches you the feature exists by disappointing you.
+        if (clipCount > 0) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.text,
+                side: BorderSide(color: AppColors.line),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: Icon(Icons.videocam_rounded, color: AppColors.accent),
+              label: Text(
+                  '$clipCount ${clipCount == 1 ? 'clip' : 'clips'}'),
+              onPressed: () => context.push('/exercise/${exercise.id}/clips'),
+            ),
+          ),
+        ],
         const SizedBox(height: 22),
         Text('LOADED AS',
             style: kMono.copyWith(

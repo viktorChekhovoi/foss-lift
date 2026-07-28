@@ -62,6 +62,7 @@ lib/
 ├── util/qr_capacity.dart         What a QR holds; how much error correction it affords
 ├── util/video_links.dart         A YouTube URL reduced to its video id
 ├── util/format.dart              fmtTotal — big running totals for stat tiles
+├── util/clip_label.dart          What a set clip says it is, + the playback speeds
 ├── util/text_scale.dart          System text size × the user's nudge, clamped
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
@@ -433,6 +434,8 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
 | `/settings/videos` | video_settings_screen | Set-video quality, the clip cap, and what the clips cost |
 | `/session/record/:ei/:si` | set_video_screen | Films one set of the live session |
+| `/exercise/:id/clips` | exercise_clips_screen | Every clip of one movement, newest first |
+| `/clip` | clip_player_screen | One clip full screen: scrub, loop, slow motion |
 | `/settings/theme` | theme_settings_screen | Pick a preset or custom theme; share and receive (reached from Profile → Appearance) |
 | `/settings/theme/custom`, `/settings/theme/custom/:id` | theme_settings_screen | Build a new theme, or name/recolour/delete an existing one |
 
