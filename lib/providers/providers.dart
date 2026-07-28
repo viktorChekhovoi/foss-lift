@@ -198,20 +198,35 @@ final shadeActionsProvider = Provider<void>((ref) {
   final shade = ref.watch(workoutShadeProvider);
   if (!shade.supported) return;
 
-  void onData(Object data) {
-    final controller = ref.read(activeWorkoutProvider.notifier);
-    switch (data) {
-      case WorkoutShade.doneAction:
-        controller.logNextAtGoal();
-      case WorkoutShade.missedAction:
-        controller.logNextAsMissed();
-    }
-  }
+  void onData(Object data) =>
+      applyShadeAction(ref.read(activeWorkoutProvider.notifier), data);
 
   FlutterForegroundTask.initCommunicationPort();
   FlutterForegroundTask.addTaskDataCallback(onData);
   ref.onDispose(() => FlutterForegroundTask.removeTaskDataCallback(onData));
 });
+
+/// One notification button press, applied to the live session.
+///
+/// A function rather than a closure inside [shadeActionsProvider] so it can be
+/// tested: what arrives from the service's isolate is a bare string, and which
+/// string does what is the part worth pinning down. Anything unrecognised is
+/// ignored — a press from a notification the system kept across an upgrade is
+/// not a reason to do something arbitrary to a workout.
+void applyShadeAction(ActiveWorkoutController controller, Object data) {
+  switch (data) {
+    case WorkoutShade.doneAction:
+      controller.logNextAtGoal();
+    case WorkoutShade.missedAction:
+      controller.logNextAsMissed();
+    case WorkoutShade.restAddAction:
+      controller.nudgeRest(WorkoutShade.restStepSeconds);
+    // Silently: you pressed skip, so you know the rest is over. A ding a
+    // moment after the button you pressed to stop waiting is noise.
+    case WorkoutShade.restSkipAction:
+      controller.stopRest(tone: false);
+  }
+}
 
 /// The user's text-size nudge on top of the phone's own setting. Read as
 /// `.value ?? 1.0` — following the phone is the default.

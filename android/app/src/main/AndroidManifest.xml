@@ -37,6 +37,10 @@
     <!-- Keeps the rest countdown ticking with the screen off, which is the
          whole point of putting the workout in the shade. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- The rest-finished notification buzzes as well as sounding: a phone in a
+         gym bag is not always somewhere a ding carries. See
+         lib/services/rest_alarm.dart. -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="Foss Lift"
         android:name="${applicationName}"

@@ -48,7 +48,8 @@ lib/
 ├── state/workout_cue.dart        "What now?" — the next unlogged set, in one value
 ├── services/
 │   ├── reminders.dart            Local notification scheduling (Android)
-│   ├── rest_tone.dart            The sound the rest timer makes when it ends
+│   ├── rest_tone.dart            The rest-end ding, played while on screen
+│   ├── rest_alarm.dart           The same ding as a notification, off screen
 │   ├── workout_shade.dart        The live workout as an Android foreground service
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   ├── qr_decoder.dart           Camera frame → the string in a QR code
@@ -78,7 +79,8 @@ lib/
 └── screens/                      One file per screen (see table below)
 
 assets/sound/rest_done.wav        The rest-timer ding — generated, not sourced
-tool/make_rest_tone.dart          What generated it; re-runs byte for byte
+android/…/res/raw/rest_done.wav   The same bytes, for the notification channel
+tool/make_rest_tone.dart          What generated both; re-runs byte for byte
 design/mockup.html                Clickable HTML UI mockup — the visual spec
 CLAUDE.md                         Working conventions + the issue workflow
 features.txt                      Stub — the backlog lives in GitHub Issues

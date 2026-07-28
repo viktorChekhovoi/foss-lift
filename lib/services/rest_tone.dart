@@ -19,14 +19,17 @@ import 'package:flutter/foundation.dart';
 /// **What it respects.** The audio is declared as an *alarm* on Android, which
 /// is what puts it on the alarm stream rather than the media one: it follows
 /// the phone's own silent and Do-Not-Disturb behaviour instead of overriding
-/// it, and it does not duck or stop whatever music is already playing —
-/// `AudioContextAndroid.audioFocus` is `gain` for the length of the tone and
-/// nothing more. Wanting a rest timer is not wanting your album interrupted.
+/// it. It takes *transient* focus for the length of the tone, which pauses
+/// music for a fraction of a second and hands it straight back — the first
+/// version merely asked whatever was playing to duck if it felt like it, and
+/// the answer to that on most players is no, which is half of why this was
+/// reported as too quiet.
 ///
-/// **What it does not do.** It plays while the app is running. Firing with the
-/// screen off and the app in the background is a notification's job, not a
-/// media player's, and belongs with the notification-shade work — see issue
-/// #37. Nothing here needs a network permission, and `audioplayers` is MIT.
+/// **What it does not do.** It plays while the app is on screen, and only then
+/// — with the phone in a pocket the ding is a notification's job, which is
+/// [RestAlarm]'s. The two are picked between in
+/// `ActiveWorkoutController.stopRest`. Nothing here needs a network permission,
+/// and `audioplayers` is MIT.
 class RestTone {
   RestTone({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
@@ -56,6 +59,9 @@ class RestTone {
       if (!_ready) {
         await _player.setAudioContext(_context);
         await _player.setReleaseMode(ReleaseMode.stop);
+        // Full scale. The stream's own volume is the user's to set; quieting
+        // the app's one sound underneath it is not a decision to make here.
+        await _player.setVolume(1.0);
         _ready = true;
       }
       await _player.stop();
@@ -79,7 +85,7 @@ class RestTone {
       stayAwake: false,
       contentType: AndroidContentType.sonification,
       usageType: AndroidUsageType.alarm,
-      audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+      audioFocus: AndroidAudioFocus.gainTransient,
     ),
     iOS: AudioContextIOS(
       category: AVAudioSessionCategory.ambient,

@@ -29,6 +29,7 @@ import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
+import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/state/active_workout.dart';
@@ -1137,6 +1138,97 @@ void main() {
     );
   });
 
+  group('The board says which set you are on', () {
+    // Issue #60. The shade already works out what is next; the board is the
+    // thing you are actually looking at, so it marks the same answer rather
+    // than leaving you to scan for the last row that went green.
+
+    /// The mark, inside one named row.
+    Finder markOn(String row) => find.descendant(
+          of: find.byKey(ValueKey(row)),
+          matching: find.byKey(kNextSetKey),
+        );
+
+    /// Ticks off Bench's whole warm-up ramp, so the work is what is next.
+    void clearRamp(ActiveWorkoutController ctl) {
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        ctl.cycleWarmup(0, wi);
+      }
+      ctl.stopRest(tone: false);
+    }
+
+    testWidgets('the ramp is where you start, so the group carries the mark',
+        (tester) async {
+      await pumpPushScreen(tester);
+
+      // The group is shut by default, so it is the only thing on screen that
+      // can say the ramp is where you are.
+      expect(find.byKey(kNextWarmupKey), findsOneWidget);
+      expect(find.byKey(kNextSetKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('opening the group marks the rung itself', (tester) async {
+      await pumpPushScreen(tester);
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      expect(markOn('w0-0-Bench Press'), findsOneWidget);
+      expect(find.byKey(kNextSetKey), findsOneWidget,
+          reason: 'one rung, not the whole ramp');
+      await stopAll(tester);
+    });
+
+    testWidgets('with the ramp behind you it is the first working set',
+        (tester) async {
+      await pumpPushScreen(tester);
+      clearRamp(container!.read(activeWorkoutProvider.notifier));
+      await tester.pump();
+
+      expect(markOn('0-0-Bench Press'), findsOneWidget);
+      expect(find.byKey(kNextSetKey), findsOneWidget,
+          reason: 'exactly one thing on the board is ever marked');
+      expect(find.byKey(kNextWarmupKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('logging a set moves the mark down, rest or no rest',
+        (tester) async {
+      await pumpPushScreen(tester);
+      clearRamp(container!.read(activeWorkoutProvider.notifier));
+      await tester.pump();
+
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      // A rest is running now; the set marked is still the one you are resting
+      // *for*.
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+      expect(markOn('0-0-Bench Press'), findsNothing);
+      expect(markOn('0-1-Bench Press'), findsOneWidget);
+      await stopAll(tester);
+    });
+
+    testWidgets('and a finished session marks nothing at all', (tester) async {
+      await pumpPushScreen(tester);
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      for (var ei = 0; ei < session().exercises.length; ei++) {
+        for (var wi = 0; wi < session().exercises[ei].warmups.length; wi++) {
+          ctl.cycleWarmup(ei, wi);
+        }
+        for (var si = 0; si < session().exercises[ei].sets.length; si++) {
+          ctl.cycleSet(ei, si);
+        }
+      }
+      ctl.stopRest(tone: false);
+      await tester.pump();
+
+      expect(find.byKey(kNextSetKey), findsNothing);
+      expect(find.byKey(kNextWarmupKey), findsNothing);
+      await stopAll(tester);
+    });
+  });
+
   group('Verdict and volume read only the working sets', () {
     test('missedGoal is true short on reps, and short on weight', () async {
       final ctl = await startPush();
@@ -1478,6 +1570,181 @@ void main() {
         describeCue(cue(kind: CueKind.hold, weightKg: 20, seconds: 45), 'kg'),
         '20 kg · 45s',
       );
+    });
+
+    test('a set to do is described, and nothing is called next', () {
+      expect(shadeText(cue(weightKg: 80, reps: 8), 'kg'), '80 kg × 8');
+      expect(shadeTitle(cue(weightKg: 80, reps: 8)), 'Bench Press');
+    });
+
+    test('resting, the line names the exercise as well as the load', () {
+      // The bold line is the countdown while a rest runs, so this is the only
+      // line the movement can be named on — and a weight and a rep count
+      // belonging to nothing is not an instruction (issue #62).
+      expect(
+        shadeText(
+            cue(kind: CueKind.resting, weightKg: 80, reps: 8, restLeft: 40),
+            'kg'),
+        'Next: Bench Press · 80 kg × 8',
+      );
+      expect(shadeTitle(cue(kind: CueKind.resting, restLeft: 40)), 'Rest · 0:40');
+    });
+
+    test('and says when what is next is a warm-up rung', () {
+      expect(
+        shadeText(
+          cue(
+              kind: CueKind.resting,
+              warmup: true,
+              weightKg: 60,
+              reps: 5,
+              restLeft: 40),
+          'kg',
+        ),
+        'Next: Warm-up · Bench Press · 60 kg × 5',
+      );
+    });
+
+    test('a rest offers the rest, not a set to log', () {
+      expect(
+        shadeButtons(cue(kind: CueKind.resting, restLeft: 40)).map((b) => b.id),
+        [WorkoutShade.restAddAction, WorkoutShade.restSkipAction],
+      );
+    });
+
+    test('a set to do offers Done and Missed', () {
+      expect(
+        shadeButtons(cue(weightKg: 80, reps: 8)).map((b) => b.id),
+        [WorkoutShade.doneAction, WorkoutShade.missedAction],
+      );
+    });
+
+    test('a hold offers the one button that opens the app', () {
+      expect(
+        shadeButtons(cue(kind: CueKind.hold, seconds: 45)).map((b) => b.id),
+        [WorkoutShade.missedAction],
+      );
+    });
+
+    test('and a finished session offers nothing', () {
+      expect(shadeButtons(cue(kind: CueKind.finished)), isEmpty);
+    });
+  });
+
+  group('The shade runs the rest', () {
+    // The rest is the one stretch of a session the phone is certainly not in
+    // your hand for — see issue #62.
+
+    test('Skip ends it', () async {
+      final ctl = await startPush();
+      ctl.startRest(90, null);
+
+      applyShadeAction(ctl, WorkoutShade.restSkipAction);
+
+      expect(session().restLeft, 0);
+    });
+
+    test('+30s adds to what is left', () async {
+      final ctl = await startPush();
+      ctl.startRest(90, null);
+
+      applyShadeAction(ctl, WorkoutShade.restAddAction);
+
+      expect(session().restLeft, 90 + WorkoutShade.restStepSeconds);
+    });
+
+    test('and a press nobody recognises does nothing to the session', () async {
+      final ctl = await startPush();
+      ctl.startRest(90, null);
+
+      applyShadeAction(ctl, 'something_else');
+
+      expect(session().restLeft, 90);
+      expect(session().doneSets, 0);
+    });
+  });
+
+  group('The rest ding reaches you with the phone in a pocket', () {
+    // Issue #61. A media player is the right instrument while you are looking
+    // at the board and the wrong one with the screen off, so the two are a
+    // pair: the tone on screen, a notification off it, never both.
+    late _RecordingAlarm alarm;
+    late _RecordingTone tone;
+
+    Future<ActiveWorkoutController> startPushWithPhone(
+        {required bool onScreen}) async {
+      alarm = _RecordingAlarm();
+      tone = _RecordingTone();
+      container = containerFor(db, overrides: [
+        restAlarmProvider.overrideWithValue(alarm),
+        restToneProvider.overrideWithValue(tone),
+        appOnScreenProvider.overrideWithValue(() => onScreen),
+      ]);
+      final wid = await workoutIdNamed(db, 'Push');
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      await ctl.start(workoutId: wid, name: 'Push');
+      return ctl;
+    }
+
+    test('a rest running out off screen rings, and says what is next',
+        () async {
+      final ctl = await startPushWithPhone(onScreen: false);
+      ctl.startRest(90, null);
+
+      ctl.stopRest();
+
+      expect(alarm.rung, hasLength(1));
+      expect(alarm.rung.single, contains('Bench Press'),
+          reason: '"rest over" makes you open the app to find out what for');
+      expect(tone.played, 0, reason: 'one ding, not two');
+    });
+
+    test('with the app on screen it does not — the tone is enough', () async {
+      final ctl = await startPushWithPhone(onScreen: true);
+      ctl.startRest(90, null);
+
+      ctl.stopRest();
+
+      expect(alarm.rung, isEmpty);
+      expect(tone.played, 1);
+    });
+
+    test('the rest-sound switch silences this path too', () async {
+      await db.setRestSound(false);
+      final ctl = await startPushWithPhone(onScreen: false);
+      // The session subscribes to the switch as it starts; wait for its first
+      // reading, which is already "off" — the row was written before the start.
+      for (var i = 0; i < 100 && ctl.restSoundOn; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(ctl.restSoundOn, isFalse);
+      ctl.startRest(90, null);
+
+      ctl.stopRest();
+
+      expect(alarm.rung, isEmpty);
+      expect(tone.played, 0);
+    });
+
+    test('skipping from the shade sounds nothing', () async {
+      final ctl = await startPushWithPhone(onScreen: false);
+      ctl.startRest(90, null);
+
+      applyShadeAction(ctl, WorkoutShade.restSkipAction);
+
+      expect(alarm.rung, isEmpty, reason: 'you pressed it; you know');
+      expect(tone.played, 0);
+      expect(session().restLeft, 0);
+    });
+
+    test('and starting the next rest takes the old one down', () async {
+      final ctl = await startPushWithPhone(onScreen: false);
+      ctl.startRest(90, null);
+      ctl.stopRest();
+
+      ctl.startRest(90, null);
+
+      expect(alarm.cleared, greaterThan(0));
     });
   });
 
@@ -2222,9 +2489,10 @@ void main() {
     /// cut down from.
     const twoNoteBytes = 52964;
 
-    /// The longest a ding may last, from `features/04`: "done inside a third of
-    /// a second".
-    const maxSeconds = 0.35;
+    /// The longest a ding may last, from `features/04`: "under half a second".
+    /// It was a third of a second and was reported as too quiet — half of
+    /// which is duration, not amplitude (issue #61).
+    const maxSeconds = 0.5;
 
     final wav = _RestTone.read();
 
@@ -2236,6 +2504,25 @@ void main() {
           reason: 'a rest ending is one event; it does not need a melody');
       expect(wav.bytes, lessThan(twoNoteBytes),
           reason: 'shorter than the two-note figure it replaces');
+    });
+
+    test('and it is struck at the top of the scale', () {
+      // The complaint that started issue #61: a ding you cannot hear over a
+      // gym is a rest timer that does not work. Nothing is gained by leaving
+      // headroom on the one sound the app makes.
+      final peak = wav.envelope(const Duration(milliseconds: 10))
+          .reduce((a, b) => a > b ? a : b);
+      expect(peak, greaterThan(32767 * 0.9));
+    });
+
+    test('the notification plays the same sound, not a different one', () {
+      // Android will only sound a notification from its own resources, so the
+      // tone ships twice — one generator, two copies. A rest ending in a
+      // pocket must not end with a noise the user has never heard.
+      final asset = File('assets/sound/rest_done.wav').readAsBytesSync();
+      final raw =
+          File('android/app/src/main/res/raw/rest_done.wav').readAsBytesSync();
+      expect(raw, equals(asset));
     });
 
     test('it strikes at once and only fades from there', () {
@@ -2348,6 +2635,36 @@ class _RestTone {
     }
     return out;
   }
+}
+
+/// A [RestTone] that counts rather than playing. Built over [_NoPlayer], so
+/// constructing it cannot reach the audio plugin a test runner does not have.
+class _RecordingTone extends RestTone {
+  _RecordingTone() : super(player: _NoPlayer());
+
+  int played = 0;
+
+  @override
+  Future<void> play({required bool enabled}) async {
+    if (enabled) played++;
+  }
+}
+
+/// A [RestAlarm] that records rather than posting. Not-supported, so nothing
+/// inherited can reach a notification channel the test runner does not have.
+class _RecordingAlarm extends RestAlarm {
+  _RecordingAlarm() : super(platformSupported: false);
+
+  /// The body of each notification posted — what the rest said it was for.
+  final List<String> rung = [];
+  int cleared = 0;
+
+  @override
+  Future<void> ring({required String title, required String body}) async =>
+      rung.add(body);
+
+  @override
+  Future<void> clear() async => cleared++;
 }
 
 /// An [AudioPlayer] that would throw if the tone ever reached it. Standing in

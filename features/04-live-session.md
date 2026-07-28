@@ -14,14 +14,18 @@ you're done.
   time; the set counter updates as you log.
 - **Runs a rest timer** using each slot's configured rest, with
   shorter / longer / skip controls — captioned with what to do with the rest,
-  and sounding a tone when it ends.
+  and sounding when it ends: a tone if you are looking at the app, a
+  notification if you are not.
+- **Marks the set you are on**, so coming back to the phone does not mean
+  scanning for the last row that went green.
 - **Suggests warm-up sets** for barbell/weighted lifts — an ascending ramp toward
   the working weight, landing only on loads the gym can actually be set to —
   kept separate from the working sets.
 - **Survives being collapsed** — leave the session and a resume bar sits at the
   bottom of every other screen, one tap from getting back to it.
 - **Lives in the notification shade** for as long as it is running: what to
-  lift, or how long is left of the rest, with **Done** and **Missed**.
+  lift, with **Done** and **Missed**, or how long is left of the rest, with
+  **+30s** and **Skip**.
 - **Can be aborted**, for the session started by a misplaced tap: a confirmed
   abort throws it away without writing anything or moving a target.
 - **On Finish**, writes only the completed sets, advances progression, and opens
@@ -83,9 +87,19 @@ you're done.
   - **Missed** logs one short of the goal — so it lands gold and the number is
     already close — and brings the app up to correct it. No rest starts: you are
     about to be looking at the screen anyway.
-  - **A rest offers no buttons at all.** There is nothing to log yet, and
-    skipping is deliberately absent: cutting a rest short is a decision, and a
-    decision does not belong on a control you brush past through a coat.
+  - **A rest offers +30s and Skip.** Nothing can be logged during one, but the
+    rest is the one stretch of a session you are certainly not holding the phone
+    for. Skipping was left off at first — cutting a rest short is a decision,
+    and a decision does not belong on a control you brush past through a coat —
+    and that was wrong in the gym: unlocking the phone to press Skip costs more,
+    every time, than an accidental press costs once. The step is +30s rather
+    than the screen's +15s, because a pocket press is not a considered one.
+    Skip is silent, and neither button brings the app forward.
+  - **While resting, the line names the exercise.** The bold line is the
+    countdown, so the second line is the only place a movement can be named:
+    `Next: Bench Press · 80 kg × 8`, and `Next: Warm-up · Bench Press · 60 kg ×
+    5` when the ramp is what comes next. A weight and a rep count belonging to
+    nothing is not an instruction.
   - **A hold gets one button, "Open".** How long you held something is the
     measurement itself, so nothing can claim it at the goal or guess it one
     short — it opens the app at the stopwatch instead.
@@ -165,13 +179,14 @@ you're done.
   the caption is the part that yields — it holds to two lines and ellipsises
   past that, while the countdown and the three controls keep their place and
   their size at any name length and any text scale.
-- **It makes a sound when it ends, and when it is skipped.** A rest that ends
-  silently is one you overrun with the phone in your pocket. **One note, not
-  two.** The first tone was a two-note figure a fifth apart, which reads as
+- **It makes a sound when it ends.** A rest that ends silently is one you
+  overrun with the phone in your pocket. **One note, not two.** The first tone was a two-note figure a fifth apart, which reads as
   "da-dong" — a little melody, and a melody is a thing you notice having heard
   rather than a thing you act on. A rest ending is one event, so it gets one
-  ding: a single pitch with a fast attack and a short decay, done inside a third
-  of a second.
+  ding: a single pitch with a fast attack and a short decay, under half a
+  second, struck at the top of the scale. It was a third of a second and well
+  under the ceiling, and was reported as too quiet — loudness is duration as
+  much as amplitude.
 
   The tone is *synthesised* and shipped as an asset, so there is no licence
   attached to it and nothing to attribute. **The generator is committed beside
@@ -183,19 +198,37 @@ you're done.
 
   A system sound was the obvious route and is a dead end: Flutter's
   `SystemSound.play` is documented as ignored on Android and iOS both. The tone
-  is declared as an **alarm** on Android: that
-  puts it on the alarm stream, where it follows the phone's own silent and
-  Do-Not-Disturb behaviour rather than overriding it, and it ducks rather than
-  stops whatever music is already playing. Switchable off under Settings → Rest
-  timer; the phone's silent mode outranks that switch either way. No network
-  permission, and the player is MIT-licensed.
+  is declared as an **alarm** on Android: that puts it on the alarm stream,
+  where it follows the phone's own silent and Do-Not-Disturb behaviour rather
+  than overriding it. It takes transient focus, so music pauses for the length
+  of the ding and resumes — asking a player to duck if it feels like it is a
+  request most players decline, which is the other half of "too quiet".
+  Switchable off under Settings → Rest timer; the phone's silent mode outranks
+  that switch either way. No network permission, and the player is MIT-licensed.
 
-  It plays while the app is running. Sounding with the screen off and the app
-  in the background is a notification's job rather than a media player's, and
-  belongs with [#37](https://github.com/viktorChekhovoi/foss-lift/issues/37).
+- **Off screen, the ding is a notification instead.** A media player is the
+  right instrument while you are watching the countdown and the wrong one with
+  the phone in a pocket and the screen off — which is most of what a rest timer
+  is for. So a rest that runs out while the app is not on screen arrives on its
+  own high-importance channel, at alarm volume, with a buzz, naming what is
+  next ("Rest done — Bench Press · 80 kg × 8"); it clears itself, and the next
+  rest starting takes it down. **Never both**: two dings for one rest reads as
+  two rests. It is the same sound either way — the generator writes the wav
+  twice, once as a Flutter asset and once as an Android raw resource, because a
+  notification can only sound from Android's own resources and a rest should not
+  end with a noise you have never heard. Skipping a rest by hand sounds nothing,
+  and the rest-sound switch silences both routes.
 - **−15s ends a rest with less than 15 seconds left.** Below that the button's
   only honest readings are "skip" and "do nothing", and a button that does
   nothing is the worse of the two.
+- **The board marks the set you are on.** Every set of the session is drawn at
+  once, which is what the board is for — but it also means the only way to find
+  your place after a rest, or after picking the phone up, was to scan for the
+  last row that went green. The set the shade would name is marked in the accent
+  on the board too, from the same arithmetic. Warm-ups count: when the ramp is
+  where you are and its group is shut, the group carries the mark, and opening
+  it moves the mark onto the rung. Exactly one thing is ever marked, and nothing
+  is once every set is logged.
 - **The tap-to-log hint is pinned**, beside the duration and set count, rather
   than scrolled with the rows: "how do I log this?" occurs on whichever exercise
   you are looking at, not only the first.
@@ -273,9 +306,10 @@ you're done.
   `loadLadder` in `lib/data/plates.dart`.
 - Screens/widgets: `lib/screens/workout_screen.dart`,
   `lib/widgets/resume_workout_bar.dart`.
-- The rest tone: `lib/services/rest_tone.dart`, with the asset in
-  `assets/sound/` and the generator that produced it in
-  `tool/make_rest_tone.dart`.
+- The rest tone: `lib/services/rest_tone.dart` on screen and
+  `lib/services/rest_alarm.dart` off it, with the asset in `assets/sound/`, its
+  twin in `android/app/src/main/res/raw/`, and the generator that produced both
+  in `tool/make_rest_tone.dart`.
 - The shade: `lib/services/workout_shade.dart`, on the "what now?" model in
   `lib/state/workout_cue.dart`; kept current by `workoutShadeSyncProvider`.
 - Starting one: `lib/widgets/start_workout.dart` — the switch confirmation, the
@@ -298,3 +332,6 @@ you're done.
 - [#56 Two resume bars during a navigation](https://github.com/viktorChekhovoi/foss-lift/issues/56) — open
 - [#57 A long exercise name wrecks the rest banner](https://github.com/viktorChekhovoi/foss-lift/issues/57) — open
 - [#58 One clean ding instead of a two-note figure](https://github.com/viktorChekhovoi/foss-lift/issues/58) — open
+- [#60 The board never says which set you are on](https://github.com/viktorChekhovoi/foss-lift/issues/60) — shipped, in review
+- [#61 The rest ding is too quiet, and silent off screen](https://github.com/viktorChekhovoi/foss-lift/issues/61) — shipped, in review
+- [#62 Rest controls in the shade, and a "Next:" that says what of](https://github.com/viktorChekhovoi/foss-lift/issues/62) — shipped, in review

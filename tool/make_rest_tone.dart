@@ -38,44 +38,61 @@ const _fundamental = 880.0;
 /// brightness rather than a second voice.
 const _harmonicGain = 0.22;
 
-/// The whole thing, attack and decay together. Short enough to be over before
-/// you have finished registering it.
-const _seconds = 0.28;
+/// The whole thing, attack and decay together.
+///
+/// Longer than it first was. A tone that is over in a quarter of a second is
+/// one you can miss between two clangs of somebody else's barbell, and the
+/// complaint about this ding was that it is too quiet — half of which is
+/// duration, not amplitude.
+const _seconds = 0.45;
 
 /// How quickly it reaches full volume. Long enough not to click, short enough
 /// to read as a strike rather than a swell.
 const _attackSeconds = 0.004;
 
 /// How fast the decay falls away, in time constants over the tone's length. A
-/// bigger number is a shorter, drier ding.
-const _decayRate = 7.0;
+/// bigger number is a shorter, drier ding. Slower than it was, so the strike
+/// rings out rather than being a tick.
+const _decayRate = 3.5;
 
-/// Peak amplitude, of a possible 1.0. Left under the ceiling so the sum of the
-/// two partials cannot clip.
-const _peak = 0.72;
+/// Peak amplitude, of a possible 1.0. Effectively the ceiling: the two partials
+/// are normalised below, so this cannot clip, and there is no reason to leave
+/// headroom on a sound whose whole job is to be heard across a gym.
+const _peak = 0.99;
 
 void main() {
   final samples = _render();
   final wav = _wav(samples);
-  final file = File('assets/sound/rest_done.wav');
-  if (!file.parent.existsSync()) {
-    stderr.writeln('Run this from the repository root — ${file.path} is not '
-        'somewhere I can write.');
+  // Two copies of one sound. The asset is what the app plays while it is on
+  // screen; the raw resource is what the notification channel plays when it is
+  // not — Android will only sound a notification from its own resources, and a
+  // rest that ends in your pocket should not end with a different noise.
+  final targets = [
+    File('assets/sound/rest_done.wav'),
+    File('android/app/src/main/res/raw/rest_done.wav'),
+  ];
+  if (!targets.first.parent.existsSync()) {
+    stderr.writeln('Run this from the repository root — ${targets.first.path} '
+        'is not somewhere I can write.');
     exitCode = 1;
     return;
   }
-  file.writeAsBytesSync(wav);
-  stdout.writeln('Wrote ${file.path}: '
-      '${samples.length} samples, '
-      '${(samples.length / _sampleRate * 1000).round()} ms, '
-      '${wav.length} bytes.');
+  for (final file in targets) {
+    file.parent.createSync(recursive: true);
+    file.writeAsBytesSync(wav);
+    stdout.writeln('Wrote ${file.path}: '
+        '${samples.length} samples, '
+        '${(samples.length / _sampleRate * 1000).round()} ms, '
+        '${wav.length} bytes.');
+  }
 }
 
 /// The tone itself, as 16-bit signed samples.
 Int16List _render() {
   final count = (_sampleRate * _seconds).round();
-  final out = Int16List(count);
+  final raw = Float64List(count);
   final attack = (_sampleRate * _attackSeconds).round();
+  var loudest = 0.0;
   for (var i = 0; i < count; i++) {
     final t = i / _sampleRate;
     // Rise, then fall away — never rising again, which is the difference
@@ -85,10 +102,19 @@ Int16List _render() {
     // The last few milliseconds are taken to exactly zero. An exponential never
     // quite arrives, and a wav that stops on a non-zero sample clicks.
     final tail = math.min(1.0, (count - i) / (_sampleRate * 0.004));
-    final envelope = _peak * rise * fall * tail;
     final wave = math.sin(2 * math.pi * _fundamental * t) +
         _harmonicGain * math.sin(4 * math.pi * _fundamental * t);
-    out[i] = (envelope * wave / (1 + _harmonicGain) * 32767).round();
+    raw[i] = rise * fall * tail * wave;
+    loudest = math.max(loudest, raw[i].abs());
+  }
+  // Scaled by what the waveform actually reached, not by what its two gains sum
+  // to. The partials do not peak together, so dividing by 1 + the harmonic gain
+  // left the ding a good 15% below the ceiling it was aiming at — which is
+  // audible, and was half of "the ding is too quiet".
+  final scale = _peak / loudest * 32767;
+  final out = Int16List(count);
+  for (var i = 0; i < count; i++) {
+    out[i] = (raw[i] * scale).round();
   }
   return out;
 }

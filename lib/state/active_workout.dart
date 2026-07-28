@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/warmup.dart';
 import '../providers/db_provider.dart';
+import '../services/rest_alarm.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
+import '../services/workout_shade.dart' show describeCue;
 import 'workout_cue.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
@@ -401,12 +404,28 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 
   @override
   ActiveWorkout? build() {
+    // The switch, subscribed to rather than asked for.
+    //
+    // It used to be read off `restSoundProvider` at the instant a rest ran out,
+    // which quietly never worked: nothing else keeps that provider alive, so
+    // the read created it, found it still loading, and fell back to the
+    // default — the switch only had an effect while the settings screen
+    // happened to be open. Watching it here is not the fix either: a watch
+    // rebuilds this notifier, and rebuilding it throws the live session away.
+    final sub = _db.watchRestSound().listen((on) => _restSound = on);
     ref.onDispose(() {
+      sub.cancel();
       _timer?.cancel();
       _restTimer?.cancel();
     });
     return null;
   }
+
+  /// Whether the rest timer is allowed to make a noise. On until the database
+  /// says otherwise — a frame before the setting arrives is not a reason to be
+  /// silent.
+  bool get restSoundOn => _restSound;
+  bool _restSound = true;
 
   // ---- The rest clock ------------------------------------------------------
   //
@@ -420,6 +439,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return;
     _restTimer?.cancel();
+    // Whatever the last rest shouted is answered by there being a new one.
+    ref.read(restAlarmProvider).clear();
     state = s.copyWith(restLeft: seconds, restPrompt: prompt);
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final now = state;
@@ -446,7 +467,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   }
 
   /// Ends the rest. [tone] is false only where the sound would say the wrong
-  /// thing — starting a hold, for instance, where it means "stop holding".
+  /// thing — starting a hold, where it means "stop holding", and a skip pressed
+  /// from the shade, where the person who pressed it already knows.
   void stopRest({bool tone = true}) {
     _restTimer?.cancel();
     _restTimer = null;
@@ -454,11 +476,32 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     if (s == null) return;
     final wasResting = s.restLeft > 0;
     state = s.copyWith(clearRest: true);
-    if (tone && wasResting) {
-      ref.read(restToneProvider).play(
-            enabled: ref.read(restSoundProvider).value ?? true,
-          );
+    if (tone && wasResting) _sayTheRestIsOver();
+  }
+
+  /// The one event this app makes a noise for, sent down whichever route can
+  /// actually reach the user.
+  ///
+  /// On screen it is the tone: instant, and it does not put a notification in
+  /// front of somebody who is already looking at the countdown. Off screen —
+  /// pocket, screen dark, which is most of what a rest timer is for — a media
+  /// player is the wrong instrument, so it goes out as an alarm-channel
+  /// notification instead. Never both.
+  void _sayTheRestIsOver() {
+    if (!_restSound) return;
+    if (ref.read(appOnScreenProvider)()) {
+      ref.read(restToneProvider).play(enabled: true);
+      return;
     }
+    final s = state;
+    final cue = s == null ? null : nextUp(s);
+    // Named, because a notification that says only "rest over" makes you open
+    // the app to find out what for.
+    final what = cue == null || cue.kind == CueKind.finished
+        ? 'Back to it.'
+        : '${cue.warmup ? 'Warm-up · ' : ''}${cue.exercise} · '
+            '${describeCue(cue, s!.unit)}';
+    ref.read(restAlarmProvider).ring(title: 'Rest done', body: what);
   }
 
   /// Begins a live session from a workout template. Passing a null [workoutId]
@@ -760,6 +803,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
+    ref.read(restAlarmProvider).clear();
 
     final rows = <SessionSetsCompanion>[];
     // Clips filmed against a set that was never logged. The set is not saved,
@@ -865,6 +909,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
+    ref.read(restAlarmProvider).clear();
     final clips = _clipPaths.toList();
     state = null;
     await ref.read(setVideoStoreProvider).deleteAll(clips);
@@ -958,6 +1003,25 @@ final restToneProvider = Provider<RestTone>((ref) {
   ref.onDispose(tone.dispose);
   return tone;
 });
+
+/// The rest ending as a notification, for when the app is not on screen — see
+/// [RestAlarm]. Here rather than in `providers.dart` for the same reason the
+/// tone is: the rest clock is on the controller above.
+final restAlarmProvider = Provider<RestAlarm>((ref) => RestAlarm());
+
+/// Whether the app is the thing on screen right now.
+///
+/// A function rather than a value: it is asked once, at the instant a rest runs
+/// out, and nothing should rebuild when it changes. A test overrides it to say
+/// where the phone is, which is not something a test runner has an opinion on.
+///
+/// A binding that has not reported a lifecycle state yet reads as *not* on
+/// screen — the safe way round, since the cost of being wrong is a notification
+/// nobody needed rather than a rest that ends in silence.
+final appOnScreenProvider = Provider<bool Function()>(
+  (ref) => () =>
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+);
 
 /// Holds the [ProgressionReport] from the last finish until the summary consumes
 /// it. Written by [ActiveWorkoutController] on finish, cleared on the next start

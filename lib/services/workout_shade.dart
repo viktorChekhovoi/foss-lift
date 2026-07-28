@@ -24,10 +24,15 @@ import '../util/units.dart';
 /// workout in it. The service is what makes "in memory" survivable rather than
 /// a reason to start persisting mid-workout.
 ///
-/// ## What it does not do
+/// ## The rest is controllable from here
 ///
-/// **Rest is not skippable from here.** Cutting a rest short is a decision, and
-/// a decision does not belong on a control you brush past through a coat.
+/// It was not, on the argument that cutting a rest short is a decision and a
+/// decision does not belong on a control you brush past through a coat. That
+/// was wrong in the gym: the rest is the one stretch of a session you are
+/// certainly *not* holding the phone for, and unlocking the phone to press Skip
+/// costs more, every time, than an accidental press costs once. So a running
+/// rest offers **+30s** and **Skip** — a longer step than the screen's +15s,
+/// because a pocket press is not a considered one. See issue #62.
 ///
 /// Everything is gated on Android. On any other platform — the iOS port to
 /// come, and the test runner — every method is a no-op rather than a crash, the
@@ -76,6 +81,12 @@ class WorkoutShade {
   /// The button ids, which are also what crosses the isolate boundary.
   static const doneAction = 'set_done';
   static const missedAction = 'set_missed';
+  static const restAddAction = 'rest_add';
+  static const restSkipAction = 'rest_skip';
+
+  /// What **+30s** adds. Twice the screen's step: a button pressed through a
+  /// coat is worth pressing once, not twice.
+  static const restStepSeconds = 30;
 
   bool _ready = false;
   bool _running = false;
@@ -128,9 +139,9 @@ class WorkoutShade {
     if (cue.kind == CueKind.finished) return hide();
     _init();
 
-    final title = _title(cue, unit);
-    final text = _text(cue, unit);
-    final buttons = _buttons(cue);
+    final title = shadeTitle(cue);
+    final text = shadeText(cue, unit);
+    final buttons = shadeButtons(cue);
 
     try {
       if (_running) {
@@ -174,48 +185,54 @@ class WorkoutShade {
     _running = false;
   }
 
-  // ---- What it says --------------------------------------------------------
-  //
-  // Public for the tests: this is the part with judgement in it, and it is the
-  // part that has to read right at a glance through a coat pocket.
+}
 
-  /// The bold line: what you are doing, or how long is left.
-  static String _title(WorkoutCue cue, String unit) => switch (cue.kind) {
-        CueKind.resting => 'Rest · ${fmtDuration(cue.restLeft ?? 0)}',
-        CueKind.hold => cue.warmup ? 'Warm-up · ${cue.exercise}' : cue.exercise,
-        CueKind.lift => cue.warmup ? 'Warm-up · ${cue.exercise}' : cue.exercise,
-        CueKind.finished => 'Workout',
-      };
+// ---- What it says ----------------------------------------------------------
+//
+// Top-level and public: this is the part with judgement in it, it is the part
+// that has to read right at a glance through a coat pocket, and it can be
+// tested without a platform anywhere near it.
 
-  /// The second line: the set itself, in enough detail to load a bar from.
-  static String _text(WorkoutCue cue, String unit) {
-    final what = describeCue(cue, unit);
-    // While resting, the set named is the one *after* the rest, so say so —
-    // "next" is the difference between a countdown and an instruction.
-    return cue.kind == CueKind.resting ? 'Next: $what' : what;
-  }
+/// The bold line: what you are doing, or how long is left.
+String shadeTitle(WorkoutCue cue) => switch (cue.kind) {
+      CueKind.resting => 'Rest · ${fmtDuration(cue.restLeft ?? 0)}',
+      CueKind.hold || CueKind.lift =>
+        cue.warmup ? 'Warm-up · ${cue.exercise}' : cue.exercise,
+      CueKind.finished => 'Workout',
+    };
 
-  /// The two buttons — and only while there is a set to answer for.
-  ///
-  /// A rest offers none. There is nothing to log yet, and the one control that
-  /// might belong here (skip) is deliberately absent.
-  static List<NotificationButton> _buttons(WorkoutCue cue) {
-    if (cue.kind == CueKind.resting || cue.kind == CueKind.finished) {
-      return const [];
-    }
-    return [
+/// The second line: the set itself, in enough detail to load a bar from.
+String shadeText(WorkoutCue cue, String unit) {
+  final what = describeCue(cue, unit);
+  if (cue.kind != CueKind.resting) return what;
+  // While resting the bold line is the countdown, so this is the only line the
+  // exercise can be named on — and "Next: 80 kg × 8" is a weight and a rep
+  // count belonging to nothing. "Next" itself is the difference between a
+  // countdown and an instruction, so it stays.
+  final warmup = cue.warmup ? 'Warm-up · ' : '';
+  return 'Next: $warmup${cue.exercise} · $what';
+}
+
+/// The buttons: two to log a set with, or two to run the rest with.
+List<NotificationButton> shadeButtons(WorkoutCue cue) => switch (cue.kind) {
+      CueKind.finished => const [],
+      // Nothing to log during a rest — but the rest itself is the thing you are
+      // least likely to have the phone in your hand for. See issue #62.
+      CueKind.resting => const [
+          NotificationButton(id: WorkoutShade.restAddAction, text: '+30s'),
+          NotificationButton(id: WorkoutShade.restSkipAction, text: 'Skip'),
+        ],
       // A hold cannot be "done at the goal" from a pocket — how long you held
       // it is the whole measurement — so it gets one button that opens the app
       // at the stopwatch instead.
-      if (cue.kind == CueKind.hold)
-        const NotificationButton(id: missedAction, text: 'Open')
-      else ...const [
-        NotificationButton(id: doneAction, text: 'Done'),
-        NotificationButton(id: missedAction, text: 'Missed'),
-      ],
-    ];
-  }
-}
+      CueKind.hold => const [
+          NotificationButton(id: WorkoutShade.missedAction, text: 'Open'),
+        ],
+      CueKind.lift => const [
+          NotificationButton(id: WorkoutShade.doneAction, text: 'Done'),
+          NotificationButton(id: WorkoutShade.missedAction, text: 'Missed'),
+        ],
+    };
 
 /// One line describing a set: the load and the target.
 ///

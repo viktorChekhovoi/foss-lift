@@ -10,11 +10,21 @@ import '../data/plates.dart';
 import '../data/warmup.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
+import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/plate_line.dart';
+
+/// Marks the set to do now, and the collapsed warm-up group standing in for a
+/// rung of one. Exactly one of the two is on the board at a time, and neither
+/// is once every set is logged.
+///
+/// Keys rather than a colour test: what the mark *is* is a design decision that
+/// will move, and where it is is not.
+const kNextSetKey = ValueKey('next-set');
+const kNextWarmupKey = ValueKey('next-warmup');
 
 class WorkoutScreen extends ConsumerStatefulWidget {
   const WorkoutScreen({super.key});
@@ -66,8 +76,12 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   void _stopRest({bool tone = true}) =>
       ref.read(activeWorkoutProvider.notifier).stopRest(tone: tone);
 
+  /// The tone that ends a hold. The switch comes off the session rather than
+  /// off the settings stream — see [ActiveWorkoutController.restSoundOn] —
+  /// and this screen is on screen by definition, so it is always the tone
+  /// rather than the notification.
   void _tone() => ref.read(restToneProvider).play(
-        enabled: ref.read(restSoundProvider).value ?? true,
+        enabled: ref.read(activeWorkoutProvider.notifier).restSoundOn,
       );
 
   /// What one tap on a timed set's result cell does.
@@ -324,6 +338,13 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final controller = ref.read(activeWorkoutProvider.notifier);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final plates = ref.watch(plateSettingsProvider);
+    // Where you are, from the same arithmetic the notification uses — the board
+    // draws every set at once, so without this the only way to find your place
+    // is to scan for the last row that went green. Asked without the rest,
+    // because a rest running does not change which set is next; it is the one
+    // you are resting *for*.
+    final cue = nextUp(session);
+    final next = cue == null || cue.kind == CueKind.finished ? null : cue;
 
     return Scaffold(
       body: SafeArea(
@@ -356,6 +377,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                           exercise: session.exercises[ei],
                           unit: unit,
                           plates: plates,
+                          // The ramp is where you are, and it is shut by
+                          // default — so the group itself carries the mark.
+                          warmupIsNext:
+                              next != null && next.warmup && next.exerciseIndex == ei,
                           onWarmupCount: (n) => controller.setWarmupCount(ei, n),
                           onEditWorkingWeight: () => _editWorkingWeight(ei),
                           warmupRowBuilder: (wi) {
@@ -365,6 +390,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               number: wi + 1,
                               entry: entry,
                               unit: unit,
+                              isNext: next != null &&
+                                  next.warmup &&
+                                  next.exerciseIndex == ei &&
+                                  next.setIndex == wi,
                               onEditWeight: () => _editWarmupWeight(ei, wi),
                               onTap: () {
                                 final wasDone = entry.done;
@@ -388,6 +417,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               number: si + 1,
                               entry: entry,
                               unit: unit,
+                              isNext: next != null &&
+                                  !next.warmup &&
+                                  next.exerciseIndex == ei &&
+                                  next.setIndex == si,
                               onEditWeight: () => _editSetWeight(ei, si),
                               // A held set is timed, not counted — see
                               // _tapTimed. It owns its own rest, because the
@@ -634,6 +667,7 @@ class _ExerciseBlock extends StatelessWidget {
     required this.plates,
     required this.rowBuilder,
     required this.warmupRowBuilder,
+    required this.warmupIsNext,
     required this.onWarmupCount,
     required this.onEditWorkingWeight,
   });
@@ -646,6 +680,9 @@ class _ExerciseBlock extends StatelessWidget {
   final PlateSettings plates;
   final Widget Function(int setIndex) rowBuilder;
   final Widget Function(int warmupIndex) warmupRowBuilder;
+
+  /// Whether the next thing to do is one of this exercise's warm-up rungs.
+  final bool warmupIsNext;
   final ValueChanged<int> onWarmupCount;
   final VoidCallback onEditWorkingWeight;
 
@@ -665,6 +702,7 @@ class _ExerciseBlock extends StatelessWidget {
             _WarmupGroup(
               exercise: exercise,
               unit: unit,
+              isNext: warmupIsNext,
               onCount: onWarmupCount,
               rowBuilder: warmupRowBuilder,
             ),
@@ -900,11 +938,16 @@ class _WarmupGroup extends StatefulWidget {
   const _WarmupGroup({
     required this.exercise,
     required this.unit,
+    required this.isNext,
     required this.onCount,
     required this.rowBuilder,
   });
   final ExerciseEntry exercise;
   final String unit;
+
+  /// Whether the next thing to do is a rung of this ramp. Shut, the group is
+  /// all there is on screen to say so — see [kNextWarmupKey].
+  final bool isNext;
   final ValueChanged<int> onCount;
   final Widget Function(int warmupIndex) rowBuilder;
 
@@ -922,13 +965,19 @@ class _WarmupGroupState extends State<_WarmupGroup> {
     final summary = count == 0
         ? 'None'
         : '$count ${count == 1 ? 'set' : 'sets'}';
+    final next = widget.isNext;
     return Container(
+      key: next ? kNextWarmupKey : null,
       margin: const EdgeInsets.only(top: 10),
       padding: EdgeInsets.fromLTRB(12, 6, 12, _open ? 10 : 6),
       decoration: BoxDecoration(
-        color: AppColors.surface2.withValues(alpha: 0.5),
+        color: next
+            ? AppColors.accent.withValues(alpha: 0.08)
+            : AppColors.surface2.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(
+          color: next ? AppColors.accent.withValues(alpha: 0.55) : AppColors.line,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -946,7 +995,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                         ? Icons.keyboard_arrow_down_rounded
                         : Icons.keyboard_arrow_right_rounded,
                     size: 18,
-                    color: AppColors.faint,
+                    color: next ? AppColors.accent : AppColors.faint,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -954,7 +1003,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                     style: kMono.copyWith(
                         fontSize: 10,
                         letterSpacing: 1.2,
-                        color: AppColors.faint),
+                        color: next ? AppColors.accent : AppColors.faint),
                   ),
                   const SizedBox(width: 8),
                   // The summary gives before the label does: "WARM-UP" is what
@@ -1092,7 +1141,10 @@ class _ColumnHeaders extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4, top: 2),
+      // The 5 either side is the set row's own inset — its 4 of padding and the
+      // 1 of border it carries when it is the set you are on — so the headings
+      // stay over their columns whether or not a row below is marked.
+      padding: const EdgeInsets.only(bottom: 4, top: 2, left: 5, right: 5),
       child: Row(
         children: [
           h('Set', width: 40),
@@ -1124,12 +1176,16 @@ class _SetRow extends StatelessWidget {
     required this.onEditWeight,
     required this.onTap,
     required this.onTypeResult,
+    this.isNext = false,
     this.onVideo,
     this.holdingSeconds,
   });
   final int number;
   final SetEntry entry;
   final String unit;
+
+  /// Whether this is the set to do now — see [kNextSetKey].
+  final bool isNext;
   final VoidCallback onEditWeight;
   final VoidCallback onTap;
   final VoidCallback onTypeResult;
@@ -1169,8 +1225,21 @@ class _SetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+    return Container(
+      key: isNext ? kNextSetKey : null,
+      margin: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      // The set you are on, marked where your eye already is rather than in a
+      // margin: the row lifts out of the list on the accent, which is the same
+      // colour the app uses everywhere else for "this one".
+      decoration: isNext
+          ? BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border:
+                  Border.all(color: AppColors.accent.withValues(alpha: 0.45)),
+            )
+          : null,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
