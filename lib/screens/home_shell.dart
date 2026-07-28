@@ -33,9 +33,15 @@ class HomeShell extends ConsumerWidget {
       // live session never costs a tab screen the bottom of its list. Scaffold
       // measures whatever it is given here and insets the body by it, which is
       // the whole point — see ResumeWorkoutOverlay for the other mount point.
+      // The slot, not the bar itself: the shell only holds it while a tab root
+      // is the current route, which is what keeps the two mount points from
+      // both drawing one during a push.
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [const ResumeWorkoutBar(), _navBar(palette)],
+        children: [
+          const ResumeWorkoutBarSlot(mount: ResumeBarMount.shell),
+          _navBar(palette),
+        ],
       ),
     );
   }

@@ -65,6 +65,14 @@ you're done.
   navigation bar, everywhere else it is the last row of the app. Nothing is ever
   underneath it, and the bottom of every list stays reachable while a session is
   open. One line, because it is furniture for as long as the session lasts.
+- **There is only ever one resume bar on screen.** Two mount points draw it and
+  exactly one may be live at a time — including *during* a navigation, which is
+  the case that got this wrong. Pushing a screen over a tab flips the route the
+  instant the tap lands, but the tab screen keeps painting for the length of the
+  slide, so for those few hundred milliseconds both mount points thought the bar
+  was theirs and it appeared twice: once above the navigation bar and once below
+  it. Ownership follows what is *on screen*, not what the route says, so the
+  count is one whether the app is settled or mid-transition.
 - **The whole session is in the notification shade.** Phone in a pocket, and a
   straightforward set needs no screen: the notification names the exercise, the
   weight in your unit and the reps, walks an exercise's warm-up rungs before its
@@ -93,6 +101,21 @@ you're done.
     wrong and capped at six hours a day. So `specialUse`, with the subtype
     spelled out — which needs a justification at Play Store review.
   - Off Android it is a no-op, not a crash.
+- **It asks to post notifications, or it is invisible.** Declaring the
+  permission in the manifest is not the same as holding it: on Android 13 and
+  up it is a runtime grant, and without it the service starts, reports success
+  and draws nothing — the failure the user sees is not an error but an absence,
+  which is why it went unnoticed. So the first session asks. The ask happens at
+  the point the shade is first needed rather than on launch, because a
+  permission prompt makes sense next to the thing that wants it and reads as
+  noise on a cold start.
+  - **Refusal is not an error.** The workout runs exactly as before, just
+    without the shade, and nothing interrupts it to say so. The app asks once
+    and does not badger; Android stops showing the dialog after a refusal
+    anyway, and the switch that turns it back on is the phone's, not the app's.
+  - Nothing else in the app gains a permission from this. Reminders already ask
+    for the same grant on their own account and either may be the one that
+    happens to get it first.
 - **The rest clock belongs to the session, not to the screen.** It keeps
   running while the logging screen is popped — putting the phone away mid-rest
   is the ordinary case, not an edge one — and a countdown a notification can
@@ -134,10 +157,33 @@ you're done.
   replaces the word "REST": a banner counting down is self-evidently a rest.
   "Between exercises" skips past any exercise already finished — walking to a
   machine you are done with is not advice.
+- **The caption gives; the banner does not grow.** "Set up Barbell Romanian
+  Deadlift, rest, then lift." is a real exercise name in a real sentence, and
+  left to itself it wrapped to three lines, pushed the clock down and squeezed
+  the shorter / longer / skip buttons out of shape. The banner is a fixed piece
+  of furniture over the board: the caption is the part with no length to it, so
+  the caption is the part that yields — it holds to two lines and ellipsises
+  past that, while the countdown and the three controls keep their place and
+  their size at any name length and any text scale.
 - **It makes a sound when it ends, and when it is skipped.** A rest that ends
-  silently is one you overrun with the phone in your pocket. The tone is
-  *synthesised* and shipped as an asset, so there is no licence attached to it
-  and nothing to attribute, and it is declared as an **alarm** on Android: that
+  silently is one you overrun with the phone in your pocket. **One note, not
+  two.** The first tone was a two-note figure a fifth apart, which reads as
+  "da-dong" — a little melody, and a melody is a thing you notice having heard
+  rather than a thing you act on. A rest ending is one event, so it gets one
+  ding: a single pitch with a fast attack and a short decay, done inside a third
+  of a second.
+
+  The tone is *synthesised* and shipped as an asset, so there is no licence
+  attached to it and nothing to attribute. **The generator is committed beside
+  it** (`tool/make_rest_tone.dart`) rather than left in a commit message: a wav
+  is a binary nobody can review, and the frequency, the envelope and the length
+  are the whole design. Regenerating it must produce the same file, byte for
+  byte. It is not built in CI — an asset that only exists in a release is one no
+  developer has ever heard and no test can play.
+
+  A system sound was the obvious route and is a dead end: Flutter's
+  `SystemSound.play` is documented as ignored on Android and iOS both. The tone
+  is declared as an **alarm** on Android: that
   puts it on the alarm stream, where it follows the phone's own silent and
   Do-Not-Disturb behaviour rather than overriding it, and it ducks rather than
   stops whatever music is already playing. Switchable off under Settings → Rest
@@ -228,7 +274,8 @@ you're done.
 - Screens/widgets: `lib/screens/workout_screen.dart`,
   `lib/widgets/resume_workout_bar.dart`.
 - The rest tone: `lib/services/rest_tone.dart`, with the asset in
-  `assets/sound/`.
+  `assets/sound/` and the generator that produced it in
+  `tool/make_rest_tone.dart`.
 - The shade: `lib/services/workout_shade.dart`, on the "what now?" model in
   `lib/state/workout_cue.dart`; kept current by `workoutShadeSyncProvider`.
 - Starting one: `lib/widgets/start_workout.dart` — the switch confirmation, the
@@ -247,3 +294,7 @@ you're done.
 - [#36 Rest prompts, and a sound when the timer ends](https://github.com/viktorChekhovoi/foss-lift/issues/36) — shipped, in review
 - [#38 Timed movements: a count-up timer](https://github.com/viktorChekhovoi/foss-lift/issues/38) — shipped, in review
 - [#37 Run a workout from the notification shade](https://github.com/viktorChekhovoi/foss-lift/issues/37) — shipped, in review
+- [#55 The live-workout notification never appears](https://github.com/viktorChekhovoi/foss-lift/issues/55) — open
+- [#56 Two resume bars during a navigation](https://github.com/viktorChekhovoi/foss-lift/issues/56) — open
+- [#57 A long exercise name wrecks the rest banner](https://github.com/viktorChekhovoi/foss-lift/issues/57) — open
+- [#58 One clean ding instead of a two-note figure](https://github.com/viktorChekhovoi/foss-lift/issues/58) — open

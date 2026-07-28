@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1581,42 +1582,111 @@ class _RestBanner extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final pills = [
+              for (final (label, onTap) in _controls) _pill(label, onTap),
+            ];
+            final said = _said(context);
+            // Side by side while the clock still has room to be read; stacked
+            // once the controls have eaten it. At the largest text the app
+            // renders, three buttons and a countdown do not fit across a phone
+            // — and a squeezed button is worse than a taller banner, because
+            // the button is the part you have to hit.
+            if (_controlsWidth(context) <= constraints.maxWidth - _kClockRoom) {
+              return Row(
                 children: [
-                  // The caption replaces the word "REST": a banner counting
-                  // down is self-evidently a rest, and the line is worth more
-                  // spent on what to do with it.
-                  Text(
-                    _caption,
-                    style: kMono.copyWith(
-                        fontSize: 11, height: 1.3, color: AppColors.muted),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    fmtDuration(secondsLeft),
-                    style: kMono.copyWith(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.good,
-                    ),
-                  ),
+                  Expanded(child: said),
+                  const SizedBox(width: 8),
+                  for (final pill in pills) ...[const SizedBox(width: 8), pill],
                 ],
-              ),
-            ),
-            _pill('−15s', onSub),
-            const SizedBox(width: 8),
-            _pill('+15s', onAdd),
-            const SizedBox(width: 8),
-            _pill('Skip', onSkip),
-          ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                said,
+                const SizedBox(height: 10),
+                // Wrapped rather than a row: at the top of the scale three
+                // buttons do not fit across a narrow phone even with the whole
+                // width to themselves, and one that runs off the edge cannot be
+                // pressed at all.
+                Wrap(spacing: 8, runSpacing: 8, children: pills),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+
+  /// The caption and the clock under it — what the banner says, as against what
+  /// it offers.
+  Widget _said(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The caption replaces the word "REST": a banner counting down is
+        // self-evidently a rest, and the line is worth more spent on what to do
+        // with it.
+        //
+        // Two lines and then an ellipsis, because the banner is fixed furniture
+        // over the board and the caption is the only part of it with no length
+        // to it: "Set up Barbell Romanian Deadlift, rest, then lift." is a real
+        // sentence, and left to itself it took three lines and squeezed the
+        // controls. The label gives; the controls do not.
+        Text(
+          _caption,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style:
+              kMono.copyWith(fontSize: 11, height: 1.3, color: AppColors.muted),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          fmtDuration(secondsLeft),
+          maxLines: 1,
+          style: kMono.copyWith(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: AppColors.good,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// What the banner offers, in the order it offers it. Declared once so the
+  /// measurement below and the buttons above cannot drift apart.
+  List<(String, VoidCallback)> get _controls =>
+      [('−15s', onSub), ('+15s', onAdd), ('Skip', onSkip)];
+
+  /// The width the three controls need, laid out in a row.
+  ///
+  /// Measured rather than guessed: the labels are known and the font is
+  /// monospaced, so this is exact, and the alternative — a breakpoint on the
+  /// text scale — puts a number in the code that has to be re-checked every
+  /// time a label or a padding changes.
+  double _controlsWidth(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    var width = 16.0; // the two 8 px gaps between the three buttons
+    for (final (label, _) in _controls) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: kMono.copyWith(fontSize: 12)),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      // The label, its 12 px of padding either side, and the 1 px border.
+      width += math.max(painter.width + 26, 64);
+    }
+    return width;
+  }
+
+  /// The room the countdown wants beside the controls before it is worth
+  /// keeping them on one line. Below this the clock is a column of single
+  /// digits and the caption is one word per line.
+  static const _kClockRoom = 96.0;
 
   Widget _pill(String label, VoidCallback onTap) {
     return OutlinedButton(

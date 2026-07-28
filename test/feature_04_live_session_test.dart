@@ -13,6 +13,9 @@
 // advance under a widget test's fake clock — duration ticks are covered by a
 // controller test instead. The rest banner's countdown *is* a fake-zone timer,
 // so it advances with `pump(Duration(...))`.
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +34,7 @@ import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/util/text_scale.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/widgets/resume_workout_bar.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
@@ -89,6 +93,40 @@ Future<int> buildPlankWorkout(
   await db.replaceWorkoutItems(wid, itemCompanions([draft], workoutId: wid));
   return wid;
 }
+
+/// A one-day routine of two movements, the second called [second].
+///
+/// The first is a single machine set, so logging it finishes that exercise —
+/// and the rest that follows is the "between exercises" one, the only caption
+/// that names a movement and so the only one with an exercise name's worth of
+/// length in it. Returns the workout id.
+Future<int> buildTwoExerciseWorkout(
+  AppDatabase db, {
+  required String second,
+  required String routine,
+}) async {
+  final first = await exerciseNamed(db, 'Triceps Pushdown');
+  final secondId = await db.createExercise(
+    name: second,
+    muscle: 'Back',
+    equipment: 'Machine',
+  );
+  final rid = await db.createRoutine(
+    name: routine,
+    color: 'FF0000',
+    restSeconds: 120,
+  );
+  final wid = await db.createWorkout(rid, 'Two Day');
+  final drafts = [
+    ItemDraft.forExercise(first)..sets = 1,
+    ItemDraft.forExercise(await db.exerciseById(secondId))..sets = 3,
+  ];
+  await db.replaceWorkoutItems(wid, itemCompanions(drafts, workoutId: wid));
+  return wid;
+}
+
+/// What a rest banner measures: the banner itself and its three controls.
+typedef BannerGeometry = ({Rect banner, Map<String, Rect> pills});
 
 void main() {
   late AppDatabase db;
@@ -1927,6 +1965,389 @@ void main() {
       await stopAll(tester);
     });
   });
+
+  group('There is only ever one resume bar on screen', () {
+    // features/04: "Two mount points draw it and exactly one may be live at a
+    // time — including *during* a navigation... the count is one whether the
+    // app is settled or mid-transition."
+    //
+    // Every other resume-bar test asserts at rest, which is exactly how this
+    // was missed: the route flips the instant the push begins, but the tab
+    // screen keeps painting for the length of the slide, so both mount points
+    // believe the bar is theirs for a few hundred milliseconds.
+
+    /// The app as it really is: the tab shell (which mounts the bar above the
+    /// navigation bar) underneath the overlay (which mounts it as the app's
+    /// last row everywhere else), plus a screen outside the shell to push.
+    Future<GoRouter> pumpShellWithSomewhereToGo(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        await container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: await workoutIdNamed(db, 'Push'),
+              name: 'Push',
+            );
+      });
+      final router = GoRouter(initialLocation: '/today', routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (_, _, shell) => HomeShell(shell: shell),
+          branches: [
+            for (final p in const ['/today', '/routines', '/history', '/profile'])
+              StatefulShellBranch(
+                routes: [GoRoute(path: p, builder: (_, _) => const TodayScreen())],
+              ),
+          ],
+        ),
+        GoRoute(path: '/library', builder: (_, _) => const LibraryScreen()),
+      ]);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container!,
+        child: MaterialApp.router(
+          theme: AppTheme.build(kDefaultPalette),
+          routerConfig: router,
+          builder: (context, child) =>
+              ResumeWorkoutOverlay(router: router, child: child!),
+        ),
+      ));
+      await frames(tester);
+      return router;
+    }
+
+    /// Walks half a second of animation 50 ms at a time, failing on the first
+    /// frame that draws a second bar. A settle would skip straight past the
+    /// frames this is about.
+    Future<void> everyFrameOf(WidgetTester tester, String what) async {
+      for (var i = 1; i <= 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(
+          find.byKey(resumeWorkoutBarKey),
+          findsOneWidget,
+          reason: '$what, ${i * 50} ms in — one bar, settled or mid-slide',
+        );
+      }
+    }
+
+    testWidgets('pushing a screen over a tab never draws two', (tester) async {
+      final router = await pumpShellWithSomewhereToGo(tester);
+      expect(find.byKey(resumeWorkoutBarKey), findsOneWidget,
+          reason: 'at rest on a tab root the shell owns it');
+
+      router.push('/library');
+      await everyFrameOf(tester, 'pushing /library over /today');
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and neither does popping back to it', (tester) async {
+      final router = await pumpShellWithSomewhereToGo(tester);
+      router.push('/library');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      router.pop();
+      await everyFrameOf(tester, 'popping back to /today');
+
+      await stopAll(tester);
+    });
+  });
+
+  group('The caption gives; the banner does not grow', () {
+    // features/04: "the caption is the part that yields — it holds to two lines
+    // and ellipsises past that, while the countdown and the three controls keep
+    // their place and their size at any name length and any text scale."
+    const longName = 'Barbell Romanian Deadlift';
+    const shortName = 'Row';
+
+    /// The caption's own line height at [scale] — the banner is allowed to be
+    /// one of these taller than the one-line case, and no more.
+    double captionLine(double scale) => 11 * 1.3 * scale;
+
+    /// Starts a day whose second movement is [next], logs the first exercise's
+    /// only set, and measures the rest banner that opens.
+    ///
+    /// Everything the screen does — mount, tap, unmount — happens inside the
+    /// caller's overflow interception, so a banner that blows out reports one
+    /// captured line rather than dumping a disposed render tree to the console.
+    Future<BannerGeometry> bannerAfterLastSetOf(
+      WidgetTester tester,
+      String next,
+      double scale,
+    ) async {
+      late int wid;
+      await tester.runAsync(() async {
+        wid = await buildTwoExerciseWorkout(db, second: next, routine: next);
+      });
+      final c = containerFor(db);
+      // Torn down after the test rather than inside it: disposing a container
+      // schedules drift's stream cleanup, and a timer left pending when the
+      // body returns fails the test for the wrong reason.
+      addTearDown(c.dispose);
+      // Registered second, so it runs first: the tree comes down before the
+      // container it reads from goes away, even when an expectation above has
+      // already thrown.
+      addTearDown(() => stop(tester));
+      await tester.runAsync(
+        () => c.read(activeWorkoutProvider.notifier).start(
+              workoutId: wid,
+              name: 'Two Day',
+            ),
+      );
+
+      await tester.pumpWidget(
+        appUnder(c, const WorkoutScreen(), textScale: scale),
+      );
+      await tester.pump();
+      // At a large text scale the first set row sits below the fold; scrolling
+      // to it is what a lifter would do, and the banner is what is under test.
+      await tester.ensureVisible(repsCell('0-0-Triceps Pushdown'));
+      await tester.pump();
+      await tester.tap(repsCell('0-0-Triceps Pushdown'));
+      await tester.pump();
+
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+      final geometry = (
+        banner: tester.getRect(find.byKey(kRestBannerKey)),
+        pills: {
+          for (final label in const ['−15s', '+15s', 'Skip'])
+            label: tester.getRect(find.widgetWithText(OutlinedButton, label)),
+        },
+      );
+
+      c.read(activeWorkoutProvider.notifier).discard();
+      await stop(tester);
+      return geometry;
+    }
+
+    Future<void> checkAtScale(WidgetTester tester, double scale) async {
+      // A phone, not the 800×600 the test binding defaults to: a caption only
+      // has a name's worth of length to it on the width it actually gets.
+      tester.view.physicalSize = const Size(390, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      late BannerGeometry short;
+      late BannerGeometry long;
+      final overflows = await overflowsDuring(() async {
+        short = await bannerAfterLastSetOf(tester, shortName, scale);
+        long = await bannerAfterLastSetOf(tester, longName, scale);
+      });
+
+      expect(overflows, isEmpty,
+          reason: 'the rest banner overflowed at ${scale}x');
+
+      // The banner is furniture over the board, not a thing that runs off it.
+      expect(long.banner.top, greaterThanOrEqualTo(0.0),
+          reason: 'the banner grew off the top of the screen at ${scale}x');
+
+      // Two caption lines is the whole allowance: one more line than the short
+      // name needs, measured against it rather than against a pixel count.
+      expect(
+        long.banner.height,
+        lessThanOrEqualTo(short.banner.height + captionLine(scale) + 1.0),
+        reason: 'the banner grew past two caption lines at ${scale}x',
+      );
+
+      for (final label in const ['−15s', '+15s', 'Skip']) {
+        final a = short.pills[label]!;
+        final b = long.pills[label]!;
+        expect(b.size.width, closeTo(a.size.width, 0.5),
+            reason: '$label was squeezed by the name beside it at ${scale}x');
+        expect(b.size.height, closeTo(a.size.height, 0.5),
+            reason: '$label lost height to the caption at ${scale}x');
+        expect(b.left, closeTo(a.left, 0.5),
+            reason: '$label moved along the banner at ${scale}x');
+        // The banner may take the one extra caption line; the controls may
+        // ride that and nothing more.
+        expect(b.bottom, closeTo(a.bottom, captionLine(scale) + 1.0),
+            reason: '$label was pushed down the banner at ${scale}x');
+      }
+    }
+
+    testWidgets('a long name holds the banner at its size', (tester) async {
+      await checkAtScale(tester, 1.0);
+    });
+
+    testWidgets('and at the largest text the app renders', (tester) async {
+      await checkAtScale(tester, kMaxTextScale);
+    });
+
+    testWidgets('the name is still named, ellipsised rather than dropped',
+        (tester) async {
+      // Yielding is not the same as saying nothing: "Set up ..., rest, then
+      // lift" is only useful if it says what to set up.
+      late int wid;
+      await tester.runAsync(() async {
+        wid = await buildTwoExerciseWorkout(
+          db,
+          second: longName,
+          routine: longName,
+        );
+      });
+      container = containerFor(db);
+      await tester.runAsync(
+        () => container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: wid,
+              name: 'Two Day',
+            ),
+      );
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+      await tester.tap(repsCell('0-0-Triceps Pushdown'));
+      await tester.pump();
+
+      final caption = tester.widget<Text>(
+        find.text('Set up $longName, rest, then lift.'),
+      );
+      // Read first, torn down second: an expectation that throws must not take
+      // the live session's tree with it.
+      await stopAll(tester);
+
+      expect(caption.maxLines, 2, reason: 'the caption holds to two lines');
+      expect(caption.overflow, TextOverflow.ellipsis,
+          reason: 'past two lines it ellipsises rather than wrapping on');
+    });
+  });
+
+  group('The rest tone is one note, not two', () {
+    // features/04: "A rest ending is one event, so it gets one ding: a single
+    // pitch with a fast attack and a short decay, done inside a third of a
+    // second."
+    //
+    // Read straight off the shipped asset, because the asset *is* the design —
+    // a wav is a binary nobody can review, so the only honest check is on the
+    // samples themselves. Nothing here pins the frequency: the generator picks
+    // that.
+
+    /// The size of the two-note figure this replaces. Not a target — a ceiling:
+    /// a shorter tone at the same format cannot be bigger than the one it is
+    /// cut down from.
+    const twoNoteBytes = 52964;
+
+    /// The longest a ding may last, from `features/04`: "done inside a third of
+    /// a second".
+    const maxSeconds = 0.35;
+
+    final wav = _RestTone.read();
+
+    test('it is a short, plain PCM ding', () {
+      expect(wav.bitsPerSample, 16, reason: 'plain 16-bit PCM, or the maths '
+          'below is reading something else');
+      expect(wav.channels, 1);
+      expect(wav.seconds, lessThan(maxSeconds),
+          reason: 'a rest ending is one event; it does not need a melody');
+      expect(wav.bytes, lessThan(twoNoteBytes),
+          reason: 'shorter than the two-note figure it replaces');
+    });
+
+    test('it strikes at once and only fades from there', () {
+      // A two-note figure gives itself away in the envelope: it decays, then
+      // rises again for the second note. One ding never rises after its attack.
+      final envelope = wav.envelope(const Duration(milliseconds: 10));
+      expect(envelope.length, greaterThan(4),
+          reason: 'too short to say anything about the shape of it');
+
+      final peak = envelope.reduce((a, b) => a > b ? a : b);
+      final attack = envelope.indexOf(peak);
+      expect(attack, lessThanOrEqualTo(5),
+          reason: 'a fast attack peaks in the first 50 ms, not later');
+
+      // Allowing 5% of the peak as jitter: a decaying sine's window maxima are
+      // not perfectly monotonic, but a second note is a rise of a different
+      // order entirely.
+      final jitter = peak * 0.05;
+      for (var i = attack + 1; i < envelope.length; i++) {
+        expect(
+          envelope[i],
+          lessThanOrEqualTo(envelope[i - 1] + jitter),
+          reason: 'the tone gets louder again ${i * 10} ms in — '
+              'that is a second note',
+        );
+      }
+    });
+  });
+}
+
+/// The shipped rest tone, parsed far enough to say what it sounds like.
+///
+/// Deliberately a hand-rolled RIFF walk rather than a package: the whole point
+/// is to read the asset that ships, with nothing between the test and the
+/// bytes.
+class _RestTone {
+  _RestTone({
+    required this.channels,
+    required this.sampleRate,
+    required this.bitsPerSample,
+    required this.samples,
+    required this.bytes,
+  });
+
+  final int channels;
+  final int sampleRate;
+  final int bitsPerSample;
+
+  /// The signed 16-bit samples of the `data` chunk, in order.
+  final List<int> samples;
+
+  /// The size of the file on disk.
+  final int bytes;
+
+  double get seconds => samples.length / channels / sampleRate;
+
+  /// Reads `assets/sound/rest_done.wav` relative to the package root, which is
+  /// where `flutter test` runs from.
+  factory _RestTone.read() {
+    final raw = File('assets/sound/rest_done.wav').readAsBytesSync();
+    final data = ByteData.sublistView(raw);
+    String tag(int at) =>
+        String.fromCharCodes(raw.sublist(at, at + 4));
+    if (tag(0) != 'RIFF' || tag(8) != 'WAVE') {
+      throw StateError('not a RIFF/WAVE file');
+    }
+
+    var channels = 0, sampleRate = 0, bits = 0;
+    var samples = <int>[];
+    // Chunks run from byte 12: a four-byte id, a little-endian length, then
+    // that many bytes, padded to even.
+    var at = 12;
+    while (at + 8 <= raw.length) {
+      final id = tag(at);
+      final size = data.getUint32(at + 4, Endian.little);
+      final body = at + 8;
+      if (id == 'fmt ') {
+        channels = data.getUint16(body + 2, Endian.little);
+        sampleRate = data.getUint32(body + 4, Endian.little);
+        bits = data.getUint16(body + 14, Endian.little);
+      } else if (id == 'data') {
+        samples = [
+          for (var i = body; i + 1 < body + size; i += 2)
+            data.getInt16(i, Endian.little),
+        ];
+      }
+      at = body + size + (size.isOdd ? 1 : 0);
+    }
+    return _RestTone(
+      channels: channels,
+      sampleRate: sampleRate,
+      bitsPerSample: bits,
+      samples: samples,
+      bytes: raw.length,
+    );
+  }
+
+  /// The loudest sample in each [window] of the tone — its shape over time,
+  /// which is the part a listener hears as one ding or as two.
+  List<int> envelope(Duration window) {
+    final width = (sampleRate * channels * window.inMicroseconds) ~/ 1000000;
+    final out = <int>[];
+    for (var i = 0; i + width <= samples.length; i += width) {
+      var loudest = 0;
+      for (var j = i; j < i + width; j++) {
+        final v = samples[j].abs();
+        if (v > loudest) loudest = v;
+      }
+      out.add(loudest);
+    }
+    return out;
+  }
 }
 
 /// An [AudioPlayer] that would throw if the tone ever reached it. Standing in

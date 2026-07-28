@@ -32,7 +32,42 @@ import '../util/units.dart';
 /// Everything is gated on Android. On any other platform — the iOS port to
 /// come, and the test runner — every method is a no-op rather than a crash, the
 /// same shape `ReminderService` uses.
+///
+/// ## Asking to post notifications
+///
+/// Declaring `POST_NOTIFICATIONS` in the manifest is not the same as holding
+/// it: on Android 13 and up it is a runtime grant, and without it
+/// `startService` starts, reports success and Android draws nothing. The
+/// failure is an absence rather than an error, which is exactly why it went
+/// unnoticed. So the shade asks, once, at the point it is first needed —
+/// starting a session — rather than on launch, where a permission dialog is
+/// noise beside a splash screen. A refusal is not an error: the workout runs as
+/// before, minus the shade, and nothing interrupts it to say so.
 class WorkoutShade {
+  /// [platformSupported] and [requestPermission] both default to the real
+  /// thing; a test overrides them because the runner is not Android and there
+  /// is no dialog to answer.
+  WorkoutShade({
+    bool? platformSupported,
+    Future<bool> Function()? requestPermission,
+  })  : _platformSupported = platformSupported ?? _isAndroid,
+        _requestPermission = requestPermission ?? _askAndroid;
+
+  final bool _platformSupported;
+  final Future<bool> Function() _requestPermission;
+
+  /// Whether the grant has been asked for yet, and what came back. Null until
+  /// the first ask — after that the answer stands for the life of the object:
+  /// Android suppresses the dialog after a refusal anyway, and the way back on
+  /// is the phone's settings rather than anything here.
+  bool? _permitted;
+
+  static bool get _isAndroid => !kIsWeb && Platform.isAndroid;
+
+  static Future<bool> _askAndroid() async =>
+      await FlutterForegroundTask.requestNotificationPermission() ==
+          NotificationPermission.granted;
+
   static const _channelId = 'live_workout';
   static const _channelName = 'Live workout';
   static const _channelDescription =
@@ -47,7 +82,7 @@ class WorkoutShade {
 
   /// Android is the only platform this ships on, and the only one with a
   /// foreground service to put a workout in. See issue #33.
-  bool get supported => !kIsWeb && Platform.isAndroid;
+  bool get supported => _platformSupported;
 
   /// Whether the service is currently up. Read by the tests and by [show].
   bool get running => _running;
@@ -106,6 +141,10 @@ class WorkoutShade {
         );
         return;
       }
+      // Before the service, never after: a service started without the grant
+      // draws nothing and says it succeeded.
+      _permitted ??= await _requestPermission();
+      if (_permitted != true) return;
       final result = await FlutterForegroundTask.startService(
         serviceTypes: const [ForegroundServiceTypes.specialUse],
         notificationTitle: title,

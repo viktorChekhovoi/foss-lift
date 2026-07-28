@@ -77,30 +77,6 @@ Widget scaled(ProviderContainer c, Widget child, double scale) =>
       ),
     );
 
-/// Collects render-overflow errors raised while [body] runs.
-///
-/// Overflow is reported through `FlutterError.onError` during layout, so it has
-/// to be intercepted as it happens — by the time a test ends, the render object
-/// that overflowed has been disposed and says so instead of saying where.
-Future<List<String>> overflowsDuring(Future<void> Function() body) async {
-  final found = <String>[];
-  final prev = FlutterError.onError;
-  FlutterError.onError = (d) {
-    final text = d.exception.toString();
-    if (text.contains('overflowed')) {
-      found.add(text.split('\n').first);
-    } else {
-      prev?.call(d);
-    }
-  };
-  try {
-    await body();
-  } finally {
-    FlutterError.onError = prev;
-  }
-  return found;
-}
-
 void main() {
   late AppDatabase db;
   ProviderContainer? container;

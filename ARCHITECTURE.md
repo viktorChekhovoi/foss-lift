@@ -77,6 +77,8 @@ lib/
 │   └── tutorial.dart             First-run coach-mark tour (overlay + anchors)
 └── screens/                      One file per screen (see table below)
 
+assets/sound/rest_done.wav        The rest-timer ding — generated, not sourced
+tool/make_rest_tone.dart          What generated it; re-runs byte for byte
 design/mockup.html                Clickable HTML UI mockup — the visual spec
 CLAUDE.md                         Working conventions + the issue workflow
 features.txt                      Stub — the backlog lives in GitHub Issues

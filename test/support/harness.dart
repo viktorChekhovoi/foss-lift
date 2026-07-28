@@ -36,14 +36,54 @@ ProviderContainer containerFor(
 /// A live session ticks its duration every second and the rest banner counts
 /// down alongside it, so a tree containing one is *never* quiet: never
 /// `pumpAndSettle` it — use plain `pump()`s and end the test with [stop].
-Widget appUnder(ProviderContainer container, Widget child) =>
+/// Pass [textScale] to render at a text size other than the phone's own — the
+/// scale has to be injected below `MaterialApp`, where the screen's own
+/// `MediaQuery` is, so a caller cannot simply wrap the result.
+Widget appUnder(
+  ProviderContainer container,
+  Widget child, {
+  double textScale = 1.0,
+}) =>
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: AppTheme.build(kDefaultPalette),
         home: child,
+        builder: textScale == 1.0
+            ? null
+            : (context, page) => MediaQuery(
+                  // copyWith, not a fresh MediaQueryData — a bare one has no
+                  // size, and everything downstream lays out against zero.
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: page!,
+                ),
       ),
     );
+
+/// Collects render-overflow errors raised while [body] runs.
+///
+/// Overflow is reported through `FlutterError.onError` during layout, so it has
+/// to be intercepted as it happens — by the time a test ends, the render object
+/// that overflowed has been disposed and says so instead of saying where.
+Future<List<String>> overflowsDuring(Future<void> Function() body) async {
+  final found = <String>[];
+  final prev = FlutterError.onError;
+  FlutterError.onError = (d) {
+    final text = d.exception.toString();
+    if (text.contains('overflowed')) {
+      found.add(text.split('\n').first);
+    } else {
+      prev?.call(d);
+    }
+  };
+  try {
+    await body();
+  } finally {
+    FlutterError.onError = prev;
+  }
+  return found;
+}
 
 /// Unmounts the widget tree, cancelling any rest-countdown timer the screen
 /// owns before the binding checks for pending timers as the body returns.

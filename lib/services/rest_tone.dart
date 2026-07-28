@@ -6,10 +6,15 @@ import 'package:flutter/foundation.dart';
 /// A rest that ends silently is a rest you overrun with the phone in your
 /// pocket, which is most of what the timer is for.
 ///
-/// **What it plays.** One asset, `assets/sound/rest_done.wav` — two notes a
-/// fifth apart, about six-tenths of a second. It is *synthesised*, not sourced,
-/// so there is no licence attached to it and nothing to attribute. The
-/// generator is recorded in the commit that added it.
+/// **What it plays.** One asset, `assets/sound/rest_done.wav` — one note,
+/// struck and fading, under three-tenths of a second. It was two notes a fifth
+/// apart to begin with, which reads as "da-dong": a little melody is a thing
+/// you notice having heard, and a rest ending is one event you act on.
+///
+/// It is *synthesised*, not sourced, so there is no licence attached to it and
+/// nothing to attribute. The generator lives in `tool/make_rest_tone.dart` —
+/// beside the asset rather than in a commit message, because a wav is a binary
+/// nobody can review and the pitch, the envelope and the length are the design.
 ///
 /// **What it respects.** The audio is declared as an *alarm* on Android, which
 /// is what puts it on the alarm stream rather than the media one: it follows
