@@ -243,9 +243,8 @@ void main() {
       // timestamp, the tracking parameters and the www. are all noise.
       expect(theirs.videoUrl, 'https://youtu.be/aBcD1234_-x');
 
-      // A starter-library movement is on both phones already: spending 120
-      // characters on its coaching cue would be paying for a copy of something
-      // the recipient has.
+      // A starter-library movement is on both phones already, so it travels by
+      // name rather than in full.
       final ppl = await db.sharedRoutine((await _routineNamed(db, 'Push / Pull / Legs')).id);
       final builtIn =
           (RoutineCode.decode(RoutineCode.encode(ppl)) as RoutineCodeOk)
@@ -253,9 +252,12 @@ void main() {
               .exercises
               .firstWhere((e) => e.name == 'Bench Press');
       expect(builtIn.isCustom, isFalse);
-      // The starter library's demo links are YouTube *searches* — there is no
-      // video behind them to name, so nothing travels.
-      expect(builtIn.videoUrl, isNull);
+      // Its demo does travel, though — eleven characters of video id. It used
+      // to be a YouTube *search*, which has no video behind it to name, so a
+      // starter movement arrived with no demo at all.
+      expect(youTubeVideoId(builtIn.videoUrl ?? ''), isNotNull,
+          reason: 'a starter demo is a real video and rides along');
+      expect(builtIn.videoUrl, startsWith('https://youtu.be/'));
     });
 
     test('the sender\'s streaks and reminder stay behind', () async {

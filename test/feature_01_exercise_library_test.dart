@@ -13,6 +13,7 @@ import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/exercise_form_screen.dart';
 import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/util/units.dart';
+import 'package:foss_lift/util/video_links.dart';
 import 'package:foss_lift/widgets/exercise_filters.dart';
 
 import 'support/harness.dart';
@@ -89,6 +90,34 @@ void main() {
       for (final e in all.where((e) => !e.isCustom)) {
         expect(e.videoUrl, isNotNull, reason: '${e.name} has no demo link');
       }
+    });
+
+    test('and it is a specific video, not a search for one', () async {
+      // These were `youtube.com/results?search_query=…`, which is a page of
+      // results to pick from rather than a demo — and, having no video id in
+      // it, nothing a shared routine could carry either.
+      final all = await db.watchExercises().first;
+
+      for (final e in all.where((e) => !e.isCustom)) {
+        expect(youTubeVideoId(e.videoUrl ?? ''), isNotNull,
+            reason: '${e.name} links to "${e.videoUrl}", which names no video');
+        expect(e.videoUrl, startsWith('https://youtu.be/'),
+            reason: '${e.name} is not stored in the canonical short form');
+      }
+    });
+
+    test('no two starters point at the same video', () async {
+      // A copy-paste slip in the table is invisible on screen — both links
+      // work, they are just the wrong demo on one of them.
+      final all = (await db.watchExercises().first).where((e) => !e.isCustom);
+      final byId = <String, List<String>>{};
+      for (final e in all) {
+        byId.putIfAbsent(youTubeVideoId(e.videoUrl ?? '')!, () => []).add(e.name);
+      }
+      final shared = byId.entries.where((x) => x.value.length > 1).toList();
+      expect(shared, isEmpty,
+          reason: 'shared demo videos: '
+              '${shared.map((x) => '${x.key} → ${x.value}').join('; ')}');
     });
 
     test('a custom exercise sits alongside the starter set', () async {

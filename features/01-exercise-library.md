@@ -4,7 +4,8 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 
 ## What it does
 
-- Ships a starter library of ~85 exercises, each with a **demo-video link**.
+- Ships a starter library of ~85 exercises, each with a **demo-video link** —
+  a specific video, in the canonical `https://youtu.be/<id>` short form.
 - Is **searchable** by name and **filterable** by muscle group and equipment, so
   "a barbell movement for legs" does not require knowing it is called a squat.
   Each exercise opens a detail page with its facts and demo link.
@@ -47,6 +48,20 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   one tap opens it in place, without leaving the session.
 
 ## Behaviour & edge cases
+
+- **A starter's demo is a video, not a search.** These used to be
+  `youtube.com/results?search_query=…`, which lands you on a page of results to
+  pick from — and, carrying no video id, gave a shared routine nothing to take
+  with it. Sources were picked for a back catalogue with no reason to be
+  deleted: four large exercise libraries carry most of the set (Muscle &
+  Strength, Renaissance Periodization, PureGym, Bodybuilding.com), with a
+  handful from other long-established publishers where none of the four had a
+  clean demo. The app asks for no network permission, so it can never notice a
+  dead link — every id is listed in one place (`_starterDemos`) with the video's
+  own title beside it, so a re-check can tell "this is gone" from "this is now
+  something else". YouTube's oEmbed endpoint answers for a live video and fails
+  for a dead one, which makes re-checking the lot a loop rather than an
+  afternoon.
 
 - **Chips within a row are alternatives; the two rows narrow.** Arms *and*
   glutes is one session's worth of browsing rather than two searches, while
@@ -141,3 +156,4 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 - [#16 Expand the seeded exercise library](https://github.com/viktorChekhovoi/foss-lift/issues/16) — shipped
 - [#31 Per-exercise personal notes](https://github.com/viktorChekhovoi/foss-lift/issues/31) — shipped
 - [#42 Filters, inline creation, and named bars](https://github.com/viktorChekhovoi/foss-lift/issues/42) — shipped, in review
+- [#43 Seeded demo links are searches, not videos](https://github.com/viktorChekhovoi/foss-lift/issues/43) — shipped, in review

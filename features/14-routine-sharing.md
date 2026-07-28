@@ -48,8 +48,10 @@ exercises it depends on — as one line of text you can paste into a message.
   `/shorts/`, `/embed/`, with or without timestamps, playlists and tracking
   parameters — is reduced to its eleven-character id and rebuilt as
   `https://youtu.be/<id>` at the other end. A link with no video behind it does
-  not travel at all: the starter library's demo links are YouTube *searches*, and
-  a search costs ninety characters to say nothing.
+  not travel at all — a search URL spends ninety characters to say nothing.
+  The starter library used to be entirely such links, so a starter movement
+  arrived with no demo; they are real videos now, and ride along like any other
+  at eleven characters each.
 - **Names are capped at 200 UTF-8 bytes** on the wire — generous next to the 80
   the app itself enforces, so a legal name never loses characters here first,
   and bounded so a corrupt code cannot claim a megabyte of routine name. A

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../util/video_links.dart';
 import 'exercise_stats.dart';
 import 'layoff.dart';
 import 'plates.dart';
@@ -367,6 +368,120 @@ typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 /// kind of loading a gym offers, without turning the picker into a catalogue.
 /// How a movement is loaded is left to `weightTypeForEquipment`, and its demo
 /// link to a YouTube search, which cannot rot the way a video id can.
+/// The demo video for each starter movement, as a bare YouTube id.
+///
+/// **Ids, not URLs.** Eleven characters is what identifies a video, and it is
+/// also what travels inside a shared routine — a full URL would not fit the
+/// budget and a search URL, which is what these used to be, carries no video to
+/// travel at all (see `youTubeVideoId`).
+///
+/// **Where they come from.** Four large exercise libraries carry most of it —
+/// Muscle & Strength, Renaissance Periodization, PureGym and Bodybuilding.com —
+/// with a handful from other long-established publishers where none of the four
+/// had a clean demo. The rule was a back catalogue with no reason to be deleted:
+/// a demo that disappears is worse than the search that always worked, and the
+/// app asks for no network permission, so it can never notice a dead one.
+///
+/// **Checking them.** Every id here resolved live when it was added. To re-check
+/// the lot, ask YouTube's oEmbed endpoint for each — it answers with the title
+/// and channel for a live video and fails for a dead one:
+///
+/// ```
+/// curl -s "https://www.youtube.com/oembed?url=https://youtu.be/<id>&format=json"
+/// ```
+///
+/// The comment beside each is the video's own title, so a re-check can tell
+/// "this is gone" from "this is now something else".
+const Map<String, String> _starterDemos = {
+  'Bench Press': 'tuwHzzPdaGc', // Barbell Bench Press — Muscle & Strength
+  'Incline Bench Press': 'uIzbJX5EVIY', // Incline Bench Press — Muscle & Strength
+  'Decline Bench Press': 'oIgci8aNsG0', // Decline Bench Press — Muscle & Strength
+  'Dumbbell Bench Press': 'dGqI0Z5ul4k', // Dumbbell Bench Press — Muscle & Strength
+  'Incline DB Press': '8nNi8jbbUPE', // Incline Dumbbell Bench Press — Muscle & Strength
+  'Dumbbell Fly': '-lcbvOddoi8', // Flat Dumbbell Fly — Muscle & Strength
+  'Machine Chest Press': 'NwzUje3z0qY', // Machine Chest Press — Renaissance Periodization
+  'Pec Deck': 'O-OBCfyh9Fw', // Pec Deck Flye — Renaissance Periodization
+  'Cable Fly': 'QcTcWpkn_bw', // How To Do A Cable Fly/ Cable Crossover — PureGym
+  'Push-Up': 'KEFQyLkDYtI', // Pushup — Muscle & Strength
+  'Chest Dip': 'FG1ENBFsdHU', // Dip (Parallel Bars) — Muscle & Strength
+  'Deadlift': 'wjsu6ceEkAQ', // Conventional Deadlift — Muscle & Strength
+  'Barbell Row': 'paCfxhgW6bI', // Bent Over Barbell Row — Muscle & Strength
+  'Barbell Shrug': '6hNudn7Peco', // Barbell Shrug — Muscle & Strength
+  'Dumbbell Row': 'YZgVEy6cmaY', // Bent Over Dumbbell Row Unilateral — Muscle & Strength
+  'T-Bar Row': 'kHW23afzaUs', // Chest Supported T Bar Row — Muscle & Strength
+  'Chest-Supported Row': '0UBRfiO4zDs', // Chest Supported Row — Renaissance Periodization
+  'Lat Pulldown': 'iKrKgWR9wbY', // Lat Pulldown (Double Overhand) — Muscle & Strength
+  'Seated Cable Row': 'xQNrFHEMhI4', // Seated Cable Row | Exercise Guide — Bodybuilding.com
+  'Straight-Arm Pulldown': 'gDtXrJWPdlY', // Cable Straight Arm Pulldown — Muscle & Strength
+  'Face Pull': 'tkLTR4b6cAk', // Face Pull - Shoulder Exercise - Bodybuilding.com — Bodybuilding.com
+  'Pull-Up': 'WXMKjV11lAk', // Pullups -  Back Exercise - Bodybuilding.com — Bodybuilding.com
+  'Chin-Up': '1EJ3A3rEtlo', // Chin-up — Muscle & Strength
+  'Inverted Row': 'KOaCM1HMwU0', // Inverted Row — Renaissance Periodization
+  'Back Extension': 'BZMnTSobIAQ', // Hyperextension Bodyweight — Muscle & Strength
+  'Overhead Press': 'j7ULT6dznNc', // Overhead Press — Muscle & Strength
+  'Push Press': 'ChTn_TLDA5o', // Push Press - Shoulder Exercise - Bodybuilding.com — Bodybuilding.com
+  'Upright Row': 'um3VVzqunPU', // Barbell Upright Row — Renaissance Periodization
+  'Dumbbell Shoulder Press': 'FRxZ6wr5bpA', // Seated Dumbbell Press (Bilateral) — Muscle & Strength
+  'Arnold Press': 'hmnZKRpYaV8', // Seated Arnold Press — Muscle & Strength
+  'Lateral Raise': 'E3abEP8SIh0', // Side Lateral Raise | Exercise Guide — Bodybuilding.com
+  'Front Raise': '-t7fuZ0KhDA', // How To: Dumbbell Front Raise — ScottHermanFitness
+  'Rear Delt Fly': 'Fgz_FdzDukE', // Bent Over Rear Delt Fly — Muscle & Strength
+  'Machine Shoulder Press': 'WvLMauqrnK8', // Machine Shoulder Press — Renaissance Periodization
+  'Reverse Pec Deck': '6yMdhi2DVao', // How To Properly Use The Rear Delt Fly Machine (+ BONUS TIP) — Mind Pump TV
+  'Cable Lateral Raise': 'Fv-eAW1uKDI', // Single Arm Cable Lateral Raise (Crossbody) — Muscle & Strength
+  'Back Squat': 'R2dMsNhN3DE', // Barbell Back Squat — Muscle & Strength
+  'Front Squat': '9xAkoz95IFE', // Front Squat (Parallel) — Muscle & Strength
+  'Sumo Deadlift': 'pfSMst14EFk', // Sumo Deadlift — Renaissance Periodization
+  'Romanian Deadlift': 'CkrqLaDGvOA', // Stiff Leg Deadlift — Muscle & Strength
+  'Good Morning': '8sGgyquE1Bs', // Standing Goodmorning — Muscle & Strength
+  'Goblet Squat': 'zBV3ceGyAxw', // How To Do A Goblet squat — PureGym
+  'Bulgarian Split Squat': 'uqI3GVwfToU', // Dumbbell Bulgarian Split Squat — Muscle & Strength
+  'Walking Lunge': 'uRSsOoZG9z8', // Dumbbell Walking Lunge — Muscle & Strength
+  'Step-Up': 'DxUNi119Qzs', // How To Do A Dumbbell Step Up — PureGym
+  'Leg Press': 'sEM_zo9w2ss', // Leg Press — Muscle & Strength
+  'Hack Squat': '63tboDKQksc', // Machine Hack Squat — Muscle & Strength
+  'Leg Curl': 'n5WDXD_mpVY', // Lying Leg Curl — Renaissance Periodization
+  'Leg Extension': '0fl1RRgJ83I', // Seated Leg Extension — Muscle & Strength
+  'Calf Raise': 'g_E7_q1z2bo', // Hammer Strength Select Standing Calf Raise — Hammer Strength
+  'Seated Calf Raise': 'Yh5TXz99xwY', // Seated Calf Raise (Toes Neutral) — Muscle & Strength
+  'Hip Thrust': 'EF7jXP17DPE', // Barbell Hip Thrust — Renaissance Periodization
+  'Glute Bridge': 'DQv1IMQDbE4', // How To Do A Barbell Glute Bridge — PureGym
+  'Hip Abduction': '7pbZA7ncuq8', // Machine Abductor — Muscle & Strength
+  'Cable Pull-Through': 'pv8e6OSyETE', // Cable Pull Through — Renaissance Periodization
+  'Glute Kickback': 'aX0U98L4Ywk', // Donkey Kicks — Muscle & Strength
+  'Barbell Curl': 'JnLFSFurrqQ', // Barbell Curl Normal Grip — Renaissance Periodization
+  'Preacher Curl': 'sxA__DoLsgo', // EZ Bar Preacher Curl — Renaissance Periodization
+  'Close-Grip Bench Press': 'j-NhORwJDb4', // Bench Press (Close Grip) — Muscle & Strength
+  'Skull Crusher': 'K6MSN4hCDM4', // EZ Bar Skullcrusher — Muscle & Strength
+  'Dumbbell Curl': 'av7-8igSXTs', // How to Do Standing Dumbbell Curls — LIVESTRONG
+  'Hammer Curl': 'XOEL4MgekYE', // Hammer Curl — Renaissance Periodization
+  'Incline Dumbbell Curl': 'UeleXjsE-98', // Incline Dumbbell Curl — Muscle & Strength
+  'Triceps Pushdown': '6Fzep104f0s', // Cable Triceps Pushdown — Renaissance Periodization
+  'Overhead Cable Extension': 'NRENeEgaIgA', // Overhead Rope Tricep Extension — Muscle & Strength
+  'Cable Curl': 'L9GwtjwAM8Y', // How To: Standing Cable Double-Bicep Curl — ScottHermanFitness
+  'Triceps Dip': '6kALZikXxLc', // How to Do a Tricep Dip | Boot Camp Workout — Howcast
+  'Reverse Curl': 'X5df_LHBVKQ', // How To Do Reverse Curls (Pronated Bicep Curl) — PureGym
+  'Wrist Curl': '3VLTzIrnb5g', // How To Do Wrist Curls — PureGym
+  'Reverse Wrist Curl': 'krZ6pWGZ8xo', // How to Do Dumbbell Reverse Wrist Curls — LIVESTRONG
+  'Dead Hang': 'ShkBXOGK7A8', // How Hanging Transforms Your Body — FitnessFAQs
+  'Cable Crunch': '3qjoXDTuyOE', // Cable Crunch - Abs / Core Exercise - Bodybuilding.com — Bodybuilding.com
+  'Pallof Press': 'HXrLaqNIkTs', // How To Do A Pallof Press — PureGym
+  'Machine Crunch': '-OUSBPnHvsQ', // Machine Crunch — Renaissance Periodization
+  'Ab Wheel Rollout': 'rqiTPdK1c_I', // Ab Wheel- How to PROPERLY Use an Ab Wheel | MIND PUMP — Mind Pump TV
+  'Plank': 'q4rDeHYMcIg', // How To Do A Plank — PureGym
+  'Side Plank': 'Oe9Tp9SvTCE', // How To Do A Side Plank — PureGym
+  'Hollow Hold': 'hf00_b2sRdc', // How to Perfect Your Hollow Hold | Form Check | Men's Health — Men's Health
+  'Hanging Leg Raise': '7FwGZ8qY5OU', // Hanging Straight Leg Raise — Renaissance Periodization
+  'Crunch': 'MKmrqcoCZ-M', // How to Do a Stomach Crunch Properly | Gym Workout — Howcast
+  'Reverse Crunch': 'XY8KzdDcMFg', // How To Do A Reverse Crunch — PureGym
+  'Russian Twist': '99T1EfpMwPA', // How To Do A Russian Twist — PureGym
+  'Dead Bug': '4XLEnwUr1d8', // Dead Bug - Abdominal / Core Exercise Guide — Bodybuilding.com
+  'Power Clean': 'SoEKmdSXUBw', // Learn How to Power Clean | Cassie & Tyra — Bodybuilding.com
+  'Kettlebell Swing': '4JzSjWen6uI', // How To Do A Kettlebell Swing — PureGym
+  'Turkish Get-Up': 'bm9M6y4QFoM', // Deconstructing The Turkish Get Up — Bodybuilding.com
+  "Farmer's Carry": '8OtwXwrJizk', // How To Do A Farmer's Walk (Farmer's Carry) — PureGym
+};
+
 const Map<String, Map<String, String>> _starterLibrary = {
   'Chest': {
     'Bench Press': 'Barbell',
@@ -1386,9 +1501,12 @@ class AppDatabase extends _$AppDatabase {
           // is a bar, a dumbbell lift is a dumbbell, and the cables, machines
           // and bodyweight movements are all "the number is the number".
           weightType: Value(weightTypeForEquipment(equip)),
+          // A specific video, in the canonical short form — see
+          // [_starterDemos]. These were YouTube *searches*, which meant a
+          // results page to pick from rather than a demo, and no id for a
+          // shared routine to carry.
           videoUrl: Value(
-            'https://www.youtube.com/results?search_query='
-            '${Uri.encodeQueryComponent('$name proper form')}',
+            _starterDemos[name] == null ? null : youTubeUrl(_starterDemos[name]!),
           ),
         ),
       );
