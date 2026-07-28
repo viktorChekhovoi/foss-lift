@@ -667,12 +667,17 @@ class _ExerciseBlock extends StatelessWidget {
               child: Row(
                 children: [
                   if (exercise.hasWarmups)
-                    Text(
-                      'WORKING SETS',
-                      style: kMono.copyWith(
-                          fontSize: 10,
-                          letterSpacing: 1.0,
-                          color: AppColors.muted),
+                    // The label gives, never the weight: the weight is the
+                    // control on this row and has to stay whole and tappable.
+                    Flexible(
+                      child: Text(
+                        'WORKING SETS',
+                        overflow: TextOverflow.ellipsis,
+                        style: kMono.copyWith(
+                            fontSize: 10,
+                            letterSpacing: 1.0,
+                            color: AppColors.muted),
+                      ),
                     ),
                   const Spacer(),
                   if (exercise.carriesLoad)
@@ -943,10 +948,15 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                         color: AppColors.faint),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '· $summary',
-                    style:
-                        kMono.copyWith(fontSize: 11, color: AppColors.muted),
+                  // The summary gives before the label does: "WARM-UP" is what
+                  // identifies the group, "· 3 sets" is a detail.
+                  Flexible(
+                    child: Text(
+                      '· $summary',
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          kMono.copyWith(fontSize: 11, color: AppColors.muted),
+                    ),
                   ),
                 ],
               ),

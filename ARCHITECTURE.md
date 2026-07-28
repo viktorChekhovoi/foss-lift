@@ -58,6 +58,7 @@ lib/
 ├── util/qr_capacity.dart         What a QR holds; how much error correction it affords
 ├── util/video_links.dart         A YouTube URL reduced to its video id
 ├── util/format.dart              fmtTotal — big running totals for stat tiles
+├── util/text_scale.dart          System text size × the user's nudge, clamped
 ├── widgets/
 │   ├── common.dart               SectionLabel, ScreenHeader, hexColor()
 │   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
@@ -104,7 +105,7 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), and the colour theme (`themePresetId` — a preset slug/`custom`/null; `customTheme` — the user's palette as JSON) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), `textScale` (the user's text-size nudge on top of the phone's), and the colour theme (`themePresetId` — a preset slug/`custom`/null; `customTheme` — the user's palette as JSON) |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
@@ -499,6 +500,13 @@ you never looked at.
   tabular monospace style for all numbers.
 - **Units** (`util/units.dart`): `toDisplayWeight`, `toKg`, `unitLabel`. Any new
   weight display/input must go through these.
+- **Text size** (`util/text_scale.dart`): the app follows the phone's setting
+  and multiplies the user's nudge into it, clamping the product to the range
+  every screen is swept at. Applied once in `main.dart`, so every route
+  inherits it. **New layouts have to survive 2.0×** — the sweep in
+  `test/feature_15_text_size_test.dart` mounts every screen at 1.0/1.3/2.0 on a
+  360 dp viewport and fails on any overflow. Where a row runs out of room, the
+  label gives and the control does not.
 
 ## Where to add things (future work)
 

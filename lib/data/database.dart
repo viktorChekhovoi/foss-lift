@@ -286,6 +286,20 @@ class Settings extends Table {
   /// `services/rest_tone.dart`.
   BoolColumn get restSound => boolean().withDefault(const Constant(true))();
 
+  /// The user's own text-size nudge, *on top of* the phone's setting.
+  ///
+  /// 1.0 means "whatever the system says", which is the default and the right
+  /// answer for most people — Android's own text size is system-wide and
+  /// already discoverable. This exists for the gap it leaves: wanting this app
+  /// larger without enlarging everything else, or wanting it smaller to fit
+  /// more of a workout on screen.
+  ///
+  /// It multiplies the system scale rather than replacing it, and the product
+  /// is clamped — see `kTextScaleChoices` and `resolveTextScale`. A control
+  /// that can produce a layout nobody has checked is not an accessibility
+  /// feature.
+  RealColumn get textScale => real().withDefault(const Constant(1.0))();
+
   /// Which colour theme is active: a preset slug (`ignition`, `graphite`, …),
   /// `custom`, or null. Null means the default preset, so an install that never
   /// touched the setting looks exactly as it always did.
@@ -1398,6 +1412,17 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setRestSound(bool on) =>
       _writeSettings(SettingsCompanion(restSound: Value(on)));
+
+  /// The user's text-size nudge. 1.0 — follow the phone — until they say
+  /// otherwise.
+  Stream<double> watchTextScale() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => s?.textScale ?? 1.0);
+  }
+
+  Future<void> setTextScale(double scale) =>
+      _writeSettings(SettingsCompanion(textScale: Value(scale)));
 
   /// The layoff rules, falling back to the defaults if the settings row has
   /// somehow not been written yet.

@@ -3867,6 +3867,18 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _textScaleMeta = const VerificationMeta(
+    'textScale',
+  );
+  @override
+  late final GeneratedColumn<double> textScale = GeneratedColumn<double>(
+    'text_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
   static const VerificationMeta _themePresetIdMeta = const VerificationMeta(
     'themePresetId',
   );
@@ -3901,6 +3913,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     barWeight,
     tutorialSeen,
     restSound,
+    textScale,
     themePresetId,
     customTheme,
   ];
@@ -3988,6 +4001,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         restSound.isAcceptableOrUnknown(data['rest_sound']!, _restSoundMeta),
       );
     }
+    if (data.containsKey('text_scale')) {
+      context.handle(
+        _textScaleMeta,
+        textScale.isAcceptableOrUnknown(data['text_scale']!, _textScaleMeta),
+      );
+    }
     if (data.containsKey('theme_preset_id')) {
       context.handle(
         _themePresetIdMeta,
@@ -4054,6 +4073,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       restSound: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}rest_sound'],
+      )!,
+      textScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}text_scale'],
       )!,
       themePresetId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -4122,6 +4145,20 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// `services/rest_tone.dart`.
   final bool restSound;
 
+  /// The user's own text-size nudge, *on top of* the phone's setting.
+  ///
+  /// 1.0 means "whatever the system says", which is the default and the right
+  /// answer for most people — Android's own text size is system-wide and
+  /// already discoverable. This exists for the gap it leaves: wanting this app
+  /// larger without enlarging everything else, or wanting it smaller to fit
+  /// more of a workout on screen.
+  ///
+  /// It multiplies the system scale rather than replacing it, and the product
+  /// is clamped — see `kTextScaleChoices` and `resolveTextScale`. A control
+  /// that can produce a layout nobody has checked is not an accessibility
+  /// feature.
+  final double textScale;
+
   /// Which colour theme is active: a preset slug (`ignition`, `graphite`, …),
   /// `custom`, or null. Null means the default preset, so an install that never
   /// touched the setting looks exactly as it always did.
@@ -4142,6 +4179,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.barWeight,
     required this.tutorialSeen,
     required this.restSound,
+    required this.textScale,
     this.themePresetId,
     this.customTheme,
   });
@@ -4166,6 +4204,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     }
     map['tutorial_seen'] = Variable<bool>(tutorialSeen);
     map['rest_sound'] = Variable<bool>(restSound);
+    map['text_scale'] = Variable<double>(textScale);
     if (!nullToAbsent || themePresetId != null) {
       map['theme_preset_id'] = Variable<String>(themePresetId);
     }
@@ -4195,6 +4234,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           : Value(barWeight),
       tutorialSeen: Value(tutorialSeen),
       restSound: Value(restSound),
+      textScale: Value(textScale),
       themePresetId: themePresetId == null && nullToAbsent
           ? const Value.absent()
           : Value(themePresetId),
@@ -4220,6 +4260,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       barWeight: serializer.fromJson<double?>(json['barWeight']),
       tutorialSeen: serializer.fromJson<bool>(json['tutorialSeen']),
       restSound: serializer.fromJson<bool>(json['restSound']),
+      textScale: serializer.fromJson<double>(json['textScale']),
       themePresetId: serializer.fromJson<String?>(json['themePresetId']),
       customTheme: serializer.fromJson<String?>(json['customTheme']),
     );
@@ -4238,6 +4279,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'barWeight': serializer.toJson<double?>(barWeight),
       'tutorialSeen': serializer.toJson<bool>(tutorialSeen),
       'restSound': serializer.toJson<bool>(restSound),
+      'textScale': serializer.toJson<double>(textScale),
       'themePresetId': serializer.toJson<String?>(themePresetId),
       'customTheme': serializer.toJson<String?>(customTheme),
     };
@@ -4254,6 +4296,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<double?> barWeight = const Value.absent(),
     bool? tutorialSeen,
     bool? restSound,
+    double? textScale,
     Value<String?> themePresetId = const Value.absent(),
     Value<String?> customTheme = const Value.absent(),
   }) => Setting(
@@ -4273,6 +4316,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
     tutorialSeen: tutorialSeen ?? this.tutorialSeen,
     restSound: restSound ?? this.restSound,
+    textScale: textScale ?? this.textScale,
     themePresetId: themePresetId.present
         ? themePresetId.value
         : this.themePresetId,
@@ -4304,6 +4348,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.tutorialSeen.value
           : this.tutorialSeen,
       restSound: data.restSound.present ? data.restSound.value : this.restSound,
+      textScale: data.textScale.present ? data.textScale.value : this.textScale,
       themePresetId: data.themePresetId.present
           ? data.themePresetId.value
           : this.themePresetId,
@@ -4326,6 +4371,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('barWeight: $barWeight, ')
           ..write('tutorialSeen: $tutorialSeen, ')
           ..write('restSound: $restSound, ')
+          ..write('textScale: $textScale, ')
           ..write('themePresetId: $themePresetId, ')
           ..write('customTheme: $customTheme')
           ..write(')'))
@@ -4344,6 +4390,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     barWeight,
     tutorialSeen,
     restSound,
+    textScale,
     themePresetId,
     customTheme,
   );
@@ -4361,6 +4408,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.barWeight == this.barWeight &&
           other.tutorialSeen == this.tutorialSeen &&
           other.restSound == this.restSound &&
+          other.textScale == this.textScale &&
           other.themePresetId == this.themePresetId &&
           other.customTheme == this.customTheme);
 }
@@ -4376,6 +4424,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<double?> barWeight;
   final Value<bool> tutorialSeen;
   final Value<bool> restSound;
+  final Value<double> textScale;
   final Value<String?> themePresetId;
   final Value<String?> customTheme;
   const SettingsCompanion({
@@ -4389,6 +4438,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.barWeight = const Value.absent(),
     this.tutorialSeen = const Value.absent(),
     this.restSound = const Value.absent(),
+    this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
     this.customTheme = const Value.absent(),
   });
@@ -4403,6 +4453,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.barWeight = const Value.absent(),
     this.tutorialSeen = const Value.absent(),
     this.restSound = const Value.absent(),
+    this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
     this.customTheme = const Value.absent(),
   });
@@ -4417,6 +4468,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<double>? barWeight,
     Expression<bool>? tutorialSeen,
     Expression<bool>? restSound,
+    Expression<double>? textScale,
     Expression<String>? themePresetId,
     Expression<String>? customTheme,
   }) {
@@ -4431,6 +4483,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (barWeight != null) 'bar_weight': barWeight,
       if (tutorialSeen != null) 'tutorial_seen': tutorialSeen,
       if (restSound != null) 'rest_sound': restSound,
+      if (textScale != null) 'text_scale': textScale,
       if (themePresetId != null) 'theme_preset_id': themePresetId,
       if (customTheme != null) 'custom_theme': customTheme,
     });
@@ -4447,6 +4500,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<double?>? barWeight,
     Value<bool>? tutorialSeen,
     Value<bool>? restSound,
+    Value<double>? textScale,
     Value<String?>? themePresetId,
     Value<String?>? customTheme,
   }) {
@@ -4461,6 +4515,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       barWeight: barWeight ?? this.barWeight,
       tutorialSeen: tutorialSeen ?? this.tutorialSeen,
       restSound: restSound ?? this.restSound,
+      textScale: textScale ?? this.textScale,
       themePresetId: themePresetId ?? this.themePresetId,
       customTheme: customTheme ?? this.customTheme,
     );
@@ -4499,6 +4554,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (restSound.present) {
       map['rest_sound'] = Variable<bool>(restSound.value);
     }
+    if (textScale.present) {
+      map['text_scale'] = Variable<double>(textScale.value);
+    }
     if (themePresetId.present) {
       map['theme_preset_id'] = Variable<String>(themePresetId.value);
     }
@@ -4521,6 +4579,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('barWeight: $barWeight, ')
           ..write('tutorialSeen: $tutorialSeen, ')
           ..write('restSound: $restSound, ')
+          ..write('textScale: $textScale, ')
           ..write('themePresetId: $themePresetId, ')
           ..write('customTheme: $customTheme')
           ..write(')'))
@@ -7195,6 +7254,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<double?> barWeight,
       Value<bool> tutorialSeen,
       Value<bool> restSound,
+      Value<double> textScale,
       Value<String?> themePresetId,
       Value<String?> customTheme,
     });
@@ -7210,6 +7270,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<double?> barWeight,
       Value<bool> tutorialSeen,
       Value<bool> restSound,
+      Value<double> textScale,
       Value<String?> themePresetId,
       Value<String?> customTheme,
     });
@@ -7270,6 +7331,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<bool> get restSound => $composableBuilder(
     column: $table.restSound,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get textScale => $composableBuilder(
+    column: $table.textScale,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7343,6 +7409,11 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get textScale => $composableBuilder(
+    column: $table.textScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get themePresetId => $composableBuilder(
     column: $table.themePresetId,
     builder: (column) => ColumnOrderings(column),
@@ -7407,6 +7478,9 @@ class $$SettingsTableAnnotationComposer
   GeneratedColumn<bool> get restSound =>
       $composableBuilder(column: $table.restSound, builder: (column) => column);
 
+  GeneratedColumn<double> get textScale =>
+      $composableBuilder(column: $table.textScale, builder: (column) => column);
+
   GeneratedColumn<String> get themePresetId => $composableBuilder(
     column: $table.themePresetId,
     builder: (column) => column,
@@ -7456,6 +7530,7 @@ class $$SettingsTableTableManager
                 Value<double?> barWeight = const Value.absent(),
                 Value<bool> tutorialSeen = const Value.absent(),
                 Value<bool> restSound = const Value.absent(),
+                Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
                 Value<String?> customTheme = const Value.absent(),
               }) => SettingsCompanion(
@@ -7469,6 +7544,7 @@ class $$SettingsTableTableManager
                 barWeight: barWeight,
                 tutorialSeen: tutorialSeen,
                 restSound: restSound,
+                textScale: textScale,
                 themePresetId: themePresetId,
                 customTheme: customTheme,
               ),
@@ -7484,6 +7560,7 @@ class $$SettingsTableTableManager
                 Value<double?> barWeight = const Value.absent(),
                 Value<bool> tutorialSeen = const Value.absent(),
                 Value<bool> restSound = const Value.absent(),
+                Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
                 Value<String?> customTheme = const Value.absent(),
               }) => SettingsCompanion.insert(
@@ -7497,6 +7574,7 @@ class $$SettingsTableTableManager
                 barWeight: barWeight,
                 tutorialSeen: tutorialSeen,
                 restSound: restSound,
+                textScale: textScale,
                 themePresetId: themePresetId,
                 customTheme: customTheme,
               ),

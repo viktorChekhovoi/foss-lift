@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/text_scale.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 
@@ -65,6 +66,22 @@ class SettingsScreen extends ConsumerWidget {
               value: '${plates.plates.length} '
                   '${plates.plates.length == 1 ? 'size' : 'sizes'}',
               onTap: () => context.push('/settings/plates'),
+            ),
+            const SizedBox(height: 28),
+            Text('TEXT SIZE',
+                style: kMono.copyWith(
+                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+            const SizedBox(height: 10),
+            _ScaleChoices(
+              chosen: ref.watch(textScaleProvider).value ?? 1.0,
+              onSelect: db.setTextScale,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'On top of your phone’s own text size, which the app follows '
+              'either way.',
+              style: TextStyle(
+                  color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 28),
             Text('REST TIMER',
@@ -258,6 +275,57 @@ class _SwitchRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The four text-size steps, each previewing itself.
+///
+/// A chip drawn at the size it selects is the only honest preview: the point of
+/// the control is how big the words get, and a row of same-sized labels says
+/// nothing about that.
+class _ScaleChoices extends StatelessWidget {
+  const _ScaleChoices({required this.chosen, required this.onSelect});
+  final double chosen;
+  final ValueChanged<double> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final entry in kTextScaleChoices.entries)
+          GestureDetector(
+            onTap: () => onSelect(entry.value),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: (entry.value - chosen).abs() < 0.001
+                    ? AppColors.accent.withValues(alpha: 0.14)
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: (entry.value - chosen).abs() < 0.001
+                      ? AppColors.accent
+                      : AppColors.line,
+                ),
+              ),
+              child: Text(
+                entry.key,
+                // Its own scale, not the page's: the chip shows what it does.
+                textScaler: TextScaler.linear(entry.value),
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: (entry.value - chosen).abs() < 0.001
+                      ? AppColors.accent
+                      : AppColors.muted,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

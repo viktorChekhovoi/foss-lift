@@ -173,6 +173,12 @@ final restToneProvider = Provider<RestTone>((ref) {
   return tone;
 });
 
+/// The user's text-size nudge on top of the phone's own setting. Read as
+/// `.value ?? 1.0` — following the phone is the default.
+final textScaleProvider = StreamProvider<double>((ref) {
+  return ref.watch(databaseProvider).watchTextScale();
+});
+
 /// The layoff rules: the gap that earns a back-off and how deep it cuts.
 final layoffSettingsProvider = StreamProvider<LayoffSettings>((ref) {
   return ref.watch(databaseProvider).watchLayoffSettings();

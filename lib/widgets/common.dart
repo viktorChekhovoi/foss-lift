@@ -14,13 +14,19 @@ class SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
       child: Row(
         children: [
-          Text(
-            text.toUpperCase(),
-            style: kMono.copyWith(
-              fontSize: 11.5,
-              letterSpacing: 1.4,
-              color: AppColors.faint,
-              fontWeight: FontWeight.w600,
+          // Flexible, not bare: at a large font scale a two-word heading with
+          // 1.4 of letter-spacing outgrows the row, and a heading is the part
+          // that should give rather than push its trailing action off the edge.
+          Flexible(
+            child: Text(
+              text.toUpperCase(),
+              overflow: TextOverflow.ellipsis,
+              style: kMono.copyWith(
+                fontSize: 11.5,
+                letterSpacing: 1.4,
+                color: AppColors.faint,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const Spacer(),

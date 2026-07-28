@@ -88,11 +88,13 @@ class PlateInventoryScreen extends ConsumerWidget {
                           Icon(Icons.add,
                               size: 18, color: AppColors.accent),
                           const SizedBox(width: 10),
-                          Text('Add a plate size',
-                              style: kMono.copyWith(
-                                  fontSize: 13,
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.w600)),
+                          Expanded(
+                            child: Text('Add a plate size',
+                                style: kMono.copyWith(
+                                    fontSize: 13,
+                                    color: AppColors.accent,
+                                    fontWeight: FontWeight.w600)),
+                          ),
                         ],
                       ),
                     ),

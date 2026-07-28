@@ -35,6 +35,7 @@ worth knowing), **Where it lives** (code pointers), and **Related issues**.
 | 12 | [First-run tutorial](12-first-run-tutorial.md) | A one-time coach-mark tour on first launch |
 | 13 | [Offline & privacy](13-offline-and-privacy.md) | No network, no account, no telemetry — everything is on-device |
 | 14 | [Sharing a routine](14-routine-sharing.md) | A whole programme as one line of text: QR, link, code or file |
+| 15 | [Text size](15-text-size.md) | Follows the phone's text setting, with a nudge of its own — and every screen checked at every size |
 
 ## App map (where features live on screen)
 
