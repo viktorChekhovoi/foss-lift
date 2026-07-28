@@ -26,6 +26,10 @@ import '../widgets/plate_line.dart';
 const kNextSetKey = ValueKey('next-set');
 const kNextWarmupKey = ValueKey('next-warmup');
 
+/// The one place an exercise's goal is stated — beside the weight you can edit.
+/// One per exercise on the board, and nowhere on a set row.
+const kExerciseGoalKey = ValueKey('exercise-goal');
+
 class WorkoutScreen extends ConsumerStatefulWidget {
   const WorkoutScreen({super.key});
   @override
@@ -76,13 +80,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   void _stopRest({bool tone = true}) =>
       ref.read(activeWorkoutProvider.notifier).stopRest(tone: tone);
 
-  /// The tone that ends a hold. The switch comes off the session rather than
-  /// off the settings stream — see [ActiveWorkoutController.restSoundOn] —
-  /// and this screen is on screen by definition, so it is always the tone
-  /// rather than the notification.
-  void _tone() => ref.read(restToneProvider).play(
-        enabled: ref.read(activeWorkoutProvider.notifier).restSoundOn,
-      );
+  /// The tone that ends a hold. Always the tone rather than the notification:
+  /// this screen being built is what "the app is on screen" means.
+  void _tone() => ref.read(restToneProvider).play();
 
   /// What one tap on a timed set's result cell does.
   ///
@@ -686,6 +686,18 @@ class _ExerciseBlock extends StatelessWidget {
   final ValueChanged<int> onWarmupCount;
   final VoidCallback onEditWorkingWeight;
 
+  /// What every set of this exercise is aiming at — `× 8`, `× 45s` — or null
+  /// when there are no sets to aim at anything.
+  ///
+  /// The `×` reads off the weight beside it ("80 kg × 8"), so an exercise with
+  /// no weight to name drops it and says the target on its own.
+  String? get _goal {
+    if (exercise.sets.isEmpty) return null;
+    final first = exercise.sets.first;
+    final target = first.timed ? '${first.goal}s' : '${first.goal}';
+    return exercise.carriesLoad ? '× $target' : target;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -706,37 +718,50 @@ class _ExerciseBlock extends StatelessWidget {
               onCount: onWarmupCount,
               rowBuilder: warmupRowBuilder,
             ),
-          // The label and the one weight the sets below are done at, on the same
-          // line: what the block is, and what it is loaded to.
-          if (exercise.hasWarmups || exercise.carriesLoad)
-            Padding(
-              padding: const EdgeInsets.only(top: 14, bottom: 2),
-              child: Row(
-                children: [
-                  if (exercise.hasWarmups)
-                    // The label gives, never the weight: the weight is the
-                    // control on this row and has to stay whole and tappable.
-                    Flexible(
-                      child: Text(
-                        'WORKING SETS',
-                        overflow: TextOverflow.ellipsis,
-                        style: kMono.copyWith(
-                            fontSize: 10,
-                            letterSpacing: 1.0,
-                            color: AppColors.muted),
-                      ),
+          // The label, the goal and the one weight the sets below are done at,
+          // on the same line: what the block is, what it is aiming at, and what
+          // it is loaded to. **This is the only place the goal is stated.** It
+          // used to be reprinted on every row, where the weight cell and the
+          // greyed-out result cell beside it were already saying both halves of
+          // it.
+          Padding(
+            padding: const EdgeInsets.only(top: 14, bottom: 2),
+            child: Row(
+              children: [
+                if (exercise.hasWarmups)
+                  // The label gives, never the weight: the weight is the
+                  // control on this row and has to stay whole and tappable.
+                  Flexible(
+                    child: Text(
+                      'WORKING SETS',
+                      overflow: TextOverflow.ellipsis,
+                      style: kMono.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                          color: AppColors.muted),
                     ),
-                  const Spacer(),
-                  if (exercise.carriesLoad)
-                    _WorkingWeight(
-                      key: ValueKey('working-weight-$index'),
-                      weightKg: exercise.workingKg,
-                      unit: unit,
-                      onTap: onEditWorkingWeight,
+                  ),
+                const Spacer(),
+                if (_goal case final goal?)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Text(
+                      goal,
+                      key: kExerciseGoalKey,
+                      style: kMono.copyWith(
+                          fontSize: 13, color: AppColors.muted),
                     ),
-                ],
-              ),
+                  ),
+                if (exercise.carriesLoad)
+                  _WorkingWeight(
+                    key: ValueKey('working-weight-$index'),
+                    weightKg: exercise.workingKg,
+                    unit: unit,
+                    onTap: onEditWorkingWeight,
+                  ),
+              ],
             ),
+          ),
           // What to put on the bar for the set you are about to do — it follows
           // you down the exercise as sets get logged, and re-solves the moment
           // you type a different weight.
@@ -1148,7 +1173,6 @@ class _ColumnHeaders extends StatelessWidget {
       child: Row(
         children: [
           h('Set', width: 40),
-          h('Goal', width: 78, left: true),
           h(unitLabel(unit)),
           h(timed ? 'Sec held' : 'Reps done'),
         ],
@@ -1200,22 +1224,6 @@ class _SetRow extends StatelessWidget {
 
   SetEntry get _entry => entry;
 
-  /// What the template asked for: "82.5×8", "BW×12", or "—×8" when it suggests
-  /// no weight and the choice is yours. A timed set reads "45s", or "20×45s"
-  /// when there is load to hold as well.
-  String get _goalLabel {
-    final e = _entry;
-    final target = e.timed ? '${e.goal}s' : '${e.goal}';
-    final gw = e.goalWeight;
-    // An unloaded plank has no weight worth naming; an unloaded barbell lift
-    // still wants its "—", because the number is yours to pick.
-    if (e.timed && (gw == null || gw == 0)) return target;
-    final w = gw == null
-        ? '—'
-        : (gw == 0 ? 'BW' : fmtWeight(toDisplayWeight(gw, unit)));
-    return '$w×$target';
-  }
-
   /// Green for a set that met its goal, gold for one that came up short —
   /// including a set finished at a reduced weight. A hold still running is the
   /// accent: it is neither yet, and it is the thing on screen to look at.
@@ -1245,19 +1253,6 @@ class _SetRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(width: 40, child: Center(child: _setNumber())),
-            SizedBox(
-              width: 78,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _goalLabel,
-                  style: kMono.copyWith(
-                    fontSize: 12.5,
-                    color: _entry.done ? AppColors.muted : AppColors.faint,
-                  ),
-                ),
-              ),
-            ),
             Expanded(child: _weightCell()),
             Expanded(child: _resultBox()),
             SizedBox(

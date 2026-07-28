@@ -196,10 +196,23 @@ class WorkoutShade {
 /// The bold line: what you are doing, or how long is left.
 String shadeTitle(WorkoutCue cue) => switch (cue.kind) {
       CueKind.resting => 'Rest · ${fmtDuration(cue.restLeft ?? 0)}',
-      CueKind.hold || CueKind.lift =>
-        cue.warmup ? 'Warm-up · ${cue.exercise}' : cue.exercise,
+      CueKind.hold || CueKind.lift => shadeWhere(cue),
       CueKind.finished => 'Workout',
     };
+
+/// Where in the session you are: the movement, whether this is its ramp, and
+/// which set of how many.
+///
+/// The count is the part four identical sets of bench need — without it every
+/// one of them reads the same from a pocket, and the only way to tell the first
+/// from the last is to open the app the shade exists to save you opening.
+String shadeWhere(WorkoutCue cue) {
+  final warmup = cue.warmup ? 'Warm-up · ' : '';
+  final of = cue.setCount > 0
+      ? ' · Set ${cue.setIndex + 1}/${cue.setCount}'
+      : '';
+  return '$warmup${cue.exercise}$of';
+}
 
 /// The second line: the set itself, in enough detail to load a bar from.
 String shadeText(WorkoutCue cue, String unit) {
@@ -209,8 +222,7 @@ String shadeText(WorkoutCue cue, String unit) {
   // exercise can be named on — and "Next: 80 kg × 8" is a weight and a rep
   // count belonging to nothing. "Next" itself is the difference between a
   // countdown and an instruction, so it stays.
-  final warmup = cue.warmup ? 'Warm-up · ' : '';
-  return 'Next: $warmup${cue.exercise} · $what';
+  return 'Next: ${shadeWhere(cue)} · $what';
 }
 
 /// The buttons: two to log a set with, or two to run the rest with.

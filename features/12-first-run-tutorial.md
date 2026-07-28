@@ -22,6 +22,15 @@ tour, which also starts at the welcome.
   has run.
 - **Anchored to real UI.** The overlay attaches its callouts to on-screen anchors
   rather than hard-coded positions.
+- **It covers the live workout, which it cannot point at.** The board, the rest
+  timer and the workout in the notification shade are where the app is least
+  like every other tracker and the most worth a sentence — and none of them
+  exists until a session is running. A tour that started a workout to show you a
+  workout would leave you somewhere you did not ask to be, so those steps are
+  told rather than pointed at, anchored to the card that leads there.
+- **Every anchored step is on the Today tab.** The tour drives no navigation, so
+  a step aimed at a screen you have to open would spotlight a rectangle that is
+  not there.
 - **It introduces itself before it points at anything.** Opening straight into
   an arrow aimed at a card, before the app has said what it is or that a tour is
   happening, reads as a malfunction rather than a greeting. So the first step
@@ -43,3 +52,4 @@ tour, which also starts at the welcome.
 
 - [#18 Interactive first-run tutorial](https://github.com/viktorChekhovoi/foss-lift/issues/18) — shipped, in review
 - [#44 The tour started mid-sentence](https://github.com/viktorChekhovoi/foss-lift/issues/44) — shipped, in review
+- [#64 The tour had not mentioned anything added since it was written](https://github.com/viktorChekhovoi/foss-lift/issues/64) — shipped, in review

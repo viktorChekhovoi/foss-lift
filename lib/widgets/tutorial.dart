@@ -55,10 +55,17 @@ class TutorialStep {
   final String body;
 }
 
-/// The first-run tour, in order: a greeting, then five high-value targets, all
-/// reachable on the Today tab (the tab bar is always up, the workout and
+/// The first-run tour, in order: a greeting, then the high-value targets, all
+/// anchored on the Today tab (the tab bar is always up, the workout and
 /// lifetime cards are on Today itself), so the tour never has to drive
 /// navigation to keep up.
+///
+/// **The workout itself is told, not pointed at.** The board, the rest timer
+/// and the shade are where the app is least like every other tracker and the
+/// most worth a sentence — but none of them exists until a session is running,
+/// and a tour that starts a workout to show you a workout is a tour that leaves
+/// you somewhere you did not ask to be. Those steps hang off the card that
+/// leads there instead.
 ///
 /// **It opens on the greeting, not on a coach mark.** Arriving straight into an
 /// arrow pointing at something, before the app has said what it is or that a
@@ -76,6 +83,29 @@ final List<TutorialStep> kTutorialSteps = [
     title: 'Your next workout',
     body: 'This training day is queued up next. Tap it to see the exercises, '
         'then Start when you are ready to lift.',
+  ),
+  // The three steps below are about a screen the tour cannot point at: the
+  // board only exists while a workout is running, and the tour does not drive
+  // navigation. Told rather than pointed at, anchored to the card that leads
+  // there — which is the one place somebody about to lift is looking.
+  TutorialStep(
+    key: tutorialTodayWorkoutKey,
+    title: 'While you lift',
+    body: 'Tap a set to log it at the goal, again for each rep you fell short. '
+        'The set you are on is outlined, warm-ups first — set the weight once '
+        'and every set of that exercise follows it.',
+  ),
+  TutorialStep(
+    key: tutorialTodayWorkoutKey,
+    title: 'The rest timer',
+    body: 'It starts the moment you log a set, and keeps running if you leave '
+        'the screen. Longer, shorter or skip; it sounds when it is up.',
+  ),
+  TutorialStep(
+    key: tutorialTodayWorkoutKey,
+    title: 'Phone in your pocket',
+    body: 'The workout sits in your notification shade: the set you are on, '
+        'Done and Missed to log it, and the rest counting down with Skip.',
   ),
   TutorialStep(
     key: tutorialLifetimeKey,

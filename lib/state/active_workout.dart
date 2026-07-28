@@ -10,7 +10,7 @@ import '../providers/db_provider.dart';
 import '../services/rest_alarm.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
-import '../services/workout_shade.dart' show describeCue;
+import '../services/workout_shade.dart' show describeCue, shadeWhere;
 import 'workout_cue.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
@@ -404,28 +404,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 
   @override
   ActiveWorkout? build() {
-    // The switch, subscribed to rather than asked for.
-    //
-    // It used to be read off `restSoundProvider` at the instant a rest ran out,
-    // which quietly never worked: nothing else keeps that provider alive, so
-    // the read created it, found it still loading, and fell back to the
-    // default — the switch only had an effect while the settings screen
-    // happened to be open. Watching it here is not the fix either: a watch
-    // rebuilds this notifier, and rebuilding it throws the live session away.
-    final sub = _db.watchRestSound().listen((on) => _restSound = on);
     ref.onDispose(() {
-      sub.cancel();
       _timer?.cancel();
       _restTimer?.cancel();
     });
     return null;
   }
-
-  /// Whether the rest timer is allowed to make a noise. On until the database
-  /// says otherwise — a frame before the setting arrives is not a reason to be
-  /// silent.
-  bool get restSoundOn => _restSound;
-  bool _restSound = true;
 
   // ---- The rest clock ------------------------------------------------------
   //
@@ -488,9 +472,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   /// player is the wrong instrument, so it goes out as an alarm-channel
   /// notification instead. Never both.
   void _sayTheRestIsOver() {
-    if (!_restSound) return;
     if (ref.read(appOnScreenProvider)()) {
-      ref.read(restToneProvider).play(enabled: true);
+      ref.read(restToneProvider).play();
       return;
     }
     final s = state;
@@ -499,8 +482,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     // the app to find out what for.
     final what = cue == null || cue.kind == CueKind.finished
         ? 'Back to it.'
-        : '${cue.warmup ? 'Warm-up · ' : ''}${cue.exercise} · '
-            '${describeCue(cue, s!.unit)}';
+        : '${shadeWhere(cue)} · ${describeCue(cue, s!.unit)}';
     ref.read(restAlarmProvider).ring(title: 'Rest done', body: what);
   }
 
@@ -984,16 +966,6 @@ class ProgressionReport {
   final int sessionId;
   final List<ProgressionOutcome> outcomes;
 }
-
-/// Whether the rest timer sounds when it ends. Read as `.value ?? true` — on is
-/// the default, and a frame before the settings row arrives is not a reason to
-/// stay quiet.
-///
-/// Here rather than in `providers.dart` because the rest clock is on the
-/// controller below and would otherwise import the file that imports it.
-final restSoundProvider = StreamProvider<bool>((ref) {
-  return ref.watch(databaseProvider).watchRestSound();
-});
 
 /// The one player for the rest tone, disposed with the scope that made it. One
 /// instance rather than one per rest: an `AudioPlayer` holds a platform

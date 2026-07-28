@@ -34,12 +34,17 @@ enum CueKind {
 /// [exercise] and [warmup] say where you are; [weightKg], [reps] and [seconds]
 /// say what the set is. A counted set has [reps]; a held one has [seconds];
 /// neither has both. [restLeft] is only set while [kind] is [CueKind.resting].
+///
+/// [setIndex] and [setCount] are the position *within the list this set belongs
+/// to* — the warm-up rungs for a rung, the working sets for a working set.
+/// Four identical sets of bench read identically from a pocket without them.
 typedef WorkoutCue = ({
   CueKind kind,
   String exercise,
   bool warmup,
   int exerciseIndex,
   int setIndex,
+  int setCount,
   double? weightKg,
   int? reps,
   int? seconds,
@@ -65,7 +70,10 @@ WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
         final w = e.warmups[wi];
         if (!w.done) {
           return _cue(session, e, ei, wi,
-              warmup: true, entry: w, restLeft: restLeft);
+              warmup: true,
+              entry: w,
+              count: e.warmups.length,
+              restLeft: restLeft);
         }
       }
     }
@@ -74,7 +82,10 @@ WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
       final s = e.sets[si];
       if (!s.done) {
         return _cue(session, e, ei, si,
-            warmup: false, entry: s, restLeft: restLeft);
+            warmup: false,
+            entry: s,
+            count: e.sets.length,
+            restLeft: restLeft);
       }
     }
   }
@@ -84,6 +95,7 @@ WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
     warmup: false,
     exerciseIndex: -1,
     setIndex: -1,
+    setCount: 0,
     weightKg: null,
     reps: null,
     seconds: null,
@@ -98,6 +110,7 @@ WorkoutCue _cue(
   int si, {
   required bool warmup,
   required SetEntry entry,
+  required int count,
   required int restLeft,
 }) =>
     (
@@ -109,6 +122,7 @@ WorkoutCue _cue(
       warmup: warmup,
       exerciseIndex: ei,
       setIndex: si,
+      setCount: count,
       // A bodyweight movement has no weight worth naming; a machine or bar has.
       weightKg: entry.weight > 0 ? entry.weight : null,
       reps: entry.timed ? null : entry.goal,

@@ -17,7 +17,7 @@ import 'db_provider.dart';
 export 'db_provider.dart' show databaseProvider;
 // The rest clock lives on the session controller, so the two providers it needs
 // live beside it — see the note on db_provider.dart for why that shape exists.
-export '../state/active_workout.dart' show restSoundProvider, restToneProvider;
+export '../state/active_workout.dart' show restToneProvider;
 export '../services/set_video_store.dart';
 
 /// All routines with their workout counts (Today + Routines tabs).

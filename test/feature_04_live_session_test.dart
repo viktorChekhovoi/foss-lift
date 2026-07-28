@@ -1138,6 +1138,59 @@ void main() {
     );
   });
 
+  group('The goal is stated once, beside the weight', () {
+    // Issue #63. It used to be reprinted on every row, where the weight cell
+    // and the greyed-out result cell beside it already said both halves of it.
+
+    testWidgets('no row carries a goal cell; the exercise states it once',
+        (tester) async {
+      await tester.runAsync(() async {
+        final wid = await buildBarbellWorkout(db, weightKg: 100, sets: 3);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Squat Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+
+      expect(find.text('GOAL'), findsNothing);
+      expect(find.byKey(kExerciseGoalKey), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '× 5',
+          reason: 'the × reads off the weight beside it');
+      await stopAll(tester);
+    });
+
+    testWidgets('and a real session shows no per-row goal anywhere',
+        (tester) async {
+      await pumpPushScreen(tester);
+
+      // One per exercise that is actually built — the list is lazy, so the
+      // assertion is "at least one, and nothing in the old per-row form".
+      expect(find.byKey(kExerciseGoalKey), findsWidgets);
+      expect(find.text('80×8'), findsNothing,
+          reason: 'the goal cell that used to sit on every row');
+      await stopAll(tester);
+    });
+
+    testWidgets('a hold with nothing on it states the hold on its own',
+        (tester) async {
+      await tester.runAsync(() async {
+        final wid = await buildPlankWorkout(db);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Plank Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+
+      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '45s',
+          reason: 'there is no weight for a × to read off');
+      await stopAll(tester);
+    });
+  });
+
   group('The board says which set you are on', () {
     // Issue #60. The shade already works out what is next; the board is the
     // thing you are actually looking at, so it marks the same answer rather
@@ -1313,6 +1366,20 @@ void main() {
       expect(cue.weightKg, session().exercises[0].warmups.first.weight);
     });
 
+    test('the cue counts the list the set belongs to', () async {
+      final ctl = await startPush();
+      final ramp = session().exercises[0].warmups;
+
+      expect(nextUp(session())!.setCount, ramp.length,
+          reason: 'a rung counts the rungs');
+
+      for (var wi = 0; wi < ramp.length; wi++) {
+        ctl.cycleWarmup(0, wi);
+      }
+      expect(nextUp(session())!.setCount, session().exercises[0].sets.length,
+          reason: 'a working set counts the working sets');
+    });
+
     test('and the work follows once the ramp is ticked off', () async {
       final ctl = await startPush();
       for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
@@ -1410,6 +1477,7 @@ void main() {
         warmup: false,
         exerciseIndex: 0,
         setIndex: 0,
+        setCount: 4,
         weightKg: 80,
         reps: 8,
         seconds: null,
@@ -1423,6 +1491,7 @@ void main() {
         warmup: false,
         exerciseIndex: 0,
         setIndex: 0,
+        setCount: 4,
         weightKg: null,
         reps: 1,
         seconds: null,
@@ -1437,6 +1506,7 @@ void main() {
         warmup: false,
         exerciseIndex: 0,
         setIndex: 0,
+        setCount: 2,
         weightKg: null,
         reps: null,
         seconds: 45,
@@ -1534,6 +1604,8 @@ void main() {
       CueKind kind = CueKind.lift,
       String exercise = 'Bench Press',
       bool warmup = false,
+      int setIndex = 0,
+      int setCount = 4,
       double? weightKg,
       int? reps,
       int? seconds,
@@ -1544,7 +1616,8 @@ void main() {
           exercise: exercise,
           warmup: warmup,
           exerciseIndex: 0,
-          setIndex: 0,
+          setIndex: setIndex,
+          setCount: setCount,
           weightKg: weightKg,
           reps: reps,
           seconds: seconds,
@@ -1574,7 +1647,22 @@ void main() {
 
     test('a set to do is described, and nothing is called next', () {
       expect(shadeText(cue(weightKg: 80, reps: 8), 'kg'), '80 kg × 8');
-      expect(shadeTitle(cue(weightKg: 80, reps: 8)), 'Bench Press');
+    });
+
+    test('and the bold line says which set of how many', () {
+      // Four identical sets of bench read identically from a pocket without
+      // it — see issue #65.
+      expect(
+        shadeTitle(cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5)),
+        'Bench Press · Set 4/5',
+      );
+    });
+
+    test('a warm-up rung counts the rungs, not the working sets', () {
+      expect(
+        shadeTitle(cue(warmup: true, setIndex: 1, setCount: 3)),
+        'Warm-up · Bench Press · Set 2/3',
+      );
     });
 
     test('resting, the line names the exercise as well as the load', () {
@@ -1583,9 +1671,15 @@ void main() {
       // belonging to nothing is not an instruction (issue #62).
       expect(
         shadeText(
-            cue(kind: CueKind.resting, weightKg: 80, reps: 8, restLeft: 40),
+            cue(
+                kind: CueKind.resting,
+                weightKg: 80,
+                reps: 8,
+                setIndex: 3,
+                setCount: 5,
+                restLeft: 40),
             'kg'),
-        'Next: Bench Press · 80 kg × 8',
+        'Next: Bench Press · Set 4/5 · 80 kg × 8',
       );
       expect(shadeTitle(cue(kind: CueKind.resting, restLeft: 40)), 'Rest · 0:40');
     });
@@ -1598,10 +1692,12 @@ void main() {
               warmup: true,
               weightKg: 60,
               reps: 5,
+              setIndex: 0,
+              setCount: 3,
               restLeft: 40),
           'kg',
         ),
-        'Next: Warm-up · Bench Press · 60 kg × 5',
+        'Next: Warm-up · Bench Press · Set 1/3 · 60 kg × 5',
       );
     });
 
@@ -1707,23 +1803,6 @@ void main() {
 
       expect(alarm.rung, isEmpty);
       expect(tone.played, 1);
-    });
-
-    test('the rest-sound switch silences this path too', () async {
-      await db.setRestSound(false);
-      final ctl = await startPushWithPhone(onScreen: false);
-      // The session subscribes to the switch as it starts; wait for its first
-      // reading, which is already "off" — the row was written before the start.
-      for (var i = 0; i < 100 && ctl.restSoundOn; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-      expect(ctl.restSoundOn, isFalse);
-      ctl.startRest(90, null);
-
-      ctl.stopRest();
-
-      expect(alarm.rung, isEmpty);
-      expect(tone.played, 0);
     });
 
     test('skipping from the shade sounds nothing', () async {
@@ -1985,27 +2064,16 @@ void main() {
   });
 
   group('And it makes a sound when it is over', () {
-    test('the tone is on by default, and can be turned off', () async {
-      // On by default: a rest that ends silently is a rest you overrun with
-      // the phone in your pocket, which is what the timer is for.
-      expect(await db.watchRestSound().first, isTrue);
-
-      await db.setRestSound(false);
-      expect(await db.watchRestSound().first, isFalse);
-
-      await db.setRestSound(true);
-      expect(await db.watchRestSound().first, isTrue);
-    });
-
-    test('switched off, it does not go near the player', () async {
-      // The switch is checked before anything is touched, which is what makes
-      // "off" free rather than "played into a muted channel". The enabled path
-      // is a platform channel a widget test has none of, so it is not exercised
-      // here — see the note on RestTone.
+    test('there is no switch on it, and nothing to turn off', () async {
+      // A rest timer that ends silently is a rest timer that does not work.
+      // The phone's own volume keys, silent mode and Do Not Disturb are the
+      // controls for this, and both routes follow them by being alarms.
       final tone = RestTone(player: _NoPlayer());
       addTearDown(tone.dispose);
 
-      await expectLater(tone.play(enabled: false), completes);
+      // Nothing to pass, and nothing thrown: on a runner with no audio channel
+      // the platform check turns it into a no-op.
+      await expectLater(tone.play(), completes);
     });
   });
 
@@ -2645,9 +2713,7 @@ class _RecordingTone extends RestTone {
   int played = 0;
 
   @override
-  Future<void> play({required bool enabled}) async {
-    if (enabled) played++;
-  }
+  Future<void> play() async => played++;
 }
 
 /// A [RestAlarm] that records rather than posting. Not-supported, so nothing

@@ -291,15 +291,6 @@ class Settings extends Table {
   /// tour from the help menu does not clear it.
   BoolColumn get tutorialSeen => boolean().withDefault(const Constant(false))();
 
-  /// Whether the rest timer makes a sound when it ends. On by default: a rest
-  /// that ends silently is a rest you overrun with the phone in your pocket,
-  /// which is the whole reason it exists. Off is a real preference, though —
-  /// a quiet gym, a shared space, headphones with something already in them.
-  ///
-  /// The phone's own silent/vibrate mode outranks this either way; see
-  /// `services/rest_tone.dart`.
-  BoolColumn get restSound => boolean().withDefault(const Constant(true))();
-
   /// The user's own text-size nudge, *on top of* the phone's setting.
   ///
   /// 1.0 means "whatever the system says", which is the default and the right
@@ -1525,17 +1516,6 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setTutorialSeen(bool seen) =>
       _writeSettings(SettingsCompanion(tutorialSeen: Value(seen)));
-
-  /// Whether the rest timer sounds when it ends. Defaults to on for a settings
-  /// row that has not been written yet.
-  Stream<bool> watchRestSound() {
-    return (select(settings)..where((s) => s.id.equals(1)))
-        .watchSingleOrNull()
-        .map((s) => s?.restSound ?? true);
-  }
-
-  Future<void> setRestSound(bool on) =>
-      _writeSettings(SettingsCompanion(restSound: Value(on)));
 
   /// The user's text-size nudge. 1.0 — follow the phone — until they say
   /// otherwise.

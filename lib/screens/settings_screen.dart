@@ -94,16 +94,6 @@ class SettingsScreen extends ConsumerWidget {
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 28),
-            Text('REST TIMER',
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-            const SizedBox(height: 10),
-            _SwitchRow(
-              label: 'Sound when it ends',
-              value: ref.watch(restSoundProvider).value ?? true,
-              onChanged: db.setRestSound,
-            ),
-            const SizedBox(height: 28),
             builderCard('Deload after time off', [
               builderGrid([
                 BuilderField(
@@ -239,48 +229,6 @@ class _UnitOption extends StatelessWidget {
                 color: selected ? AppColors.accent : AppColors.faint,
                 size: 22,
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A setting that is simply on or off, in the same card as [SettingRow] so a
-/// list of settings reads as one list.
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onChanged(!value),
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.line),
-          ),
-          padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(label,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-              Switch(value: value, onChanged: onChanged),
             ],
           ),
         ),

@@ -63,6 +63,11 @@ you're done.
   library while a session runs shows up on that session. A note is a fact about
   the movement, not session state; everything else on the board stays the
   snapshot it started as.
+- **The resume bar has one slot: the row directly above the bottom navigation
+  bar.** Where there is no navigation bar — every screen pushed over a tab — it
+  is the last row of the app, which is the same slot with nothing under it. It
+  is never over content, never below the navigation bar, and never in two places
+  at once. That is the whole rule; everything below is why it takes work.
 - **The resume bar docks, it does not float.** A control that hides what you are
   trying to read is worse than one you have to go and find, so it takes real room
   rather than lying over the screen: on a tab screen it stacks above the
@@ -95,10 +100,15 @@ you're done.
     every time, than an accidental press costs once. The step is +30s rather
     than the screen's +15s, because a pocket press is not a considered one.
     Skip is silent, and neither button brings the app forward.
+  - **It says which set of how many.** `Bench Press · Set 4/5`, and a warm-up
+    rung counts its own ramp: `Warm-up · Bench Press · Set 2/3`. Four identical
+    sets of bench read identically from a pocket without it, and the only way to
+    tell the first from the last would be to open the app the shade exists to
+    save you opening.
   - **While resting, the line names the exercise.** The bold line is the
     countdown, so the second line is the only place a movement can be named:
-    `Next: Bench Press · 80 kg × 8`, and `Next: Warm-up · Bench Press · 60 kg ×
-    5` when the ramp is what comes next. A weight and a rep count belonging to
+    `Next: Bench Press · Set 4/5 · 80 kg × 8`, and `Next: Warm-up · Bench Press
+    · Set 1/3 · 60 kg × 5` when the ramp is what comes next. A weight and a rep count belonging to
     nothing is not an instruction.
   - **A hold gets one button, "Open".** How long you held something is the
     measurement itself, so nothing can claim it at the goal or guess it one
@@ -203,8 +213,11 @@ you're done.
   than overriding it. It takes transient focus, so music pauses for the length
   of the ding and resumes — asking a player to duck if it feels like it is a
   request most players decline, which is the other half of "too quiet".
-  Switchable off under Settings → Rest timer; the phone's silent mode outranks
-  that switch either way. No network permission, and the player is MIT-licensed.
+  **There is no switch on it.** A rest timer that ends silently is a rest timer
+  that does not work, and the phone already has three better controls for the
+  same intent — the volume keys, silent mode and Do Not Disturb — every one of
+  which both routes follow by being declared alarms. No network permission, and
+  the player is MIT-licensed.
 
 - **Off screen, the ding is a notification instead.** A media player is the
   right instrument while you are watching the countdown and the wrong one with
@@ -221,6 +234,12 @@ you're done.
 - **−15s ends a rest with less than 15 seconds left.** Below that the button's
   only honest readings are "skip" and "do nothing", and a button that does
   nothing is the worse of the two.
+- **The goal is stated once per exercise**, on the line that carries the weight
+  you can edit: `WORKING SETS   × 8   [80 kg ✎]`. It used to be a column,
+  reprinted on every row — where the weight cell beside it already said the
+  weight and the untouched result cell already said the reps, greyed out as the
+  number you are about to claim. A held movement reads `× 45s`; one with no load
+  to name states the target on its own rather than hanging a `×` off nothing.
 - **The board marks the set you are on.** Every set of the session is drawn at
   once, which is what the board is for — but it also means the only way to find
   your place after a rest, or after picking the phone up, was to scan for the
@@ -335,3 +354,6 @@ you're done.
 - [#60 The board never says which set you are on](https://github.com/viktorChekhovoi/foss-lift/issues/60) — shipped, in review
 - [#61 The rest ding is too quiet, and silent off screen](https://github.com/viktorChekhovoi/foss-lift/issues/61) — shipped, in review
 - [#62 Rest controls in the shade, and a "Next:" that says what of](https://github.com/viktorChekhovoi/foss-lift/issues/62) — shipped, in review
+- [#63 The goal was reprinted on every set row](https://github.com/viktorChekhovoi/foss-lift/issues/63) — shipped, in review
+- [#65 The shade did not say which set of how many](https://github.com/viktorChekhovoi/foss-lift/issues/65) — shipped, in review
+- [#66 The rest sound is no longer a setting](https://github.com/viktorChekhovoi/foss-lift/issues/66) — shipped, in review

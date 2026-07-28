@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 /// pocket, which is most of what the timer is for.
 ///
 /// **What it plays.** One asset, `assets/sound/rest_done.wav` — one note,
-/// struck and fading, under three-tenths of a second. It was two notes a fifth
+/// struck and fading, under half a second. It was two notes a fifth
 /// apart to begin with, which reads as "da-dong": a little melody is a thing
 /// you notice having heard, and a rest ending is one event you act on.
 ///
@@ -47,14 +47,18 @@ class RestTone {
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  /// Plays the tone once. Silent when [enabled] is false — the user's own
-  /// switch, which the phone's silent mode outranks either way.
+  /// Plays the tone once.
+  ///
+  /// There is no switch on it. A rest timer that ends silently is a rest timer
+  /// that does not work, and the phone already has three better controls for
+  /// the same intent — the volume keys, silent mode and Do Not Disturb — all of
+  /// which this follows by being declared an alarm.
   ///
   /// Never throws: a device with no audio route, a locked player, an asset that
   /// failed to decode — none of that is worth interrupting a workout over, and
   /// the alternative to a tone is the timer people already read off the screen.
-  Future<void> play({required bool enabled}) async {
-    if (!enabled || !supported) return;
+  Future<void> play() async {
+    if (!supported) return;
     try {
       if (!_ready) {
         await _player.setAudioContext(_context);

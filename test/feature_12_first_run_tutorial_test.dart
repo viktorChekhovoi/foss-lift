@@ -83,6 +83,41 @@ void main() {
     });
   });
 
+  group('what the tour covers', () {
+    // Issue #64. The tour was written in week one and pointed at the app as it
+    // was then; everything a new user would not find on their own — the live
+    // board, the rest timer, the workout in the shade — went unmentioned.
+
+    String saidAltogether() => kTutorialSteps
+        .map((step) => '${step.title} ${step.body}')
+        .join(' ')
+        .toLowerCase();
+
+    test('it introduces the live board, the rest timer and the shade', () {
+      final said = saidAltogether();
+      for (final subject in ['set', 'rest', 'notification']) {
+        expect(said, contains(subject),
+            reason: 'the tour never mentions $subject');
+      }
+    });
+
+    test('every anchored step points at something on the Today tab', () {
+      // The tour does not drive navigation, so a step anchored to a screen you
+      // have to open would spotlight a rectangle that is not there.
+      final onToday = {tutorialTodayWorkoutKey, tutorialLifetimeKey};
+      for (final step in kTutorialSteps) {
+        final key = step.key;
+        if (key == null) continue; // the greeting points at nothing
+        expect(key == tutorialNavBarKey || onToday.contains(key), isTrue,
+            reason: 'a step is anchored off the Today tab: ${step.title}');
+      }
+    });
+
+    test('and it is still one sitting, not a manual', () {
+      expect(kTutorialSteps.length, lessThanOrEqualTo(10));
+    });
+  });
+
   group('the overlay', () {
     testWidgets('shows on a genuine first run and dismissing remembers it',
         (tester) async {

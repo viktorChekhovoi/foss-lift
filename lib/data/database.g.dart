@@ -3912,21 +3912,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _restSoundMeta = const VerificationMeta(
-    'restSound',
-  );
-  @override
-  late final GeneratedColumn<bool> restSound = GeneratedColumn<bool>(
-    'rest_sound',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("rest_sound" IN (0, 1))',
-    ),
-    defaultValue: const Constant(true),
-  );
   static const VerificationMeta _textScaleMeta = const VerificationMeta(
     'textScale',
   );
@@ -3985,7 +3970,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     plateInventoryLb,
     barWeight,
     tutorialSeen,
-    restSound,
     textScale,
     themePresetId,
     videoHeight,
@@ -4069,12 +4053,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
-    if (data.containsKey('rest_sound')) {
-      context.handle(
-        _restSoundMeta,
-        restSound.isAcceptableOrUnknown(data['rest_sound']!, _restSoundMeta),
-      );
-    }
     if (data.containsKey('text_scale')) {
       context.handle(
         _textScaleMeta,
@@ -4153,10 +4131,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.bool,
         data['${effectivePrefix}tutorial_seen'],
       )!,
-      restSound: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}rest_sound'],
-      )!,
       textScale: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}text_scale'],
@@ -4223,15 +4197,6 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// tour from the help menu does not clear it.
   final bool tutorialSeen;
 
-  /// Whether the rest timer makes a sound when it ends. On by default: a rest
-  /// that ends silently is a rest you overrun with the phone in your pocket,
-  /// which is the whole reason it exists. Off is a real preference, though —
-  /// a quiet gym, a shared space, headphones with something already in them.
-  ///
-  /// The phone's own silent/vibrate mode outranks this either way; see
-  /// `services/rest_tone.dart`.
-  final bool restSound;
-
   /// The user's own text-size nudge, *on top of* the phone's setting.
   ///
   /// 1.0 means "whatever the system says", which is the default and the right
@@ -4282,7 +4247,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.plateInventoryLb,
     this.barWeight,
     required this.tutorialSeen,
-    required this.restSound,
     required this.textScale,
     this.themePresetId,
     required this.videoHeight,
@@ -4308,7 +4272,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       map['bar_weight'] = Variable<double>(barWeight);
     }
     map['tutorial_seen'] = Variable<bool>(tutorialSeen);
-    map['rest_sound'] = Variable<bool>(restSound);
     map['text_scale'] = Variable<double>(textScale);
     if (!nullToAbsent || themePresetId != null) {
       map['theme_preset_id'] = Variable<String>(themePresetId);
@@ -4337,7 +4300,6 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? const Value.absent()
           : Value(barWeight),
       tutorialSeen: Value(tutorialSeen),
-      restSound: Value(restSound),
       textScale: Value(textScale),
       themePresetId: themePresetId == null && nullToAbsent
           ? const Value.absent()
@@ -4362,7 +4324,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       plateInventoryLb: serializer.fromJson<String?>(json['plateInventoryLb']),
       barWeight: serializer.fromJson<double?>(json['barWeight']),
       tutorialSeen: serializer.fromJson<bool>(json['tutorialSeen']),
-      restSound: serializer.fromJson<bool>(json['restSound']),
       textScale: serializer.fromJson<double>(json['textScale']),
       themePresetId: serializer.fromJson<String?>(json['themePresetId']),
       videoHeight: serializer.fromJson<int>(json['videoHeight']),
@@ -4382,7 +4343,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       'plateInventoryLb': serializer.toJson<String?>(plateInventoryLb),
       'barWeight': serializer.toJson<double?>(barWeight),
       'tutorialSeen': serializer.toJson<bool>(tutorialSeen),
-      'restSound': serializer.toJson<bool>(restSound),
       'textScale': serializer.toJson<double>(textScale),
       'themePresetId': serializer.toJson<String?>(themePresetId),
       'videoHeight': serializer.toJson<int>(videoHeight),
@@ -4400,7 +4360,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> plateInventoryLb = const Value.absent(),
     Value<double?> barWeight = const Value.absent(),
     bool? tutorialSeen,
-    bool? restSound,
     double? textScale,
     Value<String?> themePresetId = const Value.absent(),
     int? videoHeight,
@@ -4421,7 +4380,6 @@ class Setting extends DataClass implements Insertable<Setting> {
         : this.plateInventoryLb,
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
     tutorialSeen: tutorialSeen ?? this.tutorialSeen,
-    restSound: restSound ?? this.restSound,
     textScale: textScale ?? this.textScale,
     themePresetId: themePresetId.present
         ? themePresetId.value
@@ -4454,7 +4412,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       tutorialSeen: data.tutorialSeen.present
           ? data.tutorialSeen.value
           : this.tutorialSeen,
-      restSound: data.restSound.present ? data.restSound.value : this.restSound,
       textScale: data.textScale.present ? data.textScale.value : this.textScale,
       themePresetId: data.themePresetId.present
           ? data.themePresetId.value
@@ -4480,7 +4437,6 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('plateInventoryLb: $plateInventoryLb, ')
           ..write('barWeight: $barWeight, ')
           ..write('tutorialSeen: $tutorialSeen, ')
-          ..write('restSound: $restSound, ')
           ..write('textScale: $textScale, ')
           ..write('themePresetId: $themePresetId, ')
           ..write('videoHeight: $videoHeight, ')
@@ -4500,7 +4456,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     plateInventoryLb,
     barWeight,
     tutorialSeen,
-    restSound,
     textScale,
     themePresetId,
     videoHeight,
@@ -4519,7 +4474,6 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.plateInventoryLb == this.plateInventoryLb &&
           other.barWeight == this.barWeight &&
           other.tutorialSeen == this.tutorialSeen &&
-          other.restSound == this.restSound &&
           other.textScale == this.textScale &&
           other.themePresetId == this.themePresetId &&
           other.videoHeight == this.videoHeight &&
@@ -4536,7 +4490,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String?> plateInventoryLb;
   final Value<double?> barWeight;
   final Value<bool> tutorialSeen;
-  final Value<bool> restSound;
   final Value<double> textScale;
   final Value<String?> themePresetId;
   final Value<int> videoHeight;
@@ -4551,7 +4504,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
     this.tutorialSeen = const Value.absent(),
-    this.restSound = const Value.absent(),
     this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
     this.videoHeight = const Value.absent(),
@@ -4567,7 +4519,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.plateInventoryLb = const Value.absent(),
     this.barWeight = const Value.absent(),
     this.tutorialSeen = const Value.absent(),
-    this.restSound = const Value.absent(),
     this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
     this.videoHeight = const Value.absent(),
@@ -4583,7 +4534,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<String>? plateInventoryLb,
     Expression<double>? barWeight,
     Expression<bool>? tutorialSeen,
-    Expression<bool>? restSound,
     Expression<double>? textScale,
     Expression<String>? themePresetId,
     Expression<int>? videoHeight,
@@ -4599,7 +4549,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (plateInventoryLb != null) 'plate_inventory_lb': plateInventoryLb,
       if (barWeight != null) 'bar_weight': barWeight,
       if (tutorialSeen != null) 'tutorial_seen': tutorialSeen,
-      if (restSound != null) 'rest_sound': restSound,
       if (textScale != null) 'text_scale': textScale,
       if (themePresetId != null) 'theme_preset_id': themePresetId,
       if (videoHeight != null) 'video_height': videoHeight,
@@ -4617,7 +4566,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<String?>? plateInventoryLb,
     Value<double?>? barWeight,
     Value<bool>? tutorialSeen,
-    Value<bool>? restSound,
     Value<double>? textScale,
     Value<String?>? themePresetId,
     Value<int>? videoHeight,
@@ -4633,7 +4581,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       plateInventoryLb: plateInventoryLb ?? this.plateInventoryLb,
       barWeight: barWeight ?? this.barWeight,
       tutorialSeen: tutorialSeen ?? this.tutorialSeen,
-      restSound: restSound ?? this.restSound,
       textScale: textScale ?? this.textScale,
       themePresetId: themePresetId ?? this.themePresetId,
       videoHeight: videoHeight ?? this.videoHeight,
@@ -4671,9 +4618,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (tutorialSeen.present) {
       map['tutorial_seen'] = Variable<bool>(tutorialSeen.value);
     }
-    if (restSound.present) {
-      map['rest_sound'] = Variable<bool>(restSound.value);
-    }
     if (textScale.present) {
       map['text_scale'] = Variable<double>(textScale.value);
     }
@@ -4701,7 +4645,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('plateInventoryLb: $plateInventoryLb, ')
           ..write('barWeight: $barWeight, ')
           ..write('tutorialSeen: $tutorialSeen, ')
-          ..write('restSound: $restSound, ')
           ..write('textScale: $textScale, ')
           ..write('themePresetId: $themePresetId, ')
           ..write('videoHeight: $videoHeight, ')
@@ -7594,7 +7537,6 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<String?> plateInventoryLb,
       Value<double?> barWeight,
       Value<bool> tutorialSeen,
-      Value<bool> restSound,
       Value<double> textScale,
       Value<String?> themePresetId,
       Value<int> videoHeight,
@@ -7611,7 +7553,6 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<String?> plateInventoryLb,
       Value<double?> barWeight,
       Value<bool> tutorialSeen,
-      Value<bool> restSound,
       Value<double> textScale,
       Value<String?> themePresetId,
       Value<int> videoHeight,
@@ -7669,11 +7610,6 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<bool> get tutorialSeen => $composableBuilder(
     column: $table.tutorialSeen,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get restSound => $composableBuilder(
-    column: $table.restSound,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7752,11 +7688,6 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<bool> get restSound => $composableBuilder(
-    column: $table.restSound,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<double> get textScale => $composableBuilder(
     column: $table.textScale,
     builder: (column) => ColumnOrderings(column),
@@ -7828,9 +7759,6 @@ class $$SettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<bool> get restSound =>
-      $composableBuilder(column: $table.restSound, builder: (column) => column);
-
   GeneratedColumn<double> get textScale =>
       $composableBuilder(column: $table.textScale, builder: (column) => column);
 
@@ -7887,7 +7815,6 @@ class $$SettingsTableTableManager
                 Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
                 Value<bool> tutorialSeen = const Value.absent(),
-                Value<bool> restSound = const Value.absent(),
                 Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
                 Value<int> videoHeight = const Value.absent(),
@@ -7902,7 +7829,6 @@ class $$SettingsTableTableManager
                 plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
                 tutorialSeen: tutorialSeen,
-                restSound: restSound,
                 textScale: textScale,
                 themePresetId: themePresetId,
                 videoHeight: videoHeight,
@@ -7919,7 +7845,6 @@ class $$SettingsTableTableManager
                 Value<String?> plateInventoryLb = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
                 Value<bool> tutorialSeen = const Value.absent(),
-                Value<bool> restSound = const Value.absent(),
                 Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
                 Value<int> videoHeight = const Value.absent(),
@@ -7934,7 +7859,6 @@ class $$SettingsTableTableManager
                 plateInventoryLb: plateInventoryLb,
                 barWeight: barWeight,
                 tutorialSeen: tutorialSeen,
-                restSound: restSound,
                 textScale: textScale,
                 themePresetId: themePresetId,
                 videoHeight: videoHeight,
