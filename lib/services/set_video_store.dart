@@ -100,23 +100,11 @@ class SetVideoStore {
     return relative;
   }
 
-  /// The still that belongs to the clip at [relative] — the same name with a
-  /// `.jpg` on it, so the pairing needs no bookkeeping anywhere.
-  ///
-  /// Nothing in the database points at it. It is derived, regenerable and
-  /// belongs to its clip absolutely: it is made when the clip is first listed
-  /// and goes when the clip goes.
-  String thumbnailFor(String relative) =>
-      '${p.withoutExtension(relative)}.jpg';
-
-  /// Removes the clip at [relative], and its still with it. A file that is
-  /// already gone is not an error — deleting a clip twice should be as quiet as
-  /// deleting it once.
+  /// Removes the clip at [relative]. A file that is already gone is not an
+  /// error — deleting a clip twice should be as quiet as deleting it once.
   Future<void> delete(String relative) async {
-    for (final path in [relative, thumbnailFor(relative)]) {
-      final file = await fileFor(path);
-      if (await file.exists()) await file.delete();
-    }
+    final file = await fileFor(relative);
+    if (await file.exists()) await file.delete();
   }
 
   /// Removes several clips, carrying on past any that will not go.
@@ -157,41 +145,15 @@ class SetVideoStore {
   }) async {
     final cutoff = (now ?? DateTime.now()).subtract(grace);
     var removed = 0;
-    final kept = <String>{};
-
-    // Clips first. A still is not swept on its own account — nothing in the
-    // database points at one, so judging it by the same rule would delete every
-    // thumbnail on the first sweep.
     for (final file in await _clipFiles()) {
-      if (p.extension(file.path) != '.mp4') continue;
       final relative = p.join(folder, p.basename(file.path));
-      if (referenced.contains(relative)) {
-        kept.add(relative);
-        continue;
-      }
-      if ((await file.lastModified()).isAfter(cutoff)) {
-        kept.add(relative);
-        continue;
-      }
+      if (referenced.contains(relative)) continue;
+      if ((await file.lastModified()).isAfter(cutoff)) continue;
       try {
-        await delete(relative); // takes the still with it
+        await file.delete();
         removed++;
       } on FileSystemException {
         // Leave it; the next sweep will try again.
-        kept.add(relative);
-      }
-    }
-
-    // Then any still whose clip is not there at all — the leftovers of a clip
-    // removed by some route that did not go through [delete].
-    for (final file in await _clipFiles()) {
-      if (p.extension(file.path) != '.jpg') continue;
-      final clip = p.join(folder, '${p.basenameWithoutExtension(file.path)}.mp4');
-      if (kept.contains(clip)) continue;
-      try {
-        await file.delete();
-      } on FileSystemException {
-        // Same again: it will be caught next time.
       }
     }
     return removed;

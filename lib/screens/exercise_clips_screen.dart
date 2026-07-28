@@ -1,12 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/exercise_stats.dart';
 import '../providers/providers.dart';
-import '../services/set_video_thumbnails.dart';
 import '../theme/app_theme.dart';
 import '../util/clip_label.dart';
 
@@ -42,7 +39,6 @@ class ExerciseClipsScreen extends ConsumerWidget {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (_, i) => _ClipRow(
                     label: clipLabel(list[i], unit),
-                    relativePath: list[i].videoPath!,
                     onTap: () => _open(context, list[i], unit),
                   ),
                 ),
@@ -76,19 +72,14 @@ class ExerciseClipsScreen extends ConsumerWidget {
       );
 }
 
-/// One clip in the reel: a still of it, what it was, and a way in.
-class _ClipRow extends ConsumerWidget {
-  const _ClipRow({
-    required this.label,
-    required this.relativePath,
-    required this.onTap,
-  });
+/// One clip in the reel: what it was, and a way in.
+class _ClipRow extends StatelessWidget {
+  const _ClipRow({required this.label, required this.onTap});
   final String label;
-  final String relativePath;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -103,8 +94,16 @@ class _ClipRow extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              _Still(
-                file: ref.watch(clipThumbnailProvider(relativePath)).value,
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.play_arrow_rounded,
+                    color: AppColors.accent, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -116,51 +115,6 @@ class _ClipRow extends ConsumerWidget {
               Icon(Icons.chevron_right, color: AppColors.faint),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The clip's own first frame, with the play icon over it.
-///
-/// Falls back to the icon alone while the still is being made, and stays there
-/// for good if it cannot be — a clip whose frame will not decode still plays,
-/// and still deserves a row.
-class _Still extends StatelessWidget {
-  const _Still({required this.file});
-  final File? file;
-
-  @override
-  Widget build(BuildContext context) {
-    final image = file;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 64,
-        height: kThumbnailHeight.toDouble(),
-        color: AppColors.accent.withValues(alpha: 0.12),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (image != null)
-              Image.file(
-                image,
-                fit: BoxFit.cover,
-                // A still that will not decode is not worth an error box.
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            Center(
-              child: Icon(
-                Icons.play_arrow_rounded,
-                color: image == null ? AppColors.accent : Colors.white,
-                size: 26,
-                shadows: image == null
-                    ? null
-                    : const [Shadow(color: Colors.black54, blurRadius: 6)],
-              ),
-            ),
-          ],
         ),
       ),
     );
