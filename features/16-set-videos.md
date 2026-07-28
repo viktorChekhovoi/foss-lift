@@ -12,7 +12,7 @@ network, and it stays that way.
 - Records **one clip per set**, from the live workout board, against the set in
   front of you.
 - Marks a set that carries a clip so it can be found again.
-- **Plays one back full screen**, looping, at half or quarter speed.
+- **Plays one back full screen**, at half or quarter speed, looping on request.
 - Lists **every clip of one movement** in date order — the same lift over months.
 - Shows what the clips cost, and offers to reclaim it.
 
@@ -62,8 +62,10 @@ network, and it stays that way.
 ## Playing one back
 
 - **Full screen, on black**, with play/pause, a scrubber you can drag, and a
-  loop that is **on by default** — a single rep replays without anybody fishing
-  for the scrubber.
+  **loop you switch on** — off to begin with, because a clip that plays once and
+  stops is what opening one leads you to expect. Looping is what you reach for
+  once you have found the rep worth watching again, so it is a control rather
+  than a default.
 - **Slow motion at 0.5× and 0.25×**, on a cycling control. Nothing above 1×:
   this is for inspecting a rep, not skipping one. A sticking point goes past in
   an instant at full speed and is plain at a quarter.

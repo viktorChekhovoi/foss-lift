@@ -48,7 +48,10 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
   VideoPlayerController? _controller;
   bool _missing = false;
   double _speed = 1.0;
-  bool _looping = true;
+  /// Off to start with: a clip that plays once and stops is what somebody
+  /// opening one expects. Looping is a mode you ask for when you have found the
+  /// rep you want to watch again — see the loop control.
+  bool _looping = false;
 
   @override
   void initState() {
