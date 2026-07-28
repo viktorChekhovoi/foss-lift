@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/services/set_video_recorder.dart';
+import 'package:foss_lift/services/set_video_thumbnails.dart';
 import 'package:foss_lift/screens/exercise_clips_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/util/clip_label.dart';
@@ -63,6 +64,23 @@ class _FakeRecorder implements SetVideoRecorder {
   Future<void> close() async => closed++;
 }
 
+/// A thumbnailer that writes a small file, so everything downstream of "a still
+/// was produced" runs for real. [refuse] makes it fail the way an undecodable
+/// clip does.
+class _FakeThumbnailer implements SetVideoThumbnailer {
+  _FakeThumbnailer({this.refuse = false});
+  final bool refuse;
+  int calls = 0;
+
+  @override
+  Future<bool> write({required String video, required String target}) async {
+    calls++;
+    if (refuse) return false;
+    await File(target).writeAsBytes(List.filled(128, 9));
+    return true;
+  }
+}
+
 void main() {
   late AppDatabase db;
   late Directory root;
@@ -85,12 +103,18 @@ void main() {
     if (await scratch.exists()) await scratch.delete(recursive: true);
   });
 
-  ProviderContainer withStore({SetVideoRecorder? recorder}) => containerFor(
+  ProviderContainer withStore({
+    SetVideoRecorder? recorder,
+    SetVideoThumbnailer? thumbnailer,
+  }) =>
+      containerFor(
         db,
         overrides: [
           setVideoStoreProvider.overrideWithValue(store),
           if (recorder != null)
             setVideoRecorderProvider.overrideWithValue(recorder),
+          if (thumbnailer != null)
+            thumbnailerProvider.overrideWithValue(thumbnailer),
         ],
       );
 
@@ -641,6 +665,105 @@ void main() {
       expect(find.text('Nothing filmed yet.'), findsOneWidget);
 
       await stop(tester);
+    });
+  });
+
+  group('the still beside each clip', () {
+    test('it is named after the clip, so the pairing needs no bookkeeping', () {
+      expect(store.thumbnailFor('set_videos/abc.mp4'), 'set_videos/abc.jpg');
+    });
+
+    test('it is made once, on first sight, and reused after', () async {
+      final clip = await plantClip();
+      final thumbnailer = _FakeThumbnailer();
+      container = withStore(thumbnailer: thumbnailer);
+
+      final first =
+          await container!.read(clipThumbnailProvider(clip).future);
+      expect(first, isNotNull);
+      expect(thumbnailer.calls, 1);
+
+      // A second container over the same folder finds it already there.
+      container!.dispose();
+      container = withStore(thumbnailer: thumbnailer);
+      final second =
+          await container!.read(clipThumbnailProvider(clip).future);
+      expect(second, isNotNull);
+      expect(thumbnailer.calls, 1, reason: 'decoding is paid for once');
+    });
+
+    test('a clip whose frame will not decode simply has no still', () async {
+      final clip = await plantClip();
+      container = withStore(thumbnailer: _FakeThumbnailer(refuse: true));
+
+      expect(await container!.read(clipThumbnailProvider(clip).future), isNull,
+          reason: 'the reel falls back to its icon; the clip still plays');
+    });
+
+    test('a clip that is not on disk is not decoded at all', () async {
+      final thumbnailer = _FakeThumbnailer();
+      container = withStore(thumbnailer: thumbnailer);
+
+      expect(
+          await container!
+              .read(clipThumbnailProvider('set_videos/nope.mp4').future),
+          isNull);
+      expect(thumbnailer.calls, 0);
+    });
+
+    test('deleting a clip takes its still with it', () async {
+      final clip = await plantClip();
+      container = withStore(thumbnailer: _FakeThumbnailer());
+      await container!.read(clipThumbnailProvider(clip).future);
+      expect(await store.exists(store.thumbnailFor(clip)), isTrue);
+
+      await store.delete(clip);
+
+      expect(await store.exists(clip), isFalse);
+      expect(await store.exists(store.thumbnailFor(clip)), isFalse,
+          reason: 'a still whose clip is gone is rubbish');
+    });
+
+    test('the sweep does not mistake a still for an orphan', () async {
+      // The still is referenced by nothing — judging it by the same rule as a
+      // clip would delete every thumbnail on the first launch after one existed.
+      final clip = await plantClip(
+          modified: DateTime.now().subtract(const Duration(days: 2)));
+      container = withStore(thumbnailer: _FakeThumbnailer());
+      await container!.read(clipThumbnailProvider(clip).future);
+
+      expect(await store.sweepOrphans({clip}), 0);
+      expect(await store.exists(store.thumbnailFor(clip)), isTrue);
+    });
+
+    test('the sweep takes a still along when it takes the clip', () async {
+      final clip = await plantClip(
+          modified: DateTime.now().subtract(const Duration(days: 2)));
+      container = withStore(thumbnailer: _FakeThumbnailer());
+      await container!.read(clipThumbnailProvider(clip).future);
+
+      expect(await store.sweepOrphans(const {}), 1);
+      expect(await store.exists(clip), isFalse);
+      expect(await store.exists(store.thumbnailFor(clip)), isFalse);
+    });
+
+    test('a still left behind with no clip is swept on its own', () async {
+      await store.directory();
+      final stray = await store.fileFor('set_videos/ghost.jpg');
+      await stray.writeAsBytes(List.filled(64, 4));
+
+      await store.sweepOrphans(const {});
+
+      expect(await stray.exists(), isFalse);
+    });
+
+    test('a still counts toward what the clips cost', () async {
+      final clip = await plantClip(bytes: 1000);
+      container = withStore(thumbnailer: _FakeThumbnailer());
+      await container!.read(clipThumbnailProvider(clip).future);
+
+      expect(await store.bytesUsed(), greaterThan(1000),
+          reason: 'the storage number must not under-report what is on disk');
     });
   });
 

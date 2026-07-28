@@ -53,7 +53,8 @@ lib/
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   ├── qr_decoder.dart           Camera frame → the string in a QR code
 │   ├── set_video_store.dart      Where set clips live on disk + the orphan sweep
-│   └── set_video_recorder.dart   The camera, behind an interface so it can be faked
+│   ├── set_video_recorder.dart   The camera, behind an interface so it can be faked
+│   └── set_video_thumbnails.dart A still per clip, made once and kept beside it
 ├── providers/
 │   ├── db_provider.dart          The single AppDatabase provider (own file to
 │   │                             avoid an import cycle)

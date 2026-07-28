@@ -82,9 +82,19 @@ network, and it stays that way.
 ## Finding one again
 
 - **The exercise's own reel** is the view that makes the feature worth having: a
-  flat list of every clip of that movement, newest first, each labelled with the
-  set it came from — `12 Mar · set 3 · 100 kg × 5`. Your squat over months, in
-  one place.
+  flat list of every clip of that movement, newest first, each showing its own
+  first frame and labelled with the set it came from —
+  `12 Mar · set 3 · 100 kg × 5`. Your squat over months, in one place.
+- **A still is made once, on first sight, and kept beside its clip** as
+  `<id>.jpg`. Decoding is the expensive part and the reel is the only thing that
+  wants the result, so it is paid for by whoever first looks, and paid once. A
+  clip whose frame will not decode simply has no still — the row falls back to
+  its play icon, and the clip still plays.
+- **A still belongs to its clip absolutely.** Nothing in the database points at
+  one; it goes when the clip goes, and the orphan sweep judges clips only —
+  sweeping stills by the same rule would delete every one of them on the first
+  launch after they existed. A still whose clip has vanished by some other route
+  is collected on its own.
 - **The button appears only once there is something to watch.** An empty reel is
   a button that teaches you the feature exists by disappointing you.
 - **The session recap** marks a filmed exercise with a play symbol and a
@@ -139,6 +149,7 @@ session by foreign-key cascade and the files become orphans the sweep collects.
 - The camera, behind an interface so the rules can be tested without one:
   `lib/services/set_video_recorder.dart`.
 - Recording screen: `lib/screens/set_video_screen.dart`.
+- Stills: `lib/services/set_video_thumbnails.dart`.
 - Playback: `lib/screens/clip_player_screen.dart`; the reel:
   `exercise_clips_screen.dart`; the label and the speeds: `util/clip_label.dart`.
 - Quality, cap and reclaim: `lib/screens/video_settings_screen.dart`.
