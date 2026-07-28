@@ -1,4 +1,4 @@
-// Integration tests for features/16-set-videos.md — filming a set.
+// Integration tests for features/index.html#sec16 — filming a set.
 //
 // The camera itself is the one part of this a device has to check, and it is
 // deliberately the smallest part. Everything that can be got wrong without one

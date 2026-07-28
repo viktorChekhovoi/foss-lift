@@ -1,4 +1,4 @@
-// Feature 05 — Automatic progression (features/05-progression.md).
+// Feature 05 — Automatic progression (features/index.html#sec05).
 //
 // Every slot advances along a single axis; a clean session steps it up and two
 // misses back it off. These tests drive the behaviour the spec describes through

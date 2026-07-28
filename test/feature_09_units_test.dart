@@ -1,4 +1,4 @@
-// Integration tests for features/09-units.md — the single app-wide kg/lb toggle.
+// Integration tests for features/index.html#sec09 — the single app-wide kg/lb toggle.
 // The conversion helpers are pure functions and get direct coverage; the
 // end-to-end paths (the stored setting, the per-unit rack that follows the
 // unit, and the confirm dialog) go through the AppDatabase, the providers, and

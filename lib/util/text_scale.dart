@@ -17,7 +17,7 @@
 library;
 
 /// The largest text the app will render at, however the two settings combine.
-/// Every screen is swept at this scale; see `features/15-text-size.md`.
+/// Every screen is swept at this scale; see `features/index.html#sec15`.
 const double kMaxTextScale = 2.0;
 
 /// The smallest. Below this the set rows stop being readable across a gym.

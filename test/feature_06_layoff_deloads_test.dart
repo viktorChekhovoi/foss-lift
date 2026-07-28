@@ -1,4 +1,4 @@
-// Feature 06 — Layoff deloads (features/06-layoff-deloads.md).
+// Feature 06 — Layoff deloads (features/index.html#sec06).
 //
 // Come back to a workout after a long enough break and the app offers a lighter
 // start — measured per workout, never applied without asking. These tests drive

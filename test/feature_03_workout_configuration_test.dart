@@ -1,4 +1,4 @@
-// Integration tests for features/03-workout-configuration.md
+// Integration tests for features/index.html#sec03
 //
 // Per-slot configuration in the exercise builder: sets, a target (fixed count /
 // range / to-failure / timed hold), a rest override, a suggested weight and the

@@ -1,4 +1,4 @@
-// Integration tests for features/12-first-run-tutorial.md — the one-time
+// Integration tests for features/index.html#sec12 — the one-time
 // coach-mark tour.
 //
 // The spec, kept modest by design:

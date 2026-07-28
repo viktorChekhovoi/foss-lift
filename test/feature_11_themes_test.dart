@@ -1,4 +1,4 @@
-// Integration tests for features/11-themes.md — colour themes.
+// Integration tests for features/index.html#sec11 — colour themes.
 //
 // The behaviour under test, straight from the spec:
 //   * eight presets ship as four dark/light pairs — two everyday looks,

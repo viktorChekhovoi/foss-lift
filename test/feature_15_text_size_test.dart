@@ -1,4 +1,4 @@
-// Integration tests for features/15-text-size.md — the app at every text size.
+// Integration tests for features/index.html#sec15 — the app at every text size.
 //
 // The app follows the phone's text setting, and the user can nudge it on top of
 // that. Both halves are here: the arithmetic that combines and clamps them, and

@@ -1,4 +1,4 @@
-// Integration tests for features/02-routines-and-workouts.md
+// Integration tests for features/index.html#sec02
 //
 // The three-level template hierarchy — routine → workout (training day) →
 // exercise slot. Two demo routines seeded on first launch; one current routine;

@@ -1,4 +1,4 @@
-// Integration tests for features/10-history-and-stats.md — the post-session
+// Integration tests for features/index.html#sec10 — the post-session
 // recap, the history list, running lifetime totals, and the per-exercise 1RM /
 // chart maths. Driven through the real public surface: the AppDatabase history
 // and aggregate queries, the pure stats functions, the finish→recap controller
@@ -96,7 +96,7 @@ void main() {
   }
 
   // =========================================================================
-  // Per-exercise chart maths (pure — features/10 "top set over time").
+  // Per-exercise chart maths (pure — features/index.html#sec10 "top set over time").
   // =========================================================================
 
   group('progressPoints', () {
@@ -196,7 +196,7 @@ void main() {
   });
 
   // =========================================================================
-  // fmtTotal (features/10 formatting, util/format.dart).
+  // fmtTotal (features/index.html#sec10 formatting, util/format.dart).
   // =========================================================================
 
   group('fmtTotal', () {

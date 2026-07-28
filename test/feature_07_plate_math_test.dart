@@ -1,4 +1,4 @@
-// Integration tests for features/07-plate-math.md — the plate solver and the
+// Integration tests for features/index.html#sec07 — the plate solver and the
 // line it feeds. The solver (`solvePlates`) is a pure function and is where the
 // combinatorial truth lives, so most of this file drives it directly across the
 // spec's edge cases; a handful of widget tests confirm the line reads back the

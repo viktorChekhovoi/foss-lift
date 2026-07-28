@@ -1,5 +1,5 @@
 // Integration tests for the "It asks to post notifications, or it is
-// invisible" section of features/04-live-session.md.
+// invisible" section of features/index.html#sec04.
 //
 // Split out of `feature_04_live_session_test.dart` on purpose: the seam these
 // tests need does not exist yet, so this file does not compile until the green

@@ -1,4 +1,4 @@
-// Integration tests for features/01-exercise-library.md
+// Integration tests for features/index.html#sec01
 //
 // The exercise library: a curated starter set (a demo link on every entry),
 // custom exercises alongside it, a weight type seeded from equipment and
@@ -624,7 +624,7 @@ void main() {
 
   group('finding a movement by what it is, not what it is called', () {
     // "A barbell movement for legs" should not require knowing it is called a
-    // back squat. See features/01-exercise-library.md.
+    // back squat. See features/index.html#sec01.
 
     Future<List<Exercise>> filtered(ExerciseFilter f) async =>
         f.apply(await db.watchExercises().first);

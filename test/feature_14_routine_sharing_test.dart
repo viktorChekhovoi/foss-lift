@@ -1,4 +1,4 @@
-// Integration tests for features/14-routine-sharing.md — sharing a routine.
+// Integration tests for features/index.html#sec14 — sharing a routine.
 //
 // The behaviour under test, straight from the spec:
 //   * a routine encodes to one versioned, compressed line (`FLR1.…`) carrying

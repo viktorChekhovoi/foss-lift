@@ -1,4 +1,4 @@
-// Integration tests for features/04-live-session.md — the in-memory live
+// Integration tests for features/index.html#sec04 — the in-memory live
 // workout: starting a day, logging sets by tapping, the rest timer, the warm-up
 // ramp, surviving a collapse, and what Finish writes.
 //
@@ -772,7 +772,7 @@ void main() {
   group('Warm-up rungs land on loads the gym can actually set', () {
     // Every rung of a ramp has to be a weight you can walk up to the rack and
     // make — and the cheapest such weight near the step, so a warm-up costs one
-    // pair of plates rather than four. See features/04-live-session.md.
+    // pair of plates rather than four. See features/index.html#sec04.
 
     /// Whether [kg] sits on a [step]-sized grid (2.5 kg dumbbells, 5 lb stacks).
     bool onGrid(double kg, double step) {
@@ -1828,7 +1828,7 @@ void main() {
   });
 
   group('A rest says what to do with it', () {
-    // The four cases from features/04: another rung, the work, another set, a
+    // The four cases from features/index.html#sec04: another rung, the work, another set, a
     // different movement. What differs between them is what you have to set up,
     // which is the only part worth a line of screen.
 
@@ -2302,7 +2302,7 @@ void main() {
   });
 
   group('There is only ever one resume bar on screen', () {
-    // features/04: "Two mount points draw it and exactly one may be live at a
+    // features/index.html#sec04: "Two mount points draw it and exactly one may be live at a
     // time — including *during* a navigation... the count is one whether the
     // app is settled or mid-transition."
     //
@@ -2386,7 +2386,7 @@ void main() {
   });
 
   group('The caption gives; the banner does not grow', () {
-    // features/04: "the caption is the part that yields — it holds to two lines
+    // features/index.html#sec04: "the caption is the part that yields — it holds to two lines
     // and ellipsises past that, while the countdown and the three controls keep
     // their place and their size at any name length and any text scale."
     const longName = 'Barbell Romanian Deadlift';
@@ -2543,7 +2543,7 @@ void main() {
   });
 
   group('The rest tone is one note, not two', () {
-    // features/04: "A rest ending is one event, so it gets one ding: a single
+    // features/index.html#sec04: "A rest ending is one event, so it gets one ding: a single
     // pitch with a fast attack and a short decay, done inside a third of a
     // second."
     //
@@ -2557,7 +2557,7 @@ void main() {
     /// cut down from.
     const twoNoteBytes = 52964;
 
-    /// The longest a ding may last, from `features/04`: "under half a second".
+    /// The longest a ding may last, from `features/index.html#sec04`: "under half a second".
     /// It was a third of a second and was reported as too quiet — half of
     /// which is duration, not amplitude (issue #61).
     const maxSeconds = 0.5;
