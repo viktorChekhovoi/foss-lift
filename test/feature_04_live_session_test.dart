@@ -28,6 +28,7 @@ import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/widgets/resume_workout_bar.dart';
@@ -1152,6 +1153,155 @@ void main() {
       expect(logged(), isNull); // straight back to untouched, not 44
       ctl.cycleSet(0, 0);
       expect(logged(), 45);
+    });
+  });
+
+  group('What the session says to do next', () {
+    // The board draws the whole session and lets your eye pick the row; one
+    // line has to choose. That choice is the part most likely to be wrong, so
+    // it is arithmetic with tests rather than something inside a notification.
+
+    test('the ramp comes before the work of the same exercise', () async {
+      await startPush();
+      final cue = nextUp(session())!;
+
+      expect(cue.kind, CueKind.lift);
+      expect(cue.exercise, 'Bench Press');
+      expect(cue.warmup, isTrue, reason: 'the first rung, not the first set');
+      expect(cue.weightKg, session().exercises[0].warmups.first.weight);
+    });
+
+    test('and the work follows once the ramp is ticked off', () async {
+      final ctl = await startPush();
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        ctl.cycleWarmup(0, wi);
+      }
+
+      final cue = nextUp(session())!;
+      expect(cue.warmup, isFalse);
+      expect(cue.exercise, 'Bench Press');
+      expect(cue.setIndex, 0);
+      expect(cue.reps, benchGoal);
+      expect(cue.weightKg, benchWeight);
+    });
+
+    test('a rung nobody went back for does not hold up the next exercise',
+        () async {
+      final ctl = await startPush();
+      // Every working set of Bench done, one warm-up rung still unticked.
+      for (var si = 0; si < 4; si++) {
+        ctl.cycleSet(0, si);
+      }
+
+      final cue = nextUp(session())!;
+      expect(cue.exercise, session().exercises[1].name,
+          reason: 'the ramp of a finished exercise is behind you');
+    });
+
+    test('a warm-up rung of a later exercise is not what you owe now',
+        () async {
+      await startPush();
+      final cue = nextUp(session())!;
+      // Bench's ramp, not the ramp of anything further down the list.
+      expect(cue.exerciseIndex, 0);
+    });
+
+    test('resting outranks whatever is next, and still names it', () async {
+      final ctl = await startPush();
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        ctl.cycleWarmup(0, wi);
+      }
+
+      final cue = nextUp(session(), restLeft: 74)!;
+      expect(cue.kind, CueKind.resting);
+      expect(cue.restLeft, 74);
+      // "Rest, then bench 80 for 8" is more use than "rest".
+      expect(cue.exercise, 'Bench Press');
+      expect(cue.reps, benchGoal);
+    });
+
+    test('a held movement is a hold, not a rep count', () async {
+      container = containerFor(db);
+      final wid = await buildPlankWorkout(db, holdSeconds: 45);
+      await container!
+          .read(activeWorkoutProvider.notifier)
+          .start(workoutId: wid, name: 'Plank Day');
+
+      final cue = nextUp(session())!;
+      expect(cue.kind, CueKind.hold);
+      expect(cue.seconds, 45);
+      expect(cue.reps, isNull, reason: 'a plank is not forty-five of anything');
+    });
+
+    test('a bodyweight movement names no weight', () async {
+      final ctl = await startPush();
+      // Drop the bench to nothing, which is what a bodyweight slot looks like.
+      ctl.setWorkingWeight(0, 0);
+
+      final cue = nextUp(session())!;
+      expect(cue.weightKg, isNull);
+    });
+
+    test('when everything is logged there is nothing left to say', () async {
+      final ctl = await startPush();
+      for (var ei = 0; ei < session().exercises.length; ei++) {
+        for (var wi = 0; wi < session().exercises[ei].warmups.length; wi++) {
+          ctl.cycleWarmup(ei, wi);
+        }
+        for (var si = 0; si < session().exercises[ei].sets.length; si++) {
+          ctl.cycleSet(ei, si);
+        }
+      }
+
+      expect(nextUp(session())!.kind, CueKind.finished);
+    });
+
+    test('missed seeds one short of the goal, never below nothing', () async {
+      await startPush();
+      final cue = nextUp(session(), restLeft: 0)!;
+
+      // A counted set: most of it got done, which is why the button was
+      // reached for rather than the app.
+      expect(missedSeed((
+        kind: CueKind.lift,
+        exercise: 'Bench Press',
+        warmup: false,
+        exerciseIndex: 0,
+        setIndex: 0,
+        weightKg: 80,
+        reps: 8,
+        seconds: null,
+        restLeft: null,
+      )), 7);
+
+      // A goal of one has nowhere to go but zero.
+      expect(missedSeed((
+        kind: CueKind.lift,
+        exercise: 'x',
+        warmup: false,
+        exerciseIndex: 0,
+        setIndex: 0,
+        weightKg: null,
+        reps: 1,
+        seconds: null,
+        restLeft: null,
+      )), 0);
+
+      // A hold is not guessable — how long you held it is not a number
+      // anything can seed.
+      expect(missedSeed((
+        kind: CueKind.hold,
+        exercise: 'Plank',
+        warmup: false,
+        exerciseIndex: 0,
+        setIndex: 0,
+        weightKg: null,
+        reps: null,
+        seconds: 45,
+        restLeft: null,
+      )), isNull);
+
+      expect(cue.exercise, isNotEmpty);
     });
   });
 
