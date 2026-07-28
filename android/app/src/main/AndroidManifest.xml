@@ -5,6 +5,38 @@
          permission — reminders are scheduled inexactly on purpose, see
          lib/services/reminders.dart. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- The live workout in the notification shade. A foreground service is not
+         about drawing the notification — an ordinary one would do that — it is
+         about the *process*: the session is held in memory and never written
+         until Finish, so a "Done" press has to reach the isolate that holds it.
+         Without this Android is free to kill the app once it is backgrounded,
+         and the press would land somewhere with no workout in it. See
+         lib/services/workout_shade.dart and issue #37.
+
+         Android 14 requires a foregroundServiceType, and none of the declared
+         ones fits a workout log cleanly:
+
+           health        the closest in meaning, but it has a runtime
+                         requirement — one of BODY_SENSORS,
+                         ACTIVITY_RECOGNITION or HIGH_SAMPLING_RATE_SENSORS —
+                         and asking an offline app's users for activity
+                         recognition to show a rest timer is a bad trade.
+           shortService  capped at three minutes. A workout is not.
+           dataSync      semantically wrong, and Android 15 caps it at six
+                         hours a day.
+
+         So specialUse, with the subtype spelled out. It is the type for
+         exactly this: a legitimate long-running foreground task the other
+         categories do not describe. Note it needs a justification at Play
+         Store review — see issue #24. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- Android 13+ will not show any notification without it being granted,
+         including this one and the workout reminders. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Keeps the rest countdown ticking with the screen off, which is the
+         whole point of putting the workout in the shade. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
         android:label="Foss Lift"
         android:name="${applicationName}"
@@ -50,6 +82,16 @@
                 <data android:scheme="fosslift" android:host="routine"/>
             </intent-filter>
         </activity>
+        <!-- The live-workout foreground service. The name is the plugin's and
+             must not change. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps a workout in progress on screen in the notification shade, with its rest timer, while the phone is put away."/>
+        </service>
         <!-- The notification plugin's receivers: one to show a scheduled
              reminder when its alarm fires, one to re-schedule everything after
              a reboot or an app update. -->

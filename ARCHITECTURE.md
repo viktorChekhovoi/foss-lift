@@ -49,6 +49,7 @@ lib/
 ├── services/
 │   ├── reminders.dart            Local notification scheduling (Android)
 │   ├── rest_tone.dart            The sound the rest timer makes when it ends
+│   ├── workout_shade.dart        The live workout as an Android foreground service
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   └── qr_decoder.dart           Camera frame → the string in a QR code
 ├── providers/

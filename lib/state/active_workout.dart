@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../data/warmup.dart';
 import '../providers/db_provider.dart';
 import '../services/rest_tone.dart';
+import 'workout_cue.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
 /// to the display unit.
@@ -564,6 +565,52 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       if (!set.done) set.weight = e.workingKg!;
     }
     _rebuildRamp(e, unit: s.unit, inventory: s.plates);
+    state = s.copyWith();
+  }
+
+  /// Logs the next outstanding set at its goal and starts the rest — what the
+  /// shade's **Done** button does, without the app being open.
+  ///
+  /// It asks [nextUp] rather than being told which set, because the press came
+  /// from a notification that may be a moment out of date; the session is the
+  /// only thing that knows what is actually outstanding. A hold is refused: how
+  /// long you held it is the measurement, and nothing here can invent it.
+  void logNextAtGoal() {
+    final s = state;
+    if (s == null || s.restLeft > 0) return;
+    final cue = nextUp(s);
+    if (cue == null || cue.kind != CueKind.lift) return;
+
+    final e = s.exercises[cue.exerciseIndex];
+    final entry = cue.warmup ? e.warmups[cue.setIndex] : e.sets[cue.setIndex];
+    entry.logged = entry.goal;
+    state = s.copyWith();
+
+    startRest(
+      cue.warmup ? e.restAfterWarmup(cue.setIndex) : e.restSeconds,
+      cue.warmup
+          ? s.restAfterWarmup(cue.exerciseIndex, cue.setIndex)
+          : s.restAfterSet(cue.exerciseIndex, cue.setIndex),
+    );
+  }
+
+  /// Logs the next outstanding set one short of its goal — the shade's
+  /// **Missed**. It lands gold rather than green, and the app is brought
+  /// forward so the number can be corrected to what actually happened.
+  ///
+  /// No rest is started: you are about to be looking at the screen anyway, and
+  /// a clock running while you correct a number is a clock you did not ask for.
+  void logNextAsMissed() {
+    final s = state;
+    if (s == null) return;
+    final cue = nextUp(s);
+    if (cue == null) return;
+    final seed = missedSeed(cue);
+    if (seed == null) return;
+
+    final e = s.exercises[cue.exerciseIndex];
+    final entry = cue.warmup ? e.warmups[cue.setIndex] : e.sets[cue.setIndex];
+    entry.logged = seed;
     state = s.copyWith();
   }
 

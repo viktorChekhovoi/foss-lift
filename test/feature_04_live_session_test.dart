@@ -27,6 +27,7 @@ import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/services/rest_tone.dart';
+import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
@@ -1313,6 +1314,132 @@ void main() {
       )), isNull);
 
       expect(cue.exercise, isNotEmpty);
+    });
+  });
+
+  group('The shade logs a set without the app being open', () {
+    // The buttons act on nextUp rather than on a set they were told about: the
+    // press comes from a notification that may be a moment out of date, and the
+    // session is the only thing that knows what is actually outstanding.
+
+    test('Done logs the outstanding set at its goal and starts the rest',
+        () async {
+      final ctl = await startPush();
+      // Clear Bench's ramp so the working set is what is outstanding.
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        ctl.cycleWarmup(0, wi);
+      }
+      ctl.stopRest(tone: false);
+
+      ctl.logNextAtGoal();
+
+      expect(session().exercises[0].sets[0].logged, benchGoal);
+      expect(session().exercises[0].sets[0].missedGoal, isFalse,
+          reason: 'at the goal is a hit');
+      expect(session().restLeft, greaterThan(0),
+          reason: 'the rest starts without the app being touched');
+    });
+
+    test('Done walks the warm-up rungs first', () async {
+      final ctl = await startPush();
+      ctl.logNextAtGoal();
+
+      final ramp = session().exercises[0].warmups;
+      expect(ramp.first.logged, ramp.first.goal);
+      expect(session().exercises[0].sets[0].done, isFalse,
+          reason: 'the work waits for the ramp');
+    });
+
+    test('Done does nothing while a rest is running', () async {
+      final ctl = await startPush();
+      ctl.startRest(90, null);
+      final before = session().doneSets;
+
+      ctl.logNextAtGoal();
+
+      expect(session().doneSets, before,
+          reason: 'you are resting; there is nothing to claim yet');
+    });
+
+    test('Done refuses a hold, which is not a number it can invent', () async {
+      container = containerFor(db);
+      final wid = await buildPlankWorkout(db, holdSeconds: 45);
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      await ctl.start(workoutId: wid, name: 'Plank Day');
+
+      ctl.logNextAtGoal();
+
+      expect(session().exercises[0].sets[0].done, isFalse);
+    });
+
+    test('Missed logs one short, and starts no rest', () async {
+      final ctl = await startPush();
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        ctl.cycleWarmup(0, wi);
+      }
+      ctl.stopRest(tone: false);
+
+      ctl.logNextAsMissed();
+
+      expect(session().exercises[0].sets[0].logged, benchGoal - 1);
+      expect(session().exercises[0].sets[0].missedGoal, isTrue,
+          reason: 'it lands gold, which is the point of seeding it short');
+      // You are about to be looking at the screen to correct it; a clock
+      // running while you do is a clock you did not ask for.
+      expect(session().restLeft, 0);
+    });
+
+    test('nothing reaches the database before Finish', () async {
+      final ctl = await startPush();
+      ctl.logNextAtGoal();
+      ctl.logNextAsMissed();
+
+      expect(await db.watchHistory().first, isEmpty);
+      expect(await db.watchSessionCount().first, 0);
+    });
+  });
+
+  group('What the shade says', () {
+    WorkoutCue cue({
+      CueKind kind = CueKind.lift,
+      String exercise = 'Bench Press',
+      bool warmup = false,
+      double? weightKg,
+      int? reps,
+      int? seconds,
+      int? restLeft,
+    }) =>
+        (
+          kind: kind,
+          exercise: exercise,
+          warmup: warmup,
+          exerciseIndex: 0,
+          setIndex: 0,
+          weightKg: weightKg,
+          reps: reps,
+          seconds: seconds,
+          restLeft: restLeft,
+        );
+
+    test('a loaded set reads as a bar you could go and load', () {
+      expect(describeCue(cue(weightKg: 80, reps: 8), 'kg'), '80 kg × 8');
+    });
+
+    test('and in the unit on the phone, not the one in the database', () {
+      // 80 kg is 176.4 lb — the number you would set the bar to.
+      expect(describeCue(cue(weightKg: 80, reps: 8), 'lb'), '176.4 lb × 8');
+    });
+
+    test('a bodyweight movement says so rather than saying nothing', () {
+      expect(describeCue(cue(reps: 12), 'kg'), 'Bodyweight × 12');
+    });
+
+    test('a hold is seconds, and a loaded hold is both', () {
+      expect(describeCue(cue(kind: CueKind.hold, seconds: 45), 'kg'), '45s');
+      expect(
+        describeCue(cue(kind: CueKind.hold, weightKg: 20, seconds: 45), 'kg'),
+        '20 kg · 45s',
+      );
     });
   });
 

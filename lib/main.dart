@@ -28,6 +28,8 @@ class FossLiftApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(reminderSyncProvider);
+    // Puts the live workout in the notification shade and keeps it current.
+    ref.watch(workoutShadeSyncProvider);
     final palette = ref.watch(activePaletteProvider);
 
     // Nothing is painted until the stored theme is known. `activePaletteProvider`

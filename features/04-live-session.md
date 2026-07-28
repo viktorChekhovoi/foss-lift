@@ -20,6 +20,8 @@ you're done.
   kept separate from the working sets.
 - **Survives being collapsed** — leave the session and a resume bar sits at the
   bottom of every other screen, one tap from getting back to it.
+- **Lives in the notification shade** for as long as it is running: what to
+  lift, or how long is left of the rest, with **Done** and **Missed**.
 - **Can be aborted**, for the session started by a misplaced tap: a confirmed
   abort throws it away without writing anything or moving a target.
 - **On Finish**, writes only the completed sets, advances progression, and opens
@@ -63,6 +65,34 @@ you're done.
   navigation bar, everywhere else it is the last row of the app. Nothing is ever
   underneath it, and the bottom of every list stays reachable while a session is
   open. One line, because it is furniture for as long as the session lasts.
+- **The whole session is in the notification shade.** Phone in a pocket, and a
+  straightforward set needs no screen: the notification names the exercise, the
+  weight in your unit and the reps, walks an exercise's warm-up rungs before its
+  working sets, and counts the rest down live.
+  - **Done** logs the outstanding set at its goal and starts the rest, without
+    the app coming forward. It asks the session what is outstanding rather than
+    trusting the notification it came from, which may be a moment out of date.
+  - **Missed** logs one short of the goal — so it lands gold and the number is
+    already close — and brings the app up to correct it. No rest starts: you are
+    about to be looking at the screen anyway.
+  - **A rest offers no buttons at all.** There is nothing to log yet, and
+    skipping is deliberately absent: cutting a rest short is a decision, and a
+    decision does not belong on a control you brush past through a coat.
+  - **A hold gets one button, "Open".** How long you held something is the
+    measurement itself, so nothing can claim it at the goal or guess it one
+    short — it opens the app at the stopwatch instead.
+- **It is a foreground service, and that is not about the notification.** An
+  ordinary notification would draw the same thing. The service is about the
+  *process*: the session is in memory and untouched until Finish, so a Done
+  press has to reach the isolate holding it, and without a service Android may
+  kill the app once it is backgrounded. **The service is what makes "in memory"
+  survivable** rather than a reason to start persisting mid-workout.
+  - Android 14 wants a `foregroundServiceType` and none of them fits a workout
+    log: `health` needs an activity-recognition permission this app has no
+    business asking for, `shortService` caps at three minutes, `dataSync` is
+    wrong and capped at six hours a day. So `specialUse`, with the subtype
+    spelled out — which needs a justification at Play Store review.
+  - Off Android it is a no-op, not a crash.
 - **The rest clock belongs to the session, not to the screen.** It keeps
   running while the logging screen is popped — putting the phone away mid-rest
   is the ordinary case, not an edge one — and a countdown a notification can
@@ -199,6 +229,8 @@ you're done.
   `lib/widgets/resume_workout_bar.dart`.
 - The rest tone: `lib/services/rest_tone.dart`, with the asset in
   `assets/sound/`.
+- The shade: `lib/services/workout_shade.dart`, on the "what now?" model in
+  `lib/state/workout_cue.dart`; kept current by `workoutShadeSyncProvider`.
 - Starting one: `lib/widgets/start_workout.dart` — the switch confirmation, the
   layoff offer and the push to `/session`, in that order.
 
@@ -214,3 +246,4 @@ you're done.
 - [#41 The resume bar covered content it should not](https://github.com/viktorChekhovoi/foss-lift/issues/41) — shipped, in review
 - [#36 Rest prompts, and a sound when the timer ends](https://github.com/viktorChekhovoi/foss-lift/issues/36) — shipped, in review
 - [#38 Timed movements: a count-up timer](https://github.com/viktorChekhovoi/foss-lift/issues/38) — shipped, in review
+- [#37 Run a workout from the notification shade](https://github.com/viktorChekhovoi/foss-lift/issues/37) — shipped, in review

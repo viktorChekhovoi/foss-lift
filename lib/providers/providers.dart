@@ -1,11 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+
 import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
 import '../services/reminders.dart';
+import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
+import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import 'db_provider.dart';
 
@@ -156,6 +160,55 @@ final reminderServiceProvider =
 final reminderSyncProvider = Provider<void>((ref) {
   final reminders = ref.watch(routineRemindersProvider).value;
   if (reminders != null) ref.watch(reminderServiceProvider).sync(reminders);
+});
+
+/// The live workout in the notification shade.
+final workoutShadeProvider = Provider<WorkoutShade>((ref) => WorkoutShade());
+
+/// Keeps the shade in step with the session, and routes its two buttons back.
+///
+/// A provider rather than a call site for the same reason the reminder sync is
+/// one: what changes the shade is scattered — a set logged, a rest ticking, a
+/// weight edited, the session ending — and they all move
+/// [activeWorkoutProvider]. Watching that once is cheaper than remembering to
+/// update the notification in nine places and forgetting in a tenth.
+///
+/// Watch it somewhere permanent; see `main.dart`.
+final workoutShadeSyncProvider = Provider<void>((ref) {
+  final shade = ref.watch(workoutShadeProvider);
+  final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+
+  // The buttons come back from the service's own isolate, which holds no
+  // session — this is where they land, in the isolate that does.
+  ref.watch(shadeActionsProvider);
+
+  final session = ref.watch(activeWorkoutProvider);
+  if (session == null) {
+    shade.hide();
+    return;
+  }
+  final cue = nextUp(session, restLeft: session.restLeft);
+  if (cue != null) shade.show(cue, unit: unit);
+});
+
+/// Subscribes to the shade's button presses for as long as anything watches.
+final shadeActionsProvider = Provider<void>((ref) {
+  final shade = ref.watch(workoutShadeProvider);
+  if (!shade.supported) return;
+
+  void onData(Object data) {
+    final controller = ref.read(activeWorkoutProvider.notifier);
+    switch (data) {
+      case WorkoutShade.doneAction:
+        controller.logNextAtGoal();
+      case WorkoutShade.missedAction:
+        controller.logNextAsMissed();
+    }
+  }
+
+  FlutterForegroundTask.initCommunicationPort();
+  FlutterForegroundTask.addTaskDataCallback(onData);
+  ref.onDispose(() => FlutterForegroundTask.removeTaskDataCallback(onData));
 });
 
 /// The user's text-size nudge on top of the phone's own setting. Read as
