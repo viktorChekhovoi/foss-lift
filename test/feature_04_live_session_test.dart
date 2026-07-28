@@ -124,6 +124,16 @@ void main() {
         matching: find.byKey(const ValueKey('set-weight')),
       );
 
+  /// Puts the session down, then the tree.
+  ///
+  /// The rest clock belongs to the session rather than the logging screen now —
+  /// that is what lets it keep running with the phone away — so unmounting the
+  /// screen no longer stops it, and a test has to end the session itself.
+  Future<void> stopAll(WidgetTester tester) async {
+    container?.read(activeWorkoutProvider.notifier).discard();
+    await stop(tester);
+  }
+
   // Starts the Push day and mounts WorkoutScreen, ready to pump.
   Future<void> pumpPushScreen(WidgetTester tester) async {
     await tester.runAsync(() async {
@@ -203,7 +213,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('1/$kPushTotalSets'), findsOneWidget);
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -259,7 +269,7 @@ void main() {
       await tester.pump();
       expect(find.byKey(kRestBannerKey), findsNothing);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('−15s ends a rest with less than 15s left, rather than doing '
@@ -278,7 +288,7 @@ void main() {
       await tester.pump();
       expect(find.byKey(kRestBannerKey), findsNothing);
 
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -310,7 +320,7 @@ void main() {
       expect(container!.read(activeWorkoutProvider), isNotNull);
       expect(find.text('0/$kPushTotalSets'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('confirming throws the session away without writing it',
@@ -375,7 +385,7 @@ void main() {
       expect(session().startedAt, startedAt);
       expect(session().doneSets, 1);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('a different one asks first, naming what would be lost',
@@ -401,7 +411,7 @@ void main() {
       expect(session().doneSets, 1);
       expect(find.text('at /session'), findsNothing);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('confirming discards the live session and starts the new one',
@@ -424,7 +434,7 @@ void main() {
       // start ran inside a pump), so it has to be cancelled before the tree
       // goes or the binding sees a timer outliving it.
       container!.read(activeWorkoutProvider.notifier).discard();
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -494,7 +504,7 @@ void main() {
       await tester.pump();
       expect(find.text('2:00'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     test('the count is adjustable and clamped to 0..max', () async {
@@ -569,7 +579,7 @@ void main() {
         expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsOneWidget);
         expect(find.textContaining('not medical advice'), findsWidgets);
 
-        await stop(tester);
+        await stopAll(tester);
       },
     );
   });
@@ -654,7 +664,7 @@ void main() {
       expect(bench.workingKg, 85);
       expect(bench.sets.every((s) => s.weight == 85), isTrue);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('one set can still be overridden from its own row',
@@ -670,7 +680,7 @@ void main() {
       expect(bench.sets[3].weight, 70);
       expect(bench.sets[0].weight, benchWeight);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('changing the warm-up count moves the weights, not only the '
@@ -715,7 +725,7 @@ void main() {
       expect(session().exercises[0].warmupCount, 4);
       expectRampOnScreen();
 
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -906,7 +916,7 @@ void main() {
       await pumpPushScreen(tester);
       // Bench 80 kg over a 20 kg bar → 30/side (25 + 5).
       expect(find.text('30 KG/SIDE · 25 + 5 · BAR 20'), findsOneWidget);
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -928,7 +938,8 @@ void main() {
         // resume pill.
         expect(container!.read(workoutScreenVisibleProvider), isTrue);
 
-        // Collapse: unmount the screen. The session is not discarded.
+        // Collapse: unmount the screen and nothing else — the point of the
+        // test is that the session outlives it, so it must not be put down.
         await stop(tester);
         await tester.pump();
         expect(container!.read(workoutScreenVisibleProvider), isFalse);
@@ -1384,7 +1395,7 @@ void main() {
       await tester.pump();
       expect(find.text('Set up 80 kg, rest, then lift.'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('the weight is named in pounds when that is the unit',
@@ -1402,7 +1413,7 @@ void main() {
       // number the database happens to hold.
       expect(find.textContaining('Set up 176.4 lb'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -1449,7 +1460,7 @@ void main() {
       await tester.pump();
       expect(session().exercises[0].sets[0].logged, 12);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('stopping a hold starts the rest', (tester) async {
@@ -1466,7 +1477,7 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(kRestBannerKey), findsOneWidget);
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('tapping a logged hold clears it, ready to run again',
@@ -1485,7 +1496,7 @@ void main() {
       await tester.pump();
       expect(session().exercises[0].sets[0].logged, isNull);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('only one hold runs at a time', (tester) async {
@@ -1508,7 +1519,7 @@ void main() {
       await tester.pump();
       expect(session().exercises[0].sets[1].logged, 4);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('a duration can still be typed in by hand', (tester) async {
@@ -1524,20 +1535,20 @@ void main() {
       await frames(tester);
 
       expect(session().exercises[0].sets[0].logged, 52);
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('the hint says how a hold is logged', (tester) async {
       await pumpPlank(tester);
       expect(find.textContaining('tap to start, tap to stop'), findsOneWidget);
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('and does not offer it to a session with nothing held',
         (tester) async {
       await pumpPushScreen(tester);
       expect(find.textContaining('tap to start, tap to stop'), findsNothing);
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -1601,7 +1612,7 @@ void main() {
         reason: 'nothing but the hue distinguishes a short set',
       );
 
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -1646,7 +1657,7 @@ void main() {
       expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
           reason: 'the list runs on underneath the bar');
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('a tab screen keeps it above the nav bar and clear of the list',
@@ -1687,7 +1698,7 @@ void main() {
       expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
           reason: "Today's list runs on underneath the bar");
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('with no session live nothing is reserved at all',
@@ -1702,7 +1713,7 @@ void main() {
       expect(list.bottom,
           closeTo(tester.getSize(find.byType(MaterialApp)).height, 1.0));
 
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 
@@ -1728,7 +1739,7 @@ void main() {
 
       expect(find.text('Rack pin 7, bench squeaks'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('a movement with no note still offers somewhere to add one',
@@ -1750,7 +1761,7 @@ void main() {
       expect(await storedNote(tester, 'Bench Press'), 'Seat 4, pin 7');
       expect(find.text('Seat 4, pin 7'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('an existing note is edited from the board', (tester) async {
@@ -1770,7 +1781,7 @@ void main() {
       expect(find.text('Rack pin 8'), findsOneWidget);
       expect(await storedNote(tester, 'Bench Press'), 'Rack pin 8');
 
-      await stop(tester);
+      await stopAll(tester);
     });
 
     testWidgets('a note written elsewhere reaches a session already running',
@@ -1786,7 +1797,7 @@ void main() {
       await frames(tester);
       expect(find.text('Bench squeaks'), findsOneWidget);
 
-      await stop(tester);
+      await stopAll(tester);
     });
   });
 }

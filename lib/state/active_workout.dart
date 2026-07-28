@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../data/warmup.dart';
 import '../providers/db_provider.dart';
+import '../services/rest_tone.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
 /// to the display unit.
@@ -255,6 +256,8 @@ class ActiveWorkout {
     required this.elapsed,
     this.unit = 'kg',
     this.plates = const [],
+    this.restLeft = 0,
+    this.restPrompt,
     this.notice,
     this.rev = 0,
   });
@@ -283,6 +286,15 @@ class ActiveWorkout {
   /// dropped is a question the user will ask again halfway through the second
   /// exercise, by which time a snackbar is long gone.
   final String? notice;
+
+  /// Seconds left on the rest, and what the rest is for. **On the session, not
+  /// on the screen.** The rest has to keep running while the logging screen is
+  /// popped — that is the whole of "put the phone away and come back" — and the
+  /// notification shade needs a countdown to show while the app is not even
+  /// visible. A timer owned by a widget dies with the widget.
+  final int restLeft;
+  final RestPrompt? restPrompt;
+
   final int rev;
 
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
@@ -344,7 +356,13 @@ class ActiveWorkout {
     return (purpose: RestPurpose.anotherSet, weightKg: null, exercise: null);
   }
 
-  ActiveWorkout copyWith({int? elapsed}) => ActiveWorkout(
+  ActiveWorkout copyWith({
+    int? elapsed,
+    int? restLeft,
+    RestPrompt? restPrompt,
+    bool clearRest = false,
+  }) =>
+      ActiveWorkout(
         routineId: routineId,
         workoutId: workoutId,
         name: name,
@@ -353,6 +371,8 @@ class ActiveWorkout {
         elapsed: elapsed ?? this.elapsed,
         unit: unit,
         plates: plates,
+        restLeft: clearRest ? 0 : (restLeft ?? this.restLeft),
+        restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
         notice: notice,
         rev: rev + 1,
       );
@@ -360,13 +380,70 @@ class ActiveWorkout {
 
 class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   Timer? _timer;
+  Timer? _restTimer;
 
   AppDatabase get _db => ref.read(databaseProvider);
 
   @override
   ActiveWorkout? build() {
-    ref.onDispose(() => _timer?.cancel());
+    ref.onDispose(() {
+      _timer?.cancel();
+      _restTimer?.cancel();
+    });
     return null;
+  }
+
+  // ---- The rest clock ------------------------------------------------------
+  //
+  // On the controller rather than the logging screen: the rest has to keep
+  // running while the screen is popped, and the notification shade needs a
+  // countdown to show while the app is not visible at all. A timer owned by a
+  // widget dies with the widget.
+
+  /// Starts the rest after a set, replacing whatever was running.
+  void startRest(int seconds, RestPrompt? prompt) {
+    final s = state;
+    if (s == null) return;
+    _restTimer?.cancel();
+    state = s.copyWith(restLeft: seconds, restPrompt: prompt);
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final now = state;
+      if (now == null) return;
+      if (now.restLeft <= 1) {
+        stopRest();
+      } else {
+        state = now.copyWith(restLeft: now.restLeft - 1);
+      }
+    });
+  }
+
+  /// Adds [seconds] to a running rest, or takes them off. Going to or below
+  /// zero ends it — see the −15s rule.
+  void nudgeRest(int seconds) {
+    final s = state;
+    if (s == null || s.restLeft == 0) return;
+    final left = s.restLeft + seconds;
+    if (left <= 0) {
+      stopRest();
+    } else {
+      state = s.copyWith(restLeft: left);
+    }
+  }
+
+  /// Ends the rest. [tone] is false only where the sound would say the wrong
+  /// thing — starting a hold, for instance, where it means "stop holding".
+  void stopRest({bool tone = true}) {
+    _restTimer?.cancel();
+    _restTimer = null;
+    final s = state;
+    if (s == null) return;
+    final wasResting = s.restLeft > 0;
+    state = s.copyWith(clearRest: true);
+    if (tone && wasResting) {
+      ref.read(restToneProvider).play(
+            enabled: ref.read(restSoundProvider).value ?? true,
+          );
+    }
   }
 
   /// Begins a live session from a workout template. Passing a null [workoutId]
@@ -580,6 +657,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return null;
     _timer?.cancel();
+    _restTimer?.cancel();
+    _restTimer = null;
 
     final rows = <SessionSetsCompanion>[];
     for (final e in s.exercises) {
@@ -665,6 +744,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 
   void discard() {
     _timer?.cancel();
+    _restTimer?.cancel();
+    _restTimer = null;
     state = null;
   }
 }
@@ -737,6 +818,25 @@ class ProgressionReport {
   final int sessionId;
   final List<ProgressionOutcome> outcomes;
 }
+
+/// Whether the rest timer sounds when it ends. Read as `.value ?? true` — on is
+/// the default, and a frame before the settings row arrives is not a reason to
+/// stay quiet.
+///
+/// Here rather than in `providers.dart` because the rest clock is on the
+/// controller below and would otherwise import the file that imports it.
+final restSoundProvider = StreamProvider<bool>((ref) {
+  return ref.watch(databaseProvider).watchRestSound();
+});
+
+/// The one player for the rest tone, disposed with the scope that made it. One
+/// instance rather than one per rest: an `AudioPlayer` holds a platform
+/// resource, and a session is dozens of rests.
+final restToneProvider = Provider<RestTone>((ref) {
+  final tone = RestTone();
+  ref.onDispose(tone.dispose);
+  return tone;
+});
 
 /// Holds the [ProgressionReport] from the last finish until the summary consumes
 /// it. Written by [ActiveWorkoutController] on finish, cleared on the next start

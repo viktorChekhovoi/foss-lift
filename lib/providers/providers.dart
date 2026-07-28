@@ -5,12 +5,14 @@ import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
 import '../services/reminders.dart';
-import '../services/rest_tone.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
 import 'db_provider.dart';
 
 export 'db_provider.dart' show databaseProvider;
+// The rest clock lives on the session controller, so the two providers it needs
+// live beside it — see the note on db_provider.dart for why that shape exists.
+export '../state/active_workout.dart' show restSoundProvider, restToneProvider;
 
 /// All routines with their workout counts (Today + Routines tabs).
 final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
@@ -154,23 +156,6 @@ final reminderServiceProvider =
 final reminderSyncProvider = Provider<void>((ref) {
   final reminders = ref.watch(routineRemindersProvider).value;
   if (reminders != null) ref.watch(reminderServiceProvider).sync(reminders);
-});
-
-/// Whether the rest timer sounds when it ends. Read as `.value ?? true` — on
-/// is the default, and a frame before the settings row arrives is not a reason
-/// to stay quiet.
-final restSoundProvider = StreamProvider<bool>((ref) {
-  return ref.watch(databaseProvider).watchRestSound();
-});
-
-/// The one player for the rest tone, disposed with the scope that made it.
-///
-/// One instance rather than one per rest: an `AudioPlayer` holds a platform
-/// resource, and a session is dozens of rests.
-final restToneProvider = Provider<RestTone>((ref) {
-  final tone = RestTone();
-  ref.onDispose(tone.dispose);
-  return tone;
 });
 
 /// The user's text-size nudge on top of the phone's own setting. Read as

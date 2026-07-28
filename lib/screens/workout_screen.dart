@@ -22,13 +22,6 @@ class WorkoutScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
-  Timer? _restTimer;
-  int _restLeft = 0;
-
-  /// What the rest currently running is for, so the banner can say. Null when
-  /// no rest is running.
-  RestPrompt? _restPrompt;
-
   /// The timed set being held right now, and how long it has been held. A hold
   /// is a stopwatch the user starts and stops, so unlike every other set the
   /// screen owns state for it while it runs.
@@ -54,7 +47,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   @override
   void dispose() {
-    _restTimer?.cancel();
+    // The rest clock is not ours to cancel — it belongs to the session and
+    // keeps running while this screen is popped. Only the stopwatch is local.
     _holdTimer?.cancel();
     // Leaving — collapsed or finished — lets the pill come back. Deferred so it
     // never notifies listeners while the tree is being torn down.
@@ -63,45 +57,14 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     super.dispose();
   }
 
-  /// Trims 15 seconds off the rest — or ends it, when there is less than that
-  /// left. Below 15s the button's only honest meanings are "skip" and "do
-  /// nothing", and a button that does nothing is the worse of the two.
-  void _trimRest() {
-    if (_restLeft > 15) {
-      setState(() => _restLeft -= 15);
-    } else {
-      _stopRest();
-    }
-  }
+  /// The rest clock lives on the session — see [ActiveWorkoutController]. These
+  /// are the screen's three buttons, forwarded.
+  void _startRest(int seconds, RestPrompt? prompt) =>
+      ref.read(activeWorkoutProvider.notifier).startRest(seconds, prompt);
 
-  void _startRest(int seconds, RestPrompt? prompt) {
-    _restTimer?.cancel();
-    setState(() {
-      _restLeft = seconds;
-      _restPrompt = prompt;
-    });
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _restLeft--);
-      if (_restLeft <= 0) _stopRest();
-    });
-  }
+  void _stopRest({bool tone = true}) =>
+      ref.read(activeWorkoutProvider.notifier).stopRest(tone: tone);
 
-  /// Ends the rest and sounds the tone.
-  ///
-  /// Both ways out get it: running down to zero is the case it exists for, and
-  /// skipping is still "the rest is over" — the phone may well be in a pocket
-  /// either way, since Skip is as often a tap on a notification-free guess as a
-  /// deliberate one.
-  void _stopRest({bool tone = true}) {
-    _restTimer?.cancel();
-    _restTimer = null;
-    if (mounted) setState(() => _restLeft = 0);
-    if (tone) _tone();
-  }
-
-  /// The one place the tone is asked for, so "the user switched it off" is
-  /// checked once rather than at each of the three call sites.
   void _tone() => ref.read(restToneProvider).play(
         enabled: ref.read(restSoundProvider).value ?? true,
       );
@@ -419,13 +382,17 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                 ),
               ],
             ),
-            if (_restLeft > 0)
+            if (session.restLeft > 0)
               _RestBanner(
-                secondsLeft: _restLeft,
-                prompt: _restPrompt,
+                secondsLeft: session.restLeft,
+                prompt: session.restPrompt,
                 unit: unit,
-                onSub: _trimRest,
-                onAdd: () => setState(() => _restLeft += 15),
+                // −15s ends a rest with less than that left: below fifteen the
+                // button's only honest readings are "skip" and "do nothing".
+                onSub: () =>
+                    ref.read(activeWorkoutProvider.notifier).nudgeRest(-15),
+                onAdd: () =>
+                    ref.read(activeWorkoutProvider.notifier).nudgeRest(15),
                 onSkip: _stopRest,
               ),
           ],

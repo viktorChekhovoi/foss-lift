@@ -63,6 +63,11 @@ you're done.
   navigation bar, everywhere else it is the last row of the app. Nothing is ever
   underneath it, and the bottom of every list stays reachable while a session is
   open. One line, because it is furniture for as long as the session lasts.
+- **The rest clock belongs to the session, not to the screen.** It keeps
+  running while the logging screen is popped — putting the phone away mid-rest
+  is the ordinary case, not an edge one — and a countdown a notification can
+  show has to exist somewhere the notification can see. A timer owned by a
+  widget dies with the widget.
 - **A session ends by finishing it or by aborting it.** Collapsing never
   discards it, and an abort always asks first — it is the one control on the
   screen that destroys work.
