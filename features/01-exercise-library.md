@@ -29,7 +29,8 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   picker while building a workout). Type in the search box, tap chips to narrow
   by muscle group and equipment, or both — they compose.
 - **Add a custom exercise:** Library → **＋** (FAB) → fill in name, muscle group,
-  equipment, measure, and an optional demo link → Save. Paste a YouTube link in
+  equipment, how it is measured, how it is loaded, and an optional demo link →
+  Save. Paste a YouTube link in
   any shape you like. The builder's picker offers **New exercise** at the top of
   its list, and hands the movement you make straight back to the slot you were
   filling.
@@ -63,6 +64,12 @@ A curated, searchable starter set of exercises, plus custom exercises you create
   for a dead one, which makes re-checking the lot a loop rather than an
   afternoon.
 
+- **The form asks how a movement is measured before how it is loaded.** Counted
+  or held is the more fundamental fact, and it is what decides whether the
+  loading question is interesting at all. Loading is not hidden for a held
+  movement — a weighted plank, a loaded carry and a weighted dead hang are all
+  real — but it is demoted to a quieter line that says why it is still being
+  asked.
 - **Chips within a row are alternatives; the two rows narrow.** Arms *and*
   glutes is one session's worth of browsing rather than two searches, while
   barbell *and* legs is the pair of facts that finds a squat. A row nobody has
@@ -157,3 +164,4 @@ A curated, searchable starter set of exercises, plus custom exercises you create
 - [#31 Per-exercise personal notes](https://github.com/viktorChekhovoi/foss-lift/issues/31) — shipped
 - [#42 Filters, inline creation, and named bars](https://github.com/viktorChekhovoi/foss-lift/issues/42) — shipped, in review
 - [#43 Seeded demo links are searches, not videos](https://github.com/viktorChekhovoi/foss-lift/issues/43) — shipped, in review
+- [#38 Asking the measure before the loading](https://github.com/viktorChekhovoi/foss-lift/issues/38) — shipped, in review

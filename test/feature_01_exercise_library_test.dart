@@ -733,6 +733,67 @@ void main() {
     });
   });
 
+  group('the creation form asks in the order that makes sense', () {
+    Future<void> pumpForm(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+          routedAppUnder(container, const ExerciseFormScreen()));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('measured in comes before loaded as', (tester) async {
+      // Whether a movement is counted or held is the more fundamental fact,
+      // and it decides whether the loading question is interesting at all.
+      await pumpForm(tester);
+
+      final measured = tester.getTopLeft(find.text('MEASURED IN')).dy;
+      final loaded = tester.getTopLeft(find.textContaining('LOADED AS')).dy;
+
+      expect(measured, lessThan(loaded));
+    });
+
+    testWidgets('loading stays reachable for a held movement', (tester) async {
+      // A weighted plank, a loaded carry and a weighted dead hang are all real,
+      // so the control is demoted rather than hidden.
+      await pumpForm(tester);
+
+      await tester.tap(find.text('Time held'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('LOADED AS'), findsOneWidget);
+      // "Bar" belongs to this control alone — Machine and Dumbbell are also
+      // equipment kinds further up the form.
+      expect(find.text('Bar'), findsOneWidget);
+      // And it says why it is still being asked.
+      expect(find.textContaining('Most holds carry nothing'), findsOneWidget);
+    });
+
+    testWidgets('a held movement can be saved with a load on it',
+        (tester) async {
+      await pumpForm(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'Weighted Plank');
+      await tester.tap(find.text('Time held'));
+      await tester.pumpAndSettle();
+      // The Loaded as row is below Equipment, which offers the same word.
+      await tester.tap(find.text('Dumbbell').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final made = (await tester.runAsync(() => db.watchExercises().first))!
+          .firstWhere((e) => e.name == 'Weighted Plank');
+      expect(made.measure, ExerciseMeasure.time);
+      expect(made.weightType, WeightType.dumbbell);
+
+      await stop(tester);
+    });
+  });
+
   group('a bar can be chosen by name', () {
     test('the named bars are the ones a gym actually racks', () {
       final kg = namedBars('kg');

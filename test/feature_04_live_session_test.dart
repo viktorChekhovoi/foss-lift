@@ -1256,6 +1256,141 @@ void main() {
     });
   });
 
+  group('A held set times itself', () {
+    /// The Plank day, mounted and ready to tap. Two sets of a 45-second hold.
+    Future<void> pumpPlank(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        final wid = await buildPlankWorkout(db);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Plank Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+    }
+
+    testWidgets('tap starts a count-up; tap again logs what it read',
+        (tester) async {
+      // A hold is a duration you measure, not a count you claim — so the cell
+      // is a stopwatch rather than the rep cycle.
+      await pumpPlank(tester);
+      final cell = repsCell('0-0-Plank');
+
+      // Untouched, it shows the goal.
+      expect(find.descendant(of: cell, matching: find.text('45s')),
+          findsOneWidget);
+
+      await tester.tap(cell);
+      await tester.pump();
+      expect(find.descendant(of: cell, matching: find.text('0s')),
+          findsOneWidget,
+          reason: 'the stopwatch starts at zero, not at the goal');
+      expect(session().exercises[0].sets[0].done, isFalse,
+          reason: 'a hold in progress is not a logged set');
+
+      // It counts up a second at a time.
+      await tester.pump(const Duration(seconds: 12));
+      expect(find.descendant(of: cell, matching: find.text('12s')),
+          findsOneWidget);
+
+      // And stopping logs exactly what it read.
+      await tester.tap(cell);
+      await tester.pump();
+      expect(session().exercises[0].sets[0].logged, 12);
+
+      await stop(tester);
+    });
+
+    testWidgets('stopping a hold starts the rest', (tester) async {
+      await pumpPlank(tester);
+      final cell = repsCell('0-0-Plank');
+
+      await tester.tap(cell);
+      await tester.pump();
+      // No rest while the hold is running — you are still in the set.
+      expect(find.byKey(kRestBannerKey), findsNothing);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.tap(cell);
+      await tester.pump();
+
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+      await stop(tester);
+    });
+
+    testWidgets('tapping a logged hold clears it, ready to run again',
+        (tester) async {
+      await pumpPlank(tester);
+      final cell = repsCell('0-0-Plank');
+
+      await tester.tap(cell);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(cell);
+      await tester.pump();
+      expect(session().exercises[0].sets[0].logged, 3);
+
+      // The same "undo by tapping" the rep cycle ends on.
+      await tester.tap(cell);
+      await tester.pump();
+      expect(session().exercises[0].sets[0].logged, isNull);
+
+      await stop(tester);
+    });
+
+    testWidgets('only one hold runs at a time', (tester) async {
+      // You cannot be in two planks at once — and the one you were in did
+      // happen, so it is logged rather than thrown away.
+      await pumpPlank(tester);
+
+      await tester.tap(repsCell('0-0-Plank'));
+      await tester.pump(const Duration(seconds: 7));
+      await tester.tap(repsCell('0-1-Plank'));
+      await tester.pump();
+
+      expect(session().exercises[0].sets[0].logged, 7,
+          reason: 'the abandoned hold is logged, not lost');
+      expect(session().exercises[0].sets[1].done, isFalse,
+          reason: 'and the new one is running, not logged');
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(repsCell('0-1-Plank'));
+      await tester.pump();
+      expect(session().exercises[0].sets[1].logged, 4);
+
+      await stop(tester);
+    });
+
+    testWidgets('a duration can still be typed in by hand', (tester) async {
+      // For the hold you timed on the clock on the wall.
+      await pumpPlank(tester);
+
+      await tester.longPress(repsCell('0-0-Plank'));
+      await frames(tester);
+      expect(find.text('Seconds held'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '52');
+      await tester.tap(find.text('Save'));
+      await frames(tester);
+
+      expect(session().exercises[0].sets[0].logged, 52);
+      await stop(tester);
+    });
+
+    testWidgets('the hint says how a hold is logged', (tester) async {
+      await pumpPlank(tester);
+      expect(find.textContaining('tap to start, tap to stop'), findsOneWidget);
+      await stop(tester);
+    });
+
+    testWidgets('and does not offer it to a session with nothing held',
+        (tester) async {
+      await pumpPushScreen(tester);
+      expect(find.textContaining('tap to start, tap to stop'), findsNothing);
+      await stop(tester);
+    });
+  });
+
   group('And it makes a sound when it is over', () {
     test('the tone is on by default, and can be turned off', () async {
       // On by default: a rest that ends silently is a rest you overrun with

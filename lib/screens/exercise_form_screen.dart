@@ -180,13 +180,9 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
               onSelect: _setEquipment,
             ),
             const SizedBox(height: 18),
-            _Label('Loaded as'),
-            _Choices(
-              options: _weightTypes.keys.toList(),
-              selected: _weightType.label,
-              onSelect: (v) => setState(() => _weightType = _weightTypes[v]!),
-            ),
-            const SizedBox(height: 18),
+            // Measured in comes before Loaded as: whether a movement is counted
+            // or held is the more fundamental fact about it, and it is what
+            // decides whether the loading question is interesting at all.
             _Label('Measured in'),
             _Choices(
               options: _measures.keys.toList(),
@@ -202,6 +198,26 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
               style: kMono.copyWith(
                   fontSize: 11, height: 1.5, color: AppColors.faint),
             ),
+            const SizedBox(height: 18),
+            // Kept for a held movement rather than hidden — a weighted plank, a
+            // loaded carry and a weighted dead hang are all real — but demoted
+            // to a quieter line, because most holds carry nothing and the
+            // answer above has usually already settled it.
+            _Label(_measure == 'Reps' ? 'Loaded as' : 'Loaded as (if at all)'),
+            _Choices(
+              options: _weightTypes.keys.toList(),
+              selected: _weightType.label,
+              onSelect: (v) => setState(() => _weightType = _weightTypes[v]!),
+            ),
+            if (_measure != 'Reps') ...[
+              const SizedBox(height: 6),
+              Text(
+                'Most holds carry nothing. This is for the ones that do — a '
+                'weighted plank, a loaded carry.',
+                style: kMono.copyWith(
+                    fontSize: 11, height: 1.5, color: AppColors.faint),
+              ),
+            ],
             const SizedBox(height: 18),
             _Label('Demo link (optional)'),
             _Field(

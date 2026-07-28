@@ -29,6 +29,13 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// no rest is running.
   RestPrompt? _restPrompt;
 
+  /// The timed set being held right now, and how long it has been held. A hold
+  /// is a stopwatch the user starts and stops, so unlike every other set the
+  /// screen owns state for it while it runs.
+  ({int exercise, int set})? _holding;
+  int _held = 0;
+  Timer? _holdTimer;
+
   /// The resume-overlay's visibility flag, captured up front so `dispose` need
   /// not touch `ref` (unsafe once the element is deactivating).
   late final WorkoutScreenVisible _visibility =
@@ -48,6 +55,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   @override
   void dispose() {
     _restTimer?.cancel();
+    _holdTimer?.cancel();
     // Leaving — collapsed or finished — lets the pill come back. Deferred so it
     // never notifies listeners while the tree is being torn down.
     final visibility = _visibility;
@@ -85,13 +93,80 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// skipping is still "the rest is over" — the phone may well be in a pocket
   /// either way, since Skip is as often a tap on a notification-free guess as a
   /// deliberate one.
-  void _stopRest() {
+  void _stopRest({bool tone = true}) {
     _restTimer?.cancel();
     _restTimer = null;
     if (mounted) setState(() => _restLeft = 0);
-    ref.read(restToneProvider).play(
-          enabled: ref.read(restSoundProvider).value ?? true,
-        );
+    if (tone) _tone();
+  }
+
+  /// The one place the tone is asked for, so "the user switched it off" is
+  /// checked once rather than at each of the three call sites.
+  void _tone() => ref.read(restToneProvider).play(
+        enabled: ref.read(restSoundProvider).value ?? true,
+      );
+
+  /// What one tap on a timed set's result cell does.
+  ///
+  /// A hold is not a count you claim, it is a duration you measure — so the
+  /// cell is a stopwatch: tap to start, tap again to stop, and the seconds it
+  /// ran are what gets logged. Tapping a hold that is already logged clears it,
+  /// which is the same "undo by tapping" the rep cycle ends on.
+  void _tapTimed(int ei, int si, SetEntry entry) {
+    final h = _holding;
+    if (h != null && h.exercise == ei && h.set == si) {
+      _stopHold();
+      return;
+    }
+    if (entry.done) {
+      ref.read(activeWorkoutProvider.notifier).setLogged(ei, si, null);
+      HapticFeedback.selectionClick();
+      return;
+    }
+    _startHold(ei, si);
+  }
+
+  /// Starts the stopwatch on one held set.
+  ///
+  /// Any hold already running is stopped and logged first: you cannot be in two
+  /// planks at once, and the one you were in did happen. A rest running when a
+  /// hold starts is over — but silently, because the tone means "stop holding"
+  /// here and sounding it as you begin would say the opposite.
+  void _startHold(int ei, int si) {
+    if (_holding != null) _stopHold();
+    _stopRest(tone: false);
+    HapticFeedback.selectionClick();
+    setState(() {
+      _holding = (exercise: ei, set: si);
+      _held = 0;
+    });
+    _holdTimer?.cancel();
+    _holdTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _held++);
+    });
+  }
+
+  /// Stops the stopwatch, logs what it read, and starts the rest.
+  void _stopHold() {
+    final h = _holding;
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    if (h == null) return;
+    final seconds = _held;
+    setState(() {
+      _holding = null;
+      _held = 0;
+    });
+    HapticFeedback.selectionClick();
+    ref
+        .read(activeWorkoutProvider.notifier)
+        .setLogged(h.exercise, h.set, seconds);
+    _tone();
+    final session = ref.read(activeWorkoutProvider);
+    if (session != null) {
+      _startRest(session.exercises[h.exercise].restSeconds,
+          session.restAfterSet(h.exercise, h.set));
+    }
   }
 
   /// The escape hatch for high rep counts, where tapping down from a goal of 20
@@ -262,7 +337,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                 // with the rows: it answers "how do I log this?", a question
                 // that occurs on whichever exercise you happen to be looking
                 // at, not only on the first one.
-                const _LoggingHint(),
+                _LoggingHint(
+                  anyTimed: session.exercises.any((e) => e.mode.timed),
+                ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
@@ -308,7 +385,18 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               entry: entry,
                               unit: unit,
                               onEditWeight: () => _editSetWeight(ei, si),
+                              // A held set is timed, not counted — see
+                              // _tapTimed. It owns its own rest, because the
+                              // rest only starts when the hold stops.
+                              holdingSeconds: _holding?.exercise == ei &&
+                                      _holding?.set == si
+                                  ? _held
+                                  : null,
                               onTap: () {
+                                if (entry.timed) {
+                                  _tapTimed(ei, si, entry);
+                                  return;
+                                }
                                 final wasDone = entry.done;
                                 controller.cycleSet(ei, si);
                                 HapticFeedback.selectionClick();
@@ -503,7 +591,12 @@ class _SessionNotice extends StatelessWidget {
 }
 
 class _LoggingHint extends StatelessWidget {
-  const _LoggingHint();
+  const _LoggingHint({required this.anyTimed});
+
+  /// Whether this session holds anything for time. A held set is tapped to
+  /// start and tapped to stop, which is a different instruction from the rep
+  /// cycle — and one worth giving only when there is something to use it on.
+  final bool anyTimed;
 
   @override
   Widget build(BuildContext context) {
@@ -515,7 +608,8 @@ class _LoggingHint extends StatelessWidget {
       ),
       child: Text(
         'Tap a set to log it at the goal · tap again for each rep you fell '
-        'short · hold to type',
+        'short · hold to type'
+        '${anyTimed ? '\nA held set times itself: tap to start, tap to stop.' : ''}',
         style: kMono.copyWith(
             fontSize: 11, height: 1.45, color: AppColors.faint),
       ),
@@ -1011,6 +1105,7 @@ class _SetRow extends StatelessWidget {
     required this.onEditWeight,
     required this.onTap,
     required this.onTypeResult,
+    this.holdingSeconds,
   });
   final int number;
   final SetEntry entry;
@@ -1018,6 +1113,10 @@ class _SetRow extends StatelessWidget {
   final VoidCallback onEditWeight;
   final VoidCallback onTap;
   final VoidCallback onTypeResult;
+
+  /// Seconds elapsed on this set's stopwatch, or null when it is not running.
+  /// Only a timed set ever has one — see `_tapTimed`.
+  final int? holdingSeconds;
 
   SetEntry get _entry => entry;
 
@@ -1038,8 +1137,11 @@ class _SetRow extends StatelessWidget {
   }
 
   /// Green for a set that met its goal, gold for one that came up short —
-  /// including a set finished at a reduced weight.
-  Color get _tone => _entry.missedGoal ? AppColors.gold : AppColors.good;
+  /// including a set finished at a reduced weight. A hold still running is the
+  /// accent: it is neither yet, and it is the thing on screen to look at.
+  Color get _tone => holdingSeconds != null
+      ? AppColors.accent
+      : (_entry.missedGoal ? AppColors.gold : AppColors.good);
 
   @override
   Widget build(BuildContext context) {
@@ -1136,7 +1238,11 @@ class _SetRow extends StatelessWidget {
   /// to see how the session went. The arrow says the same thing the colour
   /// does, without asking anyone to tell two hues apart.
   Widget _resultBox() {
-    final done = _entry.done;
+    final holding = holdingSeconds != null;
+    final done = _entry.done || holding;
+    final value = holding
+        ? '${holdingSeconds}s'
+        : '${_entry.logged ?? _entry.goal}${_entry.timed ? 's' : ''}';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
@@ -1152,20 +1258,27 @@ class _SetRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(9),
             border: Border.all(
               color: done ? _tone.withValues(alpha: 0.55) : AppColors.line,
+              // A running hold is the one thing on the board actively
+              // happening, so it says so with more than a colour.
+              width: holding ? 2 : 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (holding) ...[
+                Icon(Icons.stop_rounded, size: 13, color: _tone),
+                const SizedBox(width: 3),
+              ],
               Text(
-                '${_entry.logged ?? _entry.goal}${_entry.timed ? 's' : ''}',
+                value,
                 style: kMono.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: done ? _tone : AppColors.faint,
                 ),
               ),
-              if (_entry.missedGoal) ...[
+              if (_entry.missedGoal && !holding) ...[
                 const SizedBox(width: 2),
                 Icon(Icons.arrow_downward_rounded, size: 13, color: _tone),
               ],

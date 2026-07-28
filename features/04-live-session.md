@@ -31,6 +31,8 @@ you're done.
   deload](06-layoff-deloads.md) is offered, accept or decline it here first.)
 - **Log a set:** tap the set row's result cell to cycle its value (goal → one
   fewer → … → 0 → untouched); hold it to type an exact count.
+- **Log a hold:** tap the result cell to start the clock, tap again to stop it.
+  Holding it still types a duration in by hand.
 - **Change the weight:** tap the weight above the working sets to move the whole
   exercise; tap a single row's weight to move only that set.
 - **Your note:** tap the note icon beside an exercise to read it, the pencil
@@ -165,8 +167,18 @@ you're done.
   stepper goes to six for a heavy lift starting from an empty bar, but six is a
   choice the user makes, not a suggestion. Sources are cited in
   `lib/data/warmup.dart`.
-- **A tap cycles differently for timed sets** — goal ⇄ untouched, since nobody
-  taps a plank down a second at a time.
+- **A held set times itself.** A hold is a duration you measure, not a count you
+  claim, so its result cell is a stopwatch: tap to start, tap again to stop, and
+  the seconds it ran are what gets logged. It shows the running count in the
+  accent with a heavier border — the one thing on the board actively happening —
+  and sounds the same tone as the rest timer when it stops. The rest begins then
+  too, not when the hold started.
+
+  Only one hold runs at a time. Starting a second logs the first rather than
+  losing it: you cannot be in two planks at once, and the one you were in did
+  happen. Tapping a hold that is already logged clears it, which is the same
+  "undo by tapping" the rep cycle ends on. A long press still types an exact
+  duration in — for the hold you timed on the clock on the wall.
 - **A missed set** is one that fell short on reps/seconds *or* weight (deloading
   to finish counts as a miss) — this feeds progression.
 - **Finish order matters:** sets are saved *before* progression advances, so a
@@ -196,3 +208,4 @@ you're done.
 - [#40 Exercise notes, editable during a workout](https://github.com/viktorChekhovoi/foss-lift/issues/40) — shipped, in review
 - [#41 The resume bar covered content it should not](https://github.com/viktorChekhovoi/foss-lift/issues/41) — shipped, in review
 - [#36 Rest prompts, and a sound when the timer ends](https://github.com/viktorChekhovoi/foss-lift/issues/36) — shipped, in review
+- [#38 Timed movements: a count-up timer](https://github.com/viktorChekhovoi/foss-lift/issues/38) — shipped, in review
