@@ -657,7 +657,13 @@ class _CheckRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 15)),
+          // The label gives; the checkbox is the control and stays whole.
+          Expanded(
+            child: Text(label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15)),
+          ),
         ],
       ),
     );

@@ -35,11 +35,19 @@ here — **Default** means "whatever the phone says".
   built from fixed widths, so "it survives a large font" is not something anyone
   can hold in their head. The feature test mounts each screen at 1.0×, 1.3× and
   2.0× on a 360 dp viewport and fails on any render overflow.
+- **The dialogs and sheets are swept too**, and they are the tighter case: a
+  dialog is bounded on both axes by its own insets, and none of it is on screen
+  for the screen sweep to see. Covered at 1.0× and 2.0× — overflow only grows
+  with scale, so what holds at the ceiling holds below it — and reached the way
+  a user reaches them, by opening the real control on the real screen. That is
+  where the stepper and the to-failure checkbox turned up.
 - **Where a row runs out of width, the label gives and the control does not.**
   A section heading ellipsises before its action is pushed off the edge; the
   warm-up group's "· 3 sets" gives before the word "WARM-UP"; the live board's
-  "WORKING SETS" gives before the weight beside it, which has to stay whole and
-  tappable.
+  "WORKING SETS" gives before the weight beside it; a number stepper's value
+  ellipsises before either of its buttons, because a stepper you cannot press is
+  not a stepper. All of them are the same rule: the part that only names things
+  yields to the part you touch.
 
 ## Where it lives
 

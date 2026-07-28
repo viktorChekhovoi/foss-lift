@@ -38,6 +38,8 @@ import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/text_scale.dart';
+import 'package:foss_lift/widgets/builder_widgets.dart';
+import 'package:foss_lift/widgets/share_widgets.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -74,6 +76,30 @@ Widget scaled(ProviderContainer c, Widget child, double scale) =>
         ),
       ),
     );
+
+/// Collects render-overflow errors raised while [body] runs.
+///
+/// Overflow is reported through `FlutterError.onError` during layout, so it has
+/// to be intercepted as it happens — by the time a test ends, the render object
+/// that overflowed has been disposed and says so instead of saying where.
+Future<List<String>> overflowsDuring(Future<void> Function() body) async {
+  final found = <String>[];
+  final prev = FlutterError.onError;
+  FlutterError.onError = (d) {
+    final text = d.exception.toString();
+    if (text.contains('overflowed')) {
+      found.add(text.split('\n').first);
+    } else {
+      prev?.call(d);
+    }
+  };
+  try {
+    await body();
+  } finally {
+    FlutterError.onError = prev;
+  }
+  return found;
+}
 
 void main() {
   late AppDatabase db;
@@ -270,5 +296,239 @@ void main() {
       // what the sweep covers, this says so before a user finds out.
       expect(kMaxTextScale, 2.0);
     });
+  });
+
+  group('dialogs and sheets survive it too', () {
+    // The screen sweep only sees what is laid out on the page, so anything
+    // behind a tap is invisible to it — and a dialog is the tightest box in the
+    // app, bounded on both axes by its own insets.
+    //
+    // Overflow only grows with scale, so these run at the ceiling and at 1.0.
+    // Anything that holds at 2.0 holds below it.
+
+    /// Scrolls [what] into view if the screen is long enough to have pushed it
+    /// off, then taps it. At 2.0x a control that was on screen at 1.0x often is
+    /// not, and the control is not what is under test here — the dialog is.
+    Future<void> reach(WidgetTester tester, Finder what) async {
+      if (what.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(what, 120,
+            scrollable: find.byType(Scrollable).first);
+      } else {
+        await tester.ensureVisible(what);
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(what);
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    /// A host with one button that opens [open], mounted at [scale].
+    Future<void> pumpOpener(
+      WidgetTester tester,
+      double scale,
+      Future<void> Function(BuildContext) open,
+    ) async {
+      await tester.pumpWidget(scaled(
+        container!,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => open(context),
+            child: const Text('open'),
+          ),
+        ),
+        scale,
+      ));
+      await tester.pump();
+    }
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('the shared asks @ $scale', (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        container = containerFor(db);
+
+        final asks = <String, Future<void> Function(BuildContext)>{
+          'a note': (c) => askNote(c, title: 'Bulgarian Split Squat',
+              initial: 'Seat 4, pin 7 — and mind the left knee on the way down'),
+          'a weight': (c) => askWeight(c,
+              title: 'Bar for Bulgarian Split Squat', unit: 'kg',
+              initialKg: 20, defaultLabel: 'Use default'),
+          'a bar by name': (c) => askBar(c,
+              title: 'Bar for Bulgarian Split Squat', unit: 'kg',
+              currentKg: 20, defaultLabel: 'Use default'),
+          'a pasted code': (c) => promptForCode(c,
+              title: 'Paste a routine', hint: 'FLR1.… or a fosslift:// link'),
+          'the exercise picker': (c) => pickExercise(c),
+        };
+
+        for (final ask in asks.entries) {
+          final found = await overflowsDuring(() async {
+            await pumpOpener(tester, scale, ask.value);
+            await tester.tap(find.text('open'));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 400));
+            expect(find.text('open'), findsOneWidget);
+          });
+          expect(found, isEmpty,
+              reason: '${ask.key} at $scale×: ${found.toSet().join(" | ")}');
+        }
+        await stop(tester);
+      });
+
+      testWidgets('the live board asks @ $scale', (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.runAsync(() async {
+          container = containerFor(db);
+          await container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+        });
+
+        final found = await overflowsDuring(() async {
+          await tester.pumpWidget(
+              scaled(container!, const WorkoutScreen(), scale));
+          await tester.pump();
+
+          // The weight, typed in.
+          await reach(tester, find.byKey(const ValueKey('working-weight-0')));
+          expect(find.byType(TextField), findsWidgets);
+          await tester.tap(find.text('Cancel'));
+          await tester.pump(const Duration(milliseconds: 400));
+
+          // The result, typed in.
+          final cell = find.descendant(
+            of: find.byKey(const ValueKey('0-0-Bench Press')),
+            matching: find.byKey(const ValueKey('set-result')),
+          );
+          await tester.ensureVisible(cell);
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.longPress(cell);
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.text('Reps done'), findsOneWidget);
+          await tester.tap(find.text('Cancel'));
+          await tester.pump(const Duration(milliseconds: 400));
+
+          // And the one that destroys work, which is the wordiest.
+          await tester.tap(find.byTooltip('Abort workout'));
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.text('Abort this workout?'), findsOneWidget);
+          await tester.tap(find.text('Keep going'));
+          await tester.pump(const Duration(milliseconds: 400));
+        });
+
+        expect(found, isEmpty,
+            reason: 'the board at $scale×: ${found.toSet().join(" | ")}');
+        await stop(tester);
+      });
+
+      testWidgets('switching workouts and units @ $scale', (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        late int pull;
+        await tester.runAsync(() async {
+          container = containerFor(db);
+          pull = await workoutIdNamed(db, 'Pull');
+          await container!.read(activeWorkoutProvider.notifier).start(
+              workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+        });
+        container!.read(activeWorkoutProvider.notifier).cycleSet(0, 0);
+
+        var found = await overflowsDuring(() async {
+          await tester.pumpWidget(
+              scaled(container!, WorkoutDetailScreen(workoutId: pull), scale));
+          await tester.pump(const Duration(milliseconds: 400));
+          await reach(tester, find.text('Start workout'));
+          // Names the live session and everything at stake in it — the longest
+          // body text in any dialog the app shows.
+          expect(find.text('Switch to Pull?'), findsOneWidget);
+          await tester.tap(find.textContaining('Keep '));
+          await tester.pump(const Duration(milliseconds: 400));
+        });
+        expect(found, isEmpty,
+            reason: 'the switch ask at $scale×: ${found.toSet().join(" | ")}');
+
+        found = await overflowsDuring(() async {
+          await tester.pumpWidget(
+              scaled(container!, const SettingsScreen(), scale));
+          await tester.pump(const Duration(milliseconds: 400));
+          await reach(tester, find.text('Pounds · lb'));
+          expect(find.text('Switch to pounds?'), findsOneWidget);
+          await tester.tap(find.text('Cancel'));
+          await tester.pump(const Duration(milliseconds: 400));
+        });
+        expect(found, isEmpty,
+            reason: 'the unit ask at $scale×: ${found.toSet().join(" | ")}');
+
+        container!.read(activeWorkoutProvider.notifier).discard();
+        await stop(tester);
+      });
+
+      testWidgets('the QR and the colour picker @ $scale', (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        late int routineId;
+        await tester.runAsync(() async {
+          container = containerFor(db);
+          routineId = (await routineNamed(db)).id;
+        });
+
+        var found = await overflowsDuring(() async {
+          await tester.pumpWidget(scaled(
+              container!, RoutineShareScreen(routineId: routineId), scale));
+          await tester.pump(const Duration(milliseconds: 400));
+          await reach(tester, find.text('Show QR'));
+          expect(find.byType(AlertDialog), findsOneWidget);
+          await tester.tap(find.text('Done'));
+          await tester.pump(const Duration(milliseconds: 400));
+        });
+        expect(found, isEmpty,
+            reason: 'the QR dialog at $scale×: ${found.toSet().join(" | ")}');
+
+        found = await overflowsDuring(() async {
+          await tester.pumpWidget(
+              scaled(container!, const CustomThemeEditorScreen(), scale));
+          await tester.pump(const Duration(milliseconds: 400));
+          await reach(tester, find.text('Accent'));
+          // Two notations, three channels and the copy/paste controls, in a
+          // dialog — the busiest row of controls in the app.
+          expect(find.text('HSL'), findsOneWidget);
+          await tester.tap(find.text('Cancel'));
+          await tester.pump(const Duration(milliseconds: 400));
+        });
+        expect(found, isEmpty,
+            reason: 'the colour picker at $scale×: ${found.toSet().join(" | ")}');
+
+        await stop(tester);
+      });
+
+      testWidgets('the slot configuration sheet @ $scale', (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        late int workoutId;
+        await tester.runAsync(() async {
+          container = containerFor(db);
+          workoutId = await workoutIdNamed(db, 'Push');
+        });
+
+        final found = await overflowsDuring(() async {
+          await tester.pumpWidget(scaled(
+              container!, WorkoutEditScreen(workoutId: workoutId), scale));
+          await tester.pump(const Duration(milliseconds: 400));
+          await reach(tester, find.text('Bench Press'));
+          // Three captioned cards of two-column fields — the densest grid the
+          // app draws, and the one most likely to break under a big font. The
+          // steppers identify it: the screen behind the sheet has none.
+          expect(find.byType(NumberStepper), findsWidgets,
+              reason: 'the configuration sheet did not open');
+        });
+        expect(found, isEmpty,
+            reason: 'the config sheet at $scale×: ${found.toSet().join(" | ")}');
+        await stop(tester);
+      });
+    }
   });
 }

@@ -467,15 +467,23 @@ class NumberStepper extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _btn(Icons.remove, canGoDown ? _down : null),
-        Container(
-          constraints: const BoxConstraints(minWidth: 54),
-          alignment: Alignment.center,
-          child: Text(
-            isEmpty ? emptyLabel : '$value$suffix',
-            style: kMono.copyWith(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: isEmpty ? AppColors.faint : AppColors.text,
+        // The number gives, the two buttons never do: a stepper you cannot
+        // press is not a stepper. At a large font scale in a two-column grid
+        // there is not room for all three at their natural width, and 54 is a
+        // minimum rather than a promise.
+        Flexible(
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 54),
+            alignment: Alignment.center,
+            child: Text(
+              isEmpty ? emptyLabel : '$value$suffix',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: kMono.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: isEmpty ? AppColors.faint : AppColors.text,
+              ),
             ),
           ),
         ),
