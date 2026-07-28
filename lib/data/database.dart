@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../theme/theme_id.dart';
 import '../util/video_links.dart';
 import 'exercise_stats.dart';
 import 'layoff.dart';
@@ -301,17 +302,40 @@ class Settings extends Table {
   RealColumn get textScale => real().withDefault(const Constant(1.0))();
 
   /// Which colour theme is active: a preset slug (`ignition`, `graphite`, …),
-  /// `custom`, or null. Null means the default preset, so an install that never
-  /// touched the setting looks exactly as it always did.
+  /// `custom:<n>` naming a row of [CustomThemes], or null. Null means the
+  /// default preset, so an install that never touched the setting looks exactly
+  /// as it always did.
+  ///
+  /// Nothing keeps this in step with [CustomThemes] except [deleteCustomTheme],
+  /// which clears it when it removes the row it names. A slug left dangling by
+  /// any other route resolves to the default rather than to nothing — see
+  /// `resolvePalette`.
   TextColumn get themePresetId => text().nullable()();
-
-  /// The user's own custom palette, serialised as JSON — see `AppPalette`. Kept
-  /// even while a preset is active, so switching to Custom brings back what was
-  /// last built rather than a blank slate.
-  TextColumn get customTheme => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// The colour themes the user owns: the ones they built and the ones they
+/// imported. Presets are code, not rows — only a palette somebody can edit,
+/// rename or delete lives here.
+///
+/// **The palette JSON is the whole row.** A theme's name lives inside it
+/// (`AppPalette.name`) rather than in a column of its own: a palette already
+/// carries its name, that name is what a share code sends, and a second copy in
+/// a column would be a second thing to keep in step for no gain. Listing the
+/// themes parses the JSON either way, to draw their swatches.
+///
+/// **No migration rung, deliberately.** This table replaced the single
+/// `Settings.customTheme` column outright, at schema v1, because nothing has
+/// shipped and no install exists that could hold the old shape — see the
+/// format-freeze rule in `CLAUDE.md`. On the first public release that rule
+/// inverts and this becomes a table like any other.
+class CustomThemes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// The palette as `AppPalette.toJson` writes it.
+  TextColumn get palette => text()();
 }
 
 // ---------------------------------------------------------------------------
@@ -370,11 +394,6 @@ class LifetimeTotals {
 /// see [resolvePlateSettings].
 typedef StoredPlateSetup = ({String? kgRack, String? lbRack, double? barKg});
 
-/// The colour-theme choice as the settings row holds it: the selected id (a
-/// preset slug, `custom`, or null for the default preset) and the user's custom
-/// palette JSON, if they have built one. Resolved into a palette by
-/// `resolvePalette` in `app_theme.dart`.
-typedef ThemeSetting = ({String? presetId, String? customJson});
 
 /// One seeded exercise slot (first-run demo data only).
 typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
@@ -675,6 +694,7 @@ String repsLabel(WorkoutItem it) {
     Sessions,
     SessionSets,
     Settings,
+    CustomThemes,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -1484,29 +1504,60 @@ class AppDatabase extends _$AppDatabase {
   Future<void> resetBarWeight() =>
       _writeSettings(const SettingsCompanion(barWeight: Value(null)));
 
-  /// The active colour theme choice as stored: the selected id (a preset slug,
-  /// `custom`, or null for the default preset) and the user's custom palette
-  /// JSON, if any. Resolving these into a palette lives in `app_theme.dart`
-  /// (`resolvePalette`); the UI reads it via `activePaletteProvider`.
-  Stream<ThemeSetting> watchThemeSetting() {
+  /// The selected theme's id as stored: a preset slug, `custom:<n>`, or null
+  /// for "nothing chosen", which follows the system brightness. Resolving it
+  /// into a palette lives in `app_theme.dart` (`resolvePalette`); the UI reads
+  /// the result via `activePaletteProvider`.
+  Stream<String?> watchThemePresetId() {
     return (select(settings)..where((s) => s.id.equals(1)))
         .watchSingleOrNull()
-        .map((s) => (presetId: s?.themePresetId, customJson: s?.customTheme));
+        .map((s) => s?.themePresetId);
   }
 
-  /// Selects a shipped preset (or `custom`) as the active theme. Passing null
-  /// falls back to the default preset. The stored custom palette is left
-  /// untouched, so switching away from and back to Custom is lossless.
+  /// The user's own themes, oldest first — the order they were built or
+  /// imported in, which is the order the picker lists them in.
+  Stream<List<CustomTheme>> watchCustomThemes() =>
+      (select(customThemes)..orderBy([(t) => OrderingTerm(expression: t.id)]))
+          .watch();
+
+  /// Selects a shipped preset, or `custom:<n>` for one of the user's own, as
+  /// the active theme. Passing null falls back to the system default. Nothing
+  /// stored in [CustomThemes] is touched, so switching away and back is
+  /// lossless.
   Future<void> setThemePreset(String? presetId) =>
       _writeSettings(SettingsCompanion(themePresetId: Value(presetId)));
 
-  /// Stores the user's custom palette (JSON from `AppPalette.toJson`) and makes
-  /// it the active theme in one write. The `custom` slug matches
-  /// `kCustomThemeId` in `app_theme.dart` — the id a self-built palette carries.
-  Future<void> setCustomTheme(String json) => _writeSettings(SettingsCompanion(
-        customTheme: Value(json),
-        themePresetId: const Value('custom'),
-      ));
+  /// Adds a theme the user built or imported and selects it, in one write.
+  /// Returns its row id. [json] comes from `AppPalette.toJson`.
+  ///
+  /// Adding, never replacing: an imported code arrives alongside whatever is
+  /// already here rather than over the top of it.
+  Future<int> addCustomTheme(String json) => transaction(() async {
+        final id = await into(customThemes)
+            .insert(CustomThemesCompanion.insert(palette: json));
+        await setThemePreset(customThemeId(id));
+        return id;
+      });
+
+  /// Rewrites theme [id]'s palette and selects it. Saving a theme you were
+  /// editing is also a request to look at it.
+  Future<void> updateCustomTheme(int id, String json) => transaction(() async {
+        await (update(customThemes)..where((t) => t.id.equals(id)))
+            .write(CustomThemesCompanion(palette: Value(json)));
+        await setThemePreset(customThemeId(id));
+      });
+
+  /// Removes theme [id], and — if it was the selected one — the selection with
+  /// it, so the app falls back to the system default rather than being left
+  /// pointing at a row that is gone.
+  Future<void> deleteCustomTheme(int id) => transaction(() async {
+        await (delete(customThemes)..where((t) => t.id.equals(id))).go();
+        final selected = await (select(settings)..where((s) => s.id.equals(1)))
+            .getSingleOrNull();
+        if (selected?.themePresetId == customThemeId(id)) {
+          await setThemePreset(null);
+        }
+      });
 
   /// Updates the single settings row, creating it if it is somehow missing.
   /// Only the columns present in [patch] are touched.

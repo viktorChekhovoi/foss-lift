@@ -3,6 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'theme_id.dart';
+
+export 'theme_id.dart';
+
 /// The set of colour roles that make up a theme.
 ///
 /// Everything the app paints resolves to one of these twelve roles. A theme is
@@ -299,9 +303,6 @@ const double kMarkerDistance = 45;
   return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz));
 }
 
-/// The id used for the one palette the user builds and edits themselves.
-const String kCustomThemeId = 'custom';
-
 // ---------------------------------------------------------------------------
 // Shipped presets
 // ---------------------------------------------------------------------------
@@ -540,28 +541,36 @@ AppPalette defaultPaletteFor(Brightness system) =>
 
 /// Resolves the persisted theme choice into the palette to paint with.
 ///
-/// [presetId] is a preset slug, [kCustomThemeId], or null. Null means nothing
-/// has been chosen, which follows [system]. When it is [kCustomThemeId] the
-/// user's [customJson] is parsed; anything unresolvable — an unknown id, a null
-/// or malformed custom theme — falls back rather than leaving the app unpainted.
+/// [presetId] is a preset slug, a `custom:<n>` id naming one of [customs], or
+/// null. Null means nothing has been chosen, which follows [system]. Anything
+/// unresolvable — an unknown slug, a `custom:<n>` whose theme has been deleted
+/// — falls back rather than leaving the app unpainted.
+///
+/// [customs] are the user's own themes, already parsed and carrying their
+/// stored ids (see [customThemeFromRow]).
 AppPalette resolvePalette(
   String? presetId,
-  String? customJson, {
+  List<AppPalette> customs, {
   Brightness system = Brightness.dark,
 }) {
-  final fallback = defaultPaletteFor(system);
-  if (presetId == kCustomThemeId) {
-    if (customJson != null) {
-      final parsed = AppPalette.tryParse(customJson);
-      if (parsed != null) return parsed.copyWith(id: kCustomThemeId);
-    }
-    return fallback;
+  for (final custom in customs) {
+    if (custom.id == presetId) return custom;
   }
   for (final preset in kThemePresets) {
     if (preset.id == presetId) return preset;
   }
-  return fallback;
+  return defaultPaletteFor(system);
 }
+
+/// The palette held in a `CustomThemes` row, stamped with the id that names it.
+///
+/// Never accessible, whatever the JSON claims: the badge means a palette was
+/// designed and checked against WCAG, and one the user can recolour has not
+/// been. A row whose JSON will not parse yields null rather than a half-palette
+/// of default colours wearing the user's name.
+AppPalette? customThemeFromRow(int rowId, String json) =>
+    AppPalette.tryParse(json)
+        ?.copyWith(id: customThemeId(rowId), accessible: false);
 
 // ---------------------------------------------------------------------------
 // Live colours the widgets read

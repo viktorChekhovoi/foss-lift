@@ -107,7 +107,8 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), `textScale` (the user's text-size nudge on top of the phone's), and the colour theme (`themePresetId` — a preset slug/`custom`/null; `customTheme` — the user's palette as JSON) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `restSound` (the rest timer's tone, on by default), `textScale` (the user's text-size nudge on top of the phone's), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null) |
+| `CustomThemes` | One row per theme the user built or imported: just the palette as JSON, name included (`AppPalette.toJson`). Presets are code, not rows |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
@@ -429,7 +430,7 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/settings/bar` | bar_settings_screen | The default bar weight |
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
 | `/settings/theme` | theme_settings_screen | Pick a preset or custom theme; share and receive (reached from Profile → Appearance) |
-| `/settings/theme/custom` | theme_settings_screen | Edit each colour role of the custom theme |
+| `/settings/theme/custom`, `/settings/theme/custom/:id` | theme_settings_screen | Build a new theme, or name/recolour/delete an existing one |
 
 Note `/workout/:id` is a *template*; `/session` is the live thing in progress.
 
@@ -483,14 +484,16 @@ you never looked at.
 ### Cross-cutting
 - **Theme** (`theme/app_theme.dart`): the twelve colour roles are an
   `AppPalette` value; several `kThemePresets` ship (the default, Ignition,
-  mirrors `design/mockup.html`) and the user can build a `custom` one.
+  mirrors `design/mockup.html`) and the user can build as many `custom:<n>`
+  ones as they like, each a row in `CustomThemes`.
   `AppColors.*` are the live colours the whole UI reads — no longer `const`:
   `AppTheme.build(palette)` applies the active palette to them, and the app root
   re-keys `MaterialApp` by `palette.signature` so every screen repaints. **Two
   places must not rely on that.** The root paints nothing until
-  `themeSettingProvider` has a value, so no frame is ever drawn in the
-  system-default guess and then corrected; and `HomeShell` takes its colours
-  from a watched `activePaletteProvider` rather than the globals, because
+  `themeReadyProvider` is true — both the selected id and the user's own themes
+  have arrived — so no frame is ever drawn in the system-default guess and then
+  corrected; and `HomeShell` takes its colours from a watched
+  `activePaletteProvider` rather than the globals, because
   go_router holds its branch navigators by `GlobalKey` and the re-key moves the
   shell's elements instead of rebuilding them.
   `resolvePalette` turns the stored choice into a palette; `activePaletteProvider`

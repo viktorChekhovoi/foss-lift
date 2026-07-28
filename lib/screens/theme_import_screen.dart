@@ -56,16 +56,18 @@ class ThemeImportScreen extends ConsumerWidget {
       const SizedBox(height: 22),
       FilledButton(
         onPressed: () async {
-          // Arrives as *your* custom theme: a shared code carries a palette,
-          // not a claim on one of the shipped preset slots — and not the AAA
-          // badge either. The claim means "designed and checked against WCAG",
-          // which is a fact about the two shipped presets, not about a palette
-          // sitting in a slot whose colours you can edit freely afterwards.
+          // Joins *your* themes rather than replacing one: a code carries a
+          // palette, not a claim on a slot. Importing four leaves you holding
+          // four, and a theme you built is never overwritten by post.
+          //
+          // Not the AAA badge either. The claim means "designed and checked
+          // against WCAG", which is a fact about the two shipped presets, not
+          // about a palette whose colours you can edit freely afterwards.
           // Building your own from a high-contrast preset drops it for the
           // same reason; arriving with one is the same situation by post.
-          await ref.read(databaseProvider).setCustomTheme(palette
-              .copyWith(id: kCustomThemeId, accessible: false)
-              .toJson());
+          await ref
+              .read(databaseProvider)
+              .addCustomTheme(palette.copyWith(accessible: false).toJson());
           if (context.mounted) _leave(context);
         },
         child: const Text('Use this theme'),
@@ -74,11 +76,6 @@ class ThemeImportScreen extends ConsumerWidget {
       OutlinedButton(
         onPressed: () => _leave(context),
         child: const Text('Cancel'),
-      ),
-      const SizedBox(height: 14),
-      Text(
-        'Replaces your custom theme. Presets are untouched.',
-        style: TextStyle(color: AppColors.faint, fontSize: 12, height: 1.5),
       ),
     ];
   }

@@ -49,6 +49,13 @@ AppPalette _mineCustom() => kDefaultPalette.copyWith(
       gold: const Color(0xFFFFEB3B),
     );
 
+/// Adds [palette] as one of the user's own themes and returns it as stored:
+/// the same colours, wearing the `custom:<n>` id its row gave it.
+Future<AppPalette> _addTheme(AppDatabase db, AppPalette palette) async {
+  final id = await db.addCustomTheme(palette.toJson());
+  return palette.copyWith(id: customThemeId(id));
+}
+
 /// `RRGGBB` for [c], upper case — how the app writes a colour down.
 String _hexString(Color c) {
   int ch(double v) => (v * 255).round().clamp(0, 255);
@@ -260,7 +267,7 @@ void main() {
     test('each shipped preset resolves to its own distinct palette', () {
       // Every preset round-trips through the resolver by its slug...
       for (final preset in kThemePresets) {
-        expect(resolvePalette(preset.id, null), equals(preset),
+        expect(resolvePalette(preset.id, const []), equals(preset),
             reason: 'slug ${preset.id} should resolve to itself');
       }
       // ...and no two presets are the same palette.
@@ -294,7 +301,7 @@ void main() {
 
       // Nothing in this tree watches the theme, so keep the stream subscribed
       // for the duration or it never settles.
-      final sub = container.listen(themeSettingProvider, (_, _) {});
+      final sub = container.listen(themePresetIdProvider, (_, _) {});
       addTearDown(sub.close);
 
       await tester.pumpWidget(appUnder(
@@ -325,39 +332,52 @@ void main() {
 
   group('resolving a stored choice into a palette', () {
     test('no choice at all falls back to the default palette', () {
-      expect(resolvePalette(null, null), equals(kDefaultPalette));
+      expect(resolvePalette(null, const []), equals(kDefaultPalette));
     });
 
     test('an unknown preset slug falls back to the default', () {
-      expect(resolvePalette('no_such_theme', null), equals(kDefaultPalette));
-    });
-
-    test('the custom slug with no stored palette falls back to the default', () {
-      expect(resolvePalette(kCustomThemeId, null), equals(kDefaultPalette));
-    });
-
-    test('the custom slug with malformed JSON falls back to the default', () {
-      expect(resolvePalette(kCustomThemeId, 'not json at all'),
-          equals(kDefaultPalette));
-      expect(resolvePalette(kCustomThemeId, '{"nope":true}'),
+      expect(resolvePalette('no_such_theme', const []),
           equals(kDefaultPalette));
     });
 
-    test('the custom slug with a stored palette resolves to that palette', () {
-      final mine = _mineCustom();
-      final resolved = resolvePalette(kCustomThemeId, mine.toJson());
-      expect(resolved, equals(mine));
-      expect(resolved.id, kCustomThemeId);
+    test('a custom id with no theme behind it falls back to the default', () {
+      // The shape a deleted theme leaves behind if a selection somehow
+      // outlives it: the app paints the default rather than nothing at all.
+      expect(resolvePalette(customThemeId(7), const []),
+          equals(kDefaultPalette));
+      expect(resolvePalette(kCustomThemeId, const []),
+          equals(kDefaultPalette));
+    });
+
+    test('a custom id resolves to the theme it names, and not another', () {
+      final first = _mineCustom().copyWith(id: customThemeId(1), name: 'One');
+      final second = _mineCustom().copyWith(
+          id: customThemeId(2), name: 'Two', accent: const Color(0xFFAA0000));
+
+      expect(resolvePalette(customThemeId(2), [first, second]),
+          equals(second));
+      expect(resolvePalette(customThemeId(1), [first, second]), equals(first));
+    });
+
+    test('a row that will not parse is not offered as a theme', () {
+      expect(customThemeFromRow(3, 'not json at all'), isNull);
+      expect(customThemeFromRow(3, '{"nope":true}'), isNull);
+    });
+
+    test('a stored row resolves to its palette under its own id', () {
+      final stored = customThemeFromRow(4, _mineCustom().toJson());
+      expect(stored, isNotNull);
+      expect(stored!.id, customThemeId(4));
+      expect(stored, equals(_mineCustom().copyWith(id: customThemeId(4))));
     });
   });
 
   group('persisting the choice in Settings', () {
     test('a fresh install has no choice and follows the system brightness',
         () async {
-      // The spec: themePresetId/customTheme both unset on a new install.
-      final setting = await db.watchThemeSetting().first;
-      expect(setting.presetId, isNull);
-      expect(setting.customJson, isNull);
+      // The spec: nothing chosen, and no themes of your own, on a new install.
+      expect(await db.watchThemePresetId().first, isNull);
+      expect(await db.watchCustomThemes().first, isEmpty);
 
       // With nothing stored the app paints the default look in whichever
       // brightness the phone is set to, rather than forcing dark on a phone
@@ -378,13 +398,13 @@ void main() {
       expect(defaultPaletteFor(Brightness.light).id, 'daylight');
     });
 
-    test('setThemePreset then watchThemeSetting round-trips the slug', () async {
+    test('setThemePreset then watchThemePresetId round-trips the slug',
+        () async {
       final graphite = kThemePresets.firstWhere((p) => p.id == 'graphite');
       await db.setThemePreset(graphite.id);
 
-      final setting = await db.watchThemeSetting().first;
-      expect(setting.presetId, 'graphite');
-      expect(setting.customJson, isNull,
+      expect(await db.watchThemePresetId().first, 'graphite');
+      expect(await db.watchCustomThemes().first, isEmpty,
           reason: 'a preset choice stores only a slug, not a palette');
 
       final palette = await readWhen(
@@ -400,47 +420,142 @@ void main() {
       await db.setThemePreset('graphite');
       await db.setThemePreset(null);
 
-      final setting = await db.watchThemeSetting().first;
-      expect(setting.presetId, isNull);
-      expect(resolvePalette(setting.presetId, setting.customJson),
-          equals(kDefaultPalette));
+      expect(await db.watchThemePresetId().first, isNull);
+      expect(resolvePalette(null, const []), equals(kDefaultPalette));
     });
 
-    test('setCustomTheme stores the palette JSON under the custom slug',
-        () async {
-      final mine = _mineCustom();
-      await db.setCustomTheme(mine.toJson());
+    test('addCustomTheme stores the palette and makes it active', () async {
+      final mine = await _addTheme(db, _mineCustom());
 
-      final setting = await db.watchThemeSetting().first;
-      expect(setting.presetId, kCustomThemeId,
-          reason: 'saving a custom theme also makes it active');
-      expect(setting.customJson, isNotNull);
-      expect(AppPalette.tryParse(setting.customJson!), equals(mine));
+      expect(await db.watchThemePresetId().first, mine.id,
+          reason: 'saving a theme also makes it active');
+      expect(customThemeRowId(mine.id), isNotNull,
+          reason: 'a theme of your own is named by its row');
 
       final palette = await readWhen(
         container,
         activePaletteProvider,
         (p) => p == mine,
-        reason: 'activePalette/resolvePalette should reflect the custom theme',
+        reason: 'activePalette should reflect the theme just added',
       );
       expect(palette, equals(mine));
     });
 
-    test('switching preset -> custom -> preset is lossless for the custom theme',
-        () async {
-      final mine = _mineCustom();
-      await db.setCustomTheme(mine.toJson());
+    test('switching preset -> your theme -> preset is lossless', () async {
+      final mine = await _addTheme(db, _mineCustom());
       // Switch away to a preset...
       await db.setThemePreset('graphite');
-      var setting = await db.watchThemeSetting().first;
-      expect(setting.presetId, 'graphite');
-      expect(setting.customJson, isNotNull,
-          reason: 'the stored custom palette survives a switch away');
+      expect(await db.watchThemePresetId().first, 'graphite');
+      expect(await db.watchCustomThemes().first, hasLength(1),
+          reason: 'the stored palette survives a switch away');
 
-      // ...and back to custom, without re-editing.
-      await db.setThemePreset(kCustomThemeId);
-      setting = await db.watchThemeSetting().first;
-      expect(AppPalette.tryParse(setting.customJson!), equals(mine));
+      // ...and back, without re-editing.
+      await db.setThemePreset(mine.id);
+      final rows = await db.watchCustomThemes().first;
+      expect(customThemeFromRow(rows.single.id, rows.single.palette),
+          equals(mine));
+    });
+  });
+
+  group('several themes of your own', () {
+    test('they accumulate rather than overwrite each other', () async {
+      final first = await _addTheme(db, _mineCustom().copyWith(name: 'One'));
+      final second = await _addTheme(db, _mineCustom().copyWith(name: 'Two'));
+
+      final rows = await db.watchCustomThemes().first;
+      expect(rows, hasLength(2), reason: 'the second did not replace the first');
+      expect(first.id, isNot(second.id));
+      expect(
+        [for (final r in rows) customThemeFromRow(r.id, r.palette)!.name],
+        ['One', 'Two'],
+        reason: 'listed oldest first, the order they were built in',
+      );
+    });
+
+    test('the last one added is the active one', () async {
+      await _addTheme(db, _mineCustom().copyWith(name: 'One'));
+      final second = await _addTheme(db, _mineCustom().copyWith(name: 'Two'));
+      expect(await db.watchThemePresetId().first, second.id);
+    });
+
+    test('renaming one leaves the others alone', () async {
+      final first = await _addTheme(db, _mineCustom().copyWith(name: 'One'));
+      final second = await _addTheme(db, _mineCustom().copyWith(name: 'Two'));
+
+      await db.updateCustomTheme(customThemeRowId(first.id)!,
+          _mineCustom().copyWith(name: 'Renamed').toJson());
+
+      final rows = await db.watchCustomThemes().first;
+      expect(
+        [for (final r in rows) customThemeFromRow(r.id, r.palette)!.name],
+        ['Renamed', 'Two'],
+      );
+      expect(await db.watchThemePresetId().first, first.id,
+          reason: 'saving a theme selects it');
+      expect(second.id, isNot(first.id));
+    });
+
+    test('editing one theme does not touch another', () async {
+      final first = await _addTheme(db, _mineCustom().copyWith(name: 'One'));
+      final second = await _addTheme(
+          db, _mineCustom().copyWith(name: 'Two', accent: const Color(0xFF112233)));
+
+      await db.updateCustomTheme(
+        customThemeRowId(first.id)!,
+        _mineCustom().copyWith(name: 'One', accent: const Color(0xFFAABBCC))
+            .toJson(),
+      );
+
+      final rows = await db.watchCustomThemes().first;
+      final palettes = [
+        for (final r in rows) customThemeFromRow(r.id, r.palette)!,
+      ];
+      expect(palettes[0].accent, const Color(0xFFAABBCC));
+      expect(palettes[1].accent, const Color(0xFF112233),
+          reason: '${second.name} kept its own accent');
+    });
+
+    test('deleting one removes only it', () async {
+      final first = await _addTheme(db, _mineCustom().copyWith(name: 'One'));
+      await _addTheme(db, _mineCustom().copyWith(name: 'Two'));
+
+      await db.deleteCustomTheme(customThemeRowId(first.id)!);
+
+      final rows = await db.watchCustomThemes().first;
+      expect(rows, hasLength(1));
+      expect(customThemeFromRow(rows.single.id, rows.single.palette)!.name,
+          'Two');
+    });
+
+    test('deleting the active theme falls back rather than unpainting the app',
+        () async {
+      final only = await _addTheme(db, _mineCustom());
+      expect(await db.watchThemePresetId().first, only.id);
+
+      await db.deleteCustomTheme(customThemeRowId(only.id)!);
+
+      expect(await db.watchThemePresetId().first, isNull,
+          reason: 'the selection goes with the row it named');
+      final expected =
+          defaultPaletteFor(container.read(platformBrightnessProvider));
+      final palette = await readWhen(
+        container,
+        activePaletteProvider,
+        (p) => p == expected,
+        reason: 'the app falls back to the system default, not to nothing',
+      );
+      expect(palette, equals(expected));
+    });
+
+    test('deleting a theme you are not using leaves the selection alone',
+        () async {
+      final keep = await _addTheme(db, _mineCustom().copyWith(name: 'Keep'));
+      final drop = await _addTheme(db, _mineCustom().copyWith(name: 'Drop'));
+      await db.setThemePreset(keep.id);
+
+      await db.deleteCustomTheme(customThemeRowId(drop.id)!);
+
+      expect(await db.watchThemePresetId().first, keep.id);
     });
   });
 
@@ -503,9 +618,9 @@ void main() {
       // Pick a preset by its shown name — a real user affordance, not internals.
       await tester.tap(find.text('Graphite'));
       await pumpUntil(tester,
-          () => container.read(themeSettingProvider).value?.presetId == 'graphite');
+          () => container.read(themePresetIdProvider).value == 'graphite');
 
-      expect(container.read(themeSettingProvider).value?.presetId, 'graphite',
+      expect(container.read(themePresetIdProvider).value, 'graphite',
           reason: 'tapping the row selects the preset');
       expect(container.read(activePaletteProvider),
           equals(kThemePresets.firstWhere((p) => p.id == 'graphite')),
@@ -548,7 +663,7 @@ void main() {
       await pumpUntil(
           tester,
           () =>
-              container.read(themeSettingProvider).value?.presetId == light.id);
+              container.read(themePresetIdProvider).value == light.id);
 
       final active = container.read(activePaletteProvider);
       expect(active, equals(light));
@@ -592,7 +707,7 @@ void main() {
       // Unselected: the tap belongs to picking the theme, not to the badge.
       await tester.tap(find.text('AAA').first);
       await pumpUntil(tester,
-          () => container.read(themeSettingProvider).value?.presetId == hc.id);
+          () => container.read(themePresetIdProvider).value == hc.id);
       expect(find.text('Meets WCAG AAA contrast'), findsNothing,
           reason: 'the tap selected the theme rather than explaining the badge');
 
@@ -605,12 +720,10 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a custom theme is shareable, as a QR or a link and no more',
+    testWidgets('a theme of your own is shareable, as a QR or a link and no more',
         (tester) async {
       await tester.runAsync(() async {
-        await db.setCustomTheme(
-            kThemePresets.last.copyWith(name: 'Mine').toJson());
-        await db.setThemePreset(kCustomThemeId);
+        await _addTheme(db, kThemePresets.last.copyWith(name: 'Mine'));
       });
       await pumpWholePicker(tester);
 
@@ -621,6 +734,184 @@ void main() {
       // app is a theme you then have to go and find.
       expect(find.text('Copy code'), findsNothing);
       expect(find.text('Save file'), findsNothing);
+
+      await stop(tester);
+    });
+  });
+
+  group('naming, keeping and deleting several themes', () {
+    /// A viewport tall enough that the whole picker builds — your own themes
+    /// sit below both preset groups, and an unbuilt row cannot be tapped.
+    void tallScreen(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1200, 4800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+    }
+
+    Future<void> pumpPicker(WidgetTester tester) async {
+      tallScreen(tester);
+      await tester
+          .pumpWidget(routedAppUnder(container, const ThemeSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    Future<void> pumpEditor(WidgetTester tester, {int? themeId}) async {
+      tallScreen(tester);
+      await tester.pumpWidget(routedAppUnder(
+          container, CustomThemeEditorScreen(themeId: themeId)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    testWidgets('the picker lists every theme of your own, by name',
+        (tester) async {
+      await tester.runAsync(() async {
+        await _addTheme(db, _mineCustom().copyWith(name: 'Dawn'));
+        await _addTheme(db, _mineCustom().copyWith(name: 'Dusk'));
+      });
+      await pumpPicker(tester);
+
+      expect(find.text('Dawn'), findsOneWidget);
+      expect(find.text('Dusk'), findsOneWidget);
+      expect(find.text('New theme'), findsOneWidget,
+          reason: 'there is always a way to build another');
+
+      await stop(tester);
+    });
+
+    testWidgets('with none built yet, the only offer is to build one',
+        (tester) async {
+      await pumpPicker(tester);
+
+      expect(find.text('New theme'), findsOneWidget);
+      // No empty-state paragraph explaining what a theme is. The heading and
+      // the row say it.
+      expect(find.textContaining('No themes'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('saving a new theme adds one rather than replacing the last',
+        (tester) async {
+      await tester.runAsync(
+          () => _addTheme(db, _mineCustom().copyWith(name: 'First')));
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpEditor(tester);
+      await tester.enterText(find.byType(TextField), 'Second');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 2);
+
+      final names = [
+        for (final p in container.read(customThemesProvider).value!) p.name,
+      ];
+      expect(names, ['First', 'Second'],
+          reason: 'the first survived; the new one joined it');
+
+      await stop(tester);
+    });
+
+    testWidgets('the name field renames the theme it opened on',
+        (tester) async {
+      final mine = (await tester.runAsync(
+          () => _addTheme(db, _mineCustom().copyWith(name: 'Old name'))))!;
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpEditor(tester, themeId: customThemeRowId(mine.id));
+      expect(find.text('Old name'), findsOneWidget,
+          reason: 'the field opens on the name it has');
+
+      await tester.enterText(find.byType(TextField), 'New name');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await pumpUntil(
+          tester,
+          () =>
+              container.read(customThemesProvider).value?.single.name ==
+              'New name');
+
+      expect(container.read(customThemesProvider).value, hasLength(1),
+          reason: 'renaming edits the theme rather than adding another');
+
+      await stop(tester);
+    });
+
+    testWidgets('a blank name does not take', (tester) async {
+      final mine = (await tester.runAsync(
+          () => _addTheme(db, _mineCustom().copyWith(name: 'Keep me'))))!;
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpEditor(tester, themeId: customThemeRowId(mine.id));
+      await tester.enterText(find.byType(TextField), '   ');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await pumpUntil(
+          tester, () => container.read(customThemesProvider).hasValue);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(customThemesProvider).value!.single.name, 'Keep me',
+          reason: 'backspacing through a name cannot leave one nameless');
+
+      await stop(tester);
+    });
+
+    testWidgets('deleting asks first, and cancelling keeps the theme',
+        (tester) async {
+      final mine = (await tester.runAsync(
+          () => _addTheme(db, _mineCustom().copyWith(name: 'Precious'))))!;
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpEditor(tester, themeId: customThemeRowId(mine.id));
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await frames(tester);
+
+      expect(find.text('Delete Precious?'), findsOneWidget,
+          reason: 'the confirmation names what is about to go');
+
+      await tester.tap(find.text('Cancel'));
+      await frames(tester);
+
+      expect(container.read(customThemesProvider).value, hasLength(1),
+          reason: 'a mis-tap does not cost you an evening of colour picking');
+
+      await stop(tester);
+    });
+
+    testWidgets('confirming the delete removes it and leaves the others',
+        (tester) async {
+      final drop = (await tester.runAsync(() async {
+        await _addTheme(db, _mineCustom().copyWith(name: 'Keep'));
+        return _addTheme(db, _mineCustom().copyWith(name: 'Drop'));
+      }))!;
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpEditor(tester, themeId: customThemeRowId(drop.id));
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await frames(tester);
+      await tester.tap(find.text('Delete'));
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 1);
+
+      expect(container.read(customThemesProvider).value!.single.name, 'Keep');
+
+      await stop(tester);
+    });
+
+    testWidgets('a new theme offers no bin — there is nothing to delete yet',
+        (tester) async {
+      await pumpEditor(tester);
+
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+      expect(find.text('New theme'), findsOneWidget,
+          reason: 'the app bar says which of the two jobs this is');
 
       await stop(tester);
     });
@@ -910,18 +1201,21 @@ void main() {
           reason: 'you see what you are about to get');
       expect(find.text('Gym Bro Blue'), findsOneWidget,
           reason: 'the shared theme names itself');
-      expect(container.read(themeSettingProvider).value?.presetId, isNull,
+      expect(container.read(themePresetIdProvider).value, isNull,
           reason: 'nothing has been applied yet');
 
       await stop(tester);
     });
 
-    testWidgets('confirming applies it as the custom theme', (tester) async {
+    testWidgets('confirming adds it as one of your own', (tester) async {
       final incoming = theirs();
-      // The import screen doesn't watch the setting, so keep the stream alive
-      // for the assertions.
-      final sub = container.listen(themeSettingProvider, (_, _) {});
+      // The import screen doesn't watch the setting, so keep both halves of
+      // the theme state subscribed for the assertions: the selected id says
+      // which theme, the list says what it looks like.
+      final sub = container.listen(themePresetIdProvider, (_, _) {});
       addTearDown(sub.close);
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
 
       await tester.pumpWidget(appUnder(
         container,
@@ -933,11 +1227,14 @@ void main() {
           scrollable: find.byType(Scrollable).first);
       await tester.pump();
       await tester.tap(find.text('Use this theme'));
-      await pumpUntil(tester,
-          () => container.read(themeSettingProvider).value?.presetId != null);
+      await pumpUntil(
+          tester,
+          () =>
+              container.read(activePaletteProvider).accent == incoming.accent);
 
-      expect(container.read(themeSettingProvider).value?.presetId,
-          kCustomThemeId);
+      expect(customThemeRowId(container.read(themePresetIdProvider).value),
+          isNotNull,
+          reason: 'it arrived as a theme of your own, with a row of its own');
       final active = container.read(activePaletteProvider);
       expect(active.accent, incoming.accent);
       expect(active.name, 'Gym Bro Blue');
@@ -948,12 +1245,14 @@ void main() {
     testWidgets('an accessible theme arrives without its AAA claim',
         (tester) async {
       // The badge means "designed and checked against WCAG". Once a palette is
-      // in the custom slot it can be recoloured freely and nothing re-checks
-      // it, so the claim cannot come along — the same reason building your own
-      // from a high-contrast preset drops it.
+      // one of yours it can be recoloured freely and nothing re-checks it, so
+      // the claim cannot come along — the same reason building your own from a
+      // high-contrast preset drops it.
       final hc = kThemePresets.firstWhere((p) => p.accessible);
-      final sub = container.listen(themeSettingProvider, (_, _) {});
+      final sub = container.listen(themePresetIdProvider, (_, _) {});
       addTearDown(sub.close);
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
 
       await tester.pumpWidget(appUnder(
         container,
@@ -965,11 +1264,10 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Use this theme'));
       await pumpUntil(tester,
-          () => container.read(themeSettingProvider).value?.presetId != null);
+          () => container.read(themePresetIdProvider).value != null);
 
-      final stored =
-          AppPalette.tryParse(container.read(themeSettingProvider).value!.customJson!);
-      expect(stored!.accessible, isFalse,
+      final stored = container.read(customThemesProvider).value!.single;
+      expect(stored.accessible, isFalse,
           reason: 'a shared theme is yours now, and yours is never badged');
       expect(stored.ground, hc.ground,
           reason: 'only the claim is dropped — the colours are untouched');
@@ -983,11 +1281,9 @@ void main() {
       final hc = kThemePresets.firstWhere((p) => p.accessible);
       // Stored the way a pre-fix import would have stored it, claim and all —
       // so this fails if the badge is ever driven by the palette alone again.
-      await db.setCustomTheme(
-          hc.copyWith(id: kCustomThemeId, accessible: true).toJson());
-      await db.setThemePreset(kCustomThemeId);
+      await _addTheme(db, hc.copyWith(name: 'Mine', accessible: true));
 
-      // Tall enough that the whole picker builds: the custom row sits below
+      // Tall enough that the whole picker builds: your own themes sit below
       // both preset groups, and an unbuilt row cannot be asserted about.
       tester.view.physicalSize = const Size(1200, 4800);
       tester.view.devicePixelRatio = 1.0;
@@ -998,10 +1294,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Custom'), findsOneWidget,
-          reason: 'the custom row is on screen, so its badge would be too');
+      expect(find.text('Mine'), findsOneWidget,
+          reason: 'your own row is on screen, so its badge would be too');
 
-      // Both shipped accessible presets still carry the badge; the custom row
+      // Both shipped accessible presets still carry the badge; your own row
       // must not add a third.
       expect(find.text('AAA'), findsNWidgets(2),
           reason: 'only the two checked presets may claim AAA');
@@ -1011,7 +1307,7 @@ void main() {
 
     testWidgets('declining leaves the current theme untouched', (tester) async {
       await db.setThemePreset('graphite');
-      final sub = container.listen(themeSettingProvider, (_, _) {});
+      final sub = container.listen(themePresetIdProvider, (_, _) {});
       addTearDown(sub.close);
 
       await tester.pumpWidget(appUnder(
@@ -1026,7 +1322,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(container.read(themeSettingProvider).value?.presetId, 'graphite',
+      expect(container.read(themePresetIdProvider).value, 'graphite',
           reason: 'declining an import changes nothing');
 
       await stop(tester);
@@ -1086,6 +1382,13 @@ void main() {
     // surfaces at one hue, an accent and its pressed state — and lightness is
     // the axis contrast is a function of, so it has to be a control you can
     // hold on its own.
+
+    /// The picker's hex field, scoped to the dialog — the editor behind it
+    /// carries the theme's name field, which is also a `TextField`.
+    final hexField = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
 
     /// Opens the custom editor and taps [role] to bring up its picker.
     ///
@@ -1166,7 +1469,7 @@ void main() {
       // HSL has no hue to recover from a pure grey. The picker has to remember
       // the one that was on screen instead of snapping the slider to red.
       await openPicker(tester, 'Accent');
-      await tester.enterText(find.byType(TextField), '#808080');
+      await tester.enterText(hexField, '#808080');
       await frames(tester);
       await tester.tap(find.text('HSL'));
       await frames(tester);
@@ -1181,7 +1484,7 @@ void main() {
 
     testWidgets('typing a hex sets the colour', (tester) async {
       await openPicker(tester, 'Accent');
-      await tester.enterText(find.byType(TextField), '#AB12CD');
+      await tester.enterText(hexField, '#AB12CD');
       await frames(tester);
       await use(tester);
 
@@ -1194,7 +1497,7 @@ void main() {
     testWidgets('the short and bare hex forms are accepted too',
         (tester) async {
       await openPicker(tester, 'Accent');
-      await tester.enterText(find.byType(TextField), 'ABC');
+      await tester.enterText(hexField, 'ABC');
       await frames(tester);
       await use(tester);
       expect(shownHex(tester, 'Accent'), '#AABBCC',
@@ -1204,7 +1507,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Accent'));
       await frames(tester);
-      await tester.enterText(find.byType(TextField), '123456');
+      await tester.enterText(hexField, '123456');
       await frames(tester);
       await use(tester);
       expect(shownHex(tester, 'Accent'), '#123456',
@@ -1240,7 +1543,7 @@ void main() {
       // three lightnesses — so building one starts from the last one's value.
       final clipboard = fakeClipboard(tester);
       await openPicker(tester, 'Accent');
-      await tester.enterText(find.byType(TextField), '#123456');
+      await tester.enterText(hexField, '#123456');
       await frames(tester);
 
       await tester.tap(find.byTooltip('Copy hex'));
@@ -1312,7 +1615,7 @@ void main() {
         (tester) async {
       await openPicker(tester, 'Accent');
       final before = shownHex(tester, 'Accent');
-      await tester.enterText(find.byType(TextField), 'not a colour');
+      await tester.enterText(hexField, 'not a colour');
       await frames(tester);
       await use(tester);
 
@@ -1328,7 +1631,7 @@ void main() {
       // illegible, and this is the slider that answers that warning without
       // throwing away the colour you picked.
       await openPicker(tester, 'Accent');
-      await tester.enterText(find.byType(TextField), '#268BD2');
+      await tester.enterText(hexField, '#268BD2');
       await frames(tester);
       await tester.tap(find.text('HSL'));
       await frames(tester);
@@ -1375,7 +1678,7 @@ void main() {
       await openPicker(tester, 'Accent');
       for (final c in wanted) {
         final hex = '#${_hexString(c)}';
-        await tester.enterText(find.byType(TextField), hex);
+        await tester.enterText(hexField, hex);
         await frames(tester);
         await use(tester);
         expect(shownHex(tester, 'Accent'), hex,

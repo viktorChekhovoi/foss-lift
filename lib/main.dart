@@ -40,7 +40,7 @@ class FossLiftApp extends ConsumerWidget {
     // frame or two, behind the launch screen, so there is nothing to wait
     // through. The holding frame is the ground colour the guess arrived at,
     // which is what the launch screen is showing anyway.
-    if (!ref.watch(themeSettingProvider).hasValue) {
+    if (!ref.watch(themeReadyProvider)) {
       return ColoredBox(color: palette.ground, child: const SizedBox.expand());
     }
     // Status-bar icons have to contrast with the app's ground: dark icons over a

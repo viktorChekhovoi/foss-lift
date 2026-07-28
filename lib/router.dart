@@ -114,9 +114,16 @@ final appRouter = GoRouter(
       path: '/settings/theme',
       builder: (c, s) => const ThemeSettingsScreen(),
     ),
+    // No id builds a new theme; an id edits (and renames, and deletes) that one.
     GoRoute(
       path: '/settings/theme/custom',
       builder: (c, s) => const CustomThemeEditorScreen(),
+    ),
+    GoRoute(
+      path: '/settings/theme/custom/:id',
+      builder: (c, s) => CustomThemeEditorScreen(
+        themeId: int.parse(s.pathParameters['id']!),
+      ),
     ),
     // Where a shared theme lands, however it arrived: a scanned QR, a pasted
     // code, or a `fosslift://theme/...` link the OS handed us. Never applies

@@ -227,11 +227,22 @@ final weightUnitProvider = StreamProvider<String>((ref) {
   return ref.watch(databaseProvider).watchWeightUnit();
 });
 
-/// The stored theme choice: the selected id and the custom palette JSON.
-/// Read [activePaletteProvider] unless you need the raw choice (the picker
-/// does, to mark which preset is selected).
-final themeSettingProvider = StreamProvider<ThemeSetting>((ref) {
-  return ref.watch(databaseProvider).watchThemeSetting();
+/// The selected theme's stored id — a preset slug, `custom:<n>`, or null for
+/// "nothing chosen". Read [activePaletteProvider] unless you need the raw
+/// choice (the picker does, to mark which row is selected).
+final themePresetIdProvider = StreamProvider<String?>((ref) {
+  return ref.watch(databaseProvider).watchThemePresetId();
+});
+
+/// The user's own themes, in the order they were built or imported, already
+/// parsed and stamped with the ids that name them.
+///
+/// A row whose JSON will not parse is dropped rather than listed as a palette
+/// of default colours: there is nothing useful to show for it and nothing the
+/// user could do about it if there were.
+final customThemesProvider = StreamProvider<List<AppPalette>>((ref) {
+  return ref.watch(databaseProvider).watchCustomThemes().map((rows) =>
+      [for (final row in rows) ?customThemeFromRow(row.id, row.palette)]);
 });
 
 /// The phone's own light/dark setting, kept current as it changes.
@@ -263,12 +274,20 @@ final platformBrightnessProvider =
 /// is painted with the default preset rather than an unthemed flash while the
 /// settings row is read.
 final activePaletteProvider = Provider<AppPalette>((ref) {
-  final setting = ref.watch(themeSettingProvider).value;
   return resolvePalette(
-    setting?.presetId,
-    setting?.customJson,
+    ref.watch(themePresetIdProvider).value,
+    ref.watch(customThemesProvider).value ?? const [],
     system: ref.watch(platformBrightnessProvider),
   );
+});
+
+/// Whether the stored theme has arrived yet. The app root holds a bare frame
+/// until it has — see the note on the first paint in `main.dart`. Both halves
+/// have to be in: the selected id says *which* theme, the list says what it
+/// looks like, and painting on one without the other is the same flicker.
+final themeReadyProvider = Provider<bool>((ref) {
+  return ref.watch(themePresetIdProvider).hasValue &&
+      ref.watch(customThemesProvider).hasValue;
 });
 
 /// The bar and plate rack as stored — read [plateSettingsProvider] instead

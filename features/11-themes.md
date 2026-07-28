@@ -7,19 +7,22 @@ Pick a preset theme, build your own, or bring in one someone shared.
 - Ships eight **preset** themes as four dark/light pairs: two everyday looks,
   **Solarized**, and a **high-contrast** option — each available in both
   brightnesses.
-- Lets you build a **custom** theme by editing each colour role, with a **live
-  preview** of the palette you are editing.
-- **Shares your own** theme as a QR code or a link, and reads both back.
+- Lets you build **as many custom themes as you like**, each named, each edited
+  role by role, with a **live preview** of the palette you are editing.
+- **Shares one of your own** themes as a QR code or a link, and reads both back.
 
 ## How to use it
 
 - **Pick a theme:** Profile → **Appearance** → tap a preset.
-- **Build your own:** on the theme screen choose **Build your own**, then edit
-  each colour role. The preview at the top follows every change. Tapping a role
-  opens the picker, which says the same colour two ways — **RGB** with a hex
-  field, or **HSL** — switchable with the toggle beside the hex.
-- **Share:** with your custom theme selected, **Show QR** for someone to scan or
-  **Send link** for the system share sheet (which is also where "copy" lives).
+- **Build your own:** on the theme screen choose **New theme**, then name it and
+  edit each colour role. The preview at the top follows every change. Tapping a
+  role opens the picker, which says the same colour two ways — **RGB** with a
+  hex field, or **HSL** — switchable with the toggle beside the hex.
+- **Rename or delete one:** open it with the pencil. The name field renames it;
+  the bin in the app bar deletes it, after a confirmation.
+- **Share:** with one of your own themes selected, **Show QR** for someone to
+  scan or **Send link** for the system share sheet (which is also where "copy"
+  lives).
 - **Receive:** **Scan QR** to use the camera, or **Paste code** for a code or a
   link.
 
@@ -85,8 +88,9 @@ Solarized, never also means accepting a brightness you did not want.
   Ignition on a phone set to dark and Daylight on one set to light, and flips
   with the system until a theme is picked. Picking one stores it, and a stored
   choice outranks the system from then on.
-- **Only your own theme is shareable.** The presets ship with every copy of the
-  app, so the share row is hidden unless the custom theme is the one selected.
+- **Only your own themes are shareable.** The presets ship with every copy of
+  the app, so the share row is hidden unless one of your own is selected — and
+  it sends the one that is selected, not "the custom slot".
 - **The picker groups presets by brightness**, dark then light, with each
   group's high-contrast option last and badged `AAA`. Long-pressing the badge
   explains it; so does *tapping* it, but only on the row already selected — on
@@ -105,7 +109,7 @@ Solarized, never also means accepting a brightness you did not want.
 - **A custom theme is never badged accessible**, however it got there — built
   from a high-contrast preset, or arrived as a shared code from someone else's
   phone. The badge means the palette was designed and checked against WCAG,
-  which is a fact about the two shipped presets; the custom slot can be
+  which is a fact about the two shipped presets; one of your own can be
   recoloured freely afterwards and nothing re-checks it. The claim is dropped
   when an import is accepted *and* the row refuses to draw the badge whatever
   is stored, so a palette that predates this rule cannot show one either.
@@ -132,13 +136,23 @@ Solarized, never also means accepting a brightness you did not want.
 - **A shared theme is always previewed, never applied on arrival.** A scan, a
   tapped link and a pasted code all land on the same confirmation screen. A code
   that will not decode offers nothing to apply.
-- **An arriving theme becomes *your* custom theme.** It never claims a preset
-  slot, so the shipped presets are always there to switch back to.
-- **The choice is stored as a preset slug or a full custom palette.** Settings
-  holds `themePresetId` (a preset slug, `custom`, or none) and `customTheme` (the
-  user's palette as JSON).
+- **An arriving theme is *added* to your own, never substituted for one.** It
+  never claims a preset slot, so the shipped presets are always there to switch
+  back to, and it never overwrites a theme you built — importing four codes
+  leaves you holding four themes.
+- **Deleting is confirmed, and deleting the one you are looking at is safe.**
+  The app falls back to the system default rather than being left unpainted, in
+  the same write that removes the theme, so no selection is ever left pointing
+  at nothing.
+- **The choice is stored as a slug; your themes are rows.** Settings holds
+  `themePresetId` — a preset slug, `custom:<n>` naming one of your own, or none
+  — and each of your themes is a row in `CustomThemes` holding its palette as
+  JSON. **The name lives inside that JSON**, because a palette already carries
+  its own name and that is the name a share code sends; a second copy in a
+  column would be one to keep in step.
 - **A stored slug naming a preset that no longer exists** falls back to the
-  default, as any unknown slug does.
+  default, as any unknown slug does — and so does a `custom:<n>` naming a row
+  that is gone.
 
 ## Sharing formats
 
@@ -177,8 +191,8 @@ app free of proprietary binaries.
   `theme_import_screen.dart` (confirmation), `theme_scan_screen.dart` (camera).
 - Link handling: `lib/services/deep_links.dart`; frame decoding:
   `lib/services/qr_decoder.dart`.
-- Stored in `Settings` (`themePresetId`, `customTheme`) in
-  `lib/data/database.dart`.
+- Stored in `Settings` (`themePresetId`) and `CustomThemes` (one row per theme
+  you built or imported) in `lib/data/database.dart`.
 
 ## Related issues
 
@@ -189,3 +203,4 @@ app free of proprietary binaries.
 - [#45 Done/short colours across themes](https://github.com/viktorChekhovoi/foss-lift/issues/45) — shipped, in review
 - [#47 The nav bar on a cold launch](https://github.com/viktorChekhovoi/foss-lift/issues/47) — shipped, in review
 - [#48 A current preview, and hex you can copy and paste](https://github.com/viktorChekhovoi/foss-lift/issues/48) — shipped, in review
+- [#49 More than one custom theme](https://github.com/viktorChekhovoi/foss-lift/issues/49) — named, renameable, deletable

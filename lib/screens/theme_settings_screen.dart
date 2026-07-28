@@ -21,14 +21,14 @@ class ThemeSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final setting = ref.watch(themeSettingProvider).value;
     final active = ref.watch(activePaletteProvider);
     final db = ref.read(databaseProvider);
-    final customJson = setting?.customJson;
-    final custom = customJson == null ? null : AppPalette.tryParse(customJson);
-    // With nothing stored the picker marks whichever default the system
-    // brightness put on screen, so the radio agrees with what you can see.
-    final selectedId = setting?.presetId ?? active.id;
+    final mine = ref.watch(customThemesProvider).value ?? const <AppPalette>[];
+    // The *resolved* palette's id, not the stored one: with nothing chosen the
+    // picker marks whichever default the system brightness put on screen, and
+    // a choice that no longer resolves marks what is actually being painted.
+    // Either way the radio agrees with what you can see.
+    final selectedId = active.id;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Colour theme')),
@@ -60,28 +60,27 @@ class ThemeSettingsScreen extends ConsumerWidget {
               ],
               const SizedBox(height: 10),
             ],
-            Text('YOUR THEME',
+            Text('YOUR THEMES',
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
-            _ThemeOption(
-              // Through _seedCustom either way: whatever is stored, the row
-              // that can be recoloured never shows an accessibility claim.
-              palette: _seedCustom(custom ?? active),
-              label: custom == null ? 'Build your own' : 'Custom',
-              selected: selectedId == kCustomThemeId,
-              // With no custom theme yet, tapping goes straight to the editor to
-              // build one; once it exists a tap re-selects it and the pencil
-              // edits it.
-              onTap: custom == null
-                  ? () => context.push('/settings/theme/custom')
-                  : () => db.setThemePreset(kCustomThemeId),
-              onEdit: () => context.push('/settings/theme/custom'),
-            ),
-            // Only your own theme is shareable. The presets ship with every
+            // Each of the user's own: a tap selects it, the pencil opens it —
+            // which is where its name, its colours and its bin all live.
+            for (final palette in mine) ...[
+              _ThemeOption(
+                palette: palette,
+                selected: selectedId == palette.id,
+                onTap: () => db.setThemePreset(palette.id),
+                onEdit: () => context.push(
+                    '/settings/theme/custom/${customThemeRowId(palette.id)}'),
+              ),
+              const SizedBox(height: 10),
+            ],
+            _NewThemeRow(onTap: () => context.push('/settings/theme/custom')),
+            // Only your own themes are shareable. The presets ship with every
             // copy of the app, so sending someone a code for one is sending
             // them something they already have.
-            if (selectedId == kCustomThemeId && custom != null) ...[
+            if (customThemeRowId(selectedId) != null) ...[
               const SizedBox(height: 26),
               shareSectionLabel('SHARE THIS THEME'),
               const SizedBox(height: 10),
@@ -108,12 +107,57 @@ class ThemeSettingsScreen extends ConsumerWidget {
   }
 }
 
-/// Re-labels [from] as the user's own theme: the custom slug, the custom name,
-/// and no accessibility claim. The claim is dropped deliberately — the shipped
-/// high-contrast palettes are checked against WCAG, and a copy the user is
-/// free to recolour has not been.
-AppPalette _seedCustom(AppPalette from) =>
-    from.copyWith(id: kCustomThemeId, name: 'Custom', accessible: false);
+/// Starts a new theme from [from], which is whatever is on screen — you tweak
+/// from something that already looks right rather than from black.
+///
+/// It carries the bare `custom` id until it is saved and gets a row of its own,
+/// and no accessibility claim: the shipped high-contrast palettes are checked
+/// against WCAG, and a copy the user is free to recolour has not been.
+AppPalette _seedCustom(AppPalette from, String name) =>
+    from.copyWith(id: kCustomThemeId, name: name, accessible: false);
+
+/// The name a new theme opens with. Numbered from the second one on, so a
+/// picker full of "My theme" is something you have to have chosen.
+String _nextThemeName(List<AppPalette> existing) =>
+    existing.isEmpty ? 'My theme' : 'My theme ${existing.length + 1}';
+
+/// The row that starts a new theme. Shaped like a theme option so the list
+/// reads as one column, but with nothing to select — a plus, and the words.
+class _NewThemeRow extends StatelessWidget {
+  const _NewThemeRow({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.line),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.add_rounded, size: 20, color: AppColors.accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('New theme',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accent)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Shows [palette] as a QR someone else can point a phone at.
 Future<void> _showQr(BuildContext context, AppPalette palette) {
@@ -164,13 +208,11 @@ class _ThemeOption extends StatelessWidget {
     required this.palette,
     required this.selected,
     required this.onTap,
-    this.label,
     this.onEdit,
   });
   final AppPalette palette;
   final bool selected;
   final VoidCallback onTap;
-  final String? label;
   final VoidCallback? onEdit;
 
   @override
@@ -197,7 +239,7 @@ class _ThemeOption extends StatelessWidget {
               _Swatches(palette: palette),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(label ?? palette.name,
+                child: Text(palette.name,
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
               ),
@@ -364,13 +406,18 @@ AppPalette _sAccentPress(AppPalette p, Color c) => p.copyWith(accentPress: c);
 AppPalette _sGood(AppPalette p, Color c) => p.copyWith(good: c);
 AppPalette _sGold(AppPalette p, Color c) => p.copyWith(gold: c);
 
-/// Edit each colour role and save the result as the active custom theme.
+/// Name a theme, edit each colour role, and save it as the active one.
 ///
-/// The draft starts from the existing custom palette, or from whatever is
-/// active, so you always tweak from something that already looks right rather
-/// than from black.
+/// With no [themeId] this builds a new theme, starting from whatever is active
+/// so you tweak from something that already looks right rather than from black.
+/// With one it edits that theme in place — and is the only place it can be
+/// renamed or deleted, because those belong with the thing itself rather than
+/// scattered across the row that lists it.
 class CustomThemeEditorScreen extends ConsumerStatefulWidget {
-  const CustomThemeEditorScreen({super.key});
+  const CustomThemeEditorScreen({super.key, this.themeId});
+
+  /// The `CustomThemes` row being edited, or null to build a new one.
+  final int? themeId;
 
   @override
   ConsumerState<CustomThemeEditorScreen> createState() =>
@@ -380,26 +427,48 @@ class CustomThemeEditorScreen extends ConsumerStatefulWidget {
 class _CustomThemeEditorScreenState
     extends ConsumerState<CustomThemeEditorScreen> {
   AppPalette? _draft;
+  TextEditingController? _name;
+
+  @override
+  void dispose() {
+    _name?.dispose();
+    super.dispose();
+  }
+
+  /// The theme being edited, if it still exists. Read from the live list rather
+  /// than fetched once, so deleting it from under this screen is not a crash.
+  AppPalette? _stored(List<AppPalette> mine) {
+    final id = widget.themeId;
+    if (id == null) return null;
+    final wanted = customThemeId(id);
+    for (final p in mine) {
+      if (p.id == wanted) return p;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final setting = ref.watch(themeSettingProvider).value;
+    final mine = ref.watch(customThemesProvider).value ?? const <AppPalette>[];
     final active = ref.watch(activePaletteProvider);
-    // Seed the draft once, from the stored custom theme if there is one.
-    final existing = setting?.customJson == null
-        ? null
-        : AppPalette.tryParse(setting!.customJson!);
-    final draft = _draft ??= _seedCustom(existing ?? active);
+    // Seeded once: after that the draft is the truth, so a rebuild cannot
+    // undo an edit.
+    final draft = _draft ??=
+        _stored(mine) ?? _seedCustom(active, _nextThemeName(mine));
+    final nameField = _name ??= TextEditingController(text: draft.name);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Custom theme'),
+        title: Text(widget.themeId == null ? 'New theme' : 'Edit theme'),
         actions: [
+          if (widget.themeId != null)
+            IconButton(
+              onPressed: () => _confirmDelete(widget.themeId!, draft.name),
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete',
+            ),
           TextButton(
-            onPressed: () async {
-              await ref.read(databaseProvider).setCustomTheme(draft.toJson());
-              if (context.mounted) context.pop();
-            },
+            onPressed: () => _save(draft),
             child: const Text('Save'),
           ),
         ],
@@ -409,6 +478,12 @@ class _CustomThemeEditorScreenState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
+            _NameField(
+              controller: nameField,
+              onChanged: (text) => setState(() => _draft = draft.copyWith(
+                  name: text.trim().isEmpty ? draft.name : text.trim())),
+            ),
+            const SizedBox(height: 16),
             ThemePreview(palette: draft),
             const SizedBox(height: 20),
             for (final role in _roles) ...[
@@ -433,6 +508,77 @@ class _CustomThemeEditorScreenState
           ],
         ),
       ),
+    );
+  }
+
+  /// Writes the draft: a new row the first time, the same row afterwards.
+  /// Either way the theme ends up selected — you have been looking at the
+  /// preview, and saving is a request to see it for real.
+  Future<void> _save(AppPalette draft) async {
+    final db = ref.read(databaseProvider);
+    final id = widget.themeId;
+    if (id == null) {
+      await db.addCustomTheme(draft.toJson());
+    } else {
+      await db.updateCustomTheme(id, draft.toJson());
+    }
+    if (mounted) context.pop();
+  }
+
+  /// Deletes after asking. Losing a palette somebody spent an evening on to a
+  /// mis-tap is exactly the sort of thing a confirmation is for.
+  Future<void> _confirmDelete(int id, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Delete $name?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(databaseProvider).deleteCustomTheme(id);
+    if (mounted) context.pop();
+  }
+}
+
+/// The theme's name. Blank does not take, so backspacing through one cannot
+/// leave a nameless theme in the picker.
+class _NameField extends StatelessWidget {
+  const _NameField({required this.controller, required this.onChanged});
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      textCapitalization: TextCapitalization.sentences,
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      decoration: InputDecoration(
+        labelText: 'Name',
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppColors.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppColors.line),
+        ),
+      ),
+      onChanged: onChanged,
     );
   }
 }

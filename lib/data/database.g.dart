@@ -3890,17 +3890,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _customThemeMeta = const VerificationMeta(
-    'customTheme',
-  );
-  @override
-  late final GeneratedColumn<String> customTheme = GeneratedColumn<String>(
-    'custom_theme',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3915,7 +3904,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     restSound,
     textScale,
     themePresetId,
-    customTheme,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4016,15 +4004,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
-    if (data.containsKey('custom_theme')) {
-      context.handle(
-        _customThemeMeta,
-        customTheme.isAcceptableOrUnknown(
-          data['custom_theme']!,
-          _customThemeMeta,
-        ),
-      );
-    }
     return context;
   }
 
@@ -4081,10 +4060,6 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       themePresetId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}theme_preset_id'],
-      ),
-      customTheme: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}custom_theme'],
       ),
     );
   }
@@ -4160,14 +4135,15 @@ class Setting extends DataClass implements Insertable<Setting> {
   final double textScale;
 
   /// Which colour theme is active: a preset slug (`ignition`, `graphite`, …),
-  /// `custom`, or null. Null means the default preset, so an install that never
-  /// touched the setting looks exactly as it always did.
+  /// `custom:<n>` naming a row of [CustomThemes], or null. Null means the
+  /// default preset, so an install that never touched the setting looks exactly
+  /// as it always did.
+  ///
+  /// Nothing keeps this in step with [CustomThemes] except [deleteCustomTheme],
+  /// which clears it when it removes the row it names. A slug left dangling by
+  /// any other route resolves to the default rather than to nothing — see
+  /// `resolvePalette`.
   final String? themePresetId;
-
-  /// The user's own custom palette, serialised as JSON — see `AppPalette`. Kept
-  /// even while a preset is active, so switching to Custom brings back what was
-  /// last built rather than a blank slate.
-  final String? customTheme;
   const Setting({
     required this.id,
     required this.weightUnit,
@@ -4181,7 +4157,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     required this.restSound,
     required this.textScale,
     this.themePresetId,
-    this.customTheme,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4207,9 +4182,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     map['text_scale'] = Variable<double>(textScale);
     if (!nullToAbsent || themePresetId != null) {
       map['theme_preset_id'] = Variable<String>(themePresetId);
-    }
-    if (!nullToAbsent || customTheme != null) {
-      map['custom_theme'] = Variable<String>(customTheme);
     }
     return map;
   }
@@ -4238,9 +4210,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       themePresetId: themePresetId == null && nullToAbsent
           ? const Value.absent()
           : Value(themePresetId),
-      customTheme: customTheme == null && nullToAbsent
-          ? const Value.absent()
-          : Value(customTheme),
     );
   }
 
@@ -4262,7 +4231,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       restSound: serializer.fromJson<bool>(json['restSound']),
       textScale: serializer.fromJson<double>(json['textScale']),
       themePresetId: serializer.fromJson<String?>(json['themePresetId']),
-      customTheme: serializer.fromJson<String?>(json['customTheme']),
     );
   }
   @override
@@ -4281,7 +4249,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       'restSound': serializer.toJson<bool>(restSound),
       'textScale': serializer.toJson<double>(textScale),
       'themePresetId': serializer.toJson<String?>(themePresetId),
-      'customTheme': serializer.toJson<String?>(customTheme),
     };
   }
 
@@ -4298,7 +4265,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     bool? restSound,
     double? textScale,
     Value<String?> themePresetId = const Value.absent(),
-    Value<String?> customTheme = const Value.absent(),
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -4320,7 +4286,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     themePresetId: themePresetId.present
         ? themePresetId.value
         : this.themePresetId,
-    customTheme: customTheme.present ? customTheme.value : this.customTheme,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -4352,9 +4317,6 @@ class Setting extends DataClass implements Insertable<Setting> {
       themePresetId: data.themePresetId.present
           ? data.themePresetId.value
           : this.themePresetId,
-      customTheme: data.customTheme.present
-          ? data.customTheme.value
-          : this.customTheme,
     );
   }
 
@@ -4372,8 +4334,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('tutorialSeen: $tutorialSeen, ')
           ..write('restSound: $restSound, ')
           ..write('textScale: $textScale, ')
-          ..write('themePresetId: $themePresetId, ')
-          ..write('customTheme: $customTheme')
+          ..write('themePresetId: $themePresetId')
           ..write(')'))
         .toString();
   }
@@ -4392,7 +4353,6 @@ class Setting extends DataClass implements Insertable<Setting> {
     restSound,
     textScale,
     themePresetId,
-    customTheme,
   );
   @override
   bool operator ==(Object other) =>
@@ -4409,8 +4369,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.tutorialSeen == this.tutorialSeen &&
           other.restSound == this.restSound &&
           other.textScale == this.textScale &&
-          other.themePresetId == this.themePresetId &&
-          other.customTheme == this.customTheme);
+          other.themePresetId == this.themePresetId);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -4426,7 +4385,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<bool> restSound;
   final Value<double> textScale;
   final Value<String?> themePresetId;
-  final Value<String?> customTheme;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -4440,7 +4398,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.restSound = const Value.absent(),
     this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
-    this.customTheme = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -4455,7 +4412,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.restSound = const Value.absent(),
     this.textScale = const Value.absent(),
     this.themePresetId = const Value.absent(),
-    this.customTheme = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -4470,7 +4426,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<bool>? restSound,
     Expression<double>? textScale,
     Expression<String>? themePresetId,
-    Expression<String>? customTheme,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4485,7 +4440,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (restSound != null) 'rest_sound': restSound,
       if (textScale != null) 'text_scale': textScale,
       if (themePresetId != null) 'theme_preset_id': themePresetId,
-      if (customTheme != null) 'custom_theme': customTheme,
     });
   }
 
@@ -4502,7 +4456,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<bool>? restSound,
     Value<double>? textScale,
     Value<String?>? themePresetId,
-    Value<String?>? customTheme,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -4517,7 +4470,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       restSound: restSound ?? this.restSound,
       textScale: textScale ?? this.textScale,
       themePresetId: themePresetId ?? this.themePresetId,
-      customTheme: customTheme ?? this.customTheme,
     );
   }
 
@@ -4560,9 +4512,6 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (themePresetId.present) {
       map['theme_preset_id'] = Variable<String>(themePresetId.value);
     }
-    if (customTheme.present) {
-      map['custom_theme'] = Variable<String>(customTheme.value);
-    }
     return map;
   }
 
@@ -4580,8 +4529,203 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('tutorialSeen: $tutorialSeen, ')
           ..write('restSound: $restSound, ')
           ..write('textScale: $textScale, ')
-          ..write('themePresetId: $themePresetId, ')
-          ..write('customTheme: $customTheme')
+          ..write('themePresetId: $themePresetId')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CustomThemesTable extends CustomThemes
+    with TableInfo<$CustomThemesTable, CustomTheme> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomThemesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _paletteMeta = const VerificationMeta(
+    'palette',
+  );
+  @override
+  late final GeneratedColumn<String> palette = GeneratedColumn<String>(
+    'palette',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, palette];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_themes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomTheme> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('palette')) {
+      context.handle(
+        _paletteMeta,
+        palette.isAcceptableOrUnknown(data['palette']!, _paletteMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paletteMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomTheme map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomTheme(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      palette: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}palette'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomThemesTable createAlias(String alias) {
+    return $CustomThemesTable(attachedDatabase, alias);
+  }
+}
+
+class CustomTheme extends DataClass implements Insertable<CustomTheme> {
+  final int id;
+
+  /// The palette as `AppPalette.toJson` writes it.
+  final String palette;
+  const CustomTheme({required this.id, required this.palette});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['palette'] = Variable<String>(palette);
+    return map;
+  }
+
+  CustomThemesCompanion toCompanion(bool nullToAbsent) {
+    return CustomThemesCompanion(id: Value(id), palette: Value(palette));
+  }
+
+  factory CustomTheme.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomTheme(
+      id: serializer.fromJson<int>(json['id']),
+      palette: serializer.fromJson<String>(json['palette']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'palette': serializer.toJson<String>(palette),
+    };
+  }
+
+  CustomTheme copyWith({int? id, String? palette}) =>
+      CustomTheme(id: id ?? this.id, palette: palette ?? this.palette);
+  CustomTheme copyWithCompanion(CustomThemesCompanion data) {
+    return CustomTheme(
+      id: data.id.present ? data.id.value : this.id,
+      palette: data.palette.present ? data.palette.value : this.palette,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomTheme(')
+          ..write('id: $id, ')
+          ..write('palette: $palette')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, palette);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomTheme &&
+          other.id == this.id &&
+          other.palette == this.palette);
+}
+
+class CustomThemesCompanion extends UpdateCompanion<CustomTheme> {
+  final Value<int> id;
+  final Value<String> palette;
+  const CustomThemesCompanion({
+    this.id = const Value.absent(),
+    this.palette = const Value.absent(),
+  });
+  CustomThemesCompanion.insert({
+    this.id = const Value.absent(),
+    required String palette,
+  }) : palette = Value(palette);
+  static Insertable<CustomTheme> custom({
+    Expression<int>? id,
+    Expression<String>? palette,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (palette != null) 'palette': palette,
+    });
+  }
+
+  CustomThemesCompanion copyWith({Value<int>? id, Value<String>? palette}) {
+    return CustomThemesCompanion(
+      id: id ?? this.id,
+      palette: palette ?? this.palette,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (palette.present) {
+      map['palette'] = Variable<String>(palette.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomThemesCompanion(')
+          ..write('id: $id, ')
+          ..write('palette: $palette')
           ..write(')'))
         .toString();
   }
@@ -4597,6 +4741,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SessionsTable sessions = $SessionsTable(this);
   late final $SessionSetsTable sessionSets = $SessionSetsTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $CustomThemesTable customThemes = $CustomThemesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4609,6 +4754,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sessions,
     sessionSets,
     settings,
+    customThemes,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -7256,7 +7402,6 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<bool> restSound,
       Value<double> textScale,
       Value<String?> themePresetId,
-      Value<String?> customTheme,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -7272,7 +7417,6 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<bool> restSound,
       Value<double> textScale,
       Value<String?> themePresetId,
-      Value<String?> customTheme,
     });
 
 class $$SettingsTableFilterComposer
@@ -7341,11 +7485,6 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get themePresetId => $composableBuilder(
     column: $table.themePresetId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get customTheme => $composableBuilder(
-    column: $table.customTheme,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7418,11 +7557,6 @@ class $$SettingsTableOrderingComposer
     column: $table.themePresetId,
     builder: (column) => ColumnOrderings(column),
   );
-
-  ColumnOrderings<String> get customTheme => $composableBuilder(
-    column: $table.customTheme,
-    builder: (column) => ColumnOrderings(column),
-  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -7485,11 +7619,6 @@ class $$SettingsTableAnnotationComposer
     column: $table.themePresetId,
     builder: (column) => column,
   );
-
-  GeneratedColumn<String> get customTheme => $composableBuilder(
-    column: $table.customTheme,
-    builder: (column) => column,
-  );
 }
 
 class $$SettingsTableTableManager
@@ -7532,7 +7661,6 @@ class $$SettingsTableTableManager
                 Value<bool> restSound = const Value.absent(),
                 Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
-                Value<String?> customTheme = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -7546,7 +7674,6 @@ class $$SettingsTableTableManager
                 restSound: restSound,
                 textScale: textScale,
                 themePresetId: themePresetId,
-                customTheme: customTheme,
               ),
           createCompanionCallback:
               ({
@@ -7562,7 +7689,6 @@ class $$SettingsTableTableManager
                 Value<bool> restSound = const Value.absent(),
                 Value<double> textScale = const Value.absent(),
                 Value<String?> themePresetId = const Value.absent(),
-                Value<String?> customTheme = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -7576,7 +7702,6 @@ class $$SettingsTableTableManager
                 restSound: restSound,
                 textScale: textScale,
                 themePresetId: themePresetId,
-                customTheme: customTheme,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -7600,6 +7725,131 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+typedef $$CustomThemesTableCreateCompanionBuilder =
+    CustomThemesCompanion Function({Value<int> id, required String palette});
+typedef $$CustomThemesTableUpdateCompanionBuilder =
+    CustomThemesCompanion Function({Value<int> id, Value<String> palette});
+
+class $$CustomThemesTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomThemesTable> {
+  $$CustomThemesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get palette => $composableBuilder(
+    column: $table.palette,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomThemesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomThemesTable> {
+  $$CustomThemesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get palette => $composableBuilder(
+    column: $table.palette,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomThemesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomThemesTable> {
+  $$CustomThemesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get palette =>
+      $composableBuilder(column: $table.palette, builder: (column) => column);
+}
+
+class $$CustomThemesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomThemesTable,
+          CustomTheme,
+          $$CustomThemesTableFilterComposer,
+          $$CustomThemesTableOrderingComposer,
+          $$CustomThemesTableAnnotationComposer,
+          $$CustomThemesTableCreateCompanionBuilder,
+          $$CustomThemesTableUpdateCompanionBuilder,
+          (
+            CustomTheme,
+            BaseReferences<_$AppDatabase, $CustomThemesTable, CustomTheme>,
+          ),
+          CustomTheme,
+          PrefetchHooks Function()
+        > {
+  $$CustomThemesTableTableManager(_$AppDatabase db, $CustomThemesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomThemesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomThemesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomThemesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> palette = const Value.absent(),
+              }) => CustomThemesCompanion(id: id, palette: palette),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String palette,
+              }) => CustomThemesCompanion.insert(id: id, palette: palette),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomThemesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomThemesTable,
+      CustomTheme,
+      $$CustomThemesTableFilterComposer,
+      $$CustomThemesTableOrderingComposer,
+      $$CustomThemesTableAnnotationComposer,
+      $$CustomThemesTableCreateCompanionBuilder,
+      $$CustomThemesTableUpdateCompanionBuilder,
+      (
+        CustomTheme,
+        BaseReferences<_$AppDatabase, $CustomThemesTable, CustomTheme>,
+      ),
+      CustomTheme,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7618,4 +7868,6 @@ class $AppDatabaseManager {
       $$SessionSetsTableTableManager(_db, _db.sessionSets);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$CustomThemesTableTableManager get customThemes =>
+      $$CustomThemesTableTableManager(_db, _db.customThemes);
 }
