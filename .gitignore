@@ -56,3 +56,6 @@ app.*.map.json
 
 # Claude Code's local working state
 .claude/
+
+# Release artifacts, built not committed.
+/dist/
