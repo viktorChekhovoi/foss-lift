@@ -53,12 +53,21 @@ app.*.map.json
 # Packaged builds, wherever they land
 *.apk
 *.aab
+*.zip
 
 # Claude Code's local working state
 .claude/
 
 # Release artifacts, built not committed.
 /dist/
+/release/
 
 # Kotlin compiler session files, written by the Android build.
 android/.kotlin/
+
+# The feature catalogue's pages. Built from features/*.yaml by
+# `dart run tool/features.dart`, which is the source of truth — committing the
+# output as well would mean reviewing 400 KB of generated markup on every entry
+# that changed a word, and would let the two disagree. Generate them; they are
+# not in a fresh clone until you do.
+/features/*.html
