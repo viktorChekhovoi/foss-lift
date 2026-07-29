@@ -1,0 +1,101 @@
+id: "06"
+title: Layoff deloads
+tagline: >-
+  Come back from a long break and the app offers a lighter start — measured per
+  workout, never applied without asking.
+screen: workout-detail
+code:
+- lib/data/layoff.dart
+- lib/screens/workout_detail_screen.dart
+- lib/screens/settings_screen.dart
+test:
+- test/feature_06_layoff_deloads_test.dart
+where: >-
+  <b>Pure rules</b> lib/data/layoff.dart (layoffDeload / deloadedTarget) · <b>Applied
+  by</b> applyLayoffDeload(...) · <b>Offered on Start</b> lib/screens/workout_detail_screen.dart
+  · <b>Settings</b> lib/screens/settings_screen.dart
+groups:
+- name: What it does
+  items:
+  - id: watches-gap-since-workout-was
+    t: Watches the gap since a workout was last trained
+    d: not "the routine".
+    screen: none
+    defines:
+    - progression.layoff-rules
+    uses:
+    - history.session-record
+  - id: offers-back-off-before-session
+    t: Offers a back-off before the session starts
+    d: whole periods away, each worth a percentage, stacking up to a cap.
+    defines:
+    - progression.layoff-offer
+  - id: cut-lands-somewhere-trainable
+    t: The cut lands somewhere trainable
+    d: >-
+      down to the half kilo, never below the mode's floor — and the session says
+      why it's lighter.
+    uses:
+    - load.loadable-grid
+    - load.units
+- name: How to use it
+  items:
+  - id: set-rules
+    t: Set the rules
+    d: >-
+      Profile → Settings → the layoff days threshold and percent per period. App-wide.
+    screen: settings
+    uses:
+    - progression.layoff-rules
+  - id: when-triggers
+    t: When it triggers
+    d: >-
+      open a workout untrained for a while → Start → a dialog offers the deload.
+      Accept to start lighter, or decline to start at the weight you left.
+    uses:
+    - progression.layoff-offer
+    - session.start
+- name: Behaviour & edge cases
+  items:
+  - id: per-workout-not-per-routine
+    t: Per workout, not per routine
+    d: >-
+      a split where Push comes round weekly but Legs hasn't been touched since
+      spring catches Legs exactly.
+    screen: none
+    uses:
+    - template.workout
+    - history.session-record
+  - id: nothing-applied-without-asking
+    t: Nothing is applied without asking
+    d: >-
+      accepting moves the template and draws the first set at the new weight;
+      the cut is carried into the session as a notice shown for its whole length.
+    uses:
+    - progression.layoff-offer
+    - session.start
+    - template.item
+  - id: declining-not-recorded
+    t: Declining is not recorded
+    d: >-
+      training today resets the gap by itself, so the question can't come back
+      to nag.
+    uses:
+    - progression.layoff-offer
+  - id: deload-clears-both-progression-streaks
+    t: A deload clears both progression streaks
+    d: >-
+      sessions either side of a month off aren't "consecutive" in any sense the
+      progression rules mean.
+    screen: none
+    uses:
+    - progression.streak
+  - id: thresholds-app-wide
+    t: The thresholds are app-wide
+    d: >-
+      unlike per-slot progression rates: a layoff is something that happened to
+      you, not to one exercise.
+    screen: settings
+    uses:
+    - progression.layoff-rules
+    - storage.settings

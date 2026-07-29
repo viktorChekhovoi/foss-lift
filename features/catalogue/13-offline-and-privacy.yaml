@@ -1,0 +1,149 @@
+id: "13"
+title: Offline & privacy
+tagline: Everything is on-device. No network, no account, no telemetry.
+screen: about
+code:
+- lib/screens/about_screen.dart
+- lib/data/database.dart
+- lib/services/set_video_store.dart
+test:
+- test/feature_13_offline_and_privacy_test.dart
+where: >-
+  <b>Screens</b> lib/screens/about_screen.dart · <b>Database</b> lib/data/database.dart
+  (drift over SQLite) · <b>Clip storage</b> lib/services/set_video_store.dart
+  · <b>Statement</b> PRIVACY.md
+groups:
+- name: What it does
+  items:
+  - id: makes-no-network-connections-collects
+    t: Makes no network connections and collects nothing
+    d: no account, no server, no analytics.
+    screen: none
+    defines:
+    - privacy.offline
+  - id: stores-all-data-device
+    t: Stores all data on-device
+    d: in a local SQLite database (drift).
+    screen: none
+    defines:
+    - storage.schema
+    uses:
+    - storage.schema
+    - privacy.offline
+  - id: only-notification-local-one
+    t: The only "notification" is a local one
+    d: scheduled on-device; it never leaves the phone.
+    screen: shade
+    uses:
+    - platform.reminders
+    - privacy.offline
+  - id: says-so-once-about-screen
+    t: Says so, once, on an About screen
+    d: >-
+      what the app does with your data, the licence, and an address to report
+      a bug to.
+- name: How to use it
+  items:
+  - id: nothing-configure
+    t: Nothing to configure
+    d: no sign-in and no connectivity requirement; the app works fully offline.
+    screen: none
+  - id: about
+    t: About
+    d: Profile → About Foss Lift.
+  - id: report-bug
+    t: Report a bug
+    d: >-
+      opens a pre-addressed draft in whatever handles mail; the address is printed
+      underneath as well, and long-pressing it copies it.
+    screen: system
+    uses:
+    - privacy.offline
+- name: Behaviour & edge cases
+  items:
+  - id: ui-never-touches-sqlite-directly
+    t: The UI never touches SQLite directly
+    d: >-
+      screens watch providers, providers call the single AppDatabase — which is
+      why there's one well-defined place all data lives.
+    screen: none
+    uses:
+    - storage.schema
+  - id: reminders-only-platform-integration
+    t: Reminders are the only platform integration
+    d: and they're on-device and Android-only.
+    screen: none
+    uses:
+    - platform.reminders
+    - privacy.offline
+  - id: three-outward-hand-offs-all
+    t: The three outward hand-offs are all to another app you can see
+    d: >-
+      a demo link to the browser, a share code to the system share sheet, a bug
+      report to a mail app. None is the app talking to a server — it holds no
+      network permission to do so with.
+    screen: system
+    uses:
+    - privacy.offline
+    - share.deep-link
+    - exercise.video-url
+  - id: promise-stated-once-about
+    t: The promise is stated once, on About
+    d: >-
+      rather than repeated as reassurance on every screen that shares something.
+  - id: camera-used-twice-two-uses
+    t: The camera is used twice, and the two uses are not alike
+    d: >-
+      scanning a QR examines frames and drops them. Filming a set writes a file,
+      and it is the first data the app holds that is recognisably a person — so
+      it is fenced.
+    screen: none
+    uses:
+    - share.qr
+    - video.capture
+    - platform.permissions
+  - id: clips-live-app-private-storage
+    t: Clips live in app-private storage
+    d: never the shared gallery, never anywhere another app can enumerate them.
+    screen: none
+    uses:
+    - video.storage
+    - platform.portability
+  - id: there-no-upload-path-no
+    t: There is no upload path and no share sheet for a clip
+    d: >-
+      every other shareable thing in the app has one; this deliberately does not.
+    screen: none
+    uses:
+    - video.storage
+    - privacy.offline
+  - id: recording-only-way-one-gets
+    t: Recording is the only way one gets in
+    d: >-
+      nothing is imported from the gallery, which would need read access to shared
+      storage.
+    screen: none
+    uses:
+    - video.capture
+  - id: no-audio-ever-captured
+    t: No audio is ever captured
+    d: which also means the app never asks for the microphone.
+    screen: set-video
+    uses:
+    - video.capture
+  - id: camera-opened-only-while-filming
+    t: The camera is opened only while filming
+    d: and released immediately after.
+    screen: set-video
+    uses:
+    - video.capture
+    - platform.permissions
+  - id: clips-one-thing-can-fill
+    t: Clips are the one thing that can fill a phone
+    d: >-
+      so what they cost is shown in Settings with a way to reclaim it — and nothing
+      is ever deleted automatically, because every rule that could be would bin
+      the oldest recording first.
+    screen: video-settings
+    uses:
+    - video.storage

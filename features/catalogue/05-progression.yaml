@@ -1,0 +1,98 @@
+id: "05"
+title: Automatic progression
+tagline: >-
+  Each exercise slot advances on one axis: add weight, add reps, or hold longer.
+  Success steps it up; misses back it off.
+screen: none
+code:
+- lib/data/progression.dart
+- lib/state/active_workout.dart
+test:
+- test/feature_05_progression_test.dart
+where: >-
+  <b>Pure rules</b> lib/data/progression.dart (stepProgression / advanceTarget)
+  · <b>Applied by</b> AppDatabase.advanceProgression(...) · <b>Recorded</b> ProgressionReport
+  / lastProgressionProvider in lib/state/active_workout.dart
+groups:
+- name: What it does
+  items:
+  - id: weight-axis
+    t: Weight axis
+    d: add load at a fixed rep target.
+    defines:
+    - progression.axis
+  - id: reps-axis
+    t: Reps axis
+    d: add reps at a fixed load.
+    defines:
+    - progression.axis
+  - id: time-axis
+    t: Time axis
+    d: hold longer.
+    defines:
+    - progression.axis
+    uses:
+    - exercise.measure
+  - id: defaults-work-untouched
+    t: Defaults work untouched
+    d: >-
+      +2.5 kg after one clean session, −5 kg after two misses in a row. Every
+      rate is configurable per slot.
+    defines:
+    - progression.rates
+  - id: loading-bar-past-suggestion-itself
+    t: Loading the bar past the suggestion is itself progression
+    d: >-
+      beating the stored target raises it, even before a step is formally "earned".
+    uses:
+    - progression.verdict
+    - session.exercise-weight
+- name: How to use it
+  items:
+  - id: automatic
+    t: It is automatic
+    d: >-
+      configure the rates in the workout builder; it runs on Finish, and what
+      it did is shown on the post-session recap.
+    screen: summary
+    uses:
+    - session.recap
+    - session.finish
+- name: Behaviour & edge cases
+  items:
+  - id: axis-constrained-exercise-s-measure
+    t: The axis is constrained by the exercise's measure, not chosen freely
+    d: a counted exercise can use weight or reps; a held one can only use time.
+    screen: workout-edit
+    uses:
+    - exercise.measure
+    - progression.axis
+  - id: verdict-every-planned-set-logged
+    t: The verdict is "every planned set logged and none short"
+    d: a skipped set is a miss; finishing at a reduced weight is a miss.
+    defines:
+    - progression.verdict
+  - id: weight-axis-step-applied-lightest
+    t: On the weight axis, the step is applied to the lightest logged set
+    d: >-
+      the load carried through the whole exercise. One heavy set among lighter
+      ones is a heavy single, not a new working weight.
+    uses:
+    - progression.axis
+    - session.exercise-weight
+  - id: streaks-stored
+    t: Streaks are stored
+    d: >-
+      consecutive successes/failures, because the target moves and a past session
+      can only be judged against the goal that was live that day. Editing a workout
+      in the builder can't forgive a pending back-off.
+    defines:
+    - progression.streak
+    uses:
+    - storage.schema
+  - id: weight-mode-slot-no-suggested
+    t: A weight-mode slot with no suggested weight has no target to move
+    d: nothing happens, rather than inventing "load 2.5 kg onto a push-up".
+    uses:
+    - progression.axis
+    - template.item

@@ -8,15 +8,48 @@ Do not deviate from these rules. They describe important approaches to writing c
 
 1. NEVER write 'implementation tests'
 2. Only write integration tests based on feature descriptions outlined in 'features/'
-3. Always notify me when 'features/' is changed at all
+3. Always notify me when 'features/' is changed at all — say which entry ids were added, reworded or deleted. Every feature now starts there, so this is a summary of the change, not an alarm.
 4. Aim for high test coverage; 100% is not necessary, but each uncovered line should have good reason for being skipped - e.g., 'this line is for a rare filesystem exception'
-5. When implementing any changes, follow the red-green-refactor strategy: 
-    1. Take the delta-specification from Github Issues or 'features/'
-    2. Spawn an agent with that delta information and other relevant context from 'features/', and have it write integration tests that follow this spec
-    3. Write the code to make the tests pass without a focus on efficiency.
-    4. Refactor the code while keeping the tests passing to remove code duplication, inefficiencies, and suboptimal practices
+5. When implementing any changes, follow **feature → red → green → refactor**:
+    1. **Feature.** Write the spec into `features/catalogue/*.yaml` first — one entry per behaviour, phrased as what the app will do, tagged with its `screen` and its `defines`/`uses` concepts. Take the delta from the GitHub issue or user description. If the issue is ambiguous, resolve it before writing the entry, and record the answer as an issue comment.
+       Run `dart run tool/features.dart --check` and fix what it rejects. The entries are now the specification.
+       **Do not skip to step 2 with the spec in your head.** An entry written afterwards describes whatever got built, which is not a specification — it is a changelog with the disagreements edited out.
+    2. **Red.** Spawn an agent with those entries and other relevant context from 'features/', and have it write integration tests that follow them. The tests must fail, and you must see them fail — a test that passes before the code exists is testing nothing.
+    3. **Green.** Write the code to make the tests pass without a focus on efficiency.
+    4. **Refactor.** Improve the code while keeping the tests passing, to remove code duplication, inefficiencies, and suboptimal practices.
+    5. Regenerate the pages (`dart run tool/features.dart`) and tick the issue's acceptance criteria. The HTML is gitignored — do not commit it.
 6. Do NOT write duplicate code. DO NOT NEVER EVER
 7. For every change, assume this app has no prior users. legacy formats do not need to be supported, data does not need migration
+8. When a change alters behaviour that is already catalogued, **edit that entry in place**. Never add a second entry describing the new behaviour beside the old one — the catalogue is what the app does now, not a changelog. 
+
+## Key writing style guide
+Use clear, natural, moderately formal English. Assume the reader is a competent developer who is unfamiliar with this project.
+
+### Style requirements:
+
+* Prefer active voice and concrete verbs.
+* Use technical terminology when it is more precise than a simpler substitute.
+* Keep sentences concise, but vary their length and structure naturally.
+* Explain why something matters ONLY when the reason is not obvious.
+* Address the reader as “you” only for instructions.
+* Use imperative verbs for procedural steps.
+* Make each paragraph serve one clear purpose.
+* Preserve important implementation details, limitations, and tradeoffs.
+
+### Avoid:
+
+* Marketing language such as “powerful,” “robust,” “seamless,” or “cutting-edge.”
+* Empty transitions such as “Additionally,” “Furthermore,” and “It is worth noting that.”
+* Phrases such as “This section will explain,” “Whether you are…,” or “By following these steps…”
+* Repeating the same point in the introduction, body, and conclusion.
+* Excessive bullet lists when ordinary paragraphs would read better.
+* Artificially simplified sentences or definitions of concepts the intended reader is expected to know.
+* Claims that are not supported by the source material.
+* Invented benefits, behavior, configuration, or implementation details.
+
+The result should sound like it was written and edited by an engineer who understands the project.
+
+Before returning the section, silently remove redundant sentences, generic filler, unnecessary adjectives, and any statements that merely announce what the text is about.
 
 ## What this is
 
@@ -29,6 +62,16 @@ no telemetry. Read `ARCHITECTURE.md` before touching code; it is the map.
 
 **The backlog lives in GitHub Issues, not in a file.** `features.txt` is a stub
 pointing here; do not add features to it.
+
+`features/` is the other half: the catalogue of what the app does, as YAML.
+Issues are the deltas; the catalogue is the result. It is written **before** the
+code — see rule 5 above.
+
+The source is `features/catalogue/*.yaml`, `concepts.yaml` and `screens.yaml`.
+**The HTML there is generated and gitignored — never edit it, never commit it.**
+A fresh clone has none until you run `dart run tool/features.dart`; `--check`
+validates the source without writing. `features/README.md` has the entry format
+and the `defines`/`uses` concept graph.
 
 ```bash
 gh issue list --label p1              # what's next

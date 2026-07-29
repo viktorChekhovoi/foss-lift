@@ -43,8 +43,8 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 22),
             _Section('LICENCE'),
             _Para(
-              'MIT. Free to use, read, change and pass on — the source is '
-              'the whole of it, there is nothing held back.',
+              'AGPL-3.0. Free to use, read, change and pass on — the source is '
+              'the whole of it, and anything built on it stays free too.',
             ),
             const SizedBox(height: 22),
             _Section('SOMETHING BROKEN?'),

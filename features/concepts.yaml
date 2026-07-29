@@ -1,0 +1,407 @@
+# The concept vocabulary.
+#
+# A concept is a thing that changes. Catalogue items link to concepts in one of
+# two directions:
+#
+#   defines:  this item is where the concept lives. Change the concept and this
+#             item is the one you edit.
+#   uses:     this item consumes the concept. Change the concept and this item
+#             has to be re-checked.
+#
+# The point of the direction is the second list. "Add a new colour role" starts
+# at theme.colour-role's definers and cascades to everything that `uses` it —
+# the preview, the presets, the share format — without anyone having drawn an
+# edge to the preview by hand.
+#
+# The vocabulary is closed. `dart run tool/features.dart --check` rejects a tag
+# that is not in this file, because free tagging turns into forty synonyms for
+# "the weight" and a graph nobody can query.
+#
+# Adding a concept is cheap and expected. Splitting one that has grown two
+# meanings is also expected — that is the maintenance, and it is linear.
+#
+# `code` is the honest part of the file: --check fails when a path stops
+# existing, so a concept cannot quietly outlive the thing it names.
+
+areas:
+  - id: exercise
+    title: The exercise library
+  - id: template
+    title: Routines, workouts and slots
+  - id: session
+    title: The live session
+  - id: load
+    title: Weight, bars and plates
+  - id: progression
+    title: Progression and layoffs
+  - id: history
+    title: History and stats
+  - id: video
+    title: Set videos
+  - id: theme
+    title: Colour and type
+  - id: ui
+    title: Shell, navigation and onboarding
+  - id: share
+    title: Getting things in and out
+  - id: platform
+    title: Platform, storage and policy
+
+concepts:
+  # ---------------------------------------------------------------- exercise
+  - id: exercise.identity
+    area: exercise
+    what: An exercise row — its name, and whether it is seeded or the user's own.
+    code: [lib/data/database.dart, lib/screens/exercise_form_screen.dart]
+
+  - id: exercise.taxonomy
+    area: exercise
+    what: >-
+      The closed lists an exercise is described with: muscle group and
+      equipment. Also a wire format — a routine code sends the index, not the
+      word.
+    code: [lib/data/exercise_taxonomy.dart]
+
+  - id: exercise.measure
+    area: exercise
+    what: Counted in reps or held for seconds. Constrains what a set and a progression axis can be.
+    code: [lib/data/database.dart]
+
+  - id: exercise.weight-type
+    area: exercise
+    what: Barbell, dumbbell, machine/cable or bodyweight — decides whether a lift has a bar and plates behind it.
+    code: [lib/data/database.dart, lib/data/plates.dart]
+
+  - id: exercise.notes
+    area: exercise
+    what: The user's own note on a movement. Never travels in a routine code.
+    code: [lib/screens/exercise_detail_screen.dart]
+
+  - id: exercise.video-url
+    area: exercise
+    what: The demonstration link on an exercise, canonicalised.
+    code: [lib/util/video_links.dart]
+
+  - id: exercise.seed
+    area: exercise
+    what: The starter library shipped with the app.
+    code: [lib/data/database.dart]
+
+  - id: exercise.filter
+    area: exercise
+    what: Finding a movement again — search, muscle-group and equipment filters.
+    code: [lib/data/exercise_filter.dart, lib/widgets/exercise_filters.dart]
+
+  # ---------------------------------------------------------------- template
+  - id: template.routine
+    area: template
+    what: A programme. Its name, colour, order and default rest.
+    code: [lib/data/database.dart, lib/screens/routine_edit_screen.dart]
+
+  - id: template.workout
+    area: template
+    what: One training day inside a routine — the thing you actually start.
+    code: [lib/data/database.dart, lib/screens/workout_edit_screen.dart]
+
+  - id: template.item
+    area: template
+    what: An exercise slot in a workout — set count, target and suggested weight.
+    code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
+
+  - id: template.rep-target
+    area: template
+    what: What a set is aiming at — a fixed count, a range, a hold, or to failure.
+    code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
+
+  - id: template.rest
+    area: template
+    what: The rest a slot gets, and the routine default it falls back to.
+    code: [lib/data/database.dart]
+
+  - id: template.active-routine
+    area: template
+    what: Which routine is the current one, and so what Today offers.
+    code: [lib/screens/today_screen.dart, lib/providers/providers.dart]
+
+  # ----------------------------------------------------------------- session
+  - id: session.live-state
+    area: session
+    what: The in-memory session. Nothing reaches the database before Finish.
+    code: [lib/state/active_workout.dart]
+
+  - id: session.start
+    area: session
+    what: Starting a day, including the check for one already running.
+    code: [lib/widgets/start_workout.dart]
+
+  - id: session.set-logging
+    area: session
+    what: Turning a set into a logged result — tap to cycle, hold to type.
+    code: [lib/screens/workout_screen.dart, lib/state/active_workout.dart]
+
+  - id: session.exercise-weight
+    area: session
+    what: One weight carried by the exercise, which its sets follow.
+    code: [lib/screens/workout_screen.dart]
+
+  - id: session.hold-timer
+    area: session
+    what: The stopwatch that measures a held set.
+    code: [lib/screens/workout_screen.dart]
+
+  - id: session.progress-mark
+    area: session
+    what: Which set you are on — computed once, shown on the board and in the shade.
+    code: [lib/state/workout_cue.dart]
+
+  - id: session.rest-timer
+    area: session
+    what: The rest clock, owned by the session rather than by a screen.
+    code: [lib/state/active_workout.dart]
+
+  - id: session.rest-cue
+    area: session
+    what: What a rest is for — the caption naming what to set up next.
+    code: [lib/state/workout_cue.dart]
+
+  - id: session.rest-sound
+    area: session
+    what: The tone at the end of a rest, on screen and off it.
+    code: [lib/services/rest_tone.dart, lib/services/rest_alarm.dart, tool/make_rest_tone.dart]
+
+  - id: session.warmup-ramp
+    area: session
+    what: The suggested ascending warm-up, never persisted.
+    code: [lib/data/warmup.dart]
+
+  - id: session.abort
+    area: session
+    what: Throwing a session away without writing anything.
+    code: [lib/screens/workout_screen.dart]
+
+  - id: session.finish
+    area: session
+    what: The write on Finish — sets first, then progression.
+    code: [lib/state/active_workout.dart]
+
+  - id: session.resume-bar
+    area: session
+    what: The docked bar that gets you back into a collapsed session.
+    code: [lib/widgets/resume_workout_bar.dart]
+
+  - id: session.shade
+    area: session
+    what: The whole session in the notification shade, and the foreground service under it.
+    code: [lib/services/workout_shade.dart]
+
+  - id: session.recap
+    area: session
+    what: The post-session summary.
+    code: [lib/screens/summary_screen.dart]
+
+  # -------------------------------------------------------------------- load
+  - id: load.units
+    area: load
+    what: kg or lb. A display concern only — storage is always kilograms.
+    code: [lib/util/units.dart]
+
+  - id: load.bar-weight
+    area: load
+    what: Which bar a lift is over — the exercise's own, or the app default.
+    code: [lib/screens/bar_settings_screen.dart]
+
+  - id: load.plate-rack
+    area: load
+    what: The plates you own, one rack per unit.
+    code: [lib/screens/plate_inventory_screen.dart]
+
+  - id: load.plate-solver
+    area: load
+    what: Which plates make a weight, and whether they make it exactly.
+    code: [lib/data/plates.dart, lib/widgets/plate_line.dart]
+
+  - id: load.loadable-grid
+    area: load
+    what: Which weights a given setup can actually be set to — what a warm-up rung may land on.
+    code: [lib/data/plates.dart]
+
+  # ------------------------------------------------------------- progression
+  - id: progression.axis
+    area: progression
+    what: Which way a slot advances — weight, reps or time. Constrained by the measure.
+    code: [lib/data/progression.dart]
+
+  - id: progression.rates
+    area: progression
+    what: How much to add, after how many good sessions, and how far to back off.
+    code: [lib/data/progression.dart]
+
+  - id: progression.verdict
+    area: progression
+    what: Whether a session counted as clean or as a miss.
+    code: [lib/data/progression.dart]
+
+  - id: progression.streak
+    area: progression
+    what: The stored consecutive success and failure counts.
+    code: [lib/data/database.dart]
+
+  - id: progression.layoff-rules
+    area: progression
+    what: The days threshold and percentage per period, app-wide.
+    code: [lib/data/layoff.dart]
+
+  - id: progression.layoff-offer
+    area: progression
+    what: The dialog offering a lighter start, and what accepting does.
+    code: [lib/screens/workout_detail_screen.dart]
+
+  # ----------------------------------------------------------------- history
+  - id: history.session-record
+    area: history
+    what: The logged session and its sets, denormalised so history survives library edits.
+    code: [lib/data/database.dart, lib/screens/history_screen.dart]
+
+  - id: history.aggregates
+    area: history
+    what: Lifetime totals, summed from the sets rather than from a stored tally.
+    code: [lib/data/database.dart]
+
+  - id: history.exercise-chart
+    area: history
+    what: One movement's progress over time.
+    code: [lib/data/exercise_stats.dart, lib/screens/exercise_progress_screen.dart]
+
+  - id: history.csv-export
+    area: history
+    what: Getting the numbers out as a file.
+    code: [lib/screens/exercise_progress_screen.dart]
+
+  # ------------------------------------------------------------------- video
+  - id: video.capture
+    area: video
+    what: Filming a set, and the caps on length and height.
+    code: [lib/services/set_video_recorder.dart, lib/screens/set_video_screen.dart]
+
+  - id: video.storage
+    area: video
+    what: Where clips live, what they cost, and the sweep that collects orphans.
+    code: [lib/services/set_video_store.dart]
+
+  - id: video.playback
+    area: video
+    what: Watching a clip back, and the reel that finds one again.
+    code: [lib/screens/clip_player_screen.dart, lib/screens/exercise_clips_screen.dart, lib/util/clip_label.dart]
+
+  # ------------------------------------------------------------------- theme
+  - id: theme.colour-role
+    area: theme
+    what: >-
+      The named slots a palette fills — ground, surface, line, text, accent,
+      good, gold and the rest. Adding a role touches every consumer at once.
+    code: [lib/theme/app_theme.dart]
+
+  - id: theme.palette-source
+    area: theme
+    what: Where the live palette comes from — a shipped preset or a stored custom theme.
+    code: [lib/theme/app_theme.dart, lib/theme/theme_id.dart]
+
+  - id: theme.preview
+    area: theme
+    what: The sample UI showing a palette being edited. Consumes every role there is.
+    code: [lib/widgets/theme_preview.dart]
+
+  - id: theme.picker
+    area: theme
+    what: Editing one role — the wheel, the sliders and the hex field.
+    code: [lib/screens/theme_settings_screen.dart]
+
+  - id: theme.contrast-check
+    area: theme
+    what: The warning that says text will be hard to read on this background.
+    code: [lib/widgets/theme_preview.dart]
+
+  - id: ui.text-scale
+    area: theme
+    what: The user's text-size nudge on top of the phone's own.
+    code: [lib/util/text_scale.dart]
+
+  # ---------------------------------------------------------------------- ui
+  - id: ui.navigation
+    area: ui
+    what: The tab shell and the routes between screens.
+    code: [lib/router.dart, lib/screens/home_shell.dart]
+
+  - id: ui.tutorial
+    area: ui
+    what: The first-run tour.
+    code: [lib/widgets/tutorial.dart]
+
+  - id: ui.empty-state
+    area: ui
+    what: What a screen says when there is nothing on it yet.
+    code: [lib/widgets/common.dart]
+
+  # ------------------------------------------------------------------- share
+  - id: share.routine-code
+    area: share
+    what: The FLR1 wire format a routine travels as.
+    code: [lib/data/routine_code.dart, lib/data/share_code.dart]
+
+  - id: share.theme-code
+    area: share
+    what: The wire format a palette travels as.
+    code: [lib/theme/theme_code.dart]
+
+  - id: share.qr
+    area: share
+    what: Turning a code into a QR, and reading one back off the camera.
+    code: [lib/services/qr_decoder.dart, lib/util/qr_capacity.dart, lib/screens/scan_screen.dart]
+
+  - id: share.deep-link
+    area: share
+    what: A fosslift:// link the OS hands the app.
+    code: [lib/services/deep_links.dart]
+
+  - id: share.import-review
+    area: share
+    what: The screen that shows what a code contains before anything is added.
+    code: [lib/screens/routine_import_screen.dart, lib/screens/theme_import_screen.dart]
+
+  # ---------------------------------------------------------------- platform
+  - id: platform.android
+    area: platform
+    what: Android-specific declarations — services, receivers, manifest entries.
+    code: [android/app/src/main/AndroidManifest.xml]
+
+  - id: platform.permissions
+    area: platform
+    what: Runtime grants, and behaving properly when one is refused.
+    code: [lib/services/workout_shade.dart, lib/services/set_video_recorder.dart]
+
+  - id: platform.portability
+    area: platform
+    what: >-
+      Surviving the iOS port — no absolute paths, and platform features gated
+      rather than assumed.
+    code: [lib/services/reminders.dart, lib/services/set_video_store.dart]
+
+  - id: platform.reminders
+    area: platform
+    what: Scheduling the one local notification a routine may ask for.
+    code: [lib/data/schedule.dart, lib/services/reminders.dart]
+
+  - id: storage.settings
+    area: platform
+    what: The single-row settings table, and the upsert that keeps writes from clobbering each other.
+    code: [lib/data/database.dart]
+
+  - id: storage.schema
+    area: platform
+    what: The drift tables themselves.
+    code: [lib/data/database.dart]
+
+  - id: privacy.offline
+    area: platform
+    what: The promise that nothing leaves the phone, and what upholds it.
+    code: [PRIVACY.md, lib/screens/about_screen.dart]

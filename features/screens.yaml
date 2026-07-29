@@ -1,0 +1,196 @@
+# Where things are, written once.
+#
+# The walkthrough is ordered by screen rather than by feature, so a testing pass
+# visits Settings once instead of arriving there from six different sections.
+# That only works if "how do I get here" lives on the screen and not on all 357
+# items — hence this file.
+#
+# `reach` is the tap path from a cold start. `setup` is state that has to exist
+# before the screen shows anything worth looking at; the walkthrough prints it
+# as a precondition at the top of the screen's block.
+#
+# Not every entry is a route. The shade, the resume bar and the system dialogs
+# are places you look at during a pass, and leaving them off the map would leave
+# the parts hardest to test by hand as the parts nobody wrote down.
+
+screens:
+  # -------------------------------------------------------------- the tabs
+  - id: today
+    title: Today
+    route: /today
+    reach: Launch the app.
+
+  - id: routines
+    title: Routines
+    route: /routines
+    reach: Bottom nav → Routines.
+
+  - id: history
+    title: History
+    route: /history
+    reach: Bottom nav → History.
+    setup: At least one finished session, or the screen is empty by design.
+
+  - id: profile
+    title: Profile
+    route: /profile
+    reach: Bottom nav → Profile.
+
+  # ---------------------------------------------------------- the programme
+  - id: routine-detail
+    title: A routine
+    route: /routine/:id
+    reach: Routines → tap a routine.
+
+  - id: routine-edit
+    title: Routine builder
+    route: /routine/:id/edit
+    reach: Routines → tap a routine → edit. A new one is Routines → the add button.
+
+  - id: workout-detail
+    title: A training day
+    route: /workout/:id
+    reach: Today → tap a day. Or Routines → a routine → tap a workout.
+
+  - id: workout-edit
+    title: Workout builder
+    route: /workout/:id/edit
+    reach: Open a training day → edit.
+
+  # ------------------------------------------------------------- the library
+  - id: library
+    title: Exercise library
+    route: /library
+    reach: Profile → Exercise library.
+
+  - id: exercise-form
+    title: New / edit exercise
+    route: /library/new
+    reach: Library → the add button. Editing is an exercise → edit.
+
+  - id: exercise-detail
+    title: An exercise
+    route: /exercise/:id
+    reach: Library → tap an exercise.
+
+  - id: exercise-progress
+    title: Exercise progress
+    route: /exercise/:id/progress
+    reach: An exercise → its progress chart.
+    setup: Several logged sessions of that movement, or there is no line to draw.
+
+  - id: exercise-clips
+    title: The clip reel
+    route: /exercise/:id/clips
+    reach: An exercise → the clips button.
+    setup: At least one filmed set of that movement — the button is hidden otherwise.
+
+  # ------------------------------------------------------------- the session
+  - id: session
+    title: Live session
+    route: /session
+    reach: Today → a day → Start workout.
+
+  - id: set-video
+    title: Filming a set
+    route: /session/record/:ei/:si
+    reach: In a live session → the camera control on a set row.
+
+  - id: clip-player
+    title: Clip playback
+    route: /clip
+    reach: A clip reel → tap a clip. Or the recap → a filmed exercise.
+
+  - id: summary
+    title: Session recap
+    route: /summary/:id
+    reach: Finish a session. Or History → tap a session.
+
+  - id: resume-bar
+    title: The resume bar
+    route: null
+    reach: Start a session, collapse it, then look at the bottom of any screen.
+    setup: A session running and collapsed.
+
+  - id: shade
+    title: The notification shade
+    route: null
+    reach: Start a session, then pull down the phone's notification shade.
+    setup: A session running, and the notification permission granted.
+
+  # ------------------------------------------------------------- the settings
+  - id: settings
+    title: Settings
+    route: /settings
+    reach: Profile → Settings.
+
+  - id: bar-settings
+    title: Bar & plates
+    route: /settings/bar
+    reach: Profile → Settings → Bar & plates.
+
+  - id: plate-inventory
+    title: The plate rack
+    route: /settings/plates
+    reach: Profile → Settings → Bar & plates → plates.
+
+  - id: video-settings
+    title: Video settings
+    route: /settings/videos
+    reach: Profile → Settings → video quality & storage.
+
+  - id: theme-settings
+    title: Theme
+    route: /settings/theme
+    reach: Profile → Settings → Theme.
+
+  - id: theme-custom
+    title: Custom theme editor
+    route: /settings/theme/custom
+    reach: Profile → Settings → Theme → build a custom theme.
+
+  # ------------------------------------------------------- in, out and around
+  - id: routine-share
+    title: Share a routine
+    route: /routine/:id/share
+    reach: A routine → share.
+
+  - id: routine-import
+    title: Import a routine
+    route: /routine/import
+    reach: Routines → import. Or follow a fosslift:// link, or scan a QR.
+
+  - id: theme-import
+    title: Import a theme
+    route: /settings/theme/import
+    reach: Theme → import, with a code on the clipboard.
+
+  - id: scan
+    title: The scanner
+    route: /scan
+    reach: An import screen → scan.
+    setup: A camera permission grant, and a QR on another screen to point at.
+
+  - id: about
+    title: About
+    route: /about
+    reach: Profile → About.
+
+  - id: tutorial
+    title: First-run tour
+    route: null
+    reach: Profile → Help & tour. It also runs by itself on a fresh install.
+
+  # ------------------------------------------------------------------ system
+  - id: system
+    title: Outside the app
+    route: null
+    reach: The phone's own surfaces — permission dialogs, share sheet, volume and Do Not Disturb.
+
+  # A pure rule with no surface of its own. Items tagged `none` stay in the
+  # catalogue and out of the walkthrough: a solver's tie-breaking is real and
+  # tested, but there is no screen on which to go and look at it.
+  - id: none
+    title: No screen — pure rule
+    route: null
+    reach: null

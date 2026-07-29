@@ -1,0 +1,90 @@
+id: "08"
+title: Schedule & reminders
+tagline: >-
+  A routine can name the weekdays it's meant to be trained on, and ask for a local
+  notification on them.
+screen: routine-edit
+code:
+- lib/data/schedule.dart
+- lib/services/reminders.dart
+- lib/main.dart
+- lib/screens/routine_edit_screen.dart
+test:
+- test/feature_08_schedule_and_reminders_test.dart
+where: >-
+  <b>Pure decision</b> lib/data/schedule.dart (nextReminderAt) · <b>Service</b>
+  lib/services/reminders.dart · <b>Wired via</b> reminderSyncProvider, watched
+  in lib/main.dart · <b>Edited in</b> lib/screens/routine_edit_screen.dart
+groups:
+- name: What it does
+  items:
+  - id: stores-which-day-week-routine
+    t: Stores which day of the week a routine is trained on
+    d: a day mask.
+    defines:
+    - platform.reminders
+    uses:
+    - template.routine
+  - id: optionally-fires-one-local-notification
+    t: Optionally fires one local notification per routine
+    d: at a chosen time on those days.
+    screen: shade
+    defines:
+    - platform.reminders
+  - id: everything-device
+    t: Everything is on-device
+    d: no server, nothing leaves the phone.
+    screen: none
+    uses:
+    - privacy.offline
+- name: How to use it
+  items:
+  - id: open-routine-edit
+    t: Open a routine → edit
+    d: >-
+      set its training days and, optionally, a reminder time. Leave the reminder
+      off and no notification is scheduled.
+    uses:
+    - platform.reminders
+- name: Behaviour & edge cases
+  items:
+  - id: next-reminder-computed-not-stored
+    t: The next reminder is computed, not stored
+    d: >-
+      the next scheduled day strictly after now, skipping today if the routine
+      was already trained today, and wrapping a week for a once-weekly schedule.
+    screen: none
+    uses:
+    - platform.reminders
+    - history.session-record
+  - id: reminders-re-sync-single-place
+    t: Reminders re-sync from a single place
+    d: >-
+      a schedule edit, a finished session and a fresh launch all converge on the
+      same pending notification — the app cancels and re-lays the next reminder
+      on every sync.
+    screen: none
+    uses:
+    - platform.reminders
+    - session.finish
+  - id: scheduled-inexactly-purpose
+    t: Scheduled inexactly on purpose
+    d: >-
+      an exact alarm needs a permission Android 14 makes the user grant by hand,
+      and a nudge to go to the gym doesn't need to land on the second.
+    screen: none
+    uses:
+    - platform.reminders
+    - platform.android
+  - id: android-only
+    t: Android-only
+    d: >-
+      the service is a no-op off Android, so tests never touch a platform channel.
+      Android needs RECEIVE_BOOT_COMPLETED, the plugin's receivers, and core-library
+      desugaring.
+    screen: none
+    defines:
+    - platform.android
+    uses:
+    - platform.android
+    - platform.portability

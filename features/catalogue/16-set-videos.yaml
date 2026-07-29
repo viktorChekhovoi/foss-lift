@@ -1,0 +1,316 @@
+id: "16"
+title: Set videos
+tagline: >-
+  Film a set, and keep the clip attached to the set it was. Everything stays on
+  the phone.
+screen: session
+code:
+- lib/services/set_video_store.dart
+- lib/services/set_video_recorder.dart
+- lib/screens/set_video_screen.dart
+- lib/screens/clip_player_screen.dart
+- lib/screens/exercise_clips_screen.dart
+- lib/screens/video_settings_screen.dart
+- lib/util/clip_label.dart
+test:
+- test/feature_16_set_videos_test.dart
+where: >-
+  <b>Storage, naming, sweep</b> lib/services/set_video_store.dart · <b>Camera</b>
+  lib/services/set_video_recorder.dart · <b>Screens</b> set_video_screen.dart,
+  clip_player_screen.dart, exercise_clips_screen.dart, video_settings_screen.dart
+  · <b>Label &amp; speeds</b> lib/util/clip_label.dart · <b>Path</b> SetEntry.videoPath
+  live, SessionSets.videoPath saved
+groups:
+- name: What it does
+  items:
+  - id: records-one-clip-per-set
+    t: Records one clip per set
+    d: from the live workout board, against the set in front of you.
+    screen: set-video
+    defines:
+    - video.capture
+  - id: marks-set-carries-clip
+    t: Marks a set that carries a clip
+    d: so it can be found again.
+    uses:
+    - video.capture
+    - session.set-logging
+  - id: plays-one-back-full-screen
+    t: Plays one back full screen
+    d: at half or quarter speed, looping on request.
+    screen: clip-player
+    defines:
+    - video.playback
+  - id: lists-every-clip-one-movement
+    t: Lists every clip of one movement in date order
+    d: the same lift over months.
+    screen: exercise-clips
+    uses:
+    - video.playback
+  - id: shows-what-clips-cost-offers
+    t: Shows what the clips cost, and offers to reclaim it
+    screen: video-settings
+    defines:
+    - video.storage
+- name: How to use it
+  items:
+  - id: film-set
+    t: Film a set
+    d: >-
+      during a workout, tap the camera on the set's row, then the shutter. It
+      stops itself at the cap, or when you tap stop.
+    uses:
+    - video.capture
+  - id: re-film-or-delete
+    t: Re-film or delete
+    d: tap the camera again on a set that already has a clip.
+    uses:
+    - video.capture
+    - video.storage
+  - id: watch-one-back
+    t: Watch one back
+    d: >-
+      Library → the exercise → N clips. Or from a session: History → the session
+      → tap an exercise marked with a play symbol.
+    screen: exercise-clips
+    uses:
+    - video.playback
+  - id: see-cost
+    t: See the cost
+    d: >-
+      Profile → Settings → Storage, under Set videos. The screen behind it holds
+      the quality, the max clip length and the way to get the space back.
+    screen: video-settings
+    uses:
+    - video.storage
+- name: Recording
+  screen: set-video
+  uses:
+  - video.capture
+  items:
+  - id: recording-only-way-clip-gets
+    t: Recording is the only way a clip gets in
+    d: >-
+      nothing is imported from the gallery: that would mean read access to shared
+      storage, its own permission and its own privacy paragraph, for a path nobody
+      asked for.
+    uses:
+    - privacy.offline
+  - id: no-audio-ever
+    t: No audio, ever
+    d: >-
+      enableAudio: false. A gym is full of other people's conversations, the track
+      is worth nothing for checking bar path, and leaving it off avoids the microphone
+      permission prompt on both platforms.
+    uses:
+    - privacy.offline
+  - id: camera-opened-only-while-filming
+    t: The camera is opened only while filming
+    d: >-
+      and released the moment the recording screen closes. It is never held open
+      in the background.
+    uses:
+    - platform.permissions
+  - id: recording-stops-itself-max-clip
+    t: Recording stops itself at the max clip length
+    d: >-
+      60 seconds by default, 3 minutes if asked for. The failure mode that fills
+      a phone is a recording nobody stopped. The last five seconds count down,
+      so the stop is never a surprise.
+    uses:
+    - video.storage
+  - id: 720p-default-480p-request
+    t: 720p by default, 480p on request
+    d: >-
+      1080p is not offered — roughly two and a half times the bytes for a judgement
+      720p already answers.
+    screen: video-settings
+    uses:
+    - video.storage
+  - id: warm-ups-cannot-filmed
+    t: Warm-ups cannot be filmed
+    d: >-
+      they are suggestions that are never saved, so there is no logged set for
+      a clip to belong to. The column is still reserved on those rows, so the
+      two sections line up.
+    screen: session
+    uses:
+    - session.warmup-ramp
+  - id: clip-filmed-mid-session-file
+    t: A clip filmed mid-session is a file plus a path in memory
+    d: >-
+      the live workout does not touch the database until Finish. The path is written
+      alongside the set when the session is saved.
+    screen: none
+    uses:
+    - session.live-state
+    - video.storage
+  - id: abandoning-workout-takes-clips
+    t: Abandoning a workout takes its clips with it
+    d: nothing was written, so nothing points at those files.
+    screen: none
+    uses:
+    - session.abort
+    - video.storage
+  - id: clip-set-was-never-logged
+    t: A clip on a set that was never logged goes too
+    d: at Finish — the set is not saved, so nothing would ever point at it.
+    screen: none
+    uses:
+    - session.finish
+    - video.storage
+  - id: deleting-clip-leaves-set-alone
+    t: Deleting a clip leaves the set alone
+    d: a bad take is not a set that did not happen.
+    screen: session
+    uses:
+    - video.storage
+  - id: re-filming-replaces
+    t: Re-filming replaces
+    d: >-
+      and the take it replaces is deleted then and there rather than left for
+      the sweep.
+    screen: session
+    uses:
+    - video.storage
+- name: Playing one back
+  screen: clip-player
+  uses:
+  - video.playback
+  items:
+  - id: full-screen-black
+    t: Full screen, on black
+    d: with play/pause and a scrubber you can drag.
+  - id: loop-you-switch
+    t: A loop you switch on
+    d: >-
+      off to begin with, because a clip that plays once and stops is what opening
+      one leads you to expect. Looping is what you reach for once you have found
+      the rep worth watching again.
+  - id: slow-motion-0-5-0
+    t: Slow motion at 0.5× and 0.25×
+    d: >-
+      on a cycling control. Nothing above 1×: this is for inspecting a rep, not
+      skipping one.
+  - id: frame-frame-stepping-out-scope
+    t: Frame-by-frame stepping is out of scope, deliberately
+    d: >-
+      landing on an exact frame means seeking past the nearest keyframe and decoding
+      forward, which the player cannot be relied on to do. Revisit it if the underlying
+      player gains an exact-seek option.
+    screen: none
+  - id: clip-whose-file-has-gone
+    t: A clip whose file has gone says so
+    d: >-
+      rather than sitting at nought seconds. A row can outlive its file if one
+      is removed by hand.
+    uses:
+    - video.storage
+  - id: deleting-player-clears-row-first
+    t: Deleting from the player clears the row first, then the file
+    d: the same ordering as everywhere else.
+    uses:
+    - video.storage
+- name: Finding one again
+  screen: exercise-clips
+  uses:
+  - video.playback
+  items:
+  - id: exercise-s-own-reel
+    t: The exercise's own reel
+    d: >-
+      a flat list of every clip of that movement, newest first, each labelled
+      with the set it came from — 12 Mar · set 3 · 100 kg × 5. Your squat over
+      months, in one place.
+    uses:
+    - load.units
+  - id: button-appears-only-once-there
+    t: The button appears only once there is something to watch
+    d: >-
+      an empty reel is a button that teaches you the feature exists by disappointing
+      you.
+    uses:
+    - ui.empty-state
+  - id: session-recap-marks-filmed-exercise
+    t: The session recap marks a filmed exercise
+    d: >-
+      with a play symbol and a "N filmed" count. With more than one filmed set
+      of the same movement the choice is offered rather than guessed at.
+    screen: summary
+    uses:
+    - session.recap
+  - id: label-reads-identically-both-places
+    t: The label reads identically in both places
+    d: >-
+      one implementation (clipLabelOf), two callers — the same clip must not appear
+      to be two different things.
+    screen: none
+- name: Storage — the policy, stated
+  screen: none
+  uses:
+  - video.storage
+  items:
+  - id: nothing-ever-deleted-automatically
+    t: Nothing is ever deleted automatically
+    d: >-
+      every retention rule deletes the oldest clip first, and the oldest clip
+      is the one the feature exists for. It would optimise the cost by throwing
+      away the point.
+  - id: caps-do-work-instead
+    t: The caps do the work instead
+    d: one clip cannot be large, so the library cannot grow surprisingly fast.
+    screen: video-settings
+  - id: what-spent-visible
+    t: What is spent is visible
+    d: in Settings, with a way to reclaim it.
+    screen: video-settings
+  - id: clips-live-app-private-storage
+    t: Clips live in app-private storage
+    d: >-
+      getApplicationSupportDirectory(), a set_videos/ subfolder — never the shared
+      gallery, never uploaded, and no share sheet.
+    uses:
+    - privacy.offline
+  - id: only-relative-paths-stored
+    t: Only relative paths are stored
+    d: >-
+      set_videos/&lt;id&gt;.mp4, joined onto a freshly resolved directory every
+      time. The iOS container path carries a UUID that changes on reinstall and
+      restore.
+    defines:
+    - platform.portability
+    uses:
+    - platform.portability
+  - id: filename-generated-id
+    t: The filename is a generated id
+    d: >-
+      not a timestamp, which collides, and not the exercise name, which would
+      leak what somebody trains to anything that can list the directory.
+    uses:
+    - privacy.offline
+- name: Never a dead reference
+  screen: none
+  uses:
+  - video.storage
+  items:
+  - id: file-written-first-row-names
+    t: The file is written first, and the row that names it only at Finish
+    uses:
+    - session.finish
+  - id: deleting-goes-row-first-then
+    t: Deleting goes row first, then file
+  - id: sweep-launch-removes-any-file
+    t: A sweep on launch removes any file in set_videos/ that no row points at
+  - id: sweep-leaves-files-younger-than
+    t: The sweep leaves files younger than kOrphanGrace (24 hours) alone
+    d: >-
+      without that guard it would delete the clip of the set being filmed right
+      now, which has no row yet by design.
+  - id: there-no-way-delete-session
+    t: There is no way to delete a session in the app today
+    d: >-
+      when one exists, the rows go with the session by foreign-key cascade and
+      the files become orphans the sweep collects.
+    uses:
+    - history.session-record
+    - storage.schema

@@ -1,0 +1,244 @@
+id: "14"
+title: Sharing a routine
+tagline: >-
+  A whole programme — days, slots, rep schemes, progression rates and the custom
+  exercises it depends on — as one line of text you can paste into a message.
+screen: routine-share
+code:
+- lib/data/routine_code.dart
+- lib/data/share_code.dart
+- lib/util/qr_capacity.dart
+- lib/data/routine_import.dart
+- lib/screens/routine_share_screen.dart
+- lib/screens/routine_import_screen.dart
+- lib/screens/scan_screen.dart
+- lib/services/deep_links.dart
+- android/app/src/main/AndroidManifest.xml
+test:
+- test/feature_14_routine_sharing_test.dart
+where: >-
+  <b>Wire format</b> lib/data/routine_code.dart (FLR1) on lib/data/share_code.dart
+  · <b>QR capacity</b> lib/util/qr_capacity.dart · <b>Landing an import</b> lib/data/routine_import.dart
+  + AppDatabase.importSharedRoutine · <b>Screens</b> routine_share_screen.dart,
+  routine_import_screen.dart, scan_screen.dart · <b>Links</b> lib/services/deep_links.dart
+  + AndroidManifest.xml
+groups:
+- name: What it does
+  items:
+  - id: export-any-routine-becomes-routine
+    t: Export — any routine becomes a routine code
+    d: >-
+      a versioned, compressed, base64 line beginning FLR1. It carries the routine's
+      name, colour, default rest and training days; every workout in order; every
+      exercise slot with its full configuration; and a definition of every exercise
+      the routine references.
+    defines:
+    - share.routine-code
+  - id: two-ways-out-qr-or
+    t: Two ways out — a QR, or a fosslift://routine/… link
+    d: >-
+      both carry the same code. Nothing is uploaded. The system share sheet is
+      where "copy" lives; there is no separate copy button and no file to save.
+    defines:
+    - share.qr
+    - share.deep-link
+    uses:
+    - share.qr
+    - share.deep-link
+  - id: import-scanned-qr-tapped-link
+    t: Import — a scanned QR, a tapped link or a pasted code
+    d: lands on a confirmation screen. Nothing is written until you accept it.
+    screen: routine-import
+    defines:
+    - share.import-review
+    uses:
+    - share.import-review
+  - id: custom-exercises-travel-routine
+    t: Custom exercises travel with the routine
+    d: >-
+      the name, muscle group, equipment, weight type and bar — plus a video link,
+      if there is a video behind it. The recipient does not need them beforehand.
+    uses:
+    - share.routine-code
+    - exercise.identity
+  - id: name-clash-your-call
+    t: A name clash is your call
+    d: >-
+      if an incoming exercise has the same name as one already in the library
+      and its definition differs, the import asks whether to replace yours or
+      keep it. Keeping is the default.
+    screen: routine-import
+    uses:
+    - share.import-review
+- name: How to use it
+  items:
+  - id: send-one
+    t: Send one
+    d: Routines → open a routine → the share icon → Show QR or Send link.
+    uses:
+    - share.qr
+    - share.deep-link
+  - id: receive-one
+    t: Receive one
+    d: >-
+      Routines → scroll past + New routine to IMPORT A ROUTINE → Scan QR or Paste
+      code. A fosslift://routine/… link tapped anywhere on the phone opens the
+      same screen.
+    screen: routine-import
+    uses:
+    - share.import-review
+  - id: decide-clashes
+    t: Decide on clashes
+    d: >-
+      the confirmation screen lists every exercise that will be added, and every
+      one whose name you already use. Each clash has a Replace switch, off by
+      default.
+    screen: routine-import
+    uses:
+    - share.import-review
+- name: Behaviour & edge cases
+  items:
+  - id: code-whole-routine
+    t: The code is the whole routine
+    d: >-
+      no server, no id to look up, nothing to expire. A code shared in 2026 still
+      imports in 2030.
+    screen: none
+    uses:
+    - share.routine-code
+    - template.item
+  - id: there-nothing-wordy-left-carry
+    t: There is nothing wordy left to carry
+    d: >-
+      an exercise used to hold a coaching cue, the largest thing in a routine
+      code; removing it took a custom exercise from about 55 characters on the
+      wire to a handful.
+    screen: none
+    uses:
+    - share.routine-code
+    - exercise.taxonomy
+  - id: video-link-travels-id
+    t: A video link travels as its id
+    d: >-
+      any YouTube URL is reduced to its eleven-character id and rebuilt as https://youtu.be/&lt;id&gt;
+      at the other end. A link with no video behind it does not travel at all
+      — a search URL spends ninety characters to say nothing.
+    screen: none
+    uses:
+    - share.routine-code
+    - exercise.video-url
+  - id: names-capped-200-utf-8
+    t: Names are capped at 200 UTF-8 bytes on the wire
+    d: >-
+      generous next to the 80 the app enforces, so a legal name never loses characters
+      here first — and bounded, so a corrupt code cannot claim a megabyte of routine
+      name. A longer one is cut rather than refused.
+    screen: none
+    uses:
+    - share.routine-code
+  - id: defaults-not-transmitted
+    t: Defaults are not transmitted
+    d: >-
+      a slot only spends bytes on fields that differ from the app's defaults,
+      and increment/deload defaults are read per progression mode. The PPL demo
+      routine encodes to 421 characters.
+    screen: none
+    uses:
+    - share.routine-code
+    - template.item
+  - id: qr-offered-whenever-one-can
+    t: A QR is offered whenever one can hold the routine
+    d: >-
+      the ceiling is the standard's: 2,331 bytes at medium error correction, 2,953
+      at low. A routine that outgrows medium is painted at low rather than refused;
+      past 2,953 the QR is withheld with an explanation rather than rendered as
+      an unscannable smudge.
+    defines:
+    - share.qr
+    uses:
+    - share.qr
+  - id: symbol-drawn-large-screen-allows
+    t: The symbol is drawn as large as the screen allows
+    d: >-
+      density is the real limit on scanning a screen with a camera. It measures
+      the screen and not its parent, and pins the result with a fixed box — which
+      is how Show QR came to dim the screen and paint nothing at all.
+    uses:
+    - share.qr
+  - id: paste-box-owns-own-field
+    t: The paste box owns its own field
+    d: >-
+      showDialog's future completes when the route is popped, which is the start
+      of the dismissal and not the end of it, so disposing at the await left the
+      field using a dead controller for the length of the fade.
+    screen: routine-import
+  - id: every-host-app-shares-needs
+    t: Every host the app shares needs an Android intent filter
+    d: >-
+      or the link is inert outside the app however well the routing handles it.
+      A test now reads the manifest and checks each host is listed.
+    screen: system
+    uses:
+    - share.deep-link
+    - platform.android
+  - id: progress-does-not-travel
+    t: Progress does not travel
+    d: >-
+      the success/failure streaks and the sender's reminder time are left behind.
+      Everything else — including the training-day schedule — comes across.
+    screen: none
+    uses:
+    - share.routine-code
+    - progression.streak
+  - id: built-exercises-travel-name
+    t: Built-in exercises travel by name
+    d: >-
+      the starter library is on both phones, matched case-insensitively on import.
+    screen: none
+    uses:
+    - share.routine-code
+    - exercise.seed
+  - id: your-own-notes-never-travel
+    t: Your own notes never travel, and are never overwritten
+    d: >-
+      including under Replace, which rewrites everything else about the exercise.
+    screen: none
+    uses:
+    - share.routine-code
+    - exercise.notes
+  - id: exercise-already-exists-reused-never
+    t: An exercise that already exists is reused, never duplicated
+    d: >-
+      importing the same routine twice gives you two routines and one copy of
+      each exercise.
+    screen: routine-import
+    uses:
+    - share.import-review
+    - exercise.identity
+  - id: replacing-edits-place
+    t: Replacing edits in place
+    d: >-
+      it rewrites the existing exercise's definition and keeps its id, so its
+      logged history and every other routine pointing at it survive.
+    screen: routine-import
+    uses:
+    - share.import-review
+    - exercise.identity
+  - id: import-always-creates-new-routine
+    t: An import always creates a new routine
+    d: >-
+      nothing existing is overwritten, and the new routine does not take over
+      Today.
+    screen: routine-import
+    uses:
+    - share.import-review
+    - template.routine
+  - id: code-will-not-read-dead
+    t: A code that will not read is a dead end
+    d: >-
+      the two failures — not a routine code at all, or damaged in transit — each
+      say which, and neither offers a partial import.
+    screen: routine-import
+    uses:
+    - share.import-review
+    - share.routine-code

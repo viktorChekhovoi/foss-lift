@@ -1,0 +1,112 @@
+id: "03"
+title: Workout configuration
+tagline: >-
+  Every exercise slot in a workout is configured on its own, in the exercise builder.
+screen: workout-edit
+code:
+- lib/screens/workout_edit_screen.dart
+- lib/widgets/builder_widgets.dart
+- lib/widgets/workout_items_editor.dart
+test:
+- test/feature_03_workout_configuration_test.dart
+where: >-
+  <b>Screen</b> lib/screens/workout_edit_screen.dart (_ItemConfigSheet) · <b>Shared
+  chrome</b> lib/widgets/builder_widgets.dart, workout_items_editor.dart · <b>Data</b>
+  WorkoutItems columns
+groups:
+- name: What it does
+  items:
+  - id: sets
+    t: Sets
+    d: how many working sets.
+    defines:
+    - template.item
+  - id: fixed-rep-count
+    t: A fixed rep count
+    d: e.g. 5.
+    defines:
+    - template.rep-target
+  - id: rep-range
+    t: A rep range
+    d: e.g. 6–8.
+    defines:
+    - template.rep-target
+  - id: failure
+    t: To failure
+    defines:
+    - template.rep-target
+  - id: timed-hold-seconds
+    t: A timed hold in seconds
+    d: for held exercises.
+    defines:
+    - template.rep-target
+    uses:
+    - exercise.measure
+  - id: rest-override
+    t: Rest override
+    d: a rest time for this slot, overriding the routine default.
+    defines:
+    - template.rest
+  - id: suggested-weight
+    t: Suggested weight
+    d: the starting working weight.
+    defines:
+    - template.item
+    uses:
+    - load.units
+  - id: progression-rates
+    t: Progression rates
+    d: >-
+      the axis and the step/back-off numbers: increment, success threshold, deload
+      amount, failure threshold.
+    uses:
+    - progression.rates
+- name: How to use it
+  items:
+  - id: open-config-sheet
+    t: Open the config sheet
+    d: open a workout → edit → tap an exercise slot.
+  - id: progression-axis-comes-first-sheet
+    t: The progression axis comes first in the sheet
+    d: >-
+      because it decides whether everything below asks for reps or for seconds.
+    uses:
+    - progression.axis
+  - id: reorder-slots-up-down
+    t: Reorder slots with up/down
+    d: and add more from the exercise picker.
+    uses:
+    - template.item
+- name: Behaviour & edge cases
+  items:
+  - id: which-targets-offered-depends-exercise
+    t: >-
+      Which targets are offered depends on the exercise's measure, not the programme
+    d: >-
+      a counted exercise offers weight and reps; a held one offers only a timed
+      hold. The builder never offers "a deadlift progressed by time".
+    uses:
+    - exercise.measure
+    - progression.axis
+    - template.rep-target
+  - id: rep-range-keeps-width-progression
+    t: A rep range keeps its width as progression moves it
+    d: 6–8 steps to 7–9, not 6–9.
+    screen: none
+    uses:
+    - template.rep-target
+    - progression.rates
+  - id: set-measured-reps-or-seconds
+    t: A set is measured in reps or seconds, never both
+    d: >-
+      a timed set stores seconds and leaves reps at zero, so lifetime reps never
+      count a 45-second plank as 45 of anything.
+    screen: none
+    uses:
+    - exercise.measure
+    - storage.schema
+  - id: defaults-work-untouched
+    t: Defaults work untouched
+    d: +2.5 kg after one clean session, −5 kg after two misses in a row.
+    uses:
+    - progression.rates

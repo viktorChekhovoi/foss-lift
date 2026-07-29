@@ -1,0 +1,123 @@
+id: "10"
+title: History & stats
+tagline: >-
+  A recap when you finish, every past session on record, running lifetime totals,
+  and a per-exercise progress chart.
+screen: history
+code:
+- lib/screens/summary_screen.dart
+- lib/screens/history_screen.dart
+- lib/screens/exercise_progress_screen.dart
+- lib/data/exercise_stats.dart
+- lib/util/format.dart
+test:
+- test/feature_10_history_and_stats_test.dart
+where: >-
+  <b>Screens</b> lib/screens/summary_screen.dart, history_screen.dart, exercise_progress_screen.dart
+  · <b>Chart maths</b> lib/data/exercise_stats.dart · <b>Data</b> Sessions / SessionSets,
+  watchLifetimeTotals(), watchExerciseSetHistory() · <b>Formatting</b> lib/util/format.dart
+groups:
+- name: What it does
+  items:
+  - id: post-session-recap
+    t: Post-session recap
+    d: >-
+      a "Workout logged" headline, the session name, stat tiles (duration, sets
+      done…), a Progression section saying what each exercise's target did, and
+      the sets you logged grouped by exercise.
+    screen: summary
+    defines:
+    - session.recap
+  - id: session-history
+    t: Session history
+    d: every finished session, newest first; tap one to reopen its recap.
+    defines:
+    - history.session-record
+  - id: lifetime-totals
+    t: Lifetime totals
+    d: running volume, reps and sets on the Today screen.
+    screen: profile
+    defines:
+    - history.aggregates
+  - id: per-exercise-progress-chart
+    t: Per-exercise progress chart
+    d: >-
+      a movement's top set over time — one point per session, the heaviest weight
+      it actually held (or the longest hold, for a timed movement).
+    screen: exercise-progress
+    defines:
+    - history.exercise-chart
+- name: How to use it
+  items:
+  - id: recap-appears-automatically
+    t: The recap appears automatically
+    d: when you tap Finish on a live session.
+    screen: summary
+    uses:
+    - session.recap
+    - session.finish
+  - id: browse-history
+    t: Browse history
+    d: >-
+      the History tab → tap a session for its recap. Reopened from history, the
+      button reads Back and no progression banner shows.
+    uses:
+    - history.session-record
+  - id: see-lifetime-totals
+    t: See lifetime totals
+    d: the Today tab shows them.
+    screen: profile
+    uses:
+    - history.aggregates
+  - id: per-exercise-chart
+    t: Per-exercise chart
+    d: open an exercise → progress.
+    screen: exercise-progress
+    uses:
+    - history.exercise-chart
+    - history.csv-export
+- name: Behaviour & edge cases
+  items:
+  - id: progression-banner-belongs-session-just
+    t: The progression banner belongs to the session just finished
+    d: >-
+      it's read once and cleared, so reopening the same session from History doesn't
+      show it again. Bodyweight slots with no target are omitted.
+    screen: summary
+    uses:
+    - session.recap
+    - progression.rates
+  - id: lifetime-totals-sum-logged-sets
+    t: Lifetime totals sum the logged sets
+    d: >-
+      not a stored tally, so old history counts and no cached number can fall
+      out of step with the sets beneath it.
+    screen: none
+    uses:
+    - history.aggregates
+    - storage.schema
+  - id: deleting-template-never-erases-history
+    t: Deleting a template never erases the history of having trained it
+    d: >-
+      session IDs are deliberately not foreign keys, and set rows store the exercise
+      name denormalised.
+    screen: none
+    uses:
+    - history.session-record
+    - storage.schema
+  - id: timed-sets-don-t-inflate
+    t: Timed sets don't inflate rep/volume totals
+    d: a plank's seconds aren't counted as reps.
+    screen: none
+    uses:
+    - history.aggregates
+    - exercise.measure
+  - id: chart-plots-top-set-only
+    t: The chart plots the top set, and only the top set
+    d: >-
+      an estimated 1RM was offered beside it and taken back out: it is a formula's
+      opinion about a lift you did not do, and two numbers that disagree about
+      whether you are progressing is one number too many.
+    screen: exercise-progress
+    uses:
+    - history.exercise-chart

@@ -1,0 +1,63 @@
+id: "09"
+title: Units (kg / lb)
+tagline: >-
+  A single global unit toggle. Weights are stored canonically in kilograms and
+  converted on the fly.
+screen: settings
+code:
+- lib/util/units.dart
+- lib/screens/settings_screen.dart
+test:
+- test/feature_09_units_test.dart
+where: >-
+  <b>Conversion helpers</b> lib/util/units.dart · <b>Toggle + confirm</b> lib/screens/settings_screen.dart
+  (_switchUnit) · <b>Read via</b> weightUnitProvider
+groups:
+- name: What it does
+  items:
+  - id: one-app-wide-setting-kg
+    t: 'One app-wide setting: kg or lb'
+    defines:
+    - load.units
+    uses:
+    - storage.settings
+  - id: every-weight-app-displayed-chosen
+    t: Every weight in the app is displayed in the chosen unit
+    d: the plate rack you see follows the unit too.
+    uses:
+    - load.units
+    - load.plate-rack
+  - id: switching-units-pops-confirm-dialog
+    t: Switching units pops a confirm dialog first
+    uses:
+    - load.units
+- name: How to use it
+  items:
+  - id: profile-settings-tap-kg-or
+    t: Profile → Settings → tap kg or lb
+    d: >-
+      tapping the unit you're already on does nothing (it isn't a switch). Tapping
+      the other opens a confirmation dialog before it takes effect.
+    uses:
+    - load.units
+- name: Behaviour & edge cases
+  items:
+  - id: history-never-rewritten
+    t: History is never rewritten
+    d: >-
+      weights are stored in kilograms, so switching is pure display arithmetic
+      — a 100 kg squat reads as 220.5 lb, which is not a bar anybody loads. That's
+      exactly why the switch confirms first: the dialog says what to go and check.
+    screen: none
+    uses:
+    - load.units
+    - history.session-record
+  - id: each-unit-has-own-plate
+    t: Each unit has its own plate rack
+    d: >-
+      the values inside stay canonical kilograms, but which rack you see follows
+      the unit.
+    screen: plate-inventory
+    uses:
+    - load.units
+    - load.plate-rack

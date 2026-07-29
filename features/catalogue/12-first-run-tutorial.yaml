@@ -1,0 +1,99 @@
+id: "12"
+title: First-run tutorial
+tagline: A one-time coach-mark tour that runs on first launch.
+screen: tutorial
+code:
+- lib/widgets/tutorial.dart
+test:
+- test/feature_12_first_run_tutorial_test.dart
+where: >-
+  <b>Overlay + anchors</b> lib/widgets/tutorial.dart · <b>Seen flag</b> Settings.tutorialSeen
+groups:
+- name: What it does
+  items:
+  - id: opens-welcome-card
+    t: Opens on a welcome card
+    d: what the app is, and the choice to take the tour or not.
+    defines:
+    - ui.tutorial
+  - id: overlays-guided-coach-mark-tour
+    t: Overlays a guided coach-mark tour
+    d: pointing at the key parts of the UI to get a new user started.
+    defines:
+    - ui.tutorial
+    uses:
+    - ui.navigation
+  - id: runs-once
+    t: Runs once
+    d: a flag records that it's been seen, so it never reappears.
+    uses:
+    - ui.tutorial
+    - storage.settings
+- name: How to use it
+  items:
+  - id: appears-itself-first-time-app
+    t: It appears by itself the first time the app is opened
+    d: Take the tour to walk through it, Not now to dismiss.
+  - id: replay-any-time
+    t: Replay it any time
+    d: Profile → Help &amp; tour, which also starts at the welcome.
+    screen: profile
+    uses:
+    - ui.tutorial
+- name: Behaviour & edge cases
+  items:
+  - id: shown-once-then-remembered
+    t: Shown once, then remembered
+    d: Settings.tutorialSeen records that the tour has run.
+    uses:
+    - storage.settings
+  - id: anchored-real-ui
+    t: Anchored to real UI
+    d: >-
+      the overlay attaches its callouts to on-screen anchors rather than hard-coded
+      positions.
+    screen: today
+    uses:
+    - ui.tutorial
+    - ui.navigation
+  - id: covers-live-workout-which-cannot
+    t: It covers the live workout, which it cannot point at
+    d: >-
+      the board, the rest timer and the shade are where the app is least like
+      every other tracker — and none of them exists until a session is running.
+      Those steps are told rather than pointed at, anchored to the card that leads
+      there.
+    uses:
+    - ui.tutorial
+    - session.live-state
+  - id: every-anchored-step-today-tab
+    t: Every anchored step is on the Today tab
+    d: >-
+      the tour drives no navigation, so a step aimed at a screen you have to open
+      would spotlight a rectangle that is not there.
+    screen: today
+    uses:
+    - ui.tutorial
+    - ui.navigation
+  - id: introduces-itself-before-points-anything
+    t: It introduces itself before it points at anything
+    d: >-
+      the first step has no anchor at all — a plain dimmed screen and a card in
+      the middle of it — and it is the step a replay starts from too.
+    uses:
+    - ui.tutorial
+  - id: greeting-stacks-two-answers
+    t: The greeting stacks its two answers
+    d: >-
+      "Take the tour" over "Not now", rather than side by side: two long labels
+      in a callout narrower than either the phone or the font can be relied on
+      to be. Every later step is a short Skip / Back / Next.
+    uses:
+    - ui.tutorial
+  - id: declining-ends-cleanly
+    t: Declining ends it cleanly
+    d: >-
+      the same path as skipping mid-tour, including recording that the tour has
+      been seen.
+    uses:
+    - ui.tutorial

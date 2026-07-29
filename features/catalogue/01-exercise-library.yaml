@@ -1,0 +1,308 @@
+id: "01"
+title: Exercise library
+tagline: >-
+  A curated, searchable starter set of exercises, plus custom exercises you create.
+screen: library
+code:
+- lib/screens/library_screen.dart
+- lib/screens/exercise_form_screen.dart
+- lib/screens/exercise_detail_screen.dart
+- lib/data/exercise_filter.dart
+- lib/widgets/exercise_filters.dart
+- lib/data/plates.dart
+- lib/data/database.dart
+test:
+- test/feature_01_exercise_library_test.dart
+where: >-
+  <b>Screens</b> lib/screens/library_screen.dart, exercise_form_screen.dart, exercise_detail_screen.dart
+  · <b>Filtering</b> lib/data/exercise_filter.dart, lib/widgets/exercise_filters.dart
+  · <b>Named bars</b> namedBars() in lib/data/plates.dart · <b>Data</b> Exercises
+  table + first-run seed in lib/data/database.dart
+groups:
+- name: What it does
+  items:
+  - id: ships-85-starter-exercises
+    t: Ships ~85 starter exercises
+    d: >-
+      each with a demo-video link, in the canonical https://youtu.be/&lt;id&gt;
+      short form.
+    defines:
+    - exercise.seed
+  - id: searchable-name
+    t: Searchable by name
+    d: >-
+      so "a barbell movement for legs" does not require knowing it is called a
+      squat.
+    defines:
+    - exercise.filter
+    uses:
+    - exercise.filter
+  - id: filterable-muscle-group-equipment
+    t: Filterable by muscle group and equipment
+    d: two chip rows that compose with each other and with the search box.
+    defines:
+    - exercise.filter
+    uses:
+    - exercise.filter
+    - exercise.taxonomy
+  - id: each-exercise-opens-detail-page
+    t: Each exercise opens a detail page
+    d: with its facts and its demo link.
+    screen: exercise-detail
+  - id: add-your-own-custom-exercises
+    t: Add your own custom exercises
+    d: they sit alongside the starter set.
+    screen: exercise-form
+    defines:
+    - exercise.identity
+  - id: edit-them-afterwards
+    t: Edit them afterwards
+    d: every fact on the form stays changeable.
+    screen: exercise-form
+    uses:
+    - exercise.identity
+  - id: measure-counted-or-held
+    t: Measure — counted or held
+    d: >-
+      done for reps, or a timed hold like a plank. Decides which progression axes
+      a slot can ever use.
+    screen: exercise-form
+    defines:
+    - exercise.measure
+  - id: weight-type-barbell-machine-or
+    t: Weight type — barbell, machine or dumbbell
+    d: decides whether a plate breakdown is shown; only barbell lifts get one.
+    screen: exercise-form
+    defines:
+    - exercise.weight-type
+  - id: bar-optional-bar-own
+    t: Bar — an optional bar of its own
+    d: >-
+      overriding the app-wide default. Chosen by name (Olympic, women's Olympic,
+      EZ curl, trap, safety squat, Smith carriage) or typed as a number.
+    screen: exercise-detail
+    defines:
+    - load.bar-weight
+    uses:
+    - load.bar-weight
+  - id: your-own-note-movement
+    t: Your own note on the movement
+    d: >-
+      the seat setting, the rack pin, how far down you take it. Personal, and
+      it never leaves the phone.
+    screen: exercise-detail
+    defines:
+    - exercise.notes
+- name: How to use it
+  items:
+  - id: browse-search
+    t: Browse / search
+    d: >-
+      open the library from Profile, or via the exercise picker while building
+      a workout. Type in the search box, tap chips to narrow, or both.
+    uses:
+    - exercise.filter
+  - id: add-custom-exercise
+    t: Add a custom exercise
+    d: >-
+      Library → ＋ (FAB) → name, muscle group, equipment, how it is measured, how
+      it is loaded, optional demo link → Save. Paste a YouTube link in any shape.
+    screen: exercise-form
+  - id: new-exercise-inside-picker
+    t: New exercise from inside the picker
+    d: >-
+      the builder's picker offers it at the top of the list, and hands the movement
+      you make straight back to the slot you were filling.
+    screen: workout-edit
+    uses:
+    - exercise.identity
+  - id: choose-bar-name
+    t: Choose a bar by name
+    d: >-
+      open any exercise → Bar weight → pick the bar, or "Something else" to type
+      a weight. The same list sets the app-wide default under Settings → Default
+      bar.
+    screen: exercise-form
+    uses:
+    - load.bar-weight
+  - id: edit-movement-s-facts
+    t: Edit a movement's facts
+    d: >-
+      any exercise's detail screen sets its weight type and its own bar weight
+      — for every exercise, not just custom ones.
+    screen: exercise-detail
+  - id: edit-custom-exercise-outright
+    t: Edit a custom exercise outright
+    d: >-
+      the pencil in the app bar reopens the creation form on what you stored.
+      The pencil is absent on a starter exercise.
+    screen: exercise-form
+  - id: write-note
+    t: Write a note
+    d: >-
+      open any exercise → My note → type. During a workout, noted movements show
+      a note icon beside the name; one tap opens it in place.
+    screen: exercise-detail
+    uses:
+    - exercise.notes
+- name: Behaviour & edge cases
+  items:
+  - id: starter-s-demo-video-not
+    t: A starter's demo is a video, not a search
+    d: >-
+      sources picked for a back catalogue with no reason to be deleted — Muscle
+      &amp; Strength, Renaissance Periodization, PureGym, Bodybuilding.com carry
+      most of the set. Every id is listed in one place (_starterDemos) with the
+      video's own title beside it, so a re-check can tell "this is gone" from
+      "this is now something else"; YouTube's oEmbed endpoint makes re-checking
+      the lot a loop.
+    screen: exercise-detail
+    defines:
+    - exercise.video-url
+    uses:
+    - exercise.video-url
+    - exercise.seed
+  - id: form-asks-how-movement-measured
+    t: The form asks how a movement is measured before how it is loaded
+    d: >-
+      counted or held is the more fundamental fact. Loading is not hidden for
+      a held movement — a weighted plank is real — but it is demoted to a quieter
+      line that says why it is still being asked.
+    screen: exercise-form
+    uses:
+    - exercise.measure
+    - exercise.weight-type
+  - id: chips-within-row-alternatives-two
+    t: Chips within a row are alternatives; the two rows narrow
+    d: >-
+      arms and glutes is one session's browsing; barbell and legs is the pair
+      of facts that finds a squat. A row nobody has touched excludes nothing.
+    uses:
+    - exercise.filter
+    - exercise.taxonomy
+  - id: muscle-groups-lead-equipment-follows
+    t: Muscle groups lead, equipment follows, and both stay on screen
+    d: >-
+      six equipment chips already fill a phone's width. Splitting them also settles
+      the one collision: Other is both a kind of equipment and a muscle group,
+      and which is which is a matter of which row it is in.
+    uses:
+    - exercise.filter
+    - exercise.taxonomy
+  - id: picker-can-create-what-cannot
+    t: The picker can create what it cannot find
+    d: >-
+      leaving the builder to make a movement and coming back to start over is
+      a dead end people work around by picking something close enough.
+    screen: workout-edit
+    uses:
+    - exercise.identity
+    - exercise.filter
+  - id: named-bar-weight-label-way
+    t: A named bar is a weight with a label on the way in
+    d: >-
+      nothing new is stored — the bars are a front end on the same barWeight,
+      and a gym with something odd still types a number. Every weight is a starting
+      point you can overrule; a pounds gym gets the round pounds number (a 45
+      lb Olympic bar), not a converted kilo.
+    screen: exercise-form
+    uses:
+    - load.bar-weight
+  - id: exercise-has-no-written-instructions
+    t: An exercise has no written instructions
+    d: >-
+      there was a coaching-cue field; it was removed, along with everything anyone
+      had typed into it. The demo link does the same job better.
+    screen: exercise-detail
+    uses:
+    - exercise.identity
+  - id: youtube-demo-link-tidied-way
+    t: A YouTube demo link is tidied on the way in
+    d: >-
+      watch?v=, youtu.be, /shorts/, /embed/, with timestamps, playlists and tracking
+      parameters — all stored as https://youtu.be/&lt;id&gt;.
+    screen: exercise-form
+    uses:
+    - exercise.video-url
+  - id: link-anywhere-else-kept-exactly
+    t: A link to anywhere else is kept exactly as typed
+    d: >-
+      someone's own upload still opens from the exercise screen. It just will
+      not travel when the exercise is shared — nor will a YouTube search link,
+      which names no video.
+    screen: exercise-form
+    uses:
+    - exercise.video-url
+  - id: glutes-forearms-groups-their-own
+    t: Glutes and Forearms are groups of their own
+    d: >-
+      both are trained deliberately. Traps stay under Back, because a shrug is
+      something you do on a back day. Movements that answer to no single group
+      — a kettlebell swing, a power clean, a get-up — are under Other.
+    defines:
+    - exercise.taxonomy
+  - id: group-equipment-lists-wire-format
+    t: The group and equipment lists are a wire format
+    d: >-
+      a shared routine sends "muscle group #4" rather than the word, which is
+      most of the reason a routine fits in a QR code. Free to change until the
+      first public release.
+    screen: none
+    uses:
+    - exercise.taxonomy
+    - share.routine-code
+  - id: note-yours-stays
+    t: A note is yours, and stays
+    d: >-
+      never travels in a shared routine, and importing never overwrites one —
+      not even on Replace. Available on every exercise, starter or custom, capped
+      at 300 characters; a note of only spaces is stored as no note.
+    screen: exercise-detail
+    uses:
+    - exercise.notes
+    - share.routine-code
+  - id: only-custom-exercise-editable-full
+    t: Only a custom exercise is editable in full
+    d: >-
+      a starter's name and classification are shared vocabulary — a local rename
+      would quietly break a routine code that says "Bench Press". The rule is
+      enforced in the database writer, not only by hiding the pencil.
+    screen: exercise-detail
+    uses:
+    - exercise.identity
+    - exercise.seed
+  - id: name-stops-80-characters-where
+    t: A name stops at 80 characters where it is typed
+    d: >-
+      on exercises, workouts and routines alike. That is the schema's own limit,
+      so a longer name would be a failed write rather than a truncated one.
+    screen: exercise-form
+    uses:
+    - exercise.identity
+  - id: weight-type-seeded-equipment
+    t: Weight type is seeded from equipment
+    d: >-
+      Barbell → bar, Dumbbell → dumbbell, everything else (bodyweight included)
+      → machine. Overridable afterward.
+    screen: exercise-form
+    uses:
+    - exercise.weight-type
+    - exercise.taxonomy
+  - id: measure-fixed-creation-custom-exercises
+    t: Measure is fixed at creation for custom exercises
+    d: >-
+      in the starter library the held movements are Plank, Side Plank, Hollow
+      Hold, Dead Hang and Farmer's Carry. A held exercise offers only the time
+      axis; a counted one offers weight and reps.
+    screen: exercise-form
+    uses:
+    - exercise.measure
+  - id: history-survives-library-edits
+    t: History survives library edits
+    d: >-
+      logged sets store the exercise name denormalised, so renaming or deleting
+      an exercise never rewrites past sessions.
+    screen: none
+    uses:
+    - history.session-record
+    - exercise.identity

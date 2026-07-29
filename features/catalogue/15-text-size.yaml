@@ -1,0 +1,104 @@
+id: "15"
+title: Text size
+tagline: >-
+  The app follows the phone's text setting, and can be nudged on top of it.
+screen: settings
+code:
+- lib/util/text_scale.dart
+- lib/main.dart
+test:
+- test/feature_15_text_size_test.dart
+where: >-
+  <b>Arithmetic</b> lib/util/text_scale.dart (resolveTextScale, kTextScaleChoices,
+  the two bounds) · <b>Applied once</b> at the app root in lib/main.dart · <b>Stored
+  as</b> Settings.textScale, read through textScaleProvider
+groups:
+- name: What it does
+  items:
+  - id: follows-system-text-size
+    t: Follows the system text size
+    d: >-
+      Android's own setting is system-wide and already discoverable; the app renders
+      at whatever it says.
+    defines:
+    - ui.text-scale
+  - id: offers-nudge-own
+    t: Offers a nudge of its own
+    d: >-
+      Smaller / Default / Larger / Largest — for wanting this app bigger without
+      enlarging everything else, or smaller to fit more of a workout on screen.
+    defines:
+    - ui.text-scale
+  - id: holds-result-range-every-screen
+    t: Holds the result in a range every screen is checked at
+    d: so no combination of the two produces a layout nobody has seen.
+    uses:
+    - ui.text-scale
+- name: How to use it
+  items:
+  - id: profile-settings-text-size
+    t: Profile → Settings → Text size
+    d: >-
+      each chip is drawn at the size it selects, because how big the words get
+      is the only thing the control is about.
+    uses:
+    - ui.text-scale
+  - id: default-means-whatever-phone-says
+    t: Default means "whatever the phone says"
+    d: >-
+      the phone's own setting is under Android's display settings and needs nothing
+      here.
+    uses:
+    - ui.text-scale
+    - storage.settings
+- name: Behaviour & edge cases
+  items:
+  - id: nudge-multiplies-phone-s-setting
+    t: The nudge multiplies the phone's setting; it does not replace it
+    d: >-
+      somebody who has already set their phone large should not have to set it
+      again here, and should not lose that choice by touching this one.
+    screen: none
+    uses:
+    - ui.text-scale
+  - id: product-clamped-0-85-2
+    t: The product is clamped to 0.85×–2.0×
+    d: >-
+      a phone at 2.0 and the app at Largest is 2.6, and a control that can produce
+      an unchecked layout is not an accessibility feature. 2.0 is the ceiling
+      because 2.0 is what the sweep covers; the floor is where the set rows stop
+      being readable across a gym.
+    screen: none
+    uses:
+    - ui.text-scale
+  - id: every-screen-swept-every-scale
+    t: Every screen is swept at every scale, and overflow fails the build
+    d: >-
+      the feature test mounts each screen at 1.0×, 1.3× and 2.0× on a 360 dp viewport
+      and fails on any render overflow.
+    screen: none
+    uses:
+    - ui.text-scale
+    manual: true
+  - id: dialogs-sheets-swept-too
+    t: The dialogs and sheets are swept too
+    d: >-
+      the tighter case — a dialog is bounded on both axes by its own insets, and
+      none of it is on screen for the screen sweep to see. Covered at 1.0× and
+      2.0×, reached the way a user reaches them. That is where the stepper and
+      the to-failure checkbox turned up.
+    screen: none
+    uses:
+    - ui.text-scale
+    manual: true
+  - id: where-row-runs-out-width
+    t: Where a row runs out of width, the label gives and the control does not
+    d: >-
+      a section heading ellipsises before its action is pushed off; the warm-up
+      group's "· 3 sets" gives before "WARM-UP"; the board's "WORKING SETS" gives
+      before the weight beside it; a stepper's value ellipsises before either
+      of its buttons. The part that only names things yields to the part you touch.
+    screen: none
+    uses:
+    - ui.text-scale
+    manual: true

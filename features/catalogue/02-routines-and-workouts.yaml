@@ -1,0 +1,124 @@
+id: "02"
+title: Routines & workouts
+tagline: >-
+  A programme is three levels deep — routine → workout → exercise slot. You build,
+  edit, reorder and delete at every level.
+screen: routines
+code:
+- lib/screens/routines_screen.dart
+- lib/screens/routine_detail_screen.dart
+- lib/screens/routine_edit_screen.dart
+- lib/screens/workout_detail_screen.dart
+- lib/screens/workout_edit_screen.dart
+- lib/widgets/workout_items_editor.dart
+- lib/widgets/routine_card.dart
+test:
+- test/feature_02_routines_and_workouts_test.dart
+where: >-
+  <b>Screens</b> routines_screen.dart, routine_detail_screen.dart, routine_edit_screen.dart,
+  workout_detail_screen.dart, workout_edit_screen.dart · <b>Shared editor</b>
+  lib/widgets/workout_items_editor.dart, routine_card.dart · <b>Data</b> Routines,
+  Workouts, WorkoutItems
+groups:
+- name: What it does
+  items:
+  - id: routine-whole-programme
+    t: A routine is a whole programme
+    d: >-
+      Push/Pull/Legs, Upper/Lower… It carries a name, a colour, a default rest
+      time and its weekly schedule.
+    defines:
+    - template.routine
+  - id: workout-one-training-day-inside
+    t: A workout is one training day inside a routine
+    d: >-
+      this is the thing you actually Start. Names need not be unique inside a
+      routine — Upper/Lower legitimately has "Upper 1" and "Upper 2".
+    defines:
+    - template.workout
+  - id: exercise-slot-one-exercise-inside
+    t: An exercise slot is one exercise inside a workout
+    d: with its own configuration.
+    defines:
+    - template.item
+  - id: one-routine-current-routine
+    t: One routine is the current routine
+    d: the one Today is about.
+    screen: today
+    defines:
+    - template.active-routine
+  - id: two-demo-routines-seeded-first
+    t: Two demo routines are seeded on first launch
+    d: PPL and Upper/Lower.
+    uses:
+    - template.routine
+    - exercise.seed
+- name: How to use it
+  items:
+  - id: see-current-routine-s-days
+    t: See the current routine's days
+    d: >-
+      the Today tab lists them directly. Starting a workout is two taps: tap a
+      day → Start.
+    screen: today
+    uses:
+    - template.active-routine
+  - id: pick-change-current-routine
+    t: Pick / change the current routine
+    d: the Routines tab → tap a routine to make it current, or New routine.
+    uses:
+    - template.active-routine
+  - id: build-edit-routine
+    t: Build / edit a routine
+    d: >-
+      Routines → open a routine → edit → name, colour, default rest, schedule,
+      and the ordered list of workouts (add / reorder / delete).
+    screen: routine-edit
+  - id: build-edit-day-s-exercises
+    t: Build / edit a day's exercises
+    d: >-
+      open a workout → edit → add exercises from the picker, reorder with up/down,
+      configure each slot.
+    screen: workout-edit
+- name: Behaviour & edge cases
+  items:
+  - id: editing-split-match-hierarchy
+    t: Editing is split to match the hierarchy
+    d: >-
+      the routine editor changes routine meta and its list of workouts; the workout
+      editor changes the exercises inside one day. Renaming or reordering workouts
+      never disturbs the exercises inside them, and only workouts you actually
+      removed are deleted.
+    screen: routine-edit
+    uses:
+    - template.routine
+    - template.workout
+    - ui.navigation
+  - id: you-can-build-routine-s
+    t: You can build a routine's exercises before saving it
+    d: drafts are held in memory and written on save.
+    screen: routine-edit
+    uses:
+    - template.item
+  - id: deleted-current-routine-degrades-none
+    t: A deleted current routine degrades to "none"
+    d: rather than dangling — Today falls back to the routine chooser.
+    screen: today
+    uses:
+    - template.active-routine
+    - storage.settings
+  - id: you-never-train-routine
+    t: You never train "a routine"
+    d: >-
+      there is no build button next to start a routine; that screen is for working
+      out, not editing.
+    screen: none
+    uses:
+    - template.routine
+    - template.workout
+  - id: routine-can-handed-someone-else
+    t: A routine can be handed to someone else
+    d: as a QR, a link, a code or a file, custom exercises and all.
+    screen: routine-share
+    uses:
+    - share.routine-code

@@ -1,0 +1,124 @@
+id: "07"
+title: Plate math
+tagline: >-
+  For barbell lifts, the app works out which plates go on each side — from the
+  rack you actually own.
+screen: session
+code:
+- lib/data/plates.dart
+- lib/widgets/plate_line.dart
+- lib/screens/bar_settings_screen.dart
+- lib/screens/plate_inventory_screen.dart
+test:
+- test/feature_07_plate_math_test.dart
+where: >-
+  <b>Solver</b> lib/data/plates.dart (solvePlates → PlateSolution) · <b>The line</b>
+  lib/widgets/plate_line.dart · <b>Settings</b> lib/screens/bar_settings_screen.dart,
+  plate_inventory_screen.dart
+groups:
+- name: What it does
+  items:
+  - id: solves-plate-breakdown-target-weight
+    t: Solves the plate breakdown for a target weight
+    d: >-
+      what goes on one side, what the bar will actually come to, and whether that's
+      the weight you asked for.
+    screen: none
+    defines:
+    - load.plate-solver
+  - id: shows-line-under-exercise
+    t: Shows it as a line under an exercise
+    d: >-
+      30 kg/side · 25 + 5 · bar 20 — re-solving the moment you type a different
+      weight.
+    uses:
+    - load.plate-solver
+    - load.units
+  - id: uses-bar-exercise-rack-you
+    t: Uses the bar for the exercise and the rack you own
+    d: >-
+      its own bar, or the app-wide default, or the standard bar for the unit;
+      one rack per unit.
+    uses:
+    - load.bar-weight
+    - load.plate-rack
+- name: How to use it
+  items:
+  - id: line-appears-automatically
+    t: The line appears automatically
+    d: on the live session for barbell lifts, describing the next set's weight.
+    uses:
+    - load.plate-solver
+    - exercise.weight-type
+  - id: set-default-bar
+    t: Set the default bar
+    d: Profile → Settings → Bar &amp; plates → Bar weight.
+    screen: bar-settings
+    defines:
+    - load.bar-weight
+    uses:
+    - load.bar-weight
+  - id: set-bar-one-exercise
+    t: Set a bar for one exercise
+    d: open the exercise → its detail screen.
+    screen: exercise-detail
+    uses:
+    - load.bar-weight
+  - id: edit-rack
+    t: Edit the rack
+    d: Profile → Settings → plates — step plate pair counts up and down.
+    screen: plate-inventory
+    uses:
+    - load.plate-rack
+- name: Behaviour & edge cases
+  items:
+  - id: search-exhaustive-not-greedy
+    t: The search is exhaustive, not greedy
+    d: >-
+      greedy is only correct when every plate divides the next one up, which a
+      real rack (45/35/25 lb; a lone 1.25 kg) does not.
+    screen: none
+    uses:
+    - load.plate-solver
+  - id: nothing-snapped
+    t: Nothing is snapped
+    d: >-
+      a weight the plates can't build is still yours to type; the line goes gold
+      with the nearest buildable load. Green is the weight you asked for. belowBar
+      is asking for less than the empty bar.
+    uses:
+    - load.plate-solver
+    - session.exercise-weight
+  - id: ties-break-way-lifter-loads
+    t: Ties break the way a lifter loads a bar
+    d: >-
+      fewest plates first, then the heaviest — 40 kg/side is 25 + 15, not 20 +
+      20, and never 10 + 5 + 2.5 + 2.5.
+    screen: none
+    uses:
+    - load.plate-solver
+  - id: rack-pairs
+    t: The rack is pairs
+    d: >-
+      plates go on two at a time; an odd plate is ignored. The assumed rack is
+      a pair of every size plus a pile of the workhorse plate — 45s in a pounds
+      gym, 20s in a metric one.
+    screen: plate-inventory
+    defines:
+    - load.plate-rack
+  - id: one-rack-per-unit
+    t: One rack per unit
+    d: >-
+      a rack is a set of sizes, not weights; each unit remembers its own, and
+      the standard rack stands in until you edit it.
+    screen: plate-inventory
+    uses:
+    - load.plate-rack
+    - load.units
+  - id: only-bar-gets-line
+    t: Only a bar gets a line
+    d: >-
+      a machine's number is the number; a dumbbell's is whatever's in your hand.
+    uses:
+    - exercise.weight-type
+    - load.plate-solver

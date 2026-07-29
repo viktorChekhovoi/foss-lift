@@ -1,0 +1,407 @@
+id: "11"
+title: Colour themes
+tagline: Pick a preset theme, build your own, or bring in one someone shared.
+screen: theme-settings
+code:
+- lib/theme/app_theme.dart
+- lib/theme/theme_code.dart
+- lib/widgets/theme_preview.dart
+- lib/widgets/share_widgets.dart
+- lib/screens/theme_settings_screen.dart
+- lib/screens/theme_import_screen.dart
+- lib/screens/scan_screen.dart
+- lib/services/deep_links.dart
+- lib/services/qr_decoder.dart
+test:
+- test/feature_11_themes_test.dart
+where: >-
+  <b>Palette + presets</b> lib/theme/app_theme.dart (AppColors) · <b>Code format</b>
+  lib/theme/theme_code.dart · <b>Preview</b> lib/widgets/theme_preview.dart; <b>QR</b>
+  share_widgets.dart · <b>Screens</b> theme_settings_screen.dart, theme_import_screen.dart,
+  scan_screen.dart · <b>Links</b> lib/services/deep_links.dart; <b>frames</b>
+  lib/services/qr_decoder.dart · <b>Stored in</b> Settings.themePresetId + CustomThemes
+groups:
+- name: What it does
+  items:
+  - id: eight-preset-themes-four-dark
+    t: Eight preset themes as four dark/light pairs
+    d: >-
+      two everyday looks, Solarized, and a high-contrast option — each available
+      in both brightnesses.
+    defines:
+    - theme.palette-source
+  - id: many-custom-themes-you-like
+    t: As many custom themes as you like
+    d: >-
+      each named, each edited role by role, with a live preview of the palette
+      you are editing.
+    screen: theme-custom
+    defines:
+    - theme.palette-source
+    - theme.colour-role
+    uses:
+    - theme.picker
+    - theme.preview
+  - id: shares-one-your-own-qr
+    t: Shares one of your own as a QR code or a link
+    d: and reads both back.
+    uses:
+    - share.theme-code
+    - share.qr
+    - share.deep-link
+- name: The lineup
+  uses:
+  - theme.palette-source
+  - theme.colour-role
+  items:
+  - id: ignition
+    t: Ignition
+    d: the dark default (everyday).
+  - id: daylight
+    t: Daylight
+    d: the light default (everyday).
+  - id: graphite
+    t: Graphite
+    d: everyday, dark.
+  - id: paper
+    t: Paper
+    d: everyday, light.
+  - id: solarized-dark
+    t: Solarized dark
+  - id: solarized-light
+    t: Solarized light
+  - id: high-contrast-dark
+    t: High contrast dark
+    d: accessible.
+  - id: high-contrast-light
+    t: High contrast light
+    d: accessible.
+  - id: every-look-exists-both-brightnesses
+    t: Every look exists in both brightnesses
+    d: >-
+      choosing legibility, or choosing Solarized, never also means accepting a
+      brightness you did not want.
+- name: How to use it
+  items:
+  - id: pick-theme
+    t: Pick a theme
+    d: Profile → Appearance → tap a preset.
+  - id: build-your-own
+    t: Build your own
+    d: >-
+      New theme, then name it and edit each colour role. The preview at the top
+      follows every change.
+    screen: theme-custom
+    uses:
+    - theme.picker
+  - id: picker-says-same-colour-two
+    t: The picker says the same colour two ways
+    d: >-
+      RGB with a hex field, or HSL — switchable with the toggle beside the hex.
+    screen: theme-custom
+    uses:
+    - theme.picker
+  - id: rename-or-delete-one
+    t: Rename or delete one
+    d: >-
+      open it with the pencil. The name field renames it; the bin in the app bar
+      deletes it, after a confirmation.
+    screen: theme-custom
+    uses:
+    - theme.palette-source
+  - id: share
+    t: Share
+    d: >-
+      with one of your own selected, Show QR for someone to scan or Send link
+      for the system share sheet (which is also where "copy" lives).
+    uses:
+    - share.theme-code
+    - share.qr
+  - id: receive
+    t: Receive
+    d: Scan QR to use the camera, or Paste code for a code or a link.
+    screen: theme-import
+    uses:
+    - share.import-review
+    - share.theme-code
+- name: The preview & the two markers
+  screen: theme-custom
+  uses:
+  - theme.preview
+  - theme.colour-role
+  items:
+  - id: preview-workout-board
+    t: The preview is the workout board
+    d: >-
+      a miniature of the screen the palette has to survive — an exercise heading,
+      three set rows (a hit, a short one, one still to do) and the stat strip
+      — rather than twelve swatches.
+    defines:
+    - theme.preview
+  - id: set-rows-point
+    t: The set rows are the point
+    d: >-
+      good and gold are the palette's hardest job, and a chip of each says nothing
+      about telling them apart at speed. The untouched third row puts surface2,
+      surface3 and faint on screen doing their real jobs.
+  - id: two-warnings-both-binary
+    t: Two warnings, both binary
+    d: >-
+      one when text is too close to its background, one when the two markers are
+      too close to each other. Guidance, never a running number.
+    defines:
+    - theme.contrast-check
+    uses:
+    - theme.contrast-check
+  - id: done-short-must-unmistakable-each
+    t: Done and short must be unmistakable from each other
+    d: >-
+      every preset holds them at least kMarkerDistance apart in CIELAB, and both
+      clear 4.5:1 against the ground and a card. Contrast against the background
+      was never the problem — Solarized's green and yellow sit at the same luminance,
+      so their ratio against each other is 1.00 and says nothing.
+    uses:
+    - theme.contrast-check
+    manual: true
+  - id: they-differ-more-than-hue
+    t: And they differ by more than hue
+    d: >-
+      two colours that differ only in hue are the one pair a colour-blind reader
+      cannot separate at all, so a set that came up short also carries a downward
+      arrow. The colour is the fast read; the arrow is the one that always works.
+    uses:
+    - theme.contrast-check
+    manual: true
+  - id: preview-warns-when-palette-illegible
+    t: The preview warns when a palette is illegible
+    d: >-
+      comparing its own text against its ground and cards at the same 4.5:1 the
+      presets are held to.
+    defines:
+    - theme.contrast-check
+    uses:
+    - theme.contrast-check
+- name: The colour picker
+  screen: theme-custom
+  uses:
+  - theme.picker
+  - theme.colour-role
+  items:
+  - id: speaks-rgb-hsl-because-they
+    t: It speaks RGB and HSL, because they are for different jobs
+    d: >-
+      RGB and the hex field transcribe a colour that already exists; HSL chooses
+      one. The roles are families — surface/surface2/surface3 are one hue at three
+      lightnesses — and contrast is a function of lightness, so L is the slider
+      that answers the illegibility warning without discarding the colour that
+      raised it.
+    defines:
+    - theme.picker
+  - id: every-colour-shipped-presets-use
+    t: Every colour the shipped presets use can be reached by hand
+    d: that is asserted, not assumed.
+    uses:
+    - theme.palette-source
+  - id: hue-saturation-remembered-not-recomputed
+    t: Hue and saturation are remembered, not recomputed
+    d: >-
+      a grey has no hue to recover, so deriving them from the colour would snap
+      the hue slider to red the moment saturation reached zero. Switching notation
+      never changes the value, in either direction.
+  - id: hex-field-takes-rgb-rrggbb
+    t: 'The hex field takes #RGB, #RRGGBB or bare RRGGBB'
+    d: >-
+      anything that does not read yet simply does not move the colour, so backspacing
+      through a hex is not destructive and a typo cannot silently repaint a role.
+  - id: hex-can-copied-pasted-not
+    t: A hex can be copied and pasted, not just typed
+    d: >-
+      explicit copy and paste buttons, and a long press on any role row copies
+      that role's hex — because building a family by hand starts from the last
+      one's value, and retyping six digits is what stops people doing it.
+  - id: each-slider-track-painted-colours
+    t: Each slider track is painted with the colours it traverses
+    d: so it previews its own effect rather than asking you to imagine it.
+  - id: label-filled-button-measured-not
+    t: The label on a filled button is measured, not assumed
+    d: >-
+      whichever of a near-black tint or white reads better on the accent wins,
+      so a custom or imported accent of any lightness still gets a legible label.
+    uses:
+    - theme.contrast-check
+- name: Presets, accessibility & storage
+  items:
+  - id: untouched-install-follows-phone
+    t: An untouched install follows the phone
+    d: >-
+      Ignition on a phone set to dark, Daylight on one set to light, flipping
+      with the system until a theme is picked. A stored choice outranks the system
+      from then on.
+    uses:
+    - theme.palette-source
+    - storage.settings
+  - id: nothing-painted-until-stored-theme
+    t: Nothing is painted until the stored theme is known
+    d: >-
+      the root holds a bare ground-coloured frame rather than painting a frame
+      of the wrong theme and correcting it — which was a flicker on every cold
+      launch.
+    uses:
+    - theme.palette-source
+    - ui.navigation
+  - id: tab-shell-takes-colours-palette
+    t: The tab shell takes its colours from the palette, not from AppColors
+    d: >-
+      go_router holds its branch navigators by GlobalKey, so re-keying MaterialApp
+      moves its elements instead of rebuilding them — which is why a cold launch
+      used to paint the navigation bar in the previous theme.
+    uses:
+    - theme.colour-role
+    - ui.navigation
+  - id: picker-groups-presets-brightness
+    t: The picker groups presets by brightness
+    d: >-
+      dark then light, with each group's high-contrast option last and badged
+      AAA. Long-pressing the badge explains it; so does tapping it, but only on
+      the row already selected.
+    uses:
+    - theme.palette-source
+  - id: both-accessible-presets-clear-wcag
+    t: Both accessible presets clear WCAG AAA (7:1) for body text
+    d: >-
+      and AA (4.5:1) for secondary text, the accent, the completed marker and
+      the record marker — over both the ground and a card — with borders above
+      the 3:1 non-text floor. Every other preset clears 4.5:1 for body text.
+    uses:
+    - theme.contrast-check
+    - theme.palette-source
+    manual: true
+  - id: solarized-ships-published-two-documented
+    t: Solarized ships as published, with two documented departures
+    d: >-
+      body text takes the palette's emphasized tier rather than its body tier
+      (Solarized's own body tones sit near 4.1:1), and the two intermediate surfaces
+      are blends, since the palette defines two background tones and the app paints
+      four.
+    uses:
+    - theme.palette-source
+    - theme.colour-role
+  - id: custom-theme-never-badged-accessible
+    t: A custom theme is never badged accessible
+    d: >-
+      however it got there. The badge means the palette was designed and checked
+      against WCAG, which is a fact about the two shipped presets. The claim is
+      dropped on import and the row refuses to draw the badge whatever is stored.
+    screen: theme-custom
+    uses:
+    - theme.contrast-check
+  - id: only-your-own-themes-shareable
+    t: Only your own themes are shareable
+    d: >-
+      the share row is hidden unless one of your own is selected — and it sends
+      the one that is selected, not "the custom slot".
+    uses:
+    - share.theme-code
+    - theme.palette-source
+  - id: shared-theme-always-previewed-never
+    t: A shared theme is always previewed, never applied on arrival
+    d: >-
+      a scan, a tapped link and a pasted code all land on the same confirmation
+      screen. A code that will not decode offers nothing to apply.
+    screen: theme-import
+    defines:
+    - share.import-review
+    uses:
+    - share.import-review
+    - theme.preview
+  - id: arriving-theme-added-your-own
+    t: An arriving theme is added to your own, never substituted
+    d: >-
+      it never claims a preset slot and never overwrites a theme you built — importing
+      four codes leaves you holding four themes.
+    screen: theme-import
+    uses:
+    - share.import-review
+    - theme.palette-source
+  - id: deleting-confirmed-deleting-one-you
+    t: Deleting is confirmed, and deleting the one you are looking at is safe
+    d: >-
+      the app falls back to the system default in the same write that removes
+      the theme, so no selection is ever left pointing at nothing.
+    screen: theme-custom
+    uses:
+    - theme.palette-source
+  - id: choice-stored-slug-your-themes
+    t: The choice is stored as a slug; your themes are rows
+    d: >-
+      Settings holds themePresetId — a preset slug, custom:&lt;n&gt;, or none
+      — and each of your themes is a row in CustomThemes holding its palette as
+      JSON. The name lives inside that JSON.
+    screen: none
+    uses:
+    - theme.palette-source
+    - storage.settings
+    - storage.schema
+  - id: stored-slug-naming-something-no
+    t: >-
+      A stored slug naming something that no longer exists falls back to the default
+    d: >-
+      as any unknown slug does — and so does a custom:&lt;n&gt; naming a row that
+      is gone.
+    screen: none
+    uses:
+    - theme.palette-source
+    - storage.settings
+- name: Sharing format
+  screen: none
+  uses:
+  - share.theme-code
+  items:
+  - id: theme-code-flt1-followed-base64url
+    t: A theme code is FLT1. followed by base64url
+    d: the whole palette in 65–84 characters.
+    defines:
+    - share.theme-code
+  - id: flt1-format-version-read-first
+    t: FLT1 is a format version, read first and dispatched on
+    d: so a future FLT2 is declined rather than misread.
+  - id: bytes-between-name-trailing-checksum
+    t: Bytes between the name and the trailing checksum are ignored
+    d: so a later writer can add a field without breaking older readers.
+  - id: role-order-wire-format
+    t: The role order is a wire format
+    d: reordering it silently changes the meaning of every code already shared.
+    defines:
+    - theme.colour-role
+    uses:
+    - theme.colour-role
+  - id: crc-16-catches-damage-codes
+    t: A CRC-16 catches the damage codes actually suffer
+    d: a truncated paste, a mistyped character. It is not a security measure.
+  - id: reading-distinguishes-two-failures
+    t: Reading distinguishes two failures
+    d: >-
+      not a theme code at all (which includes any tag that is not FLT1), or damaged
+      in transit.
+    screen: theme-import
+    uses:
+    - share.import-review
+  - id: links-fosslift-theme-code
+    t: Links are fosslift://theme/&lt;code&gt;
+    d: >-
+      a custom scheme rather than an https App Link, so sharing needs no domain,
+      no hosting and no network. The trade-off is that chat apps do not linkify
+      it.
+    defines:
+    - share.deep-link
+    uses:
+    - share.deep-link
+  - id: qr-codes-hold-full-link
+    t: QR codes hold the full link
+    d: >-
+      so one image serves both a system camera and the in-app scanner. Decoding
+      is pure Dart via zxing2, not Google's ML Kit, keeping the app free of proprietary
+      binaries.
+    uses:
+    - share.qr
+    - share.deep-link
