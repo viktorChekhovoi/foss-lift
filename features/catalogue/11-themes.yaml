@@ -46,6 +46,32 @@ groups:
     uses:
     - theme.picker
     - theme.preview
+  - id: editing-preset-saves-copy
+    t: A preset can be edited, and the edit is saved as a copy
+    d: >-
+      every preset row carries the same pencil your own themes do. It opens the
+      editor on that preset's colours under "New from Ignition", and saving
+      writes a new theme of your own rather than touching the preset — which is
+      still there, unchanged, in the list above. A copy of a high-contrast preset
+      arrives without the AAA badge, like any theme you can recolour.
+    screen: theme-custom
+    defines:
+    - theme.palette-source
+    uses:
+    - theme.picker
+    - theme.preview
+    - theme.contrast-check
+  - id: duplicating-one-your-own
+    t: One of your own can be duplicated from the picker
+    d: >-
+      the copy icon beside the pencil clones that theme on the spot as "Mine
+      copy" — "Mine copy 2" if that name is taken — and selects it, so recolouring
+      it never costs you the one it came from. A duplicate of an imported theme
+      carries no accessibility claim either, whatever the code it arrived in said.
+    uses:
+    - theme.picker
+    - theme.palette-source
+    - theme.contrast-check
   - id: shares-one-your-own-qr
     t: Shares one of your own as a QR code or a code you can paste
     d: >-
@@ -198,7 +224,8 @@ groups:
     d: >-
       however it got there. The badge means the palette was designed and checked
       against WCAG, which is a fact about the two shipped presets. The claim is
-      dropped on import and the row refuses to draw the badge whatever is stored.
+      dropped on import, dropped when a preset is copied into one of your own,
+      and the row refuses to draw the badge whatever is stored.
     screen: theme-custom
     uses:
     - theme.contrast-check

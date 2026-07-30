@@ -526,6 +526,15 @@ const List<AppPalette> kThemePresets = [
   _highContrastLight,
 ];
 
+/// The shipped preset [id] names, or null if it names none — a `custom:<n>`
+/// id, an unknown slug, or nothing at all.
+AppPalette? presetById(String? id) {
+  for (final preset in kThemePresets) {
+    if (preset.id == id) return preset;
+  }
+  return null;
+}
+
 /// The fallback palette, used when a stored or imported theme cannot be
 /// resolved at all. Not what an untouched install gets — see [defaultPaletteFor].
 const AppPalette kDefaultPalette = _ignition;
@@ -556,10 +565,7 @@ AppPalette resolvePalette(
   for (final custom in customs) {
     if (custom.id == presetId) return custom;
   }
-  for (final preset in kThemePresets) {
-    if (preset.id == presetId) return preset;
-  }
-  return defaultPaletteFor(system);
+  return presetById(presetId) ?? defaultPaletteFor(system);
 }
 
 /// The palette held in a `CustomThemes` row, stamped with the id that names it.

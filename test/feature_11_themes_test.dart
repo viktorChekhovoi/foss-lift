@@ -60,6 +60,17 @@ Future<AppPalette> _addTheme(AppDatabase db, AppPalette palette) async {
   return palette.copyWith(id: customThemeId(id));
 }
 
+/// A viewport tall enough that the whole picker builds in one go.
+///
+/// Eight preset rows, each carrying a pencil, plus your own and the share rows
+/// run well past the default test window — and a row a ListView has not built
+/// yet can be neither found nor tapped.
+void tallScreen(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1200, 4800);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 /// `RRGGBB` for [c], upper case — how the app writes a colour down.
 String _hexString(Color c) {
   int ch(double v) => (v * 255).round().clamp(0, 255);
@@ -635,6 +646,7 @@ void main() {
 
     testWidgets('every shipped preset is reachable by its name on the screen',
         (tester) async {
+      tallScreen(tester);
       await tester
           .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
       await tester.pump();
@@ -652,6 +664,7 @@ void main() {
 
     testWidgets('picking the light accessible theme switches to a light app',
         (tester) async {
+      tallScreen(tester);
       await tester
           .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
       await tester.pump();
@@ -659,8 +672,7 @@ void main() {
 
       final light = kThemePresets
           .firstWhere((p) => p.accessible && p.brightness == Brightness.light);
-      // The accessible themes sit last in their group, off the bottom of a
-      // small test viewport.
+      // The accessible themes sit last in their group, well down the list.
       await tester.ensureVisible(find.text(light.name));
       await tester.pump();
       await tester.tap(find.text(light.name));
@@ -766,14 +778,6 @@ void main() {
   });
 
   group('naming, keeping and deleting several themes', () {
-    /// A viewport tall enough that the whole picker builds — your own themes
-    /// sit below both preset groups, and an unbuilt row cannot be tapped.
-    void tallScreen(WidgetTester tester) {
-      tester.view.physicalSize = const Size(1200, 4800);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-    }
-
     Future<void> pumpPicker(WidgetTester tester) async {
       tallScreen(tester);
       await tester
@@ -938,6 +942,190 @@ void main() {
       expect(find.byIcon(Icons.delete_outline), findsNothing);
       expect(find.text('New theme'), findsOneWidget,
           reason: 'the app bar says which of the two jobs this is');
+
+      await stop(tester);
+    });
+  });
+
+  group('editing a preset saves a copy', () {
+    /// The high-contrast dark preset: the interesting one to copy, because it
+    /// is the pair that carries the AAA badge a copy must not inherit.
+    final hc = kThemePresets.firstWhere((p) => p.id == 'high_contrast');
+
+    Future<void> pumpPicker(WidgetTester tester,
+        {List<String> alsoRoutes = const []}) async {
+      tallScreen(tester);
+      await tester.pumpWidget(routedAppUnder(
+          container, const ThemeSettingsScreen(),
+          alsoRoutes: alsoRoutes));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    Future<void> pumpEditor(WidgetTester tester, String presetId) async {
+      tallScreen(tester);
+      await tester.pumpWidget(routedAppUnder(
+          container, CustomThemeEditorScreen(fromPresetId: presetId)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    testWidgets('every preset row carries a pencil, like your own themes do',
+        (tester) async {
+      await tester.runAsync(() => _addTheme(db, _mineCustom()));
+      await pumpPicker(tester);
+
+      expect(find.byIcon(Icons.edit_outlined),
+          findsNWidgets(kThemePresets.length + 1),
+          reason: 'one per preset, plus the one theme of your own');
+
+      await stop(tester);
+    });
+
+    testWidgets('the pencil on a preset opens the theme editor',
+        (tester) async {
+      await pumpPicker(tester, alsoRoutes: ['settings/theme/custom']);
+      await tester.tap(find.byIcon(Icons.edit_outlined).first);
+      await frames(tester);
+
+      expect(find.text('at /settings/theme/custom'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets("the editor opens on the preset's colours, named for it",
+        (tester) async {
+      await pumpEditor(tester, hc.id);
+
+      expect(find.text('New from ${hc.name}'), findsOneWidget,
+          reason: 'the app bar says what this is a copy of');
+      expect(find.text('My theme'), findsOneWidget,
+          reason: 'it is a new theme of your own, not the preset renamed');
+      expect(find.text('#${_hexString(hc.accent)}'), findsOneWidget,
+          reason: "you tweak from the preset's colours, not from black");
+      expect(find.byIcon(Icons.delete_outline), findsNothing,
+          reason: 'there is no row to delete, and a preset is not deletable');
+
+      await stop(tester);
+    });
+
+    testWidgets('saving writes a copy and leaves the preset untouched',
+        (tester) async {
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpEditor(tester, hc.id);
+      await tester.tap(find.text('Save'));
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 1);
+
+      final copy = container.read(customThemesProvider).value!.single;
+      expect(copy.ground, hc.ground);
+      expect(copy.accent, hc.accent);
+      expect(customThemeRowId(copy.id), isNotNull,
+          reason: 'it is a theme of your own, with a row of its own');
+      expect(copy.accessible, isFalse,
+          reason: 'a palette you can recolour carries no WCAG claim');
+      expect(resolvePalette(hc.id, [copy]), hc,
+          reason: 'the preset itself is still there, unchanged');
+
+      await stop(tester);
+    });
+
+    testWidgets('the copy shows up in the picker without the AAA badge',
+        (tester) async {
+      await tester.runAsync(
+          () => _addTheme(db, hc.copyWith(name: 'My theme', accessible: true)));
+      await pumpPicker(tester);
+
+      expect(find.text('My theme'), findsOneWidget);
+      expect(find.text('AAA'), findsNWidgets(2),
+          reason: 'the two shipped high-contrast presets, and nothing else');
+
+      await stop(tester);
+    });
+  });
+
+  group('duplicating one of your own', () {
+    Future<void> pumpPicker(WidgetTester tester) async {
+      tallScreen(tester);
+      await tester
+          .pumpWidget(routedAppUnder(container, const ThemeSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    testWidgets('only your own themes offer the copy icon', (tester) async {
+      await tester.runAsync(() => _addTheme(db, _mineCustom()));
+      await pumpPicker(tester);
+
+      expect(find.byIcon(Icons.copy_outlined), findsOneWidget,
+          reason: 'a preset is copied by its pencil; only yours needs this');
+
+      await stop(tester);
+    });
+
+    testWidgets('the copy icon clones the theme and selects the clone',
+        (tester) async {
+      final mine = (await tester.runAsync(() => _addTheme(db, _mineCustom())))!;
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpPicker(tester);
+      await tester.tap(find.byIcon(Icons.copy_outlined));
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 2);
+
+      final all = container.read(customThemesProvider).value!;
+      expect([for (final p in all) p.name], ['Mine', 'Mine copy'],
+          reason: 'the original keeps its name and its colours');
+      expect(all.last.accent, mine.accent,
+          reason: 'a copy is the same palette, not a fresh one');
+      expect(all.last.accessible, isFalse);
+      expect(container.read(themePresetIdProvider).value, all.last.id,
+          reason: 'the clone is what you are now on, ready to be recoloured');
+
+      await stop(tester);
+    });
+
+    testWidgets('copying twice does not leave two rows wearing one name',
+        (tester) async {
+      await tester.runAsync(() => _addTheme(db, _mineCustom()));
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpPicker(tester);
+      await tester.tap(find.byIcon(Icons.copy_outlined).first);
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 2);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.byIcon(Icons.copy_outlined).first);
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 3);
+
+      expect([for (final p in container.read(customThemesProvider).value!) p.name],
+          ['Mine', 'Mine copy', 'Mine copy 2']);
+
+      await stop(tester);
+    });
+
+    testWidgets('a duplicate of an imported theme drops its AAA claim',
+        (tester) async {
+      final hc = kThemePresets.firstWhere((p) => p.accessible);
+      await tester.runAsync(
+          () => _addTheme(db, hc.copyWith(name: 'Sent to me', accessible: true)));
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      await pumpPicker(tester);
+      await tester.tap(find.byIcon(Icons.copy_outlined).first);
+      await pumpUntil(tester,
+          () => container.read(customThemesProvider).value?.length == 2);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(customThemesProvider).value!.last.accessible, isFalse);
+      expect(find.text('AAA'), findsNWidgets(2),
+          reason: 'still only the two shipped presets carry the badge');
 
       await stop(tester);
     });

@@ -55,6 +55,10 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   palette: preset,
                   selected: selectedId == preset.id,
                   onTap: () => db.setThemePreset(preset.id),
+                  // The pencil on a preset copies rather than edits: it opens
+                  // the editor with no row behind it, seeded from this preset.
+                  onEdit: () =>
+                      context.push('/settings/theme/custom?from=${preset.id}'),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -73,6 +77,12 @@ class ThemeSettingsScreen extends ConsumerWidget {
                 onTap: () => db.setThemePreset(palette.id),
                 onEdit: () => context.push(
                     '/settings/theme/custom/${customThemeRowId(palette.id)}'),
+                // Your own can be edited in place, so copying needs a control
+                // of its own — the pencil is already spoken for. A preset has
+                // no copy icon: its pencil already means "copy and edit".
+                onDuplicate: () => db.addCustomTheme(
+                    _seedCustom(palette, _freeName('${palette.name} copy', mine))
+                        .toJson()),
               ),
               const SizedBox(height: 10),
             ],
@@ -116,10 +126,20 @@ class ThemeSettingsScreen extends ConsumerWidget {
 AppPalette _seedCustom(AppPalette from, String name) =>
     from.copyWith(id: kCustomThemeId, name: name, accessible: false);
 
-/// The name a new theme opens with. Numbered from the second one on, so a
-/// picker full of "My theme" is something you have to have chosen.
+/// The first unused name in the series [base], `base 2`, `base 3`… Numbered
+/// from the second one on, so a picker full of "My theme" is something you have
+/// to have chosen rather than something the app did to you.
+String _freeName(String base, List<AppPalette> existing) {
+  final taken = {for (final p in existing) p.name};
+  if (!taken.contains(base)) return base;
+  for (var n = 2;; n++) {
+    if (!taken.contains('$base $n')) return '$base $n';
+  }
+}
+
+/// The name a new theme opens with.
 String _nextThemeName(List<AppPalette> existing) =>
-    existing.isEmpty ? 'My theme' : 'My theme ${existing.length + 1}';
+    _freeName('My theme', existing);
 
 /// The row that starts a new theme. Shaped like a theme option so the list
 /// reads as one column, but with nothing to select — a plus, and the words.
@@ -207,18 +227,22 @@ Future<void> _paste(BuildContext context) async {
 }
 
 /// A selectable theme row: a strip of its key colours, its name, and a radio.
-/// An optional pencil edits it (used by the custom row).
+/// An optional pencil edits it, and an optional copy icon clones it — which is
+/// what separates one of your own from a preset, since a preset's pencil already
+/// means "copy and edit".
 class _ThemeOption extends StatelessWidget {
   const _ThemeOption({
     required this.palette,
     required this.selected,
     required this.onTap,
     this.onEdit,
+    this.onDuplicate,
   });
   final AppPalette palette;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onEdit;
+  final VoidCallback? onDuplicate;
 
   @override
   Widget build(BuildContext context) {
@@ -253,10 +277,19 @@ class _ThemeOption extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 8),
                   child: _AaaBadge(explainOnTap: selected),
                 ),
+              if (onDuplicate != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onDuplicate,
+                  tooltip: 'Duplicate',
+                  icon: Icon(Icons.copy_outlined,
+                      size: 18, color: AppColors.muted),
+                ),
               if (onEdit != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onEdit,
+                  tooltip: 'Edit',
                   icon: Icon(Icons.edit_outlined,
                       size: 18, color: AppColors.muted),
                 ),
@@ -416,16 +449,23 @@ AppPalette _sGold(AppPalette p, Color c) => p.copyWith(gold: c);
 
 /// Name a theme, edit each colour role, and save it as the active one.
 ///
-/// With no [themeId] this builds a new theme, starting from whatever is active
-/// so you tweak from something that already looks right rather than from black.
-/// With one it edits that theme in place — and is the only place it can be
-/// renamed or deleted, because those belong with the thing itself rather than
-/// scattered across the row that lists it.
+/// With no [themeId] this builds a new theme, starting from [fromPresetId] if
+/// one is named and otherwise from whatever is active — either way you tweak
+/// from something that already looks right rather than from black. With one it
+/// edits that theme in place — and is the only place it can be renamed or
+/// deleted, because those belong with the thing itself rather than scattered
+/// across the row that lists it.
 class CustomThemeEditorScreen extends ConsumerStatefulWidget {
-  const CustomThemeEditorScreen({super.key, this.themeId});
+  const CustomThemeEditorScreen({super.key, this.themeId, this.fromPresetId});
 
   /// The `CustomThemes` row being edited, or null to build a new one.
   final int? themeId;
+
+  /// The preset a new theme starts from, when the pencil on a preset row opened
+  /// this. A preset is never edited in place: what gets saved is a copy of it,
+  /// which is why this only seeds the draft and is ignored once [themeId] is
+  /// set. An unknown slug seeds from the active palette, as no slug does.
+  final String? fromPresetId;
 
   @override
   ConsumerState<CustomThemeEditorScreen> createState() =>
@@ -461,13 +501,21 @@ class _CustomThemeEditorScreenState
     final active = ref.watch(activePaletteProvider);
     // Seeded once: after that the draft is the truth, so a rebuild cannot
     // undo an edit.
+    // The preset this is a copy of, if that is how it was opened. Only ever
+    // consulted for a new theme: an existing one is edited in place.
+    final source =
+        widget.themeId == null ? presetById(widget.fromPresetId) : null;
     final draft = _draft ??=
-        _stored(mine) ?? _seedCustom(active, _nextThemeName(mine));
+        _stored(mine) ?? _seedCustom(source ?? active, _nextThemeName(mine));
     final nameField = _name ??= TextEditingController(text: draft.name);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.themeId == null ? 'New theme' : 'Edit theme'),
+        title: Text(switch ((widget.themeId, source)) {
+          (final int _, _) => 'Edit theme',
+          (_, final AppPalette p) => 'New from ${p.name}',
+          _ => 'New theme',
+        }),
         actions: [
           if (widget.themeId != null)
             IconButton(

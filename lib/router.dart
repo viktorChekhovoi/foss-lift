@@ -128,9 +128,12 @@ final appRouter = GoRouter(
       builder: (c, s) => const ThemeSettingsScreen(),
     ),
     // No id builds a new theme; an id edits (and renames, and deletes) that one.
+    // `?from=<slug>` seeds a new one from a preset — the pencil on a preset row,
+    // which copies rather than edits.
     GoRoute(
       path: '/settings/theme/custom',
-      builder: (c, s) => const CustomThemeEditorScreen(),
+      builder: (c, s) =>
+          CustomThemeEditorScreen(fromPresetId: s.uri.queryParameters['from']),
     ),
     GoRoute(
       path: '/settings/theme/custom/:id',
