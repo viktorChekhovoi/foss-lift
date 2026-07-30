@@ -69,6 +69,11 @@ its own or in the background.
   for a phone in a gym bag.
 - **Run at startup** (`RECEIVE_BOOT_COMPLETED`) — so that reminders you have
   already scheduled survive a reboot.
+- **Keep a workout running** (`FOREGROUND_SERVICE`) — while a session is in
+  progress, and only then. Android will otherwise shut the app down once you put
+  the phone away, which would stop the rest timer and lose the set you logged
+  from the notification. The service ends when you finish or abort the workout.
+  It does no work of its own: no location, no sensors, nothing sent anywhere.
 - **Camera** (`CAMERA`) — for two things, and only when you ask for either. If
   you never scan a code and never film a set, the app never asks.
   - **Scanning a QR code** to import a routine or a colour theme. The image is
@@ -86,9 +91,9 @@ open-source libraries the app is built from declare the permissions *they* could
 use, whether or not this app uses them. The camera library asks for the
 microphone; the video player asks to see whether your device is online. Both are
 removed by name, so what your phone shows you the app can do is what the app
-does. Two harmless entries you may still see if you go looking are a wake lock,
-which the video player uses to keep the screen on during playback, and a legacy
-storage permission that Android ignores from version 10 onwards.
+does. Two harmless entries you may still see if you go looking are a wake lock, used
+to keep a workout's rest timer ticking with the screen off, and a legacy storage
+permission that Android ignores from version 10 onwards.
 
 ## Videos you record
 

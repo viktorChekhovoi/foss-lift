@@ -434,11 +434,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     }
   }
 
-  /// The app going away or coming back is what decides *who* sounds the end of
-  /// the rest — see [_armRestAlarm].
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) => _armRestAlarm();
-
   // ---- The rest clock ------------------------------------------------------
   //
   // On the controller rather than the logging screen: the rest has to keep
@@ -452,7 +447,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (s == null) return;
     _restTimer?.cancel();
     _commit(s.copyWith(restLeft: seconds, restPrompt: prompt));
-    _armRestAlarm();
+    // Anything left over from the last rest — the ding for a rest this one
+    // replaces is a ding for a rest that is over.
+    ref.read(restAlarmProvider).clear();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final now = state;
       if (now == null) return;
@@ -476,9 +473,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       _endRest();
     } else {
       _commit(s.copyWith(restLeft: left));
-      // The end has moved, so whatever Android is holding is for the wrong
-      // instant.
-      _armRestAlarm();
     }
   }
 
@@ -512,13 +506,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// screen dark, which is most of what a rest timer is for — it is the
   /// notification.
   ///
-  /// **A live isolate always rings, whether or not an alarm is pending.** The
-  /// alarm [_armRestAlarm] hands over is inexact, because the permission for an
-  /// exact one is not one this app can ship, so Android may hold it — and
-  /// deferring to it would make a rest end late precisely when the app was there
-  /// to end it on time. Ringing cancels the pending alarm first, on the id they
-  /// share, so this is one ding either way: on the second while the app is alive,
-  /// and a little late when Android is the only thing left to make it.
+  /// **Both are made here, at the moment the rest ends.** Nothing is handed to
+  /// Android in advance any more: what keeps this isolate alive to reach this
+  /// line is the foreground service the live session runs behind — see
+  /// [RestAlarm] for what that trades away, and `workout_shade.dart` for the
+  /// service itself. A rest that ends with the app not running at all is silent.
   void _sayTheRestIsOver() {
     final alarm = ref.read(restAlarmProvider);
     if (ref.read(appOnScreenProvider)()) {
@@ -527,32 +519,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       return;
     }
     alarm.ring(title: 'Rest done', body: _whatComesNext());
-  }
-
-  /// Hands the end of a running rest to Android while the app is not the thing
-  /// on screen, and takes it back when it is.
-  ///
-  /// This is what makes a rest audible from a pocket. The countdown itself is a
-  /// `Timer` in this isolate, and Android is free to kill the process the moment
-  /// the app is backgrounded — a rest whose ding depends on that timer is a rest
-  /// that ends in silence exactly when the timer matters most. So the sound is
-  /// laid down in advance, at the instant the rest will end, and cancelled again
-  /// when the app comes forward and the tone can do the job.
-  ///
-  /// Called whenever either half of that could have changed: a rest starting,
-  /// being nudged, or the app being backgrounded or resumed.
-  void _armRestAlarm() {
-    final s = state;
-    final alarm = ref.read(restAlarmProvider);
-    if (s == null || s.restLeft <= 0 || ref.read(appOnScreenProvider)()) {
-      alarm.clear();
-      return;
-    }
-    alarm.scheduleAt(
-      DateTime.now().add(Duration(seconds: s.restLeft)),
-      title: 'Rest done',
-      body: _whatComesNext(),
-    );
   }
 
   /// What the rest is over *for*. A notification that says only "rest done"

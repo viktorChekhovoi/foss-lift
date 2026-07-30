@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
 
-import 'local_time_zone.dart';
 import 'notification_ids.dart';
 import 'notifications.dart';
 
@@ -12,25 +10,28 @@ import 'notifications.dart';
 ///
 /// [RestTone] plays a wav out of the app's own isolate, which is exactly right
 /// while you are looking at the board and no use at all with the phone in a
-/// pocket and the screen off. Two things go wrong there, and only the second is
-/// about audio: a media player is the wrong instrument for an alert, and — the
-/// one that actually made rests end in silence — **the app may not be running at
-/// the moment the rest runs out.** Android kills backgrounded processes, and a
-/// dead process plays nothing, posts nothing, and cannot be asked to.
+/// pocket and the screen off: a media player is the wrong instrument for an
+/// alert, and it is not what the phone's alarm volume and Do-Not-Disturb rules
+/// apply to. So off screen the same sound is a notification instead, on a
+/// high-importance channel at alarm volume.
 ///
-/// So the sound is handed to Android *in advance*. [scheduleAt] lays the
-/// notification down for the instant the rest will end, on an alarm channel,
-/// inexactly — the permission for an exact one is not one this app can ship, and
-/// [scheduleAt] says what that costs. Whether the app is alive then makes no
-/// difference to whether the noise happens; it makes the difference between on
-/// the second and a little late. [ring] posts the same notification immediately,
-/// for a rest that ends out of order — a skip pressed from the shade — and for a
-/// rest that ran out with the app alive to notice.
+/// **Posted when the rest ends, not handed over in advance.** It used to be
+/// scheduled the moment an off-screen rest started, because the countdown is a
+/// timer in this process and a process Android has killed plays nothing. Two
+/// things changed that. The foreground service keeps the session alive to the
+/// end of its own rest, so there is normally something here to ring. And a
+/// scheduled alarm could only be inexact — Play grants the exact-alarm
+/// permission to alarm clocks and calendars and not to a workout tracker — so
+/// the fallback would arrive late, which for a rest timer is its own kind of
+/// wrong. See the manifest note and issue #70.
 ///
-/// `ActiveWorkoutController` picks between the three: the tone while the app is
-/// on screen, a scheduled alarm while it is not, and an immediate ring for a rest
-/// cut short from the shade. Never two of them for one rest, because "ding" twice
-/// reads as two rests.
+/// What that costs is the rest that ends while the app is not running at all: a
+/// force-stop, or a reclaim the service did not prevent. That one is silent. The
+/// workout itself is not lost — the crash snapshot brings it back.
+///
+/// `ActiveWorkoutController` picks between the two: the tone while the app is on
+/// screen, this while it is not. Never both, because "ding" twice reads as two
+/// rests.
 ///
 /// **It is the same sound.** The channel plays `res/raw/rest_done.wav`, which
 /// `tool/make_rest_tone.dart` writes alongside the Flutter asset — one
@@ -66,12 +67,13 @@ class RestAlarm {
 
   bool get supported => _platformSupported;
 
-  /// Sounds the alarm now, replacing anything still on screen and any alarm
-  /// still pending.
+  /// Sounds the alarm now, replacing anything still on screen.
   Future<void> ring({required String title, required String body}) async {
     if (!supported) return;
     await _guard('sound the end of the rest', () async {
       await _init();
+      // One id for the rest, so a second ding replaces the first rather than
+      // stacking beside it.
       await _plugin.cancel(id: kRestAlarmId);
       await _plugin.show(
         id: kRestAlarmId,
@@ -82,60 +84,8 @@ class RestAlarm {
     });
   }
 
-  /// Hands the sound to Android to make at [at], whether or not this app is
-  /// still alive then. Replaces any alarm already pending.
-  ///
-  /// Returns whether Android took it — for a caller that wants to know the
-  /// pocket case is covered. Nothing depends on the answer: an app still alive
-  /// when the rest runs out rings on the second regardless, and that ring
-  /// replaces whatever this laid down. See `ActiveWorkoutController`.
-  Future<bool> scheduleAt(
-    DateTime at, {
-    required String title,
-    required String body,
-  }) async {
-    if (!supported) return false;
-    var laid = false;
-    await _guard('schedule the end of the rest', () async {
-      await _init();
-      await ensureLocalTimeZone();
-      await _plugin.cancel(id: kRestAlarmId);
-      final when = tz.TZDateTime.from(at, tz.local);
-      // **Inexact, and there is no exact path to fall back from.** A rest timer
-      // wants to be a timer — two minutes meaning two minutes — and this is the
-      // one thing in the app that would genuinely rather have an exact alarm.
-      // It cannot: `USE_EXACT_ALARM` is refused publication to anything that is
-      // not an alarm clock or a calendar, and `SCHEDULE_EXACT_ALARM` is denied
-      // by default from Android 14 and costs a trip to a settings toggle the
-      // user has to go and find. See the manifest note.
-      //
-      // So Android may hold this a while, and that only matters when nobody is
-      // home: an app still alive at the end of the rest rings on the second
-      // instead, and the shared id makes its ring replace this one rather than
-      // arrive beside it — see [ring] and `ActiveWorkoutController`.
-      await _lay(when, title, body, AndroidScheduleMode.inexactAllowWhileIdle);
-      laid = true;
-    });
-    return laid;
-  }
-
-  Future<void> _lay(
-    tz.TZDateTime when,
-    String title,
-    String body,
-    AndroidScheduleMode mode,
-  ) =>
-      _plugin.zonedSchedule(
-        id: kRestAlarmId,
-        title: title,
-        body: body,
-        scheduledDate: when,
-        notificationDetails: _details,
-        androidScheduleMode: mode,
-      );
-
-  /// Takes it down — a pending alarm, one already on screen, or both. The next
-  /// rest starting, the app coming forward, and the session ending all end here.
+  /// Takes it down. The next rest starting, the app coming forward, and the
+  /// session ending all end here — a rest that ended two minutes ago is not news.
   Future<void> clear() async {
     if (!supported) return;
     await _guard(

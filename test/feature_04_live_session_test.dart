@@ -1898,31 +1898,7 @@ void main() {
             'kg'),
         'Next: Bench Press · Set 4/5 · 80 kg × 8',
       );
-    });
-
-    test('and the bold line is the word Rest, with no number in it', () {
-      // Android renders the countdown, from the chronometer the shade posts —
-      // a number written into the title would have to be rewritten every second
-      // by a process Android is free to freeze, and a frozen countdown looks
-      // like a working one.
-      expect(shadeTitle(cue(kind: CueKind.resting, restLeft: 40)), 'Rest');
-    });
-
-    test('the chronometer counts down to the instant the rest ends', () {
-      final now = DateTime(2026, 7, 30, 18, 30);
-
-      expect(
-        shadeRestEnd(cue(kind: CueKind.resting, restLeft: 40), now),
-        now.add(const Duration(seconds: 40)),
-      );
-    });
-
-    test('and nothing else has an end to count down to', () {
-      final now = DateTime(2026, 7, 30, 18, 30);
-
-      expect(shadeRestEnd(cue(weightKg: 80, reps: 8), now), isNull);
-      expect(shadeRestEnd(cue(kind: CueKind.hold, seconds: 45), now), isNull);
-      expect(shadeRestEnd(cue(kind: CueKind.finished), now), isNull);
+      expect(shadeTitle(cue(kind: CueKind.resting, restLeft: 40)), 'Rest · 0:40');
     });
 
     test('and says when what is next is a warm-up rung', () {
@@ -1973,21 +1949,6 @@ void main() {
 
     test('and a finished session offers nothing', () {
       expect(shadeButtons(cue(kind: CueKind.finished)), isEmpty);
-    });
-
-    test('and no button dismisses the shade or claims to open the app', () {
-      // −15s pressed twice in a row is the ordinary case, so a shade that went
-      // away on the first press would take the rest's controls with it. And a
-      // button is a broadcast, which may not start an activity — the press
-      // routes the session to the board instead of raising the phone.
-      final buttons = [
-        ...shadeButtons(cue(kind: CueKind.resting, restLeft: 40)),
-        ...shadeButtons(cue(weightKg: 80, reps: 8)),
-        ...shadeButtons(cue(kind: CueKind.hold, seconds: 45)),
-      ];
-
-      expect(buttons.map((b) => b.cancelNotification), everyElement(isFalse));
-      expect(buttons.map((b) => b.showsUserInterface), everyElement(isFalse));
     });
   });
 

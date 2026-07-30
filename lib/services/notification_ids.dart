@@ -14,10 +14,5 @@ const int kScheduledIdFloor = 1000000;
 /// one replaces the first rather than stacking beside it.
 const int kRestAlarmId = kScheduledIdFloor + 91;
 
-/// The live workout in the shade. One id for the same reason: it is rewritten on
-/// every change of the session, and a second id would stack a second shade
-/// beside the first rather than replacing it.
-const int kLiveWorkoutId = kScheduledIdFloor + 92;
-
 /// Whether [id] is a routine reminder, and so a reminder sync's to cancel.
 bool isReminderId(int id) => id < kScheduledIdFloor;

@@ -246,10 +246,7 @@ groups:
       than the convenience is worth, so the press routes the session to the board
       instead: unlock the phone and the board is what is there. Tapping the
       notification itself does raise the app, because that is an activity intent
-      rather than a broadcast — and it raises it at the board, whether the app was
-      alive to hear the tap or is starting from cold because Android had killed
-      it. A tap that lands on a shade for a workout that is already over raises
-      the app and goes nowhere in particular, since there is no board to go to.
+      rather than a broadcast.
     uses:
     - session.shade
   - id: press-survives-the-app-dying
@@ -257,15 +254,13 @@ groups:
     d: >-
       every button on the shade is applied by the isolate that holds the session,
       and Android is free to kill that isolate while the workout is in a pocket —
-      which is the whole reason the crash snapshot exists. So the record is the
-      only path a press takes: Android starts an isolate of its own to deliver the
-      press, and that isolate can reach nothing but the record — so it writes the
-      press there, and whichever isolate next holds the session applies it out of
-      the record. The one already running finds it within the second; the one the
-      next launch restores from the snapshot finds it on the way back. A set
-      logged from the shade is logged whether or not the app was alive to hear it.
-      The record is dropped when the session ends, so a press cannot land on the
-      next workout.
+      which is the whole reason the crash snapshot exists. So a press is written
+      down before it is announced: the service records it, the session applies it
+      out of the record, and a press made with nothing left to receive it is
+      applied when the app comes back and the snapshot is restored. A set logged
+      from the shade is logged whether or not the app was alive to hear it. The
+      record is dropped when the session ends, so a press cannot land on the next
+      workout.
     uses:
     - session.shade
     - session.set-logging
@@ -305,50 +300,36 @@ groups:
     uses:
     - session.hold-timer
     - exercise.measure
-  - id: ordinary-notification-no-service
-    t: It is an ordinary notification, with no foreground service under it
+  - id: foreground-service-not-about-notification
+    t: It is a foreground service, and that is not about the notification
     d: >-
-      it was a foreground service, for the process rather than the notification:
-      the session is in memory until Finish, so a Done press has to reach the
-      isolate holding it. Play will not have one without a declaration and a demo
-      video for the service type, which is more than a rest timer is worth, so
-      the shade is a plain ongoing notification on a silent LOW channel and the
-      app claims no privilege to stay alive behind it. Off Android it is a no-op,
-      not a crash.
+      the session is in memory and untouched until Finish, so a Done press has
+      to reach the isolate holding it — and without a service Android may kill
+      the app once backgrounded. The service is what keeps the session alive to be
+      pressed; the snapshot is what gets it back when Android wins anyway.
+    uses:
+    - session.live-state
+    - platform.android
+  - id: declared-specialuse-android-14
+    t: Declared as specialUse on Android 14
+    d: >-
+      health needs an activity-recognition permission this app has no business
+      asking for, shortService caps at three minutes, dataSync is wrong and capped
+      at six hours a day. The subtype is spelled out, which needs a justification
+      and a demonstration video at Play review — both kept in RELEASING.md, beside
+      the manifest string they have to agree with. Off Android it is a no-op, not
+      a crash.
+    screen: none
     defines:
     - platform.android
     uses:
-    - session.live-state
-    - platform.android
-  - id: android-counts-rest-down-itself
-    t: Android counts the rest down, the app does not
-    d: >-
-      a rest is posted once, as a chronometer running to the instant the rest
-      ends, so the phone renders the countdown where it renders a notification's
-      timestamp. The bold line reads just "Rest". Written as a number in the title
-      it would have to be rewritten every second by a process Android is free to
-      freeze — and a frozen countdown is worse than no countdown, because it looks
-      like one.
-    uses:
-    - session.rest-timer
-    - platform.android
-  - id: shade-stops-keeping-up-if-killed
-    t: If Android kills the app, the shade stops keeping up
-    d: >-
-      the countdown stays right, because Android owns it, but the set named above
-      it is whatever was true when the app was last alive, and Done then looks
-      like it did nothing. It did not: the press is recorded and applied when the
-      session comes back. This is the price of holding no foreground service, and
-      it is paid by an app that has been backgrounded long enough to be reclaimed.
-    uses:
-    - session.live-state
     - platform.android
   - id: asks-post-notifications-or-invisible
     t: It asks to post notifications, or it is invisible
     d: >-
-      on Android 13 and up it is a runtime grant, and without it the notification
-      is posted, reports success and is drawn nowhere. The ask happens at the point
-      the shade is first needed rather than on launch.
+      on Android 13 and up it is a runtime grant, and without it the service starts,
+      reports success and draws nothing. The ask happens at the point the shade
+      is first needed rather than on launch.
     screen: system
     defines:
     - platform.permissions
@@ -473,32 +454,36 @@ groups:
     - session.rest-sound
     - platform.reminders
     manual: true
-  - id: ding-handed-android-advance
-    t: The off-screen ding is handed to Android in advance
+  - id: ding-posted-when-rest-ends
+    t: The off-screen ding is posted when the rest ends, by the app
     d: >-
-      not posted when the countdown fires. The countdown is a timer in the app's
-      own process, and Android is free to freeze or kill that process the moment
-      you put the phone away — a dead process plays nothing. So the moment a rest
-      starts with the app off screen, the notification is scheduled for the instant
-      the rest will end, and cancelled if you come back to the board. It survives
-      a force-stop, which is the whole point.
+      not handed to Android in advance. It was, once: a rest timer is a timer in
+      the app's own process, and a process Android has killed plays nothing, so the
+      notification used to be scheduled the moment a rest started off screen. What
+      pays for that instead is the foreground service — the session is alive at the
+      end of its own rest, so it can simply ring. A scheduled alarm would have to be
+      inexact, because Play grants the exact-alarm permission to alarm clocks and
+      calendars and not to a workout tracker, and an inexact ding arriving late is
+      worse than the one that lands on the second.
     screen: shade
     uses:
     - session.rest-sound
+    - session.shade
     - platform.android
-  - id: exact-alarm-for-rest-only
-    t: A live app rings first; the scheduled ding is the fallback and is inexact
+  - id: no-alarm-privilege-asked-for
+    t: It asks for no alarm privilege, and that is why the service matters
     d: >-
-      an exact alarm needs a permission Play grants only to alarm clocks and
-      calendars, so the scheduled ding is inexact and Android may hold it a while.
-      That only matters when nobody is home: the alarm and the ding share one
-      notification id, so an app still alive at the end of the rest rings on the
-      second and cancels the pending one in the same breath. Killed, you get the
-      inexact one, late — which is the accepted cost of a tracker that asks for no
-      alarm privilege.
+      USE_EXACT_ALARM is refused publication to anything that is not an alarm clock
+      or a calendar, and SCHEDULE_EXACT_ALARM is denied by default from Android 14.
+      So there is no exact alarm to fall back on, which makes the foreground service
+      the thing keeping a rest audible: it is what leaves an app alive to ring at
+      the moment its own countdown reaches zero. Kill the app mid-rest — force-stop
+      it, or lose it to a memory reclaim the service did not prevent — and that rest
+      ends in silence. The workout itself is not lost; the snapshot brings it back.
     screen: none
     uses:
     - session.rest-sound
+    - session.shade
     - platform.android
   - id: same-sound-either-way
     t: It is the same sound either way

@@ -50,8 +50,8 @@ lib/
 │   ├── reminders.dart            Local notification scheduling (Android)
 │   ├── rest_tone.dart            The rest-end ding, played while on screen
 │   ├── rest_alarm.dart           The same ding as a notification, off screen
-│   ├── workout_shade.dart        The live workout as an ongoing notification
-│   ├── notifications.dart        The plugin's one initialize + what taps come back to
+│   ├── workout_shade.dart        The live workout as an Android foreground service
+│   ├── notifications.dart        The notification plugin's one initialize
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   ├── qr_decoder.dart           Camera frame → the string in a QR code
 │   ├── set_video_store.dart      Where set clips live on disk + the orphan sweep
@@ -327,11 +327,11 @@ reminded on them.
   a fresh launch all converge on the same answer. `reminderSyncProvider` fires
   it from a single `ref.watch` in `main.dart`; the alternative is remembering to
   re-schedule in three places and forgetting in a fourth.
-- Reminders are scheduled **inexactly**, as everything here is: an exact alarm
-  needs either a permission Android 14 makes the user grant by hand or one Play
-  reserves for alarm clocks, and a nudge to go to the gym does not need to land on
-  the second anyway. (The rest ding does, and settles for inexact too — see the
-  live-session section for what it does about that.) Android needs
+- Reminders are scheduled **inexactly**: an exact alarm needs either a permission
+  Android 14 makes the user grant by hand or one Play reserves for alarm clocks,
+  and a nudge to go to the gym does not need to land on the second. These are the
+  only scheduled notifications left — the rest ding is posted when the rest ends,
+  see the live-session section. Android needs
   `RECEIVE_BOOT_COMPLETED` plus the plugin's two receivers in the manifest, and
   core-library desugaring in `android/app/build.gradle.kts`.
 - Everything in the service is a no-op off Android, so `flutter test` never goes
@@ -400,34 +400,31 @@ reminded on them.
   middle of published practice and cited in `data/warmup.dart`'s library doc. The
   `workout_screen` draws them in a collapsed-by-default group above the working
   sets, with a set stepper and a liability disclaimer.
-- **The shade holds no privilege, and that shapes both halves of it.** Play
-  gates the two Android permissions this used to lean on: `USE_EXACT_ALARM` goes
-  only to alarm clocks and calendars, and any `FOREGROUND_SERVICE_*` type needs a
-  console declaration and a demo video. So `services/workout_shade.dart` posts an
-  ordinary ongoing notification through `flutter_local_notifications` rather than
-  running a foreground service, and `services/rest_alarm.dart` schedules
-  `inexactAllowWhileIdle` rather than an exact alarm. Two consequences worth
-  knowing before changing either:
-  - **The rest countdown is Android's, not the app's.** The notification carries
-    a chronometer counting down to the rest's end instant (`shadeRestEnd`), so it
-    stays right with the process frozen and needs no per-second rewrite. Nothing
-    may put a countdown *number* in the title — it would freeze there, and a
-    frozen countdown reads as a working one.
-  - **One `initialize`, in `services/notifications.dart`.** Three services post
-    notifications through one plugin instance, and `initialize` keeps only the
-    last callbacks it was handed — so a service initializing with none of its own
-    used to silently un-register the shade's tap handler, and which service went
-    last depended on what the user did. Everything now initializes through
-    `initNotifications`, and nothing else calls `plugin.initialize`. A tap on the
-    shade's body routes to the board from there; a tap that *started* the app
-    cannot (the intent beat the callback), so `liveSessionRestoreProvider` asks
-    `launchedByLiveWorkoutTap` on the way in.
-  - **The app can be killed mid-workout, so nothing may depend on it being
-    alive.** `SessionMirror` gets the session back and `PendingShadeActions`
-    (backed by `shared_preferences`, so the isolate Android spawns to deliver a
-    notification action can reach it) gets the press back. What is genuinely lost
-    is only that the shade's text stops keeping up until the app returns.
-
+- **The shade runs as a foreground service, and the rest ding does not get an
+  alarm privilege.** Play gates both, but not in the same way, and the difference
+  decided each: a `FOREGROUND_SERVICE_*` type needs a Console declaration and a
+  demo video, which is a review you can win, while `USE_EXACT_ALARM` is refused
+  outright to anything that is not an alarm clock or a calendar. So
+  `services/workout_shade.dart` runs `flutter_foreground_task` as `specialUse`
+  (declaration and video in `RELEASING.md`), and `services/rest_alarm.dart`
+  posts the end of a rest when it happens rather than scheduling anything. Three
+  consequences worth knowing before changing either:
+  - **The service is for the process, not the notification.** An ordinary
+    notification draws the same thing. What the service buys is that the isolate
+    holding the in-memory session is still there when a `Done` press arrives.
+  - **The rest ding depends on the service.** Nothing is handed to Android in
+    advance, because the only alarm this app can ship is inexact and a late ding
+    is its own kind of broken. So the app rings at the moment its own countdown
+    reaches zero, and a rest that ends with the app not running is silent.
+  - **The service makes the app being killed rare, not impossible**, so nothing
+    may depend on it. `SessionMirror` still gets the session back, and
+    `PendingShadeActions` still gets the press back — the service's task handler
+    runs in an isolate of its own and writes a press down before announcing it,
+    so a press made after the app's isolate died is applied when it returns.
+  - **One `initialize` for the notification plugin**, in `services/notifications.dart`.
+    `ReminderService` and `RestAlarm` share one plugin instance and `initialize`
+    keeps only the last arguments it was handed, so whichever initialized last
+    used to decide the configuration. Nothing else calls `plugin.initialize`.
 ### Providers — `providers/`
 Thin bridge from widgets to data. Notable ones:
 - `databaseProvider` — the one DB instance (in its own file to break a cycle).

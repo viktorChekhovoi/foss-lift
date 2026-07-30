@@ -191,7 +191,7 @@ concepts:
 
   - id: session.shade
     area: session
-    what: The whole session as an ongoing notification, and the presses that come back from it.
+    what: The whole session in the notification shade, and the foreground service under it.
     code: [lib/services/workout_shade.dart]
 
   - id: session.recap

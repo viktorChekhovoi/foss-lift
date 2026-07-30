@@ -152,40 +152,32 @@ void main() {
       return startPush(onScreen: onScreen, alarm: alarm, tone: tone);
     }
 
-    test(
-      'a rest started with the app away is laid on Android in advance',
-      () async {
-        final ctl = await pushWithPhone(onScreen: false);
+    test('starting a rest with the app away schedules nothing', () async {
+      // It used to hand the ding to Android for the instant the rest would end,
+      // against the app being killed before then. That needed an alarm
+      // permission Play will not grant a workout tracker, and an inexact one
+      // lands late — see `no-alarm-privilege-asked-for`. What replaced it is the
+      // foreground service keeping this isolate alive to ring for itself.
+      final ctl = await pushWithPhone(onScreen: false);
 
-        ctl.startRest(90, null);
-        await _settle();
+      ctl.startRest(90, null);
+      await _settle();
 
-        expect(
-          alarm.scheduled,
-          hasLength(1),
-          reason: 'a dead process cannot ding; Android has to be told first',
-        );
-        expect(
-          alarm.scheduled.single.at.difference(DateTime.now()).inSeconds,
-          closeTo(90, 2),
-          reason: 'it sounds when the rest ends, not whenever',
-        );
-        expect(
-          alarm.scheduled.single.body,
-          contains('Bench Press'),
-          reason: '"rest done" makes you open the app to find out what for',
-        );
+      expect(alarm.rung, isEmpty, reason: 'the rest has not ended yet');
+      expect(
+        alarm.cleared,
+        greaterThan(0),
+        reason: 'anything left from the last rest is for a rest that is over',
+      );
 
-        ctl.discard();
-      },
-    );
+      ctl.discard();
+    });
 
-    test('an app still alive at the end of the rest rings first', () async {
-      // `exact-alarm-for-rest-only`. The scheduled ding is inexact, because the
-      // permission for an exact one is Play's to refuse, so Android may hold it
-      // a while — trusting it would make a rest end late whenever the app was
-      // there to end it on time. So it rings from here, and ringing cancels the
-      // pending alarm on the id they share: one ding, on the second.
+    test('the app rings at the moment the rest ends', () async {
+      // `ding-posted-when-rest-ends`. Nothing was handed over in advance, so
+      // this is the only thing that makes a rest audible from a pocket — and it
+      // happens because the session's foreground service is still holding this
+      // isolate open when its own countdown reaches zero.
       final ctl = await pushWithPhone(onScreen: false);
 
       // A real two-second rest, run out for real: the point of the test is what
@@ -194,11 +186,15 @@ void main() {
       await _restRunsOut();
 
       expect(session().restLeft, 0, reason: 'the rest is over');
-      expect(alarm.scheduled, hasLength(1), reason: 'a dead process is not silent');
       expect(
         alarm.rung,
         hasLength(1),
-        reason: 'an inexact alarm may land late; the live isolate does not',
+        reason: 'off screen the ding is the notification, posted now',
+      );
+      expect(
+        alarm.rung.single,
+        contains('Bench Press'),
+        reason: '"rest done" makes you open the app to find out what for',
       );
       expect(tone.played, 0, reason: 'the phone is in a pocket');
 
@@ -206,17 +202,12 @@ void main() {
     });
 
     test(
-      'with the app on screen nothing is scheduled and the tone plays',
+      'with the app on screen the tone plays and nothing is posted',
       () async {
         final ctl = await pushWithPhone(onScreen: true);
 
         ctl.startRest(2, null);
         await _settle();
-        expect(
-          alarm.scheduled,
-          isEmpty,
-          reason: 'a notification in front of somebody watching the countdown',
-        );
 
         await _restRunsOut();
 
@@ -251,7 +242,7 @@ void main() {
 
       final buttons = shadeButtons(cue());
 
-      expect(buttons.map((b) => b.title), ['−15s', '+15s', 'Skip']);
+      expect(buttons.map((b) => b.text), ['−15s', '+15s', 'Skip']);
       expect(buttons.map((b) => b.id), [
         WorkoutShade.restSubAction,
         WorkoutShade.restAddAction,
@@ -355,7 +346,7 @@ void main() {
 
         final buttons = shadeButtons(cue());
 
-        expect(buttons.map((b) => b.title), ['Start']);
+        expect(buttons.map((b) => b.text), ['Start']);
         expect(buttons.single.id, WorkoutShade.startAction);
 
         ctl.discard();
@@ -741,24 +732,12 @@ class _RecordingTone extends RestTone {
   Future<void> play() async => played++;
 }
 
-/// A [RestAlarm] that records rather than posting — both the alarms handed to
-/// Android for later and the ones sounded on the spot.
+/// A [RestAlarm] that records rather than posting.
 class _RecordingAlarm extends RestAlarm {
   _RecordingAlarm() : super(platformSupported: true);
 
-  final List<({DateTime at, String body})> scheduled = [];
   final List<String> rung = [];
   int cleared = 0;
-
-  @override
-  Future<bool> scheduleAt(
-    DateTime at, {
-    required String title,
-    required String body,
-  }) async {
-    scheduled.add((at: at, body: body));
-    return true;
-  }
 
   @override
   Future<void> ring({required String title, required String body}) async =>
