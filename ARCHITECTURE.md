@@ -50,7 +50,8 @@ lib/
 │   ├── reminders.dart            Local notification scheduling (Android)
 │   ├── rest_tone.dart            The rest-end ding, played while on screen
 │   ├── rest_alarm.dart           The same ding as a notification, off screen
-│   ├── workout_shade.dart        The live workout as an Android foreground service
+│   ├── workout_shade.dart        The live workout as an ongoing notification
+│   ├── notifications.dart        The plugin's one initialize + what taps come back to
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   ├── qr_decoder.dart           Camera frame → the string in a QR code
 │   ├── set_video_store.dart      Where set clips live on disk + the orphan sweep
@@ -326,9 +327,11 @@ reminded on them.
   a fresh launch all converge on the same answer. `reminderSyncProvider` fires
   it from a single `ref.watch` in `main.dart`; the alternative is remembering to
   re-schedule in three places and forgetting in a fourth.
-- Reminders are scheduled **inexactly** on purpose: an exact alarm needs a
-  permission Android 14 makes the user grant by hand, and a nudge to go to the
-  gym does not need to land on the second. Android needs
+- Reminders are scheduled **inexactly**, as everything here is: an exact alarm
+  needs either a permission Android 14 makes the user grant by hand or one Play
+  reserves for alarm clocks, and a nudge to go to the gym does not need to land on
+  the second anyway. (The rest ding does, and settles for inexact too — see the
+  live-session section for what it does about that.) Android needs
   `RECEIVE_BOOT_COMPLETED` plus the plugin's two receivers in the manifest, and
   core-library desugaring in `android/app/build.gradle.kts`.
 - Everything in the service is a no-op off Android, so `flutter test` never goes
@@ -397,6 +400,33 @@ reminded on them.
   middle of published practice and cited in `data/warmup.dart`'s library doc. The
   `workout_screen` draws them in a collapsed-by-default group above the working
   sets, with a set stepper and a liability disclaimer.
+- **The shade holds no privilege, and that shapes both halves of it.** Play
+  gates the two Android permissions this used to lean on: `USE_EXACT_ALARM` goes
+  only to alarm clocks and calendars, and any `FOREGROUND_SERVICE_*` type needs a
+  console declaration and a demo video. So `services/workout_shade.dart` posts an
+  ordinary ongoing notification through `flutter_local_notifications` rather than
+  running a foreground service, and `services/rest_alarm.dart` schedules
+  `inexactAllowWhileIdle` rather than an exact alarm. Two consequences worth
+  knowing before changing either:
+  - **The rest countdown is Android's, not the app's.** The notification carries
+    a chronometer counting down to the rest's end instant (`shadeRestEnd`), so it
+    stays right with the process frozen and needs no per-second rewrite. Nothing
+    may put a countdown *number* in the title — it would freeze there, and a
+    frozen countdown reads as a working one.
+  - **One `initialize`, in `services/notifications.dart`.** Three services post
+    notifications through one plugin instance, and `initialize` keeps only the
+    last callbacks it was handed — so a service initializing with none of its own
+    used to silently un-register the shade's tap handler, and which service went
+    last depended on what the user did. Everything now initializes through
+    `initNotifications`, and nothing else calls `plugin.initialize`. A tap on the
+    shade's body routes to the board from there; a tap that *started* the app
+    cannot (the intent beat the callback), so `liveSessionRestoreProvider` asks
+    `launchedByLiveWorkoutTap` on the way in.
+  - **The app can be killed mid-workout, so nothing may depend on it being
+    alive.** `SessionMirror` gets the session back and `PendingShadeActions`
+    (backed by `shared_preferences`, so the isolate Android spawns to deliver a
+    notification action can reach it) gets the press back. What is genuinely lost
+    is only that the shade's text stops keeping up until the app returns.
 
 ### Providers — `providers/`
 Thin bridge from widgets to data. Notable ones:

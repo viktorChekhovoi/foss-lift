@@ -1,68 +1,96 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Workout reminders are scheduled alarms on this device: this lets the
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Every alarm this app lays down — the gym reminders and the end of a rest
+         alike — is a scheduled alarm on this device, and this lets the
          notification plugin lay them down again after a reboot, which is
-         otherwise where every pending reminder goes to die. No exact-alarm
-         permission — reminders are scheduled inexactly on purpose, see
-         lib/services/reminders.dart. -->
+         otherwise where every pending one goes to die.
+
+         **This app declares no alarm permission and no foreground service, and
+         both of those are Play policy rather than a technical choice.** Read
+         this before adding either back:
+
+           USE_EXACT_ALARM        Play grants it only to apps whose core function
+                                  is an alarm clock or a calendar. A tracker with
+                                  a rest timer in it does not qualify, and an app
+                                  declaring it is refused publication.
+           SCHEDULE_EXACT_ALARM   unrestricted, but denied by default from
+                                  Android 14, so it costs a trip to a system
+                                  settings toggle the user has to find.
+           FOREGROUND_SERVICE_*   every type needs a console declaration and a
+                                  video demonstrating the feature — the
+                                  requirement is per declared type, so switching
+                                  away from specialUse buys nothing.
+
+         So the rest ding is an inexact alarm that may land late, and the live
+         workout is an ordinary ongoing notification with nothing keeping the
+         process alive behind it. See lib/services/rest_alarm.dart,
+         lib/services/workout_shade.dart, and issue #70 for what that costs.
+
+         Note flutter_foreground_task's own manifest injected FOREGROUND_SERVICE
+         and WAKE_LOCK whether this file mentioned them or not, which is why the
+         dependency had to go rather than just these lines. It is gone, and so is
+         FOREGROUND_SERVICE. WAKE_LOCK is still in the merged manifest, from
+         media3 behind video_player, and has nothing to do with the shade. -->
+
+    <!-- **What is here is not the whole list.** Plugins merge their own in, and
+         the merged result is what Play publishes and what the phone's app info
+         shows. Read it, rather than this file, before answering "what does this
+         app ask for":
+
+             ./gradlew -q processReleaseMainManifest
+             grep uses-permission \
+               build/app/intermediates/merged_manifest/release/*/AndroidManifest.xml
+
+         Today that adds CAMERA and a legacy WRITE_EXTERNAL_STORAGE
+         (camera_android_camerax), and WAKE_LOCK (media3, behind video_player).
+         CAMERA is asked for and used; the other two are capped at old Android
+         versions or invisible, and are left alone. Everything a plugin wanted
+         that this app does not do is removed below. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <!-- The end of a rest, laid down as an exact alarm.
-
-         This is the permission that makes a rest audible from a pocket. The
-         countdown is a timer inside the app's process, and Android is free to
-         kill that process the moment the app is backgrounded — so the ding is
-         handed over in advance, for the instant the rest will end, and Android
-         makes it whether the app is alive or not. See
-         lib/services/rest_alarm.dart.
-
-         USE_EXACT_ALARM rather than SCHEDULE_EXACT_ALARM: it is granted at
-         install rather than through a settings screen, and it is the one
-         intended for alarms and timers the user set themselves, which is
-         exactly what a rest timer is. SCHEDULE_EXACT_ALARM is declared
-         alongside it only for Android 12, where it was still auto-granted and
-         USE_EXACT_ALARM did not exist yet.
-
-         Note the workout reminders stay *inexact* on purpose — a nudge to go to
-         the gym does not need to land on the second. See
-         lib/services/reminders.dart. -->
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
-        android:maxSdkVersion="32"/>
-    <!-- The live workout in the notification shade. A foreground service is not
-         about drawing the notification — an ordinary one would do that — it is
-         about the *process*: the session is held in memory and never written
-         until Finish, so a "Done" press has to reach the isolate that holds it.
-         Without this Android is free to kill the app once it is backgrounded,
-         and the press would land somewhere with no workout in it. See
-         lib/services/workout_shade.dart and issue #37.
-
-         Android 14 requires a foregroundServiceType, and none of the declared
-         ones fits a workout log cleanly:
-
-           health        the closest in meaning, but it has a runtime
-                         requirement — one of BODY_SENSORS,
-                         ACTIVITY_RECOGNITION or HIGH_SAMPLING_RATE_SENSORS —
-                         and asking an offline app's users for activity
-                         recognition to show a rest timer is a bad trade.
-           shortService  capped at three minutes. A workout is not.
-           dataSync      semantically wrong, and Android 15 caps it at six
-                         hours a day.
-
-         So specialUse, with the subtype spelled out. It is the type for
-         exactly this: a legitimate long-running foreground task the other
-         categories do not describe. Note it needs a justification at Play
-         Store review — see issue #24. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <!-- Android 13+ will not show any notification without it being granted,
-         including this one and the workout reminders. -->
+         including the live workout and the workout reminders. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- Keeps the rest countdown ticking with the screen off, which is the
-         whole point of putting the workout in the shade. -->
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- The rest-finished notification buzzes as well as sounding: a phone in a
          gym bag is not always somewhere a ding carries. See
          lib/services/rest_alarm.dart. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- **Taken back out of the merged manifest.**
+         Three permissions no line above asks for, merged in by plugins that
+         declare everything they *could* do. What a phone lists is the merged
+         result, so removing them here is the only way the list matches the app.
+         `tools:node="remove"` is the merger's own instruction and needs the
+         xmlns:tools declaration on <manifest> above.
+
+         **Check each of these still has nothing behind it before deleting a
+         line.** A feature that starts recording audio or reading shared storage
+         would be refused at runtime with the permission removed, and the error
+         does not name this file.
+
+           RECORD_AUDIO           camera_android_camerax declares it whether or
+                                  not a recording asks for audio. Both cameras
+                                  here pass enableAudio: false — see
+                                  lib/services/set_video_recorder.dart and
+                                  lib/screens/scan_screen.dart. Left in, it shows
+                                  as "Microphone" on the Play listing and in app
+                                  info, which is a claim this app cannot make.
+           ACCESS_NETWORK_STATE   androidx.media3-common, behind video_player,
+                                  which queries connectivity for streaming. This
+                                  app plays local files only and holds no INTERNET
+                                  permission in a release build at all.
+           READ_EXTERNAL_STORAGE  not declared by any plugin: the manifest merger
+                                  adds it implicitly beside camerax's
+                                  WRITE_EXTERNAL_STORAGE, and unlike that one it
+                                  arrives with no maxSdkVersion cap. Nothing here
+                                  reads shared storage; clips live in the app's
+                                  own private directory. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove"/>
+
     <application
         android:label="Foss Lift"
         android:name="${applicationName}"
@@ -108,19 +136,19 @@
                 <data android:scheme="fosslift" android:host="routine"/>
             </intent-filter>
         </activity>
-        <!-- The live-workout foreground service. The name is the plugin's and
-             must not change. -->
-        <service
-            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="specialUse"
-            android:exported="false">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps a workout in progress on screen in the notification shade, with its rest timer, while the phone is put away."/>
-        </service>
-        <!-- The notification plugin's receivers: one to show a scheduled
-             reminder when its alarm fires, one to re-schedule everything after
-             a reboot or an app update. -->
+        <!-- What carries a press on one of the live workout's buttons. Android
+             delivers it as a broadcast, and the plugin starts an isolate of its
+             own to run the Dart callback if the app is no longer alive — which is
+             the case this exists for, since nothing holds the process open during
+             a workout. Without this receiver the buttons are drawn and do
+             nothing. The name is the plugin's and must not change. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+        <!-- The notification plugin's other receivers: one to show a scheduled
+             reminder or rest ding when its alarm fires, one to re-schedule
+             everything after a reboot or an app update. -->
+
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />

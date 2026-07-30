@@ -20,15 +20,7 @@ class RoutinesScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           const ScreenHeader(eyebrow: 'Your programmes', title: 'Routines'),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
-            child: Text(
-              'A routine is a programme — "Push / Pull / Legs" — and it holds '
-              'the workouts you actually train. Tap a circle to choose which '
-              'routine the Today tab shows.',
-              style: TextStyle(fontSize: 13, color: AppColors.muted),
-            ),
-          ),
+          const SizedBox(height: 4),
           routines.when(
             loading: () => Padding(
               padding: EdgeInsets.all(24),

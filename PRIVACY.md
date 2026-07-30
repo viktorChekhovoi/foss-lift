@@ -61,9 +61,12 @@ its own or in the background.
 
 ## Permissions the app requests
 
-- **Notifications** (`POST_NOTIFICATIONS`) — only if you switch on a reminder
-  for a routine. Reminders are alarms your device sets for itself; no
-  notification passes through any server.
+- **Notifications** (`POST_NOTIFICATIONS`) — asked for when you switch on a
+  reminder for a routine, or when you start your first workout, since a workout
+  in progress shows itself in your notification shade. Both are alarms and
+  notifications your device makes for itself; none passes through any server.
+- **Vibration** (`VIBRATE`) — so the end of a rest can be felt as well as heard,
+  for a phone in a gym bag.
 - **Run at startup** (`RECEIVE_BOOT_COMPLETED`) — so that reminders you have
   already scheduled survive a reboot.
 - **Camera** (`CAMERA`) — for two things, and only when you ask for either. If
@@ -77,6 +80,15 @@ The app requests no other permissions. It does not use your location,
 microphone, contacts or advertising identifier, and it does not ask for access
 to your photos or to the shared storage on your device. **Recording a set
 captures no audio**, which is why the microphone is not on that list.
+
+That list is the whole list, and keeping it that way takes some work: the
+open-source libraries the app is built from declare the permissions *they* could
+use, whether or not this app uses them. The camera library asks for the
+microphone; the video player asks to see whether your device is online. Both are
+removed by name, so what your phone shows you the app can do is what the app
+does. Two harmless entries you may still see if you go looking are a wake lock,
+which the video player uses to keep the screen on during playback, and a legacy
+storage permission that Android ignores from version 10 onwards.
 
 ## Videos you record
 

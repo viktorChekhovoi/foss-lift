@@ -93,11 +93,26 @@ groups:
     d: >-
       scanning a QR examines frames and drops them. Filming a set writes a file,
       and it is the first data the app holds that is recognisably a person — so
-      it is fenced. Neither records audio, so the microphone is never asked for.
+      it is fenced. Neither records audio, and the microphone is not in the
+      manifest to be asked for.
     screen: none
     uses:
     - share.qr
     - video.capture
+    - platform.permissions
+  - id: plugin-permissions-are-pruned
+    t: A permission a plugin wants and the app does not is taken back out
+    d: >-
+      the list a phone shows is the merged manifest, not the one in this
+      repository, and plugins add their own — the camera library declares the
+      microphone whether or not audio is ever recorded, and the video player drags
+      in network state. Both are removed again by name, so that what the app asks
+      for is what the app does. An offline tracker holding the microphone is
+      exactly the discrepancy somebody checking would find, and "it never prompts"
+      is not an answer to it.
+    screen: none
+    uses:
+    - privacy.offline
     - platform.permissions
   - id: there-no-upload-path-no
     t: There is no upload path and no share sheet for a clip

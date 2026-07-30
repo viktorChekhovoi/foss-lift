@@ -52,7 +52,9 @@ dependencies:
   zxing2: ^0.2.4
   audioplayers: ^6.8.1
   video_player: ^2.10.0
-  flutter_foreground_task: ^10.0.0
+  # Where a shade button press waits for a session to apply it to. The async API
+  # only — see PendingShadeActions on why the caching one cannot work here.
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

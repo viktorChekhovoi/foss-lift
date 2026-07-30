@@ -410,11 +410,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   Timer? _timer;
   Timer? _restTimer;
 
-  /// Whether Android is holding an alarm for the end of the current rest — see
-  /// [_armRestAlarm]. False means nothing is pending and this isolate has to make
-  /// the noise itself.
-  bool _restAlarmArmed = false;
-
   AppDatabase get _db => ref.read(databaseProvider);
 
   @override
@@ -462,7 +457,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       final now = state;
       if (now == null) return;
       if (now.restLeft <= 1) {
-        _endRest(ranOut: true);
+        _endRest();
       } else {
         // Not committed: the snapshot ages its own clock on the way back in, so
         // a write a second would buy nothing. See [_commit].
@@ -478,7 +473,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (s == null || s.restLeft == 0) return;
     final left = s.restLeft + seconds;
     if (left <= 0) {
-      _endRest(ranOut: false);
+      _endRest();
     } else {
       _commit(s.copyWith(restLeft: left));
       // The end has moved, so whatever Android is holding is for the wrong
@@ -493,9 +488,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// **Skipping does sound.** It used not to, from the shade, on the argument
   /// that somebody pressing Skip knows the rest is over. What that produced was a
   /// button with no feedback at all on the one screen that is in a pocket.
-  void stopRest({bool tone = true}) => _endRest(ranOut: false, announce: tone);
+  void stopRest({bool tone = true}) => _endRest(announce: tone);
 
-  void _endRest({required bool ranOut, bool announce = true}) {
+  void _endRest({bool announce = true}) {
     _restTimer?.cancel();
     _restTimer = null;
     final s = state;
@@ -503,10 +498,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final wasResting = s.restLeft > 0;
     _commit(s.copyWith(clearRest: true));
     if (wasResting && announce) {
-      _sayTheRestIsOver(ranOut: ranOut);
+      _sayTheRestIsOver();
       return;
     }
-    _restAlarmArmed = false;
     ref.read(restAlarmProvider).clear();
   }
 
@@ -515,23 +509,23 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   ///
   /// On screen it is the tone: instant, and it does not put a notification in
   /// front of somebody already looking at the countdown. Off screen — pocket,
-  /// screen dark, which is most of what a rest timer is for — the noise is
-  /// Android's to make, either from the alarm [_armRestAlarm] handed it or,
-  /// for a rest that ended early, from one posted here and now. Never two of
-  /// them.
-  void _sayTheRestIsOver({required bool ranOut}) {
+  /// screen dark, which is most of what a rest timer is for — it is the
+  /// notification.
+  ///
+  /// **A live isolate always rings, whether or not an alarm is pending.** The
+  /// alarm [_armRestAlarm] hands over is inexact, because the permission for an
+  /// exact one is not one this app can ship, so Android may hold it — and
+  /// deferring to it would make a rest end late precisely when the app was there
+  /// to end it on time. Ringing cancels the pending alarm first, on the id they
+  /// share, so this is one ding either way: on the second while the app is alive,
+  /// and a little late when Android is the only thing left to make it.
+  void _sayTheRestIsOver() {
     final alarm = ref.read(restAlarmProvider);
     if (ref.read(appOnScreenProvider)()) {
-      _restAlarmArmed = false;
       alarm.clear();
       ref.read(restToneProvider).play();
       return;
     }
-    // The rest simply ran out and Android is sounding the alarm it was given for
-    // this instant. Posting a second one now is the same ding twice.
-    final armed = _restAlarmArmed;
-    _restAlarmArmed = false;
-    if (ranOut && armed) return;
     alarm.ring(title: 'Rest done', body: _whatComesNext());
   }
 
@@ -551,20 +545,14 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final s = state;
     final alarm = ref.read(restAlarmProvider);
     if (s == null || s.restLeft <= 0 || ref.read(appOnScreenProvider)()) {
-      _restAlarmArmed = false;
       alarm.clear();
       return;
     }
-    _restAlarmArmed = true;
-    alarm
-        .scheduleAt(
-          DateTime.now().add(Duration(seconds: s.restLeft)),
-          title: 'Rest done',
-          body: _whatComesNext(),
-        )
-        // A phone that would not take it leaves this isolate to make the noise
-        // if it is still alive when the rest runs out.
-        .then((laid) => _restAlarmArmed = laid);
+    alarm.scheduleAt(
+      DateTime.now().add(Duration(seconds: s.restLeft)),
+      title: 'Rest done',
+      body: _whatComesNext(),
+    );
   }
 
   /// What the rest is over *for*. A notification that says only "rest done"
@@ -941,7 +929,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
-    _restAlarmArmed = false;
     ref.read(restAlarmProvider).clear();
 
     final rows = <SessionSetsCompanion>[];
@@ -1061,7 +1048,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
-    _restAlarmArmed = false;
     ref.read(restAlarmProvider).clear();
     _forget();
     final clips = _clipPaths.toList();

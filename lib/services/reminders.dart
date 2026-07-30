@@ -7,6 +7,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../data/schedule.dart';
 import 'local_time_zone.dart';
 import 'notification_ids.dart';
+import 'notifications.dart';
 
 /// Schedules the local notifications that remind you a training day is on.
 ///
@@ -42,11 +43,7 @@ class ReminderService {
   Future<void> init() async {
     if (_ready || !supported) return;
     await ensureLocalTimeZone();
-    await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
+    await initNotifications(_plugin);
     _ready = true;
   }
 

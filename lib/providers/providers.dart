@@ -1,11 +1,13 @@
-import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
+import '../services/notifications.dart';
 import '../services/reminders.dart';
 import '../services/set_video_store.dart';
 import '../services/workout_shade.dart';
@@ -174,7 +176,14 @@ final reminderSyncProvider = Provider<void>((ref) {
 });
 
 /// The live workout in the notification shade.
-final workoutShadeProvider = Provider<WorkoutShade>((ref) => WorkoutShade());
+///
+/// A tap on the notification body is the one thing on it that can raise the app,
+/// and it raises it at the board — see [shadeOpenProvider], which is also what
+/// the buttons route through, so a tap and a press cannot disagree about where
+/// the board is or stack two copies of it.
+final workoutShadeProvider = Provider<WorkoutShade>(
+  (ref) => WorkoutShade(onTapped: () => ref.read(shadeOpenProvider)()),
+);
 
 /// How the shade's set buttons raise the live board once the press has reached
 /// this isolate.
@@ -224,33 +233,33 @@ final shadeOpenProvider = Provider<void Function()>(
   },
 );
 
-/// Subscribes to the shade's button presses for as long as anything watches.
+/// Collects the shade's button presses for as long as a session is live.
+///
+/// **Polled, because there is nobody to be told.** The press is taken in an
+/// isolate Android starts for it, which cannot reach this one — see
+/// [shadeActionInBackground]. So the only way a running app learns of a press is
+/// to go and look, and it has to: a rest nudged or skipped from a pocket is a
+/// change to a session this isolate is holding, and Skip has a ding to sound. A
+/// second is soon enough for a control you cannot see the result of anyway.
+///
+/// Only while a session is live, and only on Android — a workout is the only
+/// thing there are ever presses for, and the record is cleared when one ends.
+/// The launch has its own drain, ahead of this: [liveSessionRestoreProvider].
 final shadeActionsProvider = Provider<void>((ref) {
   final shade = ref.watch(workoutShadeProvider);
-  if (!shade.supported) return;
+  // Selected rather than watched: the session itself moves every second while a
+  // rest runs, and rebuilding this would restart the timer each time.
+  final live = ref.watch(activeWorkoutProvider.select((s) => s != null));
+  if (!shade.supported || !live) return;
 
-  void onData(Object data) {
-    // The press itself is in the record; this is only the news that there is one
-    // — see [PendingShadeActions]. A bare id is the fallback for a press the
-    // record would not take, and is applied here and now.
-    if (data == WorkoutShade.drainPoke) {
-      drainShadeActions(
-        ref.read(activeWorkoutProvider.notifier),
-        ref.read(pendingShadeActionsProvider),
-        open: ref.read(shadeOpenProvider),
-      );
-      return;
-    }
-    applyShadeAction(
+  final timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    drainShadeActions(
       ref.read(activeWorkoutProvider.notifier),
-      data,
+      ref.read(pendingShadeActionsProvider),
       open: ref.read(shadeOpenProvider),
     );
-  }
-
-  FlutterForegroundTask.initCommunicationPort();
-  FlutterForegroundTask.addTaskDataCallback(onData);
-  ref.onDispose(() => FlutterForegroundTask.removeTaskDataCallback(onData));
+  });
+  ref.onDispose(timer.cancel);
 });
 
 /// Applies every press waiting in [pending], oldest first.
@@ -430,12 +439,15 @@ final activeWorkoutProvider =
 /// Rebuilds the live session the last run left behind — see
 /// `ActiveWorkoutController.restore`. Watched once, high up, so a process
 /// Android killed mid-workout comes back to the workout. Nothing reads its value.
-/// The launch: the session Android killed the process out from under, and then
-/// any press that was made on the shade while there was nobody to receive it.
+/// The launch: the session Android killed the process out from under, then any
+/// press that was made on the shade while there was nobody to receive it, and
+/// then — if the tap on the shade is what started this launch — the board.
 ///
-/// In that order, and both here rather than in `main.dart`, because the order is
-/// the point — a press applied before the session is back has nothing to apply
-/// itself to, and would be dropped for the second time.
+/// In that order, and all of it here rather than in `main.dart`, because the
+/// order is the point. A press applied before the session is back has nothing to
+/// apply itself to and would be dropped for the second time; and the board is
+/// worth opening only once whatever was pressed has landed on the session it is
+/// about to show.
 final liveSessionRestoreProvider = FutureProvider<void>((ref) async {
   await ref.read(activeWorkoutProvider.notifier).restore();
   await drainShadeActions(
@@ -443,6 +455,15 @@ final liveSessionRestoreProvider = FutureProvider<void>((ref) async {
     ref.read(pendingShadeActionsProvider),
     open: ref.read(shadeOpenProvider),
   );
+  // Only where there is a shade to have been tapped, and only with a session to
+  // show for it. A shade can outlive the workout it describes — Android keeps the
+  // notification if it killed the app before `hide` ran — and a tap on that one
+  // has nowhere to go.
+  if (!ref.read(workoutShadeProvider).supported) return;
+  if (ref.read(activeWorkoutProvider) == null) return;
+  if (await launchedByLiveWorkoutTap(FlutterLocalNotificationsPlugin())) {
+    ref.read(shadeOpenProvider)();
+  }
 });
 
 /// A finished session (+ its sets) for the summary screen.

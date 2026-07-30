@@ -133,8 +133,8 @@ Post a completion comment and stop there.
 
 ### New ideas
 
-If something worth doing surfaces mid-task, open an issue for it rather than
-silently expanding scope. Label it and tell the user you filed it.
+If something worth doing surfaces mid-task, tell the user about it rather than
+silently expanding scope. Do not open an issue for it unless they ask.
 
 ## Out of scope — do not build these
 

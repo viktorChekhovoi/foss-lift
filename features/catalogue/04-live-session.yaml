@@ -246,7 +246,10 @@ groups:
       than the convenience is worth, so the press routes the session to the board
       instead: unlock the phone and the board is what is there. Tapping the
       notification itself does raise the app, because that is an activity intent
-      rather than a broadcast.
+      rather than a broadcast — and it raises it at the board, whether the app was
+      alive to hear the tap or is starting from cold because Android had killed
+      it. A tap that lands on a shade for a workout that is already over raises
+      the app and goes nowhere in particular, since there is no board to go to.
     uses:
     - session.shade
   - id: press-survives-the-app-dying
@@ -254,13 +257,15 @@ groups:
     d: >-
       every button on the shade is applied by the isolate that holds the session,
       and Android is free to kill that isolate while the workout is in a pocket —
-      which is the whole reason the crash snapshot exists. So a press is written
-      down before it is announced: the service records it, the session applies it
-      out of the record, and a press made with nothing left to receive it is
-      applied when the app comes back and the snapshot is restored. A set logged
-      from the shade is logged whether or not the app was alive to hear it. The
-      record is dropped when the session ends, so a press cannot land on the next
-      workout.
+      which is the whole reason the crash snapshot exists. So the record is the
+      only path a press takes: Android starts an isolate of its own to deliver the
+      press, and that isolate can reach nothing but the record — so it writes the
+      press there, and whichever isolate next holds the session applies it out of
+      the record. The one already running finds it within the second; the one the
+      next launch restores from the snapshot finds it on the way back. A set
+      logged from the shade is logged whether or not the app was alive to hear it.
+      The record is dropped when the session ends, so a press cannot land on the
+      next workout.
     uses:
     - session.shade
     - session.set-logging
@@ -300,34 +305,50 @@ groups:
     uses:
     - session.hold-timer
     - exercise.measure
-  - id: foreground-service-not-about-notification
-    t: It is a foreground service, and that is not about the notification
+  - id: ordinary-notification-no-service
+    t: It is an ordinary notification, with no foreground service under it
     d: >-
-      the session is in memory and untouched until Finish, so a Done press has
-      to reach the isolate holding it — and without a service Android may kill
-      the app once backgrounded. The service is what keeps the session alive to be
-      pressed; the snapshot is what gets it back when Android wins anyway.
-    uses:
-    - session.live-state
-    - platform.android
-  - id: declared-specialuse-android-14
-    t: Declared as specialUse on Android 14
-    d: >-
-      health needs an activity-recognition permission this app has no business
-      asking for, shortService caps at three minutes, dataSync is wrong and capped
-      at six hours a day. The subtype is spelled out, which needs a justification
-      at Play Store review. Off Android it is a no-op, not a crash.
-    screen: none
+      it was a foreground service, for the process rather than the notification:
+      the session is in memory until Finish, so a Done press has to reach the
+      isolate holding it. Play will not have one without a declaration and a demo
+      video for the service type, which is more than a rest timer is worth, so
+      the shade is a plain ongoing notification on a silent LOW channel and the
+      app claims no privilege to stay alive behind it. Off Android it is a no-op,
+      not a crash.
     defines:
     - platform.android
     uses:
+    - session.live-state
+    - platform.android
+  - id: android-counts-rest-down-itself
+    t: Android counts the rest down, the app does not
+    d: >-
+      a rest is posted once, as a chronometer running to the instant the rest
+      ends, so the phone renders the countdown where it renders a notification's
+      timestamp. The bold line reads just "Rest". Written as a number in the title
+      it would have to be rewritten every second by a process Android is free to
+      freeze — and a frozen countdown is worse than no countdown, because it looks
+      like one.
+    uses:
+    - session.rest-timer
+    - platform.android
+  - id: shade-stops-keeping-up-if-killed
+    t: If Android kills the app, the shade stops keeping up
+    d: >-
+      the countdown stays right, because Android owns it, but the set named above
+      it is whatever was true when the app was last alive, and Done then looks
+      like it did nothing. It did not: the press is recorded and applied when the
+      session comes back. This is the price of holding no foreground service, and
+      it is paid by an app that has been backgrounded long enough to be reclaimed.
+    uses:
+    - session.live-state
     - platform.android
   - id: asks-post-notifications-or-invisible
     t: It asks to post notifications, or it is invisible
     d: >-
-      on Android 13 and up it is a runtime grant, and without it the service starts,
-      reports success and draws nothing. The ask happens at the point the shade
-      is first needed rather than on launch.
+      on Android 13 and up it is a runtime grant, and without it the notification
+      is posted, reports success and is drawn nowhere. The ask happens at the point
+      the shade is first needed rather than on launch.
     screen: system
     defines:
     - platform.permissions
@@ -466,16 +487,18 @@ groups:
     - session.rest-sound
     - platform.android
   - id: exact-alarm-for-rest-only
-    t: The rest alarm is exact; a reminder is not
+    t: A live app rings first; the scheduled ding is the fallback and is inexact
     d: >-
-      a rest ending thirty seconds late is a rest that did not work, so this one
-      asks for the exact-alarm permission and falls back to inexact where an OEM
-      refuses. The gym reminder stays deliberately inexact — a nudge to train does
-      not need to land on the second.
+      an exact alarm needs a permission Play grants only to alarm clocks and
+      calendars, so the scheduled ding is inexact and Android may hold it a while.
+      That only matters when nobody is home: the alarm and the ding share one
+      notification id, so an app still alive at the end of the rest rings on the
+      second and cancels the pending one in the same breath. Killed, you get the
+      inexact one, late — which is the accepted cost of a tracker that asks for no
+      alarm privilege.
     screen: none
     uses:
     - session.rest-sound
-    - platform.reminders
     - platform.android
   - id: same-sound-either-way
     t: It is the same sound either way

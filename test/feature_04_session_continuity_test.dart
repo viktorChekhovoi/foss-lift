@@ -180,7 +180,12 @@ void main() {
       },
     );
 
-    test('and it sounds once, not twice, when the rest runs out', () async {
+    test('an app still alive at the end of the rest rings first', () async {
+      // `exact-alarm-for-rest-only`. The scheduled ding is inexact, because the
+      // permission for an exact one is Play's to refuse, so Android may hold it
+      // a while — trusting it would make a rest end late whenever the app was
+      // there to end it on time. So it rings from here, and ringing cancels the
+      // pending alarm on the id they share: one ding, on the second.
       final ctl = await pushWithPhone(onScreen: false);
 
       // A real two-second rest, run out for real: the point of the test is what
@@ -189,12 +194,12 @@ void main() {
       await _restRunsOut();
 
       expect(session().restLeft, 0, reason: 'the rest is over');
+      expect(alarm.scheduled, hasLength(1), reason: 'a dead process is not silent');
       expect(
         alarm.rung,
-        isEmpty,
-        reason: 'Android is already sounding the alarm it was handed',
+        hasLength(1),
+        reason: 'an inexact alarm may land late; the live isolate does not',
       );
-      expect(alarm.scheduled, hasLength(1));
       expect(tone.played, 0, reason: 'the phone is in a pocket');
 
       ctl.discard();
@@ -246,7 +251,7 @@ void main() {
 
       final buttons = shadeButtons(cue());
 
-      expect(buttons.map((b) => b.text), ['−15s', '+15s', 'Skip']);
+      expect(buttons.map((b) => b.title), ['−15s', '+15s', 'Skip']);
       expect(buttons.map((b) => b.id), [
         WorkoutShade.restSubAction,
         WorkoutShade.restAddAction,
@@ -350,7 +355,7 @@ void main() {
 
         final buttons = shadeButtons(cue());
 
-        expect(buttons.map((b) => b.text), ['Start']);
+        expect(buttons.map((b) => b.title), ['Start']);
         expect(buttons.single.id, WorkoutShade.startAction);
 
         ctl.discard();

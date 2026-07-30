@@ -6,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'local_time_zone.dart';
 import 'notification_ids.dart';
+import 'notifications.dart';
 
 /// The rest ending, for when the app is not the thing on screen.
 ///
@@ -18,10 +19,13 @@ import 'notification_ids.dart';
 /// dead process plays nothing, posts nothing, and cannot be asked to.
 ///
 /// So the sound is handed to Android *in advance*. [scheduleAt] lays the
-/// notification down for the instant the rest will end, on an alarm channel, as
-/// an exact alarm that fires through Doze. Whether the app is alive then makes no
-/// difference. [ring] posts the same notification immediately, for a rest that
-/// ends out of order — a skip pressed from the shade.
+/// notification down for the instant the rest will end, on an alarm channel,
+/// inexactly — the permission for an exact one is not one this app can ship, and
+/// [scheduleAt] says what that costs. Whether the app is alive then makes no
+/// difference to whether the noise happens; it makes the difference between on
+/// the second and a little late. [ring] posts the same notification immediately,
+/// for a rest that ends out of order — a skip pressed from the shade — and for a
+/// rest that ran out with the app alive to notice.
 ///
 /// `ActiveWorkoutController` picks between the three: the tone while the app is
 /// on screen, a scheduled alarm while it is not, and an immediate ring for a rest
@@ -81,9 +85,10 @@ class RestAlarm {
   /// Hands the sound to Android to make at [at], whether or not this app is
   /// still alive then. Replaces any alarm already pending.
   ///
-  /// Returns whether Android took it. A false answer is the caller's cue that it
-  /// has to make the noise itself if it is still running when the rest runs out
-  /// — see `ActiveWorkoutController`.
+  /// Returns whether Android took it — for a caller that wants to know the
+  /// pocket case is covered. Nothing depends on the answer: an app still alive
+  /// when the rest runs out rings on the second regardless, and that ring
+  /// replaces whatever this laid down. See `ActiveWorkoutController`.
   Future<bool> scheduleAt(
     DateTime at, {
     required String title,
@@ -96,17 +101,19 @@ class RestAlarm {
       await ensureLocalTimeZone();
       await _plugin.cancel(id: kRestAlarmId);
       final when = tz.TZDateTime.from(at, tz.local);
-      // Exact, and through Doze. A rest timer is a timer: two minutes means two
-      // minutes, and a ding that lands whenever Android next batches its alarms
-      // is not a rest timer at all. See the manifest note on USE_EXACT_ALARM. An
-      // OEM that refuses exact alarms anyway gets the inexact one rather than
-      // nothing.
-      try {
-        await _lay(when, title, body, AndroidScheduleMode.exactAllowWhileIdle);
-      } catch (e) {
-        debugPrint('RestAlarm: no exact alarms here ($e) — falling back');
-        await _lay(when, title, body, AndroidScheduleMode.inexactAllowWhileIdle);
-      }
+      // **Inexact, and there is no exact path to fall back from.** A rest timer
+      // wants to be a timer — two minutes meaning two minutes — and this is the
+      // one thing in the app that would genuinely rather have an exact alarm.
+      // It cannot: `USE_EXACT_ALARM` is refused publication to anything that is
+      // not an alarm clock or a calendar, and `SCHEDULE_EXACT_ALARM` is denied
+      // by default from Android 14 and costs a trip to a settings toggle the
+      // user has to go and find. See the manifest note.
+      //
+      // So Android may hold this a while, and that only matters when nobody is
+      // home: an app still alive at the end of the rest rings on the second
+      // instead, and the shared id makes its ring replace this one rather than
+      // arrive beside it — see [ring] and `ActiveWorkoutController`.
+      await _lay(when, title, body, AndroidScheduleMode.inexactAllowWhileIdle);
       laid = true;
     });
     return laid;
@@ -174,11 +181,7 @@ class RestAlarm {
 
   Future<void> _init() async {
     if (_ready) return;
-    await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
+    await initNotifications(_plugin);
     // Created explicitly rather than left to the first `show`. A scheduled
     // notification is handed over now and posted later, possibly by a process
     // that no longer holds this object — the channel it names has to exist, and

@@ -18,6 +18,7 @@ dart run build_runner build --delete-conflicting-outputs   # after schema change
 ```
 
 [`RUNNING.md`](RUNNING.md) covers device and emulator setup.
+[`RELEASING.md`](RELEASING.md) covers signing and uploading to Play.
 
 
 ## Contributing
