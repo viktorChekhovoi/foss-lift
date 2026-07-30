@@ -283,6 +283,11 @@ concepts:
     what: Where clips live, what they cost, and the sweep that collects orphans.
     code: [lib/services/set_video_store.dart]
 
+  - id: video.still
+    area: video
+    what: The frame a reel row shows, decoded once and cached beside its clip.
+    code: [lib/services/set_video_thumbnails.dart]
+
   - id: video.playback
     area: video
     what: Watching a clip back, and the reel that finds one again.

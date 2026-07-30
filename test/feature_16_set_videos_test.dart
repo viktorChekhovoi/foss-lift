@@ -10,7 +10,9 @@
 // The recorder is faked (see [_FakeRecorder]); the store is real, pointed at a
 // temporary directory.
 
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -63,6 +65,61 @@ class _FakeRecorder implements SetVideoRecorder {
   Future<void> close() async => closed++;
 }
 
+/// A real, minimal JPEG. The fake decoder writes this rather than random bytes
+/// so a still that reaches the screen is something an `Image` can actually
+/// decode — a row that shows a broken image is not a row that shows a frame.
+final Uint8List _onePixelJpeg = base64Decode(
+  '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRof'
+  'Hh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwh'
+  'MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAAR'
+  'CAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAA'
+  'AgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkK'
+  'FhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWG'
+  'h4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl'
+  '5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA'
+  'AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYk'
+  'NOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOE'
+  'hYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk'
+  '5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==',
+);
+
+/// A frame decoder that writes a real file and counts what it was asked to
+/// read.
+///
+/// Counting is the point: "decoded once and kept beside the clip" is a claim
+/// about how often the expensive call happens, and a decoder that only reported
+/// success could not tell a cached still from a freshly decoded one.
+class _FakeDecoder {
+  _FakeDecoder({this.refuses = const {}, this.throwsOn = const {}});
+
+  /// Clip file names this decoder cannot read at all, and ones that make it
+  /// blow up rather than politely decline.
+  final Set<String> refuses;
+  final Set<String> throwsOn;
+
+  /// Every clip it was handed, in order.
+  final List<String> decoded = [];
+
+  Future<bool> call({
+    required String srcFile,
+    required String destFile,
+    required int width,
+    required int height,
+  }) async {
+    decoded.add(p.basename(srcFile));
+    if (throwsOn.contains(p.basename(srcFile))) {
+      throw const FileSystemException('this container is not readable');
+    }
+    if (refuses.contains(p.basename(srcFile))) return false;
+    await File(destFile).writeAsBytes(_onePixelJpeg);
+    return true;
+  }
+
+  /// How many times [relative]'s clip was decoded.
+  int timesOn(String relative) =>
+      decoded.where((name) => name == p.basename(relative)).length;
+}
+
 void main() {
   late AppDatabase db;
   late Directory root;
@@ -103,6 +160,21 @@ void main() {
     if (modified != null) await file.setLastModified(modified);
     return relative;
   }
+
+  /// A cached frame sitting beside [clipRelative], as if the reel had already
+  /// been looked at once.
+  Future<String> plantStill(String clipRelative, {DateTime? modified}) async {
+    await store.directory();
+    final relative = store.stillPathFor(clipRelative);
+    final file = await store.fileFor(relative);
+    await file.writeAsBytes(_onePixelJpeg);
+    if (modified != null) await file.setLastModified(modified);
+    return relative;
+  }
+
+  /// The thumbnailer under test, on the real store with a faked decoder.
+  SetVideoThumbnails thumbnails(_FakeDecoder decoder) =>
+      SetVideoThumbnails(store, decode: decoder.call);
 
   group('where a clip goes and what it is called', () {
     test('every path is relative, and inside the clip folder', () async {
@@ -156,6 +228,40 @@ void main() {
       expect(await store.exists(relative), isFalse);
     });
 
+    test('a still sits beside its clip, same folder and same id', () async {
+      // Same id, different extension: that is the whole lookup. Nothing else
+      // has to be stored to find a clip's frame again.
+      expect(store.stillPathFor(p.join(SetVideoStore.folder, 'abc.mp4')),
+          p.join(SetVideoStore.folder, 'abc.jpg'));
+      expect(SetVideoStore.stillExtension, '.jpg');
+
+      final clip = store.newRelativePath();
+      final still = store.stillPathFor(clip);
+      expect(p.isRelative(still), isTrue,
+          reason: 'an absolute path dangles on iOS after a reinstall');
+      expect(p.split(still).first, SetVideoStore.folder);
+      expect(p.basenameWithoutExtension(still),
+          p.basenameWithoutExtension(clip));
+    });
+
+    test('deleting a clip takes its cached frame with it', () async {
+      // Nothing points at a still, so if delete left it behind it would only
+      // ever be collected by chance.
+      final clip = await plantClip();
+      final still = await plantStill(clip);
+
+      await store.delete(clip);
+
+      expect(await store.exists(clip), isFalse);
+      expect(await store.exists(still), isFalse);
+    });
+
+    test('deleting a clip that never had a frame is still quiet', () async {
+      final clip = await plantClip();
+      await store.delete(clip);
+      expect(await store.exists(store.stillPathFor(clip)), isFalse);
+    });
+
     test('bytesUsed counts what is actually on disk', () async {
       expect(await store.bytesUsed(), 0);
       await plantClip(bytes: 1000);
@@ -203,6 +309,54 @@ void main() {
       final fresh = await plantClip();
       expect(await store.sweepOrphans(const {}, grace: Duration.zero), 1);
       expect(await store.exists(fresh), isFalse);
+    });
+
+    test('a still whose clip is kept is kept too, though no row names it',
+        () async {
+      // The trap this rule exists for: nothing in the database ever points at
+      // a still, so a sweep that asked the same question of every file would
+      // bin every cached frame on the first launch after one existed.
+      final old = DateTime.now().subtract(const Duration(days: 2));
+      final kept = await plantClip(modified: old);
+      final still = await plantStill(kept, modified: old);
+
+      expect(await store.sweepOrphans({kept}), 0);
+      expect(await store.exists(still), isTrue);
+    });
+
+    test('a swept clip takes its still with it', () async {
+      final old = DateTime.now().subtract(const Duration(days: 2));
+      final orphan = await plantClip(modified: old);
+      final still = await plantStill(orphan, modified: old);
+
+      expect(await store.sweepOrphans(const {}), 1,
+          reason: 'the count is clips removed, not files removed');
+      expect(await store.exists(orphan), isFalse);
+      expect(await store.exists(still), isFalse);
+    });
+
+    test('a still whose clip has already gone is collected on the second pass',
+        () async {
+      // A clip removed by hand, or by a sweep that died halfway, leaves a
+      // frame of something that cannot be played.
+      final old = DateTime.now().subtract(const Duration(days: 2));
+      final clip = await plantClip(modified: old);
+      final still = await plantStill(clip, modified: old);
+      await (await store.fileFor(clip)).delete();
+
+      expect(await store.sweepOrphans(const {}), 0,
+          reason: 'no clip went, so nothing is counted');
+      expect(await store.exists(still), isFalse);
+    });
+
+    test('the still of a clip filmed moments ago survives with its clip',
+        () async {
+      final fresh = await plantClip();
+      final still = await plantStill(fresh);
+
+      expect(await store.sweepOrphans(const {}), 0);
+      expect(await store.exists(fresh), isTrue);
+      expect(await store.exists(still), isTrue);
     });
   });
 
@@ -497,6 +651,121 @@ void main() {
     });
   });
 
+  group('the frame a row shows', () {
+    test('a clip with no frame yet gets one decoded and kept beside it',
+        () async {
+      final decoder = _FakeDecoder();
+      final clip = await plantClip();
+
+      final still = await thumbnails(decoder).stillFor(clip);
+
+      expect(still, isNotNull);
+      expect(await still!.exists(), isTrue);
+      expect(still.path, (await store.fileFor(store.stillPathFor(clip))).path,
+          reason: 'the frame lives beside the clip, not in a cache directory');
+      expect(decoder.timesOn(clip), 1);
+    });
+
+    test('a frame already on disk is handed back without decoding', () async {
+      // The clip is listed on every visit to the reel; decoding on every one is
+      // the naive version, and it gets slower the more you film.
+      final decoder = _FakeDecoder();
+      final clip = await plantClip();
+      final planted = await plantStill(clip);
+
+      final still = await thumbnails(decoder).stillFor(clip);
+
+      expect(still, isNotNull);
+      expect(still!.path, (await store.fileFor(planted)).path);
+      expect(decoder.decoded, isEmpty);
+    });
+
+    test('a clip is never decoded twice in one process', () async {
+      final decoder = _FakeDecoder();
+      final clip = await plantClip();
+      final subject = thumbnails(decoder);
+
+      await subject.stillFor(clip);
+      // Even with the cached file taken away underneath it, the decode is not
+      // run again — this process has already answered the question once.
+      await (await store.fileFor(store.stillPathFor(clip))).delete();
+      await subject.stillFor(clip);
+
+      expect(decoder.timesOn(clip), 1);
+    });
+
+    test('two rows asking at once share the one decode', () async {
+      // The reel builds its rows together, so the first paint asks for every
+      // frame at the same moment.
+      final decoder = _FakeDecoder();
+      final clip = await plantClip();
+      final subject = thumbnails(decoder);
+
+      final both =
+          await Future.wait<File?>(
+              [subject.stillFor(clip), subject.stillFor(clip)]);
+
+      expect(decoder.timesOn(clip), 1);
+      expect(both.first?.path, both.last?.path);
+      expect(both.first, isNotNull);
+    });
+
+    test('a clip whose file has gone is not decoded at all', () async {
+      final decoder = _FakeDecoder();
+      final clip = await plantClip();
+      await (await store.fileFor(clip)).delete();
+
+      expect(await thumbnails(decoder).stillFor(clip), isNull);
+      expect(decoder.decoded, isEmpty,
+          reason: 'nothing to read; asking the decoder is a wasted call');
+      expect(await store.exists(store.stillPathFor(clip)), isFalse);
+    });
+
+    test('a decoder that will not read the clip leaves nothing behind',
+        () async {
+      final clip = await plantClip();
+      final decoder = _FakeDecoder(refuses: {p.basename(clip)});
+
+      expect(await thumbnails(decoder).stillFor(clip), isNull);
+      expect(await store.exists(store.stillPathFor(clip)), isFalse,
+          reason: 'a half-written frame would be served forever after');
+    });
+
+    test('a decoder that throws is not the reel\'s problem', () async {
+      final clip = await plantClip();
+      final decoder = _FakeDecoder(throwsOn: {p.basename(clip)});
+
+      expect(await thumbnails(decoder).stillFor(clip), isNull);
+    });
+
+    test('a clip that failed to decode is not retried on every build',
+        () async {
+      // The expensive call is the decode, and a clip the decoder cannot read
+      // stays unreadable — retrying it per frame is how a broken clip costs
+      // more than a working one.
+      final clip = await plantClip();
+      final decoder = _FakeDecoder(refuses: {p.basename(clip)});
+      final subject = thumbnails(decoder);
+
+      expect(await subject.stillFor(clip), isNull);
+      expect(await subject.stillFor(clip), isNull);
+
+      expect(decoder.timesOn(clip), 1);
+    });
+
+    test('the provider hangs off the same store the clips are in', () async {
+      container = withStore();
+      final subject = container!.read(setVideoThumbnailsProvider);
+      final clip = await plantClip();
+
+      // No decoder is injected here, so the only thing it can answer without
+      // one is a frame that is already on disk.
+      final planted = await plantStill(clip);
+      expect((await subject.stillFor(clip))?.path,
+          (await store.fileFor(planted)).path);
+    });
+  });
+
   group('what a clip says it is', () {
     ExerciseSetEntry entry({
       double weightKg = 100,
@@ -625,6 +894,94 @@ void main() {
         tester.getTopLeft(find.text('2 Mar · set 1 · 90 kg × 5')).dy,
         lessThan(tester.getTopLeft(find.text('1 Mar · set 1 · 80 kg × 5')).dy),
       );
+
+      await stop(tester);
+    });
+
+    /// One filmed set of [exercise], on 1 March, at 80 kg × 5.
+    Future<String> filmedSet(WidgetTester tester, Exercise exercise) async {
+      late String clip;
+      await tester.runAsync(() async {
+        clip = await plantClip();
+        await db.saveSession(
+          routineId: null,
+          workoutId: null,
+          name: 'Push',
+          startedAt: DateTime(2026, 3, 1),
+          endedAt: DateTime(2026, 3, 1, 1),
+          durationSeconds: 600,
+          totalVolume: 100,
+          sets: [
+            SessionSetsCompanion.insert(
+              sessionId: 0,
+              exerciseName: 'Bench Press',
+              setNumber: 1,
+              exerciseId: Value(exercise.id),
+              weight: const Value(80),
+              reps: const Value(5),
+              done: const Value(true),
+              videoPath: Value(clip),
+            ),
+          ],
+        );
+      });
+      return clip;
+    }
+
+    ProviderContainer withThumbnails(_FakeDecoder decoder) => containerFor(
+          db,
+          overrides: [
+            setVideoStoreProvider.overrideWithValue(store),
+            setVideoThumbnailsProvider
+                .overrideWithValue(SetVideoThumbnails(store, decode: decoder.call)),
+          ],
+        );
+
+    testWidgets('a row shows a frame from its own clip', (tester) async {
+      // Six squat sets should look like six squats, not six identical play
+      // symbols — scanning for the session you meant is what the reel is for.
+      final bench = await tester.runAsync(
+              () async => exerciseNamed(db, 'Bench Press')) as Exercise;
+      await filmedSet(tester, bench);
+
+      final decoder = _FakeDecoder();
+      container = withThumbnails(decoder);
+      await tester.pumpWidget(
+          routedAppUnder(container!, ExerciseClipsScreen(exerciseId: bench.id)));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('1 Mar · set 1 · 80 kg × 5'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing,
+          reason: 'the frame replaces the symbol; it does not sit beside it');
+
+      await stop(tester);
+    });
+
+    testWidgets('a row whose frame will not decode still reads and still plays',
+        (tester) async {
+      // A decoder that cannot read one clip is not a reason to hide the clip.
+      final bench = await tester.runAsync(
+              () async => exerciseNamed(db, 'Bench Press')) as Exercise;
+      final clip = await filmedSet(tester, bench);
+
+      final decoder = _FakeDecoder(refuses: {p.basename(clip)});
+      container = withThumbnails(decoder);
+      await tester.pumpWidget(routedAppUnder(
+        container!,
+        ExerciseClipsScreen(exerciseId: bench.id),
+        alsoRoutes: ['clip'],
+      ));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('1 Mar · set 1 · 80 kg × 5'), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
+
+      await tester.tap(find.text('1 Mar · set 1 · 80 kg × 5'));
+      await pumpThroughDatabase(tester);
+      expect(find.text('at /clip'), findsOneWidget,
+          reason: 'no frame is a missing picture, not a missing clip');
 
       await stop(tester);
     });

@@ -38,6 +38,7 @@ class ExerciseClipsScreen extends ConsumerWidget {
                   itemCount: list.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (_, i) => _ClipRow(
+                    clipPath: list[i].videoPath!,
                     label: clipLabel(list[i], unit),
                     onTap: () => _open(context, list[i], unit),
                   ),
@@ -72,9 +73,14 @@ class ExerciseClipsScreen extends ConsumerWidget {
       );
 }
 
-/// One clip in the reel: what it was, and a way in.
+/// One clip in the reel: what it was, a frame of it, and a way in.
 class _ClipRow extends StatelessWidget {
-  const _ClipRow({required this.label, required this.onTap});
+  const _ClipRow({
+    required this.clipPath,
+    required this.label,
+    required this.onTap,
+  });
+  final String clipPath;
   final String label;
   final VoidCallback onTap;
 
@@ -94,17 +100,7 @@ class _ClipRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.play_arrow_rounded,
-                    color: AppColors.accent, size: 24),
-              ),
+              _Still(clipPath: clipPath),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -116,6 +112,47 @@ class _ClipRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A frame of the clip, or the play symbol until there is one.
+///
+/// Six squat sets should look like six squats rather than six identical
+/// symbols — picking the session you meant out of the list is what the reel is
+/// for. A clip the decoder will not read keeps the symbol and loses nothing
+/// else.
+class _Still extends ConsumerWidget {
+  const _Still({required this.clipPath});
+  final String clipPath;
+
+  static const double _width = 62;
+  static const double _height = 44;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final still = ref.watch(clipStillProvider(clipPath)).value;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: _width,
+        height: _height,
+        alignment: Alignment.center,
+        color: AppColors.accent.withValues(alpha: 0.12),
+        child: still == null
+            ? Icon(Icons.play_arrow_rounded, color: AppColors.accent, size: 24)
+            : Image.file(
+                still,
+                width: _width,
+                height: _height,
+                fit: BoxFit.cover,
+                // A frame that decoded and then would not draw — a file
+                // truncated by a crash mid-write — is the same to the reader as
+                // one that never decoded.
+                errorBuilder: (_, _, _) => Icon(Icons.play_arrow_rounded,
+                    color: AppColors.accent, size: 24),
+              ),
       ),
     );
   }

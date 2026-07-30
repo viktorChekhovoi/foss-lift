@@ -51,6 +51,9 @@ class SetVideoStore {
   /// path.
   static const String folder = 'set_videos';
 
+  /// What a cached frame is called. See [stillPathFor].
+  static const String stillExtension = '.jpg';
+
   final math.Random _random = math.Random();
 
   /// The clip folder, created if it is not there yet.
@@ -70,6 +73,15 @@ class SetVideoStore {
     final salt = _random.nextInt(1 << 32).toRadixString(36);
     return p.join(folder, '$stamp$salt.mp4');
   }
+
+  /// Where the cached frame of the clip at [clipRelative] lives: same folder,
+  /// same id, `.jpg` instead of `.mp4`.
+  ///
+  /// Deriving it means nothing has to be stored to find a clip's frame again —
+  /// which is also why the sweep has to be told about stills explicitly, since
+  /// no row anywhere names one.
+  String stillPathFor(String clipRelative) =>
+      p.setExtension(clipRelative, stillExtension);
 
   /// The file [relative] names, whether or not it exists.
   Future<File> fileFor(String relative) async =>
@@ -100,11 +112,15 @@ class SetVideoStore {
     return relative;
   }
 
-  /// Removes the clip at [relative]. A file that is already gone is not an
-  /// error — deleting a clip twice should be as quiet as deleting it once.
+  /// Removes the clip at [relative], and the cached frame that went with it.
+  ///
+  /// A file that is already gone is not an error — deleting a clip twice should
+  /// be as quiet as deleting it once, and most clips have no still.
   Future<void> delete(String relative) async {
-    final file = await fileFor(relative);
-    if (await file.exists()) await file.delete();
+    for (final path in [relative, stillPathFor(relative)]) {
+      final file = await fileFor(path);
+      if (await file.exists()) await file.delete();
+    }
   }
 
   /// Removes several clips, carrying on past any that will not go.
@@ -138,20 +154,46 @@ class SetVideoStore {
   /// `SessionSets.videoPath`.
   ///
   /// Files younger than [grace] are left alone — see [kOrphanGrace].
+  ///
+  /// **Only clips are judged.** No row anywhere points at a still, so asking
+  /// the same question of every file would delete every cached frame on the
+  /// first launch after one existed, and the reel would silently decode the
+  /// lot again on the next visit. A clip that goes takes its still with it, and
+  /// a second pass collects stills whose clip has already gone — by hand, or by
+  /// a sweep that died halfway. The count returned is clips, not files.
   Future<int> sweepOrphans(
     Set<String> referenced, {
     Duration grace = kOrphanGrace,
     DateTime? now,
   }) async {
     final cutoff = (now ?? DateTime.now()).subtract(grace);
+    final files = await _clipFiles();
+    final surviving = <String>{};
     var removed = 0;
-    for (final file in await _clipFiles()) {
+
+    for (final file in files) {
+      if (p.extension(file.path) == stillExtension) continue;
       final relative = p.join(folder, p.basename(file.path));
-      if (referenced.contains(relative)) continue;
-      if ((await file.lastModified()).isAfter(cutoff)) continue;
+      final keep = referenced.contains(relative) ||
+          (await file.lastModified()).isAfter(cutoff);
+      if (!keep) {
+        try {
+          await file.delete();
+          removed++;
+          continue;
+        } on FileSystemException {
+          // Leave it; the next sweep will try again. Its still stays with it,
+          // so the pair does not come apart.
+        }
+      }
+      surviving.add(p.basenameWithoutExtension(file.path));
+    }
+
+    for (final file in files) {
+      if (p.extension(file.path) != stillExtension) continue;
+      if (surviving.contains(p.basenameWithoutExtension(file.path))) continue;
       try {
         await file.delete();
-        removed++;
       } on FileSystemException {
         // Leave it; the next sweep will try again.
       }

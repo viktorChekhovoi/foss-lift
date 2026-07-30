@@ -7,6 +7,7 @@ screen: session
 code:
 - lib/services/set_video_store.dart
 - lib/services/set_video_recorder.dart
+- lib/services/set_video_thumbnails.dart
 - lib/screens/set_video_screen.dart
 - lib/screens/clip_player_screen.dart
 - lib/screens/exercise_clips_screen.dart
@@ -18,8 +19,8 @@ where: >-
   <b>Storage, naming, sweep</b> lib/services/set_video_store.dart · <b>Camera</b>
   lib/services/set_video_recorder.dart · <b>Screens</b> set_video_screen.dart,
   clip_player_screen.dart, exercise_clips_screen.dart, video_settings_screen.dart
-  · <b>Label &amp; speeds</b> lib/util/clip_label.dart · <b>Path</b> SetEntry.videoPath
-  live, SessionSets.videoPath saved
+  · <b>Label &amp; speeds</b> lib/util/clip_label.dart · <b>Stills</b> lib/services/set_video_thumbnails.dart
+  · <b>Path</b> SetEntry.videoPath live, SessionSets.videoPath saved
 groups:
 - name: What it does
   items:
@@ -184,6 +185,33 @@ groups:
       marked with a play symbol.
     uses:
     - load.units
+  - id: row-shows-frame-from-its-clip
+    t: Each row shows a frame from its own clip
+    d: >-
+      the first frame, so a reel of six squat sets is six squats rather than six
+      identical play symbols. Scanning for the session you meant is the thing
+      the reel is for.
+    defines:
+    - video.still
+    uses:
+    - video.storage
+  - id: frame-decoded-once-kept-beside-clip
+    t: The frame is decoded once and kept beside the clip
+    d: >-
+      as &lt;id&gt;.jpg, written the first time the clip is listed rather than
+      when it is filmed — a clip that predates stills gets one the next time you
+      look at it. Decoding on every build of the list is the naive version, and
+      it gets slower the more you film.
+    screen: none
+    uses:
+    - video.still
+  - id: frame-will-not-decode-falls-back
+    t: A frame that will not decode falls back to the play symbol
+    d: >-
+      the row still lists what the set was and still plays. A decoder that
+      cannot read one clip is not a reason to hide it.
+    uses:
+    - video.still
   - id: button-appears-only-once-there
     t: The button appears only once there is something to watch
     d: >-
@@ -252,10 +280,19 @@ groups:
   - id: sweep-launch-removes-any-file
     t: Deleting goes row first, then file, and a sweep on launch collects the rest
     d: >-
-      the sweep removes any file in set_videos/ that no row points at, but leaves
+      the sweep removes any clip in set_videos/ that no row points at, but leaves
       files younger than kOrphanGrace (24 hours) alone — without that guard it would
       delete the clip of the set being filmed right now, which has no row yet by
       design.
+  - id: sweep-judges-clips-not-stills
+    t: The sweep judges clips, and stills follow their clip
+    d: >-
+      no row points at a still, so a sweep that asked the same question of every
+      file would delete every cached frame on the first launch after one existed,
+      and the reel would silently decode the lot again. A clip that goes takes its
+      still with it, and a second pass collects stills whose clip has already gone.
+    uses:
+    - video.still
   - id: there-no-way-delete-session
     t: There is no way to delete a session in the app today
     d: >-

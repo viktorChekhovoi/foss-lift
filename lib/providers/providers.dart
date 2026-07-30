@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../data/routine_code.dart';
 import '../data/routine_import.dart';
 import '../services/reminders.dart';
 import '../services/set_video_store.dart';
+import '../services/set_video_thumbnails.dart';
 import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
@@ -22,6 +25,7 @@ export '../state/active_workout.dart' show restToneProvider;
 // own, and the controller above is what drives it.
 export '../state/session_mirror.dart';
 export '../services/set_video_store.dart';
+export '../services/set_video_thumbnails.dart';
 
 /// All routines with their workout counts (Today + Routines tabs).
 final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
@@ -496,6 +500,15 @@ final orphanSweepProvider = FutureProvider<int>((ref) async {
       .watch(setVideoStoreProvider)
       .sweepOrphans(await db.allVideoPaths());
 });
+
+/// The frame a reel row shows, or null when there is not going to be one.
+///
+/// The work behind it is memoised per clip in [SetVideoThumbnails], so a row
+/// rebuilding — or the screen being opened again — costs a map lookup rather
+/// than a decode.
+final clipStillProvider = FutureProvider.family<File?, String>(
+    (ref, clipRelative) =>
+        ref.watch(setVideoThumbnailsProvider).stillFor(clipRelative));
 
 /// Every clip of one exercise, newest first — the film reel for that movement.
 final exerciseClipsProvider =
