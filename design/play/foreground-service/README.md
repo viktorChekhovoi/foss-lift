@@ -11,16 +11,19 @@ Three things have to agree with each other, and a reviewer will compare them:
 |---|---|
 | The subtype string | `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` in the manifest |
 | The written declaration | `RELEASING.md`, under "Foreground service declaration" |
-| The video | `demo.mp4` here, uploaded unlisted to YouTube for the form |
+| The video | recorded here as `demo.mp4`, uploaded unlisted to YouTube for the form |
 
 If you change what the service does, change all three.
 
 ## Re-recording the video
 
-`demo.mp4` is a screen recording of an emulator with captions burned in. It was
-made with the two scripts here, which is the reason they are checked in: the
-video has to be re-shot whenever the shade's behaviour changes, and doing it by
+**The video is not in the repository** — it is a 1.5 MB binary no diff can
+review, and it is gitignored. A fresh clone has none until you record one, which
+is what the two scripts here are for and the reason *they* are checked in: the
+take has to be re-shot whenever the shade's behaviour changes, and doing it by
 hand means re-deciding the timings every time.
+
+It is a screen recording of an emulator with captions burned in.
 
 You need an emulator running (`~/Android/Sdk/emulator/emulator -list-avds`),
 `adb` on the path, and `ffmpeg`. The scripts assume a **1080×2400** screen; the

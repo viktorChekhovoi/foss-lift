@@ -76,10 +76,12 @@ workout. Play asks for a written justification and a demonstration video before
 it will accept an app that declares any `FOREGROUND_SERVICE_*` type, and it asks
 again on every release where the declaration changes.
 
-The video is `design/play/foreground-service/demo.mp4`. Upload it to YouTube as
-**unlisted** and paste the link into the form; the Console will not take a file.
-The README beside it covers re-recording, and explains why the subtype string in
-the manifest, the text below and the video all have to say the same thing.
+The video is not in the repository — record it into
+`design/play/foreground-service/` with the scripts there, which its README
+covers. Upload it to YouTube as **unlisted** and paste the link into the form;
+the Console will not take a file. That README also explains why the subtype
+string in the manifest, the text below and the video all have to say the same
+thing.
 
 Paste the following into the declaration field, adjusting nothing unless the
 service's behaviour has actually changed.

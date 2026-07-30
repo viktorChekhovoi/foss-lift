@@ -71,3 +71,9 @@ android/.kotlin/
 # that changed a word, and would let the two disagree. Generate them; they are
 # not in a fresh clone until you do.
 /features/*.html
+
+# The foreground-service demonstration video. Recorded from an emulator by the
+# scripts beside it, which are checked in and are the source of truth; the take
+# itself is a 1.5 MB binary that a diff cannot review and that every clone would
+# carry for good. Record it when Play asks for it — see that README.
+/design/play/foreground-service/*.mp4
