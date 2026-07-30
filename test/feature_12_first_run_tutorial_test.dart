@@ -18,6 +18,7 @@ import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
+import 'package:foss_lift/widgets/tutorial_demo.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
@@ -117,7 +118,156 @@ void main() {
     });
 
     test('and it is still one sitting, not a manual', () {
-      expect(kTutorialSteps.length, lessThanOrEqualTo(10));
+      expect(kTutorialSteps.length, lessThanOrEqualTo(12));
+    });
+
+    test('it explains the note and the clip', () {
+      final said = saidAltogether();
+      for (final subject in ['note', 'clip']) {
+        expect(said, contains(subject),
+            reason: 'the tour never mentions the $subject');
+      }
+    });
+
+    test('the shade step is titled for what it is about', () {
+      // "Phone in your pocket" said where the phone was, not what the step was
+      // about. Whichever step describes the notification says so in its title.
+      final shade = kTutorialSteps.where(
+          (s) => s.body.toLowerCase().contains('notification'));
+      expect(shade, isNotEmpty, reason: 'no step covers the shade at all');
+      for (final step in shade) {
+        expect(step.title.toLowerCase(), contains('notification'),
+            reason: 'the shade step is titled "${step.title}"');
+      }
+      expect(saidAltogether(), isNot(contains('pocket')));
+    });
+
+    test('the live-workout steps carry a demo rather than an anchor', () {
+      final demos = kTutorialSteps.where((s) => s.demo != null).toList();
+      expect(
+          demos.map((s) => s.demo).toSet(),
+          containsAll(<Object>[
+            TutorialDemo.board,
+            TutorialDemo.restBar,
+            TutorialDemo.shade,
+          ]),
+          reason: 'the board, the rest bar and the shade should all be drawn');
+      for (final step in demos) {
+        expect(step.key, isNull,
+            reason: 'a demo step points at the mock, not at a widget behind it: '
+                '${step.title}');
+      }
+    });
+  });
+
+  group('the mock workout', () {
+    /// Walks a freshly started tour to [index] and lets the frame settle.
+    Future<void> walkTo(WidgetTester tester, int index) async {
+      container.read(tutorialProvider.notifier).start();
+      for (var i = 0; i < index; i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+
+    int stepWith(TutorialDemo demo) {
+      final i = kTutorialSteps.indexWhere((s) => s.demo == demo);
+      expect(i, greaterThan(0), reason: 'no step draws $demo');
+      return i;
+    }
+
+    testWidgets('the board step draws a board, not a hole in the screen',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, stepWith(TutorialDemo.board));
+
+      expect(find.byType(TutorialBoardDemo), findsOneWidget);
+      // The parts the step is talking about are actually on it: the exercise
+      // with its note icon, and set rows with a camera each.
+      expect(find.byKey(kTutorialDemoNoteKey), findsOneWidget);
+      expect(find.byKey(kTutorialDemoCameraKey), findsWidgets);
+
+      await stop(tester);
+    });
+
+    testWidgets('the rest step draws the bar with its controls',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, stepWith(TutorialDemo.restBar));
+
+      expect(find.byType(TutorialRestDemo), findsOneWidget);
+      for (final control in ['−15s', '+15s', 'Skip']) {
+        expect(
+            find.descendant(
+              of: find.byType(TutorialRestDemo),
+              matching: find.text(control),
+            ),
+            findsOneWidget,
+            reason: 'the mock bar should offer $control');
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('the mock is drawn under a Material, so its text is styled',
+        (tester) async {
+      // Text with no Material above it paints in the framework's unstyled
+      // red-on-yellow. The overlay is a bare Stack, so the mock has to bring
+      // one — this caught exactly that on a device.
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, stepWith(TutorialDemo.board));
+
+      expect(
+          find.ancestor(
+            of: find.byType(TutorialBoardDemo),
+            matching: find.byType(Material),
+          ),
+          findsWidgets);
+
+      await stop(tester);
+    });
+
+    testWidgets('the shade step draws the notification it describes',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, stepWith(TutorialDemo.shade));
+
+      expect(find.byType(TutorialShadeDemo), findsOneWidget);
+      for (final action in ['DONE', 'MISSED']) {
+        expect(find.text(action), findsOneWidget,
+            reason: 'the mock notification should offer $action');
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('tapping the mock advances the tour rather than logging a set',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      final index = stepWith(TutorialDemo.board);
+      await walkTo(tester, index);
+
+      await tester.tap(find.byKey(kTutorialDemoCameraKey).first,
+          warnIfMissed: false);
+      await tester.pump();
+
+      expect(container.read(tutorialProvider).step, index + 1,
+          reason: 'the mock is a picture: a tap on it is a tap on the tour');
+      // And nothing behind it started a session.
+      expect(container.read(activeWorkoutProvider), isNull);
+
+      await stop(tester);
     });
   });
 

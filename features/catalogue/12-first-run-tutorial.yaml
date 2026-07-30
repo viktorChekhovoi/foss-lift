@@ -4,10 +4,12 @@ tagline: A one-time coach-mark tour that runs on first launch.
 screen: tutorial
 code:
 - lib/widgets/tutorial.dart
+- lib/widgets/tutorial_demo.dart
 test:
 - test/feature_12_first_run_tutorial_test.dart
 where: >-
-  <b>Overlay + anchors</b> lib/widgets/tutorial.dart · <b>Seen flag</b> Settings.tutorialSeen
+  <b>Overlay + anchors</b> lib/widgets/tutorial.dart · <b>Mock board and rest
+  bar</b> lib/widgets/tutorial_demo.dart · <b>Seen flag</b> Settings.tutorialSeen
 groups:
 - name: What it does
   items:
@@ -29,6 +31,29 @@ groups:
     - ui.tutorial
     uses:
     - ui.navigation
+  - id: shows-mock-board-rest-bar
+    t: Draws the live workout it cannot show you
+    d: >-
+      the steps about a running session put a stand-in on the dimmed screen —
+      the board (one exercise, its note icon, three set rows with the one you are
+      on outlined and a camera on each), the rest bar with its countdown and −15s
+      / +15s / Skip, and the notification with Done and Missed on it. Read the
+      step, look at the thing it is describing.
+    defines:
+    - ui.tutorial
+    uses:
+    - session.set-logging
+    - session.rest-timer
+    - session.shade
+  - id: explains-note-and-clip
+    t: Explains the note and the clip on their own steps
+    d: >-
+      what the note icon beside an exercise opens and where that note is kept,
+      and what the camera on a set records — one step each, both against the mock
+      board with the icon in question ringed.
+    uses:
+    - exercise.notes
+    - video.capture
   - id: runs-once
     t: Runs once
     d: Settings.tutorialSeen records that it has run, so it never reappears.
@@ -50,11 +75,36 @@ groups:
     d: >-
       the board, the rest timer and the shade are where the app is least like
       every other tracker — and none of them exists until a session is running.
-      Those steps are told rather than pointed at, anchored to the card that leads
-      there.
+      Rather than starting a workout nobody asked for, those steps draw a stand-in
+      and talk about that.
     uses:
     - ui.tutorial
     - session.live-state
+  - id: mock-is-a-picture-not-the-board
+    t: The mock is a picture, not the board
+    d: >-
+      it takes no taps of its own: a tap anywhere, the mock included, advances the
+      tour. Nothing on it is wired to a session, so no session is started, resumed
+      or written to by the tour.
+    uses:
+    - ui.tutorial
+    - session.live-state
+  - id: mock-follows-the-live-display-rules
+    t: The mock follows the same display rules as the real screen
+    d: >-
+      the current theme's colours and the chosen weight unit, so what the tour
+      shows is what the app will look like — a tour in pounds does not demonstrate
+      a board in kilos.
+    uses:
+    - theme.colour-role
+    - load.units
+  - id: shade-step-named-for-the-shade
+    t: The shade step is named for the shade
+    d: >-
+      "Phone in your pocket" said where the phone was, not what the step was
+      about; the title now names the notification the step is describing.
+    uses:
+    - session.shade
   - id: every-anchored-step-today-tab
     t: An anchored step scrolls its target into view
     d: >-

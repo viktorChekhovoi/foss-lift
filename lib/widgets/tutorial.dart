@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import 'tutorial_demo.dart';
 
 // ---------------------------------------------------------------------------
 // Anchors
@@ -29,6 +30,10 @@ final tutorialNavBarKey = GlobalKey();
 // Steps
 // ---------------------------------------------------------------------------
 
+/// Which stand-in a step draws for the live workout — see
+/// [TutorialBoardDemo] and [TutorialRestDemo].
+enum TutorialDemo { board, restBar, shade }
+
 /// One coach mark: a target to spotlight and the text to show beside it.
 class TutorialStep {
   const TutorialStep({
@@ -37,6 +42,8 @@ class TutorialStep {
     required this.body,
     this.navSlot,
     this.navSlotCount = 1,
+    this.demo,
+    this.focus = TutorialDemoFocus.none,
   });
 
   /// The widget to anchor to, or **null for a step that points at nothing**.
@@ -51,6 +58,15 @@ class TutorialStep {
   final int? navSlot;
   final int navSlotCount;
 
+  /// The mock to draw above the callout, for a step about something that only
+  /// exists mid-session. A step with one has no [key]: it points at the picture
+  /// it brought with it, not at anything behind the scrim.
+  final TutorialDemo? demo;
+
+  /// Which part of the mock board this step is about — the ring, for an icon
+  /// too small to be found by prose alone.
+  final TutorialDemoFocus focus;
+
   final String title;
   final String body;
 }
@@ -64,12 +80,12 @@ class TutorialStep {
 /// about the other three describe them and highlight their tab button, which
 /// leaves you where you started.
 ///
-/// **The workout itself is told, not pointed at.** The board, the rest timer
-/// and the shade are where the app is least like every other tracker and the
-/// most worth a sentence — but none of them exists until a session is running,
-/// and a tour that starts a workout to show you a workout is a tour that leaves
-/// you somewhere you did not ask to be. Those steps hang off the card that
-/// leads there instead.
+/// **The workout itself is drawn, not pointed at.** The board, the rest timer,
+/// the note and the clip are where the app is least like every other tracker —
+/// but none of them exists until a session is running, and a tour that starts a
+/// workout to show you a workout is a tour that leaves you somewhere you did
+/// not ask to be. Those steps carry a mock of the thing they describe instead
+/// of an anchor, so there is something to look at while the callout talks.
 ///
 /// **It opens on the greeting, not on a coach mark.** Arriving straight into an
 /// arrow pointing at something, before the app has said what it is or that a
@@ -88,25 +104,42 @@ final List<TutorialStep> kTutorialSteps = [
     body: 'This training day is queued up next. Tap it to see the exercises, '
         'then Start when you are ready to lift.',
   ),
-  // The three steps below are about a screen the tour cannot point at: the
-  // board only exists while a workout is running, and the tour does not drive
-  // navigation. Told rather than pointed at, anchored to the card that leads
-  // there — which is the one place somebody about to lift is looking.
-  TutorialStep(
-    key: tutorialTodayWorkoutKey,
+  // The five steps below are about a screen the tour cannot point at: the board
+  // only exists while a workout is running, and starting one to show it off
+  // would leave somebody mid-session they did not ask for. So each draws the
+  // mock instead and talks about that — see lib/widgets/tutorial_demo.dart.
+  const TutorialStep(
+    demo: TutorialDemo.board,
+    focus: TutorialDemoFocus.nextSet,
     title: 'While you lift',
-    body: 'Tap a set to log it at the goal, again for each rep missed, or tap '
-        'to start a timer. The set you are on is outlined, warm-ups first ',
+    body: 'The set you are on is outlined. Tap its reps to log the goal, tap '
+        'again for each rep you missed, or hold to type a number.',
   ),
-  TutorialStep(
-    key: tutorialTodayWorkoutKey,
+  const TutorialStep(
+    demo: TutorialDemo.restBar,
     title: 'The rest timer',
-    body: 'It starts the moment you log a set, and keeps running if you leave '
-        'the screen. Longer, shorter or skip; it sounds when it is up.',
+    body: 'Logging a set starts it, and it keeps running if you leave the '
+        'screen. Longer, shorter or skip; it sounds when it is up.',
   ),
-  TutorialStep(
-    key: tutorialTodayWorkoutKey,
-    title: 'Phone in your pocket',
+  const TutorialStep(
+    demo: TutorialDemo.board,
+    focus: TutorialDemoFocus.note,
+    title: 'Your note on a movement',
+    body: 'The seat height, the pin, the cue that worked. Tap the note icon to '
+        'write it mid-set; it is kept on the exercise, so it is there next '
+        'time you train it.',
+  ),
+  const TutorialStep(
+    demo: TutorialDemo.board,
+    focus: TutorialDemoFocus.camera,
+    title: 'Film a set',
+    body: 'The camera on a logged set records a silent clip of it. Watch it '
+        'back at quarter speed, or line the movement up over months from the '
+        'exercise in your library. Clips never leave the phone.',
+  ),
+  const TutorialStep(
+    demo: TutorialDemo.shade,
+    title: 'In your notifications',
     body: 'The workout sits in your notification shade: the set you are on, '
         'Done and Missed to log it, and the rest counting down with Skip.',
   ),
@@ -331,8 +364,68 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
               ),
             ),
           ),
-          _callout(context, step, index, size, padding, rect),
+          if (step.demo != null)
+            _demoLayout(context, step, index, size)
+          else
+            _callout(context, step, index, size, padding, rect),
         ],
+      ),
+    );
+  }
+
+  /// A step that brought its own picture: the mock, and the callout under it,
+  /// in the middle of a plain dimmed screen.
+  ///
+  /// The mock ignores pointers and the layout around it advances the tour, so
+  /// the one thing on screen that looks tappable is the one thing that is not:
+  /// tapping it moves the tour on, exactly as tapping the scrim does.
+  Widget _demoLayout(
+    BuildContext context,
+    TutorialStep step,
+    int index,
+    Size size,
+  ) {
+    final width = math.min(340.0, size.width - 32);
+    return Positioned.fill(
+      // The layout covers the scrim, so it carries the scrim's job: a tap
+      // anywhere that is not one of the callout's own buttons advances.
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _advance,
+        child: SafeArea(
+          child: Center(
+            // Scrolls rather than overflows: at the top of the text scale the
+            // mock and the callout together are taller than a short phone.
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IgnorePointer(
+                    child: SizedBox(
+                      width: width,
+                      // Under a Material like the rest of the app: text with no
+                      // Material above it paints in the unstyled red-on-yellow
+                      // the framework uses to say "nobody gave me a style".
+                      child: Material(
+                        color: Colors.transparent,
+                        textStyle: TextStyle(color: AppColors.text),
+                        child: switch (step.demo!) {
+                          TutorialDemo.board =>
+                            TutorialBoardDemo(focus: step.focus),
+                          TutorialDemo.restBar => const TutorialRestDemo(),
+                          TutorialDemo.shade => const TutorialShadeDemo(),
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(width: width, child: _calloutCard(step, index)),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -369,18 +462,25 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
       bottom = bottom.clamp(padding.bottom + 8, size.height - 120);
     }
 
-    final isLast = index == kTutorialSteps.length - 1;
-    // The greeting asks a question the rest of the tour does not: whether to
-    // have one at all. So its buttons answer that, rather than reading as
-    // navigation through something already under way.
-    final isWelcome = index == 0 && step.key == null;
-
     return Positioned(
       left: left,
       top: top,
       bottom: bottom,
       width: width,
-      child: Material(
+      child: _calloutCard(step, index),
+    );
+  }
+
+  /// The card itself: the step's title, its text, and the way on. Positioned by
+  /// its caller — beside an anchor, or under a mock.
+  Widget _calloutCard(TutorialStep step, int index) {
+    final isLast = index == kTutorialSteps.length - 1;
+    // The greeting asks a question the rest of the tour does not: whether to
+    // have one at all. So its buttons answer that, rather than reading as
+    // navigation through something already under way.
+    final isWelcome = index == 0;
+
+    return Material(
         color: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
@@ -505,8 +605,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
