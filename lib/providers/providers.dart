@@ -18,6 +18,9 @@ export 'db_provider.dart' show databaseProvider;
 // The rest clock lives on the session controller, so the two providers it needs
 // live beside it — see the note on db_provider.dart for why that shape exists.
 export '../state/active_workout.dart' show restToneProvider;
+// The live session's crash snapshot, for the same reason: it is the session's
+// own, and the controller above is what drives it.
+export '../state/session_mirror.dart';
 export '../services/set_video_store.dart';
 
 /// All routines with their workout counts (Today + Routines tabs).
@@ -28,23 +31,27 @@ final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
 /// The workouts (training days) inside one routine, with exercise counts.
 final routineWorkoutsProvider =
     StreamProvider.family<List<WorkoutWithCount>, int>((ref, routineId) {
-  return ref.watch(databaseProvider).watchWorkoutsForRoutine(routineId);
-});
+      return ref.watch(databaseProvider).watchWorkoutsForRoutine(routineId);
+    });
 
 /// One routine gathered into the shape it travels in — see `routine_code.dart`.
 ///
 /// Watches the routine's workouts as well as reading it, so the code on the
 /// share screen re-gathers if the programme is edited underneath it rather than
 /// handing someone a QR of a routine that no longer exists.
-final sharedRoutineProvider =
-    FutureProvider.family<SharedRoutine, int>((ref, routineId) async {
+final sharedRoutineProvider = FutureProvider.family<SharedRoutine, int>((
+  ref,
+  routineId,
+) async {
   ref.watch(routineWorkoutsProvider(routineId));
   return ref.watch(databaseProvider).sharedRoutine(routineId);
 });
 
 /// The most recent finished session of a routine, or null if never trained.
-final lastSessionProvider =
-    StreamProvider.family<Session?, int>((ref, routineId) {
+final lastSessionProvider = StreamProvider.family<Session?, int>((
+  ref,
+  routineId,
+) {
   return ref.watch(databaseProvider).watchLastSessionForRoutine(routineId);
 });
 
@@ -67,8 +74,10 @@ final workoutProvider = StreamProvider.family<Workout?, int>((ref, id) {
 
 /// The exercises inside one workout, kept live so the detail screen and the
 /// builder both reflect edits immediately.
-final workoutItemsProvider =
-    StreamProvider.family<List<WorkoutItemView>, int>((ref, id) {
+final workoutItemsProvider = StreamProvider.family<List<WorkoutItemView>, int>((
+  ref,
+  id,
+) {
   return ref.watch(databaseProvider).watchItemsForWorkout(id);
 });
 
@@ -106,8 +115,8 @@ final historyProvider = StreamProvider<List<Session>>((ref) {
 /// the source for its progress chart.
 final exerciseHistoryProvider =
     StreamProvider.family<List<ExerciseSetEntry>, int>((ref, exerciseId) {
-  return ref.watch(databaseProvider).watchExerciseSetHistory(exerciseId);
-});
+      return ref.watch(databaseProvider).watchExerciseSetHistory(exerciseId);
+    });
 
 /// Number of completed sessions (Today + Profile).
 final sessionCountProvider = StreamProvider<int>((ref) {
@@ -143,14 +152,14 @@ final currentRoutineProvider = Provider<RoutineWithCount?>((ref) {
 });
 
 /// When each routine's next reminder is due, and when it was last trained.
-final routineRemindersProvider =
-    StreamProvider<List<RoutineReminder>>((ref) {
+final routineRemindersProvider = StreamProvider<List<RoutineReminder>>((ref) {
   return ref.watch(databaseProvider).watchRoutineReminders();
 });
 
 /// The one notification scheduler.
-final reminderServiceProvider =
-    Provider<ReminderService>((ref) => ReminderService());
+final reminderServiceProvider = Provider<ReminderService>(
+  (ref) => ReminderService(),
+);
 
 /// Keeps the pending notifications in step with the routines and the history.
 ///
@@ -166,6 +175,14 @@ final reminderSyncProvider = Provider<void>((ref) {
 
 /// The live workout in the notification shade.
 final workoutShadeProvider = Provider<WorkoutShade>((ref) => WorkoutShade());
+
+/// How the shade's set buttons raise the live board once the press has reached
+/// this isolate.
+///
+/// Overridden in `main.dart`, which is where the router is; the default does
+/// nothing, so nothing in the provider layer has to know a router exists and a
+/// screen pumped on its own in a test is never navigated out from under.
+final openSessionProvider = Provider<void Function()>((ref) => () {});
 
 /// Keeps the shade in step with the session, and routes its two buttons back.
 ///
@@ -193,18 +210,65 @@ final workoutShadeSyncProvider = Provider<void>((ref) {
   if (cue != null) shade.show(cue, unit: unit);
 });
 
+/// Raising the board, as the shade's set buttons ask for.
+///
+/// The service's isolate can raise the *app* but cannot steer it: the route it
+/// passes is an intent extra only a cold start reads. So the screen is chosen on
+/// this side — and only when the board is not already the thing on screen, or a
+/// press would stack a second copy of it.
+final shadeOpenProvider = Provider<void Function()>(
+  (ref) => () {
+    if (!ref.read(workoutScreenVisibleProvider)) {
+      ref.read(openSessionProvider)();
+    }
+  },
+);
+
 /// Subscribes to the shade's button presses for as long as anything watches.
 final shadeActionsProvider = Provider<void>((ref) {
   final shade = ref.watch(workoutShadeProvider);
   if (!shade.supported) return;
 
-  void onData(Object data) =>
-      applyShadeAction(ref.read(activeWorkoutProvider.notifier), data);
+  void onData(Object data) {
+    // The press itself is in the record; this is only the news that there is one
+    // — see [PendingShadeActions]. A bare id is the fallback for a press the
+    // record would not take, and is applied here and now.
+    if (data == WorkoutShade.drainPoke) {
+      drainShadeActions(
+        ref.read(activeWorkoutProvider.notifier),
+        ref.read(pendingShadeActionsProvider),
+        open: ref.read(shadeOpenProvider),
+      );
+      return;
+    }
+    applyShadeAction(
+      ref.read(activeWorkoutProvider.notifier),
+      data,
+      open: ref.read(shadeOpenProvider),
+    );
+  }
 
   FlutterForegroundTask.initCommunicationPort();
   FlutterForegroundTask.addTaskDataCallback(onData);
   ref.onDispose(() => FlutterForegroundTask.removeTaskDataCallback(onData));
 });
+
+/// Applies every press waiting in [pending], oldest first.
+///
+/// Called from the two places a session can be ready for one: the poke that
+/// follows a press made with the app alive, and the end of a launch, for the
+/// press made when it was not — see [liveSessionRestoreProvider]. Taking the
+/// record is what claims it, so calling this twice over is safe and the second
+/// call does nothing.
+Future<void> drainShadeActions(
+  ActiveWorkoutController controller,
+  PendingShadeActions pending, {
+  void Function()? open,
+}) async {
+  for (final id in await pending.take()) {
+    applyShadeAction(controller, id, open: open);
+  }
+}
 
 /// One notification button press, applied to the live session.
 ///
@@ -213,18 +277,33 @@ final shadeActionsProvider = Provider<void>((ref) {
 /// string does what is the part worth pinning down. Anything unrecognised is
 /// ignored — a press from a notification the system kept across an upgrade is
 /// not a reason to do something arbitrary to a workout.
-void applyShadeAction(ActiveWorkoutController controller, Object data) {
+///
+/// [open] raises the board, and is called by the presses that log a set — see
+/// [WorkoutShade.bringsAppForward]. It is a callback rather than a navigation
+/// here so this stays testable without a router.
+void applyShadeAction(
+  ActiveWorkoutController controller,
+  Object data, {
+  void Function()? open,
+}) {
   switch (data) {
     case WorkoutShade.doneAction:
       controller.logNextAtGoal();
+      open?.call();
     case WorkoutShade.missedAction:
       controller.logNextAsMissed();
+      open?.call();
+    // A hold logs nothing from a pocket: how long you held it is the whole
+    // measurement, so the button's only job is to put the stopwatch in front of
+    // you.
+    case WorkoutShade.startAction:
+      open?.call();
     case WorkoutShade.restAddAction:
       controller.nudgeRest(WorkoutShade.restStepSeconds);
-    // Silently: you pressed skip, so you know the rest is over. A ding a
-    // moment after the button you pressed to stop waiting is noise.
+    case WorkoutShade.restSubAction:
+      controller.nudgeRest(-WorkoutShade.restStepSeconds);
     case WorkoutShade.restSkipAction:
-      controller.stopRest(tone: false);
+      controller.stopRest();
   }
 }
 
@@ -258,8 +337,14 @@ final themePresetIdProvider = StreamProvider<String?>((ref) {
 /// of default colours: there is nothing useful to show for it and nothing the
 /// user could do about it if there were.
 final customThemesProvider = StreamProvider<List<AppPalette>>((ref) {
-  return ref.watch(databaseProvider).watchCustomThemes().map((rows) =>
-      [for (final row in rows) ?customThemeFromRow(row.id, row.palette)]);
+  return ref
+      .watch(databaseProvider)
+      .watchCustomThemes()
+      .map(
+        (rows) => [
+          for (final row in rows) ?customThemeFromRow(row.id, row.palette),
+        ],
+      );
 });
 
 /// The phone's own light/dark setting, kept current as it changes.
@@ -307,6 +392,13 @@ final themeReadyProvider = Provider<bool>((ref) {
       ref.watch(customThemesProvider).hasValue;
 });
 
+/// The bars the gym racks, for the unit in use — the list every bar picker
+/// offers. See the `Bars` table for why there is one list per unit.
+final barsProvider = StreamProvider<List<Bar>>((ref) {
+  final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+  return ref.watch(databaseProvider).watchBars(unit);
+});
+
 /// The bar and plate rack as stored — read [plateSettingsProvider] instead
 /// unless you specifically need to know whether the user has configured them.
 final storedPlateSetupProvider = StreamProvider<StoredPlateSetup>((ref) {
@@ -332,18 +424,40 @@ final plateSettingsProvider = Provider<PlateSettings>((ref) {
 /// The live session (null when not training).
 final activeWorkoutProvider =
     NotifierProvider<ActiveWorkoutController, ActiveWorkout?>(
-  ActiveWorkoutController.new,
-);
+      ActiveWorkoutController.new,
+    );
+
+/// Rebuilds the live session the last run left behind — see
+/// `ActiveWorkoutController.restore`. Watched once, high up, so a process
+/// Android killed mid-workout comes back to the workout. Nothing reads its value.
+/// The launch: the session Android killed the process out from under, and then
+/// any press that was made on the shade while there was nobody to receive it.
+///
+/// In that order, and both here rather than in `main.dart`, because the order is
+/// the point — a press applied before the session is back has nothing to apply
+/// itself to, and would be dropped for the second time.
+final liveSessionRestoreProvider = FutureProvider<void>((ref) async {
+  await ref.read(activeWorkoutProvider.notifier).restore();
+  await drainShadeActions(
+    ref.read(activeWorkoutProvider.notifier),
+    ref.read(pendingShadeActionsProvider),
+    open: ref.read(shadeOpenProvider),
+  );
+});
 
 /// A finished session (+ its sets) for the summary screen.
-final sessionSummaryProvider = FutureProvider.family<
-    ({Session session, List<SessionSet> sets}), int>((ref, id) async {
-  final db = ref.watch(databaseProvider);
-  final session =
-      await (db.select(db.sessions)..where((t) => t.id.equals(id))).getSingle();
-  final sets = await db.setsForSession(id);
-  return (session: session, sets: sets);
-});
+final sessionSummaryProvider =
+    FutureProvider.family<({Session session, List<SessionSet> sets}), int>((
+      ref,
+      id,
+    ) async {
+      final db = ref.watch(databaseProvider);
+      final session = await (db.select(
+        db.sessions,
+      )..where((t) => t.id.equals(id))).getSingle();
+      final sets = await db.setsForSession(id);
+      return (session: session, sets: sets);
+    });
 
 // ---------------------------------------------------------------------------
 // Set clips
@@ -378,11 +492,13 @@ final videoUsageProvider = FutureProvider<int>((ref) async {
 /// what keeps it from deleting the set somebody is filming right now.
 final orphanSweepProvider = FutureProvider<int>((ref) async {
   final db = ref.watch(databaseProvider);
-  return ref.watch(setVideoStoreProvider).sweepOrphans(await db.allVideoPaths());
+  return ref
+      .watch(setVideoStoreProvider)
+      .sweepOrphans(await db.allVideoPaths());
 });
 
 /// Every clip of one exercise, newest first — the film reel for that movement.
 final exerciseClipsProvider =
     StreamProvider.family<List<ExerciseSetEntry>, int>((ref, exerciseId) {
-  return ref.watch(databaseProvider).watchExerciseClips(exerciseId);
-});
+      return ref.watch(databaseProvider).watchExerciseClips(exerciseId);
+    });

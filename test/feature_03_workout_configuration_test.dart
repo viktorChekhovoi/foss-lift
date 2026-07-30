@@ -296,4 +296,58 @@ void main() {
       expect((await db.workoutItemById(bench.id))!.suggestedWeight, 75);
     });
   });
+
+  group('a bar-loaded slot cannot be authored under its bar', () {
+    test('a weight below the bar is held at the bar on the way in', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      await db.setExerciseBarWeight(bench.id, 20);
+
+      final draft =
+          ItemDraft.forExercise(await db.exerciseById(bench.id))..weightKg = 10;
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft], workoutId: push, defaultBarKg: 20),
+      );
+
+      expect((await itemNamed(db, push, 'Bench Press')).item.suggestedWeight, 20,
+          reason: '10 kg over a 20 kg bar is not a load');
+    });
+
+    test('the exercise\'s own bar beats the app default', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      await db.setExerciseBarWeight(bench.id, 15);
+
+      final draft = ItemDraft.forExercise(await db.exerciseById(bench.id))
+        ..weightKg = 12.5;
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft], workoutId: push, defaultBarKg: 20),
+      );
+
+      expect(
+          (await itemNamed(db, push, 'Bench Press')).item.suggestedWeight, 15);
+    });
+
+    test('a machine slot has no floor, and a held one has no weight', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final pushdown = await exerciseNamed(db, 'Triceps Pushdown');
+      final plank = await exerciseNamed(db, 'Plank');
+
+      final drafts = [
+        ItemDraft.forExercise(pushdown)..weightKg = 0,
+        ItemDraft.forExercise(plank)..weightKg = 40,
+      ];
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions(drafts, workoutId: push, defaultBarKg: 20),
+      );
+
+      expect((await itemNamed(db, push, 'Triceps Pushdown')).item.suggestedWeight, 0,
+          reason: 'a stack can read zero');
+      expect((await itemNamed(db, push, 'Plank')).item.suggestedWeight, isNull,
+          reason: 'a movement carrying nothing has no weight to suggest');
+    });
+  });
 }

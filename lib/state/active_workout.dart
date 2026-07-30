@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
@@ -10,7 +11,9 @@ import '../providers/db_provider.dart';
 import '../services/rest_alarm.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
-import '../services/workout_shade.dart' show describeCue, shadeWhere;
+import '../services/workout_shade.dart'
+    show describeCue, pendingShadeActionsProvider, shadeWhere;
+import 'session_mirror.dart';
 import 'workout_cue.dart';
 
 /// One set row during a live workout. Weights are in kilograms; the UI converts
@@ -259,7 +262,11 @@ enum RestPurpose {
 
 /// [RestPurpose] plus whatever the caption needs to name. Weights stay in
 /// kilograms — the view converts, like everywhere else.
-typedef RestPrompt = ({RestPurpose purpose, double? weightKg, String? exercise});
+typedef RestPrompt = ({
+  RestPurpose purpose,
+  double? weightKg,
+  String? exercise,
+});
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
 /// mutation so Riverpod always sees a new value and rebuilds listeners, even
@@ -320,14 +327,17 @@ class ActiveWorkout {
       exercises.fold(0, (a, e) => a + e.sets.where((s) => s.done).length);
   int get missedSets =>
       exercises.fold(0, (a, e) => a + e.sets.where((s) => s.missedGoal).length);
+
   /// Load moved, in kg. Timed sets contribute nothing — a 60-second plank is
   /// not sixty reps of anything.
   double get volume => exercises.fold(
-        0.0,
-        (a, e) => a +
-            e.sets.where((s) => s.done).fold(
-                0.0, (b, s) => b + (s.timed ? 0 : s.weight * s.logged!)),
-      );
+    0.0,
+    (a, e) =>
+        a +
+        e.sets
+            .where((s) => s.done)
+            .fold(0.0, (b, s) => b + (s.timed ? 0 : s.weight * s.logged!)),
+  );
 
   /// What the rest that starts after warm-up rung [wi] of exercise [ei] is for.
   ///
@@ -379,37 +389,60 @@ class ActiveWorkout {
     int? restLeft,
     RestPrompt? restPrompt,
     bool clearRest = false,
-  }) =>
-      ActiveWorkout(
-        routineId: routineId,
-        workoutId: workoutId,
-        name: name,
-        startedAt: startedAt,
-        exercises: exercises,
-        elapsed: elapsed ?? this.elapsed,
-        unit: unit,
-        plates: plates,
-        restLeft: clearRest ? 0 : (restLeft ?? this.restLeft),
-        restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
-        notice: notice,
-        rev: rev + 1,
-      );
+  }) => ActiveWorkout(
+    routineId: routineId,
+    workoutId: workoutId,
+    name: name,
+    startedAt: startedAt,
+    exercises: exercises,
+    elapsed: elapsed ?? this.elapsed,
+    unit: unit,
+    plates: plates,
+    restLeft: clearRest ? 0 : (restLeft ?? this.restLeft),
+    restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
+    notice: notice,
+    rev: rev + 1,
+  );
 }
 
-class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
+class ActiveWorkoutController extends Notifier<ActiveWorkout?>
+    with WidgetsBindingObserver {
   Timer? _timer;
   Timer? _restTimer;
+
+  /// Whether Android is holding an alarm for the end of the current rest — see
+  /// [_armRestAlarm]. False means nothing is pending and this isolate has to make
+  /// the noise itself.
+  bool _restAlarmArmed = false;
 
   AppDatabase get _db => ref.read(databaseProvider);
 
   @override
   ActiveWorkout? build() {
+    final binding = _binding;
+    binding?.addObserver(this);
     ref.onDispose(() {
+      binding?.removeObserver(this);
       _timer?.cancel();
       _restTimer?.cancel();
     });
     return null;
   }
+
+  /// The binding, or null where there is none — a pure-Dart test that never
+  /// started one. Nothing here needs it badly enough to fail over.
+  WidgetsBinding? get _binding {
+    try {
+      return WidgetsBinding.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The app going away or coming back is what decides *who* sounds the end of
+  /// the rest — see [_armRestAlarm].
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) => _armRestAlarm();
 
   // ---- The rest clock ------------------------------------------------------
   //
@@ -423,15 +456,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return;
     _restTimer?.cancel();
-    // Whatever the last rest shouted is answered by there being a new one.
-    ref.read(restAlarmProvider).clear();
-    state = s.copyWith(restLeft: seconds, restPrompt: prompt);
+    _commit(s.copyWith(restLeft: seconds, restPrompt: prompt));
+    _armRestAlarm();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final now = state;
       if (now == null) return;
       if (now.restLeft <= 1) {
-        stopRest();
+        _endRest(ranOut: true);
       } else {
+        // Not committed: the snapshot ages its own clock on the way back in, so
+        // a write a second would buy nothing. See [_commit].
         state = now.copyWith(restLeft: now.restLeft - 1);
       }
     });
@@ -444,46 +478,165 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     if (s == null || s.restLeft == 0) return;
     final left = s.restLeft + seconds;
     if (left <= 0) {
-      stopRest();
+      _endRest(ranOut: false);
     } else {
-      state = s.copyWith(restLeft: left);
+      _commit(s.copyWith(restLeft: left));
+      // The end has moved, so whatever Android is holding is for the wrong
+      // instant.
+      _armRestAlarm();
     }
   }
 
-  /// Ends the rest. [tone] is false only where the sound would say the wrong
-  /// thing — starting a hold, where it means "stop holding", and a skip pressed
-  /// from the shade, where the person who pressed it already knows.
-  void stopRest({bool tone = true}) {
+  /// Ends the rest by hand. [tone] is false only where the sound would say the
+  /// wrong thing — starting a hold, where it means "stop holding".
+  ///
+  /// **Skipping does sound.** It used not to, from the shade, on the argument
+  /// that somebody pressing Skip knows the rest is over. What that produced was a
+  /// button with no feedback at all on the one screen that is in a pocket.
+  void stopRest({bool tone = true}) => _endRest(ranOut: false, announce: tone);
+
+  void _endRest({required bool ranOut, bool announce = true}) {
     _restTimer?.cancel();
     _restTimer = null;
     final s = state;
     if (s == null) return;
     final wasResting = s.restLeft > 0;
-    state = s.copyWith(clearRest: true);
-    if (tone && wasResting) _sayTheRestIsOver();
+    _commit(s.copyWith(clearRest: true));
+    if (wasResting && announce) {
+      _sayTheRestIsOver(ranOut: ranOut);
+      return;
+    }
+    _restAlarmArmed = false;
+    ref.read(restAlarmProvider).clear();
   }
 
   /// The one event this app makes a noise for, sent down whichever route can
   /// actually reach the user.
   ///
   /// On screen it is the tone: instant, and it does not put a notification in
-  /// front of somebody who is already looking at the countdown. Off screen —
-  /// pocket, screen dark, which is most of what a rest timer is for — a media
-  /// player is the wrong instrument, so it goes out as an alarm-channel
-  /// notification instead. Never both.
-  void _sayTheRestIsOver() {
+  /// front of somebody already looking at the countdown. Off screen — pocket,
+  /// screen dark, which is most of what a rest timer is for — the noise is
+  /// Android's to make, either from the alarm [_armRestAlarm] handed it or,
+  /// for a rest that ended early, from one posted here and now. Never two of
+  /// them.
+  void _sayTheRestIsOver({required bool ranOut}) {
+    final alarm = ref.read(restAlarmProvider);
     if (ref.read(appOnScreenProvider)()) {
+      _restAlarmArmed = false;
+      alarm.clear();
       ref.read(restToneProvider).play();
       return;
     }
+    // The rest simply ran out and Android is sounding the alarm it was given for
+    // this instant. Posting a second one now is the same ding twice.
+    final armed = _restAlarmArmed;
+    _restAlarmArmed = false;
+    if (ranOut && armed) return;
+    alarm.ring(title: 'Rest done', body: _whatComesNext());
+  }
+
+  /// Hands the end of a running rest to Android while the app is not the thing
+  /// on screen, and takes it back when it is.
+  ///
+  /// This is what makes a rest audible from a pocket. The countdown itself is a
+  /// `Timer` in this isolate, and Android is free to kill the process the moment
+  /// the app is backgrounded — a rest whose ding depends on that timer is a rest
+  /// that ends in silence exactly when the timer matters most. So the sound is
+  /// laid down in advance, at the instant the rest will end, and cancelled again
+  /// when the app comes forward and the tone can do the job.
+  ///
+  /// Called whenever either half of that could have changed: a rest starting,
+  /// being nudged, or the app being backgrounded or resumed.
+  void _armRestAlarm() {
+    final s = state;
+    final alarm = ref.read(restAlarmProvider);
+    if (s == null || s.restLeft <= 0 || ref.read(appOnScreenProvider)()) {
+      _restAlarmArmed = false;
+      alarm.clear();
+      return;
+    }
+    _restAlarmArmed = true;
+    alarm
+        .scheduleAt(
+          DateTime.now().add(Duration(seconds: s.restLeft)),
+          title: 'Rest done',
+          body: _whatComesNext(),
+        )
+        // A phone that would not take it leaves this isolate to make the noise
+        // if it is still alive when the rest runs out.
+        .then((laid) => _restAlarmArmed = laid);
+  }
+
+  /// What the rest is over *for*. A notification that says only "rest done"
+  /// makes you open the app to find out what for.
+  String _whatComesNext() {
     final s = state;
     final cue = s == null ? null : nextUp(s);
-    // Named, because a notification that says only "rest over" makes you open
-    // the app to find out what for.
-    final what = cue == null || cue.kind == CueKind.finished
-        ? 'Back to it.'
-        : '${shadeWhere(cue)} · ${describeCue(cue, s!.unit)}';
-    ref.read(restAlarmProvider).ring(title: 'Rest done', body: what);
+    if (cue == null || cue.kind == CueKind.finished) return 'Back to it.';
+    return '${shadeWhere(cue)} · ${describeCue(cue, s!.unit)}';
+  }
+
+  // ---- The crash snapshot --------------------------------------------------
+  //
+  // See [SessionMirror]. The session is still held in memory and still writes its
+  // history only on Finish; the mirror is a copy beside it so that Android killing
+  // the process does not lose a workout.
+
+  SessionMirror? get _mirror => ref.read(sessionMirrorProvider);
+
+  /// Publishes a mutation and mirrors the session.
+  ///
+  /// Everything that changes the session goes through here. The per-second ticks
+  /// do not: both clocks are rebuilt from the wall clock on the way back in, so
+  /// writing them sixty times a minute would buy nothing.
+  void _commit(ActiveWorkout next) {
+    state = next;
+    _mirror?.save(next);
+  }
+
+  /// Drops the snapshot — the session was finished or thrown away — and any
+  /// shade press still waiting to be applied to it.
+  ///
+  /// The press goes with the session it was made in. Kept, a Missed pressed as
+  /// the last set went in would be waiting for the next launch and would land on
+  /// the first set of the next workout instead.
+  void _forget() {
+    _mirror?.clear();
+    ref.read(pendingShadeActionsProvider).clear();
+  }
+
+  /// Rebuilds the session the last run left behind, if there was one.
+  ///
+  /// Called once on launch — see `main.dart`. Does nothing when a session is
+  /// already live, so it cannot tread on one, and drops a snapshot it cannot
+  /// read rather than leaving it to fail again on the next launch.
+  Future<void> restore() async {
+    if (state != null) return;
+    final mirror = _mirror;
+    if (mirror == null) return;
+    final was = await mirror.load();
+    if (was == null) {
+      // Either there was nothing, or there was something unreadable. Dropping it
+      // is right for both: nothing is a no-op, and a snapshot that cannot be read
+      // would only fail again on the next launch.
+      _forget();
+      return;
+    }
+    state = was;
+    _startClock();
+    // A rest with time left on it goes back on the clock. One that ran out while
+    // the app was dead is simply over — and its alarm has already sounded, which
+    // is why nothing is cleared here.
+    if (was.restLeft > 0) startRest(was.restLeft, was.restPrompt);
+  }
+
+  /// The session's own clock, which runs for as long as the session does.
+  void _startClock() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final s = state;
+      if (s != null) state = s.copyWith(elapsed: s.elapsed + 1);
+    });
   }
 
   /// Begins a live session from a workout template. Passing a null [workoutId]
@@ -524,8 +677,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
         // the rep range or the fixed count. A to-failure set carries no upper
         // bound, so its goal is `repsMin` — the number you have to beat for
         // the set to count, which is exactly what "to failure" is asking.
-        final goal =
-            mode.timed ? v.item.holdSeconds : (v.item.repsMax ?? v.item.repsMin);
+        final goal = mode.timed
+            ? v.item.holdSeconds
+            : (v.item.repsMax ?? v.item.repsMin);
         final w = v.item.suggestedWeight;
         // The bar this movement stands on, whatever it is loaded to today —
         // resolved here because it cannot change mid-session, unlike the ramp
@@ -553,22 +707,20 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
         exercises.add(e);
       }
     }
-    state = ActiveWorkout(
-      routineId: routineId,
-      workoutId: workoutId,
-      name: name,
-      startedAt: DateTime.now(),
-      exercises: exercises,
-      elapsed: 0,
-      unit: unit,
-      plates: setup.plates,
-      notice: notice,
+    _commit(
+      ActiveWorkout(
+        routineId: routineId,
+        workoutId: workoutId,
+        name: name,
+        startedAt: DateTime.now(),
+        exercises: exercises,
+        elapsed: 0,
+        unit: unit,
+        plates: setup.plates,
+        notice: notice,
+      ),
     );
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final s = state;
-      if (s != null) state = s.copyWith(elapsed: s.elapsed + 1);
-    });
+    _startClock();
   }
 
   /// One tap on a set: see [SetEntry.cycle].
@@ -576,7 +728,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return;
     s.exercises[ei].sets[si].cycle();
-    state = s.copyWith();
+    _commit(s.copyWith());
   }
 
   /// Hangs a freshly recorded clip on a set, replacing any clip it already had
@@ -591,7 +743,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final set = s.exercises[ei].sets[si];
     final replaced = set.videoPath;
     set.videoPath = relativePath;
-    state = s.copyWith();
+    _commit(s.copyWith());
     if (replaced != null) {
       await ref.read(setVideoStoreProvider).delete(replaced);
     }
@@ -606,7 +758,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final gone = set.videoPath;
     if (gone == null) return;
     set.videoPath = null;
-    state = s.copyWith();
+    _commit(s.copyWith());
     await ref.read(setVideoStoreProvider).delete(gone);
   }
 
@@ -626,7 +778,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return;
     s.exercises[ei].sets[si].weight = value;
-    state = s.copyWith();
+    _commit(s.copyWith());
   }
 
   /// The load this exercise is being worked at today. Every set still to come
@@ -644,17 +796,31 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       if (!set.done) set.weight = e.workingKg!;
     }
     _rebuildRamp(e, unit: s.unit, inventory: s.plates);
-    state = s.copyWith();
+    _commit(s.copyWith());
   }
 
   /// Logs the next outstanding set at its goal and starts the rest — what the
-  /// shade's **Done** button does, without the app being open.
+  /// shade's **Done** button does.
+  void logNextAtGoal() => _logNext(short: false);
+
+  /// Logs the next outstanding set one short of its goal — the shade's
+  /// **Missed**. It lands gold rather than green, and the app comes forward so
+  /// the number can be corrected to what actually happened.
+  ///
+  /// The rest starts either way. You have just finished a set; that the number
+  /// wants correcting does not make the rest between sets any shorter, and a
+  /// board you came back to with no clock running is a board where you have to
+  /// start the clock by hand.
+  void logNextAsMissed() => _logNext(short: true);
+
+  /// Logs the next outstanding set and starts its rest.
   ///
   /// It asks [nextUp] rather than being told which set, because the press came
   /// from a notification that may be a moment out of date; the session is the
   /// only thing that knows what is actually outstanding. A hold is refused: how
-  /// long you held it is the measurement, and nothing here can invent it.
-  void logNextAtGoal() {
+  /// long you held it is the measurement, and nothing here can invent it. So is
+  /// a press that arrives during a rest, which is a set already logged.
+  void _logNext({required bool short}) {
     final s = state;
     if (s == null || s.restLeft > 0) return;
     final cue = nextUp(s);
@@ -662,9 +828,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
 
     final e = s.exercises[cue.exerciseIndex];
     final entry = cue.warmup ? e.warmups[cue.setIndex] : e.sets[cue.setIndex];
-    entry.logged = entry.goal;
-    state = s.copyWith();
+    final logged = short ? missedSeed(cue) : entry.goal;
+    if (logged == null) return;
+    entry.logged = logged;
 
+    // The sets are edited in place, so starting the rest publishes the logged set
+    // with it — one new state, one snapshot.
     startRest(
       cue.warmup ? e.restAfterWarmup(cue.setIndex) : e.restSeconds,
       cue.warmup
@@ -673,35 +842,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     );
   }
 
-  /// Logs the next outstanding set one short of its goal — the shade's
-  /// **Missed**. It lands gold rather than green, and the app is brought
-  /// forward so the number can be corrected to what actually happened.
-  ///
-  /// No rest is started: you are about to be looking at the screen anyway, and
-  /// a clock running while you correct a number is a clock you did not ask for.
-  void logNextAsMissed() {
-    final s = state;
-    if (s == null) return;
-    final cue = nextUp(s);
-    if (cue == null) return;
-    final seed = missedSeed(cue);
-    if (seed == null) return;
-
-    final e = s.exercises[cue.exerciseIndex];
-    final entry = cue.warmup ? e.warmups[cue.setIndex] : e.sets[cue.setIndex];
-    entry.logged = seed;
-    state = s.copyWith();
-  }
-
   /// Types a result in directly — reps done, or seconds held on a timed set
   /// (the long-press escape hatch). A null [value] unlogs the set; anything
   /// else is clamped to zero or more.
   void setLogged(int ei, int si, int? value) {
     final s = state;
     if (s == null) return;
-    s.exercises[ei].sets[si].logged =
-        value == null ? null : (value < 0 ? 0 : value);
-    state = s.copyWith();
+    s.exercises[ei].sets[si].logged = value == null
+        ? null
+        : (value < 0 ? 0 : value);
+    _commit(s.copyWith());
   }
 
   /// Dials the warm-up ramp for one exercise up or down and rebuilds it. The
@@ -711,10 +861,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     if (s == null) return;
     final e = s.exercises[ei];
     if (!e.hasWarmups) return;
-    e.warmupCount =
-        count < 0 ? 0 : (count > kMaxWarmupSets ? kMaxWarmupSets : count);
+    e.warmupCount = count < 0
+        ? 0
+        : (count > kMaxWarmupSets ? kMaxWarmupSets : count);
     _rebuildRamp(e, unit: s.unit, inventory: s.plates);
-    state = s.copyWith();
+    _commit(s.copyWith());
   }
 
   /// Recomputes one exercise's warm-up ramp — the ladder of loads this gym can
@@ -744,7 +895,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       inventory: inventory,
     );
     final fresh = _warmupSetsFor(
-        e.workingKg!, e.warmupBarKg, e.warmupLadder, e.warmupCount);
+      e.workingKg!,
+      e.warmupBarKg,
+      e.warmupLadder,
+      e.warmupCount,
+    );
     for (var i = 0; i < fresh.length; i++) {
       e.warmups.add(i < was.length && was[i].done ? was[i] : fresh[i]);
     }
@@ -756,14 +911,14 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     final s = state;
     if (s == null) return;
     s.exercises[ei].warmups[wi].cycle();
-    state = s.copyWith();
+    _commit(s.copyWith());
   }
 
   void setWarmupWeight(int ei, int wi, double value) {
     final s = state;
     if (s == null) return;
     s.exercises[ei].warmups[wi].weight = value;
-    state = s.copyWith();
+    _commit(s.copyWith());
   }
 
   /// Types a warm-up result in directly — the long-press escape hatch, mirroring
@@ -771,9 +926,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
   void setWarmupLogged(int ei, int wi, int? value) {
     final s = state;
     if (s == null) return;
-    s.exercises[ei].warmups[wi].logged =
-        value == null ? null : (value < 0 ? 0 : value);
-    state = s.copyWith();
+    s.exercises[ei].warmups[wi].logged = value == null
+        ? null
+        : (value < 0 ? 0 : value);
+    _commit(s.copyWith());
   }
 
   /// Persists the session with only its completed sets, then advances each
@@ -785,6 +941,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
+    _restAlarmArmed = false;
     ref.read(restAlarmProvider).clear();
 
     final rows = <SessionSetsCompanion>[];
@@ -799,22 +956,24 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
           if (set.videoPath case final path?) unsaved.add(path);
           continue;
         }
-        rows.add(SessionSetsCompanion.insert(
-          sessionId: 0, // replaced inside saveSession
-          exerciseName: e.name,
-          setNumber: n++,
-          exerciseId: Value(e.exerciseId),
-          weight: Value(set.weight),
-          reps: Value(set.timed ? 0 : set.logged!),
-          seconds: Value(set.timed ? set.logged! : null),
-          done: const Value(true),
-          // What it was aiming at, so a later reading of this set can tell a
-          // hit from a miss without consulting a template that may have moved.
-          goalReps: Value(set.timed ? 0 : set.goal),
-          goalSeconds: Value(set.timed ? set.goal : null),
-          goalWeight: Value(set.goalWeight),
-          videoPath: Value(set.videoPath),
-        ));
+        rows.add(
+          SessionSetsCompanion.insert(
+            sessionId: 0, // replaced inside saveSession
+            exerciseName: e.name,
+            setNumber: n++,
+            exerciseId: Value(e.exerciseId),
+            weight: Value(set.weight),
+            reps: Value(set.timed ? 0 : set.logged!),
+            seconds: Value(set.timed ? set.logged! : null),
+            done: const Value(true),
+            // What it was aiming at, so a later reading of this set can tell a
+            // hit from a miss without consulting a template that may have moved.
+            goalReps: Value(set.timed ? 0 : set.goal),
+            goalSeconds: Value(set.timed ? set.goal : null),
+            goalWeight: Value(set.goalWeight),
+            videoPath: Value(set.videoPath),
+          ),
+        );
       }
     }
 
@@ -828,6 +987,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       totalVolume: s.volume,
       sets: rows,
     );
+
+    // The session is on disk under its own name now, so the snapshot has nothing
+    // left to protect — and leaving it would have the next launch restore a
+    // workout that is already in the history.
+    _forget();
 
     // Only now that the rows are on disk: a clip whose set was saved is
     // referenced, and a clip whose set was not is rubbish. Deleting before the
@@ -859,23 +1023,29 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
       // A weight slot with no suggested weight is a bodyweight movement with no
       // target to move — it does not get to claim it progressed.
       if (target == null) continue;
-      outcomes.add(ProgressionOutcome(
-        name: e.name,
-        mode: mode,
-        moved: moved,
-        target: target,
-        successes: it.successStreak,
-        failures: it.failStreak,
-        successThreshold: it.successThreshold,
-        failureThreshold: it.failureThreshold,
-      ));
+      outcomes.add(
+        ProgressionOutcome(
+          name: e.name,
+          mode: mode,
+          moved: moved,
+          target: target,
+          successes: it.successStreak,
+          failures: it.failStreak,
+          successThreshold: it.successThreshold,
+          failureThreshold: it.failureThreshold,
+        ),
+      );
     }
 
     // Stash the deltas keyed by this session, for the summary to explain. Empty
     // means nothing had a target to move (an ad-hoc or all-bodyweight session),
     // and the summary shows no banner at all.
-    ref.read(lastProgressionProvider.notifier).set(
-          outcomes.isEmpty ? null : ProgressionReport(sessionId: id, outcomes: outcomes),
+    ref
+        .read(lastProgressionProvider.notifier)
+        .set(
+          outcomes.isEmpty
+              ? null
+              : ProgressionReport(sessionId: id, outcomes: outcomes),
         );
 
     state = null;
@@ -891,7 +1061,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?> {
     _timer?.cancel();
     _restTimer?.cancel();
     _restTimer = null;
+    _restAlarmArmed = false;
     ref.read(restAlarmProvider).clear();
+    _forget();
     final clips = _clipPaths.toList();
     state = null;
     await ref.read(setVideoStoreProvider).deleteAll(clips);
@@ -907,16 +1079,15 @@ List<SetEntry> _warmupSetsFor(
   double barKg,
   List<LoadRung> ladder,
   int count,
-) =>
-    [
-      for (final s in computeWarmups(
-        workingKg: workingKg,
-        ladder: ladder,
-        barKg: barKg,
-        sets: count,
-      ))
-        SetEntry(goal: s.reps, goalWeight: s.weightKg, weight: s.weightKg),
-    ];
+) => [
+  for (final s in computeWarmups(
+    workingKg: workingKg,
+    ladder: ladder,
+    barKg: barKg,
+    sets: count,
+  ))
+    SetEntry(goal: s.reps, goalWeight: s.weightKg, weight: s.weightKg),
+];
 
 /// Formats a weight without a trailing ".0" (e.g. 80.0 -> "80", 12.5 -> "12.5").
 String fmtWeight(double w) =>
@@ -991,8 +1162,8 @@ final restAlarmProvider = Provider<RestAlarm>((ref) => RestAlarm());
 /// screen — the safe way round, since the cost of being wrong is a notification
 /// nobody needed rather than a rest that ends in silence.
 final appOnScreenProvider = Provider<bool Function()>(
-  (ref) => () =>
-      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+  (ref) =>
+      () => WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
 );
 
 /// Holds the [ProgressionReport] from the last finish until the summary consumes
@@ -1008,8 +1179,8 @@ class LastProgressionController extends Notifier<ProgressionReport?> {
 
 final lastProgressionProvider =
     NotifierProvider<LastProgressionController, ProgressionReport?>(
-  LastProgressionController.new,
-);
+      LastProgressionController.new,
+    );
 
 /// Whether the live logging screen is the one on screen right now. Set by
 /// `WorkoutScreen` as it mounts and unmounts, and read by the resume overlay to
@@ -1023,7 +1194,14 @@ class WorkoutScreenVisible extends Notifier<bool> {
   @override
   bool build() => false;
 
-  void set(bool visible) => state = visible;
+  /// The screen reports itself gone from `dispose`, one microtask later so the
+  /// notification never lands mid-teardown — by which time the provider itself
+  /// may have been disposed (the app closing, a container torn down). A flag
+  /// nobody is left to read is not worth throwing over.
+  void set(bool visible) {
+    if (!ref.mounted) return;
+    state = visible;
+  }
 }
 
 final workoutScreenVisibleProvider =

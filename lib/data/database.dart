@@ -55,7 +55,13 @@ class Exercises extends Table {
   /// column *means*, and so whether it can be broken down into plates.
   ///
   /// Defaults to [WeightType.machine]: the number is the number, which is the
-  /// only reading that is never wrong.
+  /// only reading that is never wrong for something that carries a weight. It
+  /// is deliberately not [WeightType.none] — almost every movement is loaded,
+  /// so a movement nobody has classified is loaded too.
+  ///
+  /// [WeightType.none] is stored like any other value, and means the movement
+  /// carries nothing: a push-up, a plank. Nothing downstream offers it a
+  /// weight.
   TextColumn get weightType =>
       textEnum<WeightType>().withDefault(const Constant('machine'))();
 
@@ -360,6 +366,79 @@ class CustomThemes extends Table {
   TextColumn get palette => text()();
 }
 
+/// The one live session, mirrored to disk so that Android killing the process
+/// cannot lose a workout somebody is halfway through.
+///
+/// **This is not a database-backed session.** The live workout is still held in
+/// memory and still writes its history only on Finish — see
+/// `state/active_workout.dart`. This is a crash snapshot beside it: one row,
+/// rewritten on every mutation, read once on launch, deleted on finish or
+/// discard. Nothing but the launch restore ever reads it, and no query joins it
+/// to anything, so a stale row is inert rather than wrong.
+///
+/// The session is one JSON blob rather than a set of columns because it is
+/// opaque to SQL by design: it is never filtered, sorted or aggregated, only
+/// written whole and read whole. See `state/session_snapshot.dart` for the shape.
+class LiveSessions extends Table {
+  /// Always 1. One session can be live at a time, so the row is a slot.
+  IntColumn get id => integer().withDefault(const Constant(1))();
+
+  /// The session as `encodeSession` writes it.
+  TextColumn get payload => text()();
+
+  /// When the snapshot was taken, which is what the clocks are rebuilt against:
+  /// the workout's elapsed time and any running rest both have to account for
+  /// however long the app was dead. See `decodeSession`.
+  DateTimeColumn get savedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// The bars the gym racks: a row each, with a name and what it weighs.
+///
+/// A fresh install starts with the common ones (see `namedBars`). Those are
+/// **fixed**: an Olympic bar weighs 20 kg and an EZ curl bar weighs 10, and
+/// neither is a preference — the weight is what the plate maths trusts and what
+/// a shared routine carries to a phone where this row does not exist, so
+/// renaming or re-weighing one would quietly change what somebody else's code
+/// resolves to. Anything you add is yours to rename and re-weigh. Either can be
+/// deleted, because a gym may simply not rack a trap bar.
+///
+/// [isCustom] is what tells them apart. False for the seeded rows, true for
+/// anything added since — the same shape [Exercises.isCustom] uses for the
+/// starter library, and enforced in [AppDatabase.editBar] rather than only by
+/// hiding the pencil.
+///
+/// **A bar is referred to by its weight, not by its id.** `Settings.barWeight`
+/// (the app-wide default) and `Exercises.barWeight` (one movement's own bar)
+/// hold kilograms, because the weight is what the plate maths needs and the only
+/// thing a shared routine can carry to another phone, where this row does not
+/// exist. Two bars in one list may therefore not weigh the same, or a reference
+/// could not tell them apart — see [AppDatabase.addBar]. Editing a bar's weight
+/// or deleting it moves those references with it: see [AppDatabase.editBar] and
+/// [AppDatabase.deleteBar].
+///
+/// **Kept per unit** for the same reason as the plate rack: an Olympic bar is
+/// 20 kg in a metric gym and 45 lb in a pounds one, two round numbers that are
+/// not the same weight. [unit] says which gym's list a row belongs to; the
+/// weight itself is canonical kilograms like every other weight in the app.
+class Bars extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// `kg` or `lb` — which unit's list this bar is on.
+  TextColumn get unit => text().withLength(min: 2, max: 2)();
+
+  TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
+
+  /// What the bar weighs, in kilograms.
+  RealColumn get weightKg => real()();
+
+  /// Whether you added this bar. False for the seeded ones, which are fixed —
+  /// see the class comment.
+  BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
+}
+
 // ---------------------------------------------------------------------------
 // Read-model helpers
 // ---------------------------------------------------------------------------
@@ -416,6 +495,29 @@ class LifetimeTotals {
 /// see [resolvePlateSettings].
 typedef StoredPlateSetup = ({String? kgRack, String? lbRack, double? barKg});
 
+/// Reading a weight back as the bar it is: references to a bar are weights (see
+/// [Bars]), and a screen showing one wants the name.
+/// Whether this movement's loading is a fact rather than a setting.
+///
+/// Both halves matter: a movement you made is yours to reclassify however you
+/// described it, and a seeded one is fixed only where its own name states the
+/// implement — see [loadingNamedBy]. Everything else stays a choice, because how
+/// a movement is loaded is specific to the movement and the gym rather than
+/// derivable from a word in a taxonomy.
+extension FixedLoading on Exercise {
+  bool get loadingIsFixed => !isCustom && loadingNamedBy(name) != null;
+}
+
+extension BarAtWeight on List<Bar> {
+  /// The bar in this list weighing [kg], or null. Matched within
+  /// [kPlateToleranceKg] — a pounds bar in kilograms has a tail on it.
+  Bar? atWeight(double kg) {
+    for (final b in this) {
+      if ((b.weightKg - kg).abs() <= kPlateToleranceKg) return b;
+    }
+    return null;
+  }
+}
 
 /// How a set clip is filmed: the height in pixels and the hard stop on its
 /// length in seconds. Both come from `Settings`; see `set_video_store.dart` for
@@ -427,16 +529,17 @@ typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 
 /// The curated starter library, as muscle group → movement → equipment.
 ///
-/// Glutes and Forearms are groups in their own right — see
-/// `exercise_taxonomy.dart` for why. Traps stay under Back, because a shrug is
+/// The groups are the seven of [kMuscleGroups] and no finer: hip thrusts sit
+/// under Legs, wrist curls under Arms, and traps under Back, because a shrug is
 /// something you do on a back day and nobody goes looking for a Traps heading.
 /// The movements that answer to no single group — a swing, a clean, a get-up —
 /// are under Other.
 ///
 /// Each group aims to cover the movement patterns that matter in it, at every
 /// kind of loading a gym offers, without turning the picker into a catalogue.
-/// How a movement is loaded is left to `weightTypeForEquipment`, and its demo
-/// link to a YouTube search, which cannot rot the way a video id can.
+/// How a movement is loaded follows from its equipment — see [_seedWeightType]
+/// for that rule and the handful of movements whose equipment does not settle
+/// it.
 /// The demo video for each starter movement, as a bare YouTube id.
 ///
 /// **Ids, not URLs.** Eleven characters is what identifies a video, and it is
@@ -463,92 +566,138 @@ typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
 /// "this is gone" from "this is now something else".
 const Map<String, String> _starterDemos = {
   'Bench Press': 'tuwHzzPdaGc', // Barbell Bench Press — Muscle & Strength
-  'Incline Bench Press': 'uIzbJX5EVIY', // Incline Bench Press — Muscle & Strength
-  'Decline Bench Press': 'oIgci8aNsG0', // Decline Bench Press — Muscle & Strength
-  'Dumbbell Bench Press': 'dGqI0Z5ul4k', // Dumbbell Bench Press — Muscle & Strength
-  'Incline DB Press': '8nNi8jbbUPE', // Incline Dumbbell Bench Press — Muscle & Strength
+  'Incline Bench Press':
+      'uIzbJX5EVIY', // Incline Bench Press — Muscle & Strength
+  'Decline Bench Press':
+      'oIgci8aNsG0', // Decline Bench Press — Muscle & Strength
+  'Dumbbell Bench Press':
+      'dGqI0Z5ul4k', // Dumbbell Bench Press — Muscle & Strength
+  'Incline DB Press':
+      '8nNi8jbbUPE', // Incline Dumbbell Bench Press — Muscle & Strength
   'Dumbbell Fly': '-lcbvOddoi8', // Flat Dumbbell Fly — Muscle & Strength
-  'Machine Chest Press': 'NwzUje3z0qY', // Machine Chest Press — Renaissance Periodization
+  'Machine Chest Press':
+      'NwzUje3z0qY', // Machine Chest Press — Renaissance Periodization
   'Pec Deck': 'O-OBCfyh9Fw', // Pec Deck Flye — Renaissance Periodization
-  'Cable Fly': 'QcTcWpkn_bw', // How To Do A Cable Fly/ Cable Crossover — PureGym
+  'Cable Fly':
+      'QcTcWpkn_bw', // How To Do A Cable Fly/ Cable Crossover — PureGym
   'Push-Up': 'KEFQyLkDYtI', // Pushup — Muscle & Strength
   'Chest Dip': 'FG1ENBFsdHU', // Dip (Parallel Bars) — Muscle & Strength
   'Deadlift': 'wjsu6ceEkAQ', // Conventional Deadlift — Muscle & Strength
   'Barbell Row': 'paCfxhgW6bI', // Bent Over Barbell Row — Muscle & Strength
   'Barbell Shrug': '6hNudn7Peco', // Barbell Shrug — Muscle & Strength
-  'Dumbbell Row': 'YZgVEy6cmaY', // Bent Over Dumbbell Row Unilateral — Muscle & Strength
+  'Dumbbell Row':
+      'YZgVEy6cmaY', // Bent Over Dumbbell Row Unilateral — Muscle & Strength
   'T-Bar Row': 'kHW23afzaUs', // Chest Supported T Bar Row — Muscle & Strength
-  'Chest-Supported Row': '0UBRfiO4zDs', // Chest Supported Row — Renaissance Periodization
-  'Lat Pulldown': 'iKrKgWR9wbY', // Lat Pulldown (Double Overhand) — Muscle & Strength
-  'Seated Cable Row': 'xQNrFHEMhI4', // Seated Cable Row | Exercise Guide — Bodybuilding.com
-  'Straight-Arm Pulldown': 'gDtXrJWPdlY', // Cable Straight Arm Pulldown — Muscle & Strength
-  'Face Pull': 'tkLTR4b6cAk', // Face Pull - Shoulder Exercise - Bodybuilding.com — Bodybuilding.com
-  'Pull-Up': 'WXMKjV11lAk', // Pullups -  Back Exercise - Bodybuilding.com — Bodybuilding.com
+  'Chest-Supported Row':
+      '0UBRfiO4zDs', // Chest Supported Row — Renaissance Periodization
+  'Lat Pulldown':
+      'iKrKgWR9wbY', // Lat Pulldown (Double Overhand) — Muscle & Strength
+  'Seated Cable Row':
+      'xQNrFHEMhI4', // Seated Cable Row | Exercise Guide — Bodybuilding.com
+  'Straight-Arm Pulldown':
+      'gDtXrJWPdlY', // Cable Straight Arm Pulldown — Muscle & Strength
+  'Face Pull':
+      'tkLTR4b6cAk', // Face Pull - Shoulder Exercise - Bodybuilding.com — Bodybuilding.com
+  'Pull-Up':
+      'WXMKjV11lAk', // Pullups -  Back Exercise - Bodybuilding.com — Bodybuilding.com
   'Chin-Up': '1EJ3A3rEtlo', // Chin-up — Muscle & Strength
   'Inverted Row': 'KOaCM1HMwU0', // Inverted Row — Renaissance Periodization
-  'Back Extension': 'BZMnTSobIAQ', // Hyperextension Bodyweight — Muscle & Strength
+  'Back Extension':
+      'BZMnTSobIAQ', // Hyperextension Bodyweight — Muscle & Strength
   'Overhead Press': 'j7ULT6dznNc', // Overhead Press — Muscle & Strength
-  'Push Press': 'ChTn_TLDA5o', // Push Press - Shoulder Exercise - Bodybuilding.com — Bodybuilding.com
-  'Upright Row': 'um3VVzqunPU', // Barbell Upright Row — Renaissance Periodization
-  'Dumbbell Shoulder Press': 'FRxZ6wr5bpA', // Seated Dumbbell Press (Bilateral) — Muscle & Strength
+  'Push Press':
+      'ChTn_TLDA5o', // Push Press - Shoulder Exercise - Bodybuilding.com — Bodybuilding.com
+  'Upright Row':
+      'um3VVzqunPU', // Barbell Upright Row — Renaissance Periodization
+  'Dumbbell Shoulder Press':
+      'FRxZ6wr5bpA', // Seated Dumbbell Press (Bilateral) — Muscle & Strength
   'Arnold Press': 'hmnZKRpYaV8', // Seated Arnold Press — Muscle & Strength
-  'Lateral Raise': 'E3abEP8SIh0', // Side Lateral Raise | Exercise Guide — Bodybuilding.com
-  'Front Raise': '-t7fuZ0KhDA', // How To: Dumbbell Front Raise — ScottHermanFitness
+  'Lateral Raise':
+      'E3abEP8SIh0', // Side Lateral Raise | Exercise Guide — Bodybuilding.com
+  'Front Raise':
+      '-t7fuZ0KhDA', // How To: Dumbbell Front Raise — ScottHermanFitness
   'Rear Delt Fly': 'Fgz_FdzDukE', // Bent Over Rear Delt Fly — Muscle & Strength
-  'Machine Shoulder Press': 'WvLMauqrnK8', // Machine Shoulder Press — Renaissance Periodization
-  'Reverse Pec Deck': '6yMdhi2DVao', // How To Properly Use The Rear Delt Fly Machine (+ BONUS TIP) — Mind Pump TV
-  'Cable Lateral Raise': 'Fv-eAW1uKDI', // Single Arm Cable Lateral Raise (Crossbody) — Muscle & Strength
+  'Machine Shoulder Press':
+      'WvLMauqrnK8', // Machine Shoulder Press — Renaissance Periodization
+  'Reverse Pec Deck':
+      '6yMdhi2DVao', // How To Properly Use The Rear Delt Fly Machine (+ BONUS TIP) — Mind Pump TV
+  'Cable Lateral Raise':
+      'Fv-eAW1uKDI', // Single Arm Cable Lateral Raise (Crossbody) — Muscle & Strength
   'Back Squat': 'R2dMsNhN3DE', // Barbell Back Squat — Muscle & Strength
   'Front Squat': '9xAkoz95IFE', // Front Squat (Parallel) — Muscle & Strength
   'Sumo Deadlift': 'pfSMst14EFk', // Sumo Deadlift — Renaissance Periodization
   'Romanian Deadlift': 'CkrqLaDGvOA', // Stiff Leg Deadlift — Muscle & Strength
   'Good Morning': '8sGgyquE1Bs', // Standing Goodmorning — Muscle & Strength
   'Goblet Squat': 'zBV3ceGyAxw', // How To Do A Goblet squat — PureGym
-  'Bulgarian Split Squat': 'uqI3GVwfToU', // Dumbbell Bulgarian Split Squat — Muscle & Strength
+  'Bulgarian Split Squat':
+      'uqI3GVwfToU', // Dumbbell Bulgarian Split Squat — Muscle & Strength
   'Walking Lunge': 'uRSsOoZG9z8', // Dumbbell Walking Lunge — Muscle & Strength
   'Step-Up': 'DxUNi119Qzs', // How To Do A Dumbbell Step Up — PureGym
   'Leg Press': 'sEM_zo9w2ss', // Leg Press — Muscle & Strength
   'Hack Squat': '63tboDKQksc', // Machine Hack Squat — Muscle & Strength
   'Leg Curl': 'n5WDXD_mpVY', // Lying Leg Curl — Renaissance Periodization
   'Leg Extension': '0fl1RRgJ83I', // Seated Leg Extension — Muscle & Strength
-  'Calf Raise': 'g_E7_q1z2bo', // Hammer Strength Select Standing Calf Raise — Hammer Strength
-  'Seated Calf Raise': 'Yh5TXz99xwY', // Seated Calf Raise (Toes Neutral) — Muscle & Strength
+  'Calf Raise':
+      'g_E7_q1z2bo', // Hammer Strength Select Standing Calf Raise — Hammer Strength
+  'Seated Calf Raise':
+      'Yh5TXz99xwY', // Seated Calf Raise (Toes Neutral) — Muscle & Strength
   'Hip Thrust': 'EF7jXP17DPE', // Barbell Hip Thrust — Renaissance Periodization
   'Glute Bridge': 'DQv1IMQDbE4', // How To Do A Barbell Glute Bridge — PureGym
   'Hip Abduction': '7pbZA7ncuq8', // Machine Abductor — Muscle & Strength
-  'Cable Pull-Through': 'pv8e6OSyETE', // Cable Pull Through — Renaissance Periodization
+  'Cable Pull-Through':
+      'pv8e6OSyETE', // Cable Pull Through — Renaissance Periodization
   'Glute Kickback': 'aX0U98L4Ywk', // Donkey Kicks — Muscle & Strength
-  'Barbell Curl': 'JnLFSFurrqQ', // Barbell Curl Normal Grip — Renaissance Periodization
-  'Preacher Curl': 'sxA__DoLsgo', // EZ Bar Preacher Curl — Renaissance Periodization
-  'Close-Grip Bench Press': 'j-NhORwJDb4', // Bench Press (Close Grip) — Muscle & Strength
+  'Barbell Curl':
+      'JnLFSFurrqQ', // Barbell Curl Normal Grip — Renaissance Periodization
+  'Preacher Curl':
+      'sxA__DoLsgo', // EZ Bar Preacher Curl — Renaissance Periodization
+  'Close-Grip Bench Press':
+      'j-NhORwJDb4', // Bench Press (Close Grip) — Muscle & Strength
   'Skull Crusher': 'K6MSN4hCDM4', // EZ Bar Skullcrusher — Muscle & Strength
-  'Dumbbell Curl': 'av7-8igSXTs', // How to Do Standing Dumbbell Curls — LIVESTRONG
+  'Dumbbell Curl':
+      'av7-8igSXTs', // How to Do Standing Dumbbell Curls — LIVESTRONG
   'Hammer Curl': 'XOEL4MgekYE', // Hammer Curl — Renaissance Periodization
-  'Incline Dumbbell Curl': 'UeleXjsE-98', // Incline Dumbbell Curl — Muscle & Strength
-  'Triceps Pushdown': '6Fzep104f0s', // Cable Triceps Pushdown — Renaissance Periodization
-  'Overhead Cable Extension': 'NRENeEgaIgA', // Overhead Rope Tricep Extension — Muscle & Strength
-  'Cable Curl': 'L9GwtjwAM8Y', // How To: Standing Cable Double-Bicep Curl — ScottHermanFitness
-  'Triceps Dip': '6kALZikXxLc', // How to Do a Tricep Dip | Boot Camp Workout — Howcast
-  'Reverse Curl': 'X5df_LHBVKQ', // How To Do Reverse Curls (Pronated Bicep Curl) — PureGym
+  'Incline Dumbbell Curl':
+      'UeleXjsE-98', // Incline Dumbbell Curl — Muscle & Strength
+  'Triceps Pushdown':
+      '6Fzep104f0s', // Cable Triceps Pushdown — Renaissance Periodization
+  'Overhead Cable Extension':
+      'NRENeEgaIgA', // Overhead Rope Tricep Extension — Muscle & Strength
+  'Cable Curl':
+      'L9GwtjwAM8Y', // How To: Standing Cable Double-Bicep Curl — ScottHermanFitness
+  'Triceps Dip':
+      '6kALZikXxLc', // How to Do a Tricep Dip | Boot Camp Workout — Howcast
+  'Reverse Curl':
+      'X5df_LHBVKQ', // How To Do Reverse Curls (Pronated Bicep Curl) — PureGym
   'Wrist Curl': '3VLTzIrnb5g', // How To Do Wrist Curls — PureGym
-  'Reverse Wrist Curl': 'krZ6pWGZ8xo', // How to Do Dumbbell Reverse Wrist Curls — LIVESTRONG
+  'Reverse Wrist Curl':
+      'krZ6pWGZ8xo', // How to Do Dumbbell Reverse Wrist Curls — LIVESTRONG
   'Dead Hang': 'ShkBXOGK7A8', // How Hanging Transforms Your Body — FitnessFAQs
-  'Cable Crunch': '3qjoXDTuyOE', // Cable Crunch - Abs / Core Exercise - Bodybuilding.com — Bodybuilding.com
+  'Cable Crunch':
+      '3qjoXDTuyOE', // Cable Crunch - Abs / Core Exercise - Bodybuilding.com — Bodybuilding.com
   'Pallof Press': 'HXrLaqNIkTs', // How To Do A Pallof Press — PureGym
   'Machine Crunch': '-OUSBPnHvsQ', // Machine Crunch — Renaissance Periodization
-  'Ab Wheel Rollout': 'rqiTPdK1c_I', // Ab Wheel- How to PROPERLY Use an Ab Wheel | MIND PUMP — Mind Pump TV
+  'Ab Wheel Rollout':
+      'rqiTPdK1c_I', // Ab Wheel- How to PROPERLY Use an Ab Wheel | MIND PUMP — Mind Pump TV
   'Plank': 'q4rDeHYMcIg', // How To Do A Plank — PureGym
   'Side Plank': 'Oe9Tp9SvTCE', // How To Do A Side Plank — PureGym
-  'Hollow Hold': 'hf00_b2sRdc', // How to Perfect Your Hollow Hold | Form Check | Men's Health — Men's Health
-  'Hanging Leg Raise': '7FwGZ8qY5OU', // Hanging Straight Leg Raise — Renaissance Periodization
-  'Crunch': 'MKmrqcoCZ-M', // How to Do a Stomach Crunch Properly | Gym Workout — Howcast
+  'Hollow Hold':
+      'hf00_b2sRdc', // How to Perfect Your Hollow Hold | Form Check | Men's Health — Men's Health
+  'Hanging Leg Raise':
+      '7FwGZ8qY5OU', // Hanging Straight Leg Raise — Renaissance Periodization
+  'Crunch':
+      'MKmrqcoCZ-M', // How to Do a Stomach Crunch Properly | Gym Workout — Howcast
   'Reverse Crunch': 'XY8KzdDcMFg', // How To Do A Reverse Crunch — PureGym
   'Russian Twist': '99T1EfpMwPA', // How To Do A Russian Twist — PureGym
-  'Dead Bug': '4XLEnwUr1d8', // Dead Bug - Abdominal / Core Exercise Guide — Bodybuilding.com
-  'Power Clean': 'SoEKmdSXUBw', // Learn How to Power Clean | Cassie & Tyra — Bodybuilding.com
+  'Dead Bug':
+      '4XLEnwUr1d8', // Dead Bug - Abdominal / Core Exercise Guide — Bodybuilding.com
+  'Power Clean':
+      'SoEKmdSXUBw', // Learn How to Power Clean | Cassie & Tyra — Bodybuilding.com
   'Kettlebell Swing': '4JzSjWen6uI', // How To Do A Kettlebell Swing — PureGym
-  'Turkish Get-Up': 'bm9M6y4QFoM', // Deconstructing The Turkish Get Up — Bodybuilding.com
-  "Farmer's Carry": '8OtwXwrJizk', // How To Do A Farmer's Walk (Farmer's Carry) — PureGym
+  'Turkish Get-Up':
+      'bm9M6y4QFoM', // Deconstructing The Turkish Get Up — Bodybuilding.com
+  "Farmer's Carry":
+      '8OtwXwrJizk', // How To Do A Farmer's Walk (Farmer's Carry) — PureGym
 };
 
 const Map<String, Map<String, String>> _starterLibrary = {
@@ -610,8 +759,7 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Leg Extension': 'Machine',
     'Calf Raise': 'Machine',
     'Seated Calf Raise': 'Machine',
-  },
-  'Glutes': {
+    // The glute movements, filed here rather than under a heading of their own.
     'Hip Thrust': 'Barbell',
     'Glute Bridge': 'Bodyweight',
     'Hip Abduction': 'Machine',
@@ -630,10 +778,8 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Overhead Cable Extension': 'Cable',
     'Cable Curl': 'Cable',
     'Triceps Dip': 'Bodyweight',
-  },
-  'Forearms': {
-    // Reverse Curl earns its place here rather than in Arms: the forearm is
-    // what gives out first, which is the whole reason anyone programmes it.
+    // The forearm and grip movements. Programmed for the part that gives out
+    // first, and still an arm day either way.
     'Reverse Curl': 'Barbell',
     'Wrist Curl': 'Dumbbell',
     'Reverse Wrist Curl': 'Dumbbell',
@@ -671,6 +817,27 @@ const Set<String> _heldStarters = {
   'Dead Hang',
   "Farmer's Carry",
 };
+
+/// The starters whose equipment does not say how they are loaded, because their
+/// equipment is `Other`.
+///
+/// A kettlebell is a weight in one hand, which is a dumbbell as far as the
+/// weight column is concerned; an ab wheel is your own body on a wheel.
+const Map<String, WeightType> _starterLoadings = {
+  'Kettlebell Swing': WeightType.dumbbell,
+  'Turkish Get-Up': WeightType.dumbbell,
+  'Ab Wheel Rollout': WeightType.none,
+};
+
+/// How a starter movement is loaded: what its equipment implies, unless it is
+/// one of the few [_starterLoadings] names it by hand.
+///
+/// The equipment carries almost all of it — a barbell lift is a bar, a dumbbell
+/// lift is a dumbbell, a cable stack and a machine both read as a machine, and a
+/// bodyweight movement carries nothing at all. What is left is the `Other`
+/// shelf, where the word says nothing about the load.
+WeightType _seedWeightType(String name, String equipment) =>
+    _starterLoadings[name] ?? weightTypeForEquipment(equipment);
 
 /// The workout a routine should suggest next, given its workouts in order and
 /// the workout logged by the most recent finished session.
@@ -722,6 +889,8 @@ String repsLabel(WorkoutItem it) {
     SessionSets,
     Settings,
     CustomThemes,
+    LiveSessions,
+    Bars,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -747,23 +916,22 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          await _seed();
-        },
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+      await _seed();
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 
   // ---- Exercise library --------------------------------------------------
 
   Stream<List<Exercise>> watchExercises() {
-    return (select(exercises)
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.muscleGroup),
-            (e) => OrderingTerm(expression: e.name),
-          ]))
+    return (select(exercises)..orderBy([
+          (e) => OrderingTerm(expression: e.muscleGroup),
+          (e) => OrderingTerm(expression: e.name),
+        ]))
         .watch();
   }
 
@@ -810,24 +978,41 @@ class AppDatabase extends _$AppDatabase {
     required ExerciseMeasure measure,
     required WeightType weightType,
   }) {
-    return (update(exercises)
-          ..where((e) => e.id.equals(id) & e.isCustom.equals(true)))
-        .write(ExercisesCompanion(
-      name: Value(name),
-      muscleGroup: Value(muscle),
-      equipment: Value(equipment),
-      videoUrl: Value(videoUrl),
-      measure: Value(measure),
-      weightType: Value(weightType),
-    ));
+    return (update(
+      exercises,
+    )..where((e) => e.id.equals(id) & e.isCustom.equals(true))).write(
+      ExercisesCompanion(
+        name: Value(name),
+        muscleGroup: Value(muscle),
+        equipment: Value(equipment),
+        videoUrl: Value(videoUrl),
+        measure: Value(measure),
+        weightType: Value(weightType),
+      ),
+    );
   }
 
-  /// Reclassifies how an exercise is loaded. Editable for every exercise, not
-  /// just custom ones: whether the gym's bench has a 20 kg bar or a 15 kg one
-  /// is a fact about the gym, and the starter library cannot know it.
-  Future<void> setExerciseWeightType(int id, WeightType type) =>
-      (update(exercises)..where((e) => e.id.equals(id)))
-          .write(ExercisesCompanion(weightType: Value(type)));
+  /// Reclassifies how an exercise is loaded.
+  ///
+  /// Editable almost everywhere, because how a movement is loaded is specific to
+  /// the movement and the gym: a skull crusher takes a bar, dumbbells or a
+  /// machine, and a chest-supported row is often plate-loaded. Refused only where
+  /// the movement's own name states the implement — a seeded "Barbell Curl" is
+  /// loaded on a bar, and any other answer leaves the name contradicting the
+  /// weight column. See [loadingNamedBy], and [FixedLoading] for the same
+  /// question asked of a row.
+  ///
+  /// Enforced here as well as by the screen not offering it, the way
+  /// [updateCustomExercise] guards a starter's name.
+  Future<void> setExerciseWeightType(int id, WeightType type) async {
+    final e = await (select(
+      exercises,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (e == null || e.loadingIsFixed) return;
+    await (update(exercises)..where((t) => t.id.equals(id))).write(
+      ExercisesCompanion(weightType: Value(type)),
+    );
+  }
 
   /// Writes this movement's personal note, or clears it.
   ///
@@ -847,28 +1032,29 @@ class AppDatabase extends _$AppDatabase {
   /// Gives one exercise a bar of its own, in kg. Null hands it back to the
   /// default on the settings screen.
   Future<void> setExerciseBarWeight(int id, double? kg) =>
-      (update(exercises)..where((e) => e.id.equals(id)))
-          .write(ExercisesCompanion(barWeight: Value(kg)));
+      (update(exercises)..where((e) => e.id.equals(id))).write(
+        ExercisesCompanion(barWeight: Value(kg)),
+      );
 
   // ---- Routines -----------------------------------------------------------
 
   Stream<List<RoutineWithCount>> watchRoutines() {
     final count = workouts.id.count();
-    final query = select(routines).join([
-      leftOuterJoin(workouts, workouts.routineId.equalsExp(routines.id)),
-    ])
-      ..addColumns([count])
-      ..groupBy([routines.id])
-      ..orderBy([OrderingTerm(expression: routines.position)]);
+    final query =
+        select(routines).join([
+            leftOuterJoin(workouts, workouts.routineId.equalsExp(routines.id)),
+          ])
+          ..addColumns([count])
+          ..groupBy([routines.id])
+          ..orderBy([OrderingTerm(expression: routines.position)]);
 
     return query.watch().map(
-          (rows) => rows
-              .map((r) => RoutineWithCount(
-                    r.readTable(routines),
-                    r.read(count) ?? 0,
-                  ))
-              .toList(),
-        );
+      (rows) => rows
+          .map(
+            (r) => RoutineWithCount(r.readTable(routines), r.read(count) ?? 0),
+          )
+          .toList(),
+    );
   }
 
   Future<Routine> routineById(int id) =>
@@ -878,22 +1064,25 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<WorkoutWithCount>> watchWorkoutsForRoutine(int routineId) {
     final count = workoutItems.id.count();
-    final query = select(workouts).join([
-      leftOuterJoin(workoutItems, workoutItems.workoutId.equalsExp(workouts.id)),
-    ])
-      ..where(workouts.routineId.equals(routineId))
-      ..addColumns([count])
-      ..groupBy([workouts.id])
-      ..orderBy([OrderingTerm(expression: workouts.position)]);
+    final query =
+        select(workouts).join([
+            leftOuterJoin(
+              workoutItems,
+              workoutItems.workoutId.equalsExp(workouts.id),
+            ),
+          ])
+          ..where(workouts.routineId.equals(routineId))
+          ..addColumns([count])
+          ..groupBy([workouts.id])
+          ..orderBy([OrderingTerm(expression: workouts.position)]);
 
     return query.watch().map(
-          (rows) => rows
-              .map((r) => WorkoutWithCount(
-                    r.readTable(workouts),
-                    r.read(count) ?? 0,
-                  ))
-              .toList(),
-        );
+      (rows) => rows
+          .map(
+            (r) => WorkoutWithCount(r.readTable(workouts), r.read(count) ?? 0),
+          )
+          .toList(),
+    );
   }
 
   Future<List<Workout>> workoutsForRoutine(int routineId) {
@@ -921,8 +1110,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> renameWorkout(int id, String name) {
-    return (update(workouts)..where((w) => w.id.equals(id)))
-        .write(WorkoutsCompanion(name: Value(name)));
+    return (update(workouts)..where((w) => w.id.equals(id))).write(
+      WorkoutsCompanion(name: Value(name)),
+    );
   }
 
   /// Deletes a workout; its exercise slots cascade away via the foreign key.
@@ -968,12 +1158,13 @@ class AppDatabase extends _$AppDatabase {
 
         final items = d.items;
         if (items != null) {
-          await (delete(workoutItems)
-                ..where((it) => it.workoutId.equals(workoutId)))
-              .go();
+          await (delete(
+            workoutItems,
+          )..where((it) => it.workoutId.equals(workoutId))).go();
           for (final it in items) {
-            await into(workoutItems)
-                .insert(it.copyWith(workoutId: Value(workoutId)));
+            await into(
+              workoutItems,
+            ).insert(it.copyWith(workoutId: Value(workoutId)));
           }
         }
       }
@@ -984,41 +1175,55 @@ class AppDatabase extends _$AppDatabase {
   // ---- Workout items ------------------------------------------------------
 
   Stream<List<WorkoutItemView>> watchItemsForWorkout(int workoutId) {
-    final query = select(workoutItems).join([
-      innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
-    ])
-      ..where(workoutItems.workoutId.equals(workoutId))
-      ..orderBy([OrderingTerm(expression: workoutItems.position)]);
+    final query =
+        select(workoutItems).join([
+            innerJoin(
+              exercises,
+              exercises.id.equalsExp(workoutItems.exerciseId),
+            ),
+          ])
+          ..where(workoutItems.workoutId.equals(workoutId))
+          ..orderBy([OrderingTerm(expression: workoutItems.position)]);
 
     return query.watch().map(
-          (rows) => rows
-              .map((r) => WorkoutItemView(
-                    r.readTable(workoutItems),
-                    r.readTable(exercises),
-                  ))
-              .toList(),
-        );
+      (rows) => rows
+          .map(
+            (r) => WorkoutItemView(
+              r.readTable(workoutItems),
+              r.readTable(exercises),
+            ),
+          )
+          .toList(),
+    );
   }
 
   Future<List<WorkoutItemView>> itemsForWorkout(int workoutId) async {
-    final query = select(workoutItems).join([
-      innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
-    ])
-      ..where(workoutItems.workoutId.equals(workoutId))
-      ..orderBy([OrderingTerm(expression: workoutItems.position)]);
+    final query =
+        select(workoutItems).join([
+            innerJoin(
+              exercises,
+              exercises.id.equalsExp(workoutItems.exerciseId),
+            ),
+          ])
+          ..where(workoutItems.workoutId.equals(workoutId))
+          ..orderBy([OrderingTerm(expression: workoutItems.position)]);
 
     final rows = await query.get();
     return rows
-        .map((r) =>
-            WorkoutItemView(r.readTable(workoutItems), r.readTable(exercises)))
+        .map(
+          (r) => WorkoutItemView(
+            r.readTable(workoutItems),
+            r.readTable(exercises),
+          ),
+        )
         .toList();
   }
 
   Future<int> _nextRoutinePosition() async {
     final maxPos = routines.position.max();
-    final row = await (selectOnly(routines)..addColumns([maxPos]))
-        .map((r) => r.read(maxPos))
-        .getSingleOrNull();
+    final row = await (selectOnly(
+      routines,
+    )..addColumns([maxPos])).map((r) => r.read(maxPos)).getSingleOrNull();
     return (row ?? -1) + 1;
   }
 
@@ -1071,29 +1276,31 @@ class AppDatabase extends _$AppDatabase {
   /// each time anything moves, and a partial view would leave stale ones behind.
   Stream<List<RoutineReminder>> watchRoutineReminders() {
     final lastAt = sessions.startedAt.max();
-    final query = select(routines).join([
-      leftOuterJoin(
-        sessions,
-        sessions.routineId.equalsExp(routines.id) & sessions.endedAt.isNotNull(),
-        useColumns: false,
-      ),
-    ])
-      ..addColumns([lastAt])
-      ..groupBy([routines.id])
-      ..orderBy([OrderingTerm(expression: routines.position)]);
+    final query =
+        select(routines).join([
+            leftOuterJoin(
+              sessions,
+              sessions.routineId.equalsExp(routines.id) &
+                  sessions.endedAt.isNotNull(),
+              useColumns: false,
+            ),
+          ])
+          ..addColumns([lastAt])
+          ..groupBy([routines.id])
+          ..orderBy([OrderingTerm(expression: routines.position)]);
 
     return query.watch().map(
-          (rows) => rows.map((r) {
-            final routine = r.readTable(routines);
-            return RoutineReminder(
-              routineId: routine.id,
-              name: routine.name,
-              scheduleDays: routine.scheduleDays,
-              reminderMinutes: routine.reminderMinutes,
-              lastTrainedAt: r.read(lastAt),
-            );
-          }).toList(),
+      (rows) => rows.map((r) {
+        final routine = r.readTable(routines);
+        return RoutineReminder(
+          routineId: routine.id,
+          name: routine.name,
+          scheduleDays: routine.scheduleDays,
+          reminderMinutes: routine.reminderMinutes,
+          lastTrainedAt: r.read(lastAt),
         );
+      }).toList(),
+    );
   }
 
   /// Deletes a routine; its workouts and their items cascade away.
@@ -1106,8 +1313,9 @@ class AppDatabase extends _$AppDatabase {
     List<WorkoutItemsCompanion> items,
   ) {
     return transaction(() async {
-      await (delete(workoutItems)..where((i) => i.workoutId.equals(workoutId)))
-          .go();
+      await (delete(
+        workoutItems,
+      )..where((i) => i.workoutId.equals(workoutId))).go();
       for (final it in items) {
         await into(workoutItems).insert(it);
       }
@@ -1179,8 +1387,9 @@ class AppDatabase extends _$AppDatabase {
           patch = patch.copyWith(
             repsMin: Value(to),
             // A range keeps its width: 6–8 becomes 7–9, not 7–8.
-            repsMax:
-                Value(it.repsMax == null ? null : it.repsMax! + (to - from)),
+            repsMax: Value(
+              it.repsMax == null ? null : it.repsMax! + (to - from),
+            ),
           );
           moved = (to - from).toDouble();
         }
@@ -1193,7 +1402,9 @@ class AppDatabase extends _$AppDatabase {
         }
     }
 
-    await (update(workoutItems)..where((i) => i.id.equals(itemId))).write(patch);
+    await (update(
+      workoutItems,
+    )..where((i) => i.id.equals(itemId))).write(patch);
     return moved;
   }
 
@@ -1226,9 +1437,9 @@ class AppDatabase extends _$AppDatabase {
   /// to cut moves nothing, and the UI should not claim otherwise.
   Future<int> applyLayoffDeload(int workoutId, int percent) {
     return transaction(() async {
-      final items = await (select(workoutItems)
-            ..where((i) => i.workoutId.equals(workoutId)))
-          .get();
+      final items = await (select(
+        workoutItems,
+      )..where((i) => i.workoutId.equals(workoutId))).get();
 
       var moved = 0;
       for (final it in items) {
@@ -1256,8 +1467,9 @@ class AppDatabase extends _$AppDatabase {
               patch = patch.copyWith(
                 repsMin: Value(to),
                 // A range keeps its width, as it does on the way up.
-                repsMax:
-                    Value(it.repsMax == null ? null : it.repsMax! + (to - from)),
+                repsMax: Value(
+                  it.repsMax == null ? null : it.repsMax! + (to - from),
+                ),
               );
               moved++;
             }
@@ -1269,8 +1481,9 @@ class AppDatabase extends _$AppDatabase {
               moved++;
             }
         }
-        await (update(workoutItems)..where((i) => i.id.equals(it.id)))
-            .write(patch);
+        await (update(
+          workoutItems,
+        )..where((i) => i.id.equals(it.id))).write(patch);
       }
       return moved;
     });
@@ -1298,11 +1511,14 @@ class AppDatabase extends _$AppDatabase {
   /// When a workout was last trained, or null if it never has been. Drives the
   /// layoff check on the way into a session.
   Future<DateTime?> lastTrainedAt(int workoutId) async {
-    final row = await (select(sessions)
-          ..where((s) => s.workoutId.equals(workoutId) & s.endedAt.isNotNull())
-          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (select(sessions)
+              ..where(
+                (s) => s.workoutId.equals(workoutId) & s.endedAt.isNotNull(),
+              )
+              ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
+              ..limit(1))
+            .getSingleOrNull();
     return row?.startedAt;
   }
 
@@ -1362,23 +1578,25 @@ class AppDatabase extends _$AppDatabase {
     final q = selectOnly(sessionSets)
       ..addColumns([sessionSets.videoPath])
       ..where(sessionSets.videoPath.isNotNull());
-    return q
-        .watch()
-        .map((rows) => [for (final r in rows) ?r.read(sessionSets.videoPath)]);
+    return q.watch().map(
+      (rows) => [for (final r in rows) ?r.read(sessionSets.videoPath)],
+    );
   }
 
   /// Forgets the clip on set [setId], leaving the set itself exactly as it was.
   /// Deleting the file is the caller's job — see `SetVideoStore` — and happens
   /// after this, so a crash strands a file rather than a dead reference.
   Future<void> clearSetVideo(int setId) =>
-      (update(sessionSets)..where((s) => s.id.equals(setId)))
-          .write(const SessionSetsCompanion(videoPath: Value(null)));
+      (update(sessionSets)..where((s) => s.id.equals(setId))).write(
+        const SessionSetsCompanion(videoPath: Value(null)),
+      );
 
   /// Forgets every clip, leaving every set exactly as it was. The files are
   /// the caller's to remove afterwards — an orphan sweep with no grace does it.
   Future<void> clearAllSetVideos() =>
-      (update(sessionSets)..where((s) => s.videoPath.isNotNull()))
-          .write(const SessionSetsCompanion(videoPath: Value(null)));
+      (update(sessionSets)..where((s) => s.videoPath.isNotNull())).write(
+        const SessionSetsCompanion(videoPath: Value(null)),
+      );
 
   /// Every clip belonging to one exercise, newest first, each carrying the set
   /// and session it came from. This is the per-exercise film reel: your squat
@@ -1387,21 +1605,25 @@ class AppDatabase extends _$AppDatabase {
   /// Matched on `exerciseId`, like the rest of the exercise history, so a
   /// movement renamed in the library keeps its clips.
   Stream<List<ExerciseSetEntry>> watchExerciseClips(int exerciseId) {
-    return watchExerciseSetHistory(exerciseId).map((sets) => [
-          for (final s in sets.reversed)
-            if (s.videoPath != null) s,
-        ]);
+    return watchExerciseSetHistory(exerciseId).map(
+      (sets) => [
+        for (final s in sets.reversed)
+          if (s.videoPath != null) s,
+      ],
+    );
   }
 
   /// How the camera is set up for a set clip: the height to film at and the
   /// hard stop on its length.
   Stream<VideoSetting> watchVideoSetting() {
-    return (select(settings)..where((s) => s.id.equals(1)))
-        .watchSingleOrNull()
-        .map((s) => (
-              height: s?.videoHeight ?? kDefaultVideoHeight,
-              maxSeconds: s?.videoMaxSeconds ?? kDefaultVideoSeconds,
-            ));
+    return (select(
+      settings,
+    )..where((s) => s.id.equals(1))).watchSingleOrNull().map(
+      (s) => (
+        height: s?.videoHeight ?? kDefaultVideoHeight,
+        maxSeconds: s?.videoMaxSeconds ?? kDefaultVideoSeconds,
+      ),
+    );
   }
 
   Future<void> setVideoHeight(int height) =>
@@ -1423,34 +1645,37 @@ class AppDatabase extends _$AppDatabase {
   /// Live, unfinished sessions are excluded — a set only counts once its
   /// session is finished, the same rule the lifetime totals use.
   Stream<List<ExerciseSetEntry>> watchExerciseSetHistory(int exerciseId) {
-    final query = select(sessionSets).join([
-      innerJoin(sessions, sessions.id.equalsExp(sessionSets.sessionId)),
-    ])
-      ..where(sessionSets.exerciseId.equals(exerciseId) &
-          sessions.endedAt.isNotNull())
-      ..orderBy([
-        OrderingTerm(expression: sessions.startedAt),
-        OrderingTerm(expression: sessionSets.setNumber),
-      ]);
+    final query =
+        select(sessionSets).join([
+            innerJoin(sessions, sessions.id.equalsExp(sessionSets.sessionId)),
+          ])
+          ..where(
+            sessionSets.exerciseId.equals(exerciseId) &
+                sessions.endedAt.isNotNull(),
+          )
+          ..orderBy([
+            OrderingTerm(expression: sessions.startedAt),
+            OrderingTerm(expression: sessionSets.setNumber),
+          ]);
 
     return query.watch().map(
-          (rows) => rows.map((r) {
-            final set = r.readTable(sessionSets);
-            final session = r.readTable(sessions);
-            return ExerciseSetEntry(
-              setId: set.id,
-              sessionId: set.sessionId,
-              date: session.startedAt,
-              sessionName: session.name,
-              setNumber: set.setNumber,
-              weightKg: set.weight,
-              reps: set.reps,
-              seconds: set.seconds,
-              done: set.done,
-              videoPath: set.videoPath,
-            );
-          }).toList(),
+      (rows) => rows.map((r) {
+        final set = r.readTable(sessionSets);
+        final session = r.readTable(sessions);
+        return ExerciseSetEntry(
+          setId: set.id,
+          sessionId: set.sessionId,
+          date: session.startedAt,
+          sessionName: session.name,
+          setNumber: set.setNumber,
+          weightKg: set.weight,
+          reps: set.reps,
+          seconds: set.seconds,
+          done: set.done,
+          videoPath: set.videoPath,
         );
+      }).toList(),
+    );
   }
 
   // ---- Aggregate stats ----------------------------------------------------
@@ -1466,23 +1691,29 @@ class AppDatabase extends _$AppDatabase {
   /// Lifetime volume, reps and sets over every completed set of every finished
   /// session. Volume is kg·reps, in kilograms.
   Stream<LifetimeTotals> watchLifetimeTotals() {
-    final volumeExp =
-        (sessionSets.weight * sessionSets.reps.cast<double>()).total();
+    final volumeExp = (sessionSets.weight * sessionSets.reps.cast<double>())
+        .total();
     final repsExp = sessionSets.reps.sum();
     final setsExp = sessionSets.id.count();
 
-    final q = selectOnly(sessionSets).join([
-      innerJoin(sessions, sessions.id.equalsExp(sessionSets.sessionId),
-          useColumns: false),
-    ])
-      ..addColumns([volumeExp, repsExp, setsExp])
-      ..where(sessionSets.done.equals(true) & sessions.endedAt.isNotNull());
+    final q =
+        selectOnly(sessionSets).join([
+            innerJoin(
+              sessions,
+              sessions.id.equalsExp(sessionSets.sessionId),
+              useColumns: false,
+            ),
+          ])
+          ..addColumns([volumeExp, repsExp, setsExp])
+          ..where(sessionSets.done.equals(true) & sessions.endedAt.isNotNull());
 
-    return q.watchSingle().map((row) => LifetimeTotals(
-          volumeKg: row.read(volumeExp) ?? 0,
-          reps: row.read(repsExp) ?? 0,
-          sets: row.read(setsExp) ?? 0,
-        ));
+    return q.watchSingle().map(
+      (row) => LifetimeTotals(
+        volumeKg: row.read(volumeExp) ?? 0,
+        reps: row.read(repsExp) ?? 0,
+        sets: row.read(setsExp) ?? 0,
+      ),
+    );
   }
 
   // ---- Settings -----------------------------------------------------------
@@ -1531,21 +1762,22 @@ class AppDatabase extends _$AppDatabase {
   /// The layoff rules, falling back to the defaults if the settings row has
   /// somehow not been written yet.
   Stream<LayoffSettings> watchLayoffSettings() {
-    return (select(settings)..where((s) => s.id.equals(1)))
-        .watchSingleOrNull()
-        .map(_layoffOf);
+    return (select(
+      settings,
+    )..where((s) => s.id.equals(1))).watchSingleOrNull().map(_layoffOf);
   }
 
   Future<LayoffSettings> layoffSettings() async {
-    final row = await (select(settings)..where((s) => s.id.equals(1)))
-        .getSingleOrNull();
+    final row = await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
     return _layoffOf(row);
   }
 
   LayoffSettings _layoffOf(Setting? s) => (
-        days: s?.layoffDays ?? kDefaultLayoffDays,
-        percent: s?.layoffPercent ?? kDefaultLayoffPercent,
-      );
+    days: s?.layoffDays ?? kDefaultLayoffDays,
+    percent: s?.layoffPercent ?? kDefaultLayoffPercent,
+  );
 
   Future<void> setLayoffDays(int days) =>
       _writeSettings(SettingsCompanion(layoffDays: Value(days)));
@@ -1557,32 +1789,137 @@ class AppDatabase extends _$AppDatabase {
   /// current unit with [resolvePlateSettings] before using it; see
   /// `plateSettingsProvider`.
   Stream<StoredPlateSetup> watchPlateSetup() {
-    return (select(settings)..where((s) => s.id.equals(1)))
-        .watchSingleOrNull()
-        .map((s) => (
-              kgRack: s?.plateInventory,
-              lbRack: s?.plateInventoryLb,
-              barKg: s?.barWeight,
-            ));
+    return (select(
+      settings,
+    )..where((s) => s.id.equals(1))).watchSingleOrNull().map(
+      (s) => (
+        kgRack: s?.plateInventory,
+        lbRack: s?.plateInventoryLb,
+        barKg: s?.barWeight,
+      ),
+    );
   }
 
+  /// Picks the bar weighing [kg] as the app-wide default.
   Future<void> setBarWeight(double kg) =>
       _writeSettings(SettingsCompanion(barWeight: Value(kg)));
+
+  // ---- Bars ---------------------------------------------------------------
+  //
+  // The gym's bars as rows — see [Bars] for the model, in particular why a bar
+  // is referred to by its weight rather than by its id.
+
+  /// The bars on [unit]'s list, lightest first.
+  Stream<List<Bar>> watchBars(String unit) => _barsFor(unit).watch();
+
+  /// The same list, read once.
+  Future<List<Bar>> barsFor(String unit) => _barsFor(unit).get();
+
+  SimpleSelectStatement<$BarsTable, Bar> _barsFor(String unit) => select(bars)
+    ..where((b) => b.unit.equals(unit))
+    ..orderBy([(b) => OrderingTerm(expression: b.weightKg)]);
+
+  /// Adds a bar to [unit]'s list. False — and nothing written — when a bar on
+  /// that list already weighs this much: references are weights, so two of them
+  /// could not be told apart.
+  Future<bool> addBar({
+    required String unit,
+    required String name,
+    required double kg,
+  }) async {
+    if (await _barAt(unit, kg) != null) return false;
+    await into(bars).insert(
+      BarsCompanion.insert(
+        unit: unit,
+        name: name.trim(),
+        weightKg: kg,
+        isCustom: const Value(true),
+      ),
+    );
+    return true;
+  }
+
+  /// Renames and re-weighs a bar of your own, moving everything that pointed at
+  /// its old weight — exercises with a bar of their own, the app-wide default —
+  /// onto the new one.
+  ///
+  /// False when another bar on the same list already weighs [kg], and false for
+  /// one of the seeded bars, which are fixed — see [Bars]. The screen does not
+  /// offer the pencil on those, so getting here with one is a bug rather than a
+  /// refusal anybody sees.
+  Future<bool> editBar(
+    int id, {
+    required String name,
+    required double kg,
+  }) async {
+    final bar = await (select(
+      bars,
+    )..where((b) => b.id.equals(id))).getSingleOrNull();
+    if (bar == null || !bar.isCustom) return false;
+    if (await _barAt(bar.unit, kg, except: id) != null) return false;
+    await (update(bars)..where((b) => b.id.equals(id))).write(
+      BarsCompanion(name: Value(name.trim()), weightKg: Value(kg)),
+    );
+    if ((bar.weightKg - kg).abs() > kPlateToleranceKg) {
+      await _repointBar(bar.weightKg, kg);
+    }
+    return true;
+  }
+
+  /// Deletes a bar. Exercises that used it fall back to the default, and if it
+  /// *was* the default, that falls back to the standard bar for the unit —
+  /// nothing is left pointing at a bar the gym no longer has.
+  Future<void> deleteBar(int id) async {
+    final bar = await (select(
+      bars,
+    )..where((b) => b.id.equals(id))).getSingleOrNull();
+    if (bar == null) return;
+    await (delete(bars)..where((b) => b.id.equals(id))).go();
+    await _repointBar(bar.weightKg, null);
+  }
+
+  /// The bar on [unit]'s list weighing [kg], or null. Within
+  /// [kPlateToleranceKg], because a pounds bar's kilograms have a tail on them.
+  Future<Bar?> _barAt(String unit, double kg, {int? except}) async {
+    for (final b in await barsFor(unit)) {
+      if (b.id != except && (b.weightKg - kg).abs() <= kPlateToleranceKg) {
+        return b;
+      }
+    }
+    return null;
+  }
+
+  /// Moves every reference to a bar of [fromKg] onto [toKg] — or, when that is
+  /// null, off it: an exercise falls back to the default and the default falls
+  /// back to the standard bar for the unit.
+  Future<void> _repointBar(double fromKg, double? toKg) async {
+    final lo = fromKg - kPlateToleranceKg;
+    final hi = fromKg + kPlateToleranceKg;
+    await (update(exercises)..where((e) => e.barWeight.isBetweenValues(lo, hi)))
+        .write(ExercisesCompanion(barWeight: Value(toKg)));
+    await (update(settings)
+          ..where((s) => s.id.equals(1) & s.barWeight.isBetweenValues(lo, hi)))
+        .write(SettingsCompanion(barWeight: Value(toKg)));
+  }
 
   /// Stores the rack for [unit] — the racks are kept apart, see
   /// [resolvePlateSettings].
   Future<void> setPlateInventory(List<PlateStack> plates, String unit) {
     final encoded = Value(encodePlates(plates));
-    return _writeSettings(unit == 'lb'
-        ? SettingsCompanion(plateInventoryLb: encoded)
-        : SettingsCompanion(plateInventory: encoded));
+    return _writeSettings(
+      unit == 'lb'
+          ? SettingsCompanion(plateInventoryLb: encoded)
+          : SettingsCompanion(plateInventory: encoded),
+    );
   }
 
   /// Forgets the rack for [unit], so the standard one stands in again. The
   /// other unit's rack is left alone — it was never the thing being reset.
-  Future<void> resetPlateInventory(String unit) => _writeSettings(unit == 'lb'
-      ? const SettingsCompanion(plateInventoryLb: Value(null))
-      : const SettingsCompanion(plateInventory: Value(null)));
+  Future<void> resetPlateInventory(String unit) => _writeSettings(
+    unit == 'lb'
+        ? const SettingsCompanion(plateInventoryLb: Value(null))
+        : const SettingsCompanion(plateInventory: Value(null)),
+  );
 
   /// Forgets the configured default bar.
   Future<void> resetBarWeight() =>
@@ -1600,9 +1937,44 @@ class AppDatabase extends _$AppDatabase {
 
   /// The user's own themes, oldest first — the order they were built or
   /// imported in, which is the order the picker lists them in.
-  Stream<List<CustomTheme>> watchCustomThemes() =>
-      (select(customThemes)..orderBy([(t) => OrderingTerm(expression: t.id)]))
-          .watch();
+  Stream<List<CustomTheme>> watchCustomThemes() => (select(
+    customThemes,
+  )..orderBy([(t) => OrderingTerm(expression: t.id)])).watch();
+
+  // ---- The live session's crash snapshot ----------------------------------
+  //
+  // See [LiveSessions]. Three calls: one to mirror, one to read back on launch,
+  // one to forget. Nothing else in the app touches this table.
+
+  /// Mirrors the live session to disk, replacing whatever was there.
+  ///
+  /// **Written as a statement rather than through the table's API, on purpose:
+  /// this write must not notify anything.** A drift insert tells the update
+  /// machinery a table changed, every open stream that could be affected re-runs
+  /// its query, and every one of them is a query nobody asked for — the snapshot
+  /// is read exactly once, on launch, and never watched. A session logs a set
+  /// every couple of minutes and edits a weight in between; waking the whole app's
+  /// streams each time would be a real cost for no reader at all.
+  ///
+  /// The id is spelled out because SQLite ignores a default on a single-column
+  /// integer primary key and hands out a fresh row id instead, which would stack
+  /// snapshots up rather than replacing the one slot.
+  Future<void> saveLiveSession(String payload, {DateTime? at}) =>
+      customStatement(
+        'INSERT INTO live_sessions (id, payload, saved_at) VALUES (1, ?, ?) '
+        'ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, '
+        'saved_at = excluded.saved_at',
+        [payload, (at ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000],
+      );
+
+  /// The snapshot left by the last run, or null if there is none.
+  Future<LiveSession?> loadLiveSession() =>
+      (select(liveSessions)..where((t) => t.id.equals(1))).getSingleOrNull();
+
+  /// Forgets the snapshot — the session was finished or thrown away. A statement
+  /// again, and for the same reason as [saveLiveSession].
+  Future<void> clearLiveSession() =>
+      customStatement('DELETE FROM live_sessions');
 
   /// Selects a shipped preset, or `custom:<n>` for one of the user's own, as
   /// the active theme. Passing null falls back to the system default. Nothing
@@ -1617,31 +1989,34 @@ class AppDatabase extends _$AppDatabase {
   /// Adding, never replacing: an imported code arrives alongside whatever is
   /// already here rather than over the top of it.
   Future<int> addCustomTheme(String json) => transaction(() async {
-        final id = await into(customThemes)
-            .insert(CustomThemesCompanion.insert(palette: json));
-        await setThemePreset(customThemeId(id));
-        return id;
-      });
+    final id = await into(
+      customThemes,
+    ).insert(CustomThemesCompanion.insert(palette: json));
+    await setThemePreset(customThemeId(id));
+    return id;
+  });
 
   /// Rewrites theme [id]'s palette and selects it. Saving a theme you were
   /// editing is also a request to look at it.
   Future<void> updateCustomTheme(int id, String json) => transaction(() async {
-        await (update(customThemes)..where((t) => t.id.equals(id)))
-            .write(CustomThemesCompanion(palette: Value(json)));
-        await setThemePreset(customThemeId(id));
-      });
+    await (update(customThemes)..where((t) => t.id.equals(id))).write(
+      CustomThemesCompanion(palette: Value(json)),
+    );
+    await setThemePreset(customThemeId(id));
+  });
 
   /// Removes theme [id], and — if it was the selected one — the selection with
   /// it, so the app falls back to the system default rather than being left
   /// pointing at a row that is gone.
   Future<void> deleteCustomTheme(int id) => transaction(() async {
-        await (delete(customThemes)..where((t) => t.id.equals(id))).go();
-        final selected = await (select(settings)..where((s) => s.id.equals(1)))
-            .getSingleOrNull();
-        if (selected?.themePresetId == customThemeId(id)) {
-          await setThemePreset(null);
-        }
-      });
+    await (delete(customThemes)..where((t) => t.id.equals(id))).go();
+    final selected = await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
+    if (selected?.themePresetId == customThemeId(id)) {
+      await setThemePreset(null);
+    }
+  });
 
   /// Updates the single settings row, creating it if it is somehow missing.
   /// Only the columns present in [patch] are touched.
@@ -1660,6 +2035,17 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
 
+    // The bars a gym is assumed to rack, both units' lists at once: the unit can
+    // be switched at any time and the list for the other one should be there
+    // when it is, the same way the plate rack is.
+    for (final unit in const ['kg', 'lb']) {
+      for (final b in namedBars(unit)) {
+        await into(bars).insert(
+          BarsCompanion.insert(unit: unit, name: b.name, weightKg: b.weight),
+        );
+      }
+    }
+
     // A curated starter library. Each ships with a demo link (a YouTube
     // search, so the link never rots).
     final ids = <String, int>{};
@@ -1677,16 +2063,15 @@ class AppDatabase extends _$AppDatabase {
           muscleGroup: Value(muscle),
           equipment: Value(equip),
           measure: Value(measure),
-          // The equipment already says how these are loaded — a barbell lift
-          // is a bar, a dumbbell lift is a dumbbell, and the cables, machines
-          // and bodyweight movements are all "the number is the number".
-          weightType: Value(weightTypeForEquipment(equip)),
+          weightType: Value(_seedWeightType(name, equip)),
           // A specific video, in the canonical short form — see
           // [_starterDemos]. These were YouTube *searches*, which meant a
           // results page to pick from rather than a demo, and no id for a
           // shared routine to carry.
           videoUrl: Value(
-            _starterDemos[name] == null ? null : youTubeUrl(_starterDemos[name]!),
+            _starterDemos[name] == null
+                ? null
+                : youTubeUrl(_starterDemos[name]!),
           ),
         ),
       );
@@ -1741,7 +2126,8 @@ class AppDatabase extends _$AppDatabase {
           // up every one of them here.
           final measure = measures[it.name] ?? ExerciseMeasure.reps;
           final mode = measure.coerce(
-              it.w == null ? ProgressionMode.reps : ProgressionMode.weight);
+            it.w == null ? ProgressionMode.reps : ProgressionMode.weight,
+          );
           await into(workoutItems).insert(
             WorkoutItemsCompanion.insert(
               workoutId: wid,
@@ -1762,27 +2148,36 @@ class AppDatabase extends _$AppDatabase {
     }
 
     final ppl = await routine('Push / Pull / Legs', 'FF6A3D', 0, 120, [
-      (name: 'Push', items: [
-        (name: 'Bench Press', sets: 4, min: 6, max: 8, w: 80),
-        (name: 'Overhead Press', sets: 4, min: 8, max: null, w: 50),
-        (name: 'Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
-        (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-        (name: 'Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
-      ]),
-      (name: 'Pull', items: [
-        (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
-        (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
-        (name: 'Barbell Row', sets: 4, min: 8, max: null, w: 70),
-        (name: 'Face Pull', sets: 3, min: 15, max: 20, w: 25),
-        (name: 'Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
-      ]),
-      (name: 'Legs', items: [
-        (name: 'Back Squat', sets: 4, min: 6, max: null, w: 110),
-        (name: 'Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
-        (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
-        (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
-        (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
-      ]),
+      (
+        name: 'Push',
+        items: [
+          (name: 'Bench Press', sets: 4, min: 6, max: 8, w: 80),
+          (name: 'Overhead Press', sets: 4, min: 8, max: null, w: 50),
+          (name: 'Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
+          (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
+          (name: 'Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
+        ],
+      ),
+      (
+        name: 'Pull',
+        items: [
+          (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
+          (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
+          (name: 'Barbell Row', sets: 4, min: 8, max: null, w: 70),
+          (name: 'Face Pull', sets: 3, min: 15, max: 20, w: 25),
+          (name: 'Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
+        ],
+      ),
+      (
+        name: 'Legs',
+        items: [
+          (name: 'Back Squat', sets: 4, min: 6, max: null, w: 110),
+          (name: 'Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
+          (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
+          (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
+          (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+        ],
+      ),
       // Mondays, Wednesdays and Fridays — a schedule on one of the two demo
       // routines and none on the other, so both states of the setting are
       // visible before anyone has configured anything. No reminder either way:
@@ -1790,30 +2185,42 @@ class AppDatabase extends _$AppDatabase {
     ], schedule: 1 << 0 | 1 << 2 | 1 << 4);
 
     await routine('Upper / Lower', '3ED598', 1, 150, [
-      (name: 'Upper 1', items: [
-        (name: 'Bench Press', sets: 4, min: 5, max: null, w: 80),
-        (name: 'Barbell Row', sets: 4, min: 6, max: 8, w: 70),
-        (name: 'Overhead Press', sets: 3, min: 8, max: 10, w: 45),
-        (name: 'Lat Pulldown', sets: 3, min: 10, max: 12, w: 55),
-      ]),
-      (name: 'Lower 1', items: [
-        (name: 'Back Squat', sets: 4, min: 5, max: null, w: 110),
-        (name: 'Romanian Deadlift', sets: 3, min: 8, max: 10, w: 90),
-        (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
-        (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
-      ]),
-      (name: 'Upper 2', items: [
-        (name: 'Incline DB Press', sets: 4, min: 8, max: 10, w: 30),
-        (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
-        (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-        (name: 'Hammer Curl', sets: 3, min: 10, max: 12, w: 14),
-      ]),
-      (name: 'Lower 2', items: [
-        (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
-        (name: 'Front Squat', sets: 3, min: 8, max: 10, w: 70),
-        (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
-        (name: 'Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
-      ]),
+      (
+        name: 'Upper 1',
+        items: [
+          (name: 'Bench Press', sets: 4, min: 5, max: null, w: 80),
+          (name: 'Barbell Row', sets: 4, min: 6, max: 8, w: 70),
+          (name: 'Overhead Press', sets: 3, min: 8, max: 10, w: 45),
+          (name: 'Lat Pulldown', sets: 3, min: 10, max: 12, w: 55),
+        ],
+      ),
+      (
+        name: 'Lower 1',
+        items: [
+          (name: 'Back Squat', sets: 4, min: 5, max: null, w: 110),
+          (name: 'Romanian Deadlift', sets: 3, min: 8, max: 10, w: 90),
+          (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
+          (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+        ],
+      ),
+      (
+        name: 'Upper 2',
+        items: [
+          (name: 'Incline DB Press', sets: 4, min: 8, max: 10, w: 30),
+          (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
+          (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
+          (name: 'Hammer Curl', sets: 3, min: 10, max: 12, w: 14),
+        ],
+      ),
+      (
+        name: 'Lower 2',
+        items: [
+          (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
+          (name: 'Front Squat', sets: 3, min: 8, max: 10, w: 70),
+          (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
+          (name: 'Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
+        ],
+      ),
     ]);
 
     // Give Today something to be about on first launch.

@@ -10,7 +10,10 @@
 //   * an incoming exercise whose name already exists is the user's call —
 //     keep mine (the default) or replace, editing in place so history survives;
 //   * the three ways a code can fail each say what to do and offer no partial
-//     import.
+//     import;
+//   * the share sheet sends the bare code, because a chat app leaves a
+//     `fosslift://` URL as unclickable text; the QR holds the link, so a phone's
+//     own camera can open the import screen.
 //
 // Exercised through the real public surface: the codec, the arrival plan, the
 // database methods, the link mapping and the two screens.
@@ -344,14 +347,14 @@ void main() {
       expect(RoutineCode.fitsQr(link), isFalse);
       expect(qrEccFor(link.length), isNull);
 
-      // Still perfectly shareable every other way — the code itself is fine.
+      // Still perfectly shareable as a pasted code — the code itself is fine.
       expect((RoutineCode.decode(link) as RoutineCodeOk).routine.exercises,
           hasLength(60));
     });
 
     test('a big routine spends its error correction to stay scannable', () {
       // Between the two capacities a symbol is still worth painting, just with
-      // less redundancy — a worse QR beats no QR when the fallback is a link.
+      // less redundancy — a worse QR beats no QR when the fallback is a paste.
       expect(qrEccFor(kQrBytesMediumEcc), QrEcc.medium);
       expect(qrEccFor(kQrBytesMediumEcc + 1), QrEcc.low);
       expect(qrEccFor(kQrBytesLowEcc), QrEcc.low);
@@ -890,7 +893,7 @@ void main() {
     });
   });
 
-  group('links', () {
+  group('a link that arrives from outside', () {
     test('a routine link opens the routine import screen', () async {
       final shared = await db.sharedRoutine(await _seedCustomRoutine(db));
       final route = routeForLink(Uri.parse(RoutineCode.link(shared)));
@@ -916,11 +919,21 @@ void main() {
       }
     });
 
-    test('Android is told to hand us every host we share', () {
+    test('a whole routine survives being wrapped in one', () async {
+      // The inbound path is kept whole even though nothing outbound builds a
+      // link any more: a code shared before, or by hand, still has to import.
+      final shared = await db.sharedRoutine(await _seedCustomRoutine(db));
+      final result = RoutineCode.decode(RoutineCode.link(shared));
+
+      expect(result, isA<RoutineCodeOk>());
+      expect((result as RoutineCodeOk).routine.name, 'Elbow Day');
+    });
+
+    test('Android is told to hand us every host that can arrive', () {
       // Routing a link is only half of it: with no intent filter for the host,
       // Android never launches the app and `routeForLink` is never asked. That
       // is exactly how routine links came to be inert while theme links worked
-      // — the filter named one host and the app shared two.
+      // — the filter named one host and the app routed two.
       final manifest =
           File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
 
@@ -936,8 +949,45 @@ void main() {
     });
   });
 
+  group('the scanner', () {
+    test('a routine QR hands off to the confirmation, and applies nothing',
+        () async {
+      final code = RoutineCode.encode(
+          await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+      expect(readsAsShare(RoutineCode.host, code), isTrue);
+      expect(importRoute(RoutineCode.host, code),
+          startsWith('/routine/import?code='),
+          reason: 'the import screen is the only place a code is adopted');
+    });
+
+    test('and a scanned link is read the same as a scanned code', () async {
+      // The QR the app paints holds the link; a code pasted out of a message is
+      // bare. Both arrive at the same screen.
+      final shared = await db.sharedRoutine(await _seedCustomRoutine(db));
+
+      expect(readsAsShare(RoutineCode.host, RoutineCode.link(shared)), isTrue);
+      expect(importRoute(RoutineCode.host, RoutineCode.encode(shared)),
+          startsWith('/routine/import?code='));
+    });
+
+    test('a code it was not opened for reads as nothing', () async {
+      final routine = RoutineCode.encode(
+          await db.sharedRoutine(await _seedCustomRoutine(db)));
+      final theme = ThemeCode.encode(kDefaultPalette);
+
+      // Held up while importing a routine: a theme code, and the Wi-Fi QR on a
+      // café wall. Neither is a routine, so the scanner keeps looking.
+      expect(readsAsShare(RoutineCode.host, theme), isFalse);
+      expect(readsAsShare(RoutineCode.host, 'WIFI:S=Cafe;T=WPA;P=hunter2;;'),
+          isFalse);
+      expect(readsAsShare(ThemeCode.host, routine), isFalse);
+      expect(importRoute('elsewhere', routine), isNull);
+    });
+  });
+
   group('the screens', () {
-    testWidgets('sharing a routine offers a QR and a link, and nothing else',
+    testWidgets('sharing a routine offers a QR and the code, and nothing else',
         (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
@@ -948,15 +998,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Elbow Day'), findsWidgets);
-      for (final label in ['Show QR', 'Send link']) {
+      for (final label in ['Show QR', 'Send code']) {
         expect(find.text(label), findsOneWidget);
       }
+      // The share sheet sends the code, not a link: a fosslift:// URL is not
+      // clickable in a chat app, so it arrived as text to paste anyway. The QR
+      // still carries the link, where a camera can act on it.
+      expect(find.text('Send link'), findsNothing);
       // The share sheet already offers "copy", and a file saved beside the app
       // is a code you then have to go and find. Both are gone.
       expect(find.text('Copy code'), findsNothing);
       expect(find.text('Save file'), findsNothing);
       // And the symbol lives behind the button, not on the page as well.
       expect(find.byType(QrImageView), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('and the QR holds the link, not the bare code', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final id = (await tester.runAsync(() => _seedCustomRoutine(db)))!;
+
+      await tester
+          .pumpWidget(appUnder(container, RoutineShareScreen(routineId: id)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show QR'));
+      await tester.pumpAndSettle();
+
+      final qr = tester.widget<ShareQr>(find.byType(ShareQr));
+      expect(qr.data, startsWith(ShareCodec.linkPrefix(RoutineCode.host)),
+          reason: 'a phone camera can only act on a symbol holding a link');
+      expect(RoutineCode.decode(qr.data), isA<RoutineCodeOk>(),
+          reason: 'and what it holds is the routine');
 
       await stop(tester);
     });

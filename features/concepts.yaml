@@ -69,7 +69,7 @@ concepts:
 
   - id: exercise.weight-type
     area: exercise
-    what: Barbell, dumbbell, machine/cable or bodyweight — decides whether a lift has a bar and plates behind it.
+    what: Barbell, dumbbell, machine/cable, or none — decides whether a lift has a bar and plates behind it, and whether it has a weight at all.
     code: [lib/data/database.dart, lib/data/plates.dart]
 
   - id: exercise.notes
@@ -207,8 +207,8 @@ concepts:
 
   - id: load.bar-weight
     area: load
-    what: Which bar a lift is over — the exercise's own, or the app default.
-    code: [lib/screens/bar_settings_screen.dart]
+    what: Which bar a lift is over — the exercise's own, or the app default, from the list of bars the gym has.
+    code: [lib/data/database.dart, lib/data/plates.dart, lib/screens/bar_settings_screen.dart]
 
   - id: load.plate-rack
     area: load
@@ -271,11 +271,6 @@ concepts:
     area: history
     what: One movement's progress over time.
     code: [lib/data/exercise_stats.dart, lib/screens/exercise_progress_screen.dart]
-
-  - id: history.csv-export
-    area: history
-    what: Getting the numbers out as a file.
-    code: [lib/screens/exercise_progress_screen.dart]
 
   # ------------------------------------------------------------------- video
   - id: video.capture
@@ -340,7 +335,7 @@ concepts:
   - id: ui.empty-state
     area: ui
     what: What a screen says when there is nothing on it yet.
-    code: [lib/widgets/common.dart]
+    code: [lib/screens/today_screen.dart, lib/screens/history_screen.dart]
 
   # ------------------------------------------------------------------- share
   - id: share.routine-code

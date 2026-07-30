@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/workout_cue.dart';
 import '../util/format.dart';
@@ -31,8 +33,24 @@ import '../util/units.dart';
 /// was wrong in the gym: the rest is the one stretch of a session you are
 /// certainly *not* holding the phone for, and unlocking the phone to press Skip
 /// costs more, every time, than an accidental press costs once. So a running
-/// rest offers **+30s** and **Skip** — a longer step than the screen's +15s,
-/// because a pocket press is not a considered one. See issue #62.
+/// rest offers the same three controls the screen does — **−15s**, **+15s** and
+/// **Skip** — with the same step, so the two places you can nudge a rest from do
+/// not disagree about what a nudge is. See issue #62.
+///
+/// ## Logging a set sends you to the board
+///
+/// **Done**, **Missed** and **Start** all put the board in front of you on their
+/// way past: the next thing after a set is logged is the weight for the next
+/// one, the ramp, the rest that is now running — and after Missed, the number
+/// that wants correcting. The rest controls do not, because the whole point of a
+/// rest control in the shade is that you did not want the phone out.
+///
+/// **Sends you to, not raises.** A notification button cannot bring an app to
+/// the front on Android 12 and up — see [_ShadeHandler.onNotificationButtonPressed]
+/// for why, and for what it would cost to change that. So the press routes the
+/// app to the board rather than lighting the screen up: unlock the phone and the
+/// board is what is there. The way to raise it deliberately is to tap the
+/// notification itself, which does work.
 ///
 /// Everything is gated on Android. On any other platform — the iOS port to
 /// come, and the test runner — every method is a no-op rather than a crash, the
@@ -55,8 +73,8 @@ class WorkoutShade {
   WorkoutShade({
     bool? platformSupported,
     Future<bool> Function()? requestPermission,
-  })  : _platformSupported = platformSupported ?? _isAndroid,
-        _requestPermission = requestPermission ?? _askAndroid;
+  }) : _platformSupported = platformSupported ?? _isAndroid,
+       _requestPermission = requestPermission ?? _askAndroid;
 
   final bool _platformSupported;
   final Future<bool> Function() _requestPermission;
@@ -71,7 +89,7 @@ class WorkoutShade {
 
   static Future<bool> _askAndroid() async =>
       await FlutterForegroundTask.requestNotificationPermission() ==
-          NotificationPermission.granted;
+      NotificationPermission.granted;
 
   static const _channelId = 'live_workout';
   static const _channelName = 'Live workout';
@@ -81,12 +99,25 @@ class WorkoutShade {
   /// The button ids, which are also what crosses the isolate boundary.
   static const doneAction = 'set_done';
   static const missedAction = 'set_missed';
+  static const startAction = 'set_start';
   static const restAddAction = 'rest_add';
+  static const restSubAction = 'rest_sub';
   static const restSkipAction = 'rest_skip';
 
-  /// What **+30s** adds. Twice the screen's step: a button pressed through a
-  /// coat is worth pressing once, not twice.
-  static const restStepSeconds = 30;
+  /// What **−15s** and **+15s** move a rest by — the screen's own step.
+  static const restStepSeconds = 15;
+
+  /// The actions that put the board in front of you as well as reaching the
+  /// session — see the class comment on why that is routing rather than raising.
+  static const bringsAppForward = {doneAction, missedAction, startAction};
+
+  /// What crosses the port instead of a button id once the press has been
+  /// written down: "there is something in the record for you". The press itself
+  /// travels in [PendingShadeActions], so that a live isolate and one that has
+  /// to be started first both apply it the same way — and neither can apply it
+  /// twice. A bare id still means "apply this now", for the press the record
+  /// would not take.
+  static const drainPoke = 'drain_pending';
 
   bool _ready = false;
   bool _running = false;
@@ -95,8 +126,35 @@ class WorkoutShade {
   /// foreground service to put a workout in. See issue #33.
   bool get supported => _platformSupported;
 
-  /// Whether the service is currently up. Read by the tests and by [show].
+  /// The last answer [_up] gave, for a caller with no `await` to spare — a test
+  /// asserting that a refusal started nothing. Not what [show] and [hide]
+  /// decide on; see [_up] for why.
   bool get running => _running;
+
+  /// Whether Android has the service up, **asked of Android rather than
+  /// remembered**.
+  ///
+  /// A remembered flag is wrong across the death of the app's own isolate. The
+  /// service runs its handler in an engine of its own, so Android can tear down
+  /// the UI — a swipe out of the recents list, a reclaim under memory pressure —
+  /// and leave the service and its notification exactly where they were.
+  /// Reopening the app builds a fresh `WorkoutShade`, and a fresh one that
+  /// believes nothing is up gets both halves of its job wrong: [show] tries to
+  /// start a second service, which the plugin refuses, so the shade never
+  /// updates again; and [hide] returns without stopping the first, so it is
+  /// never taken down. That is the stale shade — a rest counting down for a
+  /// workout finished an hour ago, with a Skip button wired to nothing.
+  ///
+  /// The platform is the only thing that knows. If asking fails, the remembered
+  /// flag is the best guess left.
+  Future<bool> get _up async {
+    try {
+      return await FlutterForegroundTask.isRunningService;
+    } catch (e) {
+      debugPrint('WorkoutShade: could not ask whether the service is up ($e)');
+      return _running;
+    }
+  }
 
   void _init() {
     if (_ready || !supported) return;
@@ -144,12 +202,13 @@ class WorkoutShade {
     final buttons = shadeButtons(cue);
 
     try {
-      if (_running) {
+      if (await _up) {
         await FlutterForegroundTask.updateService(
           notificationTitle: title,
           notificationText: text,
           notificationButtons: buttons,
         );
+        _running = true;
         return;
       }
       // Before the service, never after: a service started without the grant
@@ -175,17 +234,123 @@ class WorkoutShade {
   }
 
   /// Takes it down. Finishing and aborting both end here.
+  ///
+  /// Asks Android whether there is a service to stop rather than trusting this
+  /// object's memory of one — see [_up]. A shade left up after Finish outlives
+  /// the session it describes, and there is nothing on it that would ever
+  /// correct itself.
   Future<void> hide() async {
-    if (!supported || !_running) return;
+    if (!supported) return;
     try {
-      await FlutterForegroundTask.stopService();
+      if (await _up) await FlutterForegroundTask.stopService();
     } catch (e) {
       debugPrint('WorkoutShade: could not stop the service ($e)');
     }
     _running = false;
   }
-
 }
+
+/// The presses the shade has taken and the session has not applied yet.
+///
+/// **A press is written down before it is announced.** The buttons are pressed
+/// in the one place the app is least likely to be alive — a phone in a pocket,
+/// backgrounded, with Android free to reclaim the isolate that holds the
+/// session. `sendDataToMain` needs somebody listening; with the isolate gone the
+/// press went nowhere, so Missed raised the app and logged nothing. Here the
+/// press outlives the isolate: the service records it, and whichever isolate
+/// next holds the session applies it out of the record — the one that was
+/// already running, or the one the press itself started.
+///
+/// **The record is the only path**, which is what stops a press being applied
+/// twice. [take] clears before it hands anything over, so two drains racing
+/// cannot both claim the same press; the loser gets an empty list. A press the
+/// record refuses to hold falls back to the port and is applied there — see
+/// [WorkoutShade.drainPoke].
+///
+/// The store is the foreground-task plugin's, which is `SharedPreferences`
+/// underneath and so is reachable from the service's isolate and the app's
+/// alike. Both seams default to it; a test passes its own cell, because the
+/// runner has no platform to store anything on.
+class PendingShadeActions {
+  PendingShadeActions({
+    Future<String?> Function()? read,
+    Future<void> Function(String?)? write,
+  }) : _read = read ?? _readStore,
+       _write = write ?? _writeStore;
+
+  static const _key = 'pending_shade_actions';
+
+  final Future<String?> Function() _read;
+  final Future<void> Function(String?) _write;
+
+  static Future<String?> _readStore() =>
+      FlutterForegroundTask.getData<String>(key: _key);
+
+  static Future<void> _writeStore(String? value) async {
+    if (value == null) {
+      await FlutterForegroundTask.removeData(key: _key);
+    } else {
+      await FlutterForegroundTask.saveData(key: _key, value: value);
+    }
+  }
+
+  /// Writes [id] down behind whatever is already waiting. Returns whether it
+  /// was taken: a false answer is the service's cue to announce the press the
+  /// old way rather than lose it.
+  Future<bool> add(String id) async {
+    try {
+      await _write(jsonEncode([...await _queued(), id]));
+      return true;
+    } catch (e) {
+      debugPrint('PendingShadeActions: could not write down $id ($e)');
+      return false;
+    }
+  }
+
+  /// Claims everything waiting, oldest first, and empties the record.
+  Future<List<String>> take() async {
+    final queued = await _queued();
+    if (queued.isEmpty) return const [];
+    await clear();
+    return queued;
+  }
+
+  /// Drops the lot — the session these presses were made in has ended, and a
+  /// press applied to the next one would be a set logged in the wrong workout.
+  Future<void> clear() async {
+    try {
+      await _write(null);
+    } catch (e) {
+      debugPrint('PendingShadeActions: could not clear the record ($e)');
+    }
+  }
+
+  /// What is waiting, or nothing at all. An unreadable record is dropped rather
+  /// than retried: it would fail the same way on every launch, and a workout is
+  /// not worth interrupting over a notification button.
+  Future<List<String>> _queued() async {
+    try {
+      final raw = await _read();
+      if (raw == null || raw.isEmpty) return const [];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) throw FormatException('not a list', raw);
+      return decoded.whereType<String>().toList();
+    } catch (e) {
+      debugPrint('PendingShadeActions: could not read the record ($e)');
+      await clear();
+      return const [];
+    }
+  }
+}
+
+/// Where a press waits when there is no isolate to hear it.
+///
+/// Beside its class rather than in `providers.dart`, as `sessionMirrorProvider`
+/// is: the live session reads it to clear the record when a workout ends, and it
+/// cannot import the provider layer — the provider layer imports it.
+final pendingShadeActionsProvider = Provider<PendingShadeActions>(
+  (ref) => PendingShadeActions(),
+);
 
 // ---- What it says ----------------------------------------------------------
 //
@@ -195,10 +360,10 @@ class WorkoutShade {
 
 /// The bold line: what you are doing, or how long is left.
 String shadeTitle(WorkoutCue cue) => switch (cue.kind) {
-      CueKind.resting => 'Rest · ${fmtDuration(cue.restLeft ?? 0)}',
-      CueKind.hold || CueKind.lift => shadeWhere(cue),
-      CueKind.finished => 'Workout',
-    };
+  CueKind.resting => 'Rest · ${fmtDuration(cue.restLeft ?? 0)}',
+  CueKind.hold || CueKind.lift => shadeWhere(cue),
+  CueKind.finished => 'Workout',
+};
 
 /// Where in the session you are: the movement, whether this is its ramp, and
 /// which set of how many.
@@ -225,26 +390,27 @@ String shadeText(WorkoutCue cue, String unit) {
   return 'Next: ${shadeWhere(cue)} · $what';
 }
 
-/// The buttons: two to log a set with, or two to run the rest with.
+/// The buttons: two to log a set with, or three to run the rest with.
 List<NotificationButton> shadeButtons(WorkoutCue cue) => switch (cue.kind) {
-      CueKind.finished => const [],
-      // Nothing to log during a rest — but the rest itself is the thing you are
-      // least likely to have the phone in your hand for. See issue #62.
-      CueKind.resting => const [
-          NotificationButton(id: WorkoutShade.restAddAction, text: '+30s'),
-          NotificationButton(id: WorkoutShade.restSkipAction, text: 'Skip'),
-        ],
-      // A hold cannot be "done at the goal" from a pocket — how long you held
-      // it is the whole measurement — so it gets one button that opens the app
-      // at the stopwatch instead.
-      CueKind.hold => const [
-          NotificationButton(id: WorkoutShade.missedAction, text: 'Open'),
-        ],
-      CueKind.lift => const [
-          NotificationButton(id: WorkoutShade.doneAction, text: 'Done'),
-          NotificationButton(id: WorkoutShade.missedAction, text: 'Missed'),
-        ],
-    };
+  CueKind.finished => const [],
+  // Nothing to log during a rest — but the rest itself is the thing you are
+  // least likely to have the phone in your hand for. See issue #62.
+  CueKind.resting => const [
+    NotificationButton(id: WorkoutShade.restSubAction, text: '−15s'),
+    NotificationButton(id: WorkoutShade.restAddAction, text: '+15s'),
+    NotificationButton(id: WorkoutShade.restSkipAction, text: 'Skip'),
+  ],
+  // A hold cannot be "done at the goal" from a pocket — how long you held
+  // it is the whole measurement — so it gets one button that raises the app
+  // at the stopwatch instead, and logs nothing on the way.
+  CueKind.hold => const [
+    NotificationButton(id: WorkoutShade.startAction, text: 'Start'),
+  ],
+  CueKind.lift => const [
+    NotificationButton(id: WorkoutShade.doneAction, text: 'Done'),
+    NotificationButton(id: WorkoutShade.missedAction, text: 'Missed'),
+  ],
+};
 
 /// One line describing a set: the load and the target.
 ///
@@ -289,13 +455,29 @@ class _ShadeHandler extends TaskHandler {
 
   @override
   void onNotificationButtonPressed(String id) {
-    // Straight back to the isolate that holds the workout. "Missed" also brings
-    // the app forward, because the number it seeds is one you are meant to
-    // correct — see the note on missedSeed.
-    FlutterForegroundTask.sendDataToMain(id);
-    if (id == WorkoutShade.missedAction) {
-      FlutterForegroundTask.launchApp('/session');
-    }
+    // **No `launchApp` here, and it is not an omission.** A button on this
+    // notification is a broadcast `PendingIntent`, so raising the app from one
+    // means a broadcast receiver starting an activity — which Android 12 forbade
+    // outright (the notification-trampoline restriction) and Android 10 already
+    // refused from a service. `FlutterForegroundTask.launchApp` says as much: it
+    // wants SYSTEM_ALERT_WINDOW, the "display over other apps" grant, which is
+    // far too much to ask for the convenience of a screen coming up by itself.
+    // The refusal is silent, which is what made it look like a bug in the app.
+    //
+    // What the buttons do instead is send you to the board: the press reaches
+    // the session, which routes to it — see `applyShadeAction` — so the board is
+    // what you find when you next look at the phone. Tapping the notification
+    // *body* raises the app properly, because that one is an activity intent;
+    // see [onNotificationPressed].
+    //
+    // Written down, then announced — never the other way round. A poke that
+    // arrives before the write would find an empty record and drop the press.
+    // See [PendingShadeActions] for why the record rather than the port.
+    PendingShadeActions().add(id).then((written) {
+      FlutterForegroundTask.sendDataToMain(
+        written ? WorkoutShade.drainPoke : id,
+      );
+    });
   }
 
   @override

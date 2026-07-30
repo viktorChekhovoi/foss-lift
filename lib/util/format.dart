@@ -23,6 +23,14 @@ String fmtDuration(int seconds) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
+/// A count and the thing it counts, agreeing: 1 → "1 clean session", 3 → "3
+/// clean sessions".
+///
+/// Only the regular `-s` case, which is every noun the app counts. Pass
+/// [plural] for anything else.
+String plural(int n, String noun, {String? plural}) =>
+    '$n ${n == 1 ? noun : (plural ?? '${noun}s')}';
+
 /// One decimal place, with a bare `.0` dropped: 12.0 → "12", 12.45 → "12.5".
 String _oneDecimal(double v) {
   final s = v.toStringAsFixed(1);

@@ -28,7 +28,8 @@ class ThemePreview extends StatelessWidget {
       contrastRatio(palette.text, palette.ground) < _legibleEnough ||
       contrastRatio(palette.text, palette.surface) < _legibleEnough;
 
-  /// Whether the done and short markers are too close to tell apart. The other
+  /// Whether the two set markers — "Completed" (`good`) and "Missed goal"
+  /// (`gold`) — are too close to tell apart. The other
   /// warning is about reading text *against* a background; this one is about
   /// telling two colours apart *from each other*, which no contrast ratio
   /// answers — see [colourDistance].
@@ -62,8 +63,8 @@ class ThemePreview extends StatelessWidget {
           if (_markersAlike) ...[
             const SizedBox(height: 12),
             _warning(
-              'Done and short look alike. A glance down a column of sets '
-              'should tell them apart.',
+              '"Completed" and "Missed goal" look alike. A glance down a '
+              'column of sets should tell them apart.',
             ),
           ],
         ],
@@ -307,7 +308,7 @@ class ThemePreview extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Text('Log set',
+        child: Text('Start workout',
             style: TextStyle(
                 color: palette.onAccent,
                 fontSize: 15,

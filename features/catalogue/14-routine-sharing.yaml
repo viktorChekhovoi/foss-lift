@@ -35,10 +35,15 @@ groups:
     defines:
     - share.routine-code
   - id: two-ways-out-qr-or
-    t: Two ways out — a QR, or a fosslift://routine/… link
+    t: Two ways out — a QR to scan, or the code itself
     d: >-
-      both carry the same code. Nothing is uploaded. The system share sheet is
-      where "copy" lives; there is no separate copy button and no file to save.
+      Routines → open a routine → the share icon → Show QR or Send code. The share
+      sheet sends the bare FLR1 line, because a chat app will not make a
+      fosslift:// link tappable and an unclickable link is worse than a string
+      nobody expected to click. The QR still holds the link, so a phone's own
+      camera opens the import screen without knowing this app has a scanner.
+      Nothing is uploaded, and the share sheet is where "copy" lives — no separate
+      copy button, no file to save.
     defines:
     - share.qr
     - share.deep-link
@@ -47,7 +52,11 @@ groups:
     - share.deep-link
   - id: import-scanned-qr-tapped-link
     t: Import — a scanned QR, a tapped link or a pasted code
-    d: lands on a confirmation screen. Nothing is written until you accept it.
+    d: >-
+      Routines → scroll past + New routine to IMPORT A ROUTINE → Scan QR or Paste
+      code; a fosslift://routine/… link tapped anywhere on the phone opens the same
+      screen. All three land on a confirmation screen, and nothing is written until
+      you accept it.
     screen: routine-import
     defines:
     - share.import-review
@@ -64,35 +73,10 @@ groups:
   - id: name-clash-your-call
     t: A name clash is your call
     d: >-
-      if an incoming exercise has the same name as one already in the library
-      and its definition differs, the import asks whether to replace yours or
-      keep it. Keeping is the default.
-    screen: routine-import
-    uses:
-    - share.import-review
-- name: How to use it
-  items:
-  - id: send-one
-    t: Send one
-    d: Routines → open a routine → the share icon → Show QR or Send link.
-    uses:
-    - share.qr
-    - share.deep-link
-  - id: receive-one
-    t: Receive one
-    d: >-
-      Routines → scroll past + New routine to IMPORT A ROUTINE → Scan QR or Paste
-      code. A fosslift://routine/… link tapped anywhere on the phone opens the
-      same screen.
-    screen: routine-import
-    uses:
-    - share.import-review
-  - id: decide-clashes
-    t: Decide on clashes
-    d: >-
-      the confirmation screen lists every exercise that will be added, and every
-      one whose name you already use. Each clash has a Replace switch, off by
-      default.
+      the confirmation screen lists every exercise that will be added, and every one
+      whose name you already use. Where an incoming exercise has the same name as
+      one already in the library and its definition differs, it carries a Replace
+      switch: keeping yours is the default.
     screen: routine-import
     uses:
     - share.import-review
@@ -172,11 +156,40 @@ groups:
       of the dismissal and not the end of it, so disposing at the await left the
       field using a dead controller for the length of the fade.
     screen: routine-import
-  - id: every-host-app-shares-needs
-    t: Every host the app shares needs an Android intent filter
+  - id: one-scanner-everything-shareable
+    t: One scanner serves everything shareable
     d: >-
-      or the link is inert outside the app however well the routing handles it.
-      A test now reads the manifest and checks each host is listed.
+      the same camera screen reads a routine QR and a theme QR, and what it was
+      opened to look for decides where it hands off — and what it ignores: a café's
+      Wi-Fi QR, or a theme code held up while importing a routine, does nothing at
+      all rather than pulling you onto an import screen, and frames that decode to
+      nothing are dropped as they arrive. Nothing is taken on there either: a scan
+      replaces itself with the confirmation, which is the only place anything shared
+      is ever adopted.
+    screen: scan
+    uses:
+    - share.qr
+    - share.deep-link
+    - share.import-review
+    - ui.navigation
+  - id: refused-camera-says-what-instead
+    t: A refused camera says what to do instead
+    d: >-
+      that the camera is needed to scan, and that a code can be pasted instead;
+      a device with no camera says that much. Either way the screen keeps a way
+      back rather than sitting on a dead preview.
+    screen: scan
+    manual: true
+    uses:
+    - share.import-review
+    - platform.android
+  - id: every-host-app-shares-needs
+    t: Every host the app can be handed needs an Android intent filter
+    d: >-
+      or the link is inert outside the app however well the routing handles it. The
+      app no longer builds links, but it still reads one that arrives — from a QR,
+      or from a code someone sent before. A test reads the manifest and checks each
+      host is listed.
     screen: system
     uses:
     - share.deep-link

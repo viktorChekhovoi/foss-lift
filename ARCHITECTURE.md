@@ -90,7 +90,7 @@ test/                             Unit tests (formatting, units, schema+seed)
 ## Layers in detail
 
 ### Data — `data/database.dart`
-The heart of the app. Defines eight drift tables and every query as a method on
+The heart of the app. Defines the drift tables and every query as a method on
 `AppDatabase`:
 
 The template side is three levels deep — **a routine contains workouts, a
@@ -108,14 +108,16 @@ has "Upper 1" and "Upper 2".
 
 | Table          | Holds |
 |----------------|-------|
-| `Exercises`    | The library. name, muscleGroup, equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell), `barWeight` (nullable — this movement's own bar), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
+| `Exercises`    | The library. name, muscleGroup, equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
 | `Routines`     | A programme. name, colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` so history survives library edits). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, and `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`) |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, the default `barWeight`, a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit`, `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, `barWeight` (the default bar, named by its weight — see `Bars`), a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null) |
 | `CustomThemes` | One row per theme the user built or imported: just the palette as JSON, name included (`AppPalette.toJson`). Presets are code, not rows |
+| `Bars`         | The bars the gym racks: `unit` (which unit's list — one per unit, like the plate rack), `name`, `weightKg`. Seeded with the common bars on first run and the user's to rename, re-weigh, delete and add to |
+| `LiveSessions` | Single-row (id=1) **crash snapshot** of the live workout: `payload` (the session as JSON — see `state/session_snapshot.dart`) and `savedAt`, which is what the clocks are rebuilt against. Rewritten on every mutation, read once on launch, deleted on finish or discard. It does **not** make the live session database-backed: nothing reads it while the app runs, and history is still written only on Finish. See `state/session_mirror.dart` |
 
 \* `totalVolume` is still computed and stored but no longer shown in the UI.
 Lifetime volume does **not** read it — `watchLifetimeTotals()` sums the
@@ -224,20 +226,33 @@ a back-off before the session starts.
 
 ### Weight types and plate math — `data/plates.dart` + `widgets/plate_line.dart`
 A weight in the log is a number; a weight in the gym is a bar with things on it.
-`WeightType` — **bar**, **machine** or **dumbbell** — is what says which reading
-applies, and it is a property of the *exercise*, like `measure`.
+`WeightType` — **bar**, **machine**, **dumbbell** or **none** — is what says
+which reading applies, and it is a property of the *exercise*, like `measure`.
+**none** is a movement that carries nothing (a push-up, a plank): no weight to
+suggest, no field to type one in, no plate line. It is a stored value rather
+than a null column, so every screen asks it the same question as the others —
+`carriesWeight`. The picker offers `WeightType.loadable`, the three real ones,
+and tapping the selected chip clears back to none.
 
 - The bar is **per exercise, with an app-wide default**: `Exercises.barWeight`
   (null = use `Settings.barWeight`, itself null = the standard bar for the unit).
   A gym is not one bar — the EZ curl bar is 10 kg, the trap bar 25 — and which
   one a movement uses is a fact about the movement. Set on the exercise detail
-  screen; the default lives in Settings → Default bar. Both go through `askBar`,
-  which offers `namedBars(unit)` by name and falls through to `askWeight` for a
-  gym with something odd — **a named bar is a weight with a label on the way in,
-  and nothing new is stored.**
+  screen; the default lives in Settings → Default bar, which opens the gym's bar
+  list (`bar_settings_screen`). Both pick from the `Bars` table — the exercise
+  through `askBar`, which can also add a bar it does not offer yet.
+  **A reference to a bar is its weight, not its row id**, because a weight is
+  what the plate maths needs and the only thing a shared routine can carry to
+  another phone. So no two bars on one unit's list may weigh the same, and
+  re-weighing or deleting a bar moves what pointed at it: `editBar` follows the
+  weight, `deleteBar` drops exercises back to the default and the default back to
+  the standard bar.
 - The type is stored on `Exercises.weightType` and seeded from `equipment`
-  (Barbell → bar, Dumbbell → dumbbell, everything else → machine, bodyweight
-  included). It is editable on the exercise detail screen for **every** exercise,
+  (Barbell → bar, Dumbbell → dumbbell, Bodyweight → none, everything else —
+  machines, cables, the Other shelf — → machine). The handful whose equipment
+  says nothing about the load are named by hand in `_starterLoadings`: a
+  kettlebell is a weight in one hand, an ab wheel is nothing at all.
+  It is editable on the exercise detail screen for **every** exercise,
   not just custom ones: whether the bench in your gym has a 20 kg bar is a fact
   the starter library cannot know.
 - `solvePlates(targetKg:, barKg:, inventory:)` returns a `PlateSolution` — what
@@ -434,7 +449,7 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/profile` | profile_screen | Stats + settings entry points |
 | `/about` | about_screen | What the app does with your data, licence, bug report |
 | `/settings` | settings_screen | kg/lb toggle, bar & plates, layoff deload rules |
-| `/settings/bar` | bar_settings_screen | The default bar weight |
+| `/settings/bar` | bar_settings_screen | The gym's bars, and which is the default |
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |
 | `/settings/videos` | video_settings_screen | Set-video quality, the clip cap, and what the clips cost |
 | `/session/record/:ei/:si` | set_video_screen | Films one set of the live session |

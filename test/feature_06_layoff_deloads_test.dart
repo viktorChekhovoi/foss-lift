@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -254,6 +255,45 @@ void main() {
       final push = await workoutNamed(db, 'Push');
       await trained(push, daysAgo: 90);
       expect(await db.layoffFor(push.id, now: now), isNull);
+    });
+  });
+
+  // The back-off rules are read back to the user as a sentence, and a sentence
+  // has to agree with its numbers — a threshold of one is the default for a
+  // weight slot, so the singular is the common case, not the edge one.
+  group('a back-off rule reads correctly at every threshold', () {
+    ItemDraft slot({int misses = 1, int cleans = 1}) => ItemDraft(
+          exerciseId: 1,
+          name: 'Bench Press',
+          muscle: 'Chest',
+          successThreshold: cleans,
+          failureThreshold: misses,
+        );
+
+    test('one miss is one missed session, with nothing to be in a row with', () {
+      final rule = progressionRule(slot(), 'kg');
+      expect(rule, contains('after 1 missed session.'));
+      expect(rule, isNot(contains('sessions')));
+      expect(rule, isNot(contains('in a row')));
+    });
+
+    test('two or more misses are sessions, in a row', () {
+      expect(progressionRule(slot(misses: 2), 'kg'),
+          contains('after 2 missed sessions in a row.'));
+      expect(progressionRule(slot(misses: 10), 'kg'),
+          contains('after 10 missed sessions in a row.'));
+    });
+
+    test('the clean-session half agrees with its number too', () {
+      expect(progressionRule(slot(cleans: 1), 'kg'),
+          contains('after 1 clean session;'));
+      expect(progressionRule(slot(cleans: 3), 'kg'),
+          contains('after 3 clean sessions;'));
+    });
+
+    test('the amounts are named in the display unit', () {
+      expect(progressionRule(slot(), 'kg'), startsWith('Add 2.5 kg'));
+      expect(progressionRule(slot(), 'lb'), startsWith('Add 5.5 lb'));
     });
   });
 }

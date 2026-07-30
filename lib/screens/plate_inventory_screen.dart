@@ -105,11 +105,10 @@ class PlateInventoryScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               'Counts go up two at a time because plates go on the bar in '
-              'pairs. When a weight cannot be made from what is here, the app '
-              'says so and shows the closest load you can actually build '
-              'instead of a number nobody can put on a bar.\n\n'
+              'pairs. When a weight cannot be made from available plates, '
+              'you are shown the closest load you can actually build\n\n'
               'This rack is the one for $u. Switching units gives you the '
-              'other gym\'s rack rather than these sizes in decimals.',
+              'rack for the other units.',
               style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),

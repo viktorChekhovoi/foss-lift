@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_code.dart';
+import '../widgets/share_widgets.dart';
 import '../widgets/theme_preview.dart';
 
 /// Confirms a theme that arrived from outside the app before applying it.
@@ -65,10 +66,16 @@ class ThemeImportScreen extends ConsumerWidget {
           // about a palette whose colours you can edit freely afterwards.
           // Building your own from a high-contrast preset drops it for the
           // same reason; arriving with one is the same situation by post.
-          await ref
-              .read(databaseProvider)
-              .addCustomTheme(palette.copyWith(accessible: false).toJson());
-          if (context.mounted) _leave(context);
+          final db = ref.read(databaseProvider);
+          final json = palette.copyWith(accessible: false).toJson();
+          // Leaving happens *before* the write is awaited, and that ordering is
+          // the whole fix. Applying a theme repaints the app: the root re-keys
+          // `MaterialApp` on a palette change, which unmounts this screen's
+          // element mid-await, so waiting for the write left this holding a dead
+          // `BuildContext` and dismissing nothing — the freshly rebuilt import
+          // screen sat back on top of the stack with only Back out of it.
+          _leave(context);
+          await db.addCustomTheme(json);
         },
         child: const Text('Use this theme'),
       ),
@@ -96,17 +103,9 @@ class ThemeImportScreen extends ConsumerWidget {
     ];
   }
 
-  /// Leaves the screen whether we were pushed onto an existing stack (the
-  /// in-app paths) or opened cold by a link, where there is nothing to pop back
-  /// to and popping would close the app — so that case lands on the theme
-  /// screen instead, which is where someone who just imported a theme wants to
-  /// be anyway.
-  void _leave(BuildContext context) {
-    final navigator = Navigator.maybeOf(context);
-    if (navigator != null && navigator.canPop()) {
-      navigator.pop();
-      return;
-    }
-    GoRouter.maybeOf(context)?.go('/settings/theme');
-  }
+  /// Leaves the screen. Opened cold by a link there is nothing to pop back to,
+  /// so that case lands on the theme screen — where someone who just imported a
+  /// theme wants to be anyway.
+  void _leave(BuildContext context) => leaveShareScreen(
+      context, () => GoRouter.maybeOf(context)?.go('/settings/theme'));
 }

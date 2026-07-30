@@ -281,7 +281,13 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// column *means*, and so whether it can be broken down into plates.
   ///
   /// Defaults to [WeightType.machine]: the number is the number, which is the
-  /// only reading that is never wrong.
+  /// only reading that is never wrong for something that carries a weight. It
+  /// is deliberately not [WeightType.none] — almost every movement is loaded,
+  /// so a movement nobody has classified is loaded too.
+  ///
+  /// [WeightType.none] is stored like any other value, and means the movement
+  /// carries nothing: a push-up, a plank. Nothing downstream offers it a
+  /// weight.
   final WeightType weightType;
 
   /// What you need to remember about this movement at your gym: the seat
@@ -4850,6 +4856,615 @@ class CustomThemesCompanion extends UpdateCompanion<CustomTheme> {
   }
 }
 
+class $LiveSessionsTable extends LiveSessions
+    with TableInfo<$LiveSessionsTable, LiveSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LiveSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _savedAtMeta = const VerificationMeta(
+    'savedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> savedAt = GeneratedColumn<DateTime>(
+    'saved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, payload, savedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'live_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LiveSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('saved_at')) {
+      context.handle(
+        _savedAtMeta,
+        savedAt.isAcceptableOrUnknown(data['saved_at']!, _savedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_savedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LiveSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LiveSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      savedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}saved_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LiveSessionsTable createAlias(String alias) {
+    return $LiveSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class LiveSession extends DataClass implements Insertable<LiveSession> {
+  /// Always 1. One session can be live at a time, so the row is a slot.
+  final int id;
+
+  /// The session as `encodeSession` writes it.
+  final String payload;
+
+  /// When the snapshot was taken, which is what the clocks are rebuilt against:
+  /// the workout's elapsed time and any running rest both have to account for
+  /// however long the app was dead. See `decodeSession`.
+  final DateTime savedAt;
+  const LiveSession({
+    required this.id,
+    required this.payload,
+    required this.savedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['payload'] = Variable<String>(payload);
+    map['saved_at'] = Variable<DateTime>(savedAt);
+    return map;
+  }
+
+  LiveSessionsCompanion toCompanion(bool nullToAbsent) {
+    return LiveSessionsCompanion(
+      id: Value(id),
+      payload: Value(payload),
+      savedAt: Value(savedAt),
+    );
+  }
+
+  factory LiveSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LiveSession(
+      id: serializer.fromJson<int>(json['id']),
+      payload: serializer.fromJson<String>(json['payload']),
+      savedAt: serializer.fromJson<DateTime>(json['savedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'payload': serializer.toJson<String>(payload),
+      'savedAt': serializer.toJson<DateTime>(savedAt),
+    };
+  }
+
+  LiveSession copyWith({int? id, String? payload, DateTime? savedAt}) =>
+      LiveSession(
+        id: id ?? this.id,
+        payload: payload ?? this.payload,
+        savedAt: savedAt ?? this.savedAt,
+      );
+  LiveSession copyWithCompanion(LiveSessionsCompanion data) {
+    return LiveSession(
+      id: data.id.present ? data.id.value : this.id,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LiveSession(')
+          ..write('id: $id, ')
+          ..write('payload: $payload, ')
+          ..write('savedAt: $savedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, payload, savedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LiveSession &&
+          other.id == this.id &&
+          other.payload == this.payload &&
+          other.savedAt == this.savedAt);
+}
+
+class LiveSessionsCompanion extends UpdateCompanion<LiveSession> {
+  final Value<int> id;
+  final Value<String> payload;
+  final Value<DateTime> savedAt;
+  const LiveSessionsCompanion({
+    this.id = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.savedAt = const Value.absent(),
+  });
+  LiveSessionsCompanion.insert({
+    this.id = const Value.absent(),
+    required String payload,
+    required DateTime savedAt,
+  }) : payload = Value(payload),
+       savedAt = Value(savedAt);
+  static Insertable<LiveSession> custom({
+    Expression<int>? id,
+    Expression<String>? payload,
+    Expression<DateTime>? savedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (payload != null) 'payload': payload,
+      if (savedAt != null) 'saved_at': savedAt,
+    });
+  }
+
+  LiveSessionsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? payload,
+    Value<DateTime>? savedAt,
+  }) {
+    return LiveSessionsCompanion(
+      id: id ?? this.id,
+      payload: payload ?? this.payload,
+      savedAt: savedAt ?? this.savedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (savedAt.present) {
+      map['saved_at'] = Variable<DateTime>(savedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LiveSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('payload: $payload, ')
+          ..write('savedAt: $savedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BarsTable extends Bars with TableInfo<$BarsTable, Bar> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BarsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+    'unit',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 2,
+      maxTextLength: 2,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(minTextLength: 1),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _weightKgMeta = const VerificationMeta(
+    'weightKg',
+  );
+  @override
+  late final GeneratedColumn<double> weightKg = GeneratedColumn<double>(
+    'weight_kg',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isCustomMeta = const VerificationMeta(
+    'isCustom',
+  );
+  @override
+  late final GeneratedColumn<bool> isCustom = GeneratedColumn<bool>(
+    'is_custom',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_custom" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, unit, name, weightKg, isCustom];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bars';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Bar> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+        _unitMeta,
+        unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_unitMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('weight_kg')) {
+      context.handle(
+        _weightKgMeta,
+        weightKg.isAcceptableOrUnknown(data['weight_kg']!, _weightKgMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_weightKgMeta);
+    }
+    if (data.containsKey('is_custom')) {
+      context.handle(
+        _isCustomMeta,
+        isCustom.isAcceptableOrUnknown(data['is_custom']!, _isCustomMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Bar map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Bar(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      unit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      weightKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weight_kg'],
+      )!,
+      isCustom: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_custom'],
+      )!,
+    );
+  }
+
+  @override
+  $BarsTable createAlias(String alias) {
+    return $BarsTable(attachedDatabase, alias);
+  }
+}
+
+class Bar extends DataClass implements Insertable<Bar> {
+  final int id;
+
+  /// `kg` or `lb` — which unit's list this bar is on.
+  final String unit;
+  final String name;
+
+  /// What the bar weighs, in kilograms.
+  final double weightKg;
+
+  /// Whether you added this bar. False for the seeded ones, which are fixed —
+  /// see the class comment.
+  final bool isCustom;
+  const Bar({
+    required this.id,
+    required this.unit,
+    required this.name,
+    required this.weightKg,
+    required this.isCustom,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['unit'] = Variable<String>(unit);
+    map['name'] = Variable<String>(name);
+    map['weight_kg'] = Variable<double>(weightKg);
+    map['is_custom'] = Variable<bool>(isCustom);
+    return map;
+  }
+
+  BarsCompanion toCompanion(bool nullToAbsent) {
+    return BarsCompanion(
+      id: Value(id),
+      unit: Value(unit),
+      name: Value(name),
+      weightKg: Value(weightKg),
+      isCustom: Value(isCustom),
+    );
+  }
+
+  factory Bar.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Bar(
+      id: serializer.fromJson<int>(json['id']),
+      unit: serializer.fromJson<String>(json['unit']),
+      name: serializer.fromJson<String>(json['name']),
+      weightKg: serializer.fromJson<double>(json['weightKg']),
+      isCustom: serializer.fromJson<bool>(json['isCustom']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'unit': serializer.toJson<String>(unit),
+      'name': serializer.toJson<String>(name),
+      'weightKg': serializer.toJson<double>(weightKg),
+      'isCustom': serializer.toJson<bool>(isCustom),
+    };
+  }
+
+  Bar copyWith({
+    int? id,
+    String? unit,
+    String? name,
+    double? weightKg,
+    bool? isCustom,
+  }) => Bar(
+    id: id ?? this.id,
+    unit: unit ?? this.unit,
+    name: name ?? this.name,
+    weightKg: weightKg ?? this.weightKg,
+    isCustom: isCustom ?? this.isCustom,
+  );
+  Bar copyWithCompanion(BarsCompanion data) {
+    return Bar(
+      id: data.id.present ? data.id.value : this.id,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      name: data.name.present ? data.name.value : this.name,
+      weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
+      isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Bar(')
+          ..write('id: $id, ')
+          ..write('unit: $unit, ')
+          ..write('name: $name, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('isCustom: $isCustom')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, unit, name, weightKg, isCustom);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Bar &&
+          other.id == this.id &&
+          other.unit == this.unit &&
+          other.name == this.name &&
+          other.weightKg == this.weightKg &&
+          other.isCustom == this.isCustom);
+}
+
+class BarsCompanion extends UpdateCompanion<Bar> {
+  final Value<int> id;
+  final Value<String> unit;
+  final Value<String> name;
+  final Value<double> weightKg;
+  final Value<bool> isCustom;
+  const BarsCompanion({
+    this.id = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.name = const Value.absent(),
+    this.weightKg = const Value.absent(),
+    this.isCustom = const Value.absent(),
+  });
+  BarsCompanion.insert({
+    this.id = const Value.absent(),
+    required String unit,
+    required String name,
+    required double weightKg,
+    this.isCustom = const Value.absent(),
+  }) : unit = Value(unit),
+       name = Value(name),
+       weightKg = Value(weightKg);
+  static Insertable<Bar> custom({
+    Expression<int>? id,
+    Expression<String>? unit,
+    Expression<String>? name,
+    Expression<double>? weightKg,
+    Expression<bool>? isCustom,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (unit != null) 'unit': unit,
+      if (name != null) 'name': name,
+      if (weightKg != null) 'weight_kg': weightKg,
+      if (isCustom != null) 'is_custom': isCustom,
+    });
+  }
+
+  BarsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? unit,
+    Value<String>? name,
+    Value<double>? weightKg,
+    Value<bool>? isCustom,
+  }) {
+    return BarsCompanion(
+      id: id ?? this.id,
+      unit: unit ?? this.unit,
+      name: name ?? this.name,
+      weightKg: weightKg ?? this.weightKg,
+      isCustom: isCustom ?? this.isCustom,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (weightKg.present) {
+      map['weight_kg'] = Variable<double>(weightKg.value);
+    }
+    if (isCustom.present) {
+      map['is_custom'] = Variable<bool>(isCustom.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BarsCompanion(')
+          ..write('id: $id, ')
+          ..write('unit: $unit, ')
+          ..write('name: $name, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('isCustom: $isCustom')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4861,6 +5476,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SessionSetsTable sessionSets = $SessionSetsTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
   late final $CustomThemesTable customThemes = $CustomThemesTable(this);
+  late final $LiveSessionsTable liveSessions = $LiveSessionsTable(this);
+  late final $BarsTable bars = $BarsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4874,6 +5491,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sessionSets,
     settings,
     customThemes,
+    liveSessions,
+    bars,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -8011,6 +8630,348 @@ typedef $$CustomThemesTableProcessedTableManager =
       CustomTheme,
       PrefetchHooks Function()
     >;
+typedef $$LiveSessionsTableCreateCompanionBuilder =
+    LiveSessionsCompanion Function({
+      Value<int> id,
+      required String payload,
+      required DateTime savedAt,
+    });
+typedef $$LiveSessionsTableUpdateCompanionBuilder =
+    LiveSessionsCompanion Function({
+      Value<int> id,
+      Value<String> payload,
+      Value<DateTime> savedAt,
+    });
+
+class $$LiveSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $LiveSessionsTable> {
+  $$LiveSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LiveSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LiveSessionsTable> {
+  $$LiveSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LiveSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LiveSessionsTable> {
+  $$LiveSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get savedAt =>
+      $composableBuilder(column: $table.savedAt, builder: (column) => column);
+}
+
+class $$LiveSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LiveSessionsTable,
+          LiveSession,
+          $$LiveSessionsTableFilterComposer,
+          $$LiveSessionsTableOrderingComposer,
+          $$LiveSessionsTableAnnotationComposer,
+          $$LiveSessionsTableCreateCompanionBuilder,
+          $$LiveSessionsTableUpdateCompanionBuilder,
+          (
+            LiveSession,
+            BaseReferences<_$AppDatabase, $LiveSessionsTable, LiveSession>,
+          ),
+          LiveSession,
+          PrefetchHooks Function()
+        > {
+  $$LiveSessionsTableTableManager(_$AppDatabase db, $LiveSessionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LiveSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LiveSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LiveSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<DateTime> savedAt = const Value.absent(),
+              }) => LiveSessionsCompanion(
+                id: id,
+                payload: payload,
+                savedAt: savedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String payload,
+                required DateTime savedAt,
+              }) => LiveSessionsCompanion.insert(
+                id: id,
+                payload: payload,
+                savedAt: savedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LiveSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LiveSessionsTable,
+      LiveSession,
+      $$LiveSessionsTableFilterComposer,
+      $$LiveSessionsTableOrderingComposer,
+      $$LiveSessionsTableAnnotationComposer,
+      $$LiveSessionsTableCreateCompanionBuilder,
+      $$LiveSessionsTableUpdateCompanionBuilder,
+      (
+        LiveSession,
+        BaseReferences<_$AppDatabase, $LiveSessionsTable, LiveSession>,
+      ),
+      LiveSession,
+      PrefetchHooks Function()
+    >;
+typedef $$BarsTableCreateCompanionBuilder =
+    BarsCompanion Function({
+      Value<int> id,
+      required String unit,
+      required String name,
+      required double weightKg,
+      Value<bool> isCustom,
+    });
+typedef $$BarsTableUpdateCompanionBuilder =
+    BarsCompanion Function({
+      Value<int> id,
+      Value<String> unit,
+      Value<String> name,
+      Value<double> weightKg,
+      Value<bool> isCustom,
+    });
+
+class $$BarsTableFilterComposer extends Composer<_$AppDatabase, $BarsTable> {
+  $$BarsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCustom => $composableBuilder(
+    column: $table.isCustom,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BarsTableOrderingComposer extends Composer<_$AppDatabase, $BarsTable> {
+  $$BarsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCustom => $composableBuilder(
+    column: $table.isCustom,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BarsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BarsTable> {
+  $$BarsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get weightKg =>
+      $composableBuilder(column: $table.weightKg, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCustom =>
+      $composableBuilder(column: $table.isCustom, builder: (column) => column);
+}
+
+class $$BarsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BarsTable,
+          Bar,
+          $$BarsTableFilterComposer,
+          $$BarsTableOrderingComposer,
+          $$BarsTableAnnotationComposer,
+          $$BarsTableCreateCompanionBuilder,
+          $$BarsTableUpdateCompanionBuilder,
+          (Bar, BaseReferences<_$AppDatabase, $BarsTable, Bar>),
+          Bar,
+          PrefetchHooks Function()
+        > {
+  $$BarsTableTableManager(_$AppDatabase db, $BarsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BarsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BarsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BarsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> unit = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<double> weightKg = const Value.absent(),
+                Value<bool> isCustom = const Value.absent(),
+              }) => BarsCompanion(
+                id: id,
+                unit: unit,
+                name: name,
+                weightKg: weightKg,
+                isCustom: isCustom,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String unit,
+                required String name,
+                required double weightKg,
+                Value<bool> isCustom = const Value.absent(),
+              }) => BarsCompanion.insert(
+                id: id,
+                unit: unit,
+                name: name,
+                weightKg: weightKg,
+                isCustom: isCustom,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BarsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BarsTable,
+      Bar,
+      $$BarsTableFilterComposer,
+      $$BarsTableOrderingComposer,
+      $$BarsTableAnnotationComposer,
+      $$BarsTableCreateCompanionBuilder,
+      $$BarsTableUpdateCompanionBuilder,
+      (Bar, BaseReferences<_$AppDatabase, $BarsTable, Bar>),
+      Bar,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8031,4 +8992,7 @@ class $AppDatabaseManager {
       $$SettingsTableTableManager(_db, _db.settings);
   $$CustomThemesTableTableManager get customThemes =>
       $$CustomThemesTableTableManager(_db, _db.customThemes);
+  $$LiveSessionsTableTableManager get liveSessions =>
+      $$LiveSessionsTableTableManager(_db, _db.liveSessions);
+  $$BarsTableTableManager get bars => $$BarsTableTableManager(_db, _db.bars);
 }

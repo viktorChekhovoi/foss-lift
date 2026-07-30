@@ -68,9 +68,9 @@ void main() {
     FlutterForegroundTask.skipServiceResponseCheck = true;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_plugin, (call) async {
-      calls.add(call.method);
-      return call.method == 'isRunningService' ? false : null;
-    });
+          calls.add(call.method);
+          return call.method == 'isRunningService' ? false : null;
+        });
   });
 
   tearDown(() async {
@@ -112,8 +112,11 @@ void main() {
 
       expect(calls, contains('ask'));
       expect(calls, contains('startService'));
-      expect(calls.indexOf('ask'), lessThan(calls.indexOf('startService')),
-          reason: 'a service started before the grant draws nothing');
+      expect(
+        calls.indexOf('ask'),
+        lessThan(calls.indexOf('startService')),
+        reason: 'a service started before the grant draws nothing',
+      );
     });
 
     test('a refusal starts nothing, and is not an error', () async {
@@ -123,8 +126,11 @@ void main() {
       await expectLater(shade.show(cue, unit: 'kg'), completes);
 
       expect(calls, contains('ask'));
-      expect(calls, isNot(contains('startService')),
-          reason: 'refused means no shade, not a service drawing nothing');
+      expect(
+        calls,
+        isNot(contains('startService')),
+        reason: 'refused means no shade, not a service drawing nothing',
+      );
       expect(shade.running, isFalse);
     });
 
@@ -152,8 +158,58 @@ void main() {
       await shade.show(cue, unit: 'kg');
       await shade.show(cue, unit: 'kg');
 
-      expect(calls.where((c) => c == 'ask').length, 1,
-          reason: 'the app asks once and does not badger');
+      expect(
+        calls.where((c) => c == 'ask').length,
+        1,
+        reason: 'the app asks once and does not badger',
+      );
+    });
+  });
+
+  group('A shade Android still has up is the one that gets used', () {
+    // The service runs its handler in an engine of its own, so Android can tear
+    // down the app's isolate and leave the notification standing. The shade the
+    // next launch builds has no memory of it, and asking Android is the only
+    // way it can find out — without that, a finished workout keeps a rest
+    // counting down in the shade for good.
+
+    /// Android answering that the service is up, as it does after the app's own
+    /// isolate has been and gone.
+    void serviceAlreadyRunning() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_plugin, (call) async {
+            calls.add(call.method);
+            return call.method == 'isRunningService' ? true : null;
+          });
+    }
+
+    test('a fresh shade updates it rather than starting a second', () async {
+      serviceAlreadyRunning();
+      final shade = shadeThatIsAnswered(true, calls);
+
+      await shade.show(await livePush(), unit: 'kg');
+
+      expect(calls, contains('updateService'));
+      expect(
+        calls,
+        isNot(contains('startService')),
+        reason:
+            'the plugin refuses a second service, and the shade '
+            'then never updates again',
+      );
+    });
+
+    test('and finishing takes it down', () async {
+      serviceAlreadyRunning();
+      final shade = shadeThatIsAnswered(true, calls);
+
+      await shade.hide();
+
+      expect(
+        calls,
+        contains('stopService'),
+        reason: 'a shade left up outlives the session it describes',
+      );
     });
   });
 }

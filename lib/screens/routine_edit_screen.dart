@@ -99,13 +99,8 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     super.dispose();
   }
 
-  void _move(int i, int delta) {
-    final j = i + delta;
-    if (j < 0 || j >= _workouts.length) return;
-    setState(() {
-      final w = _workouts.removeAt(i);
-      _workouts.insert(j, w);
-    });
+  void _reorder(int from, int to) {
+    setState(() => _workouts.insert(to, _workouts.removeAt(from)));
   }
 
   Future<void> _addWorkout() async {
@@ -195,6 +190,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       );
     }
 
+    final defaultBarKg = ref.read(plateSettingsProvider).barKg;
     await db.replaceRoutineWorkouts(
       routineId,
       [
@@ -203,7 +199,9 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
             id: w.id,
             name: w.name,
             // Untouched workouts pass null so their exercises are left alone.
-            items: w.items == null ? null : itemCompanions(w.items!),
+            items: w.items == null
+                ? null
+                : itemCompanions(w.items!, defaultBarKg: defaultBarKg),
           ),
       ],
     );
@@ -343,41 +341,23 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           onPickTime: _pickReminderTime,
                         ),
                         const SizedBox(height: 16),
-                        SectionLabel('Workouts · ${_workouts.length}'),
-                        if (_workouts.isEmpty)
-                          Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Text(
-                              'No workouts yet.',
-                              style: TextStyle(color: AppColors.muted),
-                            ),
+                        // The same list the exercises inside a day get, so a
+                        // day is dragged into place exactly the way a slot is.
+                        BuilderReorderList<_WorkoutDraft>(
+                          caption: 'Workouts',
+                          items: _workouts,
+                          emptyText: 'No workouts yet.',
+                          addLabel: 'Add workout',
+                          onAdd: _addWorkout,
+                          onReorder: _reorder,
+                          rowBuilder: (i, draft) => BuilderReorderRow(
+                            index: i,
+                            title: draft.name,
+                            subtitle: _exerciseCountLabel(draft),
+                            onTap: () => _editWorkout(draft),
+                            onRemove: () =>
+                                setState(() => _workouts.removeAt(i)),
                           ),
-                        for (var i = 0; i < _workouts.length; i++)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _WorkoutCard(
-                              draft: _workouts[i],
-                              isFirst: i == 0,
-                              isLast: i == _workouts.length - 1,
-                              onTap: () => _editWorkout(_workouts[i]),
-                              onUp: () => _move(i, -1),
-                              onDown: () => _move(i, 1),
-                              onRemove: () =>
-                                  setState(() => _workouts.removeAt(i)),
-                            ),
-                          ),
-                        const SizedBox(height: 6),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accent,
-                            side: BorderSide(color: AppColors.line),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: _addWorkout,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add workout'),
                         ),
                       ],
                     ),
@@ -461,6 +441,7 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                       onChanged: (_) => _commitName(),
                     ),
                     WorkoutItemsEditor(
+                      defaultBarKg: ref.watch(plateSettingsProvider).barKg,
                       items: items,
                       unit: unit,
                       routineRest: widget.routineRest,
@@ -691,66 +672,10 @@ class _ColorRow extends StatelessWidget {
   }
 }
 
-class _WorkoutCard extends StatelessWidget {
-  const _WorkoutCard({
-    required this.draft,
-    required this.isFirst,
-    required this.isLast,
-    required this.onTap,
-    required this.onUp,
-    required this.onDown,
-    required this.onRemove,
-  });
-  final _WorkoutDraft draft;
-  final bool isFirst;
-  final bool isLast;
-  final VoidCallback onTap;
-  final VoidCallback onUp;
-  final VoidCallback onDown;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final n = draft.exerciseCount;
-    final subtitle = n == 0
-        ? 'No exercises yet — tap to add'
-        : '$n ${n == 1 ? 'exercise' : 'exercises'}';
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.line),
-          ),
-          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(draft.name,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 3),
-                    Text(subtitle,
-                        style: kMono.copyWith(
-                            fontSize: 12.5, color: AppColors.accent)),
-                  ],
-                ),
-              ),
-              builderIconButton(Icons.keyboard_arrow_up, isFirst ? null : onUp),
-              builderIconButton(
-                  Icons.keyboard_arrow_down, isLast ? null : onDown),
-              builderIconButton(Icons.close, onRemove, danger: true),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+/// What a day's row says under its name.
+String _exerciseCountLabel(_WorkoutDraft draft) {
+  final n = draft.exerciseCount;
+  return n == 0
+      ? 'No exercises yet — tap to add'
+      : '$n ${n == 1 ? 'exercise' : 'exercises'}';
 }

@@ -27,6 +27,13 @@ enum ResumeBarMount {
 /// The tab roots — the routes that draw the bottom navigation bar.
 const _tabRoots = {'/today', '/routines', '/history', '/profile'};
 
+/// The location of the route on top of [go] right now. Empty before the first
+/// route resolves, which is nobody's tab root and so nobody's bar.
+String _topRoute(GoRouter go) {
+  final config = go.routerDelegate.currentConfiguration;
+  return config.matches.isEmpty ? '' : config.last.matchedLocation;
+}
+
 /// One mount point's claim on the bar, resolved against the current route.
 ///
 /// **Both mount points ask this same question, so they cannot both say yes.**
@@ -38,6 +45,27 @@ const _tabRoots = {'/today', '/routines', '/history', '/profile'};
 /// was theirs and it appeared twice — once above the navigation bar and once
 /// below it. Asking one predicate from one listenable makes the two answers
 /// mutually exclusive by construction, on every frame rather than at rest.
+///
+/// **The claim is read off the delegate's match list, not the route-information
+/// provider.** The provider is the wrong place to ask twice over, and coming back
+/// from Settings with the bar stuck *underneath* the navigation bar was both
+/// halves of it at once:
+///
+/// * A `push` sets the provider's value to the pushed location and notifies — and
+///   then the Router reports the delegate's configuration straight back over it,
+///   which for an imperative push is still the *tab's* uri, and writes it in
+///   without notifying anybody (deliberately, to avoid a loop). So the value goes
+///   stale one frame after every push.
+/// * A `pop` never touches the provider at all. It is the delegate's own
+///   business: the match is dropped, the delegate notifies its listeners, and
+///   nothing else moves. A slot listening only to the provider therefore never
+///   hears that the push it stood aside for is over — which is why the overlay
+///   was still holding the claim it took on the way into Settings.
+///
+/// `currentConfiguration.last.matchedLocation` is the location of the route
+/// actually on top, imperative pushes included, and the delegate notifies on both
+/// halves of a push and a pop. The provider is still listened to, for the
+/// platform-driven changes that arrive through it.
 class ResumeWorkoutBarSlot extends StatelessWidget {
   const ResumeWorkoutBarSlot({super.key, required this.mount, this.router});
 
@@ -52,16 +80,13 @@ class ResumeWorkoutBarSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final go = router ?? GoRouter.maybeOf(context) ?? appRouter;
-    // The path comes from the route-information provider rather than the
-    // delegate's configuration: the delegate notifies during its own build,
-    // which would trip the framework's dirty assertion, and reading one while
-    // listening to the other leaves the two a frame apart — long enough to draw
-    // a second bar.
     return ListenableBuilder(
-      listenable: go.routeInformationProvider,
+      listenable: Listenable.merge([
+        go.routerDelegate,
+        go.routeInformationProvider,
+      ]),
       builder: (context, _) {
-        final onTabRoot =
-            _tabRoots.contains(go.routeInformationProvider.value.uri.path);
+        final onTabRoot = _tabRoots.contains(_topRoute(go));
         if (onTabRoot != (mount == ResumeBarMount.shell)) {
           return const SizedBox.shrink();
         }

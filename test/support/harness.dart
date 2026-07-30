@@ -19,13 +19,21 @@ AppDatabase memoryDb() => AppDatabase.forTesting(NativeDatabase.memory());
 /// container tears down drift's stream subscriptions.
 ///
 /// Pass [overrides] to swap in additional fakes (e.g. a stubbed service).
+///
+/// The live session's crash snapshot is **off** unless [mirrorSession] asks for
+/// it. It is a database write nobody awaits, and a widget test's fake clock
+/// cannot complete one: the write hangs, and so does the `db.close()` behind it.
+/// The tests that are about the snapshot switch it back on and drive it from a
+/// plain `test()`, on the real event loop, where a write can finish.
 ProviderContainer containerFor(
   AppDatabase db, {
   List<Override> overrides = const [],
+  bool mirrorSession = false,
 }) =>
     ProviderContainer(
       overrides: [
         databaseProvider.overrideWithValue(db),
+        if (!mirrorSession) sessionMirrorProvider.overrideWithValue(null),
         ...overrides,
       ],
     );

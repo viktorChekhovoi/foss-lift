@@ -1,0 +1,70 @@
+id: "17"
+title: Getting around
+tagline: >-
+  Four tabs at the bottom, every other screen stacked over them, and one plain
+  line on a screen that has nothing on it yet.
+screen: today
+code:
+- lib/router.dart
+- lib/screens/home_shell.dart
+test:
+- test/feature_17_getting_around_test.dart
+where: >-
+  <b>Routes</b> lib/router.dart · <b>Tab shell</b> lib/screens/home_shell.dart
+  · <b>Empty states</b> today_screen.dart, history_screen.dart,
+  routine_detail_screen.dart, exercise_progress_screen.dart
+groups:
+- name: What it does
+  items:
+  - id: app-four-tabs
+    t: The app is four tabs
+    d: >-
+      Today, Routines, History and Profile. Each keeps its place while you are
+      on the others, so a scrolled list is where you left it when you come back.
+    defines:
+    - ui.navigation
+  - id: every-other-screen-stacks-over-tabs
+    t: Every other screen stacks over the tabs
+    d: >-
+      a routine, a workout, an exercise, the settings pages and the live session
+      open above the whole shell rather than inside one tab, so none of them
+      carries a navigation bar and all of them come back to the tab you left.
+    defines:
+    - ui.navigation
+  - id: empty-screen-says-so-in-line
+    t: A screen with nothing on it yet says so in a line
+    d: >-
+      History before the first session, a routine with no days, an exercise with
+      nothing to chart, a filter that matches nothing — each says what is missing
+      where the content would be, rather than showing an empty frame.
+    screen: history
+    defines:
+    - ui.empty-state
+- name: How to use it
+  items:
+  - id: move-between-tabs
+    t: Move between tabs
+    d: >-
+      the bar at the bottom. Tapping the tab you are already on re-enters it at
+      its root.
+    uses:
+    - ui.navigation
+- name: Behaviour & edge cases
+  items:
+  - id: empty-screen-offers-next-step-where-one
+    t: An empty screen offers the next step only where there is one
+    d: >-
+      Today with no routines offers to build one, because that is the whole of
+      what to do next. History before the first session has nothing to offer but
+      the sentence, and does not invent a button.
+    uses:
+    - ui.empty-state
+  - id: tab-bar-belongs-shell-not-screens
+    t: The navigation bar belongs to the shell, and the resume-workout bar rides above it
+    d: >-
+      the four tab screens draw neither and reserve room for neither — the shell
+      measures whatever sits in that bottom slot and insets them by it, which is
+      what lets the resume bar sit above the tabs during a live session.
+    uses:
+    - ui.navigation
+    - session.resume-bar

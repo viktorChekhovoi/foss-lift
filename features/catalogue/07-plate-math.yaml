@@ -13,7 +13,8 @@ test:
 - test/feature_07_plate_math_test.dart
 where: >-
   <b>Solver</b> lib/data/plates.dart (solvePlates → PlateSolution) · <b>The line</b>
-  lib/widgets/plate_line.dart · <b>Settings</b> lib/screens/bar_settings_screen.dart,
+  lib/widgets/plate_line.dart · <b>Bars and rack</b> Bars + PlateInventory in
+  lib/data/database.dart, on lib/screens/bar_settings_screen.dart,
   plate_inventory_screen.dart
 groups:
 - name: What it does
@@ -23,47 +24,46 @@ groups:
     d: >-
       what goes on one side, what the bar will actually come to, and whether that's
       the weight you asked for.
-    screen: none
     defines:
     - load.plate-solver
   - id: shows-line-under-exercise
     t: Shows it as a line under an exercise
     d: >-
       30 kg/side · 25 + 5 · bar 20 — re-solving the moment you type a different
-      weight.
+      weight. It appears by itself on the live session for barbell lifts, describing
+      the next set's weight.
     uses:
     - load.plate-solver
     - load.units
-  - id: uses-bar-exercise-rack-you
-    t: Uses the bar for the exercise and the rack you own
-    d: >-
-      its own bar, or the app-wide default, or the standard bar for the unit;
-      one rack per unit.
-    uses:
-    - load.bar-weight
-    - load.plate-rack
-- name: How to use it
-  items:
-  - id: line-appears-automatically
-    t: The line appears automatically
-    d: on the live session for barbell lifts, describing the next set's weight.
-    uses:
-    - load.plate-solver
     - exercise.weight-type
-  - id: set-default-bar
-    t: Set the default bar
-    d: Profile → Settings → Bar &amp; plates → Bar weight.
+  - id: bars-are-list-you-keep
+    t: The bars are a list you keep, one per unit
+    d: >-
+      Profile → Settings → Default bar opens the list itself: the six standard bars
+      are the starting set, and they are fixed — an Olympic bar weighs 20 kg
+      everywhere, and the name and weight another phone resolves a shared routine
+      against are not a preference, so no pencil is offered on one. Tap a bar to
+      make it the default, Add a bar for anything your gym has that the list does
+      not, and rename or re-weigh the ones you added. Any bar can be taken off the
+      rack, standard or not, because a gym may simply not have a trap bar — and
+      deleting one leaves nothing pointing at it: the exercises on it fall back to
+      the default, and if it was the default, that falls back to the standard bar
+      for the unit.
     screen: bar-settings
     defines:
     - load.bar-weight
     uses:
     - load.bar-weight
-  - id: set-bar-one-exercise
-    t: Set a bar for one exercise
-    d: open the exercise → its detail screen.
-    screen: exercise-detail
+    - load.units
+  - id: uses-bar-exercise-rack-you
+    t: Uses the bar for the exercise and the rack you own
+    d: >-
+      its own bar, or the app-wide default, or the standard bar for the unit.
     uses:
     - load.bar-weight
+    - load.plate-rack
+- name: How to use it
+  items:
   - id: edit-rack
     t: Edit the rack
     d: Profile → Settings → plates — step plate pair counts up and down.
@@ -77,24 +77,27 @@ groups:
     d: >-
       greedy is only correct when every plate divides the next one up, which a
       real rack (45/35/25 lb; a lone 1.25 kg) does not.
-    screen: none
     uses:
     - load.plate-solver
   - id: nothing-snapped
-    t: Nothing is snapped
+    t: Nothing is snapped, but the bar is a floor
     d: >-
       a weight the plates can't build is still yours to type; the line goes gold
-      with the nearest buildable load. Green is the weight you asked for. belowBar
-      is asking for less than the empty bar.
+      with the nearest buildable load, and green is the weight you asked for. What
+      you cannot type is less than the bar itself — asking for 10 kg over a 20 kg
+      bar is not a load. Both places that set a weight hold it at the bar: the
+      board while a session runs, and the builder on the way to the database, where
+      an empty field reads "20 kg or more". The belowBar state remains for the
+      weight that got in before a bar was named.
     uses:
     - load.plate-solver
+    - load.bar-weight
     - session.exercise-weight
   - id: ties-break-way-lifter-loads
     t: Ties break the way a lifter loads a bar
     d: >-
       fewest plates first, then the heaviest — 40 kg/side is 25 + 15, not 20 +
       20, and never 10 + 5 + 2.5 + 2.5.
-    screen: none
     uses:
     - load.plate-solver
   - id: rack-pairs

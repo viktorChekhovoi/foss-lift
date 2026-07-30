@@ -12,28 +12,31 @@ groups:
 - name: What it does
   items:
   - id: opens-welcome-card
-    t: Opens on a welcome card
-    d: what the app is, and the choice to take the tour or not.
+    t: Opens on an unanchored welcome card
+    d: >-
+      the first time the app is opened: what the app is, and the choice to take the
+      tour or not — Take the tour to walk through it, Not now to dismiss. The step
+      has no anchor at all, a plain dimmed screen with a card in the middle of it,
+      and it is where a replay starts too.
     defines:
     - ui.tutorial
   - id: overlays-guided-coach-mark-tour
     t: Overlays a guided coach-mark tour
-    d: pointing at the key parts of the UI to get a new user started.
+    d: >-
+      pointing at the key parts of the UI to get a new user started, with each
+      callout attached to an on-screen anchor rather than to a hard-coded position.
     defines:
     - ui.tutorial
     uses:
     - ui.navigation
   - id: runs-once
     t: Runs once
-    d: a flag records that it's been seen, so it never reappears.
+    d: Settings.tutorialSeen records that it has run, so it never reappears.
     uses:
     - ui.tutorial
     - storage.settings
 - name: How to use it
   items:
-  - id: appears-itself-first-time-app
-    t: It appears by itself the first time the app is opened
-    d: Take the tour to walk through it, Not now to dismiss.
   - id: replay-any-time
     t: Replay it any time
     d: Profile → Help &amp; tour, which also starts at the welcome.
@@ -42,20 +45,6 @@ groups:
     - ui.tutorial
 - name: Behaviour & edge cases
   items:
-  - id: shown-once-then-remembered
-    t: Shown once, then remembered
-    d: Settings.tutorialSeen records that the tour has run.
-    uses:
-    - storage.settings
-  - id: anchored-real-ui
-    t: Anchored to real UI
-    d: >-
-      the overlay attaches its callouts to on-screen anchors rather than hard-coded
-      positions.
-    screen: today
-    uses:
-    - ui.tutorial
-    - ui.navigation
   - id: covers-live-workout-which-cannot
     t: It covers the live workout, which it cannot point at
     d: >-
@@ -67,21 +56,17 @@ groups:
     - ui.tutorial
     - session.live-state
   - id: every-anchored-step-today-tab
-    t: Every anchored step is on the Today tab
+    t: An anchored step scrolls its target into view
     d: >-
-      the tour drives no navigation, so a step aimed at a screen you have to open
-      would spotlight a rectangle that is not there.
+      the tour scrolls the Today tab until the anchor is on screen before
+      spotlighting it, so a step can point at something below the fold — the
+      lifetime card on a routine with more days than fit. It never navigates
+      between tabs: steps about the other three highlight that tab's button and
+      describe what is behind it.
     screen: today
     uses:
     - ui.tutorial
     - ui.navigation
-  - id: introduces-itself-before-points-anything
-    t: It introduces itself before it points at anything
-    d: >-
-      the first step has no anchor at all — a plain dimmed screen and a card in
-      the middle of it — and it is the step a replay starts from too.
-    uses:
-    - ui.tutorial
   - id: greeting-stacks-two-answers
     t: The greeting stacks its two answers
     d: >-

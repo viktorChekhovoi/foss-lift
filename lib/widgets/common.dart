@@ -13,14 +13,20 @@ class SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Flexible, not bare: at a large font scale a two-word heading with
-          // 1.4 of letter-spacing outgrows the row, and a heading is the part
-          // that should give rather than push its trailing action off the edge.
+          // Flexible with nothing else flexible beside it: the heading may take
+          // the whole row bar its trailing action, and spaceBetween keeps that
+          // action on the right edge when the heading is short. A Spacer here
+          // would halve the space the heading gets and ellipsize an ordinary
+          // routine name — the headings are routine names, which are as long as
+          // "Push / Pull / Legs".
           Flexible(
             child: Text(
               text.toUpperCase(),
-              overflow: TextOverflow.ellipsis,
+              // No line cap and no ellipsis: a heading that does not fit across
+              // the phone wraps. These headings are routine names, and a name
+              // cut to "PUSH / PULL / L…" tells you less than nothing.
               style: kMono.copyWith(
                 fontSize: 11.5,
                 letterSpacing: 1.4,
@@ -29,8 +35,10 @@ class SectionLabel extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
-          ?trailing,
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            trailing!,
+          ],
         ],
       ),
     );

@@ -2,8 +2,8 @@
 #
 # The walkthrough is ordered by screen rather than by feature, so a testing pass
 # visits Settings once instead of arriving there from six different sections.
-# That only works if "how do I get here" lives on the screen and not on all 357
-# items — hence this file.
+# That only works if "how do I get here" lives on the screen and not on every
+# item — hence this file.
 #
 # `reach` is the tap path from a cold start. `setup` is state that has to exist
 # before the screen shows anything worth looking at; the walkthrough prints it

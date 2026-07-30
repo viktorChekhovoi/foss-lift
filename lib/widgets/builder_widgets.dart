@@ -7,37 +7,38 @@ import '../providers/providers.dart';
 import '../screens/exercise_form_screen.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
+import 'common.dart';
 import 'exercise_filters.dart';
 
 /// Shared chrome for the routine and workout builders.
 
 InputDecoration builderInput(String hint) => InputDecoration(
-      hintText: hint,
-      // No "12/80" counter under the name fields that cap their length: the cap
-      // stops typing on its own, and a tally of a number nobody is approaching
-      // is a line of noise under every field.
-      counterText: '',
-      // Set explicitly, not just via the theme: a field with its own `style`
-      // would otherwise lend the hint its weight and size and make the
-      // placeholder look like entered text.
-      hintStyle: TextStyle(
-        color: AppColors.faint,
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
-        fontStyle: FontStyle.italic,
-      ),
-      filled: true,
-      fillColor: AppColors.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AppColors.line),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AppColors.accent),
-      ),
-    );
+  hintText: hint,
+  // No "12/80" counter under the name fields that cap their length: the cap
+  // stops typing on its own, and a tally of a number nobody is approaching
+  // is a line of noise under every field.
+  counterText: '',
+  // Set explicitly, not just via the theme: a field with its own `style`
+  // would otherwise lend the hint its weight and size and make the
+  // placeholder look like entered text.
+  hintStyle: TextStyle(
+    color: AppColors.faint,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    fontStyle: FontStyle.italic,
+  ),
+  filled: true,
+  fillColor: AppColors.surface,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: AppColors.line),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: AppColors.accent),
+  ),
+);
 
 /// What came back from [askWeight]: a weight in kilograms, or a null [kg]
 /// meaning "use the default". A null *result* is a cancelled dialog.
@@ -87,9 +88,10 @@ class _WeightDialog extends StatefulWidget {
 
 class _WeightDialogState extends State<_WeightDialog> {
   late final TextEditingController _c = TextEditingController(
-      text: widget.initialKg == null
-          ? ''
-          : fmtPlateWeight(toDisplayWeight(widget.initialKg!, widget.unit)));
+    text: widget.initialKg == null
+        ? ''
+        : fmtPlateWeight(toDisplayWeight(widget.initialKg!, widget.unit)),
+  );
 
   @override
   void dispose() {
@@ -125,8 +127,7 @@ class _WeightDialogState extends State<_WeightDialog> {
         if (widget.defaultLabel != null)
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppColors.muted),
-            onPressed: () =>
-                Navigator.pop<WeightChoice>(context, (kg: null)),
+            onPressed: () => Navigator.pop<WeightChoice>(context, (kg: null)),
             child: Text(widget.defaultLabel!),
           ),
         TextButton(
@@ -143,10 +144,8 @@ class _WeightDialogState extends State<_WeightDialog> {
 ///
 /// A weight is what gets stored, but a weight is not what anybody knows: you
 /// know you curl on the EZ bar and deadlift off the trap bar, and the number
-/// follows from that. So the common bars are offered by name — see [namedBars]
-/// — with the free number kept behind "Something else" for the gym that racks
-/// something odd. Nothing new is stored: a named bar is a weight with a label
-/// on the way in.
+/// follows from that. So the gym's bars are offered by name, from the `Bars`
+/// table — and a bar the list does not have yet can be added from here.
 ///
 /// [defaultLabel] adds a button that hands the setting back to whatever the app
 /// would otherwise assume. Null when it is already on the default.
@@ -156,8 +155,8 @@ Future<WeightChoice?> askBar(
   required String unit,
   double? currentKg,
   String? defaultLabel,
-}) async {
-  final pick = await showDialog<_BarPick>(
+}) {
+  return showDialog<WeightChoice>(
     context: context,
     builder: (_) => _BarDialog(
       title: title,
@@ -166,17 +165,113 @@ Future<WeightChoice?> askBar(
       defaultLabel: defaultLabel,
     ),
   );
-  if (pick == null) return null;
-  if (!pick.custom) return (kg: pick.kg);
-  if (!context.mounted) return null;
-  return askWeight(context, title: title, unit: unit, initialKg: currentKg);
 }
 
-/// What [_BarDialog] came back with: a weight, "use the default" (a null [kg]),
-/// or [custom] — go and ask for a number instead.
-typedef _BarPick = ({double? kg, bool custom});
+/// A bar as the editor hands it back: a name and a weight in kilograms.
+typedef BarDraft = ({String name, double kg});
 
-class _BarDialog extends StatelessWidget {
+/// Asks for a bar's name and what it weighs, in the display unit.
+///
+/// Both at once, because half a bar is not worth storing. Returns null when the
+/// dialog was cancelled or either field was left unusable.
+Future<BarDraft?> askBarEdit(
+  BuildContext context, {
+  required String title,
+  required String unit,
+  String? name,
+  double? kg,
+}) {
+  return showDialog<BarDraft>(
+    context: context,
+    builder: (_) =>
+        _BarEditDialog(title: title, unit: unit, name: name, kg: kg),
+  );
+}
+
+class _BarEditDialog extends StatefulWidget {
+  const _BarEditDialog({
+    required this.title,
+    required this.unit,
+    this.name,
+    this.kg,
+  });
+  final String title;
+  final String unit;
+  final String? name;
+  final double? kg;
+
+  @override
+  State<_BarEditDialog> createState() => _BarEditDialogState();
+}
+
+class _BarEditDialogState extends State<_BarEditDialog> {
+  late final TextEditingController _name = TextEditingController(
+    text: widget.name ?? '',
+  );
+  late final TextEditingController _weight = TextEditingController(
+    text: widget.kg == null
+        ? ''
+        : fmtPlateWeight(toDisplayWeight(widget.kg!, widget.unit)),
+  );
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _weight.dispose();
+    super.dispose();
+  }
+
+  /// An empty name or an unreadable weight closes without changing anything —
+  /// the same silence [askWeight] keeps, for the same reason.
+  void _save() {
+    final name = _name.text.trim();
+    final v = double.tryParse(_weight.text.trim().replaceAll(',', '.'));
+    Navigator.pop<BarDraft>(
+      context,
+      name.isEmpty || v == null || v <= 0 || v > 1000
+          ? null
+          : (name: name, kg: toKg(v, widget.unit)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _name,
+            autofocus: widget.name == null,
+            maxLength: kMaxNameLength,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: builderInput('Name'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _weight,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            style: kMono.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
+            decoration: builderInput(unitLabel(widget.unit)),
+            onSubmitted: (_) => _save(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+}
+
+class _BarDialog extends ConsumerWidget {
   const _BarDialog({
     required this.title,
     required this.unit,
@@ -189,47 +284,60 @@ class _BarDialog extends StatelessWidget {
   final String? defaultLabel;
 
   @override
-  Widget build(BuildContext context) {
-    final bars = namedBars(unit);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bars = ref.watch(barsProvider).value ?? const [];
     // Within a hundred grams is the same bar: a 45 lb bar is 20.41 kg and will
     // never compare equal to anything typed in kilograms.
     bool isCurrent(double kg) =>
         currentKg != null && (currentKg! - kg).abs() < 0.1;
+
+    /// Adds a bar the list does not have yet, and picks it in the same breath —
+    /// which is the only reason to be adding one from here.
+    Future<void> addOne() async {
+      final draft = await askBarEdit(context, title: 'Add a bar', unit: unit);
+      if (draft == null) return;
+      // A refusal means the list already holds a bar of that weight — which is
+      // the bar being described, so picking it is still the right answer.
+      await ref
+          .read(databaseProvider)
+          .addBar(unit: unit, name: draft.name, kg: draft.kg);
+      if (!context.mounted) return;
+      Navigator.pop<WeightChoice>(context, (kg: draft.kg));
+    }
 
     Widget row({
       required String label,
       String? trailing,
       required bool selected,
       required VoidCallback onTap,
-    }) =>
-        InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? AppColors.accent : AppColors.text,
-                    ),
-                  ),
+    }) => InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? AppColors.accent : AppColors.text,
                 ),
-                if (trailing != null)
-                  Text(
-                    trailing,
-                    style: kMono.copyWith(
-                      fontSize: 13,
-                      color: selected ? AppColors.accent : AppColors.muted,
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-        );
+            if (trailing != null)
+              Text(
+                trailing,
+                style: kMono.copyWith(
+                  fontSize: 13,
+                  color: selected ? AppColors.accent : AppColors.muted,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
 
     return AlertDialog(
       backgroundColor: AppColors.surface,
@@ -244,19 +352,14 @@ class _BarDialog extends StatelessWidget {
               row(
                 label: b.name,
                 trailing:
-                    '${fmtPlateWeight(toDisplayWeight(b.weight, unit))} '
+                    '${fmtPlateWeight(toDisplayWeight(b.weightKg, unit))} '
                     '${unitLabel(unit)}',
-                selected: isCurrent(b.weight),
+                selected: isCurrent(b.weightKg),
                 onTap: () =>
-                    Navigator.pop<_BarPick>(context, (kg: b.weight, custom: false)),
+                    Navigator.pop<WeightChoice>(context, (kg: b.weightKg)),
               ),
             Divider(height: 1, color: AppColors.line),
-            row(
-              label: 'Something else',
-              selected: false,
-              onTap: () =>
-                  Navigator.pop<_BarPick>(context, (kg: null, custom: true)),
-            ),
+            row(label: 'Add a bar', selected: false, onTap: addOne),
           ],
         ),
       ),
@@ -264,8 +367,7 @@ class _BarDialog extends StatelessWidget {
         if (defaultLabel != null)
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppColors.muted),
-            onPressed: () =>
-                Navigator.pop<_BarPick>(context, (kg: null, custom: false)),
+            onPressed: () => Navigator.pop<WeightChoice>(context, (kg: null)),
             child: Text(defaultLabel!),
           ),
         TextButton(
@@ -308,8 +410,9 @@ class _NoteDialog extends StatefulWidget {
 }
 
 class _NoteDialogState extends State<_NoteDialog> {
-  late final TextEditingController _c =
-      TextEditingController(text: widget.initial ?? '');
+  late final TextEditingController _c = TextEditingController(
+    text: widget.initial ?? '',
+  );
 
   @override
   void dispose() {
@@ -390,23 +493,43 @@ class SettingRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     if (note != null) ...[
                       const SizedBox(height: 3),
-                      Text(note!,
-                          style: kMono.copyWith(
-                              fontSize: 11.5, color: AppColors.muted)),
+                      Text(
+                        note!,
+                        style: kMono.copyWith(
+                          fontSize: 11.5,
+                          color: AppColors.muted,
+                        ),
+                      ),
                     ],
                   ],
                 ),
               ),
-              Text(value,
+              // Flexible, because a value can be a name rather than a number —
+              // "Safety squat bar" is as long as some labels. The label above
+              // gives first; this is the backstop for the row that still cannot
+              // fit at a large text size.
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.end,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: kMono.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accent)),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
               const SizedBox(width: 6),
               Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
             ],
@@ -419,13 +542,16 @@ class SettingRow extends StatelessWidget {
 
 /// A small uppercase field caption.
 Widget builderLabel(String t) => Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 2),
-      child: Text(
-        t.toUpperCase(),
-        style: kMono.copyWith(
-            fontSize: 11, letterSpacing: 1.2, color: AppColors.faint),
-      ),
-    );
+  padding: const EdgeInsets.only(bottom: 8, left: 2),
+  child: Text(
+    t.toUpperCase(),
+    style: kMono.copyWith(
+      fontSize: 11,
+      letterSpacing: 1.2,
+      color: AppColors.faint,
+    ),
+  ),
+);
 
 /// A compact "− value + " stepper.
 ///
@@ -515,9 +641,11 @@ class NumberStepper extends StatelessWidget {
           width: 36,
           height: 36,
           alignment: Alignment.center,
-          child: Icon(icon,
-              size: 18,
-              color: onTap == null ? AppColors.faint : AppColors.text),
+          child: Icon(
+            icon,
+            size: 18,
+            color: onTap == null ? AppColors.faint : AppColors.text,
+          ),
         ),
       ),
     );
@@ -530,39 +658,41 @@ class NumberStepper extends StatelessWidget {
 /// decisions; the same controls in three captioned blocks read as three. Every
 /// setting inside a card is about the same thing.
 Widget builderCard(String caption, List<Widget> children) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        builderLabel(caption),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.line),
-          ),
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: children,
-          ),
-        ),
-      ],
-    );
+  crossAxisAlignment: CrossAxisAlignment.stretch,
+  children: [
+    builderLabel(caption),
+    Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.line),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
+    ),
+  ],
+);
 
 /// Lays fields out two to a row, last one half-width if the count is odd.
 Widget builderGrid(List<Widget> fields) {
   final rows = <Widget>[];
   for (var i = 0; i < fields.length; i += 2) {
-    rows.add(Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: fields[i]),
-        const SizedBox(width: 12),
-        Expanded(
-          child: i + 1 < fields.length ? fields[i + 1] : const SizedBox(),
-        ),
-      ],
-    ));
+    rows.add(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: fields[i]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: i + 1 < fields.length ? fields[i + 1] : const SizedBox(),
+          ),
+        ],
+      ),
+    );
   }
   return Column(
     mainAxisSize: MainAxisSize.min,
@@ -597,7 +727,10 @@ class BuilderField extends StatelessWidget {
         Text.rich(
           TextSpan(
             style: kMono.copyWith(
-                fontSize: 10, letterSpacing: 1.0, color: AppColors.faint),
+              fontSize: 10,
+              letterSpacing: 1.0,
+              color: AppColors.faint,
+            ),
             children: [
               TextSpan(text: label.toUpperCase()),
               if (note != null)
@@ -615,19 +748,196 @@ class BuilderField extends StatelessWidget {
   }
 }
 
-/// Small round move-up / move-down / remove buttons used by builder rows.
-Widget builderIconButton(IconData icon, VoidCallback? onTap,
-    {bool danger = false}) {
+/// One captioned, ordered list inside a builder: the rows, dragged into order
+/// by their own handles, and the button that appends one.
+///
+/// Both levels of the template hierarchy are edited through this: the training
+/// days of a routine and the exercise slots of a day. They are the same list of
+/// the same rows, so they are one widget — reordering has to feel identical at
+/// both levels, and two copies would drift.
+///
+/// It shrink-wraps and does not scroll: the builders put it inside their own
+/// scroll view, and a list with its own would trap the drag.
+class BuilderReorderList<T> extends StatelessWidget {
+  const BuilderReorderList({
+    super.key,
+    required this.caption,
+    required this.items,
+    required this.emptyText,
+    required this.addLabel,
+    required this.onAdd,
+    required this.onReorder,
+    required this.rowBuilder,
+  });
+
+  /// The uppercase heading, sans count — "Workouts", "Exercises".
+  final String caption;
+  final List<T> items;
+
+  /// Shown in place of the rows when there are none. One line.
+  final String emptyText;
+  final String addLabel;
+  final VoidCallback onAdd;
+
+  /// Moves the item at `from` to `to`, an index already corrected for the item
+  /// having been lifted out of the list.
+  final void Function(int from, int to) onReorder;
+
+  /// Builds the row for [item], which must be a [BuilderReorderRow] carrying
+  /// the same [index] so its handle knows what it is dragging.
+  final Widget Function(int index, T item) rowBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionLabel('$caption · ${items.length}'),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(emptyText, style: TextStyle(color: AppColors.muted)),
+          ),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          padding: EdgeInsets.zero,
+          itemCount: items.length,
+          // onReorderItem, not onReorder: it hands back a destination index
+          // already corrected for the item having been lifted out.
+          onReorderItem: onReorder,
+          proxyDecorator: (child, _, _) => Material(
+            color: Colors.transparent,
+            child: Opacity(opacity: 0.9, child: child),
+          ),
+          itemBuilder: (context, i) => Padding(
+            key: ObjectKey(items[i]),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: rowBuilder(i, items[i]),
+          ),
+        ),
+        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.accent,
+            side: BorderSide(color: AppColors.line),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          onPressed: onAdd,
+          icon: const Icon(Icons.add),
+          label: Text(addLabel),
+        ),
+      ],
+    );
+  }
+}
+
+/// One row of a [BuilderReorderList]: a grab handle, a name over a summary
+/// line, and a remove button. Tapping it opens whatever it stands for.
+class BuilderReorderRow extends StatelessWidget {
+  const BuilderReorderRow({
+    super.key,
+    required this.index,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  /// Position in the list, which is what the drag handle moves.
+  final int index;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.line),
+          ),
+          padding: const EdgeInsets.fromLTRB(4, 10, 6, 10),
+          child: Row(
+            children: [
+              // Grab here to drag the row up or down the list.
+              ReorderableDragStartListener(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 22,
+                    color: AppColors.faint,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: kMono.copyWith(
+                        fontSize: 12.5,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              builderIconButton(Icons.close, onRemove, danger: true),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small round remove buttons used by builder rows.
+Widget builderIconButton(
+  IconData icon,
+  VoidCallback? onTap, {
+  bool danger = false,
+  Key? key,
+}) {
   return IconButton(
+    key: key,
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
     constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
     onPressed: onTap,
-    icon: Icon(icon,
-        size: 20,
-        color: onTap == null
-            ? AppColors.faint.withValues(alpha: 0.4)
-            : (danger ? const Color(0xFFFF5D5D) : AppColors.muted)),
+    icon: Icon(
+      icon,
+      size: 20,
+      color: onTap == null
+          ? AppColors.faint.withValues(alpha: 0.4)
+          : (danger ? const Color(0xFFFF5D5D) : AppColors.muted),
+    ),
   );
 }
 
@@ -649,7 +959,9 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
   /// what it makes is what the picker returns — you asked for that exercise.
   Future<void> _createOne() async {
     final made = await Navigator.of(context, rootNavigator: true)
-        .push<Exercise>(MaterialPageRoute(builder: (_) => const ExerciseFormScreen()));
+        .push<Exercise>(
+          MaterialPageRoute(builder: (_) => const ExerciseFormScreen()),
+        );
     if (made == null || !mounted) return;
     Navigator.pop(context, made);
   }
@@ -680,56 +992,79 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
               ),
             ),
             const SizedBox(height: 8),
-            ExerciseFilterChips(
-              filter: _filter,
-              onChanged: (f) => setState(() => _filter = f),
-            ),
-            const SizedBox(height: 4),
             Expanded(
               child: library.when(
                 loading: () => Center(
-                    child: CircularProgressIndicator(color: AppColors.accent)),
+                  child: CircularProgressIndicator(color: AppColors.accent),
+                ),
                 error: (e, _) => Center(
-                    child:
-                        Text('$e', style: TextStyle(color: AppColors.muted))),
+                  child: Text('$e', style: TextStyle(color: AppColors.muted)),
+                ),
                 data: (all) {
                   final list = _filter.apply(all);
                   return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    // The new-exercise row rides at the top of the list, where
-                    // it is found by someone who has already looked and not
-                    // found what they wanted.
-                    itemCount: list.length + 1,
-                    separatorBuilder: (_, _) =>
-                        Divider(height: 1, color: AppColors.line),
+                    // The chips ride at the head of the list rather than in a
+                    // band above it: wrapped, they are as tall as the
+                    // vocabulary and the font demand, which no fixed band at
+                    // the top of a sheet can promise.
+                    itemCount: list.length + 2,
+                    separatorBuilder: (_, i) => i == 0
+                        ? const SizedBox(height: 4)
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Divider(height: 1, color: AppColors.line),
+                          ),
                     itemBuilder: (_, i) {
                       if (i == 0) {
-                        return ListTile(
-                          key: const ValueKey('picker-new-exercise'),
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.add, color: AppColors.accent),
-                          title: Text(
-                            'New exercise',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.accent,
-                            ),
-                          ),
-                          onTap: _createOne,
+                        return ExerciseFilterChips(
+                          filter: _filter,
+                          onChanged: (f) => setState(() => _filter = f),
                         );
                       }
-                      final e = list[i - 1];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(e.name,
+                      // The new-exercise row rides above the movements, where
+                      // it is found by someone who has already looked and not
+                      // found what they wanted.
+                      if (i == 1) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: ListTile(
+                            key: const ValueKey('picker-new-exercise'),
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.add, color: AppColors.accent),
+                            title: Text(
+                              'New exercise',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                            onTap: _createOne,
+                          ),
+                        );
+                      }
+                      final e = list[i - 2];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            e.name,
                             style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w600)),
-                        subtitle: Text('${e.muscleGroup} · ${e.equipment}',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${e.muscleGroup} · ${e.equipment}',
                             style: TextStyle(
-                                fontSize: 12, color: AppColors.muted)),
-                        trailing: Icon(Icons.add, color: AppColors.accent),
-                        onTap: () => Navigator.pop(context, e),
+                              fontSize: 12,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                          trailing: Icon(Icons.add, color: AppColors.accent),
+                          onTap: () => Navigator.pop(context, e),
+                        ),
                       );
                     },
                   );

@@ -40,22 +40,29 @@ void main() {
       expect(names.toSet().length, names.length);
     });
 
-    test('the starter set covers every muscle group and every equipment kind',
-        () async {
-      final all = await db.watchExercises().first;
+    test(
+      'the starter set covers every muscle group and every equipment kind',
+      () async {
+        final all = await db.watchExercises().first;
 
-      // A group nobody can fill from the library is a group the picker offers
-      // for nothing.
-      for (final group in kMuscleGroups) {
-        expect(all.where((e) => e.muscleGroup == group).length,
+        // A group nobody can fill from the library is a group the picker offers
+        // for nothing.
+        for (final group in kMuscleGroups) {
+          expect(
+            all.where((e) => e.muscleGroup == group).length,
             greaterThanOrEqualTo(3),
-            reason: '$group is thin in the starter library');
-      }
-      for (final kind in kEquipmentTypes) {
-        expect(all.any((e) => e.equipment == kind), isTrue,
-            reason: 'nothing in the library is $kind');
-      }
-    });
+            reason: '$group is thin in the starter library',
+          );
+        }
+        for (final kind in kEquipmentTypes) {
+          expect(
+            all.any((e) => e.equipment == kind),
+            isTrue,
+            reason: 'nothing in the library is $kind',
+          );
+        }
+      },
+    );
 
     test('the movements a thin library was missing are all present', () async {
       final names = (await db.watchExercises().first).map((e) => e.name);
@@ -99,10 +106,16 @@ void main() {
       final all = await db.watchExercises().first;
 
       for (final e in all.where((e) => !e.isCustom)) {
-        expect(youTubeVideoId(e.videoUrl ?? ''), isNotNull,
-            reason: '${e.name} links to "${e.videoUrl}", which names no video');
-        expect(e.videoUrl, startsWith('https://youtu.be/'),
-            reason: '${e.name} is not stored in the canonical short form');
+        expect(
+          youTubeVideoId(e.videoUrl ?? ''),
+          isNotNull,
+          reason: '${e.name} links to "${e.videoUrl}", which names no video',
+        );
+        expect(
+          e.videoUrl,
+          startsWith('https://youtu.be/'),
+          reason: '${e.name} is not stored in the canonical short form',
+        );
       }
     });
 
@@ -112,12 +125,18 @@ void main() {
       final all = (await db.watchExercises().first).where((e) => !e.isCustom);
       final byId = <String, List<String>>{};
       for (final e in all) {
-        byId.putIfAbsent(youTubeVideoId(e.videoUrl ?? '')!, () => []).add(e.name);
+        byId
+            .putIfAbsent(youTubeVideoId(e.videoUrl ?? '')!, () => [])
+            .add(e.name);
       }
       final shared = byId.entries.where((x) => x.value.length > 1).toList();
-      expect(shared, isEmpty,
-          reason: 'shared demo videos: '
-              '${shared.map((x) => '${x.key} → ${x.value}').join('; ')}');
+      expect(
+        shared,
+        isEmpty,
+        reason:
+            'shared demo videos: '
+            '${shared.map((x) => '${x.key} → ${x.value}').join('; ')}',
+      );
     });
 
     test('a custom exercise sits alongside the starter set', () async {
@@ -141,61 +160,197 @@ void main() {
     });
   });
 
-  group('weight type seeded from equipment', () {
+  group('every starter is seeded with the loading it actually uses', () {
+    test('a loaded movement is loaded — never bodyweight', () async {
+      // The complaint this answers: a barbell curl is a bar, not something you
+      // do with your own weight.
+      expect(
+        (await exerciseNamed(db, 'Barbell Curl')).weightType,
+        WeightType.bar,
+      );
+      expect(
+        (await exerciseNamed(db, 'Bench Press')).weightType,
+        WeightType.bar,
+      );
+      expect(
+        (await exerciseNamed(db, 'Incline DB Press')).weightType,
+        WeightType.dumbbell,
+      );
+      expect(
+        (await exerciseNamed(db, 'Leg Press')).weightType,
+        WeightType.machine,
+      );
+      expect(
+        (await exerciseNamed(db, 'Triceps Pushdown')).weightType,
+        WeightType.machine,
+      ); // a cable stack reads as a machine
+
+      final all = await db.watchExercises().first;
+      final loaded = all.where(
+        (e) =>
+            e.equipment == 'Barbell' ||
+            e.equipment == 'Dumbbell' ||
+            e.equipment == 'Machine' ||
+            e.equipment == 'Cable',
+      );
+      for (final e in loaded) {
+        expect(
+          e.weightType,
+          isNot(WeightType.none),
+          reason: '${e.name} is a ${e.equipment} movement',
+        );
+      }
+    });
+
+    test('the equipment decides it, one kind at a time', () async {
+      const expected = {
+        'Barbell': WeightType.bar,
+        'Dumbbell': WeightType.dumbbell,
+        'Machine': WeightType.machine,
+        'Cable': WeightType.machine,
+        'Bodyweight': WeightType.none,
+      };
+      // The movements whose equipment does not say how they are held: a
+      // kettlebell is a weight in one hand, an ab wheel is nothing at all.
+      const byHand = {
+        'Kettlebell Swing': WeightType.dumbbell,
+        'Turkish Get-Up': WeightType.dumbbell,
+        'Ab Wheel Rollout': WeightType.none,
+      };
+
+      for (final e in await db.watchExercises().first) {
+        final want = byHand[e.name] ?? expected[e.equipment];
+        if (want == null) continue; // 'Other' equipment, typed by hand above
+        expect(e.weightType, want, reason: '${e.name} (${e.equipment})');
+      }
+      for (final entry in byHand.entries) {
+        expect((await exerciseNamed(db, entry.key)).weightType, entry.value);
+      }
+    });
+
     test(
-      'barbell → bar, dumbbell → dumbbell, everything else → machine',
+      'nothing carries no loading but the movements that genuinely do not',
       () async {
-        expect(
-          (await exerciseNamed(db, 'Bench Press')).weightType,
-          WeightType.bar,
-        );
-        expect(
-          (await exerciseNamed(db, 'Incline DB Press')).weightType,
-          WeightType.dumbbell,
-        );
-        expect(
-          (await exerciseNamed(db, 'Triceps Pushdown')).weightType,
-          WeightType.machine,
-        ); // cable
-        expect(
-          (await exerciseNamed(db, 'Push-Up')).weightType,
-          WeightType.machine,
-        ); // bodyweight
+        final all = await db.watchExercises().first;
+        final bare = all
+            .where((e) => e.weightType == WeightType.none)
+            .map((e) => e.name);
+
+        expect(bare.toSet(), {
+          'Push-Up',
+          'Chest Dip',
+          'Pull-Up',
+          'Chin-Up',
+          'Inverted Row',
+          'Back Extension',
+          'Glute Bridge',
+          'Triceps Dip',
+          'Dead Hang',
+          'Ab Wheel Rollout',
+          'Plank',
+          'Side Plank',
+          'Hollow Hold',
+          'Hanging Leg Raise',
+          'Crunch',
+          'Reverse Crunch',
+          'Russian Twist',
+          'Dead Bug',
+        });
       },
     );
 
-    test(
-      'the equipment→type rule itself, including the bodyweight fallthrough',
-      () {
-        expect(weightTypeForEquipment('Barbell'), WeightType.bar);
-        expect(weightTypeForEquipment('Dumbbell'), WeightType.dumbbell);
-        expect(weightTypeForEquipment('Cable'), WeightType.machine);
-        expect(weightTypeForEquipment('Bodyweight'), WeightType.machine);
-        expect(weightTypeForEquipment('anything else'), WeightType.machine);
-      },
-    );
+    test('the equipment→type rule itself', () {
+      expect(weightTypeForEquipment('Barbell'), WeightType.bar);
+      expect(weightTypeForEquipment('Dumbbell'), WeightType.dumbbell);
+      expect(weightTypeForEquipment('Cable'), WeightType.machine);
+      expect(weightTypeForEquipment('Bodyweight'), WeightType.none);
+      expect(weightTypeForEquipment('anything else'), WeightType.machine);
+    });
 
     test(
-      'a new custom exercise defaults to machine when not told otherwise',
+      'a new custom exercise starts on a real load, not bodyweight',
       () async {
         final id = await db.createExercise(
           name: 'Sled Push',
           muscle: 'Legs',
           equipment: 'Sled',
         );
-        expect((await db.exerciseById(id)).weightType, WeightType.machine);
+        final made = await db.exerciseById(id);
+        expect(made.weightType, WeightType.machine);
+        expect(made.weightType, isNot(WeightType.none));
       },
     );
+
+    test('a loading that is nothing is still a stored answer', () async {
+      // A weighted pull-up, told it carries nothing again: a seeded barbell lift
+      // cannot be, because its equipment settles the question.
+      final pull = await exerciseNamed(db, 'Pull-Up');
+      await db.setExerciseWeightType(pull.id, WeightType.dumbbell);
+
+      await db.setExerciseWeightType(pull.id, WeightType.none);
+
+      final after = await db.exerciseById(pull.id);
+      expect(after.weightType, WeightType.none);
+      // And nothing about it breaks down into plates.
+      expect(after.weightType.loadedPerSide, isFalse);
+      expect(after.weightType.carriesWeight, isFalse);
+    });
   });
 
-  group('weight type & bar are overridable for any exercise', () {
-    test('the seeded type can be reclassified on a starter lift', () async {
-      final bench = await exerciseNamed(db, 'Bench Press');
-      expect(bench.weightType, WeightType.bar);
+  group('weight type & bar are overridable where they are a choice', () {
+    test(
+      'a starter whose equipment says nothing can be reclassified',
+      () async {
+        // "Other" is the word for equipment that fitted no name, so the seed's
+        // loading for it is a guess — and a guess is overrulable.
+        final swing = await exerciseNamed(db, 'Kettlebell Swing');
+        expect(swing.equipment, 'Other');
 
-      await db.setExerciseWeightType(bench.id, WeightType.machine);
+        await db.setExerciseWeightType(swing.id, WeightType.dumbbell);
 
-      expect((await db.exerciseById(bench.id)).weightType, WeightType.machine);
+        expect(
+          (await db.exerciseById(swing.id)).weightType,
+          WeightType.dumbbell,
+        );
+      },
+    );
+
+    test('and a barbell curl cannot: its name has already answered', () async {
+      final curl = await exerciseNamed(db, 'Barbell Curl');
+      expect(curl.weightType, WeightType.bar);
+
+      await db.setExerciseWeightType(curl.id, WeightType.machine);
+
+      expect((await db.exerciseById(curl.id)).weightType, WeightType.bar);
+    });
+
+    test(
+      'a barbell lift not named for the bar is still yours to reclassify',
+      () async {
+        // The user's own examples: a skull crusher is done with dumbbells or on a
+        // machine as often as with a bar, and "Barbell" is only what the seed
+        // guessed about the gym.
+        final skull = await exerciseNamed(db, 'Skull Crusher');
+        expect(skull.equipment, 'Barbell');
+
+        await db.setExerciseWeightType(skull.id, WeightType.dumbbell);
+
+        expect(
+          (await db.exerciseById(skull.id)).weightType,
+          WeightType.dumbbell,
+        );
+      },
+    );
+
+    test('and a machine can be told it is plate-loaded', () async {
+      // A chest-supported row is often a bar with plates on it, and the plate
+      // maths is the reason to say so.
+      final row = await exerciseNamed(db, 'Chest-Supported Row');
+      expect(row.equipment, 'Machine');
+
+      await db.setExerciseWeightType(row.id, WeightType.bar);
+
+      expect((await db.exerciseById(row.id)).weightType, WeightType.bar);
     });
 
     test(
@@ -228,20 +383,27 @@ void main() {
   });
 
   group('measure is a fixed fact of the movement', () {
-    test('the held starters are exactly the movements with no rep to count',
-        () async {
-      final all = await db.watchExercises().first;
-      final held = all.where((e) => e.measure == ExerciseMeasure.time).toList();
+    test(
+      'the held starters are exactly the movements with no rep to count',
+      () async {
+        final all = await db.watchExercises().first;
+        final held = all
+            .where((e) => e.measure == ExerciseMeasure.time)
+            .toList();
 
-      expect(
-        held.map((e) => e.name).toSet(),
-        {'Plank', 'Side Plank', 'Hollow Hold', 'Dead Hang', "Farmer's Carry"},
-      );
-      expect(
-        (await exerciseNamed(db, 'Bench Press')).measure,
-        ExerciseMeasure.reps,
-      );
-    });
+        expect(held.map((e) => e.name).toSet(), {
+          'Plank',
+          'Side Plank',
+          'Hollow Hold',
+          'Dead Hang',
+          "Farmer's Carry",
+        });
+        expect(
+          (await exerciseNamed(db, 'Bench Press')).measure,
+          ExerciseMeasure.reps,
+        );
+      },
+    );
 
     test('a custom exercise keeps the measure it was created with', () async {
       final id = await db.createExercise(
@@ -372,8 +534,9 @@ void main() {
       final container = containerFor(db);
       addTearDown(container.dispose);
       // The form pops on save, so it needs a router above it.
-      await tester
-          .pumpWidget(routedAppUnder(container, const ExerciseFormScreen()));
+      await tester.pumpWidget(
+        routedAppUnder(container, const ExerciseFormScreen()),
+      );
       await tester.pumpAndSettle();
     }
 
@@ -394,19 +557,26 @@ void main() {
       return saved.firstWhere((e) => e.name == 'Copenhagen Plank');
     }
 
-    testWidgets('a YouTube link is stored in its short canonical form',
-        (tester) async {
+    testWidgets('a YouTube link is stored in its short canonical form', (
+      tester,
+    ) async {
       final saved = await saveWith(
-          tester, 'https://www.youtube.com/watch?v=aBcD1234_-x&t=90s&list=PLx');
+        tester,
+        'https://www.youtube.com/watch?v=aBcD1234_-x&t=90s&list=PLx',
+      );
 
-      expect(saved.videoUrl, 'https://youtu.be/aBcD1234_-x',
-          reason: 'the timestamp, playlist and www. identify nothing');
+      expect(
+        saved.videoUrl,
+        'https://youtu.be/aBcD1234_-x',
+        reason: 'the timestamp, playlist and www. identify nothing',
+      );
 
       await stop(tester);
     });
 
-    testWidgets('a link to somewhere else is kept exactly as typed',
-        (tester) async {
+    testWidgets('a link to somewhere else is kept exactly as typed', (
+      tester,
+    ) async {
       // A coach's own upload, a private clip: not ours to rewrite, and it still
       // opens from the exercise screen.
       final saved = await saveWith(tester, 'https://example.com/my-technique');
@@ -429,13 +599,13 @@ void main() {
     setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
 
     Future<int> mine() => db.createExercise(
-          name: 'Copenhagen Plank',
-          muscle: 'Core',
-          equipment: 'Bodyweight',
-          videoUrl: 'https://youtu.be/aBcD1234_-x',
-          measure: ExerciseMeasure.time,
-          weightType: WeightType.machine,
-        );
+      name: 'Copenhagen Plank',
+      muscle: 'Core',
+      equipment: 'Bodyweight',
+      videoUrl: 'https://youtu.be/aBcD1234_-x',
+      measure: ExerciseMeasure.time,
+      weightType: WeightType.machine,
+    );
 
     Future<void> openEditor(WidgetTester tester, int id) async {
       tester.view.physicalSize = const Size(1000, 2400);
@@ -445,12 +615,14 @@ void main() {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await tester.pumpWidget(
-          routedAppUnder(container, ExerciseFormScreen(exerciseId: id)));
+        routedAppUnder(container, ExerciseFormScreen(exerciseId: id)),
+      );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('the form opens on what was stored, not on a blank',
-        (tester) async {
+    testWidgets('the form opens on what was stored, not on a blank', (
+      tester,
+    ) async {
       final id = (await tester.runAsync(mine))!;
       await openEditor(tester, id);
 
@@ -461,34 +633,40 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('saving rewrites the exercise in place rather than adding one',
-        (tester) async {
-      final id = (await tester.runAsync(mine))!;
-      final before =
-          (await tester.runAsync(() => db.watchExercises().first))!.length;
-      await openEditor(tester, id);
+    testWidgets(
+      'saving rewrites the exercise in place rather than adding one',
+      (tester) async {
+        final id = (await tester.runAsync(mine))!;
+        final before = (await tester.runAsync(
+          () => db.watchExercises().first,
+        ))!.length;
+        await openEditor(tester, id);
 
-      await tester.enterText(
-          find.byType(TextField).first, 'Copenhagen Plank (long lever)');
-      // "Dumbbell" is both an equipment and a loading; the second is the
-      // "Loaded as" row, which sits below Equipment on the form.
-      await tester.tap(find.text('Dumbbell').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save exercise'));
-      await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).first,
+          'Copenhagen Plank (long lever)',
+        );
+        // "Dumbbell" is both an equipment and a loading; the second is the
+        // "Loaded as" row, which sits below Equipment on the form.
+        await tester.tap(find.text('Dumbbell').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Save exercise'));
+        await tester.pumpAndSettle();
 
-      final all = (await tester.runAsync(() => db.watchExercises().first))!;
-      expect(all.length, before, reason: 'an edit is not a second exercise');
-      final saved = all.firstWhere((e) => e.id == id);
-      expect(saved.name, 'Copenhagen Plank (long lever)');
-      expect(saved.weightType, WeightType.dumbbell);
-      expect(saved.isCustom, isTrue);
+        final all = (await tester.runAsync(() => db.watchExercises().first))!;
+        expect(all.length, before, reason: 'an edit is not a second exercise');
+        final saved = all.firstWhere((e) => e.id == id);
+        expect(saved.name, 'Copenhagen Plank (long lever)');
+        expect(saved.weightType, WeightType.dumbbell);
+        expect(saved.isCustom, isTrue);
 
-      await stop(tester);
-    });
+        await stop(tester);
+      },
+    );
 
-    testWidgets('the name field stops at the length the schema will take',
-        (tester) async {
+    testWidgets('the name field stops at the length the schema will take', (
+      tester,
+    ) async {
       final id = (await tester.runAsync(mine))!;
       await openEditor(tester, id);
 
@@ -505,25 +683,31 @@ void main() {
       await stop(tester);
     });
 
-    test('a starter exercise is not renameable through the same door',
-        () async {
-      final all = await db.watchExercises().first;
-      final starter = all.firstWhere((e) => !e.isCustom);
+    test(
+      'a starter exercise is not renameable through the same door',
+      () async {
+        final all = await db.watchExercises().first;
+        final starter = all.firstWhere((e) => !e.isCustom);
 
-      await db.updateCustomExercise(
-        starter.id,
-        name: 'Not Bench Press',
-        muscle: 'Chest',
-        equipment: 'Barbell',
-        videoUrl: null,
-        measure: ExerciseMeasure.reps,
-        weightType: WeightType.bar,
-      );
+        await db.updateCustomExercise(
+          starter.id,
+          name: 'Not Bench Press',
+          muscle: 'Chest',
+          equipment: 'Barbell',
+          videoUrl: null,
+          measure: ExerciseMeasure.reps,
+          weightType: WeightType.bar,
+        );
 
-      final after = await db.exerciseById(starter.id);
-      expect(after.name, starter.name,
-          reason: 'a starter name is shared vocabulary a routine code relies on');
-    });
+        final after = await db.exerciseById(starter.id);
+        expect(
+          after.name,
+          starter.name,
+          reason:
+              'a starter name is shared vocabulary a routine code relies on',
+        );
+      },
+    );
   });
 
   group('a personal note on a movement', () {
@@ -537,10 +721,7 @@ void main() {
       final press = await exerciseNamed(db, 'Leg Press');
 
       await db.setExerciseNotes(press.id, 'Seat 4, back pad on 2');
-      expect(
-        (await db.exerciseById(press.id)).notes,
-        'Seat 4, back pad on 2',
-      );
+      expect((await db.exerciseById(press.id)).notes, 'Seat 4, back pad on 2');
 
       await db.setExerciseNotes(press.id, 'Seat 3 now');
       expect((await db.exerciseById(press.id)).notes, 'Seat 3 now');
@@ -559,46 +740,52 @@ void main() {
       expect((await db.exerciseById(press.id)).notes, isNull);
     });
 
-    test('a note is kept, trimmed, on a starter and on a custom alike',
-        () async {
-      final starter = await exerciseNamed(db, 'Bench Press');
-      final custom = await db.createExercise(
-        name: 'Zercher Squat',
-        muscle: 'Legs',
-        equipment: 'Barbell',
-      );
+    test(
+      'a note is kept, trimmed, on a starter and on a custom alike',
+      () async {
+        final starter = await exerciseNamed(db, 'Bench Press');
+        final custom = await db.createExercise(
+          name: 'Zercher Squat',
+          muscle: 'Legs',
+          equipment: 'Barbell',
+        );
 
-      await db.setExerciseNotes(starter.id, '  Rack pin 7  ');
-      await db.setExerciseNotes(custom, 'Elbows hurt — use the pad');
+        await db.setExerciseNotes(starter.id, '  Rack pin 7  ');
+        await db.setExerciseNotes(custom, 'Elbows hurt — use the pad');
 
-      expect((await db.exerciseById(starter.id)).notes, 'Rack pin 7');
-      expect(
-        (await db.exerciseById(custom)).notes,
-        'Elbows hurt — use the pad',
-      );
-    });
+        expect((await db.exerciseById(starter.id)).notes, 'Rack pin 7');
+        expect(
+          (await db.exerciseById(custom)).notes,
+          'Elbows hurt — use the pad',
+        );
+      },
+    );
 
     test('a note survives a rename', () async {
       final press = await exerciseNamed(db, 'Leg Press');
       await db.setExerciseNotes(press.id, 'Seat 4');
 
-      await (db.update(db.exercises)..where((e) => e.id.equals(press.id)))
-          .write(const ExercisesCompanion(
-              name: Value('Leg Press (the good one)')));
+      await (db.update(
+        db.exercises,
+      )..where((e) => e.id.equals(press.id))).write(
+        const ExercisesCompanion(name: Value('Leg Press (the good one)')),
+      );
 
       expect((await db.exerciseById(press.id)).notes, 'Seat 4');
     });
 
-    testWidgets('the detail screen writes a note and reads it back',
-        (tester) async {
-      final press = (await tester.runAsync(() => exerciseNamed(db, 'Leg Press')))!;
+    testWidgets('the detail screen writes a note and reads it back', (
+      tester,
+    ) async {
+      final press = (await tester.runAsync(
+        () => exerciseNamed(db, 'Leg Press'),
+      ))!;
       final container = containerFor(db);
       addTearDown(container.dispose);
 
-      await tester.pumpWidget(routedAppUnder(
-        container,
-        ExerciseDetailScreen(exerciseId: press.id),
-      ));
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: press.id)),
+      );
       await tester.pumpAndSettle();
 
       // Empty reads as deliberate, not broken.
@@ -610,8 +797,7 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
-      final saved =
-          (await tester.runAsync(() => db.exerciseById(press.id)))!;
+      final saved = (await tester.runAsync(() => db.exerciseById(press.id)))!;
       expect(saved.notes, 'Seat 4, pin 7');
       // And the screen is showing it, not the empty state.
       await tester.pumpAndSettle();
@@ -635,10 +821,9 @@ void main() {
     });
 
     test('equipment and muscle group narrow together', () async {
-      final legs = await filtered(const ExerciseFilter(
-        equipment: {'Barbell'},
-        muscles: {'Legs'},
-      ));
+      final legs = await filtered(
+        const ExerciseFilter(equipment: {'Barbell'}, muscles: {'Legs'}),
+      );
 
       expect(legs, isNotEmpty);
       expect(legs.every((e) => e.equipment == 'Barbell'), isTrue);
@@ -646,40 +831,45 @@ void main() {
       expect(legs.map((e) => e.name), contains('Back Squat'));
     });
 
-    test('several muscle groups are alternatives, not a narrower search',
-        () async {
-      final arms = await filtered(const ExerciseFilter(muscles: {'Arms'}));
-      final glutes = await filtered(const ExerciseFilter(muscles: {'Glutes'}));
-      final both =
-          await filtered(const ExerciseFilter(muscles: {'Arms', 'Glutes'}));
+    test(
+      'several muscle groups are alternatives, not a narrower search',
+      () async {
+        final arms = await filtered(const ExerciseFilter(muscles: {'Arms'}));
+        final core = await filtered(const ExerciseFilter(muscles: {'Core'}));
+        final both = await filtered(
+          const ExerciseFilter(muscles: {'Arms', 'Core'}),
+        );
 
-      expect(both.length, arms.length + glutes.length);
-      expect(
-        both.every((e) => e.muscleGroup == 'Arms' || e.muscleGroup == 'Glutes'),
-        isTrue,
-      );
-    });
+        expect(both.length, arms.length + core.length);
+        expect(
+          both.every((e) => e.muscleGroup == 'Arms' || e.muscleGroup == 'Core'),
+          isTrue,
+        );
+      },
+    );
 
     test('the same holds for equipment', () async {
       final bar = await filtered(const ExerciseFilter(equipment: {'Barbell'}));
       final db2 = await filtered(const ExerciseFilter(equipment: {'Dumbbell'}));
       final both = await filtered(
-          const ExerciseFilter(equipment: {'Barbell', 'Dumbbell'}));
+        const ExerciseFilter(equipment: {'Barbell', 'Dumbbell'}),
+      );
 
       expect(both.length, bar.length + db2.length);
     });
 
     test('the chips compose with the search text', () async {
-      final pressed = await filtered(const ExerciseFilter(
-        query: 'press',
-        equipment: {'Dumbbell'},
-      ));
+      final pressed = await filtered(
+        const ExerciseFilter(query: 'press', equipment: {'Dumbbell'}),
+      );
 
       expect(pressed, isNotEmpty);
       expect(
-        pressed.every((e) =>
-            e.equipment == 'Dumbbell' &&
-            e.name.toLowerCase().contains('press')),
+        pressed.every(
+          (e) =>
+              e.equipment == 'Dumbbell' &&
+              e.name.toLowerCase().contains('press'),
+        ),
         isTrue,
       );
       // And the text alone finds more than the pair does.
@@ -689,7 +879,10 @@ void main() {
 
     test('letting the chips go keeps what was typed', () {
       const f = ExerciseFilter(
-          query: 'squat', equipment: {'Barbell'}, muscles: {'Legs'});
+        query: 'squat',
+        equipment: {'Barbell'},
+        muscles: {'Legs'},
+      );
       expect(f.facetCount, 2);
 
       final cleared = f.withoutFacets;
@@ -704,6 +897,20 @@ void main() {
       expect(on.toggleMuscle('Back').muscles, isEmpty);
     });
 
+    /// Ticks [label] in the sheet the [dimension] button opens, and comes out.
+    Future<void> narrowBy(
+      WidgetTester tester,
+      String dimension,
+      String label,
+    ) async {
+      await tester.tap(find.byKey(filterButtonKey(dimension)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(filterChipKey(dimension, label)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(kFilterSheetDoneKey));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('the library filters to what the chips say', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
@@ -714,17 +921,16 @@ void main() {
       // first group on screen.
       expect(find.textContaining('ARMS ·'), findsOneWidget);
 
-      // A barbell movement for legs: two taps, and no name needed to get here.
-      await tester.tap(find.byKey(filterChipKey('equipment', 'Barbell')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(filterChipKey('muscle', 'Legs')));
-      await tester.pumpAndSettle();
+      // A barbell movement for legs, and no name needed to get here: each
+      // dimension button opens its own vocabulary to tick.
+      await narrowBy(tester, 'equipment', 'Barbell');
+      await narrowBy(tester, 'muscle', 'Legs');
 
       expect(find.text('Back Squat'), findsOneWidget);
       expect(find.textContaining('ARMS ·'), findsNothing);
       expect(find.text('Leg Press'), findsNothing, reason: 'a machine');
 
-      // And letting the chips go brings the rest back.
+      // And letting the buttons go brings the rest back.
       await tester.tap(find.byKey(kFilterClearKey));
       await tester.pumpAndSettle();
       expect(find.textContaining('ARMS ·'), findsOneWidget);
@@ -741,7 +947,8 @@ void main() {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await tester.pumpWidget(
-          routedAppUnder(container, const ExerciseFormScreen()));
+        routedAppUnder(container, const ExerciseFormScreen()),
+      );
       await tester.pumpAndSettle();
     }
 
@@ -772,8 +979,9 @@ void main() {
       expect(find.textContaining('Most holds carry nothing'), findsOneWidget);
     });
 
-    testWidgets('a held movement can be saved with a load on it',
-        (tester) async {
+    testWidgets('a held movement can be saved with a load on it', (
+      tester,
+    ) async {
       await pumpForm(tester);
 
       await tester.enterText(find.byType(TextField).first, 'Weighted Plank');
@@ -785,10 +993,281 @@ void main() {
       await tester.tap(find.text('Save exercise'));
       await tester.pumpAndSettle();
 
-      final made = (await tester.runAsync(() => db.watchExercises().first))!
-          .firstWhere((e) => e.name == 'Weighted Plank');
+      final made = (await tester.runAsync(
+        () => db.watchExercises().first,
+      ))!.firstWhere((e) => e.name == 'Weighted Plank');
       expect(made.measure, ExerciseMeasure.time);
       expect(made.weightType, WeightType.dumbbell);
+
+      await stop(tester);
+    });
+
+    testWidgets('tapping the chosen loading again clears it', (tester) async {
+      // A movement that carries nothing. Deselecting is how you say so.
+      await pumpForm(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'Air Squat');
+      // Barbell is the form's opening equipment, so Bar starts selected.
+      await tester.tap(find.text('Bar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final made = (await tester.runAsync(
+        () => db.watchExercises().first,
+      ))!.firstWhere((e) => e.name == 'Air Squat');
+      expect(made.weightType, WeightType.none);
+
+      await stop(tester);
+    });
+
+    testWidgets('choosing held takes the load off', (tester) async {
+      // Most holds carry nothing, and the load on screen at that moment is
+      // whatever the equipment chip guessed before the question was asked. A
+      // plank left reading "Bar" is a weight column wanting a number nobody
+      // has.
+      await pumpForm(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'Wall Sit');
+      await tester.tap(find.text('Time held'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final made = (await tester.runAsync(
+        () => db.watchExercises().first,
+      ))!.firstWhere((e) => e.name == 'Wall Sit');
+      expect(made.measure, ExerciseMeasure.time);
+      expect(made.weightType, WeightType.none);
+
+      await stop(tester);
+    });
+
+    testWidgets('and going back to counted puts the equipment\'s load back', (
+      tester,
+    ) async {
+      // The same mistake pointing the other way: a counted barbell movement
+      // with nothing loaded on it.
+      await pumpForm(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'Front Squat');
+      await tester.tap(find.text('Time held'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reps'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final made = (await tester.runAsync(
+        () => db.watchExercises().first,
+      ))!.firstWhere((e) => e.name == 'Front Squat');
+      expect(made.weightType, WeightType.bar);
+
+      await stop(tester);
+    });
+
+    testWidgets('no loading is offered as a chip of its own', (tester) async {
+      await pumpForm(tester);
+
+      // Three loadings and a way to want none of them, not four loadings.
+      expect(find.text('None'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('picking bodyweight equipment leaves it unloaded', (
+      tester,
+    ) async {
+      await pumpForm(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'Pistol Squat');
+      await tester.tap(find.text('Bodyweight'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final made = (await tester.runAsync(
+        () => db.watchExercises().first,
+      ))!.firstWhere((e) => e.name == 'Pistol Squat');
+      expect(made.weightType, WeightType.none);
+
+      await stop(tester);
+    });
+  });
+
+  group('loading is deselectable where it is yours to choose', () {
+    Future<void> openDetail(WidgetTester tester, int id) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: id)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// A barbell movement of your own — its loading is yours to change, unlike a
+    /// seeded one, whose equipment settles it.
+    Future<Exercise> myBarbellLift(WidgetTester tester) async {
+      final id = (await tester.runAsync(
+        () => db.createExercise(
+          name: 'Zercher Squat',
+          muscle: 'Legs',
+          equipment: 'Barbell',
+          weightType: WeightType.bar,
+        ),
+      ))!;
+      return (await tester.runAsync(() => db.exerciseById(id)))!;
+    }
+
+    testWidgets(
+      'tapping the selected loading clears it, and the bar row with it',
+      (tester) async {
+        final press = await myBarbellLift(tester);
+        await openDetail(tester, press.id);
+
+        expect(find.text('Bar weight'), findsOneWidget);
+
+        await tester.tap(find.text('Bar'));
+        await tester.pumpAndSettle();
+
+        expect(
+          (await tester.runAsync(() => db.exerciseById(press.id)))!.weightType,
+          WeightType.none,
+        );
+        // Nothing loaded on a bar means nothing to say about the bar.
+        await tester.pumpAndSettle();
+        expect(find.text('Bar weight'), findsNothing);
+
+        await stop(tester);
+      },
+    );
+
+    testWidgets('and tapping another one picks it up again', (tester) async {
+      final press = await myBarbellLift(tester);
+      await openDetail(tester, press.id);
+
+      await tester.tap(find.text('Bar'));
+      await tester.runAsync(() => db.exerciseById(press.id));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Dumbbell'));
+      final after = (await tester.runAsync(() => db.exerciseById(press.id)))!;
+      await tester.pumpAndSettle();
+
+      expect(after.weightType, WeightType.dumbbell);
+
+      await stop(tester);
+    });
+
+    testWidgets('an unloaded movement shows no bar and no None chip', (
+      tester,
+    ) async {
+      final pull = (await tester.runAsync(() => exerciseNamed(db, 'Pull-Up')))!;
+      await openDetail(tester, pull.id);
+
+      expect(pull.weightType, WeightType.none);
+      expect(find.text('None'), findsNothing);
+      expect(find.text('Bar weight'), findsNothing);
+      // The three loadings are still there to be picked for a weighted pull-up.
+      expect(find.text('Bar'), findsOneWidget);
+      expect(find.text('Dumbbell'), findsOneWidget);
+
+      await stop(tester);
+    });
+  });
+
+  group('the load type is fixed only where the name states it', () {
+    // A barbell curl is loaded on a bar and a dumbbell curl on a dumbbell,
+    // because that is what they are called. Everything else is the gym's
+    // business: a skull crusher takes a bar, a pair of dumbbells or a machine,
+    // and a chest-supported row is often plate-loaded, where "Bar" is the
+    // useful answer.
+    Future<void> openDetail(WidgetTester tester, int id) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: id)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'a movement named for its implement states the loading, not offers it',
+      (tester) async {
+        final press = (await tester.runAsync(
+          () => exerciseNamed(db, 'Barbell Curl'),
+        ))!;
+        await openDetail(tester, press.id);
+
+        expect(
+          find.text('Bar'),
+          findsOneWidget,
+          reason: 'it still says what it is',
+        );
+        expect(
+          find.byKey(kLoadingChoiceKey),
+          findsNothing,
+          reason: 'a movement called a barbell curl is loaded on a bar',
+        );
+        // What the seed cannot know is what that bar weighs, and that stays.
+        expect(find.text('Bar weight'), findsOneWidget);
+
+        await stop(tester);
+      },
+    );
+
+    testWidgets('and the writer refuses it too, not just the screen', (
+      tester,
+    ) async {
+      final curl = (await tester.runAsync(
+        () => exerciseNamed(db, 'Dumbbell Curl'),
+      ))!;
+      expect(curl.weightType, WeightType.dumbbell);
+
+      await tester.runAsync(
+        () => db.setExerciseWeightType(curl.id, WeightType.none),
+      );
+
+      expect(
+        (await tester.runAsync(() => db.exerciseById(curl.id)))!.weightType,
+        WeightType.dumbbell,
+      );
+    });
+
+    testWidgets('a bodyweight movement can still be loaded', (tester) async {
+      // A weighted pull-up is a real thing, and nothing about "Bodyweight"
+      // settles what you hang off yourself.
+      final pull = (await tester.runAsync(() => exerciseNamed(db, 'Pull-Up')))!;
+      await openDetail(tester, pull.id);
+
+      expect(find.byKey(kLoadingChoiceKey), findsOneWidget);
+      await tester.tap(find.text('Dumbbell'));
+      await tester.pumpAndSettle();
+
+      expect(
+        (await tester.runAsync(() => db.exerciseById(pull.id)))!.weightType,
+        WeightType.dumbbell,
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('and so can one whose equipment says nothing', (tester) async {
+      // Kettlebells and get-ups are filed under Other: the equipment is not a
+      // claim about the loading.
+      final swing = (await tester.runAsync(
+        () => exerciseNamed(db, 'Kettlebell Swing'),
+      ))!;
+      expect(swing.equipment, 'Other');
+      await openDetail(tester, swing.id);
+
+      expect(find.byKey(kLoadingChoiceKey), findsOneWidget);
 
       await stop(tester);
     });
@@ -803,10 +1282,7 @@ void main() {
 
       // Every one of them carries a real weight, in canonical kilograms.
       expect(kg.every((b) => b.weight > 0), isTrue);
-      expect(
-        kg.firstWhere((b) => b.name == 'Olympic bar').weight,
-        20,
-      );
+      expect(kg.firstWhere((b) => b.name == 'Olympic bar').weight, 20);
     });
 
     test('a pounds gym gets the round pounds number, not a converted kilo', () {
@@ -817,14 +1293,17 @@ void main() {
       expect(olympic.weight, isNot(20));
     });
 
-    testWidgets('picking one by name sets the exercise to its weight',
-        (tester) async {
-      final curl =
-          (await tester.runAsync(() => exerciseNamed(db, 'Barbell Curl')))!;
+    testWidgets('picking one by name sets the exercise to its weight', (
+      tester,
+    ) async {
+      final curl = (await tester.runAsync(
+        () => exerciseNamed(db, 'Barbell Curl'),
+      ))!;
       final container = containerFor(db);
       addTearDown(container.dispose);
-      await tester.pumpWidget(routedAppUnder(
-          container, ExerciseDetailScreen(exerciseId: curl.id)));
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: curl.id)),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Bar weight'));
@@ -838,25 +1317,42 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('an odd bar is still a number you can type', (tester) async {
-      final curl =
-          (await tester.runAsync(() => exerciseNamed(db, 'Barbell Curl')))!;
+    testWidgets('a bar the list has not got can be added on the spot', (
+      tester,
+    ) async {
+      final curl = (await tester.runAsync(
+        () => exerciseNamed(db, 'Barbell Curl'),
+      ))!;
       final container = containerFor(db);
       addTearDown(container.dispose);
-      await tester.pumpWidget(routedAppUnder(
-          container, ExerciseDetailScreen(exerciseId: curl.id)));
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: curl.id)),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Bar weight'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Something else'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '7.5');
-      await tester.tap(find.text('Save'));
+
+      // No free-number escape hatch any more: a gym with something odd names it
+      // once and it joins the list, so the next exercise can pick it too.
+      expect(find.text('Something else'), findsNothing);
+      await tester.tap(find.text('Add a bar'));
       await tester.pumpAndSettle();
 
+      await tester.enterText(find.byType(TextField).first, 'Junior bar');
+      await tester.enterText(find.byType(TextField).last, '7.5');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await pumpThroughDatabase(tester);
+
       final saved = (await tester.runAsync(() => db.exerciseById(curl.id)))!;
-      expect(saved.barWeight, 7.5);
+      expect(
+        saved.barWeight,
+        7.5,
+        reason: 'the new bar was picked as well as made',
+      );
+      final bars = (await tester.runAsync(() => db.barsFor('kg')))!;
+      expect(bars.map((b) => b.name), contains('Junior bar'));
 
       await stop(tester);
     });

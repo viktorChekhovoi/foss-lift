@@ -58,6 +58,9 @@ class RoutineCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             r.name,
+                            // Wraps rather than being cut, for the same reason
+                            // the headings do: a routine name is how you tell
+                            // one programme from another.
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

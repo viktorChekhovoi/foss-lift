@@ -10,6 +10,10 @@ import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 
+/// Finds the loading chips in a test — absent on a movement whose equipment
+/// settles how it is loaded, where the loading is stated rather than offered.
+const kLoadingChoiceKey = ValueKey('loading-choice');
+
 /// Read-only detail for one library exercise: how to do it + a demo link.
 class ExerciseDetailScreen extends ConsumerWidget {
   const ExerciseDetailScreen({super.key, required this.exerciseId});
@@ -42,8 +46,9 @@ class ExerciseDetailScreen extends ConsumerWidget {
         child: library.when(
           loading: () =>
               Center(child: CircularProgressIndicator(color: AppColors.accent)),
-          error: (e, _) =>
-              Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
+          error: (e, _) => Center(
+            child: Text('$e', style: TextStyle(color: AppColors.muted)),
+          ),
           data: (all) {
             Exercise? ex;
             for (final e in all) {
@@ -54,8 +59,10 @@ class ExerciseDetailScreen extends ConsumerWidget {
             }
             if (ex == null) {
               return Center(
-                child: Text('This exercise no longer exists.',
-                    style: TextStyle(color: AppColors.muted)),
+                child: Text(
+                  'This exercise no longer exists.',
+                  style: TextStyle(color: AppColors.muted),
+                ),
               );
             }
             return _Body(exercise: ex);
@@ -77,9 +84,14 @@ class _Body extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        Text(exercise.name,
-            style: const TextStyle(
-                fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+        Text(
+          exercise.name,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -98,7 +110,9 @@ class _Body extends ConsumerWidget {
               foregroundColor: AppColors.text,
               side: BorderSide(color: AppColors.line),
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             icon: Icon(Icons.show_chart, color: AppColors.accent),
             label: const Text('Progress'),
@@ -117,62 +131,99 @@ class _Body extends ConsumerWidget {
                 side: BorderSide(color: AppColors.line),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               icon: Icon(Icons.videocam_rounded, color: AppColors.accent),
-              label: Text(
-                  '$clipCount ${clipCount == 1 ? 'clip' : 'clips'}'),
+              label: Text('$clipCount ${clipCount == 1 ? 'clip' : 'clips'}'),
               onPressed: () => context.push('/exercise/${exercise.id}/clips'),
             ),
           ),
         ],
         const SizedBox(height: 22),
-        Text('LOADED AS',
-            style: kMono.copyWith(
-                fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-        const SizedBox(height: 8),
-        // Editable here rather than only on the create form: the starter
-        // library is where the barbell lifts live, and whether your gym's bench
-        // has a 20 kg bar or a fixed-weight EZ curl bar is a fact the seed
-        // cannot know. Writes straight through — there is nothing to save.
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final t in WeightType.values)
-              _Chip(
-                t.label,
-                accent: t == exercise.weightType,
-                onTap: t == exercise.weightType
-                    ? null
-                    : () => ref
-                        .read(databaseProvider)
-                        .setExerciseWeightType(exercise.id, t),
-              ),
-          ],
+        Text(
+          'LOADED AS',
+          style: kMono.copyWith(
+            fontSize: 11,
+            letterSpacing: 1.2,
+            color: AppColors.faint,
+          ),
         ),
+        const SizedBox(height: 8),
+        // A fact on a seeded barbell, dumbbell, machine or cable movement, and a
+        // choice everywhere else — see `Exercise.loadingIsFixed`. A barbell curl
+        // is loaded on a bar; offering three chips there invites a library where
+        // it counts as bodyweight, and the one thing the seed genuinely cannot
+        // know — what that bar weighs — is the row below.
+        if (exercise.loadingIsFixed)
+          Text(
+            exercise.weightType.label,
+            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          )
+        else
+          // Editable here rather than only on the create form: a weighted
+          // pull-up and a kettlebell swing are the seed's guesses, and a
+          // movement you made is yours throughout. Writes straight through —
+          // there is nothing to save.
+          //
+          // Tapping the selected chip clears it, which is how a movement is told
+          // it carries nothing — a dead hang, a push-up. No "None" chip: three
+          // loadings and a way to want none of them.
+          Wrap(
+            key: kLoadingChoiceKey,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in WeightType.loadable)
+                _Chip(
+                  t.label,
+                  accent: t == exercise.weightType,
+                  onTap: () => ref
+                      .read(databaseProvider)
+                      .setExerciseWeightType(
+                        exercise.id,
+                        t == exercise.weightType ? WeightType.none : t,
+                      ),
+                ),
+            ],
+          ),
         if (exercise.weightType == WeightType.bar) ...[
           const SizedBox(height: 12),
           _BarWeightRow(exercise: exercise),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () => context.push('/settings/plates'),
-            child: Text('Available plates →',
-                style: kMono.copyWith(
-                    fontSize: 11.5, height: 1.5, color: AppColors.accent)),
+            child: Text(
+              'Available plates →',
+              style: kMono.copyWith(
+                fontSize: 11.5,
+                height: 1.5,
+                color: AppColors.accent,
+              ),
+            ),
           ),
         ],
         const SizedBox(height: 22),
-        Text('MY NOTE',
-            style: kMono.copyWith(
-                fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+        Text(
+          'MY NOTE',
+          style: kMono.copyWith(
+            fontSize: 11,
+            letterSpacing: 1.2,
+            color: AppColors.faint,
+          ),
+        ),
         const SizedBox(height: 8),
         _NoteBlock(exercise: exercise),
         if (exercise.videoUrl != null) ...[
           const SizedBox(height: 22),
-          Text('DEMO',
-              style: kMono.copyWith(
-                  fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+          Text(
+            'DEMO',
+            style: kMono.copyWith(
+              fontSize: 11,
+              letterSpacing: 1.2,
+              color: AppColors.faint,
+            ),
+          ),
           const SizedBox(height: 8),
           _VideoLink(url: exercise.videoUrl!),
         ],
@@ -229,8 +280,11 @@ class _NoteBlock extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Icon(note == null ? Icons.add : Icons.edit_outlined,
-                size: 18, color: AppColors.accent),
+            Icon(
+              note == null ? Icons.add : Icons.edit_outlined,
+              size: 18,
+              color: AppColors.accent,
+            ),
           ],
         ),
       ),
@@ -268,10 +322,17 @@ class _BarWeightRow extends ConsumerWidget {
           .setExerciseBarWeight(exercise.id, choice.kg);
     }
 
+    // The bar's name is the useful half — "trap bar", not "25". The weight goes
+    // in the note beside where it came from, and a weight matching no bar on the
+    // list still has to read as something.
+    final kg = own ?? fallback;
+    final named = ref.watch(barsProvider).value?.atWeight(kg);
+    final weight = '${fmtPlateWeight(toDisplayWeight(kg, unit))} $u';
+
     return SettingRow(
       label: 'Bar weight',
-      note: own == null ? 'default' : 'set for this exercise',
-      value: '${fmtPlateWeight(toDisplayWeight(own ?? fallback, unit))} $u',
+      note: '$weight · ${own == null ? 'default' : 'for this exercise'}',
+      value: named?.name ?? weight,
       onTap: edit,
     );
   }
@@ -291,8 +352,7 @@ class _VideoLink extends StatelessWidget {
   Future<void> _copy(BuildContext context, {required String reason}) async {
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(reason)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
   }
 
   Future<void> _open(BuildContext context) async {
@@ -311,8 +371,12 @@ class _VideoLink extends StatelessWidget {
       // No browser, or the intent was refused. Falling back to the clipboard
       // leaves the user somewhere they can still act, rather than with a tap
       // that silently did nothing.
-      await _copy(context, reason: 'Nothing here can open links — copied it '
-          'to the clipboard instead');
+      await _copy(
+        context,
+        reason:
+            'Nothing here can open links — copied it '
+            'to the clipboard instead',
+      );
     }
   }
 
@@ -328,7 +392,9 @@ class _VideoLink extends StatelessWidget {
               foregroundColor: AppColors.text,
               side: BorderSide(color: AppColors.line),
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             icon: Icon(Icons.play_circle_outline, color: AppColors.accent),
             label: const Text('Watch a demo'),
@@ -339,8 +405,10 @@ class _VideoLink extends StatelessWidget {
         GestureDetector(
           onLongPress: () =>
               _copy(context, reason: 'Demo link copied to clipboard'),
-          child: Text(url,
-              style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
+          child: Text(
+            url,
+            style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
+          ),
         ),
       ],
     );
@@ -360,15 +428,20 @@ class _Chip extends StatelessWidget {
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: accent ? AppColors.accent.withValues(alpha: 0.14) : AppColors.surface2,
+        color: accent
+            ? AppColors.accent.withValues(alpha: 0.14)
+            : AppColors.surface2,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: accent ? AppColors.accent : AppColors.line),
       ),
-      child: Text(label,
-          style: kMono.copyWith(
-              fontSize: 12,
-              color: accent ? AppColors.accent : AppColors.muted,
-              fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: kMono.copyWith(
+          fontSize: 12,
+          color: accent ? AppColors.accent : AppColors.muted,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
     if (onTap == null) return chip;
     return GestureDetector(onTap: onTap, child: chip);

@@ -77,8 +77,7 @@ class RoutineDetailScreen extends ConsumerWidget {
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Text(
-                    'This routine has no workouts yet. Tap the edit icon to add '
-                    'training days like Push, Pull and Legs.',
+                    'No workouts yet. Tap the edit icon to add one.',
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )

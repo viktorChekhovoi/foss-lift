@@ -63,10 +63,14 @@ const _peak = 0.99;
 void main() {
   final samples = _render();
   final wav = _wav(samples);
-  // Two copies of one sound. The asset is what the app plays while it is on
-  // screen; the raw resource is what the notification channel plays when it is
-  // not — Android will only sound a notification from its own resources, and a
-  // rest that ends in your pocket should not end with a different noise.
+  // Two copies of one sound, and both are needed. The asset is what the app
+  // plays through `RestTone` while it is on screen. The raw resource is what the
+  // *notification channel* names as its sound, and Android will only take a
+  // sound it owns: a channel cannot point at a Flutter asset, and the
+  // notification is often posted by an alarm the app handed over minutes earlier
+  // — possibly after the process was killed, with no Dart alive to read an asset.
+  // Same generator, so a rest cannot end with one noise in your hand and a
+  // different one in your pocket.
   final targets = [
     File('assets/sound/rest_done.wav'),
     File('android/app/src/main/res/raw/rest_done.wav'),

@@ -1,0 +1,134 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>FossLift feature graphic</title>
+<style>
+  :root{
+    --ground:#0F1218; --surface:#171B24; --surface2:#1F2530; --surface3:#272E3B;
+    --line:#2A313D; --text:#EAEEF5; --muted:#8B95A7; --faint:#5A6474;
+    --accent:#FF6A3D; --accentPress:#E0521F; --good:#3ED598; --gold:#FFC24B;
+    --sans:"Inter Display","Inter",sans-serif;
+    --mono:"JetBrainsMono NF","JetBrains Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1024px;height:500px}
+  body{background:var(--ground);font-family:var(--sans);color:var(--text);overflow:hidden}
+
+  .stage{position:relative;width:1024px;height:500px;overflow:hidden}
+
+  /* faint grid + warm glow behind the right-hand card */
+  .grid{position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:32px 32px;opacity:.30;
+    mask-image:radial-gradient(120% 100% at 78% 45%,#000 0%,transparent 72%)}
+  .glow{position:absolute;width:900px;height:900px;right:-260px;top:-300px;
+    background:radial-gradient(circle,rgba(255,106,61,.30) 0%,rgba(255,106,61,.10) 38%,transparent 66%)}
+  .glow2{position:absolute;width:620px;height:620px;left:-240px;bottom:-320px;
+    background:radial-gradient(circle,rgba(62,213,152,.12) 0%,transparent 62%)}
+
+  .content{position:absolute;inset:0;display:flex;align-items:center;
+    padding:0 76px;gap:56px}
+
+  /* ── left: wordmark ─────────────────────────────────────────── */
+  .left{width:474px;flex:0 0 auto}
+  .eyebrow{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.20em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+  .wordmark{font-size:96px;line-height:.94;font-weight:800;letter-spacing:-.035em}
+  .wordmark .lift{color:var(--accent)}
+  .tag{margin-top:22px;font-size:25px;line-height:1.34;font-weight:500;color:var(--muted);
+    letter-spacing:-.01em}
+  .tag b{color:var(--text);font-weight:600}
+  .chips{margin-top:30px;display:flex;gap:10px}
+  .chip{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.10em;
+    text-transform:uppercase;color:var(--muted);
+    border:1px solid var(--line);background:var(--surface);border-radius:999px;
+    padding:8px 14px}
+
+  /* ── right: a slice of the live-session screen ──────────────── */
+  .card{flex:1 1 auto;background:var(--surface);border:1px solid var(--line);
+    border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.55);overflow:hidden}
+  .cardhead{display:flex;align-items:baseline;justify-content:space-between;
+    padding:20px 22px 16px;border-bottom:1px solid var(--line)}
+  .cardhead .name{font-size:23px;font-weight:700;letter-spacing:-.01em}
+  .cardhead .meta{font-family:var(--mono);font-size:12px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+  .set{display:flex;align-items:center;gap:14px;padding:13px 22px;
+    border-bottom:1px solid var(--line)}
+  .set .n{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--faint);
+    width:26px}
+  .set .load{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .set .x{font-family:var(--mono);font-size:15px;color:var(--faint);margin:0 -4px}
+  .set .reps{font-family:var(--mono);font-size:19px;font-weight:700}
+  .set .tick{margin-left:auto;width:24px;height:24px;border-radius:50%;
+    display:grid;place-items:center;background:rgba(62,213,152,.14);color:var(--good);
+    font-size:13px;font-weight:800}
+  .set.next{background:var(--surface2)}
+  .set.next .n,.set.next .load,.set.next .reps{color:var(--accent)}
+  .set.next .tick{background:var(--accent);color:#3A1405}
+  .set .up{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;
+    color:var(--good);letter-spacing:.04em}
+
+  .plates{display:flex;align-items:center;gap:12px;padding:16px 22px 18px}
+  .plates .label{font-family:var(--mono);font-size:11.5px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .bar{position:relative;display:flex;align-items:center;height:44px;padding-left:14px}
+  .bar::before{content:"";position:absolute;left:0;right:0;top:50%;margin-top:-2px;
+    height:4px;background:var(--surface3);border-radius:2px}
+  .bar .sleeve{width:20px;height:4px}
+  .bar .pl{position:relative;width:11px;border-radius:3px;background:var(--accent);margin-right:4px}
+  .bar .pl.b{background:var(--accentPress)}
+  .bar .pl.c{background:var(--gold)}
+  .pnum{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);
+    margin-left:2px}
+</style>
+
+<div class="stage">
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="glow2"></div>
+
+  <div class="content">
+    <div class="left">
+      <div class="eyebrow">Open source · Offline</div>
+      <div class="wordmark">Foss<span class="lift">Lift</span></div>
+      <div class="tag">Track every set. <b>No account, no ads,<br>no network.</b></div>
+      <div class="chips">
+        <div class="chip">Plate math</div>
+        <div class="chip">Progression</div>
+        <div class="chip">On device</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead">
+        <div class="name">Bench Press</div>
+        <div class="meta">Push · Set 3 of 5</div>
+      </div>
+
+      <div class="set">
+        <div class="n">1</div><div class="load">80</div><div class="x">×</div>
+        <div class="reps">5</div><div class="tick">✓</div>
+      </div>
+      <div class="set">
+        <div class="n">2</div><div class="load">80</div><div class="x">×</div>
+        <div class="reps">5</div><div class="tick">✓</div>
+      </div>
+      <div class="set next">
+        <div class="n">3</div><div class="load">82.5</div><div class="x">×</div>
+        <div class="reps">5</div><div class="up">+2.5 kg</div>
+      </div>
+
+      <div class="plates">
+        <div class="label">Per side</div>
+        <div class="bar">
+          <div class="pl" style="height:40px"></div>
+          <div class="pl b" style="height:30px"></div>
+          <div class="pl c" style="height:20px"></div>
+          <div class="sleeve"></div>
+        </div>
+        <div class="pnum">20 + 10 + 1.25</div>
+      </div>
+    </div>
+  </div>
+</div>

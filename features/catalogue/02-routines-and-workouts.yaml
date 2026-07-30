@@ -58,27 +58,45 @@ groups:
   - id: see-current-routine-s-days
     t: See the current routine's days
     d: >-
-      the Today tab lists them directly. Starting a workout is two taps: tap a
-      day → Start.
+      the Today tab lists them directly, under the routine's name in full — it
+      wraps rather than truncating, at any text size. Starting a workout is two
+      taps: tap a day → Start.
     screen: today
     uses:
     - template.active-routine
   - id: pick-change-current-routine
     t: Pick / change the current routine
-    d: the Routines tab → tap a routine to make it current, or New routine.
+    d: >-
+      Routines → open one → the radio button in its app bar makes it the routine
+      Today is about. It is already filled in on the routine that holds that
+      place, and disabled there.
+    screen: routine-detail
     uses:
     - template.active-routine
+    - storage.settings
+  - id: open-routine-see-its-days
+    t: A routine's page lists its training days
+    d: >-
+      numbered, in the order you train them, each with the exercises it holds
+      and the one you are due next badged. Tapping a day opens it; the app bar
+      carries share and edit. You start a workout from a day, never from the
+      routine.
+    screen: routine-detail
+    uses:
+    - template.routine
+    - template.workout
   - id: build-edit-routine
     t: Build / edit a routine
     d: >-
       Routines → open a routine → edit → name, colour, default rest, schedule,
-      and the ordered list of workouts (add / reorder / delete).
+      and the list of training days: add, delete, and drag by the handle on the
+      left of each row into the order you train them.
     screen: routine-edit
   - id: build-edit-day-s-exercises
     t: Build / edit a day's exercises
     d: >-
-      open a workout → edit → add exercises from the picker, reorder with up/down,
-      configure each slot.
+      open a workout → edit → add exercises from the picker, drag them by the
+      handle into order, configure each slot. The same control at both levels.
     screen: workout-edit
 - name: Behaviour & edge cases
   items:
@@ -116,9 +134,3 @@ groups:
     uses:
     - template.routine
     - template.workout
-  - id: routine-can-handed-someone-else
-    t: A routine can be handed to someone else
-    d: as a QR, a link, a code or a file, custom exercises and all.
-    screen: routine-share
-    uses:
-    - share.routine-code

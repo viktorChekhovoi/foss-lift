@@ -55,7 +55,7 @@ class SettingsScreen extends ConsumerWidget {
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             SettingRow(
-              label: 'Default bar weight',
+              label: 'Default bar',
               value: '${fmtPlateWeight(toDisplayWeight(plates.barKg, unit))} '
                   '${unitLabel(unit)}',
               onTap: () => context.push('/settings/bar'),

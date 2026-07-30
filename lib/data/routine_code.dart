@@ -255,9 +255,9 @@ abstract final class RoutineCode {
     return name.substring(0, maxNameBytes);
   }
 
-  /// Whether [link] fits in a QR code. Past this the code is still perfectly
-  /// shareable as a link, a copy or a file — an honest "too big for a QR" beats
-  /// painting a symbol nothing can read.
+  /// Whether [link] fits in a QR code. Past this the routine is still perfectly
+  /// shareable as a code you paste — an honest "too big for a QR" beats painting
+  /// a symbol nothing can read.
   static bool fitsQr(String link) => qrHolds(link.length);
 
   // -- Exercise flag bits ---------------------------------------------------
@@ -343,9 +343,13 @@ abstract final class RoutineCode {
     );
   }
 
-  /// The full share link — what a QR code holds, so one image serves both a
+  /// The full share link — what a **QR code** holds, so one image serves both a
   /// system camera (which routes the scheme to the app) and the in-app scanner
   /// (which strips the prefix and imports directly).
+  ///
+  /// The share *sheet* sends [encode] instead: a chat app does not linkify a
+  /// custom scheme, so a link in a message is unclickable text carrying a prefix
+  /// the reader has to strip. A camera has no such trouble with one.
   static String link(SharedRoutine routine) =>
       '${ShareCodec.linkPrefix(host)}${encode(routine)}';
 

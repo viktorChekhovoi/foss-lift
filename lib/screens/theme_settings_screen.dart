@@ -86,7 +86,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
               const SizedBox(height: 10),
               shareActionRow([
                 (Icons.qr_code_2, 'Show QR', () => _showQr(context, active)),
-                (Icons.ios_share, 'Send link', () => _shareLink(active)),
+                (Icons.ios_share, 'Send code', () => _shareCode(active)),
               ]),
             ],
             const SizedBox(height: 22),
@@ -181,12 +181,17 @@ Future<void> _showQr(BuildContext context, AppPalette palette) {
   );
 }
 
-/// Hands the theme link to the system share sheet — Quick Share, a chat app,
-/// the clipboard. Nothing is uploaded: the link *is* the theme.
-Future<void> _shareLink(AppPalette palette) async {
+/// Hands the theme code to the system share sheet — Quick Share, a chat app,
+/// the clipboard. Nothing is uploaded: the code *is* the theme.
+///
+/// The bare `FLT1.…` code, not a `fosslift://` link: a chat app does not linkify
+/// a custom scheme, so a link arrived as unclickable text that had to be pasted
+/// anyway, carrying a prefix the reader then strips. The QR still holds the
+/// link, where a camera can act on it.
+Future<void> _shareCode(AppPalette palette) async {
   await SharePlus.instance.share(
     ShareParams(
-      text: ThemeCode.link(palette),
+      text: ThemeCode.encode(palette),
       subject: 'Foss Lift theme: ${palette.name}',
     ),
   );
@@ -376,8 +381,11 @@ const List<_Role> _roles = [
   (label: 'Faint text', get: _gFaint, set: _sFaint),
   (label: 'Accent', get: _gAccent, set: _sAccent),
   (label: 'Accent pressed', get: _gAccentPress, set: _sAccentPress),
+  // `gold` is the came-up-short marker everywhere it is painted — a missed
+  // goal, a backed-off weight, a downward delta. It used to be labelled
+  // "Personal record" here, which named the opposite of what it does.
   (label: 'Completed', get: _gGood, set: _sGood),
-  (label: 'Personal record', get: _gGold, set: _sGold),
+  (label: 'Missed goal', get: _gGold, set: _sGold),
 ];
 
 Color _gGround(AppPalette p) => p.ground;
@@ -672,23 +680,11 @@ Color? parseHex(String input) {
 
 /// A self-contained colour picker — no third-party dependency.
 ///
-/// It speaks two ways of writing the same colour, because they are for two
-/// different jobs. **RGB and hex** are for *transcribing* a colour that already
-/// exists: off a brand guide, out of the Solarized spec, from a screenshot.
-/// **HSL** is for *choosing* one, and the app leans on it twice over —
-///
-///  * the roles are families, not twelve loose colours. `surface`/`surface2`/
-///    `surface3` are one hue at three lightnesses, `accent`/`accentPress` one
-///    hue at two. In RGB that is arithmetic; in HSL it is one slider.
-///  * the preview warns when a palette falls under 4.5:1, and contrast is a
-///    function of lightness. Dragging L answers that warning without throwing
-///    away the colour that raised it. In RGB it takes three sliders moved in
-///    concert and the hue drifts while you do it.
-///
-/// Hue and saturation are held in state rather than recomputed from the colour,
-/// because a grey has no hue to recover: `HSLColor.fromColor` reports 0 for
-/// everything achromatic, so deriving them would snap the slider to red the
-/// moment saturation reached zero and lose the colour the user was working in.
+/// One notation: **RGB, with a hex field**. Three channels and six hex digits
+/// are how every colour a palette is built from is written down — off a brand
+/// guide, out of the Solarized spec, from a screenshot — and the hex field is
+/// what a colour can be copied and pasted as, which is how a family of related
+/// surfaces gets built without retyping.
 class _ColorPickerDialog extends StatefulWidget {
   const _ColorPickerDialog({required this.title, required this.initial});
   final String title;
@@ -699,24 +695,15 @@ class _ColorPickerDialog extends StatefulWidget {
 }
 
 class _ColorPickerDialogState extends State<_ColorPickerDialog> {
-  /// The colour itself. Both modes are views onto this; switching between them
-  /// never recomputes it, so a round trip cannot drift.
+  /// The colour itself. The sliders and the hex field are both views onto this.
   late Color _color;
 
-  /// Retained hue and saturation — see the note on the class.
-  late double _hue;
-  late double _sat;
-
-  bool _asHsl = false;
   late final TextEditingController _hex;
 
   @override
   void initState() {
     super.initState();
     _color = widget.initial;
-    final hsl = HSLColor.fromColor(_color);
-    _hue = hsl.hue;
-    _sat = hsl.saturation;
     _hex = TextEditingController(text: '#${_hexOf(_color)}');
   }
 
@@ -726,32 +713,12 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     super.dispose();
   }
 
-  double get _light => HSLColor.fromColor(_color).lightness;
-
-  /// Adopts [c] as the colour, refreshing the retained hue and saturation from
-  /// it — except when [c] is achromatic and has none to give.
+  /// Adopts [c] as the colour. [syncField] is false while the user is typing in
+  /// the hex field, which must not have its own text rewritten under the caret.
   void _adopt(Color c, {bool syncField = true}) {
-    final hsl = HSLColor.fromColor(c);
     setState(() {
       _color = c;
-      if (hsl.saturation > 0.001) {
-        _hue = hsl.hue;
-        _sat = hsl.saturation;
-      } else {
-        _sat = 0;
-      }
       if (syncField) _hex.text = '#${_hexOf(c)}';
-    });
-  }
-
-  /// Rebuilds the colour from the HSL controls, which own hue and saturation
-  /// outright while this mode is showing.
-  void _fromHsl({double? h, double? s, double? l}) {
-    _hue = h ?? _hue;
-    _sat = s ?? _sat;
-    setState(() {
-      _color = HSLColor.fromAHSL(1, _hue, _sat, l ?? _light).toColor();
-      _hex.text = '#${_hexOf(_color)}';
     });
   }
 
@@ -787,12 +754,10 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                   tooltip: 'Paste hex',
                   onTap: _pasteHex,
                 ),
-                const SizedBox(width: 6),
-                _modeToggle(),
               ],
             ),
             const SizedBox(height: 4),
-            if (_asHsl) ..._hslChannels() else ..._rgbChannels(),
+            ..._rgbChannels(),
           ],
         ),
       ),
@@ -882,40 +847,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     );
   }
 
-  /// RGB ⇄ HSL. Both describe the colour already on screen, so switching is a
-  /// change of notation and never of value.
-  Widget _modeToggle() {
-    Widget half(String label, bool hsl) {
-      final on = _asHsl == hsl;
-      return GestureDetector(
-        onTap: on ? null : () => setState(() => _asHsl = hsl),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          color: on ? AppColors.accent : Colors.transparent,
-          child: Text(
-            label,
-            style: kMono.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: on ? AppColors.onAccent : AppColors.muted,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        decoration: BoxDecoration(border: Border.all(color: AppColors.line)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [half('RGB', false), half('HSL', true)],
-        ),
-      ),
-    );
-  }
-
   List<Widget> _rgbChannels() {
     final r = (_color.r * 255).roundToDouble();
     final g = (_color.g * 255).roundToDouble();
@@ -943,40 +874,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
         max: 255,
         gradient: [at(null, null, 0), at(null, null, 255)],
         onChanged: (v) => _adopt(at(null, null, v.round())),
-      ),
-    ];
-  }
-
-  List<Widget> _hslChannels() {
-    Color hsl(double h, double s, double l) =>
-        HSLColor.fromAHSL(1, h, s, l).toColor();
-    return [
-      _channel(
-        label: 'H',
-        value: _hue,
-        max: 360,
-        gradient: [
-          for (var d = 0; d <= 360; d += 60) hsl(d.toDouble(), _sat, _light),
-        ],
-        onChanged: (v) => _fromHsl(h: v),
-      ),
-      _channel(
-        label: 'S',
-        value: _sat * 100,
-        max: 100,
-        gradient: [hsl(_hue, 0, _light), hsl(_hue, 1, _light)],
-        onChanged: (v) => _fromHsl(s: v / 100),
-      ),
-      _channel(
-        label: 'L',
-        value: _light * 100,
-        max: 100,
-        gradient: [
-          hsl(_hue, _sat, 0),
-          hsl(_hue, _sat, 0.5),
-          hsl(_hue, _sat, 1),
-        ],
-        onChanged: (v) => _fromHsl(l: v / 100),
       ),
     ];
   }

@@ -30,6 +30,17 @@ const kNextWarmupKey = ValueKey('next-warmup');
 /// One per exercise on the board, and nowhere on a set row.
 const kExerciseGoalKey = ValueKey('exercise-goal');
 
+/// Whether the board says anything about weight for this exercise at all — the
+/// working weight, the plate breakdown, the unit column and every row's weight
+/// cell, all off the one answer.
+///
+/// Two ways to have no weight, and neither gets an empty box with a unit
+/// hanging off it: the movement carries nothing at all ([WeightType.none] — a
+/// push-up, a plank), or it is a hold with nothing on it yet. A cell nobody can
+/// fill in is worse than no column, because it invites a number.
+bool _showsWeight(ExerciseEntry e) =>
+    e.weightType.carriesWeight && e.carriesLoad;
+
 class WorkoutScreen extends ConsumerStatefulWidget {
   const WorkoutScreen({super.key});
   @override
@@ -46,8 +57,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   /// The resume-overlay's visibility flag, captured up front so `dispose` need
   /// not touch `ref` (unsafe once the element is deactivating).
-  late final WorkoutScreenVisible _visibility =
-      ref.read(workoutScreenVisibleProvider.notifier);
+  late final WorkoutScreenVisible _visibility = ref.read(
+    workoutScreenVisibleProvider.notifier,
+  );
 
   @override
   void initState() {
@@ -142,8 +154,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _tone();
     final session = ref.read(activeWorkoutProvider);
     if (session != null) {
-      _startRest(session.exercises[h.exercise].restSeconds,
-          session.restAfterSet(h.exercise, h.set));
+      _startRest(
+        session.exercises[h.exercise].restSeconds,
+        session.restAfterSet(h.exercise, h.set),
+      );
     }
   }
 
@@ -161,8 +175,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (!wasDone && result.value != null) {
       final session = ref.read(activeWorkoutProvider);
       if (session != null) {
-        _startRest(session.exercises[ei].restSeconds,
-            session.restAfterSet(ei, si));
+        _startRest(
+          session.exercises[ei].restSeconds,
+          session.restAfterSet(ei, si),
+        );
       }
     }
   }
@@ -177,32 +193,45 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     );
     if (result == null || !mounted) return;
     final wasDone = entry.done;
-    ref.read(activeWorkoutProvider.notifier).setWarmupLogged(ei, wi, result.value);
+    ref
+        .read(activeWorkoutProvider.notifier)
+        .setWarmupLogged(ei, wi, result.value);
     if (!wasDone && result.value != null) {
       final session = ref.read(activeWorkoutProvider);
       if (session != null) {
-        _startRest(session.exercises[ei].restAfterWarmup(wi),
-            session.restAfterWarmup(ei, wi));
+        _startRest(
+          session.exercises[ei].restAfterWarmup(wi),
+          session.restAfterWarmup(ei, wi),
+        );
       }
     }
   }
 
   /// Asks for a weight in the display unit and hands back kilograms, or null if
-  /// the dialog was dismissed.
+  /// the dialog was dismissed. Never less than [minKg] — see [loadFloorKg].
   Future<double?> _askWeight({
     required String title,
-    required String subtitle,
     required double weightKg,
-  }) =>
-      showDialog<double>(
-        context: context,
-        builder: (_) => _WeightDialog(
-          title: title,
-          subtitle: subtitle,
-          weightKg: weightKg,
-          unit: ref.read(weightUnitProvider).value ?? 'kg',
-        ),
-      );
+    required double minKg,
+    String? subtitle,
+  }) => showDialog<double>(
+    context: context,
+    builder: (_) => _WeightDialog(
+      title: title,
+      subtitle: subtitle,
+      weightKg: weightKg,
+      minKg: minKg,
+      unit: ref.read(weightUnitProvider).value ?? 'kg',
+    ),
+  );
+
+  /// The lightest this exercise can be loaded: its own bar, or nothing at all
+  /// where there is no bar under it.
+  double _floorFor(ExerciseEntry e) => loadFloorKg(
+    type: e.weightType,
+    defaultBarKg: ref.read(plateSettingsProvider).barKg,
+    barKg: e.barKg,
+  );
 
   /// The exercise's weight for today. Every set still to come follows it and
   /// the warm-up ramp is rebuilt around it — see
@@ -212,8 +241,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (e == null) return;
     final kg = await _askWeight(
       title: e.name,
-      subtitle: 'Every set of it, and the warm-up',
       weightKg: e.workingKg ?? 0,
+      minKg: _floorFor(e),
     );
     if (kg == null || !mounted) return;
     ref.read(activeWorkoutProvider.notifier).setWorkingWeight(ei, kg);
@@ -268,6 +297,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       title: 'Set ${si + 1}',
       subtitle: 'This set only',
       weightKg: e.sets[si].weight,
+      minKg: _floorFor(e),
     );
     if (kg == null || !mounted) return;
     ref.read(activeWorkoutProvider.notifier).setWeight(ei, si, kg);
@@ -280,6 +310,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       title: 'Warm-up ${wi + 1}',
       subtitle: 'This rung only',
       weightKg: e.warmups[wi].weight,
+      minKg: _floorFor(e),
     );
     if (kg == null || !mounted) return;
     ref.read(activeWorkoutProvider.notifier).setWarmupWeight(ei, wi, kg);
@@ -348,128 +379,166 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Stack(
+        // A column, not a stack: the rest bar is docked at the bottom and takes
+        // real room, so the rows can be scrolled clear of it. Lying over the
+        // board it hid whichever set you were trying to read — the same mistake
+        // the resume bar made, and the same fix.
+        child: Column(
           children: [
-            Column(
-              children: [
-                _Header(
-                  title: session.name,
-                  onFinish: _finish,
-                  onAbort: _abort,
-                ),
-                _StatStrip(session: session),
-                // Pinned beside the duration and set count rather than scrolled
-                // with the rows: it answers "how do I log this?", a question
-                // that occurs on whichever exercise you happen to be looking
-                // at, not only on the first one.
-                _LoggingHint(
-                  anyTimed: session.exercises.any((e) => e.mode.timed),
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-                    children: [
-                      if (session.notice != null)
-                        _SessionNotice(text: session.notice!),
-                      for (var ei = 0; ei < session.exercises.length; ei++)
-                        _ExerciseBlock(
-                          index: ei,
-                          exercise: session.exercises[ei],
-                          unit: unit,
-                          plates: plates,
-                          // The ramp is where you are, and it is shut by
-                          // default — so the group itself carries the mark.
-                          warmupIsNext:
-                              next != null && next.warmup && next.exerciseIndex == ei,
-                          onWarmupCount: (n) => controller.setWarmupCount(ei, n),
-                          onEditWorkingWeight: () => _editWorkingWeight(ei),
-                          warmupRowBuilder: (wi) {
-                            final entry = session.exercises[ei].warmups[wi];
-                            return _SetRow(
-                              key: ValueKey('w$ei-$wi-${session.exercises[ei].name}'),
-                              number: wi + 1,
-                              entry: entry,
+            _Header(title: session.name, onFinish: _finish, onAbort: _abort),
+            _StatStrip(session: session),
+            // Pinned beside the duration and set count rather than scrolled
+            // with the rows: it answers "how do I log this?", a question
+            // that occurs on whichever exercise you happen to be looking
+            // at, not only on the first one.
+            _LoggingHint(anyTimed: session.exercises.any((e) => e.mode.timed)),
+            // The board and the bar share what the header leaves, and the
+            // LayoutBuilder is how the bar's cap gets measured against that
+            // rather than against the whole screen — at the top of the text
+            // scale the header alone takes more than half of it.
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, box) => Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        children: [
+                          if (session.notice != null)
+                            _SessionNotice(text: session.notice!),
+                          for (var ei = 0; ei < session.exercises.length; ei++)
+                            _ExerciseBlock(
+                              index: ei,
+                              exercise: session.exercises[ei],
                               unit: unit,
-                              isNext: next != null &&
+                              plates: plates,
+                              // The ramp is where you are, and it is shut by
+                              // default — so the group itself carries the mark.
+                              warmupIsNext:
+                                  next != null &&
                                   next.warmup &&
-                                  next.exerciseIndex == ei &&
-                                  next.setIndex == wi,
-                              onEditWeight: () => _editWarmupWeight(ei, wi),
-                              onTap: () {
-                                final wasDone = entry.done;
-                                controller.cycleWarmup(ei, wi);
-                                HapticFeedback.selectionClick();
-                                if (!wasDone) {
-                                  _startRest(
-                                    session.exercises[ei].restAfterWarmup(wi),
-                                    session.restAfterWarmup(ei, wi),
-                                  );
-                                }
+                                  next.exerciseIndex == ei,
+                              onWarmupCount: (n) =>
+                                  controller.setWarmupCount(ei, n),
+                              onEditWorkingWeight: () => _editWorkingWeight(ei),
+                              warmupRowBuilder: (wi) {
+                                final entry = session.exercises[ei].warmups[wi];
+                                return _SetRow(
+                                  key: ValueKey(
+                                    'w$ei-$wi-${session.exercises[ei].name}',
+                                  ),
+                                  number: wi + 1,
+                                  entry: entry,
+                                  unit: unit,
+                                  isNext:
+                                      next != null &&
+                                      next.warmup &&
+                                      next.exerciseIndex == ei &&
+                                      next.setIndex == wi,
+                                  onEditWeight: () => _editWarmupWeight(ei, wi),
+                                  onTap: () {
+                                    final wasDone = entry.done;
+                                    controller.cycleWarmup(ei, wi);
+                                    HapticFeedback.selectionClick();
+                                    if (!wasDone) {
+                                      _startRest(
+                                        session.exercises[ei].restAfterWarmup(
+                                          wi,
+                                        ),
+                                        session.restAfterWarmup(ei, wi),
+                                      );
+                                    }
+                                  },
+                                  onTypeResult: () =>
+                                      _editWarmupResult(ei, wi, entry),
+                                );
                               },
-                              onTypeResult: () =>
-                                  _editWarmupResult(ei, wi, entry),
-                            );
-                          },
-                          rowBuilder: (si) {
-                            final entry = session.exercises[ei].sets[si];
-                            return _SetRow(
-                              key: ValueKey('$ei-$si-${session.exercises[ei].name}'),
-                              number: si + 1,
-                              entry: entry,
-                              unit: unit,
-                              isNext: next != null &&
-                                  !next.warmup &&
-                                  next.exerciseIndex == ei &&
-                                  next.setIndex == si,
-                              onEditWeight: () => _editSetWeight(ei, si),
-                              // A held set is timed, not counted — see
-                              // _tapTimed. It owns its own rest, because the
-                              // rest only starts when the hold stops.
-                              holdingSeconds: _holding?.exercise == ei &&
-                                      _holding?.set == si
-                                  ? _held
-                                  : null,
-                              onTap: () {
-                                if (entry.timed) {
-                                  _tapTimed(ei, si, entry);
-                                  return;
-                                }
-                                final wasDone = entry.done;
-                                controller.cycleSet(ei, si);
-                                HapticFeedback.selectionClick();
-                                // Rest starts when the set is first logged;
-                                // correcting the count afterwards must not
-                                // restart the clock you are already resting on.
-                                if (!wasDone) {
-                                  _startRest(
-                                    session.exercises[ei].restSeconds,
-                                    session.restAfterSet(ei, si),
-                                  );
-                                }
+                              rowBuilder: (si) {
+                                final entry = session.exercises[ei].sets[si];
+                                return _SetRow(
+                                  key: ValueKey(
+                                    '$ei-$si-${session.exercises[ei].name}',
+                                  ),
+                                  number: si + 1,
+                                  entry: entry,
+                                  unit: unit,
+                                  isNext:
+                                      next != null &&
+                                      !next.warmup &&
+                                      next.exerciseIndex == ei &&
+                                      next.setIndex == si,
+                                  onEditWeight: () => _editSetWeight(ei, si),
+                                  showWeight: _showsWeight(
+                                    session.exercises[ei],
+                                  ),
+                                  // A held set is timed, not counted — see
+                                  // _tapTimed. It owns its own rest, because the
+                                  // rest only starts when the hold stops.
+                                  holdingSeconds:
+                                      _holding?.exercise == ei &&
+                                          _holding?.set == si
+                                      ? _held
+                                      : null,
+                                  onTap: () {
+                                    if (entry.timed) {
+                                      _tapTimed(ei, si, entry);
+                                      return;
+                                    }
+                                    final wasDone = entry.done;
+                                    controller.cycleSet(ei, si);
+                                    HapticFeedback.selectionClick();
+                                    // Rest starts when the set is first logged;
+                                    // correcting the count afterwards must not
+                                    // restart the clock you are already resting on.
+                                    if (!wasDone) {
+                                      _startRest(
+                                        session.exercises[ei].restSeconds,
+                                        session.restAfterSet(ei, si),
+                                      );
+                                    }
+                                  },
+                                  onTypeResult: () =>
+                                      _editResult(ei, si, entry),
+                                  onVideo: () => _video(ei, si, entry),
+                                );
                               },
-                              onTypeResult: () => _editResult(ei, si, entry),
-                              onVideo: () => _video(ei, si, entry),
-                            );
-                          },
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (session.restLeft > 0)
+                      // Capped, not flexed. A Flexible here claimed an equal
+                      // share of the column beside the board's Expanded, and a
+                      // bar three lines tall used none of the rest of that
+                      // share: the board came out squeezed into the top half of
+                      // the screen with a blank strip under the bar. Capped
+                      // instead, the bar is the height of its own contents and
+                      // the board keeps every pixel it does not take — and
+                      // where the contents want more than half of what the
+                      // header left, the bar stops at the cap and scrolls.
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: box.maxHeight / 2,
                         ),
-                    ],
-                  ),
+                        child: _RestBanner(
+                          secondsLeft: session.restLeft,
+                          prompt: session.restPrompt,
+                          unit: unit,
+                          // −15s ends a rest with less than that left: below fifteen the
+                          // button's only honest readings are "skip" and "do nothing".
+                          onSub: () => ref
+                              .read(activeWorkoutProvider.notifier)
+                              .nudgeRest(-15),
+                          onAdd: () => ref
+                              .read(activeWorkoutProvider.notifier)
+                              .nudgeRest(15),
+                          onSkip: _stopRest,
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
-            if (session.restLeft > 0)
-              _RestBanner(
-                secondsLeft: session.restLeft,
-                prompt: session.restPrompt,
-                unit: unit,
-                // −15s ends a rest with less than that left: below fifteen the
-                // button's only honest readings are "skip" and "do nothing".
-                onSub: () =>
-                    ref.read(activeWorkoutProvider.notifier).nudgeRest(-15),
-                onAdd: () =>
-                    ref.read(activeWorkoutProvider.notifier).nudgeRest(15),
-                onSkip: _stopRest,
               ),
+            ),
           ],
         ),
       ),
@@ -517,8 +586,13 @@ class _Header extends StatelessWidget {
               backgroundColor: AppColors.good,
               foregroundColor: const Color(0xFF062015),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(11),
+              ),
             ),
             onPressed: onFinish,
             child: const Text('Finish'),
@@ -585,7 +659,11 @@ class _Stat extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               label.toUpperCase(),
-              style: kMono.copyWith(fontSize: 10, letterSpacing: 1.0, color: AppColors.faint),
+              style: kMono.copyWith(
+                fontSize: 10,
+                letterSpacing: 1.0,
+                color: AppColors.faint,
+              ),
             ),
           ],
         ),
@@ -616,14 +694,16 @@ class _SessionNotice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.trending_down_rounded,
-              size: 18, color: AppColors.gold),
+          Icon(Icons.trending_down_rounded, size: 18, color: AppColors.gold),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: kMono.copyWith(
-                  fontSize: 11.5, height: 1.45, color: AppColors.gold),
+                fontSize: 11.5,
+                height: 1.45,
+                color: AppColors.gold,
+              ),
             ),
           ),
         ],
@@ -653,7 +733,10 @@ class _LoggingHint extends StatelessWidget {
         'short · hold to type'
         '${anyTimed ? '\nA held set times itself: tap to start, tap to stop.' : ''}',
         style: kMono.copyWith(
-            fontSize: 11, height: 1.45, color: AppColors.faint),
+          fontSize: 11,
+          height: 1.45,
+          color: AppColors.faint,
+        ),
       ),
     );
   }
@@ -686,16 +769,16 @@ class _ExerciseBlock extends StatelessWidget {
   final ValueChanged<int> onWarmupCount;
   final VoidCallback onEditWorkingWeight;
 
-  /// What every set of this exercise is aiming at — `× 8`, `× 45s` — or null
-  /// when there are no sets to aim at anything.
+  /// What this exercise is aiming at, the way a lifter says it: `3 × 8`, or
+  /// `2 × 45s` for a hold. Null when there are no sets to aim at anything.
   ///
-  /// The `×` reads off the weight beside it ("80 kg × 8"), so an exercise with
-  /// no weight to name drops it and says the target on its own.
+  /// The weight is not in here. It is the control beside it, and a goal with an
+  /// editable box wedged into the middle of it reads as neither a goal nor a
+  /// control.
   String? get _goal {
     if (exercise.sets.isEmpty) return null;
     final first = exercise.sets.first;
-    final target = first.timed ? '${first.goal}s' : '${first.goal}';
-    return exercise.carriesLoad ? '× $target' : target;
+    return '${exercise.sets.length} × ${first.goal}${first.timed ? 's' : ''}';
   }
 
   @override
@@ -706,7 +789,9 @@ class _ExerciseBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ExerciseHeading(
-              name: exercise.name, exerciseId: exercise.exerciseId),
+            name: exercise.name,
+            exerciseId: exercise.exerciseId,
+          ),
           // The warm-up ramp, kept in a group of its own above the working sets
           // so the two are never confused. Only a weight-based slot with a load
           // gets one.
@@ -724,6 +809,11 @@ class _ExerciseBlock extends StatelessWidget {
           // used to be reprinted on every row, where the weight cell and the
           // greyed-out result cell beside it were already saying both halves of
           // it.
+          //
+          // Read across, the line is "three eights at eighty kilos": the goal
+          // is a whole goal, the `@` joins it to the load, and the load is the
+          // one thing here with a border round it, because it is the one thing
+          // you can change.
           Padding(
             padding: const EdgeInsets.only(top: 14, bottom: 2),
             child: Row(
@@ -736,36 +826,44 @@ class _ExerciseBlock extends StatelessWidget {
                       'WORKING SETS',
                       overflow: TextOverflow.ellipsis,
                       style: kMono.copyWith(
-                          fontSize: 10,
-                          letterSpacing: 1.0,
-                          color: AppColors.muted),
+                        fontSize: 10,
+                        letterSpacing: 1.0,
+                        color: AppColors.muted,
+                      ),
                     ),
                   ),
                 const Spacer(),
                 if (_goal case final goal?)
+                  Text(
+                    goal,
+                    key: kExerciseGoalKey,
+                    style: kMono.copyWith(fontSize: 13, color: AppColors.muted),
+                  ),
+                if (_showsWeight(exercise)) ...[
                   Padding(
-                    padding: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
-                      goal,
-                      key: kExerciseGoalKey,
+                      '@',
                       style: kMono.copyWith(
-                          fontSize: 13, color: AppColors.muted),
+                        fontSize: 13,
+                        color: AppColors.faint,
+                      ),
                     ),
                   ),
-                if (exercise.carriesLoad)
                   _WorkingWeight(
                     key: ValueKey('working-weight-$index'),
                     weightKg: exercise.workingKg,
                     unit: unit,
                     onTap: onEditWorkingWeight,
                   ),
+                ],
               ],
             ),
           ),
           // What to put on the bar for the set you are about to do — it follows
           // you down the exercise as sets get logged, and re-solves the moment
           // you type a different weight.
-          if (exercise.nextWeight case final w?)
+          if (exercise.nextWeight case final w? when _showsWeight(exercise))
             PlateLine(
               weightKg: w,
               type: exercise.weightType,
@@ -774,7 +872,11 @@ class _ExerciseBlock extends StatelessWidget {
               barKg: exercise.barKg,
             ),
           const SizedBox(height: 6),
-          _ColumnHeaders(unit: unit, timed: exercise.mode.timed),
+          _ColumnHeaders(
+            unit: unit,
+            timed: exercise.mode.timed,
+            showWeight: _showsWeight(exercise),
+          ),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
       ),
@@ -784,11 +886,11 @@ class _ExerciseBlock extends StatelessWidget {
 
 /// The one weight this exercise is being worked at today.
 ///
-/// Drawn as a value, not a control: the number with a hairline under it and a
-/// small pencil beside, so it reads as a fact until you touch it. A filled box
-/// here would invite typing before every set, which is the habit the single
-/// weight exists to end — but a weight you cannot find is worse, so it keeps
-/// the size and the place your eye already goes.
+/// Drawn as a control, in the same bordered box the set rows use for a weight:
+/// on the goal line it sits beside plain text, and a number with only a
+/// hairline under it read as part of the label rather than as the thing you
+/// tap. It is still not a text field sitting open — the box holds a value, and
+/// touching it opens the editor.
 class _WorkingWeight extends StatelessWidget {
   const _WorkingWeight({
     super.key,
@@ -804,15 +906,18 @@ class _WorkingWeight extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = weightKg;
     // Nothing suggested and nothing chosen: the load is yours to name.
-    final value =
-        w == null || w == 0 ? '—' : fmtWeight(toDisplayWeight(w, unit));
+    final value = w == null || w == 0
+        ? '—'
+        : fmtWeight(toDisplayWeight(w, unit));
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(4, 3, 2, 3),
+        padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.line, width: 1.5)),
+          color: AppColors.surface2,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: AppColors.line),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -838,18 +943,18 @@ class _WorkingWeight extends StatelessWidget {
 /// The exercise's name and your own note on it, one tap from the set you are
 /// about to do.
 ///
-/// The note expands in place rather than into a dialog: the seat setting is
-/// something you read *while* setting up, and a modal you have to dismiss to
-/// see the rows again is a modal you stop opening. Collapsed by default even
-/// when the note is short, so the block above the sets never changes height
-/// without being asked to.
+/// **One icon, one tap, whether or not a note exists.** The note used to expand
+/// in place and grow a pencil beside it, which made the first tap a disclosure
+/// and the second the thing you actually wanted; two icons for one note is one
+/// too many. Now the tap brings the note up, where it can be read and changed
+/// in the same breath.
 ///
 /// **It is read and written live.** Mid-workout is exactly when you learn the
 /// thing worth noting — the seat was wrong, the pin is one lower than you
 /// remembered — and by the time you are back on the library screen you have
 /// forgotten. So the note comes off [exerciseNoteProvider] rather than out of
 /// the session's snapshot, and writing one here writes it to the library.
-class _ExerciseHeading extends ConsumerStatefulWidget {
+class _ExerciseHeading extends ConsumerWidget {
   const _ExerciseHeading({required this.name, this.exerciseId});
   final String name;
 
@@ -857,43 +962,40 @@ class _ExerciseHeading extends ConsumerStatefulWidget {
   /// nowhere to keep a note, so none is offered.
   final int? exerciseId;
 
-  @override
-  ConsumerState<_ExerciseHeading> createState() => _ExerciseHeadingState();
-}
-
-class _ExerciseHeadingState extends ConsumerState<_ExerciseHeading> {
-  bool _open = false;
-
-  Future<void> _edit(int id, String? note) async {
-    final written = await askNote(
-      context,
-      title: widget.name,
-      initial: note,
-    );
-    if (written == null || !mounted) return;
+  /// Brings the note up, and writes back whatever comes of it.
+  Future<void> _open(
+    BuildContext context,
+    WidgetRef ref,
+    int id,
+    String? note,
+  ) async {
+    final written = await askNote(context, title: name, initial: note);
+    if (written == null || !context.mounted) return;
     await ref.read(databaseProvider).setExerciseNotes(id, written);
-    // A note just written is a note worth seeing; one just cleared has nothing
-    // left to show.
-    if (mounted) setState(() => _open = written.trim().isNotEmpty);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final id = widget.exerciseId;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = exerciseId;
     final note = id == null ? null : ref.watch(exerciseNoteProvider(id));
-    final open = _open && note != null;
 
-    Widget icon(IconData glyph, String tooltip, VoidCallback onPressed,
-            {bool lit = false}) =>
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          icon: Icon(glyph,
-              size: 18, color: lit ? AppColors.accent : AppColors.muted),
-          tooltip: tooltip,
-          onPressed: onPressed,
-        );
+    Widget icon(
+      IconData glyph,
+      String tooltip,
+      VoidCallback onPressed, {
+      bool lit = false,
+    }) => IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      icon: Icon(
+        glyph,
+        size: 18,
+        color: lit ? AppColors.accent : AppColors.muted,
+      ),
+      tooltip: tooltip,
+      onPressed: onPressed,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -911,44 +1013,26 @@ class _ExerciseHeadingState extends ConsumerState<_ExerciseHeading> {
             ),
             Expanded(
               child: Text(
-                widget.name,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            if (id != null) ...[
-              // With a note the icon reads it; with none it writes the first
-              // one. Two states, one meaning each — an icon that sometimes
-              // opens a panel and sometimes a dialog is an icon nobody trusts.
-              if (note == null)
-                icon(Icons.note_add_outlined, 'Add a note',
-                    () => _edit(id, null))
-              else
-                icon(
-                  Icons.sticky_note_2_outlined,
-                  'My note',
-                  () => setState(() => _open = !_open),
-                  lit: open,
-                ),
-              // The pencil only exists once the note is on screen: editing what
-              // you cannot see is not something anybody sets out to do.
-              if (open)
-                icon(Icons.edit_outlined, 'Edit note', () => _edit(id, note)),
-            ],
+            if (id != null)
+              // The glyph says whether there is a note to read; the tap does
+              // the same thing either way — brings it up.
+              icon(
+                note == null
+                    ? Icons.note_add_outlined
+                    : Icons.sticky_note_2_outlined,
+                note == null ? 'Add a note' : 'My note',
+                () => _open(context, ref, id, note),
+                lit: note != null,
+              ),
           ],
         ),
-        if (open)
-          Padding(
-            padding: const EdgeInsets.only(left: 18, top: 2, bottom: 4),
-            child: Text(
-              note,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: AppColors.muted,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -1001,7 +1085,9 @@ class _WarmupGroupState extends State<_WarmupGroup> {
             : AppColors.surface2.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: next ? AppColors.accent.withValues(alpha: 0.55) : AppColors.line,
+          color: next
+              ? AppColors.accent.withValues(alpha: 0.55)
+              : AppColors.line,
         ),
       ),
       child: Column(
@@ -1026,9 +1112,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                   Text(
                     'WARM-UP',
                     style: kMono.copyWith(
-                        fontSize: 10,
-                        letterSpacing: 1.2,
-                        color: next ? AppColors.accent : AppColors.faint),
+                      fontSize: 10,
+                      letterSpacing: 1.2,
+                      color: next ? AppColors.accent : AppColors.faint,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   // The summary gives before the label does: "WARM-UP" is what
@@ -1037,8 +1124,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                     child: Text(
                       '· $summary',
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          kMono.copyWith(fontSize: 11, color: AppColors.muted),
+                      style: kMono.copyWith(
+                        fontSize: 11,
+                        color: AppColors.muted,
+                      ),
                     ),
                   ),
                 ],
@@ -1054,9 +1143,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                     child: Text(
                       'Sets',
                       style: kMono.copyWith(
-                          fontSize: 10,
-                          letterSpacing: 1.0,
-                          color: AppColors.faint),
+                        fontSize: 10,
+                        letterSpacing: 1.0,
+                        color: AppColors.faint,
+                      ),
                     ),
                   ),
                   _CountStepper(
@@ -1069,15 +1159,20 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                 ],
               ),
             ),
-            if (exercise.warmups.isEmpty)
+            // A ramp asked for but not built: the working weight is too light
+            // for anything to sit between the bar and it. Said as the reason it
+            // is, because the count above is not the thing to change — and a
+            // count of zero needs no line at all, since the stepper beside it
+            // already reads 0.
+            if (exercise.warmups.isEmpty && count > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'No warm-up sets — add some above.',
+                  'Too light to ramp — nothing fits under this weight.',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
                 ),
-              )
-            else ...[
+              ),
+            if (exercise.warmups.isNotEmpty) ...[
               const SizedBox(height: 4),
               _ColumnHeaders(unit: widget.unit, timed: false),
               for (var wi = 0; wi < exercise.warmups.length; wi++)
@@ -1088,7 +1183,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
               'Suggested to prime the movement — not medical advice. Adjust to '
               'how you feel, and consult a professional.',
               style: kMono.copyWith(
-                  fontSize: 9.5, height: 1.4, color: AppColors.faint),
+                fontSize: 9.5,
+                height: 1.4,
+                color: AppColors.faint,
+              ),
             ),
           ],
         ],
@@ -1112,27 +1210,27 @@ class _CountStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget btn(String glyph, VoidCallback? onTap) => GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 30,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: onTap == null ? AppColors.surface2 : AppColors.surface3,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.line),
-            ),
-            child: Text(
-              glyph,
-              style: kMono.copyWith(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: onTap == null ? AppColors.faint : AppColors.text,
-              ),
-            ),
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 30,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: onTap == null ? AppColors.surface2 : AppColors.surface3,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Text(
+          glyph,
+          style: kMono.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: onTap == null ? AppColors.faint : AppColors.text,
           ),
-        );
+        ),
+      ),
+    );
 
     return Row(
       children: [
@@ -1151,18 +1249,31 @@ class _CountStepper extends StatelessWidget {
 }
 
 class _ColumnHeaders extends StatelessWidget {
-  const _ColumnHeaders({required this.unit, required this.timed});
+  const _ColumnHeaders({
+    required this.unit,
+    required this.timed,
+    this.showWeight = true,
+  });
   final String unit;
   final bool timed;
+
+  /// Whether there is a weight column under this at all — see [_showsWeight].
+  final bool showWeight;
   @override
   Widget build(BuildContext context) {
     Widget h(String t, {double? width, bool left = false}) {
       final child = Text(
         t.toUpperCase(),
         textAlign: left ? TextAlign.left : TextAlign.center,
-        style: kMono.copyWith(fontSize: 10, letterSpacing: 0.9, color: AppColors.faint),
+        style: kMono.copyWith(
+          fontSize: 10,
+          letterSpacing: 0.9,
+          color: AppColors.faint,
+        ),
       );
-      return width != null ? SizedBox(width: width, child: child) : Expanded(child: child);
+      return width != null
+          ? SizedBox(width: width, child: child)
+          : Expanded(child: child);
     }
 
     return Padding(
@@ -1173,7 +1284,7 @@ class _ColumnHeaders extends StatelessWidget {
       child: Row(
         children: [
           h('Set', width: 40),
-          h(unitLabel(unit)),
+          if (showWeight) h(unitLabel(unit)),
           h(timed ? 'Sec held' : 'Reps done'),
         ],
       ),
@@ -1201,6 +1312,7 @@ class _SetRow extends StatelessWidget {
     required this.onTap,
     required this.onTypeResult,
     this.isNext = false,
+    this.showWeight = true,
     this.onVideo,
     this.holdingSeconds,
   });
@@ -1208,11 +1320,17 @@ class _SetRow extends StatelessWidget {
   final SetEntry entry;
   final String unit;
 
+  /// Whether this row carries a weight cell — see [_showsWeight]. A movement
+  /// done under no load has none, rather than an empty box under an empty
+  /// heading.
+  final bool showWeight;
+
   /// Whether this is the set to do now — see [kNextSetKey].
   final bool isNext;
   final VoidCallback onEditWeight;
   final VoidCallback onTap;
   final VoidCallback onTypeResult;
+
   /// Films this set. Null on a warm-up row: warm-ups are suggestions that are
   /// never saved, so there is no logged set for a clip to belong to. The column
   /// is still reserved on those rows, so the two sections line up.
@@ -1244,8 +1362,9 @@ class _SetRow extends StatelessWidget {
           ? BoxDecoration(
               color: AppColors.accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border:
-                  Border.all(color: AppColors.accent.withValues(alpha: 0.45)),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.45),
+              ),
             )
           : null,
       child: IntrinsicHeight(
@@ -1253,7 +1372,7 @@ class _SetRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(width: 40, child: Center(child: _setNumber())),
-            Expanded(child: _weightCell()),
+            if (showWeight) Expanded(child: _weightCell()),
             Expanded(child: _resultBox()),
             SizedBox(
               width: 36,
@@ -1410,17 +1529,34 @@ class _SetRow extends StatelessWidget {
 /// Types a weight in — the load for a whole exercise, or one set's own
 /// override. Shown and typed in the display unit; the value it returns is
 /// canonical kilograms, or null if the dialog was dismissed.
+///
+/// **A bar-loaded lift has a floor, and the field holds to it.** Fifteen kilos
+/// on a twenty-kilo bar is not a light day, it is a load nobody can build, so
+/// anything under [minKg] comes back as [minKg] rather than being taken at face
+/// value. The floor is named on the way in — see [loadFloorKg], and
+/// [PlateSolution.belowBar] for what the plate line still says about a weight
+/// that arrived from somewhere else.
 class _WeightDialog extends StatefulWidget {
   const _WeightDialog({
     required this.title,
-    required this.subtitle,
     required this.weightKg,
     required this.unit,
+    this.subtitle,
+    this.minKg = 0,
   });
   final String title;
-  final String subtitle;
+
+  /// What this weight covers, where the title does not already say it — "This
+  /// set only" against a set row. Null for the exercise's own weight: the title
+  /// is the exercise name, and the dialog is the only place its weight is
+  /// typed, so there is nothing left to distinguish it from.
+  final String? subtitle;
   final double weightKg;
   final String unit;
+
+  /// The lightest weight this exercise can be set to, in kg. Zero for anything
+  /// with no bar under it.
+  final double minKg;
 
   @override
   State<_WeightDialog> createState() => _WeightDialogState();
@@ -1428,7 +1564,18 @@ class _WeightDialog extends StatefulWidget {
 
 class _WeightDialogState extends State<_WeightDialog> {
   late final TextEditingController _c = TextEditingController(
-      text: fmtWeight(toDisplayWeight(widget.weightKg, widget.unit)));
+    text: fmtWeight(toDisplayWeight(widget.weightKg, widget.unit)),
+  );
+
+  /// What the field says, with the floor named where there is one: a constraint
+  /// on the control belongs beside the control. Null when there is neither a
+  /// subtitle nor a floor — an empty line under the field is still a line.
+  String? get _said {
+    if (widget.minKg <= 0) return widget.subtitle;
+    final floor = fmtWeight(toDisplayWeight(widget.minKg, widget.unit));
+    final said = 'no lighter than the $floor ${unitLabel(widget.unit)} bar';
+    return widget.subtitle == null ? said : '${widget.subtitle} · $said';
+  }
 
   @override
   void dispose() {
@@ -1439,7 +1586,8 @@ class _WeightDialogState extends State<_WeightDialog> {
   void _save() {
     final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
     if (v == null) return Navigator.pop(context);
-    Navigator.pop(context, toKg(v < 0 ? 0 : v, widget.unit));
+    final kg = toKg(v < 0 ? 0 : v, widget.unit);
+    Navigator.pop(context, kg < widget.minKg ? widget.minKg : kg);
   }
 
   @override
@@ -1474,12 +1622,14 @@ class _WeightDialogState extends State<_WeightDialog> {
             ),
             onSubmitted: (_) => _save(),
           ),
-          const SizedBox(height: 10),
-          Text(
-            widget.subtitle,
-            textAlign: TextAlign.center,
-            style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
-          ),
+          if (_said case final said?) ...[
+            const SizedBox(height: 10),
+            Text(
+              said,
+              textAlign: TextAlign.center,
+              style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
+            ),
+          ],
         ],
       ),
       actions: [
@@ -1507,7 +1657,8 @@ class _ResultDialog extends StatefulWidget {
 
 class _ResultDialogState extends State<_ResultDialog> {
   late final TextEditingController _c = TextEditingController(
-      text: '${widget.entry.logged ?? widget.entry.goal}');
+    text: '${widget.entry.logged ?? widget.entry.goal}',
+  );
 
   bool get _timed => widget.entry.timed;
 
@@ -1517,7 +1668,8 @@ class _ResultDialogState extends State<_ResultDialog> {
     super.dispose();
   }
 
-  void _pop(int? value) => Navigator.pop<({int? value})>(context, (value: value));
+  void _pop(int? value) =>
+      Navigator.pop<({int? value})>(context, (value: value));
 
   void _save() {
     final v = int.tryParse(_c.text.trim());
@@ -1577,10 +1729,16 @@ class _ResultDialogState extends State<_ResultDialog> {
   }
 }
 
-/// Finds the rest banner in a test. Its caption is the thing under test in
-/// several of them, so it cannot also be what identifies the banner.
+/// Finds the rest bar in a test. Its caption is the thing under test in several
+/// of them, so it cannot also be what identifies the bar.
 const kRestBannerKey = ValueKey('rest-banner');
 
+/// The rest clock, docked as the board's last row.
+///
+/// **It takes real room rather than lying over the rows**, like the resume bar
+/// and for the same reason: floating, it covered whichever set you were trying
+/// to read, and the only way to see underneath was to end the rest you were
+/// taking. Docked, the list above it simply scrolls.
 class _RestBanner extends StatelessWidget {
   const _RestBanner({
     required this.secondsLeft,
@@ -1615,67 +1773,88 @@ class _RestBanner extends StatelessWidget {
 
     return switch (p.purpose) {
       RestPurpose.anotherWarmup =>
-        p.weightKg == null ? 'Rest, then lift.' : 'Set up ${weight()}, then lift.',
-      RestPurpose.theWorkingSet => p.weightKg == null
-          ? 'Rest, then lift.'
-          : 'Set up ${weight()}, rest, then lift.',
+        p.weightKg == null
+            ? 'Rest, then lift.'
+            : 'Set up ${weight()}, then lift.',
+      RestPurpose.theWorkingSet =>
+        p.weightKg == null
+            ? 'Rest, then lift.'
+            : 'Set up ${weight()}, rest, then lift.',
       RestPurpose.anotherSet => 'Rest, then lift.',
-      RestPurpose.nextExercise =>
-        'Set up ${p.exercise}, rest, then lift.',
+      RestPurpose.nextExercise => 'Set up ${p.exercise}, rest, then lift.',
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      left: 16,
-      right: 16,
-      bottom: 16,
-      child: Container(
-        key: kRestBannerKey,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surface3,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.line),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 30,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
+    return Container(
+      key: kRestBannerKey,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface3,
+        border: Border(top: BorderSide(color: AppColors.line)),
+      ),
+      // Docked furniture may not grow without limit: at the top of the text
+      // scale a wrapped caption, a stacked clock and a wrapped button row
+      // together want more height than the board has to give, and the board is
+      // what the screen is for. The bar is handed a share of the column by the
+      // Flexible around it and scrolls inside whatever it gets — so nothing is
+      // ellipsised and nothing is out of reach.
+      child: SingleChildScrollView(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final pills = [
               for (final (label, onTap) in _controls) _pill(label, onTap),
             ];
-            final said = _said(context);
-            // Side by side while the clock still has room to be read; stacked
-            // once the controls have eaten it. At the largest text the app
-            // renders, three buttons and a countdown do not fit across a phone
-            // — and a squeezed button is worse than a taller banner, because
-            // the button is the part you have to hit.
-            if (_controlsWidth(context) <= constraints.maxWidth - _kClockRoom) {
-              return Row(
-                children: [
-                  Expanded(child: said),
-                  const SizedBox(width: 8),
-                  for (final pill in pills) ...[const SizedBox(width: 8), pill],
-                ],
-              );
-            }
+            // The caption takes the whole width, on its own line above the clock
+            // and the controls. Sharing a row with them left it about eighty
+            // pixels on a 390-wide phone, which is not enough for "Rest, then
+            // lift." — and cutting the line off is the one thing that defeats
+            // the point of having it.
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                said,
-                const SizedBox(height: 10),
-                // Wrapped rather than a row: at the top of the scale three
-                // buttons do not fit across a narrow phone even with the whole
-                // width to themselves, and one that runs off the edge cannot be
-                // pressed at all.
-                Wrap(spacing: 8, runSpacing: 8, children: pills),
+                // The caption replaces the word "REST": a banner counting down is
+                // self-evidently a rest, and the line is worth more spent on what
+                // to do with it. It wraps rather than ellipsising — the bar is
+                // docked, so a second line costs the board a second line and
+                // nothing is hidden by it.
+                Text(
+                  _caption,
+                  style: kMono.copyWith(
+                    fontSize: 11,
+                    height: 1.3,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Side by side while the clock still has room to be read; stacked
+                // once the controls have eaten it. At the largest text the app
+                // renders, three buttons and a countdown do not fit across a phone
+                // — and a squeezed button is worse than a taller bar, because the
+                // button is the part you have to hit.
+                if (_controlsWidth(context) <=
+                    constraints.maxWidth - _kClockRoom)
+                  Row(
+                    children: [
+                      _clock(),
+                      const Spacer(),
+                      for (final pill in pills) ...[
+                        const SizedBox(width: 8),
+                        pill,
+                      ],
+                    ],
+                  )
+                else ...[
+                  _clock(),
+                  const SizedBox(height: 10),
+                  // Wrapped rather than a row: at the top of the scale three
+                  // buttons do not fit across a narrow phone even with the whole
+                  // width to themselves, and one that runs off the edge cannot be
+                  // pressed at all.
+                  Wrap(spacing: 8, runSpacing: 8, children: pills),
+                ],
               ],
             );
           },
@@ -1684,47 +1863,25 @@ class _RestBanner extends StatelessWidget {
     );
   }
 
-  /// The caption and the clock under it — what the banner says, as against what
-  /// it offers.
-  Widget _said(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // The caption replaces the word "REST": a banner counting down is
-        // self-evidently a rest, and the line is worth more spent on what to do
-        // with it.
-        //
-        // Two lines and then an ellipsis, because the banner is fixed furniture
-        // over the board and the caption is the only part of it with no length
-        // to it: "Set up Barbell Romanian Deadlift, rest, then lift." is a real
-        // sentence, and left to itself it took three lines and squeezed the
-        // controls. The label gives; the controls do not.
-        Text(
-          _caption,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style:
-              kMono.copyWith(fontSize: 11, height: 1.3, color: AppColors.muted),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          fmtDuration(secondsLeft),
-          maxLines: 1,
-          style: kMono.copyWith(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: AppColors.good,
-          ),
-        ),
-      ],
-    );
-  }
+  /// How long is left. The one number on the bar, and the reason it needs no
+  /// label.
+  Widget _clock() => Text(
+    fmtDuration(secondsLeft),
+    maxLines: 1,
+    style: kMono.copyWith(
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      color: AppColors.good,
+    ),
+  );
 
   /// What the banner offers, in the order it offers it. Declared once so the
   /// measurement below and the buttons above cannot drift apart.
-  List<(String, VoidCallback)> get _controls =>
-      [('−15s', onSub), ('+15s', onAdd), ('Skip', onSkip)];
+  List<(String, VoidCallback)> get _controls => [
+    ('−15s', onSub),
+    ('+15s', onAdd),
+    ('Skip', onSkip),
+  ];
 
   /// The width the three controls need, laid out in a row.
   ///

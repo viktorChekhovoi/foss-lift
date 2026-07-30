@@ -4,8 +4,10 @@
 //   * eight presets ship as four dark/light pairs — two everyday looks,
 //     Solarized, and a high-contrast option, each in both brightnesses;
 //   * a custom theme edits each colour role, with a live preview;
-//   * sharing carries the palette itself — as a code, a link, a QR or JSON —
-//     so a shared theme does not depend on the recipient having the preset;
+//   * sharing carries the palette itself — as a code, a QR or JSON — so a
+//     shared theme does not depend on the recipient having the preset. The share
+//     sheet sends the bare code; the QR holds the `fosslift://` link, so a
+//     system camera can act on it;
 //   * a shared theme is previewed and accepted, never applied on arrival;
 //   * the choice is stored as a preset slug OR a full custom palette, and
 //     resolving a stored choice maps it back to a palette, falling back to the
@@ -20,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/data/share_code.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/home_shell.dart';
 import 'package:foss_lift/screens/theme_import_screen.dart';
@@ -30,6 +33,7 @@ import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/widgets/common.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
+import 'package:foss_lift/widgets/share_widgets.dart';
 import 'package:foss_lift/widgets/theme_preview.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr/qr.dart';
@@ -720,7 +724,7 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a theme of your own is shareable, as a QR or a link and no more',
+    testWidgets('a theme of your own is shareable, as a QR or a code and no more',
         (tester) async {
       await tester.runAsync(() async {
         await _addTheme(db, kThemePresets.last.copyWith(name: 'Mine'));
@@ -729,11 +733,33 @@ void main() {
 
       expect(find.text('SHARE THIS THEME'), findsOneWidget);
       expect(find.text('Show QR'), findsOneWidget);
-      expect(find.text('Send link'), findsOneWidget);
+      expect(find.text('Send code'), findsOneWidget);
+      // A link is not on offer at all: chat apps do not linkify fosslift://, so
+      // it arrived as unclickable text that had to be pasted anyway.
+      expect(find.text('Send link'), findsNothing);
       // The share sheet already offers "copy", and a JSON file saved beside the
       // app is a theme you then have to go and find.
       expect(find.text('Copy code'), findsNothing);
       expect(find.text('Save file'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('and the QR it shows holds the link, not the bare code',
+        (tester) async {
+      await tester.runAsync(() async {
+        await _addTheme(db, kThemePresets.last.copyWith(name: 'Mine'));
+      });
+      await pumpWholePicker(tester);
+
+      await tester.tap(find.text('Show QR'));
+      await frames(tester);
+
+      final qr = tester.widget<ShareQr>(find.byType(ShareQr));
+      expect(qr.data, startsWith(ShareCodec.linkPrefix(ThemeCode.host)),
+          reason: 'a phone camera can only act on a symbol holding a link');
+      expect(ThemeCode.decode(qr.data), isA<ThemeCodeOk>(),
+          reason: 'and what it holds is the theme');
 
       await stop(tester);
     });
@@ -1044,7 +1070,7 @@ void main() {
       expect(link, endsWith(code));
       final result = ThemeCode.decode(link);
       expect(result, isA<ThemeCodeOk>(),
-          reason: 'scanning a QR yields the link, not the bare code');
+          reason: 'a link that arrives from outside still has to read');
       expect((result as ThemeCodeOk).palette.accent, kDefaultPalette.accent);
     });
 
@@ -1242,6 +1268,73 @@ void main() {
       await stop(tester);
     });
 
+    testWidgets('and the import screen closes behind it', (tester) async {
+      // The loop this covers: applying a theme repaints the whole app — the
+      // root keys `MaterialApp` by the palette — so the screen was unmounted
+      // before the write returned, the code that dismissed it never ran, and
+      // the confirmation came straight back up. Back was the only way out.
+      //
+      // So the tree here is the app root's shape, keyed on the palette, rather
+      // than a plain MaterialApp that would never rebuild and never notice.
+      final incoming = theirs();
+      final themes = container.listen(customThemesProvider, (_, _) {});
+      addTearDown(themes.close);
+
+      final router = GoRouter(
+        initialLocation: '/settings/theme',
+        routes: [
+          GoRoute(
+            path: '/settings/theme',
+            builder: (_, _) => const Scaffold(body: Text('the theme picker')),
+          ),
+          GoRoute(
+            path: '/settings/theme/import',
+            builder: (_, s) =>
+                ThemeImportScreen(code: s.uri.queryParameters['code'] ?? ''),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: Consumer(builder: (context, ref, _) {
+          final palette = ref.watch(activePaletteProvider);
+          return MaterialApp.router(
+            key: ValueKey(palette.signature),
+            theme: AppTheme.build(palette),
+            routerConfig: router,
+          );
+        }),
+      ));
+      await tester.pump();
+
+      router.push('/settings/theme/import'
+          '?code=${Uri.encodeQueryComponent(ThemeCode.encode(incoming))}');
+      await frames(tester);
+      expect(find.byType(ThemeImportScreen), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('Use this theme'), 150,
+          scrollable: find.byType(Scrollable).first);
+      await tester.pump();
+      await tester.tap(find.text('Use this theme'));
+      await pumpUntil(tester,
+          () => container.read(activePaletteProvider).accent == incoming.accent);
+      // Long enough for the page to finish animating out; the route itself is
+      // gone the moment the button is pressed.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(ThemeImportScreen), findsNothing,
+          reason: 'the confirmation is done with; it should be gone');
+      expect(find.text('the theme picker'), findsOneWidget,
+          reason: 'and you are back where a normal tap would have left you');
+      expect(container.read(activePaletteProvider).accent, incoming.accent,
+          reason: 'the theme was applied on the way out');
+
+      await stop(tester);
+    });
+
     testWidgets('an accessible theme arrives without its AAA claim',
         (tester) async {
       // The badge means "designed and checked against WCAG". Once a palette is
@@ -1376,12 +1469,10 @@ void main() {
   });
 
   group('the colour picker', () {
-    // The custom theme has to be able to say anything the shipped presets say.
-    // A picker that can only be driven in RGB can reach every colour in
-    // principle and none of them on purpose: the roles are families — three
-    // surfaces at one hue, an accent and its pressed state — and lightness is
-    // the axis contrast is a function of, so it has to be a control you can
-    // hold on its own.
+    // The custom theme has to be able to say anything the shipped presets say,
+    // and it says it in one notation: RGB, with a hex field. Six hex digits are
+    // how a colour gets written down and read back — off a preset, off a brand
+    // guide, off the clipboard — so that is the whole of the picker.
 
     /// The picker's hex field, scoped to the dialog — the editor behind it
     /// carries the theme's name field, which is also a `TextField`.
@@ -1426,12 +1517,60 @@ void main() {
       await frames(tester);
     }
 
-    testWidgets('offers a colour in both RGB and HSL', (tester) async {
+    testWidgets('offers RGB and a hex field, and nothing else', (tester) async {
       await openPicker(tester, 'Accent');
 
-      expect(find.text('RGB'), findsOneWidget);
-      expect(find.text('HSL'), findsOneWidget,
-          reason: 'hue and saturation are how a colour gets chosen');
+      // Three channels, one per byte of the hex beside them.
+      expect(find.byType(Slider), findsNWidgets(3));
+      for (final channel in ['R', 'G', 'B']) {
+        expect(find.text(channel), findsOneWidget, reason: channel);
+      }
+      expect(hexField, findsOneWidget);
+      // HSL is gone, toggle and all — there is nothing to switch between.
+      expect(find.text('HSL'), findsNothing);
+      expect(find.text('RGB'), findsNothing,
+          reason: 'a label for the only notation there is labels nothing');
+
+      await stop(tester);
+    });
+
+    testWidgets('a role wears one name, in the list and in its picker',
+        (tester) async {
+      for (final role in ['Completed', 'Missed goal']) {
+        await openPicker(tester, role);
+        expect(
+            find.descendant(
+                of: find.byType(AlertDialog), matching: find.text(role)),
+            findsOneWidget,
+            reason: 'the picker for $role should be titled $role');
+        await tester.tap(find.text('Cancel'));
+        await frames(tester);
+      }
+      // And the names they replaced are nowhere on the editor. "Personal
+      // record" named the opposite of what `gold` paints: a missed goal, a
+      // backed-off weight, a downward delta.
+      for (final stale in ['Done', 'Short', 'Personal record']) {
+        expect(find.text(stale), findsNothing, reason: stale);
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('a channel slider moves its own byte and no other',
+        (tester) async {
+      await openPicker(tester, 'Accent');
+      await tester.enterText(hexField, '#404040');
+      await frames(tester);
+
+      // Second slider: R, then G, then B.
+      await tester.drag(find.byType(Slider).at(1), const Offset(60, 0));
+      await frames(tester);
+      await use(tester);
+
+      final after = _colorOfHex(shownHex(tester, 'Accent'))!;
+      expect(after.g, greaterThan(0x40 / 255), reason: 'green moved');
+      expect((after.r * 255).round(), 0x40, reason: 'red did not');
+      expect((after.b * 255).round(), 0x40, reason: 'nor blue');
 
       await stop(tester);
     });
@@ -1444,40 +1583,6 @@ void main() {
 
       expect(shownHex(tester, 'Accent'), before,
           reason: 'opening a picker is not an edit');
-
-      await stop(tester);
-    });
-
-    testWidgets('a colour survives the round trip through HSL and back',
-        (tester) async {
-      await openPicker(tester, 'Accent');
-      final before = shownHex(tester, 'Accent');
-      await tester.tap(find.text('HSL'));
-      await frames(tester);
-      await tester.tap(find.text('RGB'));
-      await frames(tester);
-      await use(tester);
-
-      expect(shownHex(tester, 'Accent'), before,
-          reason: 'switching how a colour is written down does not change it');
-
-      await stop(tester);
-    });
-
-    testWidgets('a grey keeps its hue rather than being randomised',
-        (tester) async {
-      // HSL has no hue to recover from a pure grey. The picker has to remember
-      // the one that was on screen instead of snapping the slider to red.
-      await openPicker(tester, 'Accent');
-      await tester.enterText(hexField, '#808080');
-      await frames(tester);
-      await tester.tap(find.text('HSL'));
-      await frames(tester);
-      await tester.tap(find.text('RGB'));
-      await frames(tester);
-      await use(tester);
-
-      expect(shownHex(tester, 'Accent'), '#808080');
 
       await stop(tester);
     });
@@ -1621,35 +1726,6 @@ void main() {
 
       expect(shownHex(tester, 'Accent'), before,
           reason: 'a typo must not silently repaint a role');
-
-      await stop(tester);
-    });
-
-    testWidgets('lightness moves on its own, leaving hue and saturation',
-        (tester) async {
-      // The whole reason HSL is here: the preview warns you a colour is
-      // illegible, and this is the slider that answers that warning without
-      // throwing away the colour you picked.
-      await openPicker(tester, 'Accent');
-      await tester.enterText(hexField, '#268BD2');
-      await frames(tester);
-      await tester.tap(find.text('HSL'));
-      await frames(tester);
-
-      final before = HSLColor.fromColor(const Color(0xFF268BD2));
-      // Third slider in HSL order: H, S, then L.
-      await tester.drag(find.byType(Slider).at(2), const Offset(60, 0));
-      await frames(tester);
-      await use(tester);
-
-      final after = HSLColor.fromColor(
-          _colorOfHex(shownHex(tester, 'Accent'))!);
-      expect(after.lightness, greaterThan(before.lightness),
-          reason: 'the slider moved');
-      expect(after.hue, closeTo(before.hue, 1.0),
-          reason: 'and took the hue with it, unchanged');
-      expect(after.saturation, closeTo(before.saturation, 0.02),
-          reason: 'and the saturation too');
 
       await stop(tester);
     });
@@ -1878,7 +1954,7 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('warns when done and short are too close to tell apart',
+    testWidgets('warns when the two set markers are too close to tell apart',
         (tester) async {
       // The other warning is about reading text against a background. This one
       // is about telling two colours apart from each other, which no contrast
@@ -1895,6 +1971,28 @@ void main() {
       await tester.pump();
 
       expect(find.textContaining('look alike'), findsOneWidget);
+      await stop(tester);
+    });
+
+    testWidgets('and names the two roles the way the editor names them',
+        (tester) async {
+      // One set of names per colour role, wherever the user meets one. The
+      // warning used to call them "done" and "short" while the role list called
+      // them "Completed" and "Personal record" — two names for each colour, and
+      // one of them naming the opposite of what the colour paints.
+      final alike = sentinels().copyWith(
+        good: const Color(0xFF859900),
+        gold: const Color(0xFFB58900),
+      );
+      await tester.pumpWidget(appUnder(container, ThemePreview(palette: alike)));
+      await tester.pump();
+
+      expect(find.textContaining('Completed'), findsOneWidget);
+      expect(find.textContaining('Missed goal'), findsOneWidget);
+      for (final stale in ['Done and short', 'done and short', 'Personal record']) {
+        expect(find.textContaining(stale), findsNothing, reason: stale);
+      }
+
       await stop(tester);
     });
   });

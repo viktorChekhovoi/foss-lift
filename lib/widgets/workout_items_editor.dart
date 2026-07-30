@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import '../data/database.dart';
 import '../state/active_workout.dart' show fmtWeight;
 import '../theme/app_theme.dart';
+import '../util/format.dart';
 import '../util/units.dart';
 import 'builder_widgets.dart';
-import 'common.dart';
+import 'plate_line.dart' show loadFloorKg;
 
 /// A mutable working copy of one workout item while editing.
 ///
@@ -22,8 +23,10 @@ class ItemDraft {
     this.repsMax,
     this.toFailure = false,
     this.restSeconds,
-    this.weightKg,
+    double? weightKg,
     this.measure = ExerciseMeasure.reps,
+    this.weightType = WeightType.machine,
+    this.barKg,
     ProgressionMode? progression,
     this.holdSeconds = 30,
     double? increment,
@@ -32,15 +35,35 @@ class ItemDraft {
     this.failureThreshold = defaultFailureThreshold,
     this.successStreak = 0,
     this.failStreak = 0,
-  })  : progression = _startingMode(measure, progression),
-        increment =
-            increment ?? _startingMode(measure, progression).defaultIncrement,
-        deload = deload ?? _startingMode(measure, progression).defaultDeload;
+  })  : progression = _startingMode(measure, weightType, progression),
+        increment = increment ??
+            _startingMode(measure, weightType, progression).defaultIncrement,
+        deload = deload ??
+            _startingMode(measure, weightType, progression).defaultDeload,
+        // A movement that carries nothing has no load to suggest, so a number
+        // left over from before it was reclassified goes with the loading.
+        weightKg = weightType.carriesWeight ? weightKg : null;
 
-  /// The axis a draft opens on: what was asked for, if the measure allows it.
+  /// The axis a draft opens on: what was asked for, if the slot allows it.
   static ProgressionMode _startingMode(
-          ExerciseMeasure measure, ProgressionMode? want) =>
-      measure.coerce(want ?? ProgressionMode.weight);
+    ExerciseMeasure measure,
+    WeightType weightType,
+    ProgressionMode? want,
+  ) {
+    final allowed = _axesFor(measure, weightType);
+    final asked = want ?? ProgressionMode.weight;
+    return allowed.contains(asked) ? asked : allowed.first;
+  }
+
+  /// The axes a slot may progress on: what the measure permits, less load for a
+  /// movement that carries none. Adding 2.5 kg a week to a push-up is an
+  /// instruction nobody can follow.
+  static List<ProgressionMode> _axesFor(
+          ExerciseMeasure measure, WeightType weightType) =>
+      [
+        for (final m in measure.modes)
+          if (m != ProgressionMode.weight || weightType.carriesWeight) m,
+      ];
 
   /// Rehydrates a draft from a stored item.
   factory ItemDraft.fromView(WorkoutItemView v) => ItemDraft(
@@ -54,8 +77,11 @@ class ItemDraft {
         restSeconds: v.item.restSeconds,
         weightKg: v.item.suggestedWeight,
         // The library has the final say on the axis: an exercise that changed
-        // measure must not leave a saved workout counting reps against a hold.
+        // measure — or lost its loading — must not leave a saved workout
+        // counting reps against a hold or kilograms against a pull-up.
         measure: v.exercise.measure,
+        weightType: v.exercise.weightType,
+        barKg: v.exercise.barWeight,
         progression: v.item.progression,
         holdSeconds: v.item.holdSeconds,
         increment: v.item.increment,
@@ -66,12 +92,14 @@ class ItemDraft {
         failStreak: v.item.failStreak,
       );
 
-  /// A brand-new slot for [e], on whichever axis its measure implies.
+  /// A brand-new slot for [e], on whichever axis it can actually move along.
   factory ItemDraft.forExercise(Exercise e) => ItemDraft(
         exerciseId: e.id,
         name: e.name,
         muscle: e.muscleGroup,
         measure: e.measure,
+        weightType: e.weightType,
+        barKg: e.barWeight,
         progression: e.measure.defaultMode,
       );
 
@@ -82,6 +110,15 @@ class ItemDraft {
   /// Whether the movement is counted or held. Fixed by the library, not the
   /// programme — it is what limits which axes [setMode] will accept.
   final ExerciseMeasure measure;
+
+  /// What the movement's weight column means, [WeightType.none] included. Also
+  /// fixed by the library, and the other half of what [modes] allows: there is
+  /// no load to add to a movement that carries none.
+  final WeightType weightType;
+
+  /// The exercise's own bar, if it has one. Null means the app-wide default,
+  /// which the draft cannot see — callers pass it to [floorKg].
+  final double? barKg;
 
   int sets;
   int repsMin;
@@ -103,12 +140,35 @@ class ItemDraft {
   int successStreak;
   int failStreak;
 
-  /// The axes this slot may be put on, per the exercise's measure.
-  List<ProgressionMode> get modes => measure.modes;
+  /// The axes this slot may be put on, per the exercise's measure and loading.
+  List<ProgressionMode> get modes => _axesFor(measure, weightType);
+
+  /// The lightest weight this slot may suggest, given the app-wide default bar.
+  ///
+  /// The board clamps the same way while a session runs; this stops a template
+  /// being *authored* under the bar, which is where the nonsense used to get in.
+  double floorKg(double defaultBarKg) => loadFloorKg(
+        type: weightType,
+        barKg: barKg,
+        defaultBarKg: defaultBarKg,
+      );
+
+  /// [weightKg] as it may be stored: nothing at all for a movement that carries
+  /// no load, and never below [floorKg] for one over a bar.
+  ///
+  /// The constructor drops a weight the loading cannot justify, but the field is
+  /// mutable and the loading is not — so the invariant is enforced here, at the
+  /// one point every draft passes through on its way to the database.
+  double? clampedWeightKg(double defaultBarKg) {
+    final w = weightKg;
+    if (w == null || !weightType.carriesWeight) return null;
+    final floor = floorKg(defaultBarKg);
+    return w < floor ? floor : w;
+  }
 
   /// Switches the axis, resetting the rates to that mode's defaults: 2.5 of
   /// anything is a sane step in kilograms and nonsense in reps. An axis the
-  /// measure does not allow is ignored.
+  /// exercise does not allow is ignored.
   void setMode(ProgressionMode mode) {
     if (mode == progression || !modes.contains(mode)) return;
     progression = mode;
@@ -118,8 +178,12 @@ class ItemDraft {
 }
 
 /// Turns drafts into insertable rows, in list order.
+///
+/// [defaultBarKg] is the app-wide bar, needed to hold a bar-loaded slot at or
+/// above the bar it is over. Zero means "no floor", which is what a caller with
+/// no bar-loaded drafts can pass.
 List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
-    {int workoutId = 0}) {
+    {int workoutId = 0, double defaultBarKg = 0}) {
   return [
     for (var i = 0; i < drafts.length; i++)
       WorkoutItemsCompanion.insert(
@@ -131,7 +195,7 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         repsMax: Value(drafts[i].toFailure ? null : drafts[i].repsMax),
         toFailure: Value(drafts[i].toFailure),
         restSeconds: Value(drafts[i].restSeconds),
-        suggestedWeight: Value(drafts[i].weightKg),
+        suggestedWeight: Value(drafts[i].clampedWeightKg(defaultBarKg)),
         progression: Value(drafts[i].progression),
         holdSeconds: Value(drafts[i].holdSeconds),
         increment: Value(drafts[i].increment),
@@ -153,6 +217,21 @@ String progressionAmount(double amount, ProgressionMode mode, String unit) {
     ProgressionMode.reps => '${amount.round()} ${amount == 1 ? 'rep' : 'reps'}',
     ProgressionMode.time => '${amount.round()}s',
   };
+}
+
+/// The four progression numbers read back as the rule they add up to: "Add
+/// 2.5 kg after 2 clean sessions; drop 5 kg after 2 missed sessions in a row."
+///
+/// "in a row" only when there is more than one to be in a row with — a rule that
+/// backs off on the first miss says so in the singular, and a threshold of one
+/// is the default for a weight slot.
+String progressionRule(ItemDraft d, String unit) {
+  final step = progressionAmount(d.increment, d.progression, unit);
+  final back = progressionAmount(d.deload, d.progression, unit);
+  final misses = plural(d.failureThreshold, 'missed session');
+  return 'Add $step after ${plural(d.successThreshold, 'clean session')}; '
+      'drop $back after $misses'
+      '${d.failureThreshold == 1 ? '' : ' in a row'}.';
 }
 
 /// Compact target/weight/progression summary for a draft item, e.g.
@@ -183,11 +262,15 @@ class WorkoutItemsEditor extends StatefulWidget {
     required this.items,
     required this.unit,
     required this.routineRest,
+    this.defaultBarKg = 0,
     this.onChanged,
   });
 
   final List<ItemDraft> items;
   final String unit;
+
+  /// The app-wide bar, so a bar-loaded slot can say what it may not go below.
+  final double defaultBarKg;
 
   /// The routine's default rest, shown when an item has no override.
   final int routineRest;
@@ -237,6 +320,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         draft: _items[i],
         unit: widget.unit,
         routineRest: widget.routineRest,
+        defaultBarKg: widget.defaultBarKg,
         onChanged: () => _bump(() {}),
       ),
     );
@@ -245,119 +329,19 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionLabel('Exercises · ${_items.length}'),
-        if (_items.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('No exercises yet — add one below.',
-                style: TextStyle(color: AppColors.muted)),
-          ),
-        // Shrink-wrapped and non-scrolling: the editor is already inside the
-        // screen's scroll view, and a list with its own would trap the drag.
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          padding: EdgeInsets.zero,
-          itemCount: _items.length,
-          // onReorderItem, not onReorder: it hands back a destination index
-          // already corrected for the item having been lifted out.
-          onReorderItem: _reorder,
-          proxyDecorator: (child, _, _) => Material(
-            color: Colors.transparent,
-            child: Opacity(opacity: 0.9, child: child),
-          ),
-          itemBuilder: (context, i) => Padding(
-            key: ValueKey(_items[i]),
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _ItemCard(
-              index: i,
-              draft: _items[i],
-              unit: widget.unit,
-              onTap: () => _configure(i),
-              onRemove: () => _bump(() => _items.removeAt(i)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: BorderSide(color: AppColors.line),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          onPressed: _addExercise,
-          icon: const Icon(Icons.add),
-          label: const Text('Add exercise'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ItemCard extends StatelessWidget {
-  const _ItemCard({
-    required this.index,
-    required this.draft,
-    required this.unit,
-    required this.onTap,
-    required this.onRemove,
-  });
-  final int index;
-  final ItemDraft draft;
-  final String unit;
-  final VoidCallback onTap;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.line),
-          ),
-          padding: const EdgeInsets.fromLTRB(4, 10, 6, 10),
-          child: Row(
-            children: [
-              // Grab here to drag the exercise up or down the list.
-              ReorderableDragStartListener(
-                index: index,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Icon(Icons.drag_indicator,
-                      size: 22, color: AppColors.faint),
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(draft.name,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 3),
-                    Text(draftSummary(draft, unit),
-                        style: kMono.copyWith(
-                            fontSize: 12.5, color: AppColors.accent)),
-                  ],
-                ),
-              ),
-              builderIconButton(Icons.close, onRemove, danger: true),
-            ],
-          ),
-        ),
+    return BuilderReorderList<ItemDraft>(
+      caption: 'Exercises',
+      items: _items,
+      emptyText: 'No exercises yet — add one below.',
+      addLabel: 'Add exercise',
+      onAdd: _addExercise,
+      onReorder: _reorder,
+      rowBuilder: (i, draft) => BuilderReorderRow(
+        index: i,
+        title: draft.name,
+        subtitle: draftSummary(draft, widget.unit),
+        onTap: () => _configure(i),
+        onRemove: () => _bump(() => _items.removeAt(i)),
       ),
     );
   }
@@ -369,11 +353,13 @@ class _ItemConfigSheet extends StatefulWidget {
     required this.draft,
     required this.unit,
     required this.routineRest,
+    required this.defaultBarKg,
     required this.onChanged,
   });
   final ItemDraft draft;
   final String unit;
   final int routineRest;
+  final double defaultBarKg;
   final VoidCallback onChanged;
 
   @override
@@ -387,6 +373,13 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
 
   /// True when [d] is measured in seconds rather than reps.
   bool get _timed => d.progression.timed;
+
+  /// What an empty weight field says: over a bar, the lightest it can be.
+  String get _weightHint {
+    final floor = d.floorKg(widget.defaultBarKg);
+    if (floor <= 0) return 'Not set yet';
+    return '${fmtWeight(toDisplayWeight(floor, widget.unit))} or more';
+  }
 
   @override
   void initState() {
@@ -531,25 +524,43 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
               ],
             ]),
             const SizedBox(height: 14),
-            builderCard('Weight (${unitLabel(widget.unit)})', [
-              TextField(
-                controller: _weight,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style:
-                    kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
-                decoration: builderInput('Blank for bodyweight'),
-                onChanged: (v) {
-                  final parsed = double.tryParse(v.trim());
-                  d.weightKg = parsed == null ? null : toKg(parsed, widget.unit);
-                  widget.onChanged();
-                },
-              ),
-            ]),
+            // A movement that carries nothing gets the word, not a field: there
+            // is no number to type, and an empty box does not say so.
+            if (!d.weightType.carriesWeight)
+              builderCard('Weight', [
+                Text(
+                  'Bodyweight',
+                  style: kMono.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text),
+                ),
+              ])
+            else
+              builderCard('Weight (${unitLabel(widget.unit)})', [
+                TextField(
+                  controller: _weight,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  style:
+                      kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+                  // Blank on a loaded movement is a number nobody has filled in
+                  // yet, not bodyweight — the loading says which it is, and this
+                  // one carries a weight. Over a bar, the hint is the bar: it is
+                  // the floor the value is held at on the way to the database.
+                  decoration: builderInput(_weightHint),
+                  onChanged: (v) {
+                    final parsed = double.tryParse(v.trim());
+                    d.weightKg =
+                        parsed == null ? null : toKg(parsed, widget.unit);
+                    widget.onChanged();
+                  },
+                ),
+              ]),
             const SizedBox(height: 14),
             builderCard('Progression', [
-              // A hold has one axis available and no choice to present; the
-              // caption says so instead of showing a picker of one.
+              // One axis available is no choice to present; the caption names it
+              // instead of showing a picker of one.
               if (d.modes.length > 1)
                 _ModePicker(
                   modes: d.modes,
@@ -558,7 +569,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 )
               else
                 Text(
-                  'Held for time — the only axis a hold can progress on.',
+                  _soleAxis(d.modes.first),
                   style: kMono.copyWith(
                       fontSize: 11, height: 1.5, color: AppColors.faint),
                 ),
@@ -604,10 +615,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
               const SizedBox(height: 14),
               // The four numbers above, read back as the rule they add up to.
               Text(
-                'Add ${progressionAmount(d.increment, d.progression, widget.unit)} '
-                'after ${_plural(d.successThreshold, 'clean session')}; '
-                'drop ${progressionAmount(d.deload, d.progression, widget.unit)} '
-                'after ${_plural(d.failureThreshold, 'missed one')} in a row.',
+                progressionRule(d, widget.unit),
                 style: kMono.copyWith(
                     fontSize: 11, height: 1.5, color: AppColors.faint),
               ),
@@ -622,9 +630,14 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
       ),
     );
   }
-
-  String _plural(int n, String noun) => '$n $noun${n == 1 ? '' : 's'}';
 }
+
+/// The one axis a slot has no choice about, named.
+String _soleAxis(ProgressionMode m) => switch (m) {
+      ProgressionMode.time => 'Held for time',
+      ProgressionMode.reps => 'More reps',
+      ProgressionMode.weight => 'More weight',
+    };
 
 /// A label with a checkbox, tappable across its whole width.
 class _CheckRow extends StatelessWidget {

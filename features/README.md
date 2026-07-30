@@ -1,10 +1,11 @@
 # The feature catalogue
 
-The catalogue tracks the app does today as interlinked feature. 
+The catalogue tracks what the app does today as interlinked features and
+concepts.
 
 ```
 features/
-  catalogue/NN-name.yaml   the 357 entries          <- edit these
+  catalogue/NN-name.yaml   the entries, by section  <- edit these
   concepts.yaml            the concept vocabulary   <- edit this
   screens.yaml             where things are         <- edit this
   README.md                this file
@@ -54,10 +55,11 @@ written from. See the workflow in `CLAUDE.md`.
 
 Only `id` and `t` are required.
 
-- **`id`** is permanent. It is what the walkthrough, the concept pages and every
-  cross-link point at. Rewording `t` is free; changing `id` breaks links and
-  drops the reader's tick. Derive it from the title when you first write it,
-  then leave it alone.
+- **`id`** is permanent. The pages prefix it with the section number — this one
+  is linked as `04.board-marks-set-you` — and that is what the walkthrough, the
+  concept pages and every cross-link point at. Rewording `t` is free; changing
+  `id` breaks links and drops the reader's tick. Derive it from the title when
+  you first write it, then leave it alone.
 - **`t`** is the behaviour, stated as a fact about the app. **`d`** is the why,
   or the detail. Both are prose, and both may contain inline HTML.
 - **`screen`** is where you go to look at it. `none` means a rule with no
@@ -82,7 +84,7 @@ a group states a tag once instead of every item under it repeating it. An item
 
 ### Example
 "Add a new colour role" starts at `theme.colour-role`'s definers and cascades
-to its 25 users — the preview, the presets, the wire format.
+to its users — the preview, the presets, the wire format.
 
 Defining a concept subsumes using it; nothing appears in both columns.
 
@@ -95,8 +97,11 @@ Defining a concept subsumes using it; nothing appears in both columns.
 4. Then write the tests, then the code. Regenerate the pages when you are done.
 
 Adding a **section** means a new `catalogue/NN-name.yaml` whose `id` matches the
-digits in its filename, and a matching `test/feature_NN_*.dart` named in its
-`test:` field.
+digits in its filename. It must carry `title`, `tagline` and `groups`; `screen`,
+`defines`, `uses` and `code` are the tags every item under it inherits, `where`
+is the "here is the code" footnote under the section, and `test:` lists the
+files that cover it — a list, so a section split across two test files names
+both, as section 04 does.
 
 ## Changing a feature that already exists
 
@@ -112,16 +117,19 @@ Fails (the catalogue is now lying about the code):
 
 - a concept or screen that is not in the vocabulary
 - a duplicated item id, or a section id that disagrees with its filename
-- a `code:` or `test:` path that has stopped existing
+- a section's `code:` or `test:` path, or a concept's `code:` path, that has
+  stopped existing. Paths on a group or an item are not checked.
 
 Reported but never fatal:
 
 - a concept that is used but that no entry describes
+- a concept that nothing refers to at all
 - a screen that no entry sits on
 - pages on disk that have gone stale
 
 ## A note on scale
 
-357 entries is small enough that a person can still read the whole thing, and
-that is the property worth protecting. If a section grows past what fits in one
-sitting, split it rather than letting it become a file nobody opens.
+The catalogue is still short enough that a person can read the whole thing in
+one sitting, and that is the property worth protecting — `--check` prints the
+current count. If a section grows past what fits in one sitting, split it rather
+than letting it become a file nobody opens.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Keeps the rest tone in release builds.
+
+  Nothing in Java, Kotlin or XML names R.raw.rest_done: the only reference is
+  the string 'rest_done' that RestAlarm hands to the notification channel at
+  runtime, and the resource shrinker cannot see it. Left to itself it decides
+  the file "is not reachable" and drops it, so the channel names a sound that
+  is not in the APK, every alarm fails with invalid_sound, and a rest taken
+  with the app in your pocket ends in silence — in release only, which is the
+  build nobody tests the notification on.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/rest_done" />

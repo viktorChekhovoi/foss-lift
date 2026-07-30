@@ -17,45 +17,26 @@ groups:
 - name: What it does
   items:
   - id: sets
-    t: Sets
-    d: how many working sets.
+    t: A slot carries its own set count, working weight and rest
+    d: >-
+      how many working sets, the weight to start from, and a rest time that
+      overrides the routine's default.
     defines:
     - template.item
+    - template.rest
+    uses:
+    - load.units
   - id: fixed-rep-count
-    t: A fixed rep count
-    d: e.g. 5.
-    defines:
-    - template.rep-target
-  - id: rep-range
-    t: A rep range
-    d: e.g. 6–8.
-    defines:
-    - template.rep-target
-  - id: failure
-    t: To failure
-    defines:
-    - template.rep-target
-  - id: timed-hold-seconds
-    t: A timed hold in seconds
-    d: for held exercises.
+    t: A slot's goal is reps, a rep range, failure, or a hold in seconds
+    d: >-
+      5, or 6–8, or as many as you have, or 45 s for a held movement — one of the
+      four, never a mixture.
     defines:
     - template.rep-target
     uses:
     - exercise.measure
-  - id: rest-override
-    t: Rest override
-    d: a rest time for this slot, overriding the routine default.
-    defines:
-    - template.rest
-  - id: suggested-weight
-    t: Suggested weight
-    d: the starting working weight.
-    defines:
-    - template.item
-    uses:
-    - load.units
   - id: progression-rates
-    t: Progression rates
+    t: A slot carries its own progression rates
     d: >-
       the axis and the step/back-off numbers: increment, success threshold, deload
       amount, failure threshold.
@@ -73,7 +54,7 @@ groups:
     uses:
     - progression.axis
   - id: reorder-slots-up-down
-    t: Reorder slots with up/down
+    t: Drag slots into order by the handle
     d: and add more from the exercise picker.
     uses:
     - template.item
@@ -81,10 +62,14 @@ groups:
   items:
   - id: which-targets-offered-depends-exercise
     t: >-
-      Which targets are offered depends on the exercise's measure, not the programme
+      Which targets are offered depends on the exercise, not the programme
     d: >-
-      a counted exercise offers weight and reps; a held one offers only a timed
-      hold. The builder never offers "a deadlift progressed by time".
+      the axis is constrained by the measure rather than chosen freely: a counted
+      exercise offers weight and reps; a held one offers only a timed hold; and a
+      movement that carries no load is not offered the weight axis at all. The builder never offers "a deadlift progressed by time" or "load 2.5 kg
+      onto a pull-up". A slot on an unloaded movement reads Bodyweight where the
+      weight would be, with no field; on a loaded one a blank field means a number
+      still to come.
     uses:
     - exercise.measure
     - progression.axis
@@ -99,14 +84,10 @@ groups:
   - id: set-measured-reps-or-seconds
     t: A set is measured in reps or seconds, never both
     d: >-
-      a timed set stores seconds and leaves reps at zero, so lifetime reps never
-      count a 45-second plank as 45 of anything.
+      a timed set stores seconds and leaves reps at zero, so lifetime reps and volume
+      never count a 45-second plank as 45 of anything.
     screen: none
     uses:
     - exercise.measure
     - storage.schema
-  - id: defaults-work-untouched
-    t: Defaults work untouched
-    d: +2.5 kg after one clean session, −5 kg after two misses in a row.
-    uses:
-    - progression.rates
+    - history.aggregates

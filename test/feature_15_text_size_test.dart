@@ -468,9 +468,9 @@ void main() {
               scaled(container!, const CustomThemeEditorScreen(), scale));
           await tester.pump(const Duration(milliseconds: 400));
           await reach(tester, find.text('Accent'));
-          // Two notations, three channels and the copy/paste controls, in a
+          // Three channels, a hex field and the copy/paste controls, in a
           // dialog — the busiest row of controls in the app.
-          expect(find.text('HSL'), findsOneWidget);
+          expect(find.text('R'), findsOneWidget);
           await tester.tap(find.text('Cancel'));
           await tester.pump(const Duration(milliseconds: 400));
         });

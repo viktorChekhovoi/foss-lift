@@ -65,6 +65,21 @@ class PlateLine extends StatelessWidget {
       );
 }
 
+/// The lightest weight an exercise can be set to: a bar cannot be loaded below
+/// its own weight, and nothing else has a floor.
+///
+/// The other half of [PlateSolution.belowBar]. That flag is what the line
+/// *says* when a weight is under the bar; this is what stops one being typed in
+/// the first place. Both exist because a weight can still arrive from
+/// elsewhere — a template built before the movement's bar was set — and a line
+/// that reads "lighter than the bar" is the only honest thing to do about it.
+double loadFloorKg({
+  required WeightType type,
+  required double defaultBarKg,
+  double? barKg,
+}) =>
+    type.loadedPerSide ? (barKg ?? defaultBarKg) : 0.0;
+
 /// The plate breakdown as one line of text: what goes on each side, what the
 /// bar weighs, and — when the plates cannot make the weight asked for — what
 /// they can make instead.

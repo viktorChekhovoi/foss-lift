@@ -27,9 +27,9 @@ import 'package:flutter/foundation.dart';
 ///
 /// **What it does not do.** It plays while the app is on screen, and only then
 /// — with the phone in a pocket the ding is a notification's job, which is
-/// [RestAlarm]'s. The two are picked between in
-/// `ActiveWorkoutController.stopRest`. Nothing here needs a network permission,
-/// and `audioplayers` is MIT.
+/// [RestAlarm]'s, and one it is given *in advance* because the process may not
+/// be alive to be asked. `ActiveWorkoutController` picks between them. Nothing
+/// here needs a network permission, and `audioplayers` is MIT.
 class RestTone {
   RestTone({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 

@@ -1,0 +1,159 @@
+// The live session, written down.
+//
+// The workout stays in memory and still writes its history only on Finish —
+// that model is deliberate and unchanged. What this adds is a crash snapshot: a
+// single JSON blob, rewritten on every mutation, read once on launch, deleted on
+// finish or discard. Android kills backgrounded processes, and a session that
+// evaporates because somebody looked at a text message is not a tracker.
+//
+// **The shape here is not a wire format.** It never leaves the phone and it is
+// re-read only by the build that wrote it (a launch, minutes later), so a field
+// can be renamed freely: a snapshot that will not parse is discarded and the
+// user is where they would have been without it. `decodeSession` therefore
+// returns null rather than throwing on anything it does not recognise.
+
+import 'dart:convert';
+
+import '../data/plates.dart';
+import '../data/progression.dart' show ProgressionMode;
+import 'active_workout.dart';
+
+/// The live session as one line of JSON.
+String encodeSession(ActiveWorkout s) => jsonEncode({
+      'routineId': s.routineId,
+      'workoutId': s.workoutId,
+      'name': s.name,
+      'startedAt': s.startedAt.millisecondsSinceEpoch,
+      'elapsed': s.elapsed,
+      'unit': s.unit,
+      'notice': s.notice,
+      'plates': [for (final p in s.plates) _stack(p)],
+      'restLeft': s.restLeft,
+      if (s.restPrompt case final p?)
+        'restPrompt': {
+          'purpose': p.purpose.name,
+          'weightKg': p.weightKg,
+          'exercise': p.exercise,
+        },
+      'exercises': [
+        for (final e in s.exercises)
+          {
+            'exerciseId': e.exerciseId,
+            'itemId': e.itemId,
+            'name': e.name,
+            'muscle': e.muscle,
+            'mode': e.mode.name,
+            'weightType': e.weightType.name,
+            'barKg': e.barKg,
+            'restSeconds': e.restSeconds,
+            'workingKg': e.workingKg,
+            'warmupCount': e.warmupCount,
+            'warmupBarKg': e.warmupBarKg,
+            'warmupRestSeconds': e.warmupRestSeconds,
+            'warmupLadder': [for (final r in e.warmupLadder) _rung(r)],
+            'sets': [for (final x in e.sets) _set(x)],
+            'warmups': [for (final x in e.warmups) _set(x)],
+          },
+      ],
+    });
+
+/// The session the snapshot describes, aged by [dead] — however long passed
+/// between the snapshot being taken and now.
+///
+/// Both clocks are rebuilt against that gap rather than resumed where they
+/// stopped: a workout that started at nine is an hour old at ten whether or not
+/// the app was alive for the hour, and a rest with forty seconds left when the
+/// process died has none left two minutes later. A rest whose time is up comes
+/// back as no rest at all — its notification has already sounded.
+///
+/// Returns null for anything unreadable; see the note at the top of this file.
+ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
+  try {
+    final m = jsonDecode(payload) as Map<String, dynamic>;
+    final gone = dead.inSeconds < 0 ? 0 : dead.inSeconds;
+    final restLeft = (m['restLeft'] as int) - gone;
+    final resting = restLeft > 0;
+    return ActiveWorkout(
+      routineId: m['routineId'] as int?,
+      workoutId: m['workoutId'] as int?,
+      name: m['name'] as String,
+      startedAt: DateTime.fromMillisecondsSinceEpoch(m['startedAt'] as int),
+      elapsed: (m['elapsed'] as int) + gone,
+      unit: m['unit'] as String,
+      notice: m['notice'] as String?,
+      plates: [
+        for (final p in m['plates'] as List) _readStack(p as Map<String, dynamic>),
+      ],
+      restLeft: resting ? restLeft : 0,
+      restPrompt: resting ? _readPrompt(m['restPrompt']) : null,
+      exercises: [
+        for (final e in m['exercises'] as List)
+          _readExercise(e as Map<String, dynamic>),
+      ],
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+Map<String, dynamic> _stack(PlateStack p) => {'kg': p.kg, 'count': p.count};
+PlateStack _readStack(Map<String, dynamic> m) =>
+    (kg: (m['kg'] as num).toDouble(), count: m['count'] as int);
+
+Map<String, dynamic> _rung(LoadRung r) => {'kg': r.kg, 'cost': r.cost};
+LoadRung _readRung(Map<String, dynamic> m) =>
+    (kg: (m['kg'] as num).toDouble(), cost: m['cost'] as int);
+
+Map<String, dynamic> _set(SetEntry s) => {
+      'goal': s.goal,
+      'timed': s.timed,
+      'goalWeight': s.goalWeight,
+      'weight': s.weight,
+      'logged': s.logged,
+      'videoPath': s.videoPath,
+    };
+
+SetEntry _readSet(Map<String, dynamic> m) => SetEntry(
+      goal: m['goal'] as int,
+      timed: m['timed'] as bool,
+      goalWeight: (m['goalWeight'] as num?)?.toDouble(),
+      weight: (m['weight'] as num).toDouble(),
+      logged: m['logged'] as int?,
+      videoPath: m['videoPath'] as String?,
+    );
+
+RestPrompt? _readPrompt(Object? raw) {
+  if (raw is! Map<String, dynamic>) return null;
+  for (final purpose in RestPurpose.values) {
+    if (purpose.name != raw['purpose']) continue;
+    return (
+      purpose: purpose,
+      weightKg: (raw['weightKg'] as num?)?.toDouble(),
+      exercise: raw['exercise'] as String?,
+    );
+  }
+  return null;
+}
+
+ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
+      exerciseId: m['exerciseId'] as int?,
+      itemId: m['itemId'] as int?,
+      name: m['name'] as String,
+      muscle: m['muscle'] as String,
+      mode: ProgressionMode.values.byName(m['mode'] as String),
+      weightType: WeightType.values.byName(m['weightType'] as String),
+      barKg: (m['barKg'] as num?)?.toDouble(),
+      restSeconds: m['restSeconds'] as int,
+      workingKg: (m['workingKg'] as num?)?.toDouble(),
+      warmupCount: m['warmupCount'] as int,
+      warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
+      warmupRestSeconds: m['warmupRestSeconds'] as int,
+      warmupLadder: [
+        for (final r in m['warmupLadder'] as List)
+          _readRung(r as Map<String, dynamic>),
+      ],
+      sets: [for (final s in m['sets'] as List) _readSet(s as Map<String, dynamic>)],
+      warmups: [
+        for (final s in m['warmups'] as List) _readSet(s as Map<String, dynamic>),
+      ],
+    );

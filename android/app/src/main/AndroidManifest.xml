@@ -5,6 +5,28 @@
          permission — reminders are scheduled inexactly on purpose, see
          lib/services/reminders.dart. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- The end of a rest, laid down as an exact alarm.
+
+         This is the permission that makes a rest audible from a pocket. The
+         countdown is a timer inside the app's process, and Android is free to
+         kill that process the moment the app is backgrounded — so the ding is
+         handed over in advance, for the instant the rest will end, and Android
+         makes it whether the app is alive or not. See
+         lib/services/rest_alarm.dart.
+
+         USE_EXACT_ALARM rather than SCHEDULE_EXACT_ALARM: it is granted at
+         install rather than through a settings screen, and it is the one
+         intended for alarms and timers the user set themselves, which is
+         exactly what a rest timer is. SCHEDULE_EXACT_ALARM is declared
+         alongside it only for Android 12, where it was still auto-granted and
+         USE_EXACT_ALARM did not exist yet.
+
+         Note the workout reminders stay *inexact* on purpose — a nudge to go to
+         the gym does not need to land on the second. See
+         lib/services/reminders.dart. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32"/>
     <!-- The live workout in the notification shade. A foreground service is not
          about drawing the notification — an ordinary one would do that — it is
          about the *process*: the session is held in memory and never written

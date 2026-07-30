@@ -57,15 +57,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       onChanged: (v) =>
                           setState(() => _filter = _filter.withQuery(v))),
                 ),
+                // Pinned beside the search box rather than scrolled with the
+                // list. It used to ride at the head of the list because it was
+                // fifteen wrapped chips tall and no fixed band could promise
+                // room for that at 2× text; two buttons ask for one line, which
+                // a band can always find, and a filter you have to scroll back
+                // up to reach is a filter you use once.
                 ExerciseFilterChips(
                   filter: _filter,
                   onChanged: (f) => setState(() => _filter = f),
                 ),
-                const SizedBox(height: 4),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
+                    padding: const EdgeInsets.fromLTRB(0, 4, 0, 96),
                     children: [
+                      const SizedBox(height: 4),
+                      // One list child per group, not one for the lot: the
+                      // groups are what the list builds lazily as you scroll.
                       if (list.isEmpty)
                         Padding(
                           padding: EdgeInsets.only(top: 60),
@@ -76,7 +84,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         ),
                       for (final entry in groups.entries) ...[
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
+                          padding: const EdgeInsets.fromLTRB(22, 16, 22, 8),
                           child: Text(
                             '${entry.key.toUpperCase()} · ${entry.value.length}',
                             style: kMono.copyWith(
@@ -86,23 +94,27 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                 fontWeight: FontWeight.w600),
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.line),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Column(
-                            children: [
-                              for (var i = 0; i < entry.value.length; i++)
-                                _ExerciseTile(
-                                  exercise: entry.value[i],
-                                  last: i == entry.value.length - 1,
-                                  onTap: () =>
-                                      context.push('/exercise/${entry.value[i].id}'),
-                                ),
-                            ],
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.line),
+                            ),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 14),
+                            child: Column(
+                              children: [
+                                for (var i = 0; i < entry.value.length; i++)
+                                  _ExerciseTile(
+                                    exercise: entry.value[i],
+                                    last: i == entry.value.length - 1,
+                                    onTap: () => context.push(
+                                        '/exercise/${entry.value[i].id}'),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

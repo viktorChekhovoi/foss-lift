@@ -17,7 +17,9 @@ groups:
   items:
   - id: makes-no-network-connections-collects
     t: Makes no network connections and collects nothing
-    d: no account, no server, no analytics.
+    d: >-
+      no account, no server, no analytics — nothing to sign in to and nothing to
+      configure, and the app works fully offline.
     screen: none
     defines:
     - privacy.offline
@@ -30,6 +32,19 @@ groups:
     uses:
     - storage.schema
     - privacy.offline
+  - id: preferences-live-one-row
+    t: Every app-wide preference lives in one row
+    d: >-
+      the unit, the current routine, the theme, the text-size nudge, the layoff
+      rules, the plate rack, the clip caps and whether the tour has run. A write
+      patches only the columns it names and creates the row if it is missing, so
+      two screens saving different preferences at once cannot overwrite each
+      other's.
+    screen: none
+    defines:
+    - storage.settings
+    uses:
+    - storage.schema
   - id: only-notification-local-one
     t: The only "notification" is a local one
     d: scheduled on-device; it never leaves the phone.
@@ -40,17 +55,10 @@ groups:
   - id: says-so-once-about-screen
     t: Says so, once, on an About screen
     d: >-
-      what the app does with your data, the licence, and an address to report
-      a bug to.
+      Profile → About Foss Lift: what the app does with your data, the licence, and
+      an address to report a bug to.
 - name: How to use it
   items:
-  - id: nothing-configure
-    t: Nothing to configure
-    d: no sign-in and no connectivity requirement; the app works fully offline.
-    screen: none
-  - id: about
-    t: About
-    d: Profile → About Foss Lift.
   - id: report-bug
     t: Report a bug
     d: >-
@@ -69,13 +77,6 @@ groups:
     screen: none
     uses:
     - storage.schema
-  - id: reminders-only-platform-integration
-    t: Reminders are the only platform integration
-    d: and they're on-device and Android-only.
-    screen: none
-    uses:
-    - platform.reminders
-    - privacy.offline
   - id: three-outward-hand-offs-all
     t: The three outward hand-offs are all to another app you can see
     d: >-
@@ -87,28 +88,17 @@ groups:
     - privacy.offline
     - share.deep-link
     - exercise.video-url
-  - id: promise-stated-once-about
-    t: The promise is stated once, on About
-    d: >-
-      rather than repeated as reassurance on every screen that shares something.
   - id: camera-used-twice-two-uses
     t: The camera is used twice, and the two uses are not alike
     d: >-
       scanning a QR examines frames and drops them. Filming a set writes a file,
       and it is the first data the app holds that is recognisably a person — so
-      it is fenced.
+      it is fenced. Neither records audio, so the microphone is never asked for.
     screen: none
     uses:
     - share.qr
     - video.capture
     - platform.permissions
-  - id: clips-live-app-private-storage
-    t: Clips live in app-private storage
-    d: never the shared gallery, never anywhere another app can enumerate them.
-    screen: none
-    uses:
-    - video.storage
-    - platform.portability
   - id: there-no-upload-path-no
     t: There is no upload path and no share sheet for a clip
     d: >-
@@ -117,33 +107,11 @@ groups:
     uses:
     - video.storage
     - privacy.offline
-  - id: recording-only-way-one-gets
-    t: Recording is the only way one gets in
-    d: >-
-      nothing is imported from the gallery, which would need read access to shared
-      storage.
-    screen: none
-    uses:
-    - video.capture
-  - id: no-audio-ever-captured
-    t: No audio is ever captured
-    d: which also means the app never asks for the microphone.
-    screen: set-video
-    uses:
-    - video.capture
-  - id: camera-opened-only-while-filming
-    t: The camera is opened only while filming
-    d: and released immediately after.
-    screen: set-video
-    uses:
-    - video.capture
-    - platform.permissions
   - id: clips-one-thing-can-fill
     t: Clips are the one thing that can fill a phone
     d: >-
-      so what they cost is shown in Settings with a way to reclaim it — and nothing
-      is ever deleted automatically, because every rule that could be would bin
-      the oldest recording first.
+      the only data the app holds that grows without bound, which is why what they
+      cost is a screen of its own.
     screen: video-settings
     uses:
     - video.storage

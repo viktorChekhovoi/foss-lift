@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../data/schedule.dart';
+import 'local_time_zone.dart';
+import 'notification_ids.dart';
 
 /// Schedules the local notifications that remind you a training day is on.
 ///
@@ -41,16 +41,7 @@ class ReminderService {
   /// only the first call does anything.
   Future<void> init() async {
     if (_ready || !supported) return;
-    tzdata.initializeTimeZones();
-    try {
-      final zone = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(zone.identifier));
-    } catch (e) {
-      // An unknown zone name leaves `tz.local` at UTC, which would fire
-      // reminders at the wrong hour. Better a wrong hour than a crash on
-      // launch, but say so where a bug report can pick it up.
-      debugPrint('ReminderService: could not resolve the local time zone ($e)');
-    }
+    await ensureLocalTimeZone();
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -104,8 +95,13 @@ class ReminderService {
     await init();
     if (!_ready) return;
 
-    // Only pending ones: a reminder already on screen is the user's to dismiss.
-    await _plugin.cancelAllPendingNotifications();
+    // Only pending reminders. One already on screen is the user's to dismiss —
+    // and the rest alarm is pending too, laid down by a session in progress, so
+    // cancelling everything would take the end of somebody's rest with it. See
+    // `notification_ids.dart`.
+    for (final pending in await _plugin.pendingNotificationRequests()) {
+      if (isReminderId(pending.id)) await _plugin.cancel(id: pending.id);
+    }
 
     for (final r in routines) {
       final at = r.nextFireAt(now);

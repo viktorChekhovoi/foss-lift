@@ -65,7 +65,13 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
     final db = ref.read(databaseProvider);
     await db.renameWorkout(widget.workoutId, name);
     await db.replaceWorkoutItems(
-        widget.workoutId, itemCompanions(_items, workoutId: widget.workoutId));
+      widget.workoutId,
+      itemCompanions(
+        _items,
+        workoutId: widget.workoutId,
+        defaultBarKg: ref.read(plateSettingsProvider).barKg,
+      ),
+    );
     if (mounted) context.pop();
   }
 
@@ -135,6 +141,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                           decoration: builderInput('e.g. Push'),
                         ),
                         WorkoutItemsEditor(
+                          defaultBarKg: ref.watch(plateSettingsProvider).barKg,
                           items: _items,
                           unit: unit,
                           routineRest: _routineRest,

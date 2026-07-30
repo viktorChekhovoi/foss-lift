@@ -16,8 +16,16 @@ void main() {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  runApp(const ProviderScope(child: FossLiftApp()));
+  runApp(ProviderScope(
+    overrides: [openSessionProvider.overrideWithValue(_openSession)],
+    child: const FossLiftApp(),
+  ));
 }
+
+/// Raises the live board — what the shade's Done, Missed and Start buttons do
+/// once the press reaches this isolate. Here rather than in `providers.dart` so
+/// nothing in the provider layer has to know the router exists.
+void _openSession() => appRouter.push('/session');
 
 /// The app root. A [ConsumerWidget] only so that it can watch
 /// [reminderSyncProvider]: something has to hold that subscription for the
@@ -30,6 +38,9 @@ class FossLiftApp extends ConsumerWidget {
     ref.watch(reminderSyncProvider);
     // Puts the live workout in the notification shade and keeps it current.
     ref.watch(workoutShadeSyncProvider);
+    // Brings back a session Android killed the process out from under. Once, on
+    // launch, before anything can be started on top of it.
+    ref.watch(liveSessionRestoreProvider);
     // Collects any clip file a crash stranded. Once, on launch.
     ref.watch(orphanSweepProvider);
     final palette = ref.watch(activePaletteProvider);

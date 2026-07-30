@@ -52,9 +52,10 @@ abstract final class ThemeCode {
   /// not otherwise survive — additive fields do not need it.
   static const String version = 'FLT1';
 
-  /// The URL a shared theme travels as. A custom scheme rather than an https
-  /// App Link: it needs no domain, no hosting and no network, and so cannot rot
-  /// when nobody is paying for a server. See issue #29.
+  /// The URL a shared theme travels as *inside a QR symbol*. A custom scheme
+  /// rather than an https App Link: it needs no domain, no hosting and no
+  /// network, and so cannot rot when nobody is paying for a server. See issue
+  /// #29.
   static const String scheme = kShareScheme;
 
   /// The link host a theme lives under, so `fosslift://theme/…` and
@@ -121,9 +122,14 @@ abstract final class ThemeCode {
     return ShareCodec.pack(version, body.takeBytes());
   }
 
-  /// The full share link for [palette] — what a QR code holds, so one image
-  /// serves both a system camera (which routes the scheme to the app) and the
-  /// in-app scanner (which strips the prefix and imports directly).
+  /// The full share link for [palette] — what a **QR code** holds, so one image
+  /// serves both routes: a system camera recognises the scheme and offers to
+  /// open Foss Lift, while our own scanner strips the prefix and imports
+  /// directly.
+  ///
+  /// The share *sheet* sends [encode] instead. A chat app does not linkify a
+  /// custom scheme, so a link pasted into a message is unclickable text with a
+  /// prefix the reader then has to strip; a camera has no such trouble with one.
   static String link(AppPalette palette) =>
       '${ShareCodec.linkPrefix(host)}${encode(palette)}';
 

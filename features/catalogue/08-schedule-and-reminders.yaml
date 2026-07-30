@@ -20,7 +20,9 @@ groups:
   items:
   - id: stores-which-day-week-routine
     t: Stores which day of the week a routine is trained on
-    d: a day mask.
+    d: >-
+      a day mask, set on the routine editor along with an optional reminder time.
+      Leave the reminder off and no notification is scheduled.
     defines:
     - platform.reminders
     uses:
@@ -30,21 +32,6 @@ groups:
     d: at a chosen time on those days.
     screen: shade
     defines:
-    - platform.reminders
-  - id: everything-device
-    t: Everything is on-device
-    d: no server, nothing leaves the phone.
-    screen: none
-    uses:
-    - privacy.offline
-- name: How to use it
-  items:
-  - id: open-routine-edit
-    t: Open a routine → edit
-    d: >-
-      set its training days and, optionally, a reminder time. Leave the reminder
-      off and no notification is scheduled.
-    uses:
     - platform.reminders
 - name: Behaviour & edge cases
   items:

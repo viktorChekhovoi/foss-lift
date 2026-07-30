@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
 
 import 'support/harness.dart';
@@ -101,15 +102,17 @@ void main() {
       }
     });
 
-    test('every anchored step points at something on the Today tab', () {
-      // The tour does not drive navigation, so a step anchored to a screen you
-      // have to open would spotlight a rectangle that is not there.
+    test('the other tabs are told about, not navigated to', () {
+      // The tour stays on the tab it opened on. A step about another tab
+      // highlights that tab's button and describes what is behind it; it never
+      // pushes a route, so nobody is left somewhere they did not ask to be.
       final onToday = {tutorialTodayWorkoutKey, tutorialLifetimeKey};
       for (final step in kTutorialSteps) {
         final key = step.key;
         if (key == null) continue; // the greeting points at nothing
         expect(key == tutorialNavBarKey || onToday.contains(key), isTrue,
-            reason: 'a step is anchored off the Today tab: ${step.title}');
+            reason: 'a step is anchored to a screen the tour cannot reach: '
+                '${step.title}');
       }
     });
 
@@ -186,6 +189,52 @@ void main() {
 
       expect(find.text(kTutorialSteps.first.title), findsOneWidget,
           reason: 'a replay begins at the greeting, not mid-tour');
+
+      await stop(tester);
+    });
+
+    testWidgets('an anchor below the fold is scrolled into view',
+        (tester) async {
+      // The whole point of a coach mark is that it points at something. On a
+      // short screen with three training days queued, the lifetime card is off
+      // the bottom of the Today tab — so the tour brings it up before
+      // spotlighting it, rather than cutting a hole in a screen nobody can see.
+      tester.view.physicalSize = const Size(390, 480);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(routedAppUnder(
+        container,
+        Scaffold(body: TutorialOverlay(child: const TodayScreen())),
+      ));
+      await pumpThroughDatabase(tester);
+
+      final anchor = find.byKey(tutorialLifetimeKey);
+      expect(anchor, findsOneWidget);
+      expect(tester.getRect(anchor).bottom, greaterThan(480.0),
+          reason: 'the anchor should start off screen for this to mean '
+              'anything');
+
+      // Walk the tour to the step that points at it.
+      final target =
+          kTutorialSteps.indexWhere((s) => s.key == tutorialLifetimeKey);
+      expect(target, greaterThan(0));
+      container.read(tutorialProvider.notifier).start();
+      for (var i = 0; i < target; i++) {
+        container.read(tutorialProvider.notifier).next();
+        await tester.pump();
+      }
+      expect(find.text(kTutorialSteps[target].title), findsOneWidget);
+
+      // Let the scroll run.
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+      }
+
+      final rect = tester.getRect(anchor);
+      expect(rect.top, greaterThanOrEqualTo(0.0));
+      expect(rect.bottom, lessThanOrEqualTo(480.0),
+          reason: 'the tour did not bring its anchor into view');
 
       await stop(tester);
     });

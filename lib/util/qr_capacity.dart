@@ -21,7 +21,7 @@ const int kQrBytesMediumEcc = 2331;
 /// Medium while it fits: a QR is read off a screen at an angle, often with a
 /// reflection across it, and the redundancy is what survives that. Only when
 /// medium will not hold the payload does it drop to low — a worse symbol is
-/// still better than no symbol, and the alternative on offer is a link.
+/// still better than no symbol, and the alternative on offer is a pasted code.
 ///
 /// Null means it does not fit at any level, and the caller should say so rather
 /// than paint something unscannable.

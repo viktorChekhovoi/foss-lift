@@ -26,13 +26,32 @@ enum WeightType {
   /// A dumbbell: the number is the one in your hand. Whether the movement uses
   /// one of them or two is the exercise's business, not the weight's — a
   /// one-arm row and a pair of curls both log what is on the dumbbell.
-  dumbbell;
+  dumbbell,
+
+  /// Nothing is loaded: a push-up, a pull-up, a plank. There is no weight to
+  /// suggest, none to log and none to break down — the movement is yours and
+  /// how heavy you are is not a number this app asks for.
+  ///
+  /// A real answer rather than a missing one, which is why it is a value here
+  /// and not a null column: the codec sends it, the picker can be cleared back
+  /// to it, and every screen asks the same question of it as of the others.
+  none;
 
   String get label => switch (this) {
-        WeightType.bar => 'Bar',
-        WeightType.machine => 'Machine',
-        WeightType.dumbbell => 'Dumbbell',
-      };
+    WeightType.bar => 'Bar',
+    WeightType.machine => 'Machine',
+    WeightType.dumbbell => 'Dumbbell',
+    WeightType.none => 'None',
+  };
+
+  /// The loadings a picker offers. [none] is not among them — it is what you
+  /// get by deselecting, not a fourth kind of weight, and a chip labelled
+  /// "None" beside three real ones invites the wrong reading.
+  static const List<WeightType> loadable = [bar, machine, dumbbell];
+
+  /// Whether there is a weight at all: a load to suggest, a field to type it
+  /// in, a number to log.
+  bool get carriesWeight => this != WeightType.none;
 
   /// Whether a weight of this type breaks down into a per-side plate load.
   bool get loadedPerSide => this == WeightType.bar;
@@ -42,14 +61,42 @@ enum WeightType {
 ///
 /// Only a starting point: the user can change it afterwards, and needs to for
 /// the awkward cases (an EZ-bar with its own weight, a Smith machine, a trap
-/// bar). Everything that is not obviously a bar or a pair of dumbbells is a
-/// machine — including bodyweight, where there is no bar to break down either.
+/// bar, a weighted pull-up). Bodyweight movements carry nothing; everything
+/// else that is not obviously a bar or a dumbbell reads as a machine, cables
+/// included — the number is the number.
 WeightType weightTypeForEquipment(String equipment) =>
     switch (equipment.toLowerCase()) {
       'barbell' => WeightType.bar,
       'dumbbell' => WeightType.dumbbell,
+      'bodyweight' => WeightType.none,
       _ => WeightType.machine,
     };
+
+/// The loading a movement's **name** already states, or null if it does not
+/// state one.
+///
+/// "Barbell Curl" is loaded on a bar and "Dumbbell Row" on a dumbbell — not
+/// because of a rule about equipment, but because the implement is in the name.
+/// Changing those to something else leaves a row whose name contradicts its own
+/// weight column, so on a seeded movement they are fixed —
+/// `Exercise.loadingIsFixed` in `database.dart`.
+///
+/// **The equipment is the wrong question, and answering it that way locked far
+/// too much.** How a movement is loaded is specific to the movement and to the
+/// gym: a skull crusher is done with a bar, a pair of dumbbells or on a machine;
+/// a chest-supported row is often a plate-loaded machine, where "Bar" is the
+/// useful answer; a cable station may be a stack or plates on a carriage.
+/// Equipment "Barbell" says what the seed guessed, not what you own. So only the
+/// name settles anything, and it settles it for ten of the eighty-seven starters.
+///
+/// A movement you made yourself is never fixed, whatever you called it: you
+/// named it and you loaded it, and reconciling the two is not the app's business.
+WeightType? loadingNamedBy(String name) {
+  final n = name.toLowerCase();
+  if (RegExp(r'\bbarbell\b').hasMatch(n)) return WeightType.bar;
+  if (RegExp(r'\b(dumbbell|db)\b').hasMatch(n)) return WeightType.dumbbell;
+  return null;
+}
 
 /// So many plates of one size. Used both for the inventory ("I own four 20s")
 /// and for a solved stack ("two 20s go on each side").
@@ -150,24 +197,28 @@ const _standardLb = <_Stock>[
 double defaultBarKg(String unit) =>
     unit == 'lb' ? toKg(kDefaultBarLb, 'lb') : kDefaultBarKg;
 
-/// One of the bars a gym actually racks: what it is called, and what it weighs
-/// in the unit its gym counts in.
+/// One of the bars a gym racks: what it is called, and what it weighs in the
+/// unit its gym counts in.
 typedef NamedBar = ({String name, double weight});
 
-/// The bars worth offering by name, metric gym.
+/// The bars a metric gym starts with.
 ///
 /// What a lifter knows is *which* bar — the EZ curl bar, the trap bar, the
 /// Smith carriage — and the weight follows from that. These are the common
 /// sizes, not a specification: an EZ bar runs 5.5–13.5 kg and a Smith carriage
-/// anywhere from 6 to 32 depending on the counterweight, so every one of them
-/// is a starting point a free number can still overrule.
+/// anywhere from 6 to 32 depending on the counterweight. They are only the
+/// starting set: a fresh install stores them as rows the user can rename,
+/// re-weigh and delete, and add to (see the `Bars` table).
+///
+/// No two of them weigh the same, because a bar is referred to by its weight —
+/// again, see `Bars`.
 const List<NamedBar> _namedBarsKg = [
   (name: 'Olympic bar', weight: 20),
   (name: "Women's Olympic bar", weight: 15),
   (name: 'EZ curl bar', weight: 10),
   (name: 'Trap bar', weight: 25),
-  (name: 'Safety squat bar', weight: 25),
-  (name: 'Smith carriage', weight: 15),
+  (name: 'Safety squat bar', weight: 30),
+  (name: 'Smith carriage', weight: 12.5),
 ];
 
 /// The same bars as a pounds gym labels them. Converted by *name*, not by
@@ -178,22 +229,22 @@ const List<NamedBar> _namedBarsLb = [
   (name: "Women's Olympic bar", weight: 35),
   (name: 'EZ curl bar', weight: 25),
   (name: 'Trap bar', weight: 55),
-  (name: 'Safety squat bar', weight: 55),
-  (name: 'Smith carriage', weight: 35),
+  (name: 'Safety squat bar', weight: 65),
+  (name: 'Smith carriage', weight: 30),
 ];
 
-/// The named bars for [unit], with their weights converted to canonical
+/// The bars a gym counting in [unit] starts with, converted to canonical
 /// kilograms like every other weight in the app.
 List<NamedBar> namedBars(String unit) => [
-      for (final b in unit == 'lb' ? _namedBarsLb : _namedBarsKg)
-        (name: b.name, weight: toKg(b.weight, unit)),
-    ];
+  for (final b in unit == 'lb' ? _namedBarsLb : _namedBarsKg)
+    (name: b.name, weight: toKg(b.weight, unit)),
+];
 
 /// The plate rack to assume for someone who has never said, in kilograms.
 List<PlateStack> defaultPlatesFor(String unit) => [
-      for (final p in unit == 'lb' ? _standardLb : _standardKg)
-        (kg: toKg(p.size, unit), count: p.count),
-    ];
+  for (final p in unit == 'lb' ? _standardLb : _standardKg)
+    (kg: toKg(p.size, unit), count: p.count),
+];
 
 /// A plate or bar weight for display: up to two decimals, no trailing zeros.
 ///
@@ -252,12 +303,11 @@ PlateSettings resolvePlateSettings({
   String? kgRack,
   String? lbRack,
   double? barKg,
-}) =>
-    (
-      barKg: barKg ?? defaultBarKg(unit),
-      plates: decodePlates(unit == 'lb' ? lbRack : kgRack) ??
-          defaultPlatesFor(unit),
-    );
+}) => (
+  barKg: barKg ?? defaultBarKg(unit),
+  plates:
+      decodePlates(unit == 'lb' ? lbRack : kgRack) ?? defaultPlatesFor(unit),
+);
 
 /// What to load on a bar to reach a weight — or the closest the plates in the
 /// gym can get to it.
@@ -312,11 +362,11 @@ PlateSolution solvePlates({
 }) {
   final bar = barKg < 0 ? 0.0 : barKg;
   PlateSolution barOnly() => PlateSolution(
-        targetKg: targetKg,
-        achievedKg: bar,
-        barKg: bar,
-        plates: const [],
-      );
+    targetKg: targetKg,
+    achievedKg: bar,
+    barKg: bar,
+    plates: const [],
+  );
 
   final targetG = (targetKg * 1000).round();
   final barG = (bar * 1000).round();
@@ -377,10 +427,7 @@ List<LoadRung> barLoadLadder({
 /// Loads on a fixed [stepKg] grid up to [maxKg], ascending — a rack of
 /// dumbbells or a machine's stack, where the gym chose the increments and no
 /// two settings cost anything different to reach.
-List<LoadRung> gridLoadLadder({
-  required double stepKg,
-  required double maxKg,
-}) {
+List<LoadRung> gridLoadLadder({required double stepKg, required double maxKg}) {
   if (stepKg <= 0 || maxKg < stepKg) return const [];
   final rungs = ((maxKg + kPlateToleranceKg) / stepKg).floor();
   // Multiplied out rather than accumulated, so the hundredth rung of a
@@ -401,19 +448,23 @@ List<LoadRung> loadLadder({
   required double maxKg,
   double barKg = 0,
   List<PlateStack> inventory = const [],
-}) =>
-    switch (type) {
-      WeightType.bar =>
-        barLoadLadder(barKg: barKg, inventory: inventory, maxKg: maxKg),
-      WeightType.dumbbell => gridLoadLadder(
-          stepKg: unit == 'lb' ? toKg(kDumbbellStepLb, 'lb') : kDumbbellStepKg,
-          maxKg: maxKg,
-        ),
-      WeightType.machine => gridLoadLadder(
-          stepKg: unit == 'lb' ? toKg(kStackStepLb, 'lb') : kStackStepKg,
-          maxKg: maxKg,
-        ),
-    };
+}) => switch (type) {
+  WeightType.bar => barLoadLadder(
+    barKg: barKg,
+    inventory: inventory,
+    maxKg: maxKg,
+  ),
+  WeightType.dumbbell => gridLoadLadder(
+    stepKg: unit == 'lb' ? toKg(kDumbbellStepLb, 'lb') : kDumbbellStepKg,
+    maxKg: maxKg,
+  ),
+  WeightType.machine => gridLoadLadder(
+    stepKg: unit == 'lb' ? toKg(kStackStepLb, 'lb') : kStackStepKg,
+    maxKg: maxKg,
+  ),
+  // Nothing to load, so no rung to land on — and nothing to ramp up to.
+  WeightType.none => const [],
+};
 
 /// The inventory as the search wants it: pairs only — an odd plate is stock the
 /// bar cannot use — heaviest first, and in whole grams.
@@ -422,10 +473,10 @@ List<LoadRung> loadLadder({
 /// with a tail, and floating-point sums of those do not compare equal to
 /// anything.
 List<_Kind> _pairKinds(List<PlateStack> inventory) => [
-      for (final p in sortedPlates(inventory))
-        if (p.kg > 0 && p.count >= 2)
-          (kg: p.kg, g: (p.kg * 1000).round(), pairs: p.count ~/ 2),
-    ]..removeWhere((k) => k.g <= 0);
+  for (final p in sortedPlates(inventory))
+    if (p.kg > 0 && p.count >= 2)
+      (kg: p.kg, g: (p.kg * 1000).round(), pairs: p.count ~/ 2),
+]..removeWhere((k) => k.g <= 0);
 
 /// One plate size the search may draw on: its weight, the same in grams, and
 /// how many pairs of it the gym owns.

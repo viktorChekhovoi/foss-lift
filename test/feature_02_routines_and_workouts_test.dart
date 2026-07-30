@@ -5,16 +5,27 @@
 // split editing where reordering days never disturbs their exercises; drafts
 // built in memory before saving; a deleted current routine degrading to "none".
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/routine_edit_screen.dart';
+import 'package:foss_lift/screens/routines_screen.dart';
+import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/widgets/exercise_filters.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
+
+/// Whether the text [finder] found had to be cut short to fit where it is.
+///
+/// The rendered paragraph is asked directly, so this is a claim about the
+/// layout at the viewport under test rather than about a font size.
+bool wasTruncated(WidgetTester tester, Finder finder) =>
+    (tester.renderObject(finder) as RenderParagraph).didExceedMaxLines;
 
 void main() {
   late AppDatabase db;
@@ -257,6 +268,321 @@ void main() {
     });
   });
 
+  group('a routine name gets the room it needs', () {
+    /// The seeded routine names are the case that has to work: "Push / Pull /
+    /// Legs" is ordinary, and cutting it to "Push / Pull / L…" on the first
+    /// screen of the app is not a layout, it is a bug.
+    Future<ProviderContainer> pumpAt(
+      WidgetTester tester,
+      Widget screen, {
+      double textScale = 1.0,
+    }) async {
+      // A Pixel 4a is 393 dp wide; 390 is the number to design to.
+      tester.view.physicalSize = const Size(390, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        appUnder(container, Scaffold(body: screen), textScale: textScale),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('Today gives it the whole row, not half of one', (
+      tester,
+    ) async {
+      await pumpAt(tester, const TodayScreen());
+
+      final heading = find.text(kPpl.toUpperCase());
+      expect(heading, findsOneWidget);
+      // "LIFETIME" is one line of the same style further down the screen, so
+      // equal heights mean the routine name fitted on one line too — which it
+      // cannot do if something beside it is taking half the row.
+      expect(
+        tester.getSize(heading).height,
+        tester.getSize(find.text('LIFETIME')).height,
+        reason: 'the routine name is being squeezed onto a second line',
+      );
+      // The action beside it is still there, and still on the right.
+      final change = find.text('Change');
+      expect(change, findsOneWidget);
+      expect(tester.getRect(change).right, greaterThan(300.0));
+
+      await stop(tester);
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('Today shows it whole at $scale×', (tester) async {
+        await pumpAt(tester, const TodayScreen(), textScale: scale);
+
+        final heading = find.text(kPpl.toUpperCase());
+        expect(heading, findsOneWidget);
+        expect(
+          wasTruncated(tester, heading),
+          isFalse,
+          reason: 'the current routine name is cut short on Today',
+        );
+
+        await stop(tester);
+      });
+
+      testWidgets('a routine card shows it whole at $scale×', (tester) async {
+        await pumpAt(tester, const RoutinesScreen(), textScale: scale);
+
+        final name = find.text(kPpl);
+        expect(name, findsOneWidget);
+        expect(
+          wasTruncated(tester, name),
+          isFalse,
+          reason: 'the routine card cuts an ordinary name short',
+        );
+
+        await stop(tester);
+      });
+    }
+
+    testWidgets('and a long name pushes nothing off the edge', (tester) async {
+      await db.createRoutine(
+        name: 'Upper / Lower / Push / Pull / Legs / Arms',
+        color: 'FF6A3D',
+        restSeconds: 90,
+      );
+      final overflows = await overflowsDuring(() async {
+        await pumpAt(tester, const RoutinesScreen());
+      });
+      expect(overflows, isEmpty);
+      await stop(tester);
+    });
+  });
+
+  group('training days are dragged into order', () {
+    /// Opens the builder on the seeded three-day routine.
+    Future<int> pumpBuilder(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      // runAsync, because a drift future only completes on the real event loop
+      // and this body runs in the test's fake one.
+      final rid = (await tester.runAsync(
+        () => routineWithCountNamed(db),
+      ))!.routine.id;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, RoutineEditScreen(routineId: rid)),
+      );
+      // Not pumpAndSettle: the loading spinner animates for ever, so the tree
+      // is only quiet once the routine has come back off the database.
+      await pumpThroughDatabase(tester);
+      return rid;
+    }
+
+    /// Drags the [index]th drag handle by [dy].
+    Future<void> dragDay(WidgetTester tester, int index, double dy) async {
+      final handle = find.byIcon(Icons.drag_indicator).at(index);
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(const Duration(milliseconds: 100));
+      // In steps: the reorderable decides where the row belongs from where the
+      // pointer has travelled, so one teleporting move tells it nothing.
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(Offset(0, dy / 8));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('every day has a handle, and no up/down buttons', (
+      tester,
+    ) async {
+      await pumpBuilder(tester);
+
+      expect(find.byIcon(Icons.drag_indicator), findsNWidgets(3));
+      expect(
+        find.byIcon(Icons.keyboard_arrow_up),
+        findsNothing,
+        reason: 'the handle replaces the arrows, as in a workout',
+      );
+      expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('dragging a day reorders it, exercises and all', (
+      tester,
+    ) async {
+      final rid = await pumpBuilder(tester);
+      final push = (await tester.runAsync(() => workoutNamed(db, 'Push')))!;
+      final before = (await tester.runAsync(
+        () => db.itemsForWorkout(push.id),
+      ))!.map((v) => v.exercise.name).toList();
+      expect(before, isNotEmpty);
+
+      // Push is first; drag it below Pull.
+      final gap =
+          tester.getTopLeft(find.text('Pull')).dy -
+          tester.getTopLeft(find.text('Push')).dy;
+      await dragDay(tester, 0, gap + 10);
+
+      expect(
+        tester.getTopLeft(find.text('Push')).dy,
+        greaterThan(tester.getTopLeft(find.text('Pull')).dy),
+        reason: 'the dragged day did not move',
+      );
+
+      await tester.tap(find.text('Save routine'));
+      await pumpThroughDatabase(tester);
+
+      final after = (await tester.runAsync(() => db.workoutsForRoutine(rid)))!;
+      expect(after.map((w) => w.name), ['Pull', 'Push', 'Legs']);
+      // Reordering days leaves the exercises inside them alone.
+      final items = (await tester.runAsync(() => db.itemsForWorkout(push.id)))!;
+      expect(items.map((v) => v.exercise.name), before);
+
+      await stop(tester);
+    });
+  });
+
+  group('a slot cannot ask for a weight the movement never carries', () {
+    test('an unloaded movement is offered no weight axis', () async {
+      final pullUp = await exerciseNamed(db, 'Pull-Up');
+      expect(
+        pullUp.weightType.carriesWeight,
+        isFalse,
+        reason: 'a pull-up carries nothing — the premise of this test',
+      );
+
+      final slot = ItemDraft.forExercise(pullUp);
+      expect(slot.modes, [ProgressionMode.reps]);
+      expect(
+        slot.progression,
+        ProgressionMode.reps,
+        reason: 'a pull-up gets more reps, not more kilograms',
+      );
+
+      // Asking for load anyway changes nothing, as asking for time on a squat
+      // already does.
+      slot.setMode(ProgressionMode.weight);
+      expect(slot.progression, ProgressionMode.reps);
+    });
+
+    test('a loaded movement still gets both axes', () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final slot = ItemDraft.forExercise(bench);
+
+      expect(
+        slot.modes,
+        containsAll([ProgressionMode.weight, ProgressionMode.reps]),
+      );
+      expect(slot.progression, ProgressionMode.weight);
+    });
+
+    test('an unloaded slot carries no suggested weight', () async {
+      final pullUp = await exerciseNamed(db, 'Pull-Up');
+      // Even asked for one — a movement reclassified after the slot was built.
+      final slot = ItemDraft(
+        exerciseId: pullUp.id,
+        name: pullUp.name,
+        muscle: pullUp.muscleGroup,
+        weightType: pullUp.weightType,
+        weightKg: 40,
+      );
+
+      expect(slot.weightKg, isNull);
+      expect(itemCompanions([slot]).single.suggestedWeight.value, isNull);
+    });
+
+    testWidgets('the sheet says "Bodyweight" instead of an empty box', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final pullUp = (await tester.runAsync(
+        () => exerciseNamed(db, 'Pull-Up'),
+      ))!;
+
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: [ItemDraft.forExercise(pullUp)],
+                  unit: 'kg',
+                  routineRest: 90,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Pull-Up'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bodyweight'), findsOneWidget);
+      expect(
+        find.text('Not set yet'),
+        findsNothing,
+        reason: 'there is no weight to fill in',
+      );
+      // The card is captioned without a unit — there is no number in it.
+      expect(find.text('WEIGHT'), findsOneWidget);
+      // And no weight axis to choose, so the axis is stated, not offered.
+      expect(find.text('More reps'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('a loaded slot asks for the number it is missing', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: [ItemDraft.forExercise(bench)],
+                  unit: 'kg',
+                  routineRest: 90,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bench Press'));
+      await tester.pumpAndSettle();
+
+      // A blank weight on a bar is a number still to come, not bodyweight.
+      expect(find.text('Not set yet'), findsOneWidget);
+      expect(find.text('Bodyweight'), findsNothing);
+      expect(find.text('Reps'), findsWidgets, reason: 'both axes are offered');
+
+      await stop(tester);
+    });
+  });
+
   group('the picker: finding a movement, and making one that is missing', () {
     /// A screen with one button that opens the picker, keeping whatever came
     /// back. The picker is a sheet over a builder, so it is exercised the way
@@ -267,24 +593,28 @@ void main() {
     ) {
       Exercise? picked;
       return () async {
-        await tester.pumpWidget(appUnder(
-          container,
-          Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () async => picked = await pickExercise(context),
-                child: const Text('Add exercise'),
+        await tester.pumpWidget(
+          appUnder(
+            container,
+            Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () async => picked = await pickExercise(context),
+                  child: const Text('Add exercise'),
+                ),
               ),
             ),
           ),
-        ));
+        );
         await tester.tap(find.text('Add exercise'));
         await tester.pumpAndSettle();
         return picked;
       };
     }
 
-    testWidgets('it filters by the same chips the library does', (tester) async {
+    testWidgets('it filters by the same control the library does', (
+      tester,
+    ) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await openPicker(tester, container)();
@@ -292,7 +622,12 @@ void main() {
       // The list opens on Arms, the first group by name.
       expect(find.text('Barbell Curl'), findsOneWidget);
 
+      // Through the dimension button and its sheet, as on the library screen.
+      await tester.tap(find.byKey(filterButtonKey('muscle')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(filterChipKey('muscle', 'Legs')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(kFilterSheetDoneKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Back Squat'), findsOneWidget);
@@ -301,8 +636,9 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a movement it does not have can be made without leaving',
-        (tester) async {
+    testWidgets('a movement it does not have can be made without leaving', (
+      tester,
+    ) async {
       // Tall enough for the whole creation form, so this test is about the
       // route it takes and not about scrolling to a button.
       tester.view.physicalSize = const Size(800, 1400);
@@ -313,17 +649,19 @@ void main() {
       addTearDown(container.dispose);
       Exercise? picked;
 
-      await tester.pumpWidget(appUnder(
-        container,
-        Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async => picked = await pickExercise(context),
-              child: const Text('Add exercise'),
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async => picked = await pickExercise(context),
+                child: const Text('Add exercise'),
+              ),
             ),
           ),
         ),
-      ));
+      );
       await tester.tap(find.text('Add exercise'));
       await tester.pumpAndSettle();
 

@@ -7,10 +7,13 @@
 // and `features/screens.yaml`. The HTML is output — never edit it by hand, the
 // next run will overwrite you.
 //
-// --check is the part that keeps the catalogue honest. It fails on a concept
-// nobody defines, a screen nothing points at, a `code:` path that has stopped
-// existing, and on generated HTML that has drifted from its source. A catalogue
-// that can rot quietly is a catalogue nobody trusts a year from now.
+// --check is the part that keeps the catalogue honest. It fails on a tag that
+// is not in the vocabulary, a duplicated item id, a section id that disagrees
+// with its filename, and a section's or concept's path that has stopped
+// existing — a
+// catalogue that can rot quietly is a catalogue nobody trusts a year from now.
+// A concept nobody defines, a screen nothing points at and generated HTML that
+// has drifted are reported every run but never fail; see `Findings` for why.
 
 import 'dart:convert';
 import 'dart:io';
@@ -1237,8 +1240,7 @@ void main(List<String> args) {
 
   void reportGaps() {
     if (findings.gaps.isEmpty) return;
-    stdout.writeln('\n${findings.gaps.length} note(s) — reported every run, '
-        'never fatal:');
+    stdout.writeln('\n${findings.gaps.length} note(s):');
     for (final g in findings.gaps) {
       stdout.writeln('  $g');
     }

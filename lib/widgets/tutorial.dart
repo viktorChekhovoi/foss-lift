@@ -55,10 +55,14 @@ class TutorialStep {
   final String body;
 }
 
-/// The first-run tour, in order: a greeting, then the high-value targets, all
-/// anchored on the Today tab (the tab bar is always up, the workout and
-/// lifetime cards are on Today itself), so the tour never has to drive
-/// navigation to keep up.
+/// The first-run tour, in order: a greeting, then the high-value targets.
+///
+/// **An anchored step may point anywhere on the Today tab, including below the
+/// fold** — the overlay scrolls the anchor into view before spotlighting it, so
+/// the lifetime card gets pointed at on a routine with more training days than
+/// fit on a screen. What the tour will not do is move between tabs: the steps
+/// about the other three describe them and highlight their tab button, which
+/// leaves you where you started.
 ///
 /// **The workout itself is told, not pointed at.** The board, the rest timer
 /// and the shade are where the app is least like every other tracker and the
@@ -91,9 +95,8 @@ final List<TutorialStep> kTutorialSteps = [
   TutorialStep(
     key: tutorialTodayWorkoutKey,
     title: 'While you lift',
-    body: 'Tap a set to log it at the goal, again for each rep you fell short. '
-        'The set you are on is outlined, warm-ups first — set the weight once '
-        'and every set of that exercise follows it.',
+    body: 'Tap a set to log it at the goal, again for each rep missed, or tap '
+        'to start a timer. The set you are on is outlined, warm-ups first ',
   ),
   TutorialStep(
     key: tutorialTodayWorkoutKey,
@@ -212,6 +215,27 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
     if (ended) ref.read(databaseProvider).setTutorialSeen(true);
   }
 
+  /// The step whose anchor has already been brought into view.
+  int? _revealed;
+
+  /// Scrolls [step]'s anchor into view, once per step.
+  ///
+  /// This is what lets a step point at something below the fold. It is a no-op
+  /// for an anchor with no scrollable ancestor — the nav bar — and for one that
+  /// is on screen already, so the common case costs nothing.
+  void _revealAnchor(int index, TutorialStep step) {
+    if (_revealed == index) return;
+    final ctx = step.key?.currentContext;
+    if (ctx == null) return; // not laid out yet; the retry frame will come back
+    _revealed = index;
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
+  }
+
   Rect? _targetRect(TutorialStep step) {
     // A step with no anchor points at nothing on purpose — see TutorialStep.key.
     final ctx = step.key?.currentContext;
@@ -240,12 +264,31 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
       });
     }
 
+    if (!tut.active) _revealed = null;
+
     return Stack(
       children: [
-        widget.child,
+        // While the tour is up, anything that scrolls underneath moves the
+        // anchor the spotlight is cut around — including the tour's own
+        // scroll-into-view — so the overlay re-measures as it happens.
+        NotificationListener<ScrollNotification>(
+          onNotification: (_) {
+            if (ref.read(tutorialProvider).active) _remeasure();
+            return false;
+          },
+          child: widget.child,
+        ),
         if (tut.active) _buildCoach(context, tut.step),
       ],
     );
+  }
+
+  /// Rebuilds after the frame in flight, so [_targetRect] reads the anchor's
+  /// settled position rather than the one it is moving away from.
+  void _remeasure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Widget _buildCoach(BuildContext context, int stepIndex) {
@@ -253,15 +296,21 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
     final step = kTutorialSteps[index];
     final rect = _targetRect(step);
 
+    // Bring it into view first: a step may point at something below the fold,
+    // and a spotlight on an off-screen rectangle is a dimmed screen with no
+    // hole in it. After the frame, because scrolling during build is not
+    // allowed.
+    if (step.key != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _revealAnchor(index, step);
+      });
+    }
+
     // The target may not be laid out on the frame the tour opens (a fresh tab,
     // a card still building). Try again next frame rather than guess a spot —
     // but only when there is a target to wait for, or the anchorless welcome
     // step would re-schedule itself for ever.
-    if (rect == null && step.key != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
-      });
-    }
+    if (rect == null && step.key != null) _remeasure();
 
     final size = MediaQuery.sizeOf(context);
     final padding = MediaQuery.paddingOf(context);

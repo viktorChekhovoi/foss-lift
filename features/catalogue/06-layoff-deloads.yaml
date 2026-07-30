@@ -19,17 +19,25 @@ groups:
   items:
   - id: watches-gap-since-workout-was
     t: Watches the gap since a workout was last trained
-    d: not "the routine".
+    d: >-
+      not "the routine" — a split where Push comes round weekly but Legs hasn't
+      been touched since spring catches Legs exactly.
     screen: none
     defines:
     - progression.layoff-rules
     uses:
     - history.session-record
+    - template.workout
   - id: offers-back-off-before-session
     t: Offers a back-off before the session starts
-    d: whole periods away, each worth a percentage, stacking up to a cap.
+    d: >-
+      whole periods away, each worth a percentage, stacking up to a cap. Open a
+      workout untrained for a while → Start, and a dialog offers the deload: accept
+      to start lighter, or decline to start at the weight you left.
     defines:
     - progression.layoff-offer
+    uses:
+    - session.start
   - id: cut-lands-somewhere-trainable
     t: The cut lands somewhere trainable
     d: >-
@@ -41,31 +49,17 @@ groups:
 - name: How to use it
   items:
   - id: set-rules
-    t: Set the rules
+    t: The rules are app-wide, and set in Settings
     d: >-
-      Profile → Settings → the layoff days threshold and percent per period. App-wide.
+      Profile → Settings → the layoff days threshold and percent per period. Unlike
+      per-slot progression rates: a layoff is something that happened to you, not
+      to one exercise.
     screen: settings
     uses:
     - progression.layoff-rules
-  - id: when-triggers
-    t: When it triggers
-    d: >-
-      open a workout untrained for a while → Start → a dialog offers the deload.
-      Accept to start lighter, or decline to start at the weight you left.
-    uses:
-    - progression.layoff-offer
-    - session.start
+    - storage.settings
 - name: Behaviour & edge cases
   items:
-  - id: per-workout-not-per-routine
-    t: Per workout, not per routine
-    d: >-
-      a split where Push comes round weekly but Legs hasn't been touched since
-      spring catches Legs exactly.
-    screen: none
-    uses:
-    - template.workout
-    - history.session-record
   - id: nothing-applied-without-asking
     t: Nothing is applied without asking
     d: >-
@@ -90,12 +84,3 @@ groups:
     screen: none
     uses:
     - progression.streak
-  - id: thresholds-app-wide
-    t: The thresholds are app-wide
-    d: >-
-      unlike per-slot progression rates: a layoff is something that happened to
-      you, not to one exercise.
-    screen: settings
-    uses:
-    - progression.layoff-rules
-    - storage.settings

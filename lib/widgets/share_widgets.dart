@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../theme/app_theme.dart';
@@ -8,16 +9,18 @@ import '../util/qr_capacity.dart';
 
 /// The chrome every "share this thing" screen is built from.
 ///
-/// Themes and routines share a transport — a QR and a link — so they share the
-/// buttons, the QR card and the paste dialog too. One copy means the two
-/// screens cannot drift into looking like different apps, and the QR advice
-/// below only has to be got right once.
+/// Themes and routines share a transport — a QR and a share-sheet code — so
+/// they share the buttons, the QR card and the paste dialog too. One copy means
+/// the two screens cannot drift into looking like different apps, and the QR
+/// advice below only has to be got right once.
 
 /// Something shareable as a QR someone else can point a phone at.
 ///
 /// Holds the full `fosslift://…` link rather than the bare code, so one image
 /// serves both routes: a system camera recognises the scheme and offers to open
-/// Foss Lift, while our own scanner strips the prefix and imports directly.
+/// Foss Lift, while our own scanner strips the prefix and imports directly. (The
+/// share *sheet* sends the bare code — a chat app would leave a link as
+/// unclickable text.)
 ///
 /// Deliberately **not** painted in the current theme. A QR code is read by a
 /// machine looking for dark modules on a light field with a quiet margin around
@@ -149,7 +152,7 @@ class ShareQr extends StatelessWidget {
           border: Border.all(color: AppColors.line),
         ),
         child: Text(
-          'Too big for a QR code. Send it as a link instead — same thing, '
+          'Too big for a QR code. Send the code instead — same thing, '
           'no camera needed.',
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
@@ -257,7 +260,24 @@ class _PasteDialogState extends State<_PasteDialog> {
 ///
 /// [fallback] is where the cold case lands — somewhere the user who just
 /// imported something would want to be anyway.
+///
+/// The router is asked before the navigator, and that order matters. A
+/// `Navigator.pop` leaves go_router's match list untouched until the page has
+/// finished animating out; applying a theme in the meantime re-keys
+/// `MaterialApp` at the root, and the fresh `Router` rebuilds its pages from
+/// that stale list — putting the screen straight back. `GoRouter.pop` drops the
+/// match there and then, so there is nothing left to restore. The navigator is
+/// still the path for a screen pumped without a router under it.
 void leaveShareScreen(BuildContext context, void Function() fallback) {
+  final router = GoRouter.maybeOf(context);
+  if (router != null) {
+    if (router.canPop()) {
+      router.pop();
+    } else {
+      fallback();
+    }
+    return;
+  }
   final navigator = Navigator.maybeOf(context);
   if (navigator != null && navigator.canPop()) {
     navigator.pop();

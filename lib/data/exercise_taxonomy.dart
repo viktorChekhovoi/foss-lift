@@ -15,10 +15,9 @@ library;
 
 /// The muscle groups offered in the exercise form, in display order.
 ///
-/// Glutes and Forearms are groups of their own rather than a corner of Legs and
-/// Arms. Both are trained deliberately and with their own movements — a hip
-/// thrust is not a leg exercise anyone files next to a calf raise — and a group
-/// that has to be searched for inside a larger one may as well not exist.
+/// Seven, and no finer. A hip thrust is filed under Legs and a wrist curl under
+/// Arms: the movements are all still in the library, but a group of its own for
+/// each of them is a heading to scroll past on the way to the one you wanted.
 /// `Other` is last because it is where the movements that answer to no single
 /// group go, not because it is a group anyone picks first.
 const List<String> kMuscleGroups = [
@@ -26,9 +25,7 @@ const List<String> kMuscleGroups = [
   'Back',
   'Shoulders',
   'Legs',
-  'Glutes',
   'Arms',
-  'Forearms',
   'Core',
   'Other',
 ];

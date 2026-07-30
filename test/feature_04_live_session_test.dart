@@ -126,8 +126,9 @@ Future<int> buildTwoExerciseWorkout(
   return wid;
 }
 
-/// What a rest banner measures: the banner itself and its three controls.
-typedef BannerGeometry = ({Rect banner, Map<String, Rect> pills});
+/// What a rest bar measures: the bar itself, its caption and its three
+/// controls.
+typedef BannerGeometry = ({Rect banner, Rect caption, Map<String, Rect> pills});
 
 void main() {
   late AppDatabase db;
@@ -960,6 +961,213 @@ void main() {
     });
   });
 
+  group('A bar cannot be loaded below its own weight', () {
+    /// A one-exercise day at [weightKg], mounted and ready to tap.
+    Future<void> pumpOne(
+      WidgetTester tester, {
+      required String exercise,
+      required double weightKg,
+    }) async {
+      await tester.runAsync(() async {
+        final wid = await buildBarbellWorkout(
+          db,
+          exercise: exercise,
+          weightKg: weightKg,
+        );
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Squat Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+    }
+
+    /// Types [typed] into whichever weight editor is open and saves it.
+    Future<void> type(WidgetTester tester, String typed) async {
+      await tester.enterText(find.byType(TextField), typed);
+      await tester.tap(find.text('Save'));
+      await frames(tester);
+    }
+
+    testWidgets('the exercise weight stops at the bar, and says so',
+        (tester) async {
+      // Back Squat over the standard 20 kg bar. Ten kilos is not a light day,
+      // it is a load nobody can build.
+      await pumpOne(tester, exercise: 'Back Squat', weightKg: 100);
+
+      await tester.tap(find.byKey(const ValueKey('working-weight-0')));
+      await frames(tester);
+      expect(find.textContaining('no lighter than the 20 kg bar'),
+          findsOneWidget);
+
+      await type(tester, '10');
+
+      final squat = session().exercises[0];
+      expect(squat.workingKg, 20, reason: 'clamped to the bar, not accepted');
+      expect(squat.sets.every((set) => set.weight == 20), isTrue);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and so does one set of its own', (tester) async {
+      await pumpOne(tester, exercise: 'Back Squat', weightKg: 100);
+
+      await tester.tap(weightCell('0-2-Back Squat'));
+      await frames(tester);
+      await type(tester, '5');
+
+      expect(session().exercises[0].sets[2].weight, 20);
+      await stopAll(tester);
+    });
+
+    testWidgets('a machine has no bar under it, and no floor', (tester) async {
+      // The number on a stack is the number; zero is a real answer there.
+      await pumpOne(tester, exercise: 'Triceps Pushdown', weightKg: 35);
+
+      await tester.tap(find.byKey(const ValueKey('working-weight-0')));
+      await frames(tester);
+      expect(find.textContaining('no lighter than'), findsNothing);
+
+      await type(tester, '0');
+
+      expect(session().exercises[0].workingKg, 0);
+      await stopAll(tester);
+    });
+  });
+
+  group('A movement with no load has no weight on the board', () {
+    testWidgets('a plank shows no weight column, and no empty unit',
+        (tester) async {
+      await tester.runAsync(() async {
+        final wid = await buildPlankWorkout(db);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Plank Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+
+      expect(find.text('KG'), findsNothing,
+          reason: 'a column heading over nothing');
+      expect(find.byKey(const ValueKey('set-weight')), findsNothing);
+      expect(find.byKey(const ValueKey('working-weight-0')), findsNothing);
+
+      // The set still logs — it is the weight that is absent, not the row.
+      await tester.tap(repsCell('0-0-Plank'));
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(repsCell('0-0-Plank'));
+      await tester.pump();
+      expect(session().exercises[0].sets[0].logged, 4);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and a loaded lift still has one', (tester) async {
+      await pumpPushScreen(tester);
+      expect(find.text('KG'), findsWidgets);
+      expect(find.byKey(const ValueKey('set-weight')), findsWidgets);
+      await stopAll(tester);
+    });
+  });
+
+  group('The rest bar takes room rather than covering the board', () {
+    // The same rule the resume bar follows, for the same reason: a bar lying
+    // over the rows hid whichever set you were trying to read, and the only way
+    // to see underneath was to end the rest you were taking.
+
+    testWidgets('the rows scroll clear of it', (tester) async {
+      tester.view.physicalSize = const Size(390, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpPushScreen(tester);
+      await tester.ensureVisible(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      final bar = tester.getRect(find.byKey(kRestBannerKey));
+      final list = tester.getRect(find.byType(ListView).first);
+      expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
+          reason: 'the board ran on underneath the bar');
+
+      // And the far end of the session can be reached with the bar up: the last
+      // set of the last exercise comes to rest above it.
+      await tester.dragUntilVisible(
+        find.byKey(const ValueKey('4-2-Triceps Pushdown')),
+        find.byType(ListView).first,
+        const Offset(0, -120),
+        maxIteration: 60,
+      );
+      await tester.pump();
+      expect(
+        tester.getRect(find.byKey(const ValueKey('4-2-Triceps Pushdown'))).bottom,
+        lessThanOrEqualTo(bar.top + 0.5),
+      );
+
+      // And it is against the bottom edge, taking only the height it needs: a
+      // bar handed a share of the column sat halfway up the screen with the
+      // board squeezed above it and nothing at all underneath.
+      expect(bar.bottom, closeTo(780, 0.5),
+          reason: 'a blank strip opened up under the bar');
+      expect(bar.height, lessThan(200),
+          reason: 'the bar took room the board should have had');
+
+      await stopAll(tester);
+    });
+  });
+
+  group('A ramp with nothing to build says why', () {
+    // Never "add some above": the stepper above is not what is wrong, and
+    // adding rungs cannot conjure a load between the bar and a working weight
+    // that is already the bar.
+
+    Future<void> pumpEmptyBarSquat(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        // An empty-bar squat: there is nothing under 20 kg to warm up with.
+        final wid = await buildBarbellWorkout(db, weightKg: 20);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Squat Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+    }
+
+    testWidgets('it names the reason, and never asks for the impossible',
+        (tester) async {
+      await pumpEmptyBarSquat(tester);
+
+      expect(session().exercises[0].warmupCount, greaterThan(0));
+      expect(session().exercises[0].warmups, isEmpty);
+      expect(find.textContaining('add some above'), findsNothing);
+      expect(find.textContaining('Too light to ramp'), findsOneWidget);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and asking for none says nothing at all', (tester) async {
+      await pumpEmptyBarSquat(tester);
+
+      for (var i = 0; i < kDefaultWarmupSets; i++) {
+        await tester.tap(find.text('−'));
+        await tester.pump();
+      }
+
+      expect(session().exercises[0].warmupCount, 0);
+      expect(find.textContaining('Too light to ramp'), findsNothing,
+          reason: 'the stepper beside it already reads 0');
+
+      await stopAll(tester);
+    });
+  });
+
   group('The session lives in memory until Finish', () {
     test('logging sets writes nothing to the database', () async {
       final ctl = await startPush();
@@ -1141,6 +1349,10 @@ void main() {
   group('The goal is stated once, beside the weight', () {
     // Issue #63. It used to be reprinted on every row, where the weight cell
     // and the greyed-out result cell beside it already said both halves of it.
+    //
+    // And it reads as a goal: sets × reps, joined to the load by an @, with the
+    // load the only part of the line inside a box. "WORKING SETS × 8 [80]" read
+    // as a label with a stray editable cell in the middle of it.
 
     testWidgets('no row carries a goal cell; the exercise states it once',
         (tester) async {
@@ -1156,8 +1368,10 @@ void main() {
 
       expect(find.text('GOAL'), findsNothing);
       expect(find.byKey(kExerciseGoalKey), findsOneWidget);
-      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '× 5',
-          reason: 'the × reads off the weight beside it');
+      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '3 × 5',
+          reason: 'three sets of five, said the way a lifter says it');
+      // Joined to the load, which is the control: "3 × 5 @ 100 kg".
+      expect(find.text('@'), findsOneWidget);
       await stopAll(tester);
     });
 
@@ -1185,8 +1399,10 @@ void main() {
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
 
-      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '45s',
-          reason: 'there is no weight for a × to read off');
+      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '2 × 45s',
+          reason: 'two holds of forty-five seconds');
+      expect(find.text('@'), findsNothing,
+          reason: 'nothing to be at: the movement carries no load');
       await stopAll(tester);
     });
   });
@@ -1572,7 +1788,7 @@ void main() {
       expect(session().exercises[0].sets[0].done, isFalse);
     });
 
-    test('Missed logs one short, and starts no rest', () async {
+    test('Missed logs one short, and starts the rest too', () async {
       final ctl = await startPush();
       for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
         ctl.cycleWarmup(0, wi);
@@ -1584,9 +1800,10 @@ void main() {
       expect(session().exercises[0].sets[0].logged, benchGoal - 1);
       expect(session().exercises[0].sets[0].missedGoal, isTrue,
           reason: 'it lands gold, which is the point of seeding it short');
-      // You are about to be looking at the screen to correct it; a clock
-      // running while you do is a clock you did not ask for.
-      expect(session().restLeft, 0);
+      // You have just finished a set. That the number wants correcting does not
+      // make the rest between sets any shorter, and a board you come back to
+      // with no clock running is one where you have to start it by hand.
+      expect(session().restLeft, greaterThan(0));
     });
 
     test('nothing reaches the database before Finish', () async {
@@ -1702,9 +1919,15 @@ void main() {
     });
 
     test('a rest offers the rest, not a set to log', () {
+      // The same three controls the screen has, so the two places a rest can be
+      // nudged from do not disagree about what a nudge is.
       expect(
         shadeButtons(cue(kind: CueKind.resting, restLeft: 40)).map((b) => b.id),
-        [WorkoutShade.restAddAction, WorkoutShade.restSkipAction],
+        [
+          WorkoutShade.restSubAction,
+          WorkoutShade.restAddAction,
+          WorkoutShade.restSkipAction,
+        ],
       );
     });
 
@@ -1716,9 +1939,11 @@ void main() {
     });
 
     test('a hold offers the one button that opens the app', () {
+      // Start, which logs nothing: how long you held it is the measurement, and
+      // nothing in a pocket can invent it.
       expect(
         shadeButtons(cue(kind: CueKind.hold, seconds: 45)).map((b) => b.id),
-        [WorkoutShade.missedAction],
+        [WorkoutShade.startAction],
       );
     });
 
@@ -1805,19 +2030,22 @@ void main() {
       expect(tone.played, 1);
     });
 
-    test('skipping from the shade sounds nothing', () async {
+    test('skipping from the shade sounds, like every other end of a rest',
+        () async {
+      // It used to be silent, on the argument that whoever pressed Skip knows.
+      // What that produced was the one button in the app that is only ever
+      // pressed from a pocket, with no feedback of any kind.
       final ctl = await startPushWithPhone(onScreen: false);
       ctl.startRest(90, null);
 
       applyShadeAction(ctl, WorkoutShade.restSkipAction);
 
-      expect(alarm.rung, isEmpty, reason: 'you pressed it; you know');
-      expect(tone.played, 0);
+      expect(alarm.rung, hasLength(1));
       expect(session().restLeft, 0);
     });
 
     test('and starting the next rest takes the old one down', () async {
-      final ctl = await startPushWithPhone(onScreen: false);
+      final ctl = await startPushWithPhone(onScreen: true);
       ctl.startRest(90, null);
       ctl.stopRest();
 
@@ -2095,6 +2323,12 @@ void main() {
         findsNothing,
       );
 
+      // Logging set 1 started a rest, and the bar it docked took the bottom of
+      // the board with it. Scrolling to the next row is exactly what a lifter
+      // does — and what the bar taking real room is for.
+      await tester.ensureVisible(repsCell('0-1-Bench Press'));
+      await tester.pump();
+
       // Set 2 tapped twice: one rep short.
       await tester.tap(repsCell('0-1-Bench Press'));
       await tester.pump();
@@ -2257,28 +2491,34 @@ void main() {
       await tester.tap(find.text('Save'));
       await pumpThroughDatabase(tester);
 
-      // Written through to the library, and on the board without leaving it.
+      // Written through to the library, without leaving the workout — and the
+      // icon now says there is one to read.
       expect(await storedNote(tester, 'Bench Press'), 'Seat 4, pin 7');
-      expect(find.text('Seat 4, pin 7'), findsOneWidget);
+      expect(find.byTooltip('My note'), findsOneWidget);
 
       await stopAll(tester);
     });
 
-    testWidgets('an existing note is edited from the board', (tester) async {
+    testWidgets('one tap brings it up, and there is no second icon',
+        (tester) async {
+      // It used to take two: the first tap unfolded the note and grew a pencil,
+      // and the pencil was the thing you were reaching for.
       await noteOn(tester, 'Bench Press', 'Rack pin 7');
       await pumpPushScreen(tester);
+      expect(find.byTooltip('Edit note'), findsNothing);
 
       await tester.tap(find.byTooltip('My note').first);
       await frames(tester);
-      expect(find.text('Rack pin 7'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Edit note').first);
-      await frames(tester);
+      // The note is up, and it is the thing you can change.
+      expect(find.text('Rack pin 7'), findsOneWidget);
+      expect(find.byTooltip('Edit note'), findsNothing,
+          reason: 'one icon, one meaning');
+
       await tester.enterText(find.byType(TextField), 'Rack pin 8');
       await tester.tap(find.text('Save'));
       await pumpThroughDatabase(tester);
 
-      expect(find.text('Rack pin 8'), findsOneWidget);
       expect(await storedNote(tester, 'Bench Press'), 'Rack pin 8');
 
       await stopAll(tester);
@@ -2296,6 +2536,8 @@ void main() {
       await tester.tap(find.byTooltip('My note').first);
       await frames(tester);
       expect(find.text('Bench squeaks'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await frames(tester);
 
       await stopAll(tester);
     });
@@ -2385,15 +2627,15 @@ void main() {
     });
   });
 
-  group('The caption gives; the banner does not grow', () {
-    // features/index.html#sec04: "the caption is the part that yields — it holds to two lines
-    // and ellipsises past that, while the countdown and the three controls keep
-    // their place and their size at any name length and any text scale."
+  group('The rest bar says its whole line', () {
+    // The caption is the only thing on the bar with any length to it, and it is
+    // the only thing on it worth reading — so it gets a line of its own, the
+    // full width of a docked bar, and it is never cut off. "Rest, then lift."
+    // was wrapping onto two lines on a 390-wide phone at ordinary text size.
     const longName = 'Barbell Romanian Deadlift';
     const shortName = 'Row';
 
-    /// The caption's own line height at [scale] — the banner is allowed to be
-    /// one of these taller than the one-line case, and no more.
+    /// The caption's own line height at [scale].
     double captionLine(double scale) => 11 * 1.3 * scale;
 
     /// Starts a day whose second movement is [next], logs the first exercise's
@@ -2441,6 +2683,9 @@ void main() {
       expect(find.byKey(kRestBannerKey), findsOneWidget);
       final geometry = (
         banner: tester.getRect(find.byKey(kRestBannerKey)),
+        caption: tester.getRect(
+          find.text('Set up $next, rest, then lift.'),
+        ),
         pills: {
           for (final label in const ['−15s', '+15s', 'Skip'])
             label: tester.getRect(find.widgetWithText(OutlinedButton, label)),
@@ -2467,48 +2712,50 @@ void main() {
       });
 
       expect(overflows, isEmpty,
-          reason: 'the rest banner overflowed at ${scale}x');
+          reason: 'the rest bar overflowed at ${scale}x');
 
-      // The banner is furniture over the board, not a thing that runs off it.
+      // The bar is the board's last row, not something that runs off it.
       expect(long.banner.top, greaterThanOrEqualTo(0.0),
-          reason: 'the banner grew off the top of the screen at ${scale}x');
+          reason: 'the bar grew off the top of the screen at ${scale}x');
 
-      // Two caption lines is the whole allowance: one more line than the short
-      // name needs, measured against it rather than against a pixel count.
-      expect(
-        long.banner.height,
-        lessThanOrEqualTo(short.banner.height + captionLine(scale) + 1.0),
-        reason: 'the banner grew past two caption lines at ${scale}x',
-      );
+      // At the size the phone ships with, a short caption is one line. That is
+      // the whole complaint: "Rest, then lift." came back on two.
+      //
+      // Above 1.0 it is allowed to wrap — "Set up Row, rest, then lift." is 28
+      // characters, and at 2× on a 390 px phone no font puts that on one line.
+      // What must stay true at every scale is that it wraps rather than being
+      // cut: the caption has no maxLines, so there is no ellipsis to find, and
+      // the checks below hold the three buttons to their size while it grows.
+      expect(short.caption.height,
+          lessThan(captionLine(scale) * (scale <= 1.0 ? 1.9 : 3.9)),
+          reason: 'the short caption ran past three lines at ${scale}x');
 
       for (final label in const ['−15s', '+15s', 'Skip']) {
         final a = short.pills[label]!;
         final b = long.pills[label]!;
         expect(b.size.width, closeTo(a.size.width, 0.5),
-            reason: '$label was squeezed by the name beside it at ${scale}x');
+            reason: '$label was squeezed by the name above it at ${scale}x');
         expect(b.size.height, closeTo(a.size.height, 0.5),
             reason: '$label lost height to the caption at ${scale}x');
         expect(b.left, closeTo(a.left, 0.5),
-            reason: '$label moved along the banner at ${scale}x');
-        // The banner may take the one extra caption line; the controls may
-        // ride that and nothing more.
-        expect(b.bottom, closeTo(a.bottom, captionLine(scale) + 1.0),
-            reason: '$label was pushed down the banner at ${scale}x');
+            reason: '$label moved along the bar at ${scale}x');
       }
     }
 
-    testWidgets('a long name holds the banner at its size', (tester) async {
+    testWidgets('a long name pushes nothing about, at ordinary text size',
+        (tester) async {
       await checkAtScale(tester, 1.0);
     });
 
     testWidgets('and at the largest text the app renders', (tester) async {
+      // The caption takes however many lines it needs here, and the bar takes
+      // the room from the board rather than from its own controls.
       await checkAtScale(tester, kMaxTextScale);
     });
 
-    testWidgets('the name is still named, ellipsised rather than dropped',
-        (tester) async {
-      // Yielding is not the same as saying nothing: "Set up ..., rest, then
-      // lift" is only useful if it says what to set up.
+    testWidgets('the whole line is on screen, uncut', (tester) async {
+      // Cutting the caption off with an ellipsis defeats the only thing it is
+      // there for: "Set up ..., rest, then lift" says nothing to set up.
       late int wid;
       await tester.runAsync(() async {
         wid = await buildTwoExerciseWorkout(
@@ -2536,9 +2783,29 @@ void main() {
       // the live session's tree with it.
       await stopAll(tester);
 
-      expect(caption.maxLines, 2, reason: 'the caption holds to two lines');
-      expect(caption.overflow, TextOverflow.ellipsis,
-          reason: 'past two lines it ellipsises rather than wrapping on');
+      expect(caption.maxLines, isNull, reason: 'it wraps as far as it needs to');
+      expect(caption.overflow, isNot(TextOverflow.ellipsis));
+    });
+
+    testWidgets('"Rest, then lift." is one line on a 390-wide phone',
+        (tester) async {
+      // The reported case, at the phone's own text size: between two working
+      // sets there is nothing to set up, and the caption is six words long.
+      tester.view.physicalSize = const Size(390, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpPushScreen(tester);
+      await tester.ensureVisible(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      final line = tester.getSize(find.text('Rest, then lift.'));
+      expect(line.height, lessThan(captionLine(1.0) * 1.9),
+          reason: 'the caption wrapped onto a second line');
+
+      await stopAll(tester);
     });
   });
 
