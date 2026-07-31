@@ -16,6 +16,7 @@ import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/seed_names.dart';
 import '../util/units.dart';
+import '../widgets/board_cells.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/plate_line.dart';
 
@@ -481,6 +482,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                   number: wi + 1,
                                   entry: entry,
                                   unit: unit,
+                                  warmup: true,
                                   isNext:
                                       next != null &&
                                       next.warmup &&
@@ -937,7 +939,7 @@ class _ExerciseBlock extends StatelessWidget {
               barKg: exercise.barKg,
             ),
           const SizedBox(height: 6),
-          _ColumnHeaders(
+          BoardColumnHeaders(
             unit: unit,
             timed: exercise.mode.timed,
             showWeight: _showsWeight(exercise),
@@ -1239,7 +1241,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
               ),
             if (exercise.warmups.isNotEmpty) ...[
               const SizedBox(height: 4),
-              _ColumnHeaders(unit: widget.unit, timed: false),
+              BoardColumnHeaders(unit: widget.unit, timed: false),
               for (var wi = 0; wi < exercise.warmups.length; wi++)
                 widget.rowBuilder(wi),
             ],
@@ -1312,51 +1314,6 @@ class _CountStepper extends StatelessWidget {
   }
 }
 
-class _ColumnHeaders extends StatelessWidget {
-  const _ColumnHeaders({
-    required this.unit,
-    required this.timed,
-    this.showWeight = true,
-  });
-  final String unit;
-  final bool timed;
-
-  /// Whether there is a weight column under this at all — see [_showsWeight].
-  final bool showWeight;
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    Widget h(String t, {double? width, bool left = false}) {
-      final child = Text(
-        t.toUpperCase(),
-        textAlign: left ? TextAlign.left : TextAlign.center,
-        style: kMono.copyWith(
-          fontSize: 10,
-          letterSpacing: 0.9,
-          color: AppColors.faint,
-        ),
-      );
-      return width != null
-          ? SizedBox(width: width, child: child)
-          : Expanded(child: child);
-    }
-
-    return Padding(
-      // The 5 either side is the set row's own inset — its 4 of padding and the
-      // 1 of border it carries when it is the set you are on — so the headings
-      // stay over their columns whether or not a row below is marked.
-      padding: const EdgeInsets.only(bottom: 4, top: 2, left: 5, right: 5),
-      child: Row(
-        children: [
-          h(l10n.sessionColSet, width: 40),
-          if (showWeight) h(unitSuffix(l10n, unit)),
-          h(timed ? l10n.sessionColSecHeld : l10n.sessionColRepsDone),
-        ],
-      ),
-    );
-  }
-}
-
 /// One set: a goal it cannot edit, the weight it is being done at, and the tap
 /// target that logs it.
 ///
@@ -1378,12 +1335,19 @@ class _SetRow extends StatelessWidget {
     required this.onTypeResult,
     this.isNext = false,
     this.showWeight = true,
+    this.warmup = false,
     this.onVideo,
     this.holdingSeconds,
   });
   final int number;
   final SetEntry entry;
   final String unit;
+
+  /// Whether this row is a warm-up rung rather than a working set. A rung that
+  /// is next is marked like any other row, but it does not pulse: the ramp is
+  /// a suggestion you work through at your own pace, and something breathing
+  /// at you through all of it would be an alarm rather than a pointer.
+  final bool warmup;
 
   /// Whether this row carries a weight cell — see [_showsWeight]. A movement
   /// done under no load has none, rather than an empty box under an empty
@@ -1436,11 +1400,18 @@ class _SetRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(width: 40, child: Center(child: _setNumber())),
-            if (showWeight) Expanded(child: _weightCell()),
-            Expanded(child: _resultBox(AppLocalizations.of(context))),
             SizedBox(
-              width: 36,
+              width: kSetNumberColumnWidth,
+              child: Center(child: _setNumber()),
+            ),
+            if (showWeight)
+              Expanded(flex: kWeightColumnFlex, child: _weightCell()),
+            Expanded(
+              flex: kResultColumnFlex,
+              child: _resultBox(AppLocalizations.of(context)),
+            ),
+            SizedBox(
+              width: kSetTrailingColumnWidth,
               child: onVideo == null
                   ? const SizedBox.shrink()
                   : Center(child: _cameraCell()),
@@ -1498,6 +1469,12 @@ class _SetRow extends StatelessWidget {
   /// This set's own weight. Quieter than the reps cell it sits beside: it is
   /// normally just the exercise's weight repeated, and only worth touching for
   /// the set you have to come down on.
+  ///
+  /// **An outline, where the result cell is filled.** The two are tapped at
+  /// wildly different rates, so they are not built to look alike — the filled
+  /// one is the button, this is the field beside it. It is still a bordered
+  /// control rather than bare text, because a weight you can change has to look
+  /// like a weight you can change.
   Widget _weightCell() {
     final done = _entry.done;
     return Padding(
@@ -1509,19 +1486,17 @@ class _SetRow extends StatelessWidget {
         child: Container(
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: done ? _tone.withValues(alpha: 0.10) : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: done ? _tone.withValues(alpha: 0.30) : AppColors.line,
-            ),
+          decoration: boardCellDecoration(
+            primary: false,
+            done: done,
+            tone: _tone,
           ),
           child: Text(
             fmtWeight(toDisplayWeight(_entry.weight, unit)),
-            style: kMono.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: done ? _tone : AppColors.muted,
+            style: boardCellTextStyle(
+              primary: false,
+              done: done,
+              tone: _tone,
             ),
           ),
         ),
@@ -1538,6 +1513,10 @@ class _SetRow extends StatelessWidget {
   /// all**, and this column is the app's most-read signal — you glance down it
   /// to see how the session went. The arrow says the same thing the colour
   /// does, without asking anyone to tell two hues apart.
+  ///
+  /// **On the working set you are on, it pulses.** That is the whole of how you
+  /// find where to tap without reading anything: one cell on the board is
+  /// breathing, and it is the one that logs the set in front of you.
   Widget _resultBox(AppLocalizations l10n) {
     final holding = holdingSeconds != null;
     final done = _entry.done || holding;
@@ -1552,39 +1531,43 @@ class _SetRow extends StatelessWidget {
         onTap: onTap,
         onLongPress: onTypeResult,
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: done ? _tone.withValues(alpha: 0.15) : AppColors.surface2,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: done ? _tone.withValues(alpha: 0.55) : AppColors.line,
+        child: BoardPulse(
+          // Nothing already logged pulses, and neither does a hold that is
+          // running: that cell is a stop button, and it says so already.
+          on: isNext && !warmup && !done,
+          builder: (context, pulse) => Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: boardCellDecoration(
+              primary: true,
+              done: done,
+              tone: _tone,
+              pulse: pulse,
               // A running hold is the one thing on the board actively
               // happening, so it says so with more than a colour.
-              width: holding ? 2 : 1,
+              emphasised: holding,
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (holding) ...[
-                Icon(Icons.stop_rounded, size: 13, color: _tone),
-                const SizedBox(width: 3),
-              ],
-              Text(
-                value,
-                style: kMono.copyWith(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: done ? _tone : AppColors.faint,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (holding) ...[
+                  Icon(Icons.stop_rounded, size: 13, color: _tone),
+                  const SizedBox(width: 3),
+                ],
+                Text(
+                  value,
+                  style: boardCellTextStyle(
+                    primary: true,
+                    done: done,
+                    tone: _tone,
+                  ),
                 ),
-              ),
-              if (_entry.missedGoal && !holding) ...[
-                const SizedBox(width: 2),
-                Icon(Icons.arrow_downward_rounded, size: 13, color: _tone),
+                if (_entry.missedGoal && !holding) ...[
+                  const SizedBox(width: 2),
+                  Icon(Icons.arrow_downward_rounded, size: 13, color: _tone),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

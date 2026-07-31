@@ -38,11 +38,15 @@ groups:
       the board (one exercise, its note icon, three set rows with a camera on
       each), the rest bar with its countdown and −15s / +15s / Skip, and the
       notification with Done and Missed on it. Read the step, look at the thing
-      it is describing.
+      it is describing. The mock board is built from the real board's columns
+      and cells rather than a second copy of them, down to the pulse on the cell
+      that logs the set — change how the board looks and the tour follows, which
+      is the only way a picture of a screen stays a picture of that screen.
     defines:
     - ui.tutorial
     uses:
     - session.set-logging
+    - session.progress-mark
     - session.rest-timer
     - session.shade
   - id: explains-note-and-clip

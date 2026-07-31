@@ -48,6 +48,32 @@ groups:
       it types an exact one in.
     defines:
     - session.set-logging
+  - id: result-cell-is-the-obvious-target
+    t: The cell that logs a set is the one that looks like a button
+    d: >-
+      it is the widest thing on the row and the only one filled in, where the
+      weight beside it is an outline on the background. The two are tapped at
+      wildly different rates — every set is logged, almost none change weight —
+      so they do not look alike: reaching for the right one is a glance, not a
+      reading of the headings. The headings sit centred over the cells they
+      name, the trailing camera column included.
+    uses:
+    - session.set-logging
+    - session.exercise-weight
+  - id: next-set-logging-cell-pulses
+    t: The cell to tap next pulses
+    d: >-
+      the accent breathes in and out of the result cell on the working set you
+      are on, roughly once a second, so where to tap is something you notice
+      rather than something you work out. Exactly one cell on the board ever
+      pulses, and it stops the moment the set is logged. A warm-up rung is
+      marked like any other row but does not pulse, and neither does a hold that
+      is running — that cell is a stop button and already says so. Where the
+      phone is set to reduce motion the cell rests at the top of the pulse
+      instead of moving.
+    uses:
+    - session.set-logging
+    - session.progress-mark
   - id: carries-one-weight-per-exercise
     t: Carries one weight per exercise
     d: >-

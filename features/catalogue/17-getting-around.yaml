@@ -7,6 +7,7 @@ screen: today
 code:
 - lib/router.dart
 - lib/screens/home_shell.dart
+- lib/widgets/common.dart
 test:
 - test/feature_17_getting_around_test.dart
 where: >-
@@ -68,3 +69,15 @@ groups:
     uses:
     - ui.navigation
     - session.resume-bar
+  - id: system-bars-never-cover-a-control
+    t: The phone's own bars never cover a control
+    d: >-
+      most Android phones draw a gesture bar or a row of Back / Home / Recents
+      keys over the bottom of the screen. Every surface the app puts a control
+      on — screens, the sheets that open over them, dialogs — leaves room for
+      it, so the button at the foot of a sheet stays tappable rather than
+      sitting half under the Back key. A keyboard takes the same room while it
+      is up, and the two are never counted twice.
+    screen: workout-edit
+    defines:
+    - ui.system-insets

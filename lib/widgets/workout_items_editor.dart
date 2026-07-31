@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/units.dart';
 import 'builder_widgets.dart';
+import 'common.dart';
 import 'plate_line.dart' show loadFloorKg;
 
 /// A mutable working copy of one workout item while editing.
@@ -417,7 +418,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final bottom = bottomSystemInset(context);
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + bottom),

@@ -110,3 +110,21 @@ class NextBadge extends StatelessWidget {
 
 /// Parses a stored "RRGGBB" hex string into an opaque [Color].
 Color hexColor(String hex) => Color(int.parse('FF$hex', radix: 16));
+
+/// The room a surface has to leave at its bottom edge: the keyboard while it is
+/// up, the phone's own gesture bar or Back / Home / Recents strip the rest of
+/// the time.
+///
+/// A modal sheet has to apply this itself. `showModalBottomSheet`'s
+/// `useSafeArea` pads the top and leaves the bottom edge alone on purpose — the
+/// sheet is meant to reach the bottom of the screen — so a button at the foot
+/// of one lands under the Back key unless the sheet pads its own content.
+/// Screens do not need it: they sit inside a `SafeArea`. Nor does a scrolling
+/// list, which takes the same padding off the `MediaQuery` by itself.
+double bottomSystemInset(BuildContext context) {
+  final mq = MediaQuery.of(context);
+  // Added, not maxed: the framework has already taken the keyboard's share out
+  // of `padding`, so a strip the keyboard covers contributes nothing here and
+  // the two are never counted twice.
+  return mq.viewInsets.bottom + mq.padding.bottom;
+}

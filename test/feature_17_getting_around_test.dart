@@ -5,7 +5,12 @@
 //     rather than to the screens inside it;
 //   * every other screen stacks over the shell, so it carries no navigation bar;
 //   * a screen with nothing on it yet says so in a line, and offers the next
-//     step only where there is one.
+//     step only where there is one;
+//   * the phone's own bars never cover a control.
+//
+// The last one is measured, not eyeballed: the tests below give the test view a
+// bottom system-bar strip the way a phone with three-button navigation does,
+// then compare the rectangle of a control against it.
 //
 // The tab shell is exercised through the real `appRouter` — a stub shell would
 // prove the widget works and say nothing about the routes the app actually has.
@@ -19,11 +24,15 @@ import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/router.dart';
 import 'package:foss_lift/screens/history_screen.dart';
 import 'package:foss_lift/screens/routine_detail_screen.dart';
+import 'package:foss_lift/screens/theme_settings_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
+import 'package:foss_lift/screens/workout_edit_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/util/locales.dart';
 
 import 'support/harness.dart';
+import 'support/seeded.dart';
 import 'support/settle.dart';
 
 /// The real router under a real database, as the app root builds it.
@@ -184,6 +193,162 @@ void main() {
       expect(find.text('Pull'), findsOneWidget);
       expect(find.text('Legs'), findsOneWidget);
       expect(find.textContaining('workouts'), findsOneWidget);
+    });
+  });
+
+  group("the phone's own bars", () {
+    const screen = Size(360, 780);
+    const navBar = 48.0;
+
+    /// Puts a bottom system-bar strip on the test view, the way a phone with
+    /// three-button navigation has one, plus a [keyboard] over it.
+    ///
+    /// `padding` is what the framework hands a screen: the strip, less whatever
+    /// the keyboard already covers. Setting it by hand is the whole point — a
+    /// test view has no bars at all, so nothing here can be measured until it
+    /// does.
+    void systemBars(WidgetTester tester, {double keyboard = 0}) {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = screen;
+      tester.view.viewPadding = const FakeViewPadding(bottom: navBar);
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+      tester.view.padding =
+          FakeViewPadding(bottom: (navBar - keyboard).clamp(0.0, navBar));
+      addTearDown(tester.view.reset);
+    }
+
+    /// The Push day's editor, loaded and scrolled to its slots.
+    Future<void> openEditor(WidgetTester tester) async {
+      late final int workoutId;
+      await tester.runAsync(() async {
+        workoutId = await workoutIdNamed(db, 'Push');
+      });
+      await tester.pumpWidget(
+        appUnder(container, WorkoutEditScreen(workoutId: workoutId)),
+      );
+      await pumpThroughDatabase(tester);
+      await pumpUntil(
+        tester,
+        () => find.text('Bench Press').evaluate().isNotEmpty,
+      );
+    }
+
+    /// That editor, with the configuration sheet for Bench Press open on it.
+    Future<void> openSlotSheet(WidgetTester tester) async {
+      await openEditor(tester);
+      await tester.ensureVisible(find.text('Bench Press'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Bench Press'));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('a sheet keeps its button clear of the navigation strip',
+        (tester) async {
+      systemBars(tester);
+      await openSlotSheet(tester);
+
+      final done = find.widgetWithText(FilledButton, l10nFor().commonDone);
+      expect(done, findsOneWidget,
+          reason: 'the slot configuration sheet did not open');
+      // The sheet is taller than the screen, so the button is scrolled to
+      // before it is measured: the question is where the sheet lets it come to
+      // rest, not whether it starts on screen.
+      await tester.ensureVisible(done);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.getRect(done).bottom,
+          lessThanOrEqualTo(screen.height - navBar),
+          reason: 'Done is under the Back / Home / Recents keys');
+      await stop(tester);
+    });
+
+    testWidgets('a keyboard and the strip are not counted twice',
+        (tester) async {
+      const keyboard = 300.0;
+      systemBars(tester, keyboard: keyboard);
+      await openSlotSheet(tester);
+
+      final done = find.widgetWithText(FilledButton, l10nFor().commonDone);
+      await tester.ensureVisible(done);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final bottom = tester.getRect(done).bottom;
+      expect(bottom, lessThanOrEqualTo(screen.height - keyboard),
+          reason: 'Done is behind the keyboard');
+      expect(bottom, greaterThan(screen.height - keyboard - navBar),
+          reason: 'the strip is being counted on top of the keyboard, which '
+              'already covers it');
+      await stop(tester);
+    });
+
+    testWidgets('the exercise picker scrolls to a last row that is tappable',
+        (tester) async {
+      systemBars(tester);
+      await openEditor(tester);
+      // The picker is the other sheet that reaches the bottom of the screen.
+      final add = find.text(l10nFor().itemEditorAdd);
+      await tester.ensureVisible(add);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(add);
+      await tester.pump(const Duration(milliseconds: 400));
+      await pumpThroughDatabase(tester);
+
+      // Scoped to the picker: the editor behind it has a list of its own.
+      final list = find.descendant(
+        of: find.byType(ExercisePicker),
+        matching: find.byType(ListView),
+      );
+      expect(list, findsOneWidget, reason: 'the picker did not open');
+      // To the end of the library, where a row would otherwise come to rest
+      // under the strip.
+      await tester.fling(list, const Offset(0, -6000), 4000);
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(ListTile).last).bottom,
+          lessThanOrEqualTo(screen.height - navBar),
+          reason: 'the last exercise in the picker sits under the strip');
+      await stop(tester);
+    });
+
+    testWidgets('a dialog keeps its buttons clear of the strip',
+        (tester) async {
+      systemBars(tester);
+      await tester.pumpWidget(
+        appUnder(container, const CustomThemeEditorScreen()),
+      );
+      await pumpThroughDatabase(tester);
+      // The colour picker: three channel sliders, a hex field and the copy and
+      // paste controls, which makes it the tallest dialog in the app.
+      final role = find.text(l10nFor().themeRoleAccent);
+      if (role.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(role, 120,
+            scrollable: find.byType(Scrollable).first);
+      } else {
+        await tester.ensureVisible(role);
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(role);
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final cancel = find.widgetWithText(TextButton, l10nFor().commonCancel);
+      expect(cancel, findsOneWidget, reason: 'the colour picker did not open');
+      expect(tester.getRect(cancel).bottom,
+          lessThanOrEqualTo(screen.height - navBar),
+          reason: 'the dialog runs under the strip');
+      await stop(tester);
+    });
+
+    testWidgets('the tab bar sits above the strip', (tester) async {
+      systemBars(tester);
+      await tester.pumpWidget(wholeApp(container));
+      await pumpThroughDatabase(tester);
+
+      final tab = tabLabel(l10nFor().navProfile);
+      expect(tab, findsOneWidget);
+      expect(tester.getRect(tab).bottom,
+          lessThanOrEqualTo(screen.height - navBar),
+          reason: 'the Profile tab is under the strip');
+      await stop(tester);
     });
   });
 }

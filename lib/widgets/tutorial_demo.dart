@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../util/format.dart';
+import 'board_cells.dart';
 
 /// The stand-ins the tour shows for the live workout.
 ///
@@ -82,7 +83,10 @@ class TutorialBoardDemo extends ConsumerWidget {
           const SizedBox(height: 12),
           _goalLine(l10n, weight, unit),
           const SizedBox(height: 8),
-          _columnHeaders(l10n, unit),
+          // The board's own headers, not a copy of them: the tour is a still
+          // life of the real thing, and a second implementation is how it came
+          // to show columns the app had already moved.
+          BoardColumnHeaders(unit: unit, timed: false),
           for (var i = 1; i <= _kDemoSets; i++)
             _SetRowDemo(
               number: i,
@@ -187,34 +191,6 @@ class TutorialBoardDemo extends ConsumerWidget {
         ],
       );
 
-  Widget _columnHeaders(AppLocalizations l10n, String unit) {
-    Widget h(String t, {double? width}) {
-      final child = Text(
-        t.toUpperCase(),
-        textAlign: TextAlign.center,
-        style: kMono.copyWith(
-          fontSize: 10,
-          letterSpacing: 0.9,
-          color: AppColors.faint,
-        ),
-      );
-      return width != null
-          ? SizedBox(width: width, child: child)
-          : Expanded(child: child);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4, left: 5, right: 5),
-      child: Row(
-        children: [
-          h(l10n.sessionColSet, width: 40),
-          h(unitSuffix(l10n, unit)),
-          h(l10n.sessionColRepsDone),
-          const SizedBox(width: 36),
-        ],
-      ),
-    );
-  }
 }
 
 /// The docked rest bar, counting down, with the three things it offers.
@@ -405,11 +381,26 @@ class _SetRowDemo extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(width: 40, child: Center(child: _number(tone))),
-            Expanded(child: _cell(weight, tone, filled: _done, bold: false)),
-            Expanded(child: _cell('$goal', tone, filled: _done, bold: true)),
             SizedBox(
-              width: 36,
+              width: kSetNumberColumnWidth,
+              child: Center(child: _number(tone)),
+            ),
+            Expanded(
+              flex: kWeightColumnFlex,
+              child: _cell(weight, tone, primary: false),
+            ),
+            Expanded(
+              flex: kResultColumnFlex,
+              // The demo pulses where the board does: on the step about the
+              // rows, the cell that logs the set you are on.
+              child: BoardPulse(
+                on: _isNext && highlightNext,
+                builder: (context, pulse) =>
+                    _cell('$goal', tone, primary: true, pulse: pulse),
+              ),
+            ),
+            SizedBox(
+              width: kSetTrailingColumnWidth,
               child: Center(
                 // The accent is the ring's, not the row's: a camera lit up on
                 // the logged set drew the eye away from whatever step was
@@ -455,32 +446,30 @@ class _SetRowDemo extends StatelessWidget {
         ),
       );
 
-  Widget _cell(String value, Color tone, {
-    required bool filled,
-    required bool bold,
+  /// A mock of one cell, wearing the board's own decoration and type.
+  Widget _cell(
+    String value,
+    Color tone, {
+    required bool primary,
+    double pulse = 0,
   }) =>
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Container(
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: filled
-                ? tone.withValues(alpha: bold ? 0.15 : 0.10)
-                : (bold ? AppColors.surface2 : Colors.transparent),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: filled
-                  ? tone.withValues(alpha: bold ? 0.55 : 0.30)
-                  : AppColors.line,
-            ),
+          decoration: boardCellDecoration(
+            primary: primary,
+            done: _done,
+            tone: tone,
+            pulse: pulse,
           ),
           child: Text(
             value,
-            style: kMono.copyWith(
-              fontSize: 15,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-              color: filled ? tone : (bold ? AppColors.faint : AppColors.muted),
+            style: boardCellTextStyle(
+              primary: primary,
+              done: _done,
+              tone: tone,
             ),
           ),
         ),

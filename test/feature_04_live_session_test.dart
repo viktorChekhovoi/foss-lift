@@ -33,6 +33,7 @@ import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/services/workout_shade.dart';
+import 'package:foss_lift/widgets/board_cells.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
@@ -155,6 +156,14 @@ void main() {
   }
 
   ActiveWorkout session() => container!.read(activeWorkoutProvider)!;
+
+  /// Ticks off Bench's whole warm-up ramp, so the work is what is next.
+  void clearRamp(ActiveWorkoutController ctl) {
+    for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+      ctl.cycleWarmup(0, wi);
+    }
+    ctl.stopRest(tone: false);
+  }
 
   // A set row has two tap targets — the reps cell logs the set, the weight cell
   // opens that one set's own weight — so each is found by its own key rather
@@ -1075,6 +1084,120 @@ void main() {
     });
   });
 
+  group('The cell that logs a set looks like the button it is', () {
+    /// The fill of the painted box inside a cell, as opposed to the gesture
+    /// wrapper around it. Null or transparent means an outline on the
+    /// background rather than a filled control.
+    Color? fillOf(WidgetTester tester, Finder cell) {
+      final box = tester.widget<Container>(
+        find.descendant(of: cell, matching: find.byType(Container)).first,
+      );
+      return (box.decoration as BoxDecoration).color;
+    }
+
+    testWidgets('it is wider than the weight beside it, and the only one filled',
+        (tester) async {
+      await pumpPushScreen(tester);
+
+      const row = '0-0-Bench Press';
+      final result = tester.getRect(repsCell(row));
+      final weight = tester.getRect(weightCell(row));
+
+      expect(result.width, greaterThan(weight.width),
+          reason: 'the cell tapped on every set is the smaller target');
+      // Filled against an outline: the two are told apart at a glance, without
+      // reading the headings over them.
+      final resultFill = fillOf(tester, repsCell(row));
+      final weightFill = fillOf(tester, weightCell(row));
+      expect(resultFill, isNotNull);
+      expect(resultFill, isNot(Colors.transparent),
+          reason: 'the logging cell is not filled in');
+      expect(weightFill == null || weightFill == Colors.transparent, isTrue,
+          reason: 'the weight cell is filled too, so both read as buttons');
+
+      await stopAll(tester);
+    });
+
+    testWidgets('the headings sit centred over the columns they name',
+        (tester) async {
+      await pumpPushScreen(tester);
+
+      const row = '0-0-Bench Press';
+      // Every heading against the cell under it. A column the headings do not
+      // know about — the camera on the end of each row — throws all three off
+      // by a share of its width, which is the failure this measures.
+      final pairs = <String, Rect>{
+        'REPS DONE': tester.getRect(repsCell(row)),
+        'KG': tester.getRect(weightCell(row)),
+      };
+      for (final MapEntry(key: label, value: cell) in pairs.entries) {
+        expect(
+          tester.getRect(find.text(label).first).center.dx,
+          closeTo(cell.center.dx, 1.0),
+          reason: '$label is not over the cell it names',
+        );
+      }
+
+      await stopAll(tester);
+    });
+
+    testWidgets('it pulses on the set you are on, and nowhere else',
+        (tester) async {
+      await pumpPushScreen(tester);
+      // Past the ramp, so the mark is on a working set rather than on the
+      // group above them.
+      clearRamp(container!.read(activeWorkoutProvider.notifier));
+      await tester.pump();
+
+      final next = repsCell('0-0-Bench Press');
+      final later = repsCell('0-1-Bench Press');
+      final restingBefore = fillOf(tester, later);
+      final pulseBefore = fillOf(tester, next);
+
+      // Half a breath in: the accent has come up through the cell.
+      await tester.pump(kBoardPulsePeriod ~/ 2);
+
+      expect(fillOf(tester, next), isNot(pulseBefore),
+          reason: 'the cell to tap next is not pulsing');
+      expect(fillOf(tester, later), restingBefore,
+          reason: 'a set further down the board is pulsing too');
+
+      await stopAll(tester);
+    });
+
+    testWidgets('it stops pulsing once the set is logged', (tester) async {
+      await pumpPushScreen(tester);
+
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      final logged = repsCell('0-0-Bench Press');
+      final before = fillOf(tester, logged);
+      await tester.pump(kBoardPulsePeriod ~/ 2);
+
+      expect(fillOf(tester, logged), before,
+          reason: 'a logged set is still breathing at you');
+      await stopAll(tester);
+    });
+
+    testWidgets('a warm-up rung that is next is marked but does not pulse',
+        (tester) async {
+      await pumpPushScreen(tester);
+      // Opening the ramp moves the mark from the group onto its first rung.
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final rung = repsCell('w0-0-Bench Press');
+      expect(rung, findsOneWidget, reason: 'the ramp did not open');
+      final before = fillOf(tester, rung);
+      await tester.pump(kBoardPulsePeriod ~/ 2);
+
+      expect(fillOf(tester, rung), before,
+          reason: 'the ramp is pulsing; it is a suggestion, not a prompt');
+      await stopAll(tester);
+    });
+  });
+
   group('The rest bar takes room rather than covering the board', () {
     // The same rule the resume bar follows, for the same reason: a bar lying
     // over the rows hid whichever set you were trying to read, and the only way
@@ -1531,14 +1654,6 @@ void main() {
           of: find.byKey(ValueKey(row)),
           matching: find.byKey(kNextSetKey),
         );
-
-    /// Ticks off Bench's whole warm-up ramp, so the work is what is next.
-    void clearRamp(ActiveWorkoutController ctl) {
-      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
-        ctl.cycleWarmup(0, wi);
-      }
-      ctl.stopRest(tone: false);
-    }
 
     testWidgets('the ramp is where you start, so the group carries the mark',
         (tester) async {

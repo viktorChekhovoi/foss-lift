@@ -137,7 +137,7 @@ concepts:
   - id: session.set-logging
     area: session
     what: Turning a set into a logged result — tap to cycle, hold to type.
-    code: [lib/screens/workout_screen.dart, lib/state/active_workout.dart]
+    code: [lib/screens/workout_screen.dart, lib/state/active_workout.dart, lib/widgets/board_cells.dart]
 
   - id: session.exercise-weight
     area: session
@@ -331,6 +331,14 @@ concepts:
     area: ui
     what: The tab shell and the routes between screens.
     code: [lib/router.dart, lib/screens/home_shell.dart]
+
+  - id: ui.system-insets
+    area: ui
+    what: >-
+      The room the phone's own bars take at the edges of the screen — the
+      status bar at the top, the gesture bar or Back / Home / Recents keys at
+      the bottom — and the padding each surface leaves for them.
+    code: [lib/widgets/common.dart]
 
   - id: ui.tutorial
     area: ui
