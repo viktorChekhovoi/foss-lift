@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
+import '../util/format.dart';
 
 /// The bars the gym racks, and which of them every barbell lift falls back to.
 ///
@@ -34,7 +37,8 @@ class BarSettingsScreen extends ConsumerWidget {
     final bars = ref.watch(barsProvider).value ?? const [];
     final setup = ref.watch(plateSettingsProvider);
     final db = ref.read(databaseProvider);
-    final u = unitLabel(unit);
+    final l10n = AppLocalizations.of(context);
+    final u = unitSuffix(l10n, unit);
     // Which row carries the tick: the bar the default weight resolves to. With
     // nothing chosen that is the standard bar for the unit, which is normally a
     // bar on this list.
@@ -45,14 +49,16 @@ class BarSettingsScreen extends ConsumerWidget {
     // read as a save that did not stick.
     void refused(double kg) {
       if (!context.mounted) return;
-      final w = '${fmtPlateWeight(toDisplayWeight(kg, unit))} $u';
+      final w = l10n.unitWeightShort(
+          fmtPlateWeight(toDisplayWeight(kg, unit)), u);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('You already have a $w bar.')));
+      ).showSnackBar(SnackBar(content: Text(l10n.barSettingsDuplicate(w))));
     }
 
     Future<void> addBar() async {
-      final draft = await askBarEdit(context, title: 'Add a bar', unit: unit);
+      final draft = await askBarEdit(context,
+          title: l10n.commonAddBar, unit: unit);
       if (draft == null) return;
       if (!await db.addBar(unit: unit, name: draft.name, kg: draft.kg)) {
         refused(draft.kg);
@@ -62,8 +68,12 @@ class BarSettingsScreen extends ConsumerWidget {
     Future<void> editBar(Bar bar) async {
       final draft = await askBarEdit(
         context,
-        title: 'Bar',
+        title: l10n.barSettingsEditTitle,
         unit: unit,
+        // The stored name, not the translated one. Only a bar of your own gets
+        // here — a seeded name never reaches a field it could be saved out of,
+        // which would rewrite the value `Settings.barWeight` and the routine
+        // codec resolve against.
         name: bar.name,
         kg: bar.weightKg,
       );
@@ -74,13 +84,13 @@ class BarSettingsScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Bars · $u')),
+      appBar: AppBar(title: Text(l10n.barSettingsTitle(u))),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            builderLabel('Default bar'),
+            builderLabel(l10n.settingsDefaultBar),
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -94,9 +104,9 @@ class BarSettingsScreen extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       child: Text(
-                        'No bars. Barbell lifts count '
-                        '${fmtPlateWeight(toDisplayWeight(setup.barKg, unit))} '
-                        '$u until you add one.',
+                        l10n.barSettingsEmpty(l10n.unitWeightShort(
+                            fmtPlateWeight(toDisplayWeight(setup.barKg, unit)),
+                            u)),
                         style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
                     ),
@@ -121,7 +131,7 @@ class BarSettingsScreen extends ConsumerWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Add a bar',
+                              l10n.commonAddBar,
                               style: kMono.copyWith(
                                 fontSize: 13,
                                 color: AppColors.accent,
@@ -138,8 +148,7 @@ class BarSettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Every barbell lift uses the ticked bar unless the exercise '
-              'carries its own.',
+              l10n.barSettingsNote,
               style: TextStyle(
                 color: AppColors.muted,
                 fontSize: 13,
@@ -176,6 +185,7 @@ class _BarRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.line)),
@@ -206,7 +216,7 @@ class _BarRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            bar.name,
+                            seededName(l10n, bar.seedKey, bar.name),
                             style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: selected
@@ -219,8 +229,11 @@ class _BarRow extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${fmtPlateWeight(toDisplayWeight(bar.weightKg, unit))} '
-                            '${unitLabel(unit)}',
+                            l10n.unitWeightShort(
+                              fmtPlateWeight(
+                                  toDisplayWeight(bar.weightKg, unit)),
+                              unitSuffix(l10n, unit),
+                            ),
                             style: kMono.copyWith(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,

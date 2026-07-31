@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../widgets/common.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -14,6 +16,7 @@ class HistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(historyProvider);
+    final l10n = AppLocalizations.of(context);
     return SafeArea(
       child: history.when(
         loading: () =>
@@ -26,9 +29,9 @@ class HistoryScreen extends ConsumerWidget {
             children: [
               ScreenHeader(
                 eyebrow: list.isEmpty
-                    ? 'No sessions yet'
-                    : '${list.length} ${list.length == 1 ? 'session' : 'sessions'}',
-                title: 'History',
+                    ? l10n.historyNoSessionsYet
+                    : l10n.historySessionCount(list.length),
+                title: l10n.historyTitle,
               ),
               if (list.isEmpty)
                 const _EmptyHistory()
@@ -68,6 +71,7 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       // Tap a past session to see its per-exercise set/rep breakdown — the same
       // summary the live session ends on, reached read-only from here.
@@ -83,10 +87,14 @@ class _HistoryRow extends StatelessWidget {
             width: 52,
             child: Column(
               children: [
-                Text(DateFormat('d').format(session.startedAt),
+                Text(DateFormat.d(l10n.localeName).format(session.startedAt),
                     style: kMono.copyWith(fontSize: 20, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
-                Text(DateFormat('MMM').format(session.startedAt).toUpperCase(),
+                // Upper-cased for the same reason the eyebrows are: it is a
+                // typographic treatment of a two-glyph label in a monospaced
+                // column, not a claim that the month is a proper noun. Cyrillic
+                // and Latin both case cleanly here ("бер" → "БЕР").
+                Text(DateFormat.MMM(l10n.localeName).format(session.startedAt).toUpperCase(),
                     style: kMono.copyWith(fontSize: 10, letterSpacing: 1.0, color: AppColors.faint)),
               ],
             ),
@@ -96,15 +104,15 @@ class _HistoryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(session.name,
+                Text(seededName(l10n, session.seedKey, session.name),
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
                   // The time of day, not just the date: whether you train
                   // mornings or late evenings is the pattern history is being
                   // read for as often as the date is.
-                  '${DateFormat('HH:mm').format(session.startedAt)} · '
-                  '${session.setsCompleted} ${session.setsCompleted == 1 ? 'set' : 'sets'}',
+                  '${DateFormat.Hm(l10n.localeName).format(session.startedAt)} · '
+                  '${l10n.commonSetCount(session.setsCompleted)}',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
                 ),
               ],
@@ -122,16 +130,17 @@ class _EmptyHistory extends StatelessWidget {
   const _EmptyHistory();
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 60, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
       child: Column(
         children: [
           Icon(Icons.fitness_center_rounded, size: 44, color: AppColors.faint),
-          SizedBox(height: 16),
-          Text('No workouts logged yet',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          SizedBox(height: 6),
-          Text('Finish a session and it will show up here.',
+          const SizedBox(height: 16),
+          Text(l10n.historyEmptyTitle,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text(l10n.historyEmptyBody,
               textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
         ],
       ),

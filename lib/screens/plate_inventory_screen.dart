@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
+import '../util/format.dart';
 
 /// The plates in the gym: what every per-side breakdown is built out of.
 ///
@@ -21,14 +23,16 @@ class PlateInventoryScreen extends ConsumerWidget {
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final setup = ref.watch(plateSettingsProvider);
     final db = ref.read(databaseProvider);
-    final u = unitLabel(unit);
+    final l10n = AppLocalizations.of(context);
+    final u = unitSuffix(l10n, unit);
 
     // Every edit writes the whole rack, which is also what turns the standard
     // set into the user's own the first time they touch it.
     void write(List<PlateStack> plates) => db.setPlateInventory(plates, unit);
 
     Future<void> addPlate() async {
-      final choice = await askWeight(context, title: 'Plate size', unit: unit);
+      final choice = await askWeight(context,
+          title: l10n.plateRackPlateSize, unit: unit);
       final kg = choice?.kg;
       if (kg == null || kg <= 0) return;
       final exists = setup.plates
@@ -41,13 +45,13 @@ class PlateInventoryScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Available plates · ${unitLabel(unit)}')),
+      appBar: AppBar(title: Text(l10n.plateRackTitle(u))),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            builderLabel('Plates you own'),
+            builderLabel(l10n.plateRackOwned),
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -61,8 +65,7 @@ class PlateInventoryScreen extends ConsumerWidget {
                     Padding(
                       padding: EdgeInsets.symmetric(vertical: 18),
                       child: Text(
-                        'No plates. Every barbell weight will read as just the '
-                        'bar until you add some.',
+                        l10n.plateRackEmpty,
                         style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
                     ),
@@ -89,7 +92,7 @@ class PlateInventoryScreen extends ConsumerWidget {
                               size: 18, color: AppColors.accent),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('Add a plate size',
+                            child: Text(l10n.plateRackAdd,
                                 style: kMono.copyWith(
                                     fontSize: 13,
                                     color: AppColors.accent,
@@ -104,11 +107,7 @@ class PlateInventoryScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Counts go up two at a time because plates go on the bar in '
-              'pairs. When a weight cannot be made from available plates, '
-              'you are shown the closest load you can actually build\n\n'
-              'This rack is the one for $u. Switching units gives you the '
-              'rack for the other units.',
+              l10n.plateRackNote(u),
               style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
@@ -119,7 +118,7 @@ class PlateInventoryScreen extends ConsumerWidget {
                 style: TextButton.styleFrom(foregroundColor: AppColors.muted),
                 onPressed: () => db.resetPlateInventory(unit),
                 icon: const Icon(Icons.restart_alt, size: 18),
-                label: Text('Reset to a standard $u gym'),
+                label: Text(l10n.plateRackReset(u)),
               ),
             ),
           ],
@@ -144,6 +143,7 @@ class _PlateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration:
           BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.line))),
@@ -152,8 +152,9 @@ class _PlateRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '${fmtPlateWeight(toDisplayWeight(plate.kg, unit))} '
-              '${unitLabel(unit)}',
+              l10n.unitWeightShort(
+                  fmtPlateWeight(toDisplayWeight(plate.kg, unit)),
+                  unitSuffix(l10n, unit)),
               style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),

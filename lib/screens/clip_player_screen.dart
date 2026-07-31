@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/clip_label.dart';
@@ -102,23 +103,23 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
     setState(() => _looping = next);
   }
 
-  Future<void> _confirmDelete() async {
+  Future<void> _confirmDelete(AppLocalizations l10n) async {
     final setId = widget.setId;
     if (setId == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Delete this clip?'),
-        content: const Text('The set stays. The recording does not come back.'),
+        title: Text(l10n.clipPlayerDeleteTitle),
+        content: Text(l10n.clipPlayerDeleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Delete'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -138,26 +139,27 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final controller = _controller;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(widget.caption ?? 'Clip',
+        title: Text(widget.caption ?? l10n.clipPlayerTitle,
             style: const TextStyle(fontSize: 15)),
         actions: [
           if (widget.setId != null)
             IconButton(
-              onPressed: _confirmDelete,
+              onPressed: () => _confirmDelete(l10n),
               icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete',
+              tooltip: l10n.commonDelete,
             ),
         ],
       ),
       body: SafeArea(
         child: _missing
-            ? _gone()
+            ? _gone(l10n)
             : controller == null
                 ? const Center(
                     child: CircularProgressIndicator(color: Colors.white))
@@ -261,7 +263,7 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
     );
   }
 
-  Widget _gone() => Center(
+  Widget _gone(AppLocalizations l10n) => Center(
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
@@ -270,14 +272,14 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
               const Icon(Icons.videocam_off_outlined,
                   size: 40, color: Colors.white70),
               const SizedBox(height: 14),
-              const Text('This clip is no longer on the phone.',
+              Text(l10n.clipPlayerMissing,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                       color: Colors.white, fontSize: 15, height: 1.5)),
               const SizedBox(height: 22),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text('Back'),
+                child: Text(l10n.commonBack),
               ),
             ],
           ),

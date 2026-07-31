@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../data/plates.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
+import '../util/format.dart';
 
 /// What the number in the weight column comes to in the real world: the plates
 /// on each side of a bar.
@@ -52,7 +54,8 @@ class PlateLine extends StatelessWidget {
     // is not. A weight the gym cannot make is the same kind of news as a set
     // that came up short, and it has to be as easy to notice.
     final off = !s.exact || s.belowBar;
-    return _line(plateSummary(s, unit), off ? AppColors.gold : AppColors.good);
+    return _line(plateSummary(AppLocalizations.of(context), s, unit),
+        off ? AppColors.gold : AppColors.good);
   }
 
   Widget _line(String text, Color color) => Padding(
@@ -83,24 +86,22 @@ double loadFloorKg({
 /// The plate breakdown as one line of text: what goes on each side, what the
 /// bar weighs, and — when the plates cannot make the weight asked for — what
 /// they can make instead.
-String plateSummary(PlateSolution s, String unit) {
-  final u = unitLabel(unit).toUpperCase();
+String plateSummary(AppLocalizations l10n, PlateSolution s, String unit) {
+  final u = unitSuffix(l10n, unit).toUpperCase();
   String w(double kg) => fmtPlateWeight(toDisplayWeight(kg, unit));
 
-  if (s.belowBar) {
-    return 'LIGHTER THAN THE BAR — THE BAR ALONE IS ${w(s.barKg)} $u';
-  }
+  if (s.belowBar) return l10n.plateLineBelowBar(w(s.barKg), u);
 
   final parts = <String>[
     // Said first, because it changes what every number after it means.
-    if (!s.exact) 'NEAREST YOU CAN LOAD: ${w(s.achievedKg)} $u',
+    if (!s.exact) l10n.plateLineNearest(w(s.achievedKg), u),
   ];
   if (s.plates.isEmpty) {
-    parts.add('JUST THE BAR (${w(s.barKg)} $u)');
+    parts.add(l10n.plateLineJustBar(w(s.barKg), u));
   } else {
-    parts.add('${w(s.perSideKg)} $u/SIDE');
+    parts.add(l10n.plateLinePerSide(w(s.perSideKg), u));
     parts.add(plateStackLabel(s.plates, unit));
-    parts.add('BAR ${w(s.barKg)}');
+    parts.add(l10n.plateLineBar(w(s.barKg)));
   }
   return parts.join(' · ');
 }
@@ -115,6 +116,7 @@ String plateStackLabel(List<PlateStack> plates, String unit) => plates.map((p) {
 /// cannot quite make the weight the template is asking for. Null when there is
 /// nothing to say — anything that is not loaded on a bar.
 String? perSideLabel({
+  required AppLocalizations l10n,
   required double weightKg,
   required WeightType type,
   required PlateSettings settings,
@@ -127,7 +129,7 @@ String? perSideLabel({
     barKg: barKg ?? settings.barKg,
     inventory: settings.plates,
   );
-  if (s.belowBar) return 'under the bar';
+  if (s.belowBar) return l10n.plateLineUnderBar;
   final per = fmtPlateWeight(toDisplayWeight(s.perSideKg, unit));
-  return '${s.exact ? '' : '≈'}$per/side';
+  return '${s.exact ? '' : '≈'}${l10n.plateLinePerSideShort(per)}';
 }

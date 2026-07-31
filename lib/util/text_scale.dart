@@ -16,6 +16,8 @@
 /// length mid-set.
 library;
 
+import '../l10n/app_localizations.dart';
+
 /// The largest text the app will render at, however the two settings combine.
 /// Every screen is swept at this scale; see `features/index.html#sec15`.
 const double kMaxTextScale = 2.0;
@@ -23,17 +25,36 @@ const double kMaxTextScale = 2.0;
 /// The smallest. Below this the set rows stop being readable across a gym.
 const double kMinTextScale = 0.85;
 
-/// What the in-app control offers, as label → multiplier of the phone's own.
+/// One step the in-app control offers: a multiplier of the phone's own scale,
+/// and the catalogue entry that names it.
+///
+/// The label is looked up rather than stored, because a step is a number and
+/// the word for it changes with the language.
+enum TextScaleChoice {
+  smaller(0.9),
+  standard(1.0),
+  larger(1.15),
+  largest(1.3);
+
+  const TextScaleChoice(this.scale);
+
+  /// What the chosen step multiplies the phone's text scale by.
+  final double scale;
+
+  String label(AppLocalizations l10n) => switch (this) {
+        TextScaleChoice.smaller => l10n.textScaleSmaller,
+        TextScaleChoice.standard => l10n.textScaleDefault,
+        TextScaleChoice.larger => l10n.textScaleLarger,
+        TextScaleChoice.largest => l10n.textScaleLargest,
+      };
+}
+
+/// What the in-app control offers, in the order the chips are laid out.
 ///
 /// Four steps rather than a slider: a slider invites hunting for a value, and
 /// the difference between 1.12 and 1.15 is not a decision anybody wants to make
 /// about their workout log.
-const Map<String, double> kTextScaleChoices = {
-  'Smaller': 0.9,
-  'Default': 1.0,
-  'Larger': 1.15,
-  'Largest': 1.3,
-};
+const List<TextScaleChoice> kTextScaleChoices = TextScaleChoice.values;
 
 /// The scale to actually render at: the phone's, nudged by the user's, held
 /// inside the range the layouts are checked against.

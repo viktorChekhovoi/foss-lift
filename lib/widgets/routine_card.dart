@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../util/schedule_labels.dart';
+import '../util/seed_names.dart';
 import 'common.dart';
 
 /// A tappable routine row: colour swatch, name, workout count.
@@ -23,6 +26,7 @@ class RoutineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final r = data.routine;
     return Material(
       color: AppColors.surface,
@@ -57,7 +61,7 @@ class RoutineCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            r.name,
+                            seededName(l10n, r.seedKey, r.name),
                             // Wraps rather than being cut, for the same reason
                             // the headings do: a routine name is how you tell
                             // one programme from another.
@@ -76,8 +80,7 @@ class RoutineCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${data.workoutCount} '
-                      '${data.workoutCount == 1 ? 'workout' : 'workouts'}',
+                      l10n.routineCardWorkoutCount(data.workoutCount),
                       style: kMono.copyWith(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -100,7 +103,7 @@ class RoutineCard extends StatelessWidget {
                           const SizedBox(width: 5),
                           Flexible(
                             child: Text(
-                              scheduleLabel(r.scheduleDays),
+                              scheduleLabel(l10n, r.scheduleDays),
                               overflow: TextOverflow.ellipsis,
                               style: kMono.copyWith(
                                   fontSize: 11.5, color: AppColors.faint),
@@ -114,7 +117,9 @@ class RoutineCard extends StatelessWidget {
               ),
               if (onSetCurrent != null)
                 IconButton(
-                  tooltip: isCurrent ? 'Current routine' : 'Make current',
+                  tooltip: isCurrent
+                      ? l10n.routineCardCurrentTooltip
+                      : l10n.routineCardMakeCurrent,
                   visualDensity: VisualDensity.compact,
                   onPressed: isCurrent ? null : onSetCurrent,
                   icon: Icon(
@@ -147,7 +152,7 @@ class _CurrentBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        'CURRENT',
+        AppLocalizations.of(context).routineCardCurrent,
         style: kMono.copyWith(
           fontSize: 9,
           letterSpacing: 0.9,

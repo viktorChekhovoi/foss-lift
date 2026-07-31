@@ -16,6 +16,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 /// The live workout is not here: it is a foreground service with a notification
 /// of its own, posted by `flutter_foreground_task` rather than by this plugin.
 /// See `workout_shade.dart`.
+/// What a notification channel calls itself in the phone's own settings.
+///
+/// Handed to a service rather than held by one: a channel's name and
+/// description are user-facing text, and no service here has a `BuildContext`
+/// to resolve the language from — the reminder is laid down by a provider, the
+/// rest alarm by a timer, the live workout by a foreground service in an
+/// isolate of its own. Every one of them takes its words finished.
+typedef NotificationChannelCopy = ({String name, String description});
+
 Future<void> initNotifications(FlutterLocalNotificationsPlugin plugin) =>
     plugin.initialize(
       settings: const InitializationSettings(

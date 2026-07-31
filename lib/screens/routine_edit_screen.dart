@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/schedule_labels.dart';
+import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/common.dart';
 import '../widgets/workout_items_editor.dart';
@@ -21,17 +24,42 @@ class _WorkoutDraft {
   _WorkoutDraft({
     this.id,
     required this.name,
+    required this.shown,
+    this.seedKey,
     this.storedCount = 0,
     this.items,
   });
   final int? id;
+
+  /// The name as it will be stored — English, for a day the app shipped.
   String name;
+
+  /// The name on screen: [name] translated for as long as [seedKey] survives.
+  String shown;
+
+  /// Which day of a demo programme this is, until you rename it.
+  String? seedKey;
 
   /// Exercise count as stored, used until [items] is loaded.
   final int storedCount;
   List<ItemDraft>? items;
 
   int get exerciseCount => items?.length ?? storedCount;
+
+  /// Takes [typed] as the day's new name — unless it is the name already on
+  /// screen.
+  ///
+  /// That equality is what "I did not touch it" looks like on a demo day, whose
+  /// field was pre-filled with a *translation*. Writing that back would store
+  /// the Ukrainian words in the name column and drop the seed key, quietly
+  /// turning a day that follows the language into one that no longer can —
+  /// for nothing more than opening the editor.
+  void rename(String typed) {
+    if (typed == shown) return;
+    name = typed;
+    shown = typed;
+    seedKey = null;
+  }
 }
 
 /// Create ([routineId] == null) or edit an existing routine: its name, colour,
@@ -55,6 +83,15 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   bool _loaded = false;
   bool _saving = false;
 
+  /// Which demo programme this routine is, until the name is changed.
+  String? _seedKey;
+
+  /// The name as stored, and the name put in the field — the same string unless
+  /// this is a demo routine being shown in another language. See
+  /// [_WorkoutDraft.rename] for why both are kept.
+  String _storedName = '';
+  String _shownName = '';
+
   bool get _isEdit => widget.routineId != null;
 
   @override
@@ -76,8 +113,12 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       counts[w.id] = (await db.itemsForWorkout(w.id)).length;
     }
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     setState(() {
-      _name.text = routine.name;
+      _seedKey = routine.seedKey;
+      _storedName = routine.name;
+      _shownName = seededName(l10n, routine.seedKey, routine.name);
+      _name.text = _shownName;
       _color = routine.colorHex;
       _restSeconds = routine.restSeconds;
       _scheduleDays = routine.scheduleDays;
@@ -87,6 +128,8 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
         ..addAll(workouts.map((w) => _WorkoutDraft(
               id: w.id,
               name: w.name,
+              shown: seededName(l10n, w.seedKey, w.name),
+              seedKey: w.seedKey,
               storedCount: counts[w.id] ?? 0,
             )));
       _loaded = true;
@@ -104,9 +147,11 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   }
 
   Future<void> _addWorkout() async {
-    final name = await _promptName('New workout', '');
+    final name =
+        await _promptName(AppLocalizations.of(context).routineEditNewWorkout);
     if (name == null) return;
-    final draft = _WorkoutDraft(name: name, items: []);
+    // Yours from the first keystroke: a day you named has no seed key to lose.
+    final draft = _WorkoutDraft(name: name, shown: name, items: []);
     setState(() => _workouts.add(draft));
     // Go straight into it — naming a day and then adding its exercises is one
     // continuous thought.
@@ -143,13 +188,13 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   }
 
   /// A single-field dialog; returns null if cancelled or left blank.
-  Future<String?> _promptName(String title, String initial) async {
+  Future<String?> _promptName(String title) async {
     // Same story as _editWorkout: the dialog's own field takes focus, and
     // cancelling it must not hand focus back to the routine name.
     FocusManager.instance.primaryFocus?.unfocus();
     final result = await showDialog<String>(
       context: context,
-      builder: (_) => _NameDialog(title: title, initial: initial),
+      builder: (_) => _NameDialog(title: title),
     );
     FocusManager.instance.primaryFocus?.unfocus();
     final trimmed = result?.trim();
@@ -157,17 +202,24 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   }
 
   Future<void> _save() async {
-    final name = _name.text.trim();
-    if (name.isEmpty) {
-      _toast('Give the routine a name first.');
+    final l10n = AppLocalizations.of(context);
+    final typed = _name.text.trim();
+    if (typed.isEmpty) {
+      _toast(l10n.routineEditNameRequired);
       return;
     }
     if (_workouts.isEmpty) {
-      _toast('Add at least one workout.');
+      _toast(l10n.routineEditWorkoutRequired);
       return;
     }
     setState(() => _saving = true);
     final db = ref.read(databaseProvider);
+
+    // The field was pre-filled with the routine's *translated* name. Handing
+    // that back untouched is not a rename, so the English original and the key
+    // it hangs on both stay — see [_WorkoutDraft.rename].
+    final keepsSeed = _seedKey != null && typed == _shownName;
+    final name = keepsSeed ? _storedName : typed;
 
     final int routineId;
     if (_isEdit) {
@@ -175,6 +227,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       await db.updateRoutineMeta(
         routineId,
         name: name,
+        seedKey: keepsSeed ? _seedKey : null,
         color: _color,
         restSeconds: _restSeconds,
         scheduleDays: _scheduleDays,
@@ -209,23 +262,22 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   }
 
   Future<void> _delete() async {
+    final l10n = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Delete routine?'),
-        content: const Text(
-            'This removes the routine and all of its workouts. Logged history '
-            'is kept.'),
+        title: Text(l10n.routineEditDeleteTitle),
+        content: Text(l10n.routineEditDeleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('Delete', style: TextStyle(color: Color(0xFFFF5D5D))),
+            child: Text(l10n.commonDelete,
+                style: const TextStyle(color: Color(0xFFFF5D5D))),
           ),
         ],
       ),
@@ -254,8 +306,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     final granted = !reminders.supported || await reminders.requestPermission();
     if (!mounted) return;
     if (!granted) {
-      _toast('Foss Lift is not allowed to notify — turn it on in '
-          'Android settings.');
+      _toast(AppLocalizations.of(context).routineEditNotifyDenied);
       return;
     }
     setState(() => _reminderMinutes ??= 18 * 60);
@@ -273,13 +324,14 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit routine' : 'New routine'),
+        title: Text(_isEdit ? l10n.routineEditTitle : l10n.routineEditNewTitle),
         actions: [
           if (_isEdit)
             IconButton(
-              tooltip: 'Delete',
+              tooltip: l10n.commonDelete,
               icon: const Icon(Icons.delete_outline),
               onPressed: _delete,
             ),
@@ -296,7 +348,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                       children: [
-                        builderLabel('Name'),
+                        builderLabel(l10n.commonName),
                         TextField(
                           controller: _name,
                           // Naming it is the first thing you do on a new
@@ -307,34 +359,35 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           maxLength: kMaxNameLength,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
-                          decoration:
-                              builderInput('e.g. Push / Pull / Legs'),
+                          decoration: builderInput(l10n.routineEditNameHint),
                         ),
                         const SizedBox(height: 20),
-                        builderLabel('Accent colour'),
+                        builderLabel(l10n.routineEditAccentColour),
                         _ColorRow(
                           selected: _color,
                           onSelect: (c) => setState(() => _color = c),
                         ),
                         const SizedBox(height: 20),
-                        builderLabel('Default rest between sets'),
+                        builderLabel(l10n.routineEditDefaultRest),
                         NumberStepper(
                           value: _restSeconds,
-                          suffix: 's',
+                          // The same abbreviation the rest stepper inside a
+                          // slot uses — one string, so the two cannot drift.
+                          suffix: l10n.itemEditorSecondsSuffix,
                           step: 15,
                           min: 0,
                           max: 300,
                           onChanged: (v) => setState(() => _restSeconds = v),
                         ),
                         const SizedBox(height: 22),
-                        builderLabel('Training days'),
+                        builderLabel(l10n.routineEditTrainingDays),
                         _DayToggles(
                           mask: _scheduleDays,
                           onToggle: (d) => setState(
                               () => _scheduleDays = toggleDay(_scheduleDays, d)),
                         ),
                         const SizedBox(height: 18),
-                        builderLabel('Reminder'),
+                        builderLabel(l10n.routineEditReminder),
                         _ReminderRow(
                           minutes: _reminderMinutes,
                           onToggle: _toggleReminder,
@@ -344,16 +397,16 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         // The same list the exercises inside a day get, so a
                         // day is dragged into place exactly the way a slot is.
                         BuilderReorderList<_WorkoutDraft>(
-                          caption: 'Workouts',
+                          caption: l10n.routineEditWorkouts,
                           items: _workouts,
-                          emptyText: 'No workouts yet.',
-                          addLabel: 'Add workout',
+                          emptyText: l10n.routineEditNoWorkouts,
+                          addLabel: l10n.routineEditAddWorkout,
                           onAdd: _addWorkout,
                           onReorder: _reorder,
                           rowBuilder: (i, draft) => BuilderReorderRow(
                             index: i,
-                            title: draft.name,
-                            subtitle: _exerciseCountLabel(draft),
+                            title: draft.shown,
+                            subtitle: _exerciseCountLabel(l10n, draft),
                             onTap: () => _editWorkout(draft),
                             onRemove: () =>
                                 setState(() => _workouts.removeAt(i)),
@@ -371,7 +424,8 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _saving ? null : _save,
-                        child: Text(_saving ? 'Saving…' : 'Save routine'),
+                        child: Text(
+                            _saving ? l10n.commonSaving : l10n.routineEditSave),
                       ),
                     ),
                   ),
@@ -398,8 +452,11 @@ class _WorkoutDraftScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
+  // Pre-filled with what the routine builder is showing for this day, which on
+  // a demo day is a translation — hence [_WorkoutDraft.rename] rather than a
+  // plain assignment on the way out.
   late final TextEditingController _name =
-      TextEditingController(text: widget.draft.name);
+      TextEditingController(text: widget.draft.shown);
 
   @override
   void dispose() {
@@ -410,18 +467,19 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
   /// Keep the draft in step on the way out, whether by button or back gesture.
   void _commitName() {
     final trimmed = _name.text.trim();
-    if (trimmed.isNotEmpty) widget.draft.name = trimmed;
+    if (trimmed.isNotEmpty) widget.draft.rename(trimmed);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final items = widget.draft.items ??= [];
 
     return PopScope(
       onPopInvokedWithResult: (_, _) => _commitName(),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Workout')),
+        appBar: AppBar(title: Text(l10n.routineEditWorkoutTitle)),
         body: SafeArea(
           top: false,
           child: Column(
@@ -430,14 +488,15 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                   children: [
-                    builderLabel('Name'),
+                    builderLabel(l10n.commonName),
                     TextField(
                       controller: _name,
                       textCapitalization: TextCapitalization.sentences,
                       maxLength: kMaxNameLength,
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w600),
-                      decoration: builderInput('e.g. Push'),
+                      decoration:
+                          builderInput(l10n.workoutEditNameHint),
                       onChanged: (_) => _commitName(),
                     ),
                     WorkoutItemsEditor(
@@ -462,7 +521,7 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                       _commitName();
                       Navigator.pop(context);
                     },
-                    child: const Text('Done'),
+                    child: Text(l10n.commonDone),
                   ),
                 ),
               ),
@@ -478,17 +537,15 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
 /// the caller the moment `showDialog` returns tears it down while the route is
 /// still animating out, and the still-mounted TextField trips an assertion.
 class _NameDialog extends StatefulWidget {
-  const _NameDialog({required this.title, required this.initial});
+  const _NameDialog({required this.title});
   final String title;
-  final String initial;
 
   @override
   State<_NameDialog> createState() => _NameDialogState();
 }
 
 class _NameDialogState extends State<_NameDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
+  final TextEditingController _controller = TextEditingController();
 
   @override
   void dispose() {
@@ -498,6 +555,7 @@ class _NameDialogState extends State<_NameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -506,17 +564,17 @@ class _NameDialogState extends State<_NameDialog> {
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
         maxLength: kMaxNameLength,
-        decoration: builderInput('e.g. Push'),
+        decoration: builderInput(l10n.workoutEditNameHint),
         onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('OK'),
+          child: Text(l10n.routineEditOk),
         ),
       ],
     );
@@ -536,13 +594,14 @@ class _DayToggles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initials = dayInitials(AppLocalizations.of(context));
     return Row(
       children: [
         for (var day = 1; day <= 7; day++) ...[
           if (day > 1) const SizedBox(width: 8),
           Expanded(
             child: _DayToggle(
-              label: kDayInitials[day - 1],
+              label: initials[day - 1],
               on: scheduledOn(mask, day),
               onTap: () => onToggle(day),
             ),
@@ -612,9 +671,10 @@ class _ReminderRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
       child: Row(
         children: [
-          const Expanded(
-            child: Text('Notify me',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text(AppLocalizations.of(context).routineEditNotifyMe,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600)),
           ),
           if (on)
             TextButton(
@@ -673,9 +733,9 @@ class _ColorRow extends StatelessWidget {
 }
 
 /// What a day's row says under its name.
-String _exerciseCountLabel(_WorkoutDraft draft) {
+String _exerciseCountLabel(AppLocalizations l10n, _WorkoutDraft draft) {
   final n = draft.exerciseCount;
   return n == 0
-      ? 'No exercises yet — tap to add'
-      : '$n ${n == 1 ? 'exercise' : 'exercises'}';
+      ? l10n.routineEditNoExercises
+      : l10n.commonExerciseCount(n);
 }

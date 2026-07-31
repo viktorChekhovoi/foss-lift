@@ -13,69 +13,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
-import 'package:foss_lift/screens/about_screen.dart';
-import 'package:foss_lift/screens/exercise_detail_screen.dart';
-import 'package:foss_lift/screens/exercise_progress_screen.dart';
-import 'package:foss_lift/screens/routine_detail_screen.dart';
-import 'package:foss_lift/screens/routine_edit_screen.dart';
 import 'package:foss_lift/screens/routine_share_screen.dart';
-import 'package:foss_lift/screens/summary_screen.dart';
-import 'package:foss_lift/screens/workout_detail_screen.dart';
-import 'package:foss_lift/screens/workout_edit_screen.dart';
-import 'package:foss_lift/screens/bar_settings_screen.dart';
-import 'package:foss_lift/screens/exercise_form_screen.dart';
-import 'package:foss_lift/screens/history_screen.dart';
-import 'package:foss_lift/screens/library_screen.dart';
-import 'package:foss_lift/screens/plate_inventory_screen.dart';
-import 'package:foss_lift/screens/profile_screen.dart';
-import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/settings_screen.dart';
 import 'package:foss_lift/screens/theme_settings_screen.dart';
-import 'package:foss_lift/screens/today_screen.dart';
+import 'package:foss_lift/screens/workout_detail_screen.dart';
+import 'package:foss_lift/screens/workout_edit_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
-import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/text_scale.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/widgets/share_widgets.dart';
 
 import 'support/harness.dart';
+import 'support/screens.dart';
 import 'support/seeded.dart';
 
-/// Mounts [child] at [scale], on a phone-sized viewport.
+/// Mounts [child] at [scale], on a phone-sized viewport. The language sweep
+/// mounts the same screens the same way — see `support/screens.dart`.
 Widget scaled(ProviderContainer c, Widget child, double scale) =>
-    UncontrolledProviderScope(
-      container: c,
-      child: MaterialApp.router(
-        theme: AppTheme.build(kDefaultPalette),
-        routerConfig: GoRouter(
-          initialLocation: '/under-test',
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const SizedBox.shrink(),
-              routes: [
-                GoRoute(
-                  path: 'under-test',
-                  // A Scaffold, because several of these are tab bodies that
-                  // never see the screen without one.
-                  builder: (_, _) => Scaffold(body: child),
-                ),
-              ],
-            ),
-          ],
-        ),
-        builder: (context, page) => MediaQuery(
-          // copyWith, not a fresh MediaQueryData — a bare one has no size,
-          // and everything downstream lays out against zero.
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
-          child: page!,
-        ),
-      ),
-    );
+    routedAppUnder(c, child, scaffold: true, textScale: scale);
 
 void main() {
   late AppDatabase db;
@@ -87,22 +44,8 @@ void main() {
     await db.close();
   });
 
-  final screens = <String, Widget Function()>{
-    'today': () => const TodayScreen(),
-    'routines': () => const RoutinesScreen(),
-    'history': () => const HistoryScreen(),
-    'profile': () => const ProfileScreen(),
-    'library': () => const LibraryScreen(),
-    'settings': () => const SettingsScreen(),
-    'bar': () => const BarSettingsScreen(),
-    'plates': () => const PlateInventoryScreen(),
-    'theme': () => const ThemeSettingsScreen(),
-    'about': () => const AboutScreen(),
-    'exercise form': () => const ExerciseFormScreen(),
-  };
-
   for (final scale in [1.0, 1.3, 2.0]) {
-    for (final entry in screens.entries) {
+    for (final entry in kSweepScreens.entries) {
       testWidgets('${entry.key} @ $scale', (tester) async {
         // 360 dp is the common budget-Android width and the tightest case.
         tester.view.physicalSize = const Size(360, 780);
@@ -160,17 +103,12 @@ void main() {
         );
       });
 
-      final targets = <String, Widget>{
-        'exercise detail': ExerciseDetailScreen(exerciseId: exerciseId),
-        'exercise progress': ExerciseProgressScreen(exerciseId: exerciseId),
-        'workout detail': WorkoutDetailScreen(workoutId: workoutId),
-        'workout edit': WorkoutEditScreen(workoutId: workoutId),
-        'routine detail': RoutineDetailScreen(routineId: routineId),
-        'routine edit': RoutineEditScreen(routineId: routineId),
-        'summary': SummaryScreen(sessionId: sessionId),
-        'routine share': RoutineShareScreen(routineId: routineId),
-        'custom theme': const CustomThemeEditorScreen(),
-      };
+      final targets = idSweepScreens(
+        exerciseId: exerciseId,
+        workoutId: workoutId,
+        routineId: routineId,
+        sessionId: sessionId,
+      );
 
       for (final t in targets.entries) {
         final errors = <String>[];
@@ -258,10 +196,10 @@ void main() {
     });
 
     test('every offered step lands inside the range on an untouched phone', () {
-      for (final choice in kTextScaleChoices.entries) {
-        final got = resolveTextScale(system: 1.0, chosen: choice.value);
-        expect(got, choice.value,
-            reason: '${choice.key} is clamped on a default phone');
+      for (final choice in kTextScaleChoices) {
+        final got = resolveTextScale(system: 1.0, chosen: choice.scale);
+        expect(got, choice.scale,
+            reason: '${choice.name} is clamped on a default phone');
         expect(got, lessThanOrEqualTo(kMaxTextScale));
         expect(got, greaterThanOrEqualTo(kMinTextScale));
       }

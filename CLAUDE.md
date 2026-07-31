@@ -51,6 +51,14 @@ The result should sound like it was written and edited by an engineer who unders
 
 Before returning the section, silently remove redundant sentences, generic filler, unnecessary adjectives, and any statements that merely announce what the text is about.
 
+### Line breaks
+
+**Hard-wrap commit messages. Hard-wrap nothing else.** A commit message is read in a terminal at a fixed width, so it is filled to 72–78 columns by hand. Everywhere else, write one line per paragraph, per bullet and per list item, however long it runs, and let the renderer wrap it.
+
+That means no column fill in GitHub issue bodies, issue comments, PR descriptions, release notes, markdown docs, YAML strings or code comments that render anywhere. A hard-wrapped paragraph in a web textarea breaks in the wrong places at every window width, and every later edit means rewrapping the paragraph around it.
+
+Existing files that are already filled stay as they are — rewrapping one is a diff with no content in it. Write new text unwrapped, and unwrap a paragraph when you are already rewriting it.
+
 ## What this is
 
 FossLift — an offline, on-device Flutter workout tracker. No network, no auth,

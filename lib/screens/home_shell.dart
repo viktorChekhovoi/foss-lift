@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/resume_workout_bar.dart';
@@ -27,6 +28,7 @@ class HomeShell extends ConsumerWidget {
     // Watched, not read: this is the subscription that gets the shell rebuilt
     // when nothing else will.
     final palette = ref.watch(activePaletteProvider);
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: shell,
       // The resume bar rides in the bottom bar rather than over the body, so a
@@ -40,13 +42,13 @@ class HomeShell extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const ResumeWorkoutBarSlot(mount: ResumeBarMount.shell),
-          _navBar(palette),
+          _navBar(palette, l10n),
         ],
       ),
     );
   }
 
-  Widget _navBar(AppPalette palette) {
+  Widget _navBar(AppPalette palette, AppLocalizations l10n) {
     return NavigationBarTheme(
       data: NavigationBarThemeData(
         backgroundColor: palette.ground,
@@ -73,26 +75,26 @@ class HomeShell extends ConsumerWidget {
         selectedIndex: shell.currentIndex,
         onDestinationSelected: (i) =>
             shell.goBranch(i, initialLocation: i == shell.currentIndex),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Today',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_rounded),
+            label: l10n.navToday,
           ),
           NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt_rounded),
-            label: 'Routines',
+            icon: const Icon(Icons.list_alt_outlined),
+            selectedIcon: const Icon(Icons.list_alt_rounded),
+            label: l10n.navRoutines,
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart_rounded),
-            label: 'History',
+            icon: const Icon(Icons.bar_chart_outlined),
+            selectedIcon: const Icon(Icons.bar_chart_rounded),
+            label: l10n.navHistory,
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
+            icon: const Icon(Icons.person_outline_rounded),
+            selectedIcon: const Icon(Icons.person_rounded),
+            label: l10n.navProfile,
           ),
         ],
       ),

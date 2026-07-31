@@ -21,6 +21,7 @@ import 'package:foss_lift/screens/history_screen.dart';
 import 'package:foss_lift/screens/routine_detail_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/util/locales.dart';
 
 import 'support/harness.dart';
 import 'support/settle.dart';
@@ -30,6 +31,8 @@ Widget wholeApp(ProviderContainer container) => UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
         theme: AppTheme.build(kDefaultPalette),
+        supportedLocales: kSupportedLocales,
+        localizationsDelegates: kTestDelegates,
         routerConfig: appRouter,
       ),
     );
@@ -63,7 +66,13 @@ void main() {
       await pumpThroughDatabase(tester);
 
       expect(find.byType(NavigationBar), findsOneWidget);
-      for (final tab in const ['Today', 'Routines', 'History', 'Profile']) {
+      final l10n = l10nFor();
+      for (final tab in [
+        l10n.navToday,
+        l10n.navRoutines,
+        l10n.navHistory,
+        l10n.navProfile,
+      ]) {
         expect(tabLabel(tab), findsOneWidget, reason: 'the $tab tab');
       }
     });

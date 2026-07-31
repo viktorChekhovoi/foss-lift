@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/exercise_stats.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/clip_label.dart';
+import '../util/seed_names.dart';
 
 /// Every clip of one movement, newest first.
 ///
@@ -19,28 +21,32 @@ class ExerciseClipsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final clips = ref.watch(exerciseClipsProvider(exerciseId));
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
-    final name = ref.watch(exerciseLibraryProvider).value?.
-        where((e) => e.id == exerciseId).firstOrNull?.name;
+    final exercise = ref.watch(exerciseLibraryProvider).value?.
+        where((e) => e.id == exerciseId).firstOrNull;
+    final name = exercise == null
+        ? null
+        : seededName(l10n, exercise.seedKey, exercise.name);
 
     return Scaffold(
-      appBar: AppBar(title: Text(name ?? 'Clips')),
+      appBar: AppBar(title: Text(name ?? l10n.exerciseClipsTitle)),
       body: SafeArea(
         top: false,
         child: clips.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('$e')),
           data: (list) => list.isEmpty
-              ? _empty()
+              ? _empty(l10n)
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                   itemCount: list.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (_, i) => _ClipRow(
                     clipPath: list[i].videoPath!,
-                    label: clipLabel(list[i], unit),
-                    onTap: () => _open(context, list[i], unit),
+                    label: clipLabel(l10n, list[i], unit),
+                    onTap: () => _open(context, l10n, list[i], unit),
                   ),
                 ),
         ),
@@ -48,24 +54,25 @@ class ExerciseClipsScreen extends ConsumerWidget {
     );
   }
 
-  void _open(BuildContext context, ExerciseSetEntry set, String unit) {
+  void _open(BuildContext context, AppLocalizations l10n, ExerciseSetEntry set,
+      String unit) {
     context.push(
       Uri(
         path: '/clip',
         queryParameters: {
           'path': set.videoPath!,
-          'caption': clipLabel(set, unit),
+          'caption': clipLabel(l10n, set, unit),
           'set': '${set.setId}',
         },
       ).toString(),
     );
   }
 
-  Widget _empty() => Center(
+  Widget _empty(AppLocalizations l10n) => Center(
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Text(
-            'Nothing filmed yet.',
+            l10n.exerciseClipsEmpty,
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.muted, fontSize: 15),
           ),

@@ -14,6 +14,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/reminders.dart';
 
 import 'support/harness.dart';
@@ -32,19 +33,47 @@ const _eighteenHundred = 18 * 60; // 18:00 as minutes past midnight
 RoutineReminder _byName(List<RoutineReminder> rs, String name) =>
     rs.firstWhere((r) => r.name == name);
 
+/// The channel labels and the words of a reminder, as the provider layer
+/// resolves them — read from the catalogue rather than typed out again.
+final _l10n = l10nFor();
+final NotificationChannelCopy _channel = (
+  name: _l10n.reminderChannelName,
+  description: _l10n.reminderChannelDescription,
+);
+
+ReminderPost _post(int mask, int minutes) => (
+      reminder: RoutineReminder(
+        routineId: 1,
+        name: 'Push / Pull / Legs',
+        scheduleDays: mask,
+        reminderMinutes: minutes,
+      ),
+      title: 'Push / Pull / Legs',
+      body: _l10n.reminderBody,
+    );
+
 /// A [ReminderService] stand-in that records the sync calls instead of touching
 /// a plugin, so the "one place re-lays every reminder" wiring can be observed
 /// without a device.
 class _RecordingReminderService extends ReminderService {
-  final List<List<RoutineReminder>> calls = [];
+  final List<List<ReminderPost>> calls = [];
 
   @override
-  Future<void> sync(List<RoutineReminder> routines, {DateTime? now}) async {
-    calls.add(routines);
+  Future<void> sync(
+    List<ReminderPost> posts, {
+    required NotificationChannelCopy channel,
+    DateTime? now,
+  }) async {
+    calls.add(posts);
   }
 }
 
 void main() {
+  // The reminder funnel resolves the language before it posts anything, and
+  // the active locale is read off the platform dispatcher — which needs a
+  // binding, even for the pure-Dart tests below.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('the next reminder is computed, not stored', () {
     test('no scheduled days means no reminder at all', () {
       expect(
@@ -274,7 +303,7 @@ void main() {
       await db.close();
 
       expect(
-        recording.calls.last.map((r) => r.name),
+        recording.calls.last.map((p) => p.reminder.name),
         containsAll(<String>['Push / Pull / Legs', 'Upper / Lower']),
       );
     });
@@ -291,14 +320,8 @@ void main() {
 
       await service.init();
       await service.sync(
-        const [
-          RoutineReminder(
-            routineId: 1,
-            name: 'Push / Pull / Legs',
-            scheduleDays: _mwf,
-            reminderMinutes: _eighteenHundred,
-          ),
-        ],
+        [_post(_mwf, _eighteenHundred)],
+        channel: _channel,
         now: _on(1, 8, 0),
       );
 

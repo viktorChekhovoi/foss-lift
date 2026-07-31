@@ -29,6 +29,7 @@ import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
+import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/services/workout_shade.dart';
@@ -42,6 +43,8 @@ import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
+import 'package:foss_lift/util/format.dart';
+import 'package:foss_lift/util/locales.dart';
 
 // The seeded PPL Push day, in template order.
 const kPushSize = 5; // Bench, Overhead, Incline DB, Lateral, Triceps
@@ -1690,6 +1693,7 @@ void main() {
       expect(missedSeed((
         kind: CueKind.lift,
         exercise: 'Bench Press',
+        exerciseSeedKey: null,
         warmup: false,
         exerciseIndex: 0,
         setIndex: 0,
@@ -1704,6 +1708,7 @@ void main() {
       expect(missedSeed((
         kind: CueKind.lift,
         exercise: 'x',
+        exerciseSeedKey: null,
         warmup: false,
         exerciseIndex: 0,
         setIndex: 0,
@@ -1719,6 +1724,7 @@ void main() {
       expect(missedSeed((
         kind: CueKind.hold,
         exercise: 'Plank',
+        exerciseSeedKey: null,
         warmup: false,
         exerciseIndex: 0,
         setIndex: 0,
@@ -1817,6 +1823,14 @@ void main() {
   });
 
   group('What the shade says', () {
+    // The words are the catalogue's, so the assertions ask it for them rather
+    // than re-typing the English: what the shade has to get right is which
+    // message it picks and what it fills in — the load in the unit on the
+    // phone, which set of how many, and whether a rest is running.
+    final l10n = l10nFor();
+    String load(String amount, String unit) =>
+        l10n.unitWeightShort(amount, unit);
+
     WorkoutCue cue({
       CueKind kind = CueKind.lift,
       String exercise = 'Bench Press',
@@ -1831,6 +1845,7 @@ void main() {
         (
           kind: kind,
           exercise: exercise,
+          exerciseSeedKey: null,
           warmup: warmup,
           exerciseIndex: 0,
           setIndex: setIndex,
@@ -1842,43 +1857,49 @@ void main() {
         );
 
     test('a loaded set reads as a bar you could go and load', () {
-      expect(describeCue(cue(weightKg: 80, reps: 8), 'kg'), '80 kg × 8');
+      expect(describeCue(l10n, cue(weightKg: 80, reps: 8), 'kg'),
+          l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8));
     });
 
     test('and in the unit on the phone, not the one in the database', () {
       // 80 kg is 176.4 lb — the number you would set the bar to.
-      expect(describeCue(cue(weightKg: 80, reps: 8), 'lb'), '176.4 lb × 8');
+      expect(describeCue(l10n, cue(weightKg: 80, reps: 8), 'lb'),
+          l10n.shadeSetWeightReps(load('176.4', l10n.unitLbSuffix), 8));
     });
 
     test('a bodyweight movement says so rather than saying nothing', () {
-      expect(describeCue(cue(reps: 12), 'kg'), 'Bodyweight × 12');
+      expect(describeCue(l10n, cue(reps: 12), 'kg'),
+          l10n.shadeSetBodyweightReps(12));
     });
 
     test('a hold is seconds, and a loaded hold is both', () {
-      expect(describeCue(cue(kind: CueKind.hold, seconds: 45), 'kg'), '45s');
+      expect(describeCue(l10n, cue(kind: CueKind.hold, seconds: 45), 'kg'),
+          l10n.unitSecondsShort('45'));
       expect(
-        describeCue(cue(kind: CueKind.hold, weightKg: 20, seconds: 45), 'kg'),
-        '20 kg · 45s',
+        describeCue(
+            l10n, cue(kind: CueKind.hold, weightKg: 20, seconds: 45), 'kg'),
+        l10n.shadeSetWeightSeconds(load('20', l10n.unitKgSuffix), 45),
       );
     });
 
     test('a set to do is described, and nothing is called next', () {
-      expect(shadeText(cue(weightKg: 80, reps: 8), 'kg'), '80 kg × 8');
+      expect(shadeText(l10n, cue(weightKg: 80, reps: 8), 'kg'),
+          l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8));
     });
 
     test('and the bold line says which set of how many', () {
       // Four identical sets of bench read identically from a pocket without
       // it — see issue #65.
       expect(
-        shadeTitle(cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5)),
-        'Bench Press · Set 4/5',
+        shadeTitle(l10n, cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5)),
+        l10n.shadeWhereExerciseSet('Bench Press', 4, 5),
       );
     });
 
     test('a warm-up rung counts the rungs, not the working sets', () {
       expect(
-        shadeTitle(cue(warmup: true, setIndex: 1, setCount: 3)),
-        'Warm-up · Bench Press · Set 2/3',
+        shadeTitle(l10n, cue(warmup: true, setIndex: 1, setCount: 3)),
+        l10n.shadeWhereWarmupSet('Bench Press', 2, 3),
       );
     });
 
@@ -1888,6 +1909,7 @@ void main() {
       // belonging to nothing is not an instruction (issue #62).
       expect(
         shadeText(
+            l10n,
             cue(
                 kind: CueKind.resting,
                 weightKg: 80,
@@ -1896,14 +1918,19 @@ void main() {
                 setCount: 5,
                 restLeft: 40),
             'kg'),
-        'Next: Bench Press · Set 4/5 · 80 kg × 8',
+        l10n.shadeNextLine(
+          l10n.shadeWhereExerciseSet('Bench Press', 4, 5),
+          l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8),
+        ),
       );
-      expect(shadeTitle(cue(kind: CueKind.resting, restLeft: 40)), 'Rest · 0:40');
+      expect(shadeTitle(l10n, cue(kind: CueKind.resting, restLeft: 40)),
+          l10n.shadeRestTitle(fmtDuration(40)));
     });
 
     test('and says when what is next is a warm-up rung', () {
       expect(
         shadeText(
+          l10n,
           cue(
               kind: CueKind.resting,
               warmup: true,
@@ -1914,7 +1941,10 @@ void main() {
               restLeft: 40),
           'kg',
         ),
-        'Next: Warm-up · Bench Press · Set 1/3 · 60 kg × 5',
+        l10n.shadeNextLine(
+          l10n.shadeWhereWarmupSet('Bench Press', 1, 3),
+          l10n.shadeSetWeightReps(load('60', l10n.unitKgSuffix), 5),
+        ),
       );
     });
 
@@ -1922,7 +1952,8 @@ void main() {
       // The same three controls the screen has, so the two places a rest can be
       // nudged from do not disagree about what a nudge is.
       expect(
-        shadeButtons(cue(kind: CueKind.resting, restLeft: 40)).map((b) => b.id),
+        shadeButtons(l10n, cue(kind: CueKind.resting, restLeft: 40))
+            .map((b) => b.id),
         [
           WorkoutShade.restSubAction,
           WorkoutShade.restAddAction,
@@ -1933,7 +1964,7 @@ void main() {
 
     test('a set to do offers Done and Missed', () {
       expect(
-        shadeButtons(cue(weightKg: 80, reps: 8)).map((b) => b.id),
+        shadeButtons(l10n, cue(weightKg: 80, reps: 8)).map((b) => b.id),
         [WorkoutShade.doneAction, WorkoutShade.missedAction],
       );
     });
@@ -1942,13 +1973,13 @@ void main() {
       // Start, which logs nothing: how long you held it is the measurement, and
       // nothing in a pocket can invent it.
       expect(
-        shadeButtons(cue(kind: CueKind.hold, seconds: 45)).map((b) => b.id),
+        shadeButtons(l10n, cue(kind: CueKind.hold, seconds: 45)).map((b) => b.id),
         [WorkoutShade.startAction],
       );
     });
 
     test('and a finished session offers nothing', () {
-      expect(shadeButtons(cue(kind: CueKind.finished)), isEmpty);
+      expect(shadeButtons(l10n, cue(kind: CueKind.finished)), isEmpty);
     });
   });
 
@@ -2363,6 +2394,8 @@ void main() {
         container: container!,
         child: MaterialApp.router(
           theme: AppTheme.build(kDefaultPalette),
+          supportedLocales: kSupportedLocales,
+          localizationsDelegates: kTestDelegates,
           routerConfig: router,
           builder: (context, child) =>
               ResumeWorkoutOverlay(router: router, child: child!),
@@ -2580,6 +2613,8 @@ void main() {
         container: container!,
         child: MaterialApp.router(
           theme: AppTheme.build(kDefaultPalette),
+          supportedLocales: kSupportedLocales,
+          localizationsDelegates: kTestDelegates,
           routerConfig: router,
           builder: (context, child) =>
               ResumeWorkoutOverlay(router: router, child: child!),
@@ -2993,7 +3028,11 @@ class _RecordingAlarm extends RestAlarm {
   int cleared = 0;
 
   @override
-  Future<void> ring({required String title, required String body}) async =>
+  Future<void> ring({
+    required NotificationChannelCopy channel,
+    required String title,
+    required String body,
+  }) async =>
       rung.add(body);
 
   @override

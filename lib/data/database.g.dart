@@ -32,6 +32,17 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _seedKeyMeta = const VerificationMeta(
+    'seedKey',
+  );
+  @override
+  late final GeneratedColumn<String> seedKey = GeneratedColumn<String>(
+    'seed_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _muscleGroupMeta = const VerificationMeta(
     'muscleGroup',
   );
@@ -127,6 +138,7 @@ class $ExercisesTable extends Exercises
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    seedKey,
     muscleGroup,
     equipment,
     videoUrl,
@@ -158,6 +170,12 @@ class $ExercisesTable extends Exercises
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('seed_key')) {
+      context.handle(
+        _seedKeyMeta,
+        seedKey.isAcceptableOrUnknown(data['seed_key']!, _seedKeyMeta),
+      );
     }
     if (data.containsKey('muscle_group')) {
       context.handle(
@@ -215,6 +233,10 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      seedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seed_key'],
+      ),
       muscleGroup: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}muscle_group'],
@@ -267,7 +289,20 @@ class $ExercisesTable extends Exercises
 
 class Exercise extends DataClass implements Insertable<Exercise> {
   final int id;
+
+  /// The canonical English name. What a routine code carries, what history
+  /// denormalises, and what an importer matches on — see `seedKey` for what is
+  /// actually rendered.
   final String name;
+
+  /// Which movement of the starter library this is, or null for one you added.
+  ///
+  /// A screen renders `seededName(l10n, seedKey, name)` rather than `name`, so
+  /// the whole starter library follows a language switch instead of being
+  /// frozen at whatever the phone was set to on install day. Seeded exercises
+  /// cannot be renamed (see [isCustom]), so unlike a routine or a training day
+  /// this key is never cleared. See `util/seed_names.dart`.
+  final String? seedKey;
   final String muscleGroup;
   final String equipment;
   final String? videoUrl;
@@ -315,6 +350,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   const Exercise({
     required this.id,
     required this.name,
+    this.seedKey,
     required this.muscleGroup,
     required this.equipment,
     this.videoUrl,
@@ -329,6 +365,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || seedKey != null) {
+      map['seed_key'] = Variable<String>(seedKey);
+    }
     map['muscle_group'] = Variable<String>(muscleGroup);
     map['equipment'] = Variable<String>(equipment);
     if (!nullToAbsent || videoUrl != null) {
@@ -358,6 +397,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     return ExercisesCompanion(
       id: Value(id),
       name: Value(name),
+      seedKey: seedKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seedKey),
       muscleGroup: Value(muscleGroup),
       equipment: Value(equipment),
       videoUrl: videoUrl == null && nullToAbsent
@@ -383,6 +425,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     return Exercise(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      seedKey: serializer.fromJson<String?>(json['seedKey']),
       muscleGroup: serializer.fromJson<String>(json['muscleGroup']),
       equipment: serializer.fromJson<String>(json['equipment']),
       videoUrl: serializer.fromJson<String?>(json['videoUrl']),
@@ -403,6 +446,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
+      'seedKey': serializer.toJson<String?>(seedKey),
       'muscleGroup': serializer.toJson<String>(muscleGroup),
       'equipment': serializer.toJson<String>(equipment),
       'videoUrl': serializer.toJson<String?>(videoUrl),
@@ -421,6 +465,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   Exercise copyWith({
     int? id,
     String? name,
+    Value<String?> seedKey = const Value.absent(),
     String? muscleGroup,
     String? equipment,
     Value<String?> videoUrl = const Value.absent(),
@@ -432,6 +477,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
+    seedKey: seedKey.present ? seedKey.value : this.seedKey,
     muscleGroup: muscleGroup ?? this.muscleGroup,
     equipment: equipment ?? this.equipment,
     videoUrl: videoUrl.present ? videoUrl.value : this.videoUrl,
@@ -445,6 +491,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     return Exercise(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      seedKey: data.seedKey.present ? data.seedKey.value : this.seedKey,
       muscleGroup: data.muscleGroup.present
           ? data.muscleGroup.value
           : this.muscleGroup,
@@ -465,6 +512,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     return (StringBuffer('Exercise(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('muscleGroup: $muscleGroup, ')
           ..write('equipment: $equipment, ')
           ..write('videoUrl: $videoUrl, ')
@@ -481,6 +529,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   int get hashCode => Object.hash(
     id,
     name,
+    seedKey,
     muscleGroup,
     equipment,
     videoUrl,
@@ -496,6 +545,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       (other is Exercise &&
           other.id == this.id &&
           other.name == this.name &&
+          other.seedKey == this.seedKey &&
           other.muscleGroup == this.muscleGroup &&
           other.equipment == this.equipment &&
           other.videoUrl == this.videoUrl &&
@@ -509,6 +559,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<int> id;
   final Value<String> name;
+  final Value<String?> seedKey;
   final Value<String> muscleGroup;
   final Value<String> equipment;
   final Value<String?> videoUrl;
@@ -520,6 +571,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.seedKey = const Value.absent(),
     this.muscleGroup = const Value.absent(),
     this.equipment = const Value.absent(),
     this.videoUrl = const Value.absent(),
@@ -532,6 +584,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    this.seedKey = const Value.absent(),
     this.muscleGroup = const Value.absent(),
     this.equipment = const Value.absent(),
     this.videoUrl = const Value.absent(),
@@ -544,6 +597,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   static Insertable<Exercise> custom({
     Expression<int>? id,
     Expression<String>? name,
+    Expression<String>? seedKey,
     Expression<String>? muscleGroup,
     Expression<String>? equipment,
     Expression<String>? videoUrl,
@@ -556,6 +610,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (seedKey != null) 'seed_key': seedKey,
       if (muscleGroup != null) 'muscle_group': muscleGroup,
       if (equipment != null) 'equipment': equipment,
       if (videoUrl != null) 'video_url': videoUrl,
@@ -570,6 +625,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   ExercisesCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
+    Value<String?>? seedKey,
     Value<String>? muscleGroup,
     Value<String>? equipment,
     Value<String?>? videoUrl,
@@ -582,6 +638,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     return ExercisesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      seedKey: seedKey ?? this.seedKey,
       muscleGroup: muscleGroup ?? this.muscleGroup,
       equipment: equipment ?? this.equipment,
       videoUrl: videoUrl ?? this.videoUrl,
@@ -601,6 +658,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (seedKey.present) {
+      map['seed_key'] = Variable<String>(seedKey.value);
     }
     if (muscleGroup.present) {
       map['muscle_group'] = Variable<String>(muscleGroup.value);
@@ -638,6 +698,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     return (StringBuffer('ExercisesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('muscleGroup: $muscleGroup, ')
           ..write('equipment: $equipment, ')
           ..write('videoUrl: $videoUrl, ')
@@ -678,6 +739,17 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
     additionalChecks: GeneratedColumn.checkTextLength(minTextLength: 1),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _seedKeyMeta = const VerificationMeta(
+    'seedKey',
+  );
+  @override
+  late final GeneratedColumn<String> seedKey = GeneratedColumn<String>(
+    'seed_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _colorHexMeta = const VerificationMeta(
     'colorHex',
@@ -742,6 +814,7 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    seedKey,
     colorHex,
     position,
     restSeconds,
@@ -770,6 +843,12 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('seed_key')) {
+      context.handle(
+        _seedKeyMeta,
+        seedKey.isAcceptableOrUnknown(data['seed_key']!, _seedKeyMeta),
+      );
     }
     if (data.containsKey('color_hex')) {
       context.handle(
@@ -827,6 +906,10 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      seedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seed_key'],
+      ),
       colorHex: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}color_hex'],
@@ -859,6 +942,13 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
 class Routine extends DataClass implements Insertable<Routine> {
   final int id;
   final String name;
+
+  /// Which demo programme this is, or null for one of your own.
+  ///
+  /// Cleared the moment the routine is renamed — a programme you have named is
+  /// yours, and must not revert to "Push / Pull / Legs" on the next language
+  /// switch. See `util/seed_names.dart`.
+  final String? seedKey;
   final String colorHex;
   final int position;
 
@@ -876,6 +966,7 @@ class Routine extends DataClass implements Insertable<Routine> {
   const Routine({
     required this.id,
     required this.name,
+    this.seedKey,
     required this.colorHex,
     required this.position,
     required this.restSeconds,
@@ -887,6 +978,9 @@ class Routine extends DataClass implements Insertable<Routine> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || seedKey != null) {
+      map['seed_key'] = Variable<String>(seedKey);
+    }
     map['color_hex'] = Variable<String>(colorHex);
     map['position'] = Variable<int>(position);
     map['rest_seconds'] = Variable<int>(restSeconds);
@@ -901,6 +995,9 @@ class Routine extends DataClass implements Insertable<Routine> {
     return RoutinesCompanion(
       id: Value(id),
       name: Value(name),
+      seedKey: seedKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seedKey),
       colorHex: Value(colorHex),
       position: Value(position),
       restSeconds: Value(restSeconds),
@@ -919,6 +1016,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     return Routine(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      seedKey: serializer.fromJson<String?>(json['seedKey']),
       colorHex: serializer.fromJson<String>(json['colorHex']),
       position: serializer.fromJson<int>(json['position']),
       restSeconds: serializer.fromJson<int>(json['restSeconds']),
@@ -932,6 +1030,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
+      'seedKey': serializer.toJson<String?>(seedKey),
       'colorHex': serializer.toJson<String>(colorHex),
       'position': serializer.toJson<int>(position),
       'restSeconds': serializer.toJson<int>(restSeconds),
@@ -943,6 +1042,7 @@ class Routine extends DataClass implements Insertable<Routine> {
   Routine copyWith({
     int? id,
     String? name,
+    Value<String?> seedKey = const Value.absent(),
     String? colorHex,
     int? position,
     int? restSeconds,
@@ -951,6 +1051,7 @@ class Routine extends DataClass implements Insertable<Routine> {
   }) => Routine(
     id: id ?? this.id,
     name: name ?? this.name,
+    seedKey: seedKey.present ? seedKey.value : this.seedKey,
     colorHex: colorHex ?? this.colorHex,
     position: position ?? this.position,
     restSeconds: restSeconds ?? this.restSeconds,
@@ -963,6 +1064,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     return Routine(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      seedKey: data.seedKey.present ? data.seedKey.value : this.seedKey,
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
       position: data.position.present ? data.position.value : this.position,
       restSeconds: data.restSeconds.present
@@ -982,6 +1084,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     return (StringBuffer('Routine(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('colorHex: $colorHex, ')
           ..write('position: $position, ')
           ..write('restSeconds: $restSeconds, ')
@@ -995,6 +1098,7 @@ class Routine extends DataClass implements Insertable<Routine> {
   int get hashCode => Object.hash(
     id,
     name,
+    seedKey,
     colorHex,
     position,
     restSeconds,
@@ -1007,6 +1111,7 @@ class Routine extends DataClass implements Insertable<Routine> {
       (other is Routine &&
           other.id == this.id &&
           other.name == this.name &&
+          other.seedKey == this.seedKey &&
           other.colorHex == this.colorHex &&
           other.position == this.position &&
           other.restSeconds == this.restSeconds &&
@@ -1017,6 +1122,7 @@ class Routine extends DataClass implements Insertable<Routine> {
 class RoutinesCompanion extends UpdateCompanion<Routine> {
   final Value<int> id;
   final Value<String> name;
+  final Value<String?> seedKey;
   final Value<String> colorHex;
   final Value<int> position;
   final Value<int> restSeconds;
@@ -1025,6 +1131,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   const RoutinesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.seedKey = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.position = const Value.absent(),
     this.restSeconds = const Value.absent(),
@@ -1034,6 +1141,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   RoutinesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    this.seedKey = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.position = const Value.absent(),
     this.restSeconds = const Value.absent(),
@@ -1043,6 +1151,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   static Insertable<Routine> custom({
     Expression<int>? id,
     Expression<String>? name,
+    Expression<String>? seedKey,
     Expression<String>? colorHex,
     Expression<int>? position,
     Expression<int>? restSeconds,
@@ -1052,6 +1161,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (seedKey != null) 'seed_key': seedKey,
       if (colorHex != null) 'color_hex': colorHex,
       if (position != null) 'position': position,
       if (restSeconds != null) 'rest_seconds': restSeconds,
@@ -1063,6 +1173,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   RoutinesCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
+    Value<String?>? seedKey,
     Value<String>? colorHex,
     Value<int>? position,
     Value<int>? restSeconds,
@@ -1072,6 +1183,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     return RoutinesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      seedKey: seedKey ?? this.seedKey,
       colorHex: colorHex ?? this.colorHex,
       position: position ?? this.position,
       restSeconds: restSeconds ?? this.restSeconds,
@@ -1088,6 +1200,9 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (seedKey.present) {
+      map['seed_key'] = Variable<String>(seedKey.value);
     }
     if (colorHex.present) {
       map['color_hex'] = Variable<String>(colorHex.value);
@@ -1112,6 +1227,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     return (StringBuffer('RoutinesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('colorHex: $colorHex, ')
           ..write('position: $position, ')
           ..write('restSeconds: $restSeconds, ')
@@ -1164,6 +1280,17 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _seedKeyMeta = const VerificationMeta(
+    'seedKey',
+  );
+  @override
+  late final GeneratedColumn<String> seedKey = GeneratedColumn<String>(
+    'seed_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _positionMeta = const VerificationMeta(
     'position',
   );
@@ -1177,7 +1304,13 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     defaultValue: const Constant(0),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, routineId, name, position];
+  List<GeneratedColumn> get $columns => [
+    id,
+    routineId,
+    name,
+    seedKey,
+    position,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1209,6 +1342,12 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('seed_key')) {
+      context.handle(
+        _seedKeyMeta,
+        seedKey.isAcceptableOrUnknown(data['seed_key']!, _seedKeyMeta),
+      );
+    }
     if (data.containsKey('position')) {
       context.handle(
         _positionMeta,
@@ -1236,6 +1375,10 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      seedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seed_key'],
+      ),
       position: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}position'],
@@ -1253,11 +1396,16 @@ class Workout extends DataClass implements Insertable<Workout> {
   final int id;
   final int routineId;
   final String name;
+
+  /// Which training day of a demo programme this is, or null. Cleared on
+  /// rename, for the same reason as [Routines.seedKey].
+  final String? seedKey;
   final int position;
   const Workout({
     required this.id,
     required this.routineId,
     required this.name,
+    this.seedKey,
     required this.position,
   });
   @override
@@ -1266,6 +1414,9 @@ class Workout extends DataClass implements Insertable<Workout> {
     map['id'] = Variable<int>(id);
     map['routine_id'] = Variable<int>(routineId);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || seedKey != null) {
+      map['seed_key'] = Variable<String>(seedKey);
+    }
     map['position'] = Variable<int>(position);
     return map;
   }
@@ -1275,6 +1426,9 @@ class Workout extends DataClass implements Insertable<Workout> {
       id: Value(id),
       routineId: Value(routineId),
       name: Value(name),
+      seedKey: seedKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seedKey),
       position: Value(position),
     );
   }
@@ -1288,6 +1442,7 @@ class Workout extends DataClass implements Insertable<Workout> {
       id: serializer.fromJson<int>(json['id']),
       routineId: serializer.fromJson<int>(json['routineId']),
       name: serializer.fromJson<String>(json['name']),
+      seedKey: serializer.fromJson<String?>(json['seedKey']),
       position: serializer.fromJson<int>(json['position']),
     );
   }
@@ -1298,22 +1453,30 @@ class Workout extends DataClass implements Insertable<Workout> {
       'id': serializer.toJson<int>(id),
       'routineId': serializer.toJson<int>(routineId),
       'name': serializer.toJson<String>(name),
+      'seedKey': serializer.toJson<String?>(seedKey),
       'position': serializer.toJson<int>(position),
     };
   }
 
-  Workout copyWith({int? id, int? routineId, String? name, int? position}) =>
-      Workout(
-        id: id ?? this.id,
-        routineId: routineId ?? this.routineId,
-        name: name ?? this.name,
-        position: position ?? this.position,
-      );
+  Workout copyWith({
+    int? id,
+    int? routineId,
+    String? name,
+    Value<String?> seedKey = const Value.absent(),
+    int? position,
+  }) => Workout(
+    id: id ?? this.id,
+    routineId: routineId ?? this.routineId,
+    name: name ?? this.name,
+    seedKey: seedKey.present ? seedKey.value : this.seedKey,
+    position: position ?? this.position,
+  );
   Workout copyWithCompanion(WorkoutsCompanion data) {
     return Workout(
       id: data.id.present ? data.id.value : this.id,
       routineId: data.routineId.present ? data.routineId.value : this.routineId,
       name: data.name.present ? data.name.value : this.name,
+      seedKey: data.seedKey.present ? data.seedKey.value : this.seedKey,
       position: data.position.present ? data.position.value : this.position,
     );
   }
@@ -1324,13 +1487,14 @@ class Workout extends DataClass implements Insertable<Workout> {
           ..write('id: $id, ')
           ..write('routineId: $routineId, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('position: $position')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, routineId, name, position);
+  int get hashCode => Object.hash(id, routineId, name, seedKey, position);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1338,6 +1502,7 @@ class Workout extends DataClass implements Insertable<Workout> {
           other.id == this.id &&
           other.routineId == this.routineId &&
           other.name == this.name &&
+          other.seedKey == this.seedKey &&
           other.position == this.position);
 }
 
@@ -1345,17 +1510,20 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
   final Value<int> id;
   final Value<int> routineId;
   final Value<String> name;
+  final Value<String?> seedKey;
   final Value<int> position;
   const WorkoutsCompanion({
     this.id = const Value.absent(),
     this.routineId = const Value.absent(),
     this.name = const Value.absent(),
+    this.seedKey = const Value.absent(),
     this.position = const Value.absent(),
   });
   WorkoutsCompanion.insert({
     this.id = const Value.absent(),
     required int routineId,
     required String name,
+    this.seedKey = const Value.absent(),
     this.position = const Value.absent(),
   }) : routineId = Value(routineId),
        name = Value(name);
@@ -1363,12 +1531,14 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     Expression<int>? id,
     Expression<int>? routineId,
     Expression<String>? name,
+    Expression<String>? seedKey,
     Expression<int>? position,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (routineId != null) 'routine_id': routineId,
       if (name != null) 'name': name,
+      if (seedKey != null) 'seed_key': seedKey,
       if (position != null) 'position': position,
     });
   }
@@ -1377,12 +1547,14 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     Value<int>? id,
     Value<int>? routineId,
     Value<String>? name,
+    Value<String?>? seedKey,
     Value<int>? position,
   }) {
     return WorkoutsCompanion(
       id: id ?? this.id,
       routineId: routineId ?? this.routineId,
       name: name ?? this.name,
+      seedKey: seedKey ?? this.seedKey,
       position: position ?? this.position,
     );
   }
@@ -1399,6 +1571,9 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (seedKey.present) {
+      map['seed_key'] = Variable<String>(seedKey.value);
+    }
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
@@ -1411,6 +1586,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
           ..write('id: $id, ')
           ..write('routineId: $routineId, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('position: $position')
           ..write(')'))
         .toString();
@@ -2516,6 +2692,17 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _seedKeyMeta = const VerificationMeta(
+    'seedKey',
+  );
+  @override
+  late final GeneratedColumn<String> seedKey = GeneratedColumn<String>(
+    'seed_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _startedAtMeta = const VerificationMeta(
     'startedAt',
   );
@@ -2580,6 +2767,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     routineId,
     workoutId,
     name,
+    seedKey,
     startedAt,
     endedAt,
     durationSeconds,
@@ -2620,6 +2808,12 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('seed_key')) {
+      context.handle(
+        _seedKeyMeta,
+        seedKey.isAcceptableOrUnknown(data['seed_key']!, _seedKeyMeta),
+      );
     }
     if (data.containsKey('started_at')) {
       context.handle(
@@ -2687,6 +2881,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      seedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seed_key'],
+      ),
       startedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}started_at'],
@@ -2721,6 +2919,11 @@ class Session extends DataClass implements Insertable<Session> {
   final int? routineId;
   final int? workoutId;
   final String name;
+
+  /// The seed key of the training day this was, or null. Denormalised beside
+  /// [name] for the same two reasons the sets denormalise theirs: the template
+  /// may be edited or deleted, and the name still has to follow the language.
+  final String? seedKey;
   final DateTime startedAt;
   final DateTime? endedAt;
   final int durationSeconds;
@@ -2731,6 +2934,7 @@ class Session extends DataClass implements Insertable<Session> {
     this.routineId,
     this.workoutId,
     required this.name,
+    this.seedKey,
     required this.startedAt,
     this.endedAt,
     required this.durationSeconds,
@@ -2748,6 +2952,9 @@ class Session extends DataClass implements Insertable<Session> {
       map['workout_id'] = Variable<int>(workoutId);
     }
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || seedKey != null) {
+      map['seed_key'] = Variable<String>(seedKey);
+    }
     map['started_at'] = Variable<DateTime>(startedAt);
     if (!nullToAbsent || endedAt != null) {
       map['ended_at'] = Variable<DateTime>(endedAt);
@@ -2768,6 +2975,9 @@ class Session extends DataClass implements Insertable<Session> {
           ? const Value.absent()
           : Value(workoutId),
       name: Value(name),
+      seedKey: seedKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seedKey),
       startedAt: Value(startedAt),
       endedAt: endedAt == null && nullToAbsent
           ? const Value.absent()
@@ -2788,6 +2998,7 @@ class Session extends DataClass implements Insertable<Session> {
       routineId: serializer.fromJson<int?>(json['routineId']),
       workoutId: serializer.fromJson<int?>(json['workoutId']),
       name: serializer.fromJson<String>(json['name']),
+      seedKey: serializer.fromJson<String?>(json['seedKey']),
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
@@ -2803,6 +3014,7 @@ class Session extends DataClass implements Insertable<Session> {
       'routineId': serializer.toJson<int?>(routineId),
       'workoutId': serializer.toJson<int?>(workoutId),
       'name': serializer.toJson<String>(name),
+      'seedKey': serializer.toJson<String?>(seedKey),
       'startedAt': serializer.toJson<DateTime>(startedAt),
       'endedAt': serializer.toJson<DateTime?>(endedAt),
       'durationSeconds': serializer.toJson<int>(durationSeconds),
@@ -2816,6 +3028,7 @@ class Session extends DataClass implements Insertable<Session> {
     Value<int?> routineId = const Value.absent(),
     Value<int?> workoutId = const Value.absent(),
     String? name,
+    Value<String?> seedKey = const Value.absent(),
     DateTime? startedAt,
     Value<DateTime?> endedAt = const Value.absent(),
     int? durationSeconds,
@@ -2826,6 +3039,7 @@ class Session extends DataClass implements Insertable<Session> {
     routineId: routineId.present ? routineId.value : this.routineId,
     workoutId: workoutId.present ? workoutId.value : this.workoutId,
     name: name ?? this.name,
+    seedKey: seedKey.present ? seedKey.value : this.seedKey,
     startedAt: startedAt ?? this.startedAt,
     endedAt: endedAt.present ? endedAt.value : this.endedAt,
     durationSeconds: durationSeconds ?? this.durationSeconds,
@@ -2838,6 +3052,7 @@ class Session extends DataClass implements Insertable<Session> {
       routineId: data.routineId.present ? data.routineId.value : this.routineId,
       workoutId: data.workoutId.present ? data.workoutId.value : this.workoutId,
       name: data.name.present ? data.name.value : this.name,
+      seedKey: data.seedKey.present ? data.seedKey.value : this.seedKey,
       startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
       endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
       durationSeconds: data.durationSeconds.present
@@ -2859,6 +3074,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('routineId: $routineId, ')
           ..write('workoutId: $workoutId, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('durationSeconds: $durationSeconds, ')
@@ -2874,6 +3090,7 @@ class Session extends DataClass implements Insertable<Session> {
     routineId,
     workoutId,
     name,
+    seedKey,
     startedAt,
     endedAt,
     durationSeconds,
@@ -2888,6 +3105,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.routineId == this.routineId &&
           other.workoutId == this.workoutId &&
           other.name == this.name &&
+          other.seedKey == this.seedKey &&
           other.startedAt == this.startedAt &&
           other.endedAt == this.endedAt &&
           other.durationSeconds == this.durationSeconds &&
@@ -2900,6 +3118,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<int?> routineId;
   final Value<int?> workoutId;
   final Value<String> name;
+  final Value<String?> seedKey;
   final Value<DateTime> startedAt;
   final Value<DateTime?> endedAt;
   final Value<int> durationSeconds;
@@ -2910,6 +3129,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.routineId = const Value.absent(),
     this.workoutId = const Value.absent(),
     this.name = const Value.absent(),
+    this.seedKey = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.endedAt = const Value.absent(),
     this.durationSeconds = const Value.absent(),
@@ -2921,6 +3141,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.routineId = const Value.absent(),
     this.workoutId = const Value.absent(),
     required String name,
+    this.seedKey = const Value.absent(),
     required DateTime startedAt,
     this.endedAt = const Value.absent(),
     this.durationSeconds = const Value.absent(),
@@ -2933,6 +3154,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<int>? routineId,
     Expression<int>? workoutId,
     Expression<String>? name,
+    Expression<String>? seedKey,
     Expression<DateTime>? startedAt,
     Expression<DateTime>? endedAt,
     Expression<int>? durationSeconds,
@@ -2944,6 +3166,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (routineId != null) 'routine_id': routineId,
       if (workoutId != null) 'workout_id': workoutId,
       if (name != null) 'name': name,
+      if (seedKey != null) 'seed_key': seedKey,
       if (startedAt != null) 'started_at': startedAt,
       if (endedAt != null) 'ended_at': endedAt,
       if (durationSeconds != null) 'duration_seconds': durationSeconds,
@@ -2957,6 +3180,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<int?>? routineId,
     Value<int?>? workoutId,
     Value<String>? name,
+    Value<String?>? seedKey,
     Value<DateTime>? startedAt,
     Value<DateTime?>? endedAt,
     Value<int>? durationSeconds,
@@ -2968,6 +3192,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       routineId: routineId ?? this.routineId,
       workoutId: workoutId ?? this.workoutId,
       name: name ?? this.name,
+      seedKey: seedKey ?? this.seedKey,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       durationSeconds: durationSeconds ?? this.durationSeconds,
@@ -2990,6 +3215,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (seedKey.present) {
+      map['seed_key'] = Variable<String>(seedKey.value);
     }
     if (startedAt.present) {
       map['started_at'] = Variable<DateTime>(startedAt.value);
@@ -3016,6 +3244,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('routineId: $routineId, ')
           ..write('workoutId: $workoutId, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('durationSeconds: $durationSeconds, ')
@@ -3080,6 +3309,17 @@ class $SessionSetsTable extends SessionSets
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _exerciseSeedKeyMeta = const VerificationMeta(
+    'exerciseSeedKey',
+  );
+  @override
+  late final GeneratedColumn<String> exerciseSeedKey = GeneratedColumn<String>(
+    'exercise_seed_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _setNumberMeta = const VerificationMeta(
     'setNumber',
@@ -3187,6 +3427,7 @@ class $SessionSetsTable extends SessionSets
     sessionId,
     exerciseId,
     exerciseName,
+    exerciseSeedKey,
     setNumber,
     weight,
     reps,
@@ -3236,6 +3477,15 @@ class $SessionSetsTable extends SessionSets
       );
     } else if (isInserting) {
       context.missing(_exerciseNameMeta);
+    }
+    if (data.containsKey('exercise_seed_key')) {
+      context.handle(
+        _exerciseSeedKeyMeta,
+        exerciseSeedKey.isAcceptableOrUnknown(
+          data['exercise_seed_key']!,
+          _exerciseSeedKeyMeta,
+        ),
+      );
     }
     if (data.containsKey('set_number')) {
       context.handle(
@@ -3321,6 +3571,10 @@ class $SessionSetsTable extends SessionSets
         DriftSqlType.string,
         data['${effectivePrefix}exercise_name'],
       )!,
+      exerciseSeedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exercise_seed_key'],
+      ),
       setNumber: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}set_number'],
@@ -3371,6 +3625,12 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
   final int sessionId;
   final int? exerciseId;
   final String exerciseName;
+
+  /// The seed key of the movement, copied alongside its name and for the same
+  /// reason: a logged set has to stay readable after a library edit, *and* has
+  /// to follow a language switch. Null for a movement you added yourself, whose
+  /// name is the only answer there is.
+  final String? exerciseSeedKey;
   final int setNumber;
   final double weight;
   final int reps;
@@ -3414,6 +3674,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     required this.sessionId,
     this.exerciseId,
     required this.exerciseName,
+    this.exerciseSeedKey,
     required this.setNumber,
     required this.weight,
     required this.reps,
@@ -3433,6 +3694,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       map['exercise_id'] = Variable<int>(exerciseId);
     }
     map['exercise_name'] = Variable<String>(exerciseName);
+    if (!nullToAbsent || exerciseSeedKey != null) {
+      map['exercise_seed_key'] = Variable<String>(exerciseSeedKey);
+    }
     map['set_number'] = Variable<int>(setNumber);
     map['weight'] = Variable<double>(weight);
     map['reps'] = Variable<int>(reps);
@@ -3461,6 +3725,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ? const Value.absent()
           : Value(exerciseId),
       exerciseName: Value(exerciseName),
+      exerciseSeedKey: exerciseSeedKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exerciseSeedKey),
       setNumber: Value(setNumber),
       weight: Value(weight),
       reps: Value(reps),
@@ -3491,6 +3758,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       sessionId: serializer.fromJson<int>(json['sessionId']),
       exerciseId: serializer.fromJson<int?>(json['exerciseId']),
       exerciseName: serializer.fromJson<String>(json['exerciseName']),
+      exerciseSeedKey: serializer.fromJson<String?>(json['exerciseSeedKey']),
       setNumber: serializer.fromJson<int>(json['setNumber']),
       weight: serializer.fromJson<double>(json['weight']),
       reps: serializer.fromJson<int>(json['reps']),
@@ -3510,6 +3778,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       'sessionId': serializer.toJson<int>(sessionId),
       'exerciseId': serializer.toJson<int?>(exerciseId),
       'exerciseName': serializer.toJson<String>(exerciseName),
+      'exerciseSeedKey': serializer.toJson<String?>(exerciseSeedKey),
       'setNumber': serializer.toJson<int>(setNumber),
       'weight': serializer.toJson<double>(weight),
       'reps': serializer.toJson<int>(reps),
@@ -3527,6 +3796,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     int? sessionId,
     Value<int?> exerciseId = const Value.absent(),
     String? exerciseName,
+    Value<String?> exerciseSeedKey = const Value.absent(),
     int? setNumber,
     double? weight,
     int? reps,
@@ -3541,6 +3811,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     sessionId: sessionId ?? this.sessionId,
     exerciseId: exerciseId.present ? exerciseId.value : this.exerciseId,
     exerciseName: exerciseName ?? this.exerciseName,
+    exerciseSeedKey: exerciseSeedKey.present
+        ? exerciseSeedKey.value
+        : this.exerciseSeedKey,
     setNumber: setNumber ?? this.setNumber,
     weight: weight ?? this.weight,
     reps: reps ?? this.reps,
@@ -3561,6 +3834,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       exerciseName: data.exerciseName.present
           ? data.exerciseName.value
           : this.exerciseName,
+      exerciseSeedKey: data.exerciseSeedKey.present
+          ? data.exerciseSeedKey.value
+          : this.exerciseSeedKey,
       setNumber: data.setNumber.present ? data.setNumber.value : this.setNumber,
       weight: data.weight.present ? data.weight.value : this.weight,
       reps: data.reps.present ? data.reps.value : this.reps,
@@ -3584,6 +3860,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ..write('sessionId: $sessionId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('exerciseName: $exerciseName, ')
+          ..write('exerciseSeedKey: $exerciseSeedKey, ')
           ..write('setNumber: $setNumber, ')
           ..write('weight: $weight, ')
           ..write('reps: $reps, ')
@@ -3603,6 +3880,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     sessionId,
     exerciseId,
     exerciseName,
+    exerciseSeedKey,
     setNumber,
     weight,
     reps,
@@ -3621,6 +3899,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           other.sessionId == this.sessionId &&
           other.exerciseId == this.exerciseId &&
           other.exerciseName == this.exerciseName &&
+          other.exerciseSeedKey == this.exerciseSeedKey &&
           other.setNumber == this.setNumber &&
           other.weight == this.weight &&
           other.reps == this.reps &&
@@ -3637,6 +3916,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
   final Value<int> sessionId;
   final Value<int?> exerciseId;
   final Value<String> exerciseName;
+  final Value<String?> exerciseSeedKey;
   final Value<int> setNumber;
   final Value<double> weight;
   final Value<int> reps;
@@ -3651,6 +3931,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.sessionId = const Value.absent(),
     this.exerciseId = const Value.absent(),
     this.exerciseName = const Value.absent(),
+    this.exerciseSeedKey = const Value.absent(),
     this.setNumber = const Value.absent(),
     this.weight = const Value.absent(),
     this.reps = const Value.absent(),
@@ -3666,6 +3947,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     required int sessionId,
     this.exerciseId = const Value.absent(),
     required String exerciseName,
+    this.exerciseSeedKey = const Value.absent(),
     required int setNumber,
     this.weight = const Value.absent(),
     this.reps = const Value.absent(),
@@ -3683,6 +3965,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Expression<int>? sessionId,
     Expression<int>? exerciseId,
     Expression<String>? exerciseName,
+    Expression<String>? exerciseSeedKey,
     Expression<int>? setNumber,
     Expression<double>? weight,
     Expression<int>? reps,
@@ -3698,6 +3981,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       if (sessionId != null) 'session_id': sessionId,
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (exerciseName != null) 'exercise_name': exerciseName,
+      if (exerciseSeedKey != null) 'exercise_seed_key': exerciseSeedKey,
       if (setNumber != null) 'set_number': setNumber,
       if (weight != null) 'weight': weight,
       if (reps != null) 'reps': reps,
@@ -3715,6 +3999,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Value<int>? sessionId,
     Value<int?>? exerciseId,
     Value<String>? exerciseName,
+    Value<String?>? exerciseSeedKey,
     Value<int>? setNumber,
     Value<double>? weight,
     Value<int>? reps,
@@ -3730,6 +4015,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       sessionId: sessionId ?? this.sessionId,
       exerciseId: exerciseId ?? this.exerciseId,
       exerciseName: exerciseName ?? this.exerciseName,
+      exerciseSeedKey: exerciseSeedKey ?? this.exerciseSeedKey,
       setNumber: setNumber ?? this.setNumber,
       weight: weight ?? this.weight,
       reps: reps ?? this.reps,
@@ -3756,6 +4042,9 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     }
     if (exerciseName.present) {
       map['exercise_name'] = Variable<String>(exerciseName.value);
+    }
+    if (exerciseSeedKey.present) {
+      map['exercise_seed_key'] = Variable<String>(exerciseSeedKey.value);
     }
     if (setNumber.present) {
       map['set_number'] = Variable<int>(setNumber.value);
@@ -3794,6 +4083,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
           ..write('sessionId: $sessionId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('exerciseName: $exerciseName, ')
+          ..write('exerciseSeedKey: $exerciseSeedKey, ')
           ..write('setNumber: $setNumber, ')
           ..write('weight: $weight, ')
           ..write('reps: $reps, ')
@@ -3965,6 +4255,17 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant(kDefaultVideoSeconds),
   );
+  static const VerificationMeta _localeTagMeta = const VerificationMeta(
+    'localeTag',
+  );
+  @override
+  late final GeneratedColumn<String> localeTag = GeneratedColumn<String>(
+    'locale_tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3980,6 +4281,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     themePresetId,
     videoHeight,
     videoMaxSeconds,
+    localeTag,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4092,6 +4394,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         ),
       );
     }
+    if (data.containsKey('locale_tag')) {
+      context.handle(
+        _localeTagMeta,
+        localeTag.isAcceptableOrUnknown(data['locale_tag']!, _localeTagMeta),
+      );
+    }
     return context;
   }
 
@@ -4153,6 +4461,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.int,
         data['${effectivePrefix}video_max_seconds'],
       )!,
+      localeTag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}locale_tag'],
+      ),
     );
   }
 
@@ -4243,6 +4555,14 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// and the app films the ceiling. 60 covers any straight set; the longer step
   /// exists for a 20-rep squat set or a held exercise.
   final int videoMaxSeconds;
+
+  /// The language the user picked, as `uk` or `pt_BR` — see `util/locales.dart`.
+  ///
+  /// Null means "follow the phone", which is the default and the right answer
+  /// for almost everybody: the phone has already been asked this question. It
+  /// exists for the gap that leaves — a phone kept in one language by an
+  /// employer or a habit, and an app you would rather read in another.
+  final String? localeTag;
   const Setting({
     required this.id,
     required this.weightUnit,
@@ -4257,6 +4577,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.themePresetId,
     required this.videoHeight,
     required this.videoMaxSeconds,
+    this.localeTag,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4284,6 +4605,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     }
     map['video_height'] = Variable<int>(videoHeight);
     map['video_max_seconds'] = Variable<int>(videoMaxSeconds);
+    if (!nullToAbsent || localeTag != null) {
+      map['locale_tag'] = Variable<String>(localeTag);
+    }
     return map;
   }
 
@@ -4312,6 +4636,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           : Value(themePresetId),
       videoHeight: Value(videoHeight),
       videoMaxSeconds: Value(videoMaxSeconds),
+      localeTag: localeTag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localeTag),
     );
   }
 
@@ -4334,6 +4661,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       themePresetId: serializer.fromJson<String?>(json['themePresetId']),
       videoHeight: serializer.fromJson<int>(json['videoHeight']),
       videoMaxSeconds: serializer.fromJson<int>(json['videoMaxSeconds']),
+      localeTag: serializer.fromJson<String?>(json['localeTag']),
     );
   }
   @override
@@ -4353,6 +4681,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'themePresetId': serializer.toJson<String?>(themePresetId),
       'videoHeight': serializer.toJson<int>(videoHeight),
       'videoMaxSeconds': serializer.toJson<int>(videoMaxSeconds),
+      'localeTag': serializer.toJson<String?>(localeTag),
     };
   }
 
@@ -4370,6 +4699,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> themePresetId = const Value.absent(),
     int? videoHeight,
     int? videoMaxSeconds,
+    Value<String?> localeTag = const Value.absent(),
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -4392,6 +4722,7 @@ class Setting extends DataClass implements Insertable<Setting> {
         : this.themePresetId,
     videoHeight: videoHeight ?? this.videoHeight,
     videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
+    localeTag: localeTag.present ? localeTag.value : this.localeTag,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -4428,6 +4759,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       videoMaxSeconds: data.videoMaxSeconds.present
           ? data.videoMaxSeconds.value
           : this.videoMaxSeconds,
+      localeTag: data.localeTag.present ? data.localeTag.value : this.localeTag,
     );
   }
 
@@ -4446,7 +4778,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('textScale: $textScale, ')
           ..write('themePresetId: $themePresetId, ')
           ..write('videoHeight: $videoHeight, ')
-          ..write('videoMaxSeconds: $videoMaxSeconds')
+          ..write('videoMaxSeconds: $videoMaxSeconds, ')
+          ..write('localeTag: $localeTag')
           ..write(')'))
         .toString();
   }
@@ -4466,6 +4799,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     themePresetId,
     videoHeight,
     videoMaxSeconds,
+    localeTag,
   );
   @override
   bool operator ==(Object other) =>
@@ -4483,7 +4817,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.textScale == this.textScale &&
           other.themePresetId == this.themePresetId &&
           other.videoHeight == this.videoHeight &&
-          other.videoMaxSeconds == this.videoMaxSeconds);
+          other.videoMaxSeconds == this.videoMaxSeconds &&
+          other.localeTag == this.localeTag);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -4500,6 +4835,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String?> themePresetId;
   final Value<int> videoHeight;
   final Value<int> videoMaxSeconds;
+  final Value<String?> localeTag;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -4514,6 +4850,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.themePresetId = const Value.absent(),
     this.videoHeight = const Value.absent(),
     this.videoMaxSeconds = const Value.absent(),
+    this.localeTag = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -4529,6 +4866,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.themePresetId = const Value.absent(),
     this.videoHeight = const Value.absent(),
     this.videoMaxSeconds = const Value.absent(),
+    this.localeTag = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -4544,6 +4882,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<String>? themePresetId,
     Expression<int>? videoHeight,
     Expression<int>? videoMaxSeconds,
+    Expression<String>? localeTag,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4559,6 +4898,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (themePresetId != null) 'theme_preset_id': themePresetId,
       if (videoHeight != null) 'video_height': videoHeight,
       if (videoMaxSeconds != null) 'video_max_seconds': videoMaxSeconds,
+      if (localeTag != null) 'locale_tag': localeTag,
     });
   }
 
@@ -4576,6 +4916,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<String?>? themePresetId,
     Value<int>? videoHeight,
     Value<int>? videoMaxSeconds,
+    Value<String?>? localeTag,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -4591,6 +4932,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       themePresetId: themePresetId ?? this.themePresetId,
       videoHeight: videoHeight ?? this.videoHeight,
       videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
+      localeTag: localeTag ?? this.localeTag,
     );
   }
 
@@ -4636,6 +4978,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (videoMaxSeconds.present) {
       map['video_max_seconds'] = Variable<int>(videoMaxSeconds.value);
     }
+    if (localeTag.present) {
+      map['locale_tag'] = Variable<String>(localeTag.value);
+    }
     return map;
   }
 
@@ -4654,7 +4999,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('textScale: $textScale, ')
           ..write('themePresetId: $themePresetId, ')
           ..write('videoHeight: $videoHeight, ')
-          ..write('videoMaxSeconds: $videoMaxSeconds')
+          ..write('videoMaxSeconds: $videoMaxSeconds, ')
+          ..write('localeTag: $localeTag')
           ..write(')'))
         .toString();
   }
@@ -5152,6 +5498,17 @@ class $BarsTable extends Bars with TableInfo<$BarsTable, Bar> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _seedKeyMeta = const VerificationMeta(
+    'seedKey',
+  );
+  @override
+  late final GeneratedColumn<String> seedKey = GeneratedColumn<String>(
+    'seed_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _weightKgMeta = const VerificationMeta(
     'weightKg',
   );
@@ -5179,7 +5536,14 @@ class $BarsTable extends Bars with TableInfo<$BarsTable, Bar> {
     defaultValue: const Constant(false),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, unit, name, weightKg, isCustom];
+  List<GeneratedColumn> get $columns => [
+    id,
+    unit,
+    name,
+    seedKey,
+    weightKg,
+    isCustom,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5210,6 +5574,12 @@ class $BarsTable extends Bars with TableInfo<$BarsTable, Bar> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('seed_key')) {
+      context.handle(
+        _seedKeyMeta,
+        seedKey.isAcceptableOrUnknown(data['seed_key']!, _seedKeyMeta),
+      );
     }
     if (data.containsKey('weight_kg')) {
       context.handle(
@@ -5246,6 +5616,10 @@ class $BarsTable extends Bars with TableInfo<$BarsTable, Bar> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      seedKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seed_key'],
+      ),
       weightKg: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}weight_kg'],
@@ -5270,6 +5644,13 @@ class Bar extends DataClass implements Insertable<Bar> {
   final String unit;
   final String name;
 
+  /// Which of the bars the app ships with this is, or null for one you added.
+  ///
+  /// The seeded bars are fixed — [isCustom] false, unrenameable — so unlike a
+  /// routine or a training day this key is never cleared. See
+  /// `util/seed_names.dart`.
+  final String? seedKey;
+
   /// What the bar weighs, in kilograms.
   final double weightKg;
 
@@ -5280,6 +5661,7 @@ class Bar extends DataClass implements Insertable<Bar> {
     required this.id,
     required this.unit,
     required this.name,
+    this.seedKey,
     required this.weightKg,
     required this.isCustom,
   });
@@ -5289,6 +5671,9 @@ class Bar extends DataClass implements Insertable<Bar> {
     map['id'] = Variable<int>(id);
     map['unit'] = Variable<String>(unit);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || seedKey != null) {
+      map['seed_key'] = Variable<String>(seedKey);
+    }
     map['weight_kg'] = Variable<double>(weightKg);
     map['is_custom'] = Variable<bool>(isCustom);
     return map;
@@ -5299,6 +5684,9 @@ class Bar extends DataClass implements Insertable<Bar> {
       id: Value(id),
       unit: Value(unit),
       name: Value(name),
+      seedKey: seedKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seedKey),
       weightKg: Value(weightKg),
       isCustom: Value(isCustom),
     );
@@ -5313,6 +5701,7 @@ class Bar extends DataClass implements Insertable<Bar> {
       id: serializer.fromJson<int>(json['id']),
       unit: serializer.fromJson<String>(json['unit']),
       name: serializer.fromJson<String>(json['name']),
+      seedKey: serializer.fromJson<String?>(json['seedKey']),
       weightKg: serializer.fromJson<double>(json['weightKg']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
     );
@@ -5324,6 +5713,7 @@ class Bar extends DataClass implements Insertable<Bar> {
       'id': serializer.toJson<int>(id),
       'unit': serializer.toJson<String>(unit),
       'name': serializer.toJson<String>(name),
+      'seedKey': serializer.toJson<String?>(seedKey),
       'weightKg': serializer.toJson<double>(weightKg),
       'isCustom': serializer.toJson<bool>(isCustom),
     };
@@ -5333,12 +5723,14 @@ class Bar extends DataClass implements Insertable<Bar> {
     int? id,
     String? unit,
     String? name,
+    Value<String?> seedKey = const Value.absent(),
     double? weightKg,
     bool? isCustom,
   }) => Bar(
     id: id ?? this.id,
     unit: unit ?? this.unit,
     name: name ?? this.name,
+    seedKey: seedKey.present ? seedKey.value : this.seedKey,
     weightKg: weightKg ?? this.weightKg,
     isCustom: isCustom ?? this.isCustom,
   );
@@ -5347,6 +5739,7 @@ class Bar extends DataClass implements Insertable<Bar> {
       id: data.id.present ? data.id.value : this.id,
       unit: data.unit.present ? data.unit.value : this.unit,
       name: data.name.present ? data.name.value : this.name,
+      seedKey: data.seedKey.present ? data.seedKey.value : this.seedKey,
       weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
     );
@@ -5358,6 +5751,7 @@ class Bar extends DataClass implements Insertable<Bar> {
           ..write('id: $id, ')
           ..write('unit: $unit, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('weightKg: $weightKg, ')
           ..write('isCustom: $isCustom')
           ..write(')'))
@@ -5365,7 +5759,7 @@ class Bar extends DataClass implements Insertable<Bar> {
   }
 
   @override
-  int get hashCode => Object.hash(id, unit, name, weightKg, isCustom);
+  int get hashCode => Object.hash(id, unit, name, seedKey, weightKg, isCustom);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5373,6 +5767,7 @@ class Bar extends DataClass implements Insertable<Bar> {
           other.id == this.id &&
           other.unit == this.unit &&
           other.name == this.name &&
+          other.seedKey == this.seedKey &&
           other.weightKg == this.weightKg &&
           other.isCustom == this.isCustom);
 }
@@ -5381,12 +5776,14 @@ class BarsCompanion extends UpdateCompanion<Bar> {
   final Value<int> id;
   final Value<String> unit;
   final Value<String> name;
+  final Value<String?> seedKey;
   final Value<double> weightKg;
   final Value<bool> isCustom;
   const BarsCompanion({
     this.id = const Value.absent(),
     this.unit = const Value.absent(),
     this.name = const Value.absent(),
+    this.seedKey = const Value.absent(),
     this.weightKg = const Value.absent(),
     this.isCustom = const Value.absent(),
   });
@@ -5394,6 +5791,7 @@ class BarsCompanion extends UpdateCompanion<Bar> {
     this.id = const Value.absent(),
     required String unit,
     required String name,
+    this.seedKey = const Value.absent(),
     required double weightKg,
     this.isCustom = const Value.absent(),
   }) : unit = Value(unit),
@@ -5403,6 +5801,7 @@ class BarsCompanion extends UpdateCompanion<Bar> {
     Expression<int>? id,
     Expression<String>? unit,
     Expression<String>? name,
+    Expression<String>? seedKey,
     Expression<double>? weightKg,
     Expression<bool>? isCustom,
   }) {
@@ -5410,6 +5809,7 @@ class BarsCompanion extends UpdateCompanion<Bar> {
       if (id != null) 'id': id,
       if (unit != null) 'unit': unit,
       if (name != null) 'name': name,
+      if (seedKey != null) 'seed_key': seedKey,
       if (weightKg != null) 'weight_kg': weightKg,
       if (isCustom != null) 'is_custom': isCustom,
     });
@@ -5419,6 +5819,7 @@ class BarsCompanion extends UpdateCompanion<Bar> {
     Value<int>? id,
     Value<String>? unit,
     Value<String>? name,
+    Value<String?>? seedKey,
     Value<double>? weightKg,
     Value<bool>? isCustom,
   }) {
@@ -5426,6 +5827,7 @@ class BarsCompanion extends UpdateCompanion<Bar> {
       id: id ?? this.id,
       unit: unit ?? this.unit,
       name: name ?? this.name,
+      seedKey: seedKey ?? this.seedKey,
       weightKg: weightKg ?? this.weightKg,
       isCustom: isCustom ?? this.isCustom,
     );
@@ -5443,6 +5845,9 @@ class BarsCompanion extends UpdateCompanion<Bar> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (seedKey.present) {
+      map['seed_key'] = Variable<String>(seedKey.value);
+    }
     if (weightKg.present) {
       map['weight_kg'] = Variable<double>(weightKg.value);
     }
@@ -5458,6 +5863,7 @@ class BarsCompanion extends UpdateCompanion<Bar> {
           ..write('id: $id, ')
           ..write('unit: $unit, ')
           ..write('name: $name, ')
+          ..write('seedKey: $seedKey, ')
           ..write('weightKg: $weightKg, ')
           ..write('isCustom: $isCustom')
           ..write(')'))
@@ -5524,6 +5930,7 @@ typedef $$ExercisesTableCreateCompanionBuilder =
     ExercisesCompanion Function({
       Value<int> id,
       required String name,
+      Value<String?> seedKey,
       Value<String> muscleGroup,
       Value<String> equipment,
       Value<String?> videoUrl,
@@ -5537,6 +5944,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
       Value<int> id,
       Value<String> name,
+      Value<String?> seedKey,
       Value<String> muscleGroup,
       Value<String> equipment,
       Value<String?> videoUrl,
@@ -5586,6 +5994,11 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5676,6 +6089,11 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get muscleGroup => $composableBuilder(
     column: $table.muscleGroup,
     builder: (column) => ColumnOrderings(column),
@@ -5731,6 +6149,9 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get seedKey =>
+      $composableBuilder(column: $table.seedKey, builder: (column) => column);
 
   GeneratedColumn<String> get muscleGroup => $composableBuilder(
     column: $table.muscleGroup,
@@ -5817,6 +6238,7 @@ class $$ExercisesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> seedKey = const Value.absent(),
                 Value<String> muscleGroup = const Value.absent(),
                 Value<String> equipment = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
@@ -5828,6 +6250,7 @@ class $$ExercisesTableTableManager
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
+                seedKey: seedKey,
                 muscleGroup: muscleGroup,
                 equipment: equipment,
                 videoUrl: videoUrl,
@@ -5841,6 +6264,7 @@ class $$ExercisesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
+                Value<String?> seedKey = const Value.absent(),
                 Value<String> muscleGroup = const Value.absent(),
                 Value<String> equipment = const Value.absent(),
                 Value<String?> videoUrl = const Value.absent(),
@@ -5852,6 +6276,7 @@ class $$ExercisesTableTableManager
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
+                seedKey: seedKey,
                 muscleGroup: muscleGroup,
                 equipment: equipment,
                 videoUrl: videoUrl,
@@ -5921,6 +6346,7 @@ typedef $$RoutinesTableCreateCompanionBuilder =
     RoutinesCompanion Function({
       Value<int> id,
       required String name,
+      Value<String?> seedKey,
       Value<String> colorHex,
       Value<int> position,
       Value<int> restSeconds,
@@ -5931,6 +6357,7 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
     RoutinesCompanion Function({
       Value<int> id,
       Value<String> name,
+      Value<String?> seedKey,
       Value<String> colorHex,
       Value<int> position,
       Value<int> restSeconds,
@@ -5978,6 +6405,11 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6051,6 +6483,11 @@ class $$RoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get colorHex => $composableBuilder(
     column: $table.colorHex,
     builder: (column) => ColumnOrderings(column),
@@ -6091,6 +6528,9 @@ class $$RoutinesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get seedKey =>
+      $composableBuilder(column: $table.seedKey, builder: (column) => column);
 
   GeneratedColumn<String> get colorHex =>
       $composableBuilder(column: $table.colorHex, builder: (column) => column);
@@ -6169,6 +6609,7 @@ class $$RoutinesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> seedKey = const Value.absent(),
                 Value<String> colorHex = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
@@ -6177,6 +6618,7 @@ class $$RoutinesTableTableManager
               }) => RoutinesCompanion(
                 id: id,
                 name: name,
+                seedKey: seedKey,
                 colorHex: colorHex,
                 position: position,
                 restSeconds: restSeconds,
@@ -6187,6 +6629,7 @@ class $$RoutinesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
+                Value<String?> seedKey = const Value.absent(),
                 Value<String> colorHex = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
@@ -6195,6 +6638,7 @@ class $$RoutinesTableTableManager
               }) => RoutinesCompanion.insert(
                 id: id,
                 name: name,
+                seedKey: seedKey,
                 colorHex: colorHex,
                 position: position,
                 restSeconds: restSeconds,
@@ -6254,6 +6698,7 @@ typedef $$WorkoutsTableCreateCompanionBuilder =
       Value<int> id,
       required int routineId,
       required String name,
+      Value<String?> seedKey,
       Value<int> position,
     });
 typedef $$WorkoutsTableUpdateCompanionBuilder =
@@ -6261,6 +6706,7 @@ typedef $$WorkoutsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<int> routineId,
       Value<String> name,
+      Value<String?> seedKey,
       Value<int> position,
     });
 
@@ -6320,6 +6766,11 @@ class $$WorkoutsTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6396,6 +6847,11 @@ class $$WorkoutsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get position => $composableBuilder(
     column: $table.position,
     builder: (column) => ColumnOrderings(column),
@@ -6439,6 +6895,9 @@ class $$WorkoutsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get seedKey =>
+      $composableBuilder(column: $table.seedKey, builder: (column) => column);
 
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
@@ -6523,11 +6982,13 @@ class $$WorkoutsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> routineId = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> seedKey = const Value.absent(),
                 Value<int> position = const Value.absent(),
               }) => WorkoutsCompanion(
                 id: id,
                 routineId: routineId,
                 name: name,
+                seedKey: seedKey,
                 position: position,
               ),
           createCompanionCallback:
@@ -6535,11 +6996,13 @@ class $$WorkoutsTableTableManager
                 Value<int> id = const Value.absent(),
                 required int routineId,
                 required String name,
+                Value<String?> seedKey = const Value.absent(),
                 Value<int> position = const Value.absent(),
               }) => WorkoutsCompanion.insert(
                 id: id,
                 routineId: routineId,
                 name: name,
+                seedKey: seedKey,
                 position: position,
               ),
           withReferenceMapper: (p0) => p0
@@ -7304,6 +7767,7 @@ typedef $$SessionsTableCreateCompanionBuilder =
       Value<int?> routineId,
       Value<int?> workoutId,
       required String name,
+      Value<String?> seedKey,
       required DateTime startedAt,
       Value<DateTime?> endedAt,
       Value<int> durationSeconds,
@@ -7316,6 +7780,7 @@ typedef $$SessionsTableUpdateCompanionBuilder =
       Value<int?> routineId,
       Value<int?> workoutId,
       Value<String> name,
+      Value<String?> seedKey,
       Value<DateTime> startedAt,
       Value<DateTime?> endedAt,
       Value<int> durationSeconds,
@@ -7372,6 +7837,11 @@ class $$SessionsTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7455,6 +7925,11 @@ class $$SessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startedAt => $composableBuilder(
     column: $table.startedAt,
     builder: (column) => ColumnOrderings(column),
@@ -7501,6 +7976,9 @@ class $$SessionsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get seedKey =>
+      $composableBuilder(column: $table.seedKey, builder: (column) => column);
 
   GeneratedColumn<DateTime> get startedAt =>
       $composableBuilder(column: $table.startedAt, builder: (column) => column);
@@ -7581,6 +8059,7 @@ class $$SessionsTableTableManager
                 Value<int?> routineId = const Value.absent(),
                 Value<int?> workoutId = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> seedKey = const Value.absent(),
                 Value<DateTime> startedAt = const Value.absent(),
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
@@ -7591,6 +8070,7 @@ class $$SessionsTableTableManager
                 routineId: routineId,
                 workoutId: workoutId,
                 name: name,
+                seedKey: seedKey,
                 startedAt: startedAt,
                 endedAt: endedAt,
                 durationSeconds: durationSeconds,
@@ -7603,6 +8083,7 @@ class $$SessionsTableTableManager
                 Value<int?> routineId = const Value.absent(),
                 Value<int?> workoutId = const Value.absent(),
                 required String name,
+                Value<String?> seedKey = const Value.absent(),
                 required DateTime startedAt,
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
@@ -7613,6 +8094,7 @@ class $$SessionsTableTableManager
                 routineId: routineId,
                 workoutId: workoutId,
                 name: name,
+                seedKey: seedKey,
                 startedAt: startedAt,
                 endedAt: endedAt,
                 durationSeconds: durationSeconds,
@@ -7680,6 +8162,7 @@ typedef $$SessionSetsTableCreateCompanionBuilder =
       required int sessionId,
       Value<int?> exerciseId,
       required String exerciseName,
+      Value<String?> exerciseSeedKey,
       required int setNumber,
       Value<double> weight,
       Value<int> reps,
@@ -7696,6 +8179,7 @@ typedef $$SessionSetsTableUpdateCompanionBuilder =
       Value<int> sessionId,
       Value<int?> exerciseId,
       Value<String> exerciseName,
+      Value<String?> exerciseSeedKey,
       Value<int> setNumber,
       Value<double> weight,
       Value<int> reps,
@@ -7750,6 +8234,11 @@ class $$SessionSetsTableFilterComposer
 
   ColumnFilters<String> get exerciseName => $composableBuilder(
     column: $table.exerciseName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get exerciseSeedKey => $composableBuilder(
+    column: $table.exerciseSeedKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7846,6 +8335,11 @@ class $$SessionSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get exerciseSeedKey => $composableBuilder(
+    column: $table.exerciseSeedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get setNumber => $composableBuilder(
     column: $table.setNumber,
     builder: (column) => ColumnOrderings(column),
@@ -7937,6 +8431,11 @@ class $$SessionSetsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get exerciseSeedKey => $composableBuilder(
+    column: $table.exerciseSeedKey,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get setNumber =>
       $composableBuilder(column: $table.setNumber, builder: (column) => column);
 
@@ -8024,6 +8523,7 @@ class $$SessionSetsTableTableManager
                 Value<int> sessionId = const Value.absent(),
                 Value<int?> exerciseId = const Value.absent(),
                 Value<String> exerciseName = const Value.absent(),
+                Value<String?> exerciseSeedKey = const Value.absent(),
                 Value<int> setNumber = const Value.absent(),
                 Value<double> weight = const Value.absent(),
                 Value<int> reps = const Value.absent(),
@@ -8038,6 +8538,7 @@ class $$SessionSetsTableTableManager
                 sessionId: sessionId,
                 exerciseId: exerciseId,
                 exerciseName: exerciseName,
+                exerciseSeedKey: exerciseSeedKey,
                 setNumber: setNumber,
                 weight: weight,
                 reps: reps,
@@ -8054,6 +8555,7 @@ class $$SessionSetsTableTableManager
                 required int sessionId,
                 Value<int?> exerciseId = const Value.absent(),
                 required String exerciseName,
+                Value<String?> exerciseSeedKey = const Value.absent(),
                 required int setNumber,
                 Value<double> weight = const Value.absent(),
                 Value<int> reps = const Value.absent(),
@@ -8068,6 +8570,7 @@ class $$SessionSetsTableTableManager
                 sessionId: sessionId,
                 exerciseId: exerciseId,
                 exerciseName: exerciseName,
+                exerciseSeedKey: exerciseSeedKey,
                 setNumber: setNumber,
                 weight: weight,
                 reps: reps,
@@ -8160,6 +8663,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<String?> themePresetId,
       Value<int> videoHeight,
       Value<int> videoMaxSeconds,
+      Value<String?> localeTag,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -8176,6 +8680,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<String?> themePresetId,
       Value<int> videoHeight,
       Value<int> videoMaxSeconds,
+      Value<String?> localeTag,
     });
 
 class $$SettingsTableFilterComposer
@@ -8249,6 +8754,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<int> get videoMaxSeconds => $composableBuilder(
     column: $table.videoMaxSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localeTag => $composableBuilder(
+    column: $table.localeTag,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8326,6 +8836,11 @@ class $$SettingsTableOrderingComposer
     column: $table.videoMaxSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get localeTag => $composableBuilder(
+    column: $table.localeTag,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -8395,6 +8910,9 @@ class $$SettingsTableAnnotationComposer
     column: $table.videoMaxSeconds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get localeTag =>
+      $composableBuilder(column: $table.localeTag, builder: (column) => column);
 }
 
 class $$SettingsTableTableManager
@@ -8438,6 +8956,7 @@ class $$SettingsTableTableManager
                 Value<String?> themePresetId = const Value.absent(),
                 Value<int> videoHeight = const Value.absent(),
                 Value<int> videoMaxSeconds = const Value.absent(),
+                Value<String?> localeTag = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -8452,6 +8971,7 @@ class $$SettingsTableTableManager
                 themePresetId: themePresetId,
                 videoHeight: videoHeight,
                 videoMaxSeconds: videoMaxSeconds,
+                localeTag: localeTag,
               ),
           createCompanionCallback:
               ({
@@ -8468,6 +8988,7 @@ class $$SettingsTableTableManager
                 Value<String?> themePresetId = const Value.absent(),
                 Value<int> videoHeight = const Value.absent(),
                 Value<int> videoMaxSeconds = const Value.absent(),
+                Value<String?> localeTag = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -8482,6 +9003,7 @@ class $$SettingsTableTableManager
                 themePresetId: themePresetId,
                 videoHeight: videoHeight,
                 videoMaxSeconds: videoMaxSeconds,
+                localeTag: localeTag,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -8791,6 +9313,7 @@ typedef $$BarsTableCreateCompanionBuilder =
       Value<int> id,
       required String unit,
       required String name,
+      Value<String?> seedKey,
       required double weightKg,
       Value<bool> isCustom,
     });
@@ -8799,6 +9322,7 @@ typedef $$BarsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> unit,
       Value<String> name,
+      Value<String?> seedKey,
       Value<double> weightKg,
       Value<bool> isCustom,
     });
@@ -8823,6 +9347,11 @@ class $$BarsTableFilterComposer extends Composer<_$AppDatabase, $BarsTable> {
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8860,6 +9389,11 @@ class $$BarsTableOrderingComposer extends Composer<_$AppDatabase, $BarsTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get seedKey => $composableBuilder(
+    column: $table.seedKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get weightKg => $composableBuilder(
     column: $table.weightKg,
     builder: (column) => ColumnOrderings(column),
@@ -8888,6 +9422,9 @@ class $$BarsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get seedKey =>
+      $composableBuilder(column: $table.seedKey, builder: (column) => column);
 
   GeneratedColumn<double> get weightKg =>
       $composableBuilder(column: $table.weightKg, builder: (column) => column);
@@ -8927,12 +9464,14 @@ class $$BarsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> unit = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> seedKey = const Value.absent(),
                 Value<double> weightKg = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
               }) => BarsCompanion(
                 id: id,
                 unit: unit,
                 name: name,
+                seedKey: seedKey,
                 weightKg: weightKg,
                 isCustom: isCustom,
               ),
@@ -8941,12 +9480,14 @@ class $$BarsTableTableManager
                 Value<int> id = const Value.absent(),
                 required String unit,
                 required String name,
+                Value<String?> seedKey = const Value.absent(),
                 required double weightKg,
                 Value<bool> isCustom = const Value.absent(),
               }) => BarsCompanion.insert(
                 id: id,
                 unit: unit,
                 name: name,
+                seedKey: seedKey,
                 weightKg: weightKg,
                 isCustom: isCustom,
               ),

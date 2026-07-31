@@ -8,11 +8,15 @@
 /// half lives here so the two formats cannot drift apart in how they *fail*,
 /// which is the part a user actually sees.
 ///
-/// Deliberately free of Flutter and drift: this is bytes in, bytes out.
+/// Deliberately free of drift, and free of Flutter but for the string
+/// catalogue: this is bytes in, bytes out, plus the sentences a failure is
+/// reported with.
 library;
 
 import 'dart:convert';
 import 'dart:typed_data';
+
+import '../l10n/app_localizations.dart';
 
 /// The URL scheme a shared anything travels as. A custom scheme rather than an
 /// https App Link: it needs no domain, no hosting and no network, and so cannot
@@ -21,8 +25,14 @@ const String kShareScheme = 'fosslift';
 
 /// The two ways reading a code can fail, kept apart because the user can act on
 /// the difference: one is the wrong text entirely, the other is our text with a
-/// piece knocked out of it. [thing] is the noun for what was being read —
-/// "theme", "routine" — so both read naturally either way.
+/// piece knocked out of it.
+///
+/// Each way out is a whole sentence per kind of code, rather than one sentence
+/// with "theme" or "routine" dropped into a hole in it. English gets away with
+/// the hole; a language that inflects the noun — Ukrainian declines it, Spanish
+/// and Portuguese put an article and a gender on it — cannot be handed a bare
+/// dictionary form and asked to make it fit. Four messages is the price of the
+/// two the user ever sees being sentences somebody wrote.
 enum ShareCodeProblem {
   /// Not one of our codes at all — a URL, a stray paste, empty text, a code of
   /// the *other* kind, or one tagged with a version this build does not know.
@@ -31,10 +41,16 @@ enum ShareCodeProblem {
   /// The right format, but the bytes did not survive the trip.
   damaged;
 
-  String message(String thing) => switch (this) {
-        ShareCodeProblem.notACode => 'Invalid $thing code.',
-        ShareCodeProblem.damaged =>
-          'Invalid $thing code — characters missing.',
+  /// What a routine code that would not read says on the import screen.
+  String routineMessage(AppLocalizations l10n) => switch (this) {
+        ShareCodeProblem.notACode => l10n.shareRoutineNotACode,
+        ShareCodeProblem.damaged => l10n.shareRoutineDamaged,
+      };
+
+  /// The same for a theme code.
+  String themeMessage(AppLocalizations l10n) => switch (this) {
+        ShareCodeProblem.notACode => l10n.shareThemeNotACode,
+        ShareCodeProblem.damaged => l10n.shareThemeDamaged,
       };
 }
 

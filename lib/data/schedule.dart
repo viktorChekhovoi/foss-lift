@@ -7,6 +7,8 @@
 ///
 /// Pure: no drift, no Flutter, no notification plugin. Deciding *when* the next
 /// reminder falls is exactly the part worth testing without a device attached.
+/// Putting a schedule into words needs both the app's strings and the calendar's
+/// weekday names, so that lives in `util/schedule_labels.dart` instead.
 library;
 
 /// All seven days set.
@@ -15,12 +17,6 @@ const kEveryDayMask = 0x7F;
 /// Nothing scheduled — the default, and what "train it when you feel like it"
 /// looks like.
 const kNoScheduleMask = 0;
-
-/// Short day names in mask-bit order, Monday first.
-const kDayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-/// Single letters for the day toggles, Monday first.
-const kDayInitials = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 /// Whether [mask] includes [weekday], given as a `DateTime.weekday` (1–7).
 bool scheduledOn(int mask, int weekday) => mask & (1 << (weekday - 1)) != 0;
@@ -31,13 +27,6 @@ int toggleDay(int mask, int weekday) => mask ^ (1 << (weekday - 1));
 /// The scheduled weekdays as `DateTime.weekday` values, Monday first.
 List<int> scheduledWeekdays(int mask) =>
     [for (var d = 1; d <= 7; d++) if (scheduledOn(mask, d)) d];
-
-/// Human-readable schedule: "No fixed days", "Every day", or "Mon · Wed · Fri".
-String scheduleLabel(int mask) {
-  if (mask & kEveryDayMask == kNoScheduleMask) return 'No fixed days';
-  if (mask & kEveryDayMask == kEveryDayMask) return 'Every day';
-  return scheduledWeekdays(mask).map((d) => kDayNames[d - 1]).join(' · ');
-}
 
 /// Minutes past midnight as a 24-hour clock time, e.g. 1110 -> "18:30".
 String timeLabel(int minutes) {
@@ -56,12 +45,20 @@ class RoutineReminder {
     required this.routineId,
     required this.name,
     required this.scheduleDays,
+    this.seedKey,
     this.reminderMinutes,
     this.lastTrainedAt,
   });
 
   final int routineId;
+
+  /// The routine's canonical English name — see [seedKey].
   final String name;
+
+  /// The routine's seed key, or null for one you built yourself. Whatever puts
+  /// this on a notification renders `seededName(l10n, seedKey, name)`, so a
+  /// routine the app shipped is announced in the app's language.
+  final String? seedKey;
   final int scheduleDays;
   final int? reminderMinutes;
   final DateTime? lastTrainedAt;

@@ -20,10 +20,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/rest_alarm.dart';
+
+import 'support/harness.dart';
 
 /// The channel the notification plugin talks down.
 const _plugin = MethodChannel('dexterous.com/flutter/local_notifications');
+
+/// The channel labels the live session hands over, read from the catalogue
+/// rather than typed out again — the alarm holds no words of its own.
+final NotificationChannelCopy _channel = (
+  name: l10nFor().restAlarmChannelName,
+  description: l10nFor().restAlarmChannelDescription,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -66,7 +76,10 @@ void main() {
 
   group('The ding is posted when the rest ends, and never scheduled', () {
     test('ringing posts it now', () async {
-      await alarm().ring(title: 'Rest done', body: 'Bench Press · 80 kg × 8');
+      await alarm().ring(
+          channel: _channel,
+          title: 'Rest done',
+          body: 'Bench Press · 80 kg × 8');
 
       final shown = callsTo('show');
       expect(shown, hasLength(1));
@@ -84,7 +97,10 @@ void main() {
       // needed to be worth having. What replaces it is the foreground service
       // keeping the session alive to ring for itself.
       final a = alarm();
-      await a.ring(title: 'Rest done', body: 'Bench Press · 80 kg × 8');
+      await a.ring(
+          channel: _channel,
+          title: 'Rest done',
+          body: 'Bench Press · 80 kg × 8');
       await a.clear();
 
       expect(callsTo('zonedSchedule'), isEmpty);
@@ -93,7 +109,10 @@ void main() {
 
     test('and no alarm permission is ever asked for', () async {
       final a = alarm();
-      await a.ring(title: 'Rest done', body: 'Bench Press · 80 kg × 8');
+      await a.ring(
+          channel: _channel,
+          title: 'Rest done',
+          body: 'Bench Press · 80 kg × 8');
       await a.clear();
 
       expect(steps, isNot(contains('requestExactAlarmsPermission')));
@@ -103,10 +122,16 @@ void main() {
       // One id for the rest, so two rests ending close together cannot leave two
       // notifications to swipe away.
       final a = alarm();
-      await a.ring(title: 'Rest done', body: 'Bench Press · 80 kg × 8');
+      await a.ring(
+          channel: _channel,
+          title: 'Rest done',
+          body: 'Bench Press · 80 kg × 8');
       steps.clear();
 
-      await a.ring(title: 'Rest done', body: 'Overhead Press · 50 kg × 8');
+      await a.ring(
+          channel: _channel,
+          title: 'Rest done',
+          body: 'Overhead Press · 50 kg × 8');
 
       expect(steps.indexOf('cancel'), lessThan(steps.indexOf('show')));
       final cancelled = (callsTo('cancel').last.arguments as Map)['id'];
@@ -126,7 +151,9 @@ void main() {
         platformSupported: false,
       );
 
-      await expectLater(off.ring(title: 'Rest done', body: 'x'), completes);
+      await expectLater(
+          off.ring(channel: _channel, title: 'Rest done', body: 'x'),
+          completes);
       await expectLater(off.clear(), completes);
 
       expect(calls, isEmpty);

@@ -1,0 +1,130 @@
+/// The seed keys, as plain data.
+///
+/// Split out from `util/seed_names.dart` because the seed writes these keys and
+/// the seed lives in the database layer, which must not depend on the generated
+/// localisations. The lookup that turns a key into words does — it is over
+/// there.
+library;
+
+/// Canonical English name → seed key, for the starter library. The seed writes
+/// the key from this map; nothing derives one by rule, so renaming a starter
+/// movement is a deliberate edit here rather than a silent re-key.
+const Map<String, String> kSeedExerciseKeys = {
+  'Bench Press': 'bench_press',
+  'Incline Bench Press': 'incline_bench_press',
+  'Decline Bench Press': 'decline_bench_press',
+  'Dumbbell Bench Press': 'dumbbell_bench_press',
+  'Incline DB Press': 'incline_db_press',
+  'Dumbbell Fly': 'dumbbell_fly',
+  'Machine Chest Press': 'machine_chest_press',
+  'Pec Deck': 'pec_deck',
+  'Cable Fly': 'cable_fly',
+  'Push-Up': 'push_up',
+  'Chest Dip': 'chest_dip',
+  'Deadlift': 'deadlift',
+  'Barbell Row': 'barbell_row',
+  'Barbell Shrug': 'barbell_shrug',
+  'Dumbbell Row': 'dumbbell_row',
+  'T-Bar Row': 't_bar_row',
+  'Chest-Supported Row': 'chest_supported_row',
+  'Lat Pulldown': 'lat_pulldown',
+  'Seated Cable Row': 'seated_cable_row',
+  'Straight-Arm Pulldown': 'straight_arm_pulldown',
+  'Face Pull': 'face_pull',
+  'Pull-Up': 'pull_up',
+  'Chin-Up': 'chin_up',
+  'Inverted Row': 'inverted_row',
+  'Back Extension': 'back_extension',
+  'Overhead Press': 'overhead_press',
+  'Push Press': 'push_press',
+  'Upright Row': 'upright_row',
+  'Dumbbell Shoulder Press': 'dumbbell_shoulder_press',
+  'Arnold Press': 'arnold_press',
+  'Lateral Raise': 'lateral_raise',
+  'Front Raise': 'front_raise',
+  'Rear Delt Fly': 'rear_delt_fly',
+  'Machine Shoulder Press': 'machine_shoulder_press',
+  'Reverse Pec Deck': 'reverse_pec_deck',
+  'Cable Lateral Raise': 'cable_lateral_raise',
+  'Back Squat': 'back_squat',
+  'Front Squat': 'front_squat',
+  'Sumo Deadlift': 'sumo_deadlift',
+  'Romanian Deadlift': 'romanian_deadlift',
+  'Good Morning': 'good_morning',
+  'Goblet Squat': 'goblet_squat',
+  'Bulgarian Split Squat': 'bulgarian_split_squat',
+  'Walking Lunge': 'walking_lunge',
+  'Step-Up': 'step_up',
+  'Leg Press': 'leg_press',
+  'Hack Squat': 'hack_squat',
+  'Leg Curl': 'leg_curl',
+  'Leg Extension': 'leg_extension',
+  'Calf Raise': 'calf_raise',
+  'Seated Calf Raise': 'seated_calf_raise',
+  'Hip Thrust': 'hip_thrust',
+  'Glute Bridge': 'glute_bridge',
+  'Hip Abduction': 'hip_abduction',
+  'Cable Pull-Through': 'cable_pull_through',
+  'Glute Kickback': 'glute_kickback',
+  'Barbell Curl': 'barbell_curl',
+  'Preacher Curl': 'preacher_curl',
+  'Close-Grip Bench Press': 'close_grip_bench_press',
+  'Skull Crusher': 'skull_crusher',
+  'Dumbbell Curl': 'dumbbell_curl',
+  'Hammer Curl': 'hammer_curl',
+  'Incline Dumbbell Curl': 'incline_dumbbell_curl',
+  'Triceps Pushdown': 'triceps_pushdown',
+  'Overhead Cable Extension': 'overhead_cable_extension',
+  'Cable Curl': 'cable_curl',
+  'Triceps Dip': 'triceps_dip',
+  'Reverse Curl': 'reverse_curl',
+  'Wrist Curl': 'wrist_curl',
+  'Reverse Wrist Curl': 'reverse_wrist_curl',
+  'Farmer\'s Carry': 'farmers_carry',
+  'Dead Hang': 'dead_hang',
+  'Cable Crunch': 'cable_crunch',
+  'Pallof Press': 'pallof_press',
+  'Machine Crunch': 'machine_crunch',
+  'Ab Wheel Rollout': 'ab_wheel_rollout',
+  'Plank': 'plank',
+  'Side Plank': 'side_plank',
+  'Hollow Hold': 'hollow_hold',
+  'Hanging Leg Raise': 'hanging_leg_raise',
+  'Crunch': 'crunch',
+  'Reverse Crunch': 'reverse_crunch',
+  'Russian Twist': 'russian_twist',
+  'Dead Bug': 'dead_bug',
+  'Power Clean': 'power_clean',
+  'Kettlebell Swing': 'kettlebell_swing',
+  'Turkish Get-Up': 'turkish_get_up',
+};
+
+/// The same, over the bars a gym is assumed to rack. Their weights differ
+/// between the metric and pounds lists but their names do not, so one map
+/// serves both — see `namedBars`.
+const Map<String, String> kSeedBarKeys = {
+  'Olympic bar': 'olympic_bar',
+  'Women\'s Olympic bar': 'womens_olympic_bar',
+  'EZ curl bar': 'ez_curl_bar',
+  'Trap bar': 'trap_bar',
+  'Safety squat bar': 'safety_squat_bar',
+  'Smith carriage': 'smith_carriage',
+};
+
+/// The same, for the two demo programmes.
+const Map<String, String> kSeedRoutineKeys = {
+  'Push / Pull / Legs': 'push_pull_legs',
+  'Upper / Lower': 'upper_lower',
+};
+
+/// The same, for their training days.
+const Map<String, String> kSeedWorkoutKeys = {
+  'Push': 'push',
+  'Pull': 'pull',
+  'Legs': 'legs',
+  'Upper 1': 'upper_1',
+  'Lower 1': 'lower_1',
+  'Upper 2': 'upper_2',
+  'Lower 2': 'lower_2',
+};
+

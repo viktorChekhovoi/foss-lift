@@ -5,10 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
+import '../util/format.dart';
 
 /// Finds the loading chips in a test — absent on a movement whose equipment
 /// settles how it is loaded, where the loading is stated rather than offered.
@@ -21,6 +24,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final library = ref.watch(exerciseLibraryProvider);
 
     // The edit pencil hangs off the app bar, so it needs the exercise before
@@ -29,13 +33,13 @@ class ExerciseDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Exercise'),
+        title: Text(l10n.exerciseDetailTitle),
         actions: [
           // Only a custom exercise: the starter library's names and
           // classifications are shared vocabulary — see updateCustomExercise.
           if (ex != null && ex.isCustom)
             IconButton(
-              tooltip: 'Edit',
+              tooltip: l10n.commonEdit,
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => context.push('/exercise/$exerciseId/edit'),
             ),
@@ -60,7 +64,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
             if (ex == null) {
               return Center(
                 child: Text(
-                  'This exercise no longer exists.',
+                  l10n.commonExerciseGone,
                   style: TextStyle(color: AppColors.muted),
                 ),
               );
@@ -79,13 +83,14 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final clipCount =
         ref.watch(exerciseClipsProvider(exercise.id)).value?.length ?? 0;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
         Text(
-          exercise.name,
+          seededName(l10n, exercise.seedKey, exercise.name),
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -97,9 +102,10 @@ class _Body extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _Chip(exercise.muscleGroup),
-            _Chip(exercise.equipment),
-            if (exercise.isCustom) _Chip('Custom', accent: true),
+            _Chip(muscleGroupLabel(l10n, exercise.muscleGroup)),
+            _Chip(equipmentLabel(l10n, exercise.equipment)),
+            if (exercise.isCustom)
+              _Chip(l10n.exerciseDetailCustomChip, accent: true),
           ],
         ),
         const SizedBox(height: 22),
@@ -115,7 +121,7 @@ class _Body extends ConsumerWidget {
               ),
             ),
             icon: Icon(Icons.show_chart, color: AppColors.accent),
-            label: const Text('Progress'),
+            label: Text(l10n.commonProgress),
             onPressed: () => context.push('/exercise/${exercise.id}/progress'),
           ),
         ),
@@ -135,14 +141,14 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               icon: Icon(Icons.videocam_rounded, color: AppColors.accent),
-              label: Text('$clipCount ${clipCount == 1 ? 'clip' : 'clips'}'),
+              label: Text(l10n.commonClipCount(clipCount)),
               onPressed: () => context.push('/exercise/${exercise.id}/clips'),
             ),
           ),
         ],
         const SizedBox(height: 22),
         Text(
-          'LOADED AS',
+          l10n.exerciseDetailLoadedAs,
           style: kMono.copyWith(
             fontSize: 11,
             letterSpacing: 1.2,
@@ -157,7 +163,7 @@ class _Body extends ConsumerWidget {
         // know — what that bar weighs — is the row below.
         if (exercise.loadingIsFixed)
           Text(
-            exercise.weightType.label,
+            weightTypeLabel(l10n, exercise.weightType),
             style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
           )
         else
@@ -176,7 +182,7 @@ class _Body extends ConsumerWidget {
             children: [
               for (final t in WeightType.loadable)
                 _Chip(
-                  t.label,
+                  weightTypeLabel(l10n, t),
                   accent: t == exercise.weightType,
                   onTap: () => ref
                       .read(databaseProvider)
@@ -194,7 +200,7 @@ class _Body extends ConsumerWidget {
           GestureDetector(
             onTap: () => context.push('/settings/plates'),
             child: Text(
-              'Available plates →',
+              l10n.exerciseDetailAvailablePlates,
               style: kMono.copyWith(
                 fontSize: 11.5,
                 height: 1.5,
@@ -205,7 +211,7 @@ class _Body extends ConsumerWidget {
         ],
         const SizedBox(height: 22),
         Text(
-          'MY NOTE',
+          l10n.exerciseDetailMyNote,
           style: kMono.copyWith(
             fontSize: 11,
             letterSpacing: 1.2,
@@ -217,7 +223,7 @@ class _Body extends ConsumerWidget {
         if (exercise.videoUrl != null) ...[
           const SizedBox(height: 22),
           Text(
-            'DEMO',
+            l10n.exerciseDetailDemo,
             style: kMono.copyWith(
               fontSize: 11,
               letterSpacing: 1.2,
@@ -244,12 +250,13 @@ class _NoteBlock extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final note = exercise.notes;
 
     Future<void> edit() async {
       final written = await askNote(
         context,
-        title: exercise.name,
+        title: seededName(l10n, exercise.seedKey, exercise.name),
         initial: note,
       );
       if (written == null) return;
@@ -271,7 +278,7 @@ class _NoteBlock extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                note ?? 'Nothing noted yet',
+                note ?? l10n.exerciseDetailNoteEmpty,
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.45,
@@ -303,18 +310,21 @@ class _BarWeightRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final fallback = ref.watch(plateSettingsProvider).barKg;
     final own = exercise.barWeight;
-    final u = unitLabel(unit);
+    final u = unitSuffix(l10n, unit);
 
     Future<void> edit() async {
       final choice = await askBar(
         context,
-        title: 'Bar for ${exercise.name}',
+        title: l10n.exerciseDetailBarFor(
+          seededName(l10n, exercise.seedKey, exercise.name),
+        ),
         unit: unit,
         currentKg: own ?? fallback,
-        defaultLabel: own == null ? null : 'Use default',
+        defaultLabel: own == null ? null : l10n.exerciseDetailUseDefault,
       );
       if (choice == null) return;
       await ref
@@ -327,12 +337,19 @@ class _BarWeightRow extends ConsumerWidget {
     // list still has to read as something.
     final kg = own ?? fallback;
     final named = ref.watch(barsProvider).value?.atWeight(kg);
-    final weight = '${fmtPlateWeight(toDisplayWeight(kg, unit))} $u';
+    final weight =
+        l10n.unitWeightShort(fmtPlateWeight(toDisplayWeight(kg, unit)), u);
 
     return SettingRow(
-      label: 'Bar weight',
-      note: '$weight · ${own == null ? 'default' : 'for this exercise'}',
-      value: named?.name ?? weight,
+      label: l10n.exerciseDetailBarWeight,
+      // Two whole sentences rather than one with a word swapped in: which half
+      // of the note the condition decides is not the same in every language.
+      note: own == null
+          ? l10n.exerciseDetailBarNoteDefault(weight)
+          : l10n.exerciseDetailBarNoteOwn(weight),
+      value: named == null
+          ? weight
+          : seededName(l10n, named.seedKey, named.name),
       onTap: edit,
     );
   }
@@ -373,15 +390,14 @@ class _VideoLink extends StatelessWidget {
       // that silently did nothing.
       await _copy(
         context,
-        reason:
-            'Nothing here can open links — copied it '
-            'to the clipboard instead',
+        reason: AppLocalizations.of(context).exerciseDetailNoOpener,
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -397,14 +413,14 @@ class _VideoLink extends StatelessWidget {
               ),
             ),
             icon: Icon(Icons.play_circle_outline, color: AppColors.accent),
-            label: const Text('Watch a demo'),
+            label: Text(l10n.exerciseDetailWatchDemo),
             onPressed: () => _open(context),
           ),
         ),
         const SizedBox(height: 8),
         GestureDetector(
           onLongPress: () =>
-              _copy(context, reason: 'Demo link copied to clipboard'),
+              _copy(context, reason: l10n.exerciseDetailLinkCopied),
           child: Text(
             url,
             style: kMono.copyWith(fontSize: 12, color: AppColors.muted),

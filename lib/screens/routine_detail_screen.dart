@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../widgets/common.dart';
 
 /// A routine's training days. You start a workout from here, never the routine
@@ -15,6 +17,7 @@ class RoutineDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final routines = ref.watch(routinesProvider).value;
     final workouts = ref.watch(routineWorkoutsProvider(routineId));
     final isCurrent = ref.watch(currentRoutineProvider)?.routine.id == routineId;
@@ -32,11 +35,14 @@ class RoutineDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(routine?.name ?? 'Routine'),
+        title: Text(routine == null
+            ? l10n.routineDetailTitle
+            : seededName(l10n, routine.seedKey, routine.name)),
         actions: [
           IconButton(
-            tooltip:
-                isCurrent ? 'Shown on Today' : 'Show this routine on Today',
+            tooltip: isCurrent
+                ? l10n.routineDetailShownOnToday
+                : l10n.routineDetailShowOnToday,
             icon: Icon(isCurrent
                 ? Icons.radio_button_checked
                 : Icons.radio_button_unchecked),
@@ -48,12 +54,12 @@ class RoutineDetailScreen extends ConsumerWidget {
                     .setActiveRoutineId(routineId),
           ),
           IconButton(
-            tooltip: 'Share',
+            tooltip: l10n.routineDetailShare,
             icon: const Icon(Icons.ios_share),
             onPressed: () => context.push('/routine/$routineId/share'),
           ),
           IconButton(
-            tooltip: 'Edit',
+            tooltip: l10n.commonEdit,
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => context.push('/routine/$routineId/edit'),
           ),
@@ -75,9 +81,9 @@ class RoutineDetailScreen extends ConsumerWidget {
               const SizedBox(height: 14),
               if (list.isEmpty)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Text(
-                    'No workouts yet. Tap the edit icon to add one.',
+                    l10n.routineDetailEmpty,
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )
@@ -124,7 +130,9 @@ class _CountChip extends StatelessWidget {
                 style: TextStyle(
                     color: AppColors.text, fontWeight: FontWeight.w600),
               ),
-              TextSpan(text: count == 1 ? ' workout' : ' workouts'),
+              TextSpan(
+                  text: ' ${AppLocalizations.of(context)
+                      .routineDetailWorkoutCount(count)}'),
             ],
           ),
         ),
@@ -149,6 +157,7 @@ class _WorkoutRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final accentColor = hexColor(accent ?? 'FF6A3D');
     return Material(
       color: isNext ? AppColors.surface2 : AppColors.surface,
@@ -182,7 +191,9 @@ class _WorkoutRow extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(data.workout.name,
+                          child: Text(
+                              seededName(l10n, data.workout.seedKey,
+                                  data.workout.name),
                               style: const TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.w600)),
                         ),
@@ -194,8 +205,7 @@ class _WorkoutRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${data.exerciseCount} '
-                      '${data.exerciseCount == 1 ? 'exercise' : 'exercises'}',
+                      l10n.commonExerciseCount(data.exerciseCount),
                       style: kMono.copyWith(
                           fontSize: 12.5, color: AppColors.muted),
                     ),

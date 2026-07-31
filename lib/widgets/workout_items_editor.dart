@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../data/database.dart';
-import '../state/active_workout.dart' show fmtWeight;
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/units.dart';
@@ -210,12 +210,18 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
 
 /// Formats a progression amount in its mode's own unit: "2.5 kg", "1 rep",
 /// "5s". Weight is converted to the display unit like every other weight.
-String progressionAmount(double amount, ProgressionMode mode, String unit) {
+String progressionAmount(
+  AppLocalizations l10n,
+  double amount,
+  ProgressionMode mode,
+  String unit,
+) {
   return switch (mode) {
-    ProgressionMode.weight =>
-      '${fmtWeight(toDisplayWeight(amount, unit))} ${unitLabel(unit)}',
-    ProgressionMode.reps => '${amount.round()} ${amount == 1 ? 'rep' : 'reps'}',
-    ProgressionMode.time => '${amount.round()}s',
+    ProgressionMode.weight => l10n.unitWeightShort(
+        fmtWeight(toDisplayWeight(amount, unit)), unitSuffix(l10n, unit)),
+    ProgressionMode.reps => l10n.itemEditorAmountReps(amount.round()),
+    ProgressionMode.time =>
+      '${amount.round()}${l10n.itemEditorSecondsSuffix}',
   };
 }
 
@@ -224,31 +230,34 @@ String progressionAmount(double amount, ProgressionMode mode, String unit) {
 ///
 /// "in a row" only when there is more than one to be in a row with — a rule that
 /// backs off on the first miss says so in the singular, and a threshold of one
-/// is the default for a weight slot.
-String progressionRule(ItemDraft d, String unit) {
-  final step = progressionAmount(d.increment, d.progression, unit);
-  final back = progressionAmount(d.deload, d.progression, unit);
-  final misses = plural(d.failureThreshold, 'missed session');
-  return 'Add $step after ${plural(d.successThreshold, 'clean session')}; '
-      'drop $back after $misses'
-      '${d.failureThreshold == 1 ? '' : ' in a row'}.';
+/// is the default for a weight slot. Both halves are plural branches of the
+/// message, so the phrase lives inside the translation rather than being
+/// stitched on after it.
+String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
+  return l10n.itemEditorProgressionRule(
+    progressionAmount(l10n, d.increment, d.progression, unit),
+    d.successThreshold,
+    progressionAmount(l10n, d.deload, d.progression, unit),
+    d.failureThreshold,
+  );
 }
 
 /// Compact target/weight/progression summary for a draft item, e.g.
 /// "4 × 6–8 · 80 kg · +2.5 kg".
-String draftSummary(ItemDraft d, String unit) {
+String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
   final target = switch (d.progression) {
-    ProgressionMode.time => '${d.holdSeconds}s',
+    ProgressionMode.time => '${d.holdSeconds}${l10n.itemEditorSecondsSuffix}',
     _ => d.toFailure
-        ? 'to failure'
+        ? l10n.itemEditorToFailureShort
         : (d.repsMax == null || d.repsMax == d.repsMin
             ? '${d.repsMin}'
             : '${d.repsMin}–${d.repsMax}'),
   };
   final w = d.weightKg == null
       ? null
-      : '${fmtWeight(toDisplayWeight(d.weightKg!, unit))} ${unitLabel(unit)}';
-  final step = '+${progressionAmount(d.increment, d.progression, unit)}';
+      : l10n.unitWeightShort(
+          fmtWeight(toDisplayWeight(d.weightKg!, unit)), unitSuffix(l10n, unit));
+  final step = '+${progressionAmount(l10n, d.increment, d.progression, unit)}';
   return ['${d.sets} × $target', ?w, step].join(' · ');
 }
 
@@ -329,17 +338,18 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return BuilderReorderList<ItemDraft>(
-      caption: 'Exercises',
+      caption: l10n.itemEditorCaption,
       items: _items,
-      emptyText: 'No exercises yet — add one below.',
-      addLabel: 'Add exercise',
+      emptyText: l10n.itemEditorEmpty,
+      addLabel: l10n.itemEditorAdd,
       onAdd: _addExercise,
       onReorder: _reorder,
       rowBuilder: (i, draft) => BuilderReorderRow(
         index: i,
         title: draft.name,
-        subtitle: draftSummary(draft, widget.unit),
+        subtitle: draftSummary(l10n, draft, widget.unit),
         onTap: () => _configure(i),
         onRemove: () => _bump(() => _items.removeAt(i)),
       ),
@@ -375,10 +385,12 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
   bool get _timed => d.progression.timed;
 
   /// What an empty weight field says: over a bar, the lightest it can be.
-  String get _weightHint {
+  String _weightHint(AppLocalizations l10n) {
     final floor = d.floorKg(widget.defaultBarKg);
-    if (floor <= 0) return 'Not set yet';
-    return '${fmtWeight(toDisplayWeight(floor, widget.unit))} or more';
+    if (floor <= 0) return l10n.itemEditorWeightUnset;
+    return l10n.itemEditorWeightFloor(
+      fmtWeight(toDisplayWeight(floor, widget.unit)),
+    );
   }
 
   @override
@@ -404,6 +416,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return SingleChildScrollView(
       child: Padding(
@@ -437,16 +450,16 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                   color: AppColors.muted,
-                  tooltip: 'Close',
+                  tooltip: l10n.itemEditorClose,
                   visualDensity: VisualDensity.compact,
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            builderCard('Target', [
+            builderCard(l10n.itemEditorTarget, [
               builderGrid([
                 BuilderField(
-                  label: 'Sets',
+                  label: l10n.itemEditorSets,
                   child: NumberStepper(
                     value: d.sets,
                     min: 1,
@@ -456,10 +469,10 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 ),
                 if (_timed)
                   BuilderField(
-                    label: 'Hold',
+                    label: l10n.itemEditorHold,
                     child: NumberStepper(
                       value: d.holdSeconds,
-                      suffix: 's',
+                      suffix: l10n.itemEditorSecondsSuffix,
                       step: 5,
                       min: 5,
                       max: 600,
@@ -468,7 +481,9 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   )
                 else ...[
                   BuilderField(
-                    label: d.toFailure ? 'Reps to beat' : 'Reps',
+                    label: d.toFailure
+                        ? l10n.itemEditorRepsToBeat
+                        : l10n.itemEditorReps,
                     child: NumberStepper(
                       value: d.repsMin,
                       min: 1,
@@ -483,14 +498,14 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   // field goes away rather than sitting there greyed out.
                   if (!d.toFailure)
                     BuilderField(
-                      label: 'Up to',
+                      label: l10n.itemEditorUpTo,
                       child: NumberStepper(
                         // Stepping down past the lower bound drops the upper
                         // one entirely — no stray clear button to knock the
                         // row out of line with the rest of the grid.
                         value: d.repsMax ?? d.repsMin,
                         isEmpty: d.repsMax == null,
-                        emptyLabel: 'none',
+                        emptyLabel: l10n.itemEditorNoUpper,
                         min: d.repsMin,
                         max: 100,
                         onChanged: (v) => _bump(() => d.repsMax = v),
@@ -499,14 +514,16 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                     ),
                 ],
                 BuilderField(
-                  label: 'Rest',
+                  label: l10n.itemEditorRest,
                   // Editing rest here creates an explicit per-exercise
                   // override; the caption is where that gets said, so the
                   // stepper stays the same width as its neighbours.
-                  note: d.restSeconds == null ? 'default' : 'custom',
+                  note: d.restSeconds == null
+                      ? l10n.itemEditorRestDefault
+                      : l10n.itemEditorRestCustom,
                   child: NumberStepper(
                     value: d.restSeconds ?? widget.routineRest,
-                    suffix: 's',
+                    suffix: l10n.itemEditorSecondsSuffix,
                     step: 15,
                     min: 0,
                     max: 300,
@@ -517,7 +534,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
               if (!_timed) ...[
                 const SizedBox(height: 14),
                 _CheckRow(
-                  label: 'To failure',
+                  label: l10n.itemEditorToFailure,
                   value: d.toFailure,
                   onChanged: (v) => _bump(() => d.toFailure = v),
                 ),
@@ -527,9 +544,9 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
             // A movement that carries nothing gets the word, not a field: there
             // is no number to type, and an empty box does not say so.
             if (!d.weightType.carriesWeight)
-              builderCard('Weight', [
+              builderCard(l10n.itemEditorWeight, [
                 Text(
-                  'Bodyweight',
+                  l10n.itemEditorBodyweight,
                   style: kMono.copyWith(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -537,7 +554,8 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 ),
               ])
             else
-              builderCard('Weight (${unitLabel(widget.unit)})', [
+              builderCard(
+                  l10n.itemEditorWeightWithUnit(unitSuffix(l10n, widget.unit)), [
                 TextField(
                   controller: _weight,
                   keyboardType:
@@ -548,7 +566,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   // yet, not bodyweight — the loading says which it is, and this
                   // one carries a weight. Over a bar, the hint is the bar: it is
                   // the floor the value is held at on the way to the database.
-                  decoration: builderInput(_weightHint),
+                  decoration: builderInput(_weightHint(l10n)),
                   onChanged: (v) {
                     final parsed = double.tryParse(v.trim());
                     d.weightKg =
@@ -558,7 +576,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 ),
               ]),
             const SizedBox(height: 14),
-            builderCard('Progression', [
+            builderCard(l10n.itemEditorProgression, [
               // One axis available is no choice to present; the caption names it
               // instead of showing a picker of one.
               if (d.modes.length > 1)
@@ -569,14 +587,14 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 )
               else
                 Text(
-                  _soleAxis(d.modes.first),
+                  _soleAxis(l10n, d.modes.first),
                   style: kMono.copyWith(
                       fontSize: 11, height: 1.5, color: AppColors.faint),
                 ),
               const SizedBox(height: 16),
               builderGrid([
                 BuilderField(
-                  label: 'Step up by',
+                  label: l10n.itemEditorStepUpBy,
                   child: _AmountField(
                     value: d.increment,
                     mode: d.progression,
@@ -585,7 +603,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   ),
                 ),
                 BuilderField(
-                  label: 'Clean sessions',
+                  label: l10n.itemEditorCleanSessions,
                   child: NumberStepper(
                     value: d.successThreshold,
                     min: 1,
@@ -594,7 +612,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   ),
                 ),
                 BuilderField(
-                  label: 'Back off by',
+                  label: l10n.itemEditorBackOffBy,
                   child: _AmountField(
                     value: d.deload,
                     mode: d.progression,
@@ -603,7 +621,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   ),
                 ),
                 BuilderField(
-                  label: 'Misses',
+                  label: l10n.itemEditorMisses,
                   child: NumberStepper(
                     value: d.failureThreshold,
                     min: 1,
@@ -615,7 +633,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
               const SizedBox(height: 14),
               // The four numbers above, read back as the rule they add up to.
               Text(
-                progressionRule(d, widget.unit),
+                progressionRule(l10n, d, widget.unit),
                 style: kMono.copyWith(
                     fontSize: 11, height: 1.5, color: AppColors.faint),
               ),
@@ -623,7 +641,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Done'),
+              child: Text(l10n.commonDone),
             ),
           ],
         ),
@@ -633,10 +651,10 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
 }
 
 /// The one axis a slot has no choice about, named.
-String _soleAxis(ProgressionMode m) => switch (m) {
-      ProgressionMode.time => 'Held for time',
-      ProgressionMode.reps => 'More reps',
-      ProgressionMode.weight => 'More weight',
+String _soleAxis(AppLocalizations l10n, ProgressionMode m) => switch (m) {
+      ProgressionMode.time => l10n.itemEditorAxisTime,
+      ProgressionMode.reps => l10n.itemEditorAxisReps,
+      ProgressionMode.weight => l10n.itemEditorAxisWeight,
     };
 
 /// A label with a checkbox, tappable across its whole width.
@@ -697,28 +715,29 @@ class _ModePicker extends StatelessWidget {
   final ProgressionMode mode;
   final ValueChanged<ProgressionMode> onChanged;
 
-  static const _labels = {
-    ProgressionMode.weight: 'Weight',
-    ProgressionMode.reps: 'Reps',
-    ProgressionMode.time: 'Time',
-  };
+  static String _label(AppLocalizations l10n, ProgressionMode m) => switch (m) {
+        ProgressionMode.weight => l10n.itemEditorModeWeight,
+        ProgressionMode.reps => l10n.itemEditorModeReps,
+        ProgressionMode.time => l10n.itemEditorModeTime,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: [
         for (final m in modes)
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(right: m == modes.last ? 0 : 8),
-              child: _pill(m),
+              child: _pill(l10n, m),
             ),
           ),
       ],
     );
   }
 
-  Widget _pill(ProgressionMode m) {
+  Widget _pill(AppLocalizations l10n, ProgressionMode m) {
     final on = m == mode;
     return Material(
       color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
@@ -733,7 +752,7 @@ class _ModePicker extends StatelessWidget {
           ),
           padding: const EdgeInsets.symmetric(vertical: 11),
           child: Text(
-            _labels[m]!,
+            _label(l10n, m),
             textAlign: TextAlign.center,
             style: kMono.copyWith(
               fontSize: 13,
@@ -790,9 +809,12 @@ class _AmountFieldState extends State<_AmountField> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final suffix = widget.mode == ProgressionMode.weight
-        ? unitLabel(widget.unit)
-        : (widget.mode.timed ? 'sec' : 'reps');
+        ? unitSuffix(l10n, widget.unit)
+        : (widget.mode.timed
+            ? l10n.itemEditorSuffixSeconds
+            : l10n.itemEditorSuffixReps);
     return SizedBox(
       height: 36, // matches a NumberStepper, so grid rows line up
       child: TextField(

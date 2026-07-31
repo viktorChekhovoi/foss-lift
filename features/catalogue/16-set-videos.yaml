@@ -179,10 +179,7 @@ groups:
   - id: exercise-s-own-reel
     t: The exercise's own reel lists every clip of that movement
     d: >-
-      a flat list, newest first, each clip labelled with the set it came from — 12
-      Mar · set 3 · 100 kg × 5. Your squat over months, in one place. Reach it from
-      Library → the exercise → N clips, or from History → a session → an exercise
-      marked with a play symbol.
+      a flat list, newest first, each clip labelled with the set it came from — Mar 12 · set 3 · 100 kg × 5, with the date written the way the language writes dates. Your squat over months, in one place. Reach it from Library → the exercise → N clips, or from History → a session → an exercise marked with a play symbol.
     uses:
     - load.units
   - id: row-shows-frame-from-its-clip

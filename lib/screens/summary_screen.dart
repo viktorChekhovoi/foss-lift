@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
 import '../util/clip_label.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/common.dart';
+import '../util/format.dart';
 
 class SummaryScreen extends ConsumerStatefulWidget {
   const SummaryScreen({
@@ -73,6 +76,13 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
   }
 }
 
+/// When a session ran, ordered by the language rather than by a hand-written
+/// pattern: `EEE d MMM` is an English ordering, and the skeleton constructors
+/// let the locale put the parts where it wants them. The `·` between date and
+/// clock is punctuation this app owns, so it stays.
+String _sessionStamp(DateTime at, String locale) =>
+    '${DateFormat.MMMEd(locale).format(at)} · ${DateFormat.Hm(locale).format(at)}';
+
 class _SummaryBody extends StatelessWidget {
   const _SummaryBody({
     required this.session,
@@ -89,7 +99,10 @@ class _SummaryBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Group sets by exercise, preserving first-seen order.
+    final l10n = AppLocalizations.of(context);
+    // Group sets by exercise, preserving first-seen order. Keyed by the stored
+    // English name, not the translated one: the key is an identity, and two
+    // movements that share a translation are still two movements.
     final grouped = <String, List<SessionSet>>{};
     for (final s in sets) {
       grouped.putIfAbsent(s.exerciseName, () => []).add(s);
@@ -121,19 +134,19 @@ class _SummaryBody extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Center(
-                  child: Text('Workout logged',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+                Center(
+                  child: Text(l10n.summaryTitle,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
                 ),
                 const SizedBox(height: 4),
                 Center(
-                  child: Text(session.name,
+                  child: Text(seededName(l10n, session.seedKey, session.name),
                       style: TextStyle(color: AppColors.muted, fontSize: 14)),
                 ),
                 const SizedBox(height: 4),
                 Center(
                   child: Text(
-                    DateFormat('EEE d MMM · HH:mm').format(session.startedAt),
+                    _sessionStamp(session.startedAt, l10n.localeName),
                     style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
                   ),
                 ),
@@ -145,20 +158,22 @@ class _SummaryBody extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _SumCell(
-                        value: '${(session.durationSeconds / 60).round()}',
-                        unit: 'min',
-                        label: 'Duration',
+                        value: fmtTotal((session.durationSeconds / 60).round()),
+                        unit: l10n.summaryMinutesUnit,
+                        label: l10n.summaryDuration,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _SumCell(
-                          value: '${session.setsCompleted}', label: 'Sets done'),
+                          value: fmtTotal(session.setsCompleted),
+                          label: l10n.summarySetsDone),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _SumCell(
-                          value: '${grouped.length}', label: 'Exercises'),
+                          value: fmtTotal(grouped.length),
+                          label: l10n.summaryExercises),
                     ),
                   ],
                 ),
@@ -169,7 +184,7 @@ class _SummaryBody extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SectionLabel('Progression'),
+                      SectionLabel(l10n.summaryProgressionHeading),
                       Container(
                         decoration: BoxDecoration(
                           color: AppColors.surface,
@@ -196,7 +211,7 @@ class _SummaryBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SectionLabel('Session'),
+                    SectionLabel(l10n.summarySessionHeading),
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.surface,
@@ -209,7 +224,6 @@ class _SummaryBody extends StatelessWidget {
                           for (final entry in grouped.entries.toList().asMap().entries)
                             _SessionExerciseRow(
                               index: entry.key + 1,
-                              name: entry.value.key,
                               sets: entry.value.value,
                               unit: unit,
                               date: session.startedAt,
@@ -217,8 +231,8 @@ class _SummaryBody extends StatelessWidget {
                             ),
                           if (grouped.isEmpty)
                             Padding(
-                              padding: EdgeInsets.symmetric(vertical: 18),
-                              child: Text('No sets were logged this session.',
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              child: Text(l10n.summaryNoSets,
                                   style: TextStyle(color: AppColors.muted)),
                             ),
                         ],
@@ -239,7 +253,7 @@ class _SummaryBody extends StatelessWidget {
               // there is nothing behind this screen so head home to Today.
               onPressed: () =>
                   fromHistory ? context.pop() : context.go('/today'),
-              child: Text(fromHistory ? 'Back' : 'Done'),
+              child: Text(fromHistory ? l10n.commonBack : l10n.commonDone),
             ),
           ),
         ),
@@ -256,6 +270,7 @@ class _HistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 4, 20, 4),
       child: Row(
@@ -265,7 +280,7 @@ class _HistoryHeader extends StatelessWidget {
             onPressed: () =>
                 context.canPop() ? context.pop() : context.go('/history'),
             icon: const Icon(Icons.arrow_back),
-            tooltip: 'Back',
+            tooltip: l10n.commonBack,
           ),
           const SizedBox(width: 2),
           Expanded(
@@ -274,14 +289,14 @@ class _HistoryHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(session.name,
+                  Text(seededName(l10n, session.seedKey, session.name),
                       style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.5)),
                   const SizedBox(height: 2),
                   Text(
-                    DateFormat('EEE d MMM · HH:mm').format(session.startedAt),
+                    _sessionStamp(session.startedAt, l10n.localeName),
                     style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
                   ),
                 ],
@@ -354,59 +369,67 @@ class _ProgressionRow extends StatelessWidget {
   /// Where the slot now points — the load, reps, or hold the next session opens
   /// at. A weight target driven to zero is the bodyweight movement it always
   /// was, not "0 kg".
-  String _target() {
+  String _target(AppLocalizations l10n) {
     switch (outcome.mode) {
       case ProgressionMode.weight:
-        if (outcome.target == 0) return 'bodyweight';
-        return '${fmtWeight(toDisplayWeight(outcome.target, unit))} ${unitLabel(unit)}';
+        if (outcome.target == 0) return l10n.summaryTargetBodyweight;
+        return l10n.unitWeightShort(
+          fmtWeight(toDisplayWeight(outcome.target, unit)),
+          unitSuffix(l10n, unit),
+        );
       case ProgressionMode.reps:
-        return '${outcome.target.round()} reps';
+        return l10n.summaryTargetReps(outcome.target.round());
       case ProgressionMode.time:
-        return '${outcome.target.round()}s';
+        return l10n.unitSecondsShort('${outcome.target.round()}');
     }
   }
 
   /// The change in the mode's own unit, converted for display. Deltas are
   /// linear across units, so a kg step reads correctly once scaled to lb.
-  String _delta() {
+  ///
+  /// Six whole messages rather than a sign glued to an amount: a step up and a
+  /// back-off are different sentences in a language that inflects, and the
+  /// rep counts need plural forms English does not have.
+  String _delta(AppLocalizations l10n) {
     final mag = outcome.moved.abs();
-    final sign = outcome.moved > 0 ? '+' : '−';
-    final amount = switch (outcome.mode) {
-      ProgressionMode.weight =>
-        '${fmtWeight(toDisplayWeight(mag, unit))} ${unitLabel(unit)}',
-      ProgressionMode.reps => mag == 1 ? '1 rep' : '${mag.round()} reps',
-      ProgressionMode.time => '${mag.round()}s',
+    final up = outcome.moved > 0;
+    return switch (outcome.mode) {
+      ProgressionMode.weight => up
+          ? l10n.summaryStepWeight(
+              fmtWeight(toDisplayWeight(mag, unit)), unitSuffix(l10n, unit))
+          : l10n.summaryBackOffWeight(
+              fmtWeight(toDisplayWeight(mag, unit)), unitSuffix(l10n, unit)),
+      ProgressionMode.reps => up
+          ? l10n.summaryStepReps(mag.round())
+          : l10n.summaryBackOffReps(mag.round()),
+      ProgressionMode.time => up
+          ? l10n.summaryStepTime('${mag.round()}')
+          : l10n.summaryBackOffTime('${mag.round()}'),
     };
-    return '$sign$amount';
   }
 
   /// The subline for a held exercise: how many more sessions or misses stand
   /// between it and the next move. Null when there is nothing pending to say.
-  String? _heldNote() {
+  String? _heldNote(AppLocalizations l10n) {
     if (outcome.failures > 0) {
       final n = outcome.failureThreshold - outcome.failures;
-      if (n > 0) {
-        return n == 1 ? '1 more miss to a back-off' : '$n more misses to a back-off';
-      }
+      if (n > 0) return l10n.summaryHeldMisses(n);
     } else if (outcome.successes > 0) {
       final n = outcome.successThreshold - outcome.successes;
-      if (n > 0) {
-        return n == 1
-            ? '1 more clean session to a step'
-            : '$n more clean sessions to a step';
-      }
+      if (n > 0) return l10n.summaryHeldCleanSessions(n);
     }
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (IconData icon, Color tone) = outcome.steppedUp
         ? (Icons.arrow_upward_rounded, AppColors.good)
         : outcome.backedOff
             ? (Icons.arrow_downward_rounded, AppColors.gold)
             : (Icons.remove_rounded, AppColors.muted);
-    final sub = outcome.held ? _heldNote() : _delta();
+    final sub = outcome.held ? _heldNote(l10n) : _delta(l10n);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -422,7 +445,7 @@ class _ProgressionRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(outcome.name,
+                Text(seededName(l10n, outcome.seedKey, outcome.name),
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 if (sub != null) ...[
                   const SizedBox(height: 2),
@@ -432,7 +455,7 @@ class _ProgressionRow extends StatelessWidget {
             ),
           ),
           Text(
-            _target(),
+            _target(l10n),
             style: kMono.copyWith(
                 fontSize: 13, fontWeight: FontWeight.w700, color: tone),
           ),
@@ -445,14 +468,16 @@ class _ProgressionRow extends StatelessWidget {
 class _SessionExerciseRow extends StatelessWidget {
   const _SessionExerciseRow({
     required this.index,
-    required this.name,
     required this.sets,
     required this.unit,
     required this.date,
     required this.last,
   });
   final int index;
-  final String name;
+
+  /// Every logged set of one movement, in the order they were done. The name
+  /// and seed key come off the first of them rather than being passed in: they
+  /// are the same on all of them, being copies of one library row.
   final List<SessionSet> sets;
   final String unit;
 
@@ -463,6 +488,7 @@ class _SessionExerciseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     // Best set = highest weight × reps, or the longest hold when the exercise
     // is measured in time and weight × reps is zero for all of them.
     final timed = sets.any((s) => s.goalSeconds != null || s.seconds != null);
@@ -475,8 +501,9 @@ class _SessionExerciseRow extends StatelessWidget {
     }
     final missed = sets.where(setMissedGoal).length;
     final filmed = sets.where((s) => s.videoPath != null).length;
-    final w =
-        best.weight == 0 ? 'BW' : fmtWeight(toDisplayWeight(best.weight, unit));
+    final w = best.weight == 0
+        ? l10n.summaryBodyweightShort
+        : fmtWeight(toDisplayWeight(best.weight, unit));
 
     final filmedSets = sets.where((s) => s.videoPath != null).toList();
     return GestureDetector(
@@ -504,25 +531,29 @@ class _SessionExerciseRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                    seededName(l10n, sets.first.exerciseSeedKey,
+                        sets.first.exerciseName),
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text.rich(
                   TextSpan(
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                     children: [
-                      TextSpan(text: '${sets.length} sets'),
+                      TextSpan(text: l10n.commonSetCount(sets.length)),
                       // Only ever shown when there is something to say — a
                       // clean session should not carry a "0 missed" badge.
                       if (missed > 0)
                         TextSpan(
-                          text: ' · $missed missed',
+                          text: ' · ${l10n.summaryMissedCount(missed)}',
                           style: TextStyle(color: AppColors.gold),
                         ),
                       // A set carrying a clip has to be findable from here, or
                       // the recording is one nobody will ever watch again.
                       if (filmed > 0)
                         TextSpan(
-                          text: ' · $filmed filmed',
+                          text: ' · ${l10n.summaryFilmedCount(filmed)}',
                           style: TextStyle(color: AppColors.accent),
                         ),
                     ],
@@ -536,7 +567,8 @@ class _SessionExerciseRow extends StatelessWidget {
               style: kMono.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
               children: timed
                   ? [
-                      TextSpan(text: '${best.seconds ?? 0}s'),
+                      TextSpan(
+                          text: l10n.unitSecondsShort('${best.seconds ?? 0}')),
                       if (best.weight != 0)
                         TextSpan(
                             text: ' @ $w',
@@ -568,6 +600,7 @@ class _SessionExerciseRow extends StatelessWidget {
     BuildContext context,
     List<SessionSet> filmed,
   ) async {
+    final l10n = AppLocalizations.of(context);
     SessionSet? chosen = filmed.first;
     if (filmed.length > 1) {
       chosen = await showModalBottomSheet<SessionSet>(
@@ -581,7 +614,7 @@ class _SessionExerciseRow extends StatelessWidget {
                 ListTile(
                   leading: Icon(Icons.play_circle_outline,
                       color: AppColors.accent),
-                  title: Text(_labelFor(s)),
+                  title: Text(_labelFor(l10n, s)),
                   onTap: () => Navigator.pop(sheet, s),
                 ),
             ],
@@ -595,14 +628,15 @@ class _SessionExerciseRow extends StatelessWidget {
         path: '/clip',
         queryParameters: {
           'path': chosen.videoPath!,
-          'caption': _labelFor(chosen),
+          'caption': _labelFor(l10n, chosen),
           'set': '${chosen.id}',
         },
       ).toString(),
     );
   }
 
-  String _labelFor(SessionSet s) => clipLabelOf(
+  String _labelFor(AppLocalizations l10n, SessionSet s) => clipLabelOf(
+        l10n,
         date: date,
         setNumber: s.setNumber,
         weightKg: s.weight,

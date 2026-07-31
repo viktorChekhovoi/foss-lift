@@ -238,15 +238,21 @@ void main() {
   group('the plate line reads back the state', () {
     PlateSettings settings() => (barKg: 20.0, plates: _kgRack);
 
-    Widget lineFor(double weightKg, WeightType type) => Directionality(
-          textDirection: TextDirection.ltr,
-          child: PlateLine(
-            weightKg: weightKg,
-            type: type,
-            settings: settings(),
-            unit: 'kg',
-          ),
-        );
+    // Mounted as the app mounts it: the line reads its words from the string
+    // catalogue, so a bare Directionality is not a tree it can build in.
+    Widget lineFor(double weightKg, WeightType type) {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      return appUnder(
+        container,
+        PlateLine(
+          weightKg: weightKg,
+          type: type,
+          settings: settings(),
+          unit: 'kg',
+        ),
+      );
+    }
 
     testWidgets('green and per-side text for an exact weight', (tester) async {
       await tester.pumpWidget(lineFor(60, WeightType.bar));

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 /// A small uppercase monospace section header, e.g. "YOUR ROUTINES".
@@ -95,7 +96,7 @@ class NextBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        'NEXT',
+        AppLocalizations.of(context).commonNextBadge,
         style: kMono.copyWith(
           fontSize: 9,
           letterSpacing: 0.9,

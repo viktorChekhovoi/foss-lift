@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/warmup.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/db_provider.dart';
+import '../providers/providers.dart' show appLocalizationsProvider;
 import '../services/rest_alarm.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
@@ -102,6 +104,7 @@ class ExerciseEntry {
     required this.name,
     required this.muscle,
     required this.sets,
+    this.seedKey,
     this.itemId,
     this.mode = ProgressionMode.weight,
     this.weightType = WeightType.machine,
@@ -119,7 +122,15 @@ class ExerciseEntry {
   /// The template slot this came from, so finishing can advance its
   /// progression. Null for an ad-hoc session, which has no target to move.
   final int? itemId;
+
+  /// The canonical English name. Screens render `seededName(l10n, seedKey,
+  /// name)` — see `util/seed_names.dart`.
   final String name;
+
+  /// The movement's seed key, carried through the session so the board, the
+  /// shade and the rows written on Finish all name it in the app's language.
+  final String? seedKey;
+
   final String muscle;
 
   /// The working sets — the ones the template asked for and the only ones that
@@ -262,17 +273,33 @@ enum RestPurpose {
 
 /// [RestPurpose] plus whatever the caption needs to name. Weights stay in
 /// kilograms — the view converts, like everywhere else.
+///
+/// [exercise] is the canonical English name and [exerciseSeedKey] its seed key,
+/// carried as a pair the way every other name in the session is: the rest bar
+/// renders `seededName(l10n, exerciseSeedKey, exercise)`, so "Set up Bench
+/// Press, rest, then lift" names the movement in the language on screen.
 typedef RestPrompt = ({
   RestPurpose purpose,
   double? weightKg,
   String? exercise,
+  String? exerciseSeedKey,
 });
+
+/// The one thing a session has to say for itself: its targets were cut on the
+/// way in after a layoff, by [percent], after [days] away.
+///
+/// **Facts, not a sentence.** The notice is on screen for the length of a
+/// workout, which is long enough to outlive a language switch — so the session
+/// carries the two numbers and `WorkoutScreen` composes the line from the
+/// catalogue every time it draws it.
+typedef LayoffNotice = ({int percent, int days});
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
 /// mutation so Riverpod always sees a new value and rebuilds listeners, even
 /// though the nested lists are edited in place.
 class ActiveWorkout {
   ActiveWorkout({
+    this.seedKey,
     required this.routineId,
     required this.workoutId,
     required this.name,
@@ -291,7 +318,14 @@ class ActiveWorkout {
 
   /// The template being performed, or null for an ad-hoc session.
   final int? workoutId;
+
+  /// The training day's canonical English name — see [seedKey].
   final String name;
+
+  /// The day's seed key, or null. Carried so the board, the shade and the
+  /// session row written on Finish all name the day in the app's language.
+  final String? seedKey;
+
   final DateTime startedAt;
   final List<ExerciseEntry> exercises;
   final int elapsed; // seconds
@@ -310,7 +344,7 @@ class ActiveWorkout {
   /// It rides on the session rather than being a snackbar because a weight that
   /// dropped is a question the user will ask again halfway through the second
   /// exercise, by which time a snackbar is long gone.
-  final String? notice;
+  final LayoffNotice? notice;
 
   /// Seconds left on the rest, and what the rest is for. **On the session, not
   /// on the screen.** The rest has to keep running while the logging screen is
@@ -350,12 +384,14 @@ class ActiveWorkout {
         purpose: RestPurpose.anotherWarmup,
         weightKg: e.warmups[wi + 1].weight,
         exercise: null,
+        exerciseSeedKey: null,
       );
     }
     return (
       purpose: RestPurpose.theWorkingSet,
       weightKg: e.nextWeight,
       exercise: null,
+      exerciseSeedKey: null,
     );
   }
 
@@ -366,9 +402,7 @@ class ActiveWorkout {
   RestPrompt restAfterSet(int ei, int si) {
     final e = exercises[ei];
     final more = e.sets.skip(si + 1).any((s) => !s.done);
-    if (more) {
-      return (purpose: RestPurpose.anotherSet, weightKg: null, exercise: null);
-    }
+    if (more) return _justRest;
     // The next exercise is the next one with anything left to do — skipping
     // past any that are already finished.
     for (var i = ei + 1; i < exercises.length; i++) {
@@ -377,12 +411,22 @@ class ActiveWorkout {
           purpose: RestPurpose.nextExercise,
           weightKg: null,
           exercise: exercises[i].name,
+          exerciseSeedKey: exercises[i].seedKey,
         );
       }
     }
     // Nothing left anywhere: this was the last set of the session.
-    return (purpose: RestPurpose.anotherSet, weightKg: null, exercise: null);
+    return _justRest;
   }
+
+  /// A rest with nothing to set up: another set of the same thing at the same
+  /// weight, or the end of the session.
+  static const _justRest = (
+    purpose: RestPurpose.anotherSet,
+    weightKg: null,
+    exercise: null,
+    exerciseSeedKey: null,
+  );
 
   ActiveWorkout copyWith({
     int? elapsed,
@@ -393,6 +437,7 @@ class ActiveWorkout {
     routineId: routineId,
     workoutId: workoutId,
     name: name,
+    seedKey: seedKey,
     startedAt: startedAt,
     exercises: exercises,
     elapsed: elapsed ?? this.elapsed,
@@ -511,6 +556,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// line is the foreground service the live session runs behind — see
   /// [RestAlarm] for what that trades away, and `workout_shade.dart` for the
   /// service itself. A rest that ends with the app not running at all is silent.
+  /// **The words are resolved here, at the moment of ringing**, and handed to
+  /// [RestAlarm] finished — see that class. Read rather than remembered: a rest
+  /// can outlive a language switch, and a catalogue cached when the session
+  /// started would announce the set in the language it started in.
   void _sayTheRestIsOver() {
     final alarm = ref.read(restAlarmProvider);
     if (ref.read(appOnScreenProvider)()) {
@@ -518,16 +567,29 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       ref.read(restToneProvider).play();
       return;
     }
-    alarm.ring(title: 'Rest done', body: _whatComesNext());
+    final l10n = ref.read(appLocalizationsProvider);
+    alarm.ring(
+      channel: (
+        name: l10n.restAlarmChannelName,
+        description: l10n.restAlarmChannelDescription,
+      ),
+      title: l10n.restAlarmTitle,
+      body: _whatComesNext(l10n),
+    );
   }
 
   /// What the rest is over *for*. A notification that says only "rest done"
   /// makes you open the app to find out what for.
-  String _whatComesNext() {
+  String _whatComesNext(AppLocalizations l10n) {
     final s = state;
     final cue = s == null ? null : nextUp(s);
-    if (cue == null || cue.kind == CueKind.finished) return 'Back to it.';
-    return '${shadeWhere(cue)} · ${describeCue(cue, s!.unit)}';
+    if (cue == null || cue.kind == CueKind.finished) {
+      return l10n.restAlarmBackToIt;
+    }
+    return l10n.restAlarmBody(
+      shadeWhere(l10n, cue),
+      describeCue(l10n, cue, s!.unit),
+    );
   }
 
   // ---- The crash snapshot --------------------------------------------------
@@ -602,7 +664,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   Future<void> start({
     int? workoutId,
     required String name,
-    String? notice,
+    LayoffNotice? notice,
   }) async {
     // A fresh session clears whatever the last one's summary was still holding
     // on to — the progression banner belongs to one finish only.
@@ -620,9 +682,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       lbRack: stored.lbRack,
       barKg: stored.barKg,
     );
+    String? seedKey;
     if (workoutId != null) {
       final workout = await _db.workoutById(workoutId);
       routineId = workout.routineId;
+      seedKey = workout.seedKey;
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
       for (final v in items) {
@@ -645,6 +709,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           exerciseId: v.exercise.id,
           itemId: v.item.id,
           name: v.exercise.name,
+          seedKey: v.exercise.seedKey,
           muscle: v.exercise.muscleGroup,
           mode: mode,
           weightType: v.exercise.weightType,
@@ -666,6 +731,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         routineId: routineId,
         workoutId: workoutId,
         name: name,
+        seedKey: seedKey,
         startedAt: DateTime.now(),
         exercises: exercises,
         elapsed: 0,
@@ -913,6 +979,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           SessionSetsCompanion.insert(
             sessionId: 0, // replaced inside saveSession
             exerciseName: e.name,
+            exerciseSeedKey: Value(e.seedKey),
             setNumber: n++,
             exerciseId: Value(e.exerciseId),
             weight: Value(set.weight),
@@ -934,6 +1001,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       routineId: s.routineId,
       workoutId: s.workoutId,
       name: s.name,
+      seedKey: s.seedKey,
       startedAt: s.startedAt,
       endedAt: DateTime.now(),
       durationSeconds: s.elapsed,
@@ -979,6 +1047,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       outcomes.add(
         ProgressionOutcome(
           name: e.name,
+          seedKey: e.seedKey,
           mode: mode,
           moved: moved,
           target: target,
@@ -1042,8 +1111,6 @@ List<SetEntry> _warmupSetsFor(
 ];
 
 /// Formats a weight without a trailing ".0" (e.g. 80.0 -> "80", 12.5 -> "12.5").
-String fmtWeight(double w) =>
-    w == w.roundToDouble() ? w.toStringAsFixed(0) : w.toStringAsFixed(1);
 
 /// What one exercise's progression did in the session that just finished, in
 /// enough detail for the summary to say so without re-deriving anything.
@@ -1056,6 +1123,7 @@ String fmtWeight(double w) =>
 class ProgressionOutcome {
   const ProgressionOutcome({
     required this.name,
+    this.seedKey,
     required this.mode,
     required this.moved,
     required this.target,
@@ -1065,7 +1133,14 @@ class ProgressionOutcome {
     required this.failureThreshold,
   });
 
+  /// The canonical English name. The summary renders
+  /// `seededName(l10n, seedKey, name)` — see `util/seed_names.dart`.
   final String name;
+
+  /// The movement's seed key, carried from the session so the progression
+  /// banner names it in the app's language like every other screen does.
+  final String? seedKey;
+
   final ProgressionMode mode;
   final double moved;
   final double target;

@@ -8,6 +8,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
+import '../l10n/app_localizations.dart';
 import '../services/reminders.dart';
 import '../services/set_video_store.dart';
 import '../services/set_video_thumbnails.dart';
@@ -15,6 +16,8 @@ import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
+import '../util/locales.dart';
+import '../util/seed_names.dart';
 import 'db_provider.dart';
 
 export 'db_provider.dart' show databaseProvider;
@@ -172,9 +175,28 @@ final reminderServiceProvider = Provider<ReminderService>(
 /// routine. All of them move [routineRemindersProvider], and re-laying every
 /// reminder from that one signal is cheaper than remembering to do it in three
 /// places and forgetting in a fourth. Watch it once, high up — see `main.dart`.
+///
+/// The language is one of those things: a switch has to re-lay every pending
+/// reminder, or the next training day is announced in the language the phone
+/// was in when the schedule was last edited.
 final reminderSyncProvider = Provider<void>((ref) {
   final reminders = ref.watch(routineRemindersProvider).value;
-  if (reminders != null) ref.watch(reminderServiceProvider).sync(reminders);
+  if (reminders == null) return;
+  final l10n = ref.watch(appLocalizationsProvider);
+  ref.watch(reminderServiceProvider).sync(
+        [
+          for (final r in reminders)
+            (
+              reminder: r,
+              title: seededName(l10n, r.seedKey, r.name),
+              body: l10n.reminderBody,
+            ),
+        ],
+        channel: (
+          name: l10n.reminderChannelName,
+          description: l10n.reminderChannelDescription,
+        ),
+      );
 });
 
 /// The live workout in the notification shade.
@@ -206,12 +228,18 @@ final workoutShadeSyncProvider = Provider<void>((ref) {
   ref.watch(shadeActionsProvider);
 
   final session = ref.watch(activeWorkoutProvider);
-  if (session == null) {
+  final cue =
+      session == null ? null : nextUp(session, restLeft: session.restLeft);
+  // The one place that pushes state into the shade, so the one place that has
+  // to know what language it is in — the service takes finished text.
+  final copy = cue == null
+      ? null
+      : shadeCopy(ref.watch(appLocalizationsProvider), cue, unit);
+  if (copy == null) {
     shade.hide();
     return;
   }
-  final cue = nextUp(session, restLeft: session.restLeft);
-  if (cue != null) shade.show(cue, unit: unit);
+  shade.show(copy);
 });
 
 /// Raising the board, as the shade's set buttons ask for.
@@ -315,6 +343,47 @@ void applyShadeAction(
 /// `.value ?? 1.0` — following the phone is the default.
 final textScaleProvider = StreamProvider<double>((ref) {
   return ref.watch(databaseProvider).watchTextScale();
+});
+
+/// The language the user picked, as a tag (`uk`, `pt_BR`), or null to follow
+/// the phone — which is the default. Resolve it with `resolveLocale`.
+final localeTagProvider = StreamProvider<String?>((ref) {
+  return ref.watch(databaseProvider).watchLocaleTag();
+});
+
+/// The language to render in, resolved against the phone's own list.
+///
+/// Synchronous, and deliberately: the app root needs a locale for the very
+/// first frame, and a stored choice that has not arrived yet is
+/// indistinguishable from no choice at all — both mean "follow the phone",
+/// which is what this returns until the settings row lands. See
+/// [localeReadyProvider] for the gate that keeps that guess off the screen.
+final activeLocaleProvider = Provider<Locale>((ref) {
+  return resolveLocale(
+    ref.watch(localeTagProvider).value,
+    WidgetsBinding.instance.platformDispatcher.locales,
+  );
+});
+
+/// The string catalogue for [activeLocaleProvider].
+///
+/// **For the parts of the app that render text with no widget tree under
+/// them** — the notification shade, the rest alarm, the scheduled reminders.
+/// Everywhere there is a `BuildContext`, `AppLocalizations.of(context)` is the
+/// answer and this is not.
+///
+/// Derived rather than remembered, and read at the moment the text is built:
+/// switching language rebuilds it in the same pass that rebuilds the screens,
+/// so nothing can post yesterday's language.
+final appLocalizationsProvider = Provider<AppLocalizations>(
+  (ref) => lookupAppLocalizations(ref.watch(activeLocaleProvider)),
+);
+
+/// Whether the stored language has arrived. Joined with [themeReadyProvider]
+/// at the app root, for the same reason: painting a frame in the wrong
+/// language and correcting it is a flicker on every cold launch.
+final localeReadyProvider = Provider<bool>((ref) {
+  return ref.watch(localeTagProvider).hasValue;
 });
 
 /// The layoff rules: the gap that earns a back-off and how deep it cuts.

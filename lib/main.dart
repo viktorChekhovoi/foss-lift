@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import 'l10n/app_localizations.dart';
 import 'providers/providers.dart';
 import 'router.dart';
 import 'services/deep_links.dart';
 import 'theme/app_theme.dart';
+import 'util/locales.dart';
 import 'util/text_scale.dart';
 import 'widgets/resume_workout_bar.dart';
 import 'widgets/tutorial.dart';
@@ -44,6 +48,12 @@ class FossLiftApp extends ConsumerWidget {
     // Collects any clip file a crash stranded. Once, on launch.
     ref.watch(orphanSweepProvider);
     final palette = ref.watch(activePaletteProvider);
+    final locale = ref.watch(activeLocaleProvider);
+    // `intl` formats dates and numbers off a global rather than off the widget
+    // tree, so the one place that knows the language has to tell it. Set here,
+    // above the tree that reads it, so a switch reaches every NumberFormat and
+    // DateFormat in the same rebuild that reaches every string.
+    Intl.defaultLocale = localeTag(locale);
 
     // Nothing is painted until the stored theme is known. `activePaletteProvider`
     // is synchronous and falls back to the system-brightness default while the
@@ -53,7 +63,7 @@ class FossLiftApp extends ConsumerWidget {
     // frame or two, behind the launch screen, so there is nothing to wait
     // through. The holding frame is the ground colour the guess arrived at,
     // which is what the launch screen is showing anyway.
-    if (!ref.watch(themeReadyProvider)) {
+    if (!ref.watch(themeReadyProvider) || !ref.watch(localeReadyProvider)) {
       return ColoredBox(color: palette.ground, child: const SizedBox.expand());
     }
     // Status-bar icons have to contrast with the app's ground: dark icons over a
@@ -73,6 +83,18 @@ class FossLiftApp extends ConsumerWidget {
       key: ValueKey(palette.signature),
       title: 'Foss Lift',
       debugShowCheckedModeBanner: false,
+      // The language, resolved from the stored choice and the phone's own list
+      // — see util/locales.dart. `supportedLocales` still has to be handed over
+      // so the Material and Cupertino delegates know what to load, and so a
+      // locale we do not answer resolves to English rather than to nothing.
+      locale: locale,
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: AppTheme.build(palette),
       routerConfig: appRouter,
       // Wraps every route so a collapsed workout can be resumed from anywhere,

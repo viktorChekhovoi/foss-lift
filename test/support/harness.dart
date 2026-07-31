@@ -3,13 +3,43 @@
 // written once, not thirteen times.
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/l10n/app_localizations.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/util/locales.dart';
+
+/// The delegates `main.dart` installs, in the same order.
+///
+/// Not `AppLocalizations.localizationsDelegates`: that list is generated from
+/// the catalogues that exist, so a test mounting a language whose `.arb` has
+/// not landed yet would silently be handed English by a different route than
+/// the app takes.
+const List<LocalizationsDelegate<dynamic>> kTestDelegates = [
+  AppLocalizations.delegate,
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
+
+/// The catalogue itself, for a test that has to name a string the app shows.
+///
+/// Assert against the getter, never against a re-typed English literal: the
+/// test then keeps meaning something when the wording changes, and it reads the
+/// words from the same place the app does.
+AppLocalizations l10nFor([Locale locale = const Locale('en')]) {
+  // The date symbols come with the Flutter delegates when there is a widget
+  // tree; a catalogue looked up on its own has to load them, or every message
+  // with a date in it throws.
+  initializeDateFormatting(localeTag(locale));
+  return lookupAppLocalizations(locale);
+}
 
 /// A fresh in-memory database, seeded exactly like a first install (the two demo
 /// routines and the starter exercise library). This is the app a new user sees.
@@ -38,34 +68,45 @@ ProviderContainer containerFor(
       ],
     );
 
+/// The `MediaQuery` every mount below hangs its text scale on.
+///
+/// The scale has to be injected *below* `MaterialApp`, where the screen's own
+/// `MediaQuery` is, so a caller cannot simply wrap the result.
+TransitionBuilder _scaledBy(double textScale) => (context, page) => MediaQuery(
+      // copyWith, not a fresh MediaQueryData — a bare one has no size, and
+      // everything downstream lays out against zero.
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(textScale)),
+      child: page!,
+    );
+
 /// Wraps [child] in the app's real theme and a provider scope over [container],
 /// ready to `pumpWidget`.
 ///
 /// A live session ticks its duration every second and the rest banner counts
 /// down alongside it, so a tree containing one is *never* quiet: never
 /// `pumpAndSettle` it — use plain `pump()`s and end the test with [stop].
-/// Pass [textScale] to render at a text size other than the phone's own — the
-/// scale has to be injected below `MaterialApp`, where the screen's own
-/// `MediaQuery` is, so a caller cannot simply wrap the result.
+///
+/// [textScale] renders at a text size other than the phone's own, and [locale]
+/// in a language other than English. The delegates and `supportedLocales` are
+/// `main.dart`'s own, so a screen mounted here resolves its strings exactly as
+/// it does in the app — including the fallback to English for a locale that
+/// answers nothing.
 Widget appUnder(
   ProviderContainer container,
   Widget child, {
   double textScale = 1.0,
+  Locale locale = const Locale('en'),
 }) =>
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: AppTheme.build(kDefaultPalette),
+        locale: locale,
+        supportedLocales: kSupportedLocales,
+        localizationsDelegates: kTestDelegates,
         home: child,
-        builder: textScale == 1.0
-            ? null
-            : (context, page) => MediaQuery(
-                  // copyWith, not a fresh MediaQueryData — a bare one has no
-                  // size, and everything downstream lays out against zero.
-                  data: MediaQuery.of(context)
-                      .copyWith(textScaler: TextScaler.linear(textScale)),
-                  child: page!,
-                ),
+        builder: _scaledBy(textScale),
       ),
     );
 
@@ -132,15 +173,26 @@ Future<void> pumpThroughDatabase(WidgetTester tester, {int rounds = 12}) async {
 /// [alsoRoutes] adds further destinations the screen under test can navigate
 /// to, each rendering `at /<path>` so a test can assert *where* it went when
 /// that is the point (`alsoRoutes: ['session']` → `find.text('at /session')`).
+///
+/// [scaffold] wraps the screen in one, for the tab bodies that never see a
+/// `Scaffold` of their own; [textScale] and [locale] behave as in [appUnder].
 Widget routedAppUnder(
   ProviderContainer container,
   Widget child, {
   List<String> alsoRoutes = const [],
+  bool scaffold = false,
+  double textScale = 1.0,
+  Locale locale = const Locale('en'),
 }) =>
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
         theme: AppTheme.build(kDefaultPalette),
+        // As in [appUnder]: a screen reads its words from AppLocalizations, so
+        // the delegates have to be here too or the tree cannot build.
+        locale: locale,
+        supportedLocales: kSupportedLocales,
+        localizationsDelegates: kTestDelegates,
         routerConfig: GoRouter(
           initialLocation: '/under-test',
           routes: [
@@ -151,7 +203,10 @@ Widget routedAppUnder(
               path: '/',
               builder: (_, _) => const SizedBox.shrink(),
               routes: [
-                GoRoute(path: 'under-test', builder: (_, _) => child),
+                GoRoute(
+                  path: 'under-test',
+                  builder: (_, _) => scaffold ? Scaffold(body: child) : child,
+                ),
                 GoRoute(path: 'today', builder: (_, _) => const SizedBox.shrink()),
                 for (final p in alsoRoutes)
                   GoRoute(
@@ -162,5 +217,6 @@ Widget routedAppUnder(
             ),
           ],
         ),
+        builder: _scaledBy(textScale),
       ),
     );

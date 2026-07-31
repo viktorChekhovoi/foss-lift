@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../services/set_video_recorder.dart';
 import '../theme/app_theme.dart';
@@ -118,16 +119,17 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final clock = (elapsed: _elapsed, max: _max);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Record this set'),
+        title: Text(l10n.setVideoTitle),
         backgroundColor: Colors.black,
       ),
       body: SafeArea(
         child: _problem != null
-            ? _message(_problem!)
+            ? _message(l10n, _problem!)
             : Column(
                 children: [
                   Expanded(
@@ -136,7 +138,7 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
                           const CircularProgressIndicator(),
                     ),
                   ),
-                  if (_recording) _clock(clock),
+                  if (_recording) _clock(l10n, clock),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 22),
                     child: _shutter(),
@@ -150,11 +152,11 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
   /// Seconds left, and only shouting about it at the end. A countdown running
   /// the whole time is a stopwatch nobody asked for; a stop that arrives with
   /// no warning is worse.
-  Widget _clock(RecordingClock clock) {
+  Widget _clock(AppLocalizations l10n, RecordingClock clock) {
     final left = recordingRemaining(clock);
     final closing = recordingCountingDown(clock);
     return Text(
-      closing ? 'Stopping in $left' : '$left s left',
+      closing ? l10n.setVideoStoppingIn(left) : l10n.setVideoSecondsLeft(left),
       style: kMono.copyWith(
         fontSize: closing ? 20 : 14,
         fontWeight: FontWeight.w700,
@@ -187,12 +189,11 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
     );
   }
 
-  Widget _message(RecorderProblem problem) {
+  Widget _message(AppLocalizations l10n, RecorderProblem problem) {
     final text = switch (problem) {
-      RecorderProblem.noCamera => 'This device has no camera.',
-      RecorderProblem.denied =>
-        'Foss Lift needs the camera to film a set. Clips stay on this phone.',
-      RecorderProblem.failed => 'The camera could not be started.',
+      RecorderProblem.noCamera => l10n.commonNoCamera,
+      RecorderProblem.denied => l10n.setVideoCameraDenied,
+      RecorderProblem.failed => l10n.commonCameraFailed,
     };
     return Center(
       child: Padding(
@@ -210,7 +211,7 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
             const SizedBox(height: 22),
             OutlinedButton(
               onPressed: () => Navigator.of(context).maybePop(),
-              child: const Text('Back'),
+              child: Text(l10n.commonBack),
             ),
           ],
         ),

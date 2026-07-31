@@ -59,19 +59,28 @@ class RestAlarm {
   /// the id is simply a new one; anything still holding the old `rest_done`
   /// channel is a development install and can lose it.
   static const _channelId = 'rest_alarm';
-  static const _channelName = 'Rest finished';
-  static const _channelDescription =
-      'Sounds when a rest timer runs out with the app in your pocket.';
 
-  bool _ready = false;
+  /// The channel labels [_init] last registered, or null before the first ring.
+  /// A language switch changes them, and Android takes a channel's name and
+  /// description from the most recent call — so the row in the phone's
+  /// notification settings follows the app.
+  NotificationChannelCopy? _channelCopy;
 
   bool get supported => _platformSupported;
 
   /// Sounds the alarm now, replacing anything still on screen.
-  Future<void> ring({required String title, required String body}) async {
+  ///
+  /// Every string arrives finished: this runs off a timer with no widget tree
+  /// under it, so `ActiveWorkoutController` resolves the language and composes
+  /// the two lines before calling.
+  Future<void> ring({
+    required NotificationChannelCopy channel,
+    required String title,
+    required String body,
+  }) async {
     if (!supported) return;
     await _guard('sound the end of the rest', () async {
-      await _init();
+      await _init(channel);
       // One id for the rest, so a second ding replaces the first rather than
       // stacking beside it.
       await _plugin.cancel(id: kRestAlarmId);
@@ -79,7 +88,7 @@ class RestAlarm {
         id: kRestAlarmId,
         title: title,
         body: body,
-        notificationDetails: _details,
+        notificationDetails: _details(channel),
       );
     });
   }
@@ -107,15 +116,16 @@ class RestAlarm {
   /// Max, a heads-up, and the alarm stream. This is the one notification in the
   /// app that is an *alert* rather than furniture — the live-workout shade beside
   /// it is deliberately silent and LOW.
-  static const _details = NotificationDetails(
+  static NotificationDetails _details(NotificationChannelCopy channel) =>
+      NotificationDetails(
     android: AndroidNotificationDetails(
       _channelId,
-      _channelName,
-      channelDescription: _channelDescription,
+      channel.name,
+      channelDescription: channel.description,
       importance: Importance.max,
       priority: Priority.high,
       category: AndroidNotificationCategory.alarm,
-      sound: RawResourceAndroidNotificationSound('rest_done'),
+      sound: const RawResourceAndroidNotificationSound('rest_done'),
       // The alarm stream, so it is heard over a phone on vibrate and at the
       // volume somebody set for being woken up — and so it follows
       // Do-Not-Disturb's alarm rules rather than overriding anything.
@@ -129,8 +139,8 @@ class RestAlarm {
     ),
   );
 
-  Future<void> _init() async {
-    if (_ready) return;
+  Future<void> _init(NotificationChannelCopy channel) async {
+    if (_channelCopy == channel) return;
     await initNotifications(_plugin);
     // Created explicitly rather than left to the first `show`. A scheduled
     // notification is handed over now and posted later, possibly by a process
@@ -139,15 +149,15 @@ class RestAlarm {
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
+        ?.createNotificationChannel(AndroidNotificationChannel(
           _channelId,
-          _channelName,
-          description: _channelDescription,
+          channel.name,
+          description: channel.description,
           importance: Importance.max,
-          sound: RawResourceAndroidNotificationSound('rest_done'),
+          sound: const RawResourceAndroidNotificationSound('rest_done'),
           audioAttributesUsage: AudioAttributesUsage.alarm,
           enableVibration: true,
         ));
-    _ready = true;
+    _channelCopy = channel;
   }
 }

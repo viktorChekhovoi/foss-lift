@@ -38,6 +38,8 @@ import 'package:foss_lift/widgets/theme_preview.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr/qr.dart';
 
+import 'package:foss_lift/util/locales.dart';
+
 import 'support/harness.dart';
 import 'support/settle.dart';
 
@@ -1491,6 +1493,11 @@ void main() {
           return MaterialApp.router(
             key: ValueKey(palette.signature),
             theme: AppTheme.build(palette),
+            // The screen reads its words from the catalogue, as every screen
+            // does — see `routedAppUnder`. This root is hand-built because the
+            // palette has to re-key the MaterialApp itself.
+            supportedLocales: kSupportedLocales,
+            localizationsDelegates: kTestDelegates,
             routerConfig: router,
           );
         }),
@@ -2194,6 +2201,8 @@ void main() {
             return MaterialApp.router(
               key: ValueKey(palette.signature),
               theme: AppTheme.build(palette),
+              supportedLocales: kSupportedLocales,
+              localizationsDelegates: kTestDelegates,
               routerConfig: router,
             );
           },

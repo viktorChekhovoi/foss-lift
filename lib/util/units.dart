@@ -2,6 +2,8 @@
 /// convert to and from whatever unit the user has chosen for display/input.
 library;
 
+import '../l10n/app_localizations.dart';
+
 const double _kgPerLb = 0.45359237;
 
 /// Converts a canonical kilogram value into the display unit ('kg' or 'lb').
@@ -12,5 +14,6 @@ double toDisplayWeight(double kg, String unit) =>
 double toKg(double display, String unit) =>
     unit == 'lb' ? display * _kgPerLb : display;
 
-/// The suffix shown next to weights and volumes.
-String unitLabel(String unit) => unit == 'lb' ? 'lb' : 'kg';
+/// The suffix shown next to weights and volumes, in the app's language.
+String unitSuffix(AppLocalizations l10n, String unit) =>
+    unit == 'lb' ? l10n.unitLbSuffix : l10n.unitKgSuffix;

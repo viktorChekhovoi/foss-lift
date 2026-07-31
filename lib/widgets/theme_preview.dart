@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 /// A miniature of the app painted in [palette], so a colour is judged in
@@ -38,6 +39,7 @@ class ThemePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -48,24 +50,18 @@ class ThemePreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _card(),
+          _card(l10n),
           const SizedBox(height: 12),
-          _statStrip(),
+          _statStrip(l10n),
           const SizedBox(height: 12),
-          _primaryButton(),
+          _primaryButton(l10n),
           if (_hardToRead) ...[
             const SizedBox(height: 12),
-            _warning(
-              'This text is hard to read on this background. Try a lighter or '
-              'darker "Text" colour.',
-            ),
+            _warning(l10n.themePreviewContrastWarning),
           ],
           if (_markersAlike) ...[
             const SizedBox(height: 12),
-            _warning(
-              '"Completed" and "Missed goal" look alike. A glance down a '
-              'column of sets should tell them apart.',
-            ),
+            _warning(l10n.themePreviewMarkersWarning),
           ],
         ],
       ),
@@ -81,7 +77,7 @@ class ThemePreview extends StatelessWidget {
   /// and a swatch of each says nothing about whether you could tell them apart
   /// at speed. The untouched third row is what puts `surface2`, `surface3` and
   /// `faint` on screen doing their actual jobs.
-  Widget _card() {
+  Widget _card(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -102,7 +98,7 @@ class ThemePreview extends StatelessWidget {
                     BoxDecoration(color: palette.accent, shape: BoxShape.circle),
               ),
               Expanded(
-                child: Text('Bench Press',
+                child: Text(l10n.exerciseBenchPress,
                     style: TextStyle(
                         color: palette.text,
                         fontSize: 16,
@@ -116,7 +112,7 @@ class ThemePreview extends StatelessWidget {
                   border:
                       Border(bottom: BorderSide(color: palette.line, width: 1.5)),
                 ),
-                child: Text('80 kg',
+                child: Text(l10n.unitWeightShort('80', l10n.unitKgSuffix),
                     style: kMono.copyWith(
                         color: palette.text,
                         fontSize: 14,
@@ -125,7 +121,7 @@ class ThemePreview extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _columnHeaders(),
+          _columnHeaders(l10n),
           _setRow(number: 1, goal: '80×8', weight: '80', result: '8', tone: palette.good),
           _setRow(number: 2, goal: '80×8', weight: '80', result: '6', tone: palette.gold, short: true),
           _setRow(number: 3, goal: '80×8', weight: '80', result: '8'),
@@ -134,7 +130,7 @@ class ThemePreview extends StatelessWidget {
     );
   }
 
-  Widget _columnHeaders() {
+  Widget _columnHeaders(AppLocalizations l10n) {
     Widget h(String t, {double? width}) {
       final child = Text(
         t.toUpperCase(),
@@ -148,7 +144,15 @@ class ThemePreview extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
-        children: [h('Set', width: 28), h('Goal', width: 54), h('kg'), h('Reps')],
+        children: [
+          h(l10n.themePreviewSetHeader, width: 28),
+          h(l10n.themePreviewGoalHeader, width: 54),
+          // The mock board is always metric — it is a colour sample, not a
+          // reading of what you lift — but the symbol still has to be the one
+          // the language writes.
+          h(l10n.unitKgSuffix),
+          h(l10n.themePreviewRepsHeader),
+        ],
       ),
     );
   }
@@ -254,7 +258,7 @@ class ThemePreview extends StatelessWidget {
 
   /// The stat strip above the sets: the numbers in the accent, their labels in
   /// `faint`, divided by `line`.
-  Widget _statStrip() {
+  Widget _statStrip(AppLocalizations l10n) {
     Widget stat(String value, String label, {bool accent = false}) => Expanded(
           child: Column(
             children: [
@@ -283,9 +287,9 @@ class ThemePreview extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            stat('12:04', 'Duration'),
+            stat('12:04', l10n.themePreviewDuration),
             VerticalDivider(width: 1, color: palette.line),
-            stat('3/17', 'Sets', accent: true),
+            stat('3/17', l10n.themePreviewSets, accent: true),
           ],
         ),
       ),
@@ -296,7 +300,7 @@ class ThemePreview extends StatelessWidget {
   /// palette says reads on the accent, so a bad accent shows up here as a
   /// washed-out label. The bottom edge is `accentPress` — the tone the button
   /// takes when held, which is otherwise invisible until you press one.
-  Widget _primaryButton() {
+  Widget _primaryButton(AppLocalizations l10n) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -308,7 +312,7 @@ class ThemePreview extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Text('Start workout',
+        child: Text(l10n.themePreviewStartWorkout,
             style: TextStyle(
                 color: palette.onAccent,
                 fontSize: 15,

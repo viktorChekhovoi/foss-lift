@@ -139,6 +139,11 @@ screens:
     route: /settings/videos
     reach: Profile → Settings → video quality & storage.
 
+  - id: language-settings
+    title: Language
+    route: /settings/language
+    reach: Profile → Settings → Language.
+
   - id: theme-settings
     title: Theme
     route: /settings/theme

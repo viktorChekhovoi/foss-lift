@@ -120,6 +120,20 @@ class _FakeDecoder {
       decoded.where((name) => name == p.basename(relative)).length;
 }
 
+/// What the reel writes on the row for a set of [reps] at [weightKg] filmed on
+/// [day] March 2026 — asked of the same label the screen builds its rows from,
+/// so the assertion says "the row reads what a clip reads" rather than freezing
+/// one language's word order into the test.
+String marchRow(int day, double weightKg, {int setNumber = 1, int reps = 5}) =>
+    clipLabelOf(
+      l10nFor(),
+      date: DateTime(2026, 3, day),
+      setNumber: setNumber,
+      weightKg: weightKg,
+      reps: reps,
+      unit: 'kg',
+    );
+
 void main() {
   late AppDatabase db;
   late Directory root;
@@ -786,34 +800,58 @@ void main() {
           videoPath: 'set_videos/x.mp4',
         );
 
+    // The words come from the catalogue, so the assertions ask it for them
+    // rather than re-typing the English: what a label has to get right is which
+    // of the four messages it picks and what it fills in — the date the way the
+    // language writes it, the set, the load in the display unit, the effort.
+    final l10n = l10nFor();
+    final date = DateTime(2026, 3, 12);
+
     test('the date, the set, and what was done', () {
-      expect(clipLabel(entry(), 'kg'), '12 Mar · set 3 · 100 kg × 5');
+      expect(clipLabel(l10n, entry(), 'kg'),
+          l10n.clipLabelLoadedReps(
+              date, 3, l10n.unitWeightShort('100', l10n.unitKgSuffix), 5));
     });
 
     test('it follows the display unit', () {
-      expect(clipLabel(entry(weightKg: 100), 'lb'), contains('lb'));
-      expect(clipLabel(entry(weightKg: 100), 'lb'), isNot(contains('kg')));
+      final label = clipLabel(l10n, entry(weightKg: 100), 'lb');
+      expect(label, contains(l10n.unitLbSuffix));
+      expect(label, isNot(contains(l10n.unitKgSuffix)));
     });
 
     test('a held set reads its duration, not a rep count', () {
-      expect(clipLabel(entry(weightKg: 0, reps: 0, seconds: 45), 'kg'),
-          '12 Mar · set 3 · 45s');
+      expect(clipLabel(l10n, entry(weightKg: 0, reps: 0, seconds: 45), 'kg'),
+          l10n.clipLabelHold(date, 3, l10n.unitSecondsShort('45')));
     });
 
     test('an unloaded set does not claim to have been 0 kg', () {
-      expect(clipLabel(entry(weightKg: 0, reps: 12), 'kg'),
-          '12 Mar · set 3 · 12 reps');
+      expect(clipLabel(l10n, entry(weightKg: 0, reps: 12), 'kg'),
+          l10n.clipLabelReps(date, 3, 12));
+    });
+
+    test('one rep is one rep, not "1 reps"', () {
+      // The rep count is a plural in the catalogue, so the label agrees with
+      // itself at a count of one. It reads "1 rep" in English; a language with
+      // more plural forms than two picks its own.
+      expect(clipLabel(l10n, entry(weightKg: 0, reps: 1), 'kg'),
+          l10n.clipLabelReps(date, 3, 1));
+      expect(clipLabel(l10n, entry(weightKg: 0, reps: 1), 'kg'),
+          isNot(clipLabel(l10n, entry(weightKg: 0, reps: 2), 'kg')));
     });
 
     test('a half-kilo weight keeps its decimal, a whole one loses it', () {
-      expect(clipLabel(entry(weightKg: 102.5), 'kg'), contains('102.5 kg'));
-      expect(clipLabel(entry(weightKg: 100), 'kg'), contains('100 kg'));
+      final kg = l10n.unitKgSuffix;
+      expect(clipLabel(l10n, entry(weightKg: 102.5), 'kg'),
+          contains(l10n.unitWeightShort('102.5', kg)));
+      expect(clipLabel(l10n, entry(weightKg: 100), 'kg'),
+          contains(l10n.unitWeightShort('100', kg)));
     });
 
     test('the recap and the reel say the same thing about the same set', () {
       final e = entry();
       expect(
         clipLabelOf(
+          l10n,
           date: e.date,
           setNumber: e.setNumber,
           weightKg: e.weightKg,
@@ -821,7 +859,7 @@ void main() {
           seconds: e.seconds,
           unit: 'kg',
         ),
-        clipLabel(e, 'kg'),
+        clipLabel(l10n, e, 'kg'),
       );
     });
   });
@@ -887,12 +925,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('2 Mar · set 1 · 90 kg × 5'), findsOneWidget);
-      expect(find.text('1 Mar · set 1 · 80 kg × 5'), findsOneWidget);
+      expect(find.text(marchRow(2, 90)), findsOneWidget);
+      expect(find.text(marchRow(1, 80)), findsOneWidget);
       // Newest first: the 2 Mar row is above the 1 Mar one.
       expect(
-        tester.getTopLeft(find.text('2 Mar · set 1 · 90 kg × 5')).dy,
-        lessThan(tester.getTopLeft(find.text('1 Mar · set 1 · 80 kg × 5')).dy),
+        tester.getTopLeft(find.text(marchRow(2, 90))).dy,
+        lessThan(tester.getTopLeft(find.text(marchRow(1, 80))).dy),
       );
 
       await stop(tester);
@@ -950,7 +988,7 @@ void main() {
           routedAppUnder(container!, ExerciseClipsScreen(exerciseId: bench.id)));
       await pumpThroughDatabase(tester);
 
-      expect(find.text('1 Mar · set 1 · 80 kg × 5'), findsOneWidget);
+      expect(find.text(marchRow(1, 80)), findsOneWidget);
       expect(find.byType(Image), findsOneWidget);
       expect(find.byIcon(Icons.play_arrow_rounded), findsNothing,
           reason: 'the frame replaces the symbol; it does not sit beside it');
@@ -974,11 +1012,11 @@ void main() {
       ));
       await pumpThroughDatabase(tester);
 
-      expect(find.text('1 Mar · set 1 · 80 kg × 5'), findsOneWidget);
+      expect(find.text(marchRow(1, 80)), findsOneWidget);
       expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
       expect(find.byType(Image), findsNothing);
 
-      await tester.tap(find.text('1 Mar · set 1 · 80 kg × 5'));
+      await tester.tap(find.text(marchRow(1, 80)));
       await pumpThroughDatabase(tester);
       expect(find.text('at /clip'), findsOneWidget,
           reason: 'no frame is a missing picture, not a missing clip');

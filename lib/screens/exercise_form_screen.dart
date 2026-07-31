@@ -2,20 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../util/video_links.dart';
-
-/// How the movement is counted, in the words a lifter would use.
-const _measures = {
-  'Reps': ExerciseMeasure.reps,
-  'Time held': ExerciseMeasure.time,
-};
-
-/// What the weight column will mean for this movement, keyed by the chip that
-/// picks it. [WeightType.none] is not here: it is what deselecting leaves
-/// behind, not a fourth chip.
-final _weightTypes = {for (final t in WeightType.loadable) t.label: t};
 
 /// Form for a custom exercise: creating one, or editing one you already made.
 ///
@@ -38,7 +29,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   final _video = TextEditingController();
   String _muscle = 'Chest';
   String _equip = 'Barbell';
-  String _measure = 'Reps';
+  ExerciseMeasure _measure = ExerciseMeasure.reps;
   WeightType _weightType = weightTypeForEquipment('Barbell');
   bool _saving = false;
 
@@ -66,7 +57,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           ? ex.muscleGroup
           : 'Other';
       _equip = kEquipmentTypes.contains(ex.equipment) ? ex.equipment : 'Other';
-      _measure = ex.measure == ExerciseMeasure.time ? 'Time held' : 'Reps';
+      _measure = ex.measure;
       _weightType = ex.weightType;
       _loaded = true;
     });
@@ -105,9 +96,9 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   /// because a counted barbell movement with no load type is the same mistake
   /// pointing the other way. Either exception — a weighted plank, a bodyweight
   /// chin-up — is the tap below.
-  void _setMeasure(String v) => setState(() {
+  void _setMeasure(ExerciseMeasure v) => setState(() {
     _measure = v;
-    _weightType = v == 'Reps'
+    _weightType = v == ExerciseMeasure.reps
         ? weightTypeForEquipment(_equip)
         : WeightType.none;
   });
@@ -123,7 +114,9 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Give the exercise a name first.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).exerciseFormNameRequired),
+        ),
       );
       return;
     }
@@ -139,7 +132,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
         muscle: _muscle,
         equipment: _equip,
         videoUrl: video,
-        measure: _measures[_measure]!,
+        measure: _measure,
         weightType: _weightType,
       );
     } else {
@@ -148,7 +141,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
         muscle: _muscle,
         equipment: _equip,
         videoUrl: video,
-        measure: _measures[_measure]!,
+        measure: _measure,
         weightType: _weightType,
       );
     }
@@ -162,38 +155,54 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'Edit exercise' : 'New exercise')),
+      appBar: AppBar(
+        title: Text(
+          _isEdit ? l10n.exerciseFormEditTitle : l10n.exerciseFormNewTitle,
+        ),
+      ),
       body: SafeArea(
         top: false,
         child: !_loaded
             ? Center(child: CircularProgressIndicator(color: AppColors.accent))
-            : _form(context),
+            : _form(l10n),
       ),
     );
   }
 
-  Widget _form(BuildContext context) {
+  /// The words on a measure chip. The stored value is the enum either way.
+  String _measureLabel(AppLocalizations l10n, ExerciseMeasure m) =>
+      switch (m) {
+        ExerciseMeasure.reps => l10n.exerciseFormMeasureReps,
+        ExerciseMeasure.time => l10n.exerciseFormMeasureTime,
+      };
+
+  Widget _form(AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        _Label('Name'),
+        _Label(l10n.commonName),
         _Field(
           controller: _name,
-          hint: 'e.g. Cable Lateral Raise',
+          hint: l10n.exerciseFormNameHint,
           maxLength: kMaxNameLength,
         ),
         const SizedBox(height: 18),
-        _Label('Muscle group'),
+        _Label(l10n.exerciseFormMuscleGroup),
+        // The stored English is what is selected and saved; only the chip's
+        // words are translated — the vocabulary is an index in a routine code.
         _Choices(
           options: kMuscleGroups,
+          label: (v) => muscleGroupLabel(l10n, v),
           selected: _muscle,
           onSelect: (v) => setState(() => _muscle = v),
         ),
         const SizedBox(height: 18),
-        _Label('Equipment'),
+        _Label(l10n.exerciseFormEquipment),
         _Choices(
           options: kEquipmentTypes,
+          label: (v) => equipmentLabel(l10n, v),
           selected: _equip,
           onSelect: _setEquipment,
         ),
@@ -201,18 +210,18 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
         // Measured in comes before Loaded as: whether a movement is counted
         // or held is the more fundamental fact about it, and it is what
         // decides whether the loading question is interesting at all.
-        _Label('Measured in'),
+        _Label(l10n.exerciseFormMeasuredIn),
         _Choices(
-          options: _measures.keys.toList(),
+          options: ExerciseMeasure.values,
+          label: (v) => _measureLabel(l10n, v),
           selected: _measure,
           onSelect: _setMeasure,
         ),
         const SizedBox(height: 6),
         Text(
-          _measure == 'Reps'
-              ? 'Counted movements progress by adding load or reps.'
-              : 'Held movements are logged in seconds and progress by '
-                    'holding longer.',
+          _measure == ExerciseMeasure.reps
+              ? l10n.exerciseFormRepsNote
+              : l10n.exerciseFormTimeNote,
           style: kMono.copyWith(
             fontSize: 11,
             height: 1.5,
@@ -224,22 +233,27 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
         // loaded carry and a weighted dead hang are all real — but demoted
         // to a quieter line, because most holds carry nothing and the
         // answer above has usually already settled it.
-        _Label(_measure == 'Reps' ? 'Loaded as' : 'Loaded as (if at all)'),
+        _Label(
+          _measure == ExerciseMeasure.reps
+              ? l10n.exerciseFormLoadedAs
+              : l10n.exerciseFormLoadedAsOptional,
+        ),
         _Choices(
-          options: _weightTypes.keys.toList(),
+          // [WeightType.none] is not offered: it is what deselecting leaves
+          // behind, not a fourth chip.
+          options: WeightType.loadable,
+          label: (v) => weightTypeLabel(l10n, v),
           // Nothing is selected for a movement that carries nothing, and
           // tapping the selected chip is how you get back there.
-          selected: _weightType.label,
+          selected: _weightType,
           onSelect: (v) => setState(() {
-            final picked = _weightTypes[v]!;
-            _weightType = picked == _weightType ? WeightType.none : picked;
+            _weightType = v == _weightType ? WeightType.none : v;
           }),
         ),
-        if (_measure != 'Reps') ...[
+        if (_measure != ExerciseMeasure.reps) ...[
           const SizedBox(height: 6),
           Text(
-            'Most holds carry nothing. This is for the ones that do — a '
-            'weighted plank, a loaded carry.',
+            l10n.exerciseFormHoldLoadNote,
             style: kMono.copyWith(
               fontSize: 11,
               height: 1.5,
@@ -248,10 +262,10 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           ),
         ],
         const SizedBox(height: 18),
-        _Label('Demo link (optional)'),
+        _Label(l10n.exerciseFormDemoLink),
         _Field(
           controller: _video,
-          hint: 'https://…',
+          hint: l10n.exerciseFormDemoLinkHint,
           keyboardType: TextInputType.url,
         ),
         const SizedBox(height: 28),
@@ -259,7 +273,9 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           width: double.infinity,
           child: FilledButton(
             onPressed: _saving ? null : _save,
-            child: Text(_saving ? 'Saving…' : 'Save exercise'),
+            child: Text(
+              _saving ? l10n.commonSaving : l10n.exerciseFormSave,
+            ),
           ),
         ),
       ],
@@ -328,15 +344,22 @@ class _Field extends StatelessWidget {
   }
 }
 
-class _Choices extends StatelessWidget {
+/// A row of chips over one vocabulary.
+///
+/// Generic in the value so the chips carry what is stored — a muscle group as
+/// English, an enum — and [label] alone decides the words. Comparing the value
+/// rather than its words is what keeps the selection working in every language.
+class _Choices<T> extends StatelessWidget {
   const _Choices({
     required this.options,
+    required this.label,
     required this.selected,
     required this.onSelect,
   });
-  final List<String> options;
-  final String selected;
-  final ValueChanged<String> onSelect;
+  final List<T> options;
+  final String Function(T) label;
+  final T selected;
+  final ValueChanged<T> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -359,7 +382,7 @@ class _Choices extends StatelessWidget {
                 ),
               ),
               child: Text(
-                o,
+                label(o),
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,

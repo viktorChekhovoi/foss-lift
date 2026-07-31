@@ -37,6 +37,10 @@ Widget _anchoredHost(Widget? overlayChildExtra) => Scaffold(
       ),
     );
 
+/// The English catalogue: a step carries the way to ask for its words rather
+/// than the words, so a test that wants to read one has to ask too.
+final _l10n = l10nFor();
+
 void main() {
   late AppDatabase db;
   late ProviderContainer container;
@@ -91,7 +95,7 @@ void main() {
     // board, the rest timer, the workout in the shade — went unmentioned.
 
     String saidAltogether() => kTutorialSteps
-        .map((step) => '${step.title} ${step.body}')
+        .map((step) => '${step.title(_l10n)} ${step.body(_l10n)}')
         .join(' ')
         .toLowerCase();
 
@@ -133,11 +137,11 @@ void main() {
       // "Phone in your pocket" said where the phone was, not what the step was
       // about. Whichever step describes the notification says so in its title.
       final shade = kTutorialSteps.where(
-          (s) => s.body.toLowerCase().contains('notification'));
+          (s) => s.body(_l10n).toLowerCase().contains('notification'));
       expect(shade, isNotEmpty, reason: 'no step covers the shade at all');
       for (final step in shade) {
-        expect(step.title.toLowerCase(), contains('notification'),
-            reason: 'the shade step is titled "${step.title}"');
+        expect(step.title(_l10n).toLowerCase(), contains('notification'),
+            reason: 'the shade step is titled "${step.title(_l10n)}"');
       }
       expect(saidAltogether(), isNot(contains('pocket')));
     });
@@ -201,7 +205,11 @@ void main() {
       await walkTo(tester, stepWith(TutorialDemo.restBar));
 
       expect(find.byType(TutorialRestDemo), findsOneWidget);
-      for (final control in ['−15s', '+15s', 'Skip']) {
+      for (final control in [
+        _l10n.sessionRestMinus,
+        _l10n.sessionRestPlus,
+        _l10n.sessionRestSkip,
+      ]) {
         expect(
             find.descendant(
               of: find.byType(TutorialRestDemo),
@@ -283,13 +291,13 @@ void main() {
 
       // It opens on the greeting, not mid-sentence on a coach mark: the app
       // says what it is and offers the tour before pointing at anything.
-      expect(find.text(kTutorialSteps.first.title), findsOneWidget,
+      expect(find.text(kTutorialSteps.first.title(_l10n)), findsOneWidget,
           reason: 'the tour should open on its welcome step');
-      expect(find.text('Take the tour'), findsOneWidget);
-      expect(find.text('Not now'), findsOneWidget);
+      expect(find.text(_l10n.tutorialTakeTour), findsOneWidget);
+      expect(find.text(_l10n.tutorialNotNow), findsOneWidget);
 
       // Declining means "don't run again on its own" — it must persist the flag.
-      await tester.tap(find.text('Not now'));
+      await tester.tap(find.text(_l10n.tutorialNotNow));
       await pumpUntil(
           tester, () => container.read(tutorialSeenProvider).value == true);
 
@@ -297,8 +305,8 @@ void main() {
           reason: 'dismissing records that the tour has been seen');
 
       // And the overlay is gone, cleanly — nothing of it left on screen.
-      expect(find.text(kTutorialSteps.first.title), findsNothing);
-      expect(find.text('Take the tour'), findsNothing);
+      expect(find.text(kTutorialSteps.first.title(_l10n)), findsNothing);
+      expect(find.text(_l10n.tutorialTakeTour), findsNothing);
 
       await stop(tester);
     });
@@ -310,14 +318,14 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
       }
 
-      await tester.tap(find.text('Take the tour'));
+      await tester.tap(find.text(_l10n.tutorialTakeTour));
       await tester.pump();
 
       // The second step is the first one that points at something, and its
       // buttons go back to reading as navigation.
-      expect(find.text(kTutorialSteps[1].title), findsOneWidget);
-      expect(find.text('Skip'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.text(kTutorialSteps[1].title(_l10n)), findsOneWidget);
+      expect(find.text(_l10n.tutorialSkip), findsOneWidget);
+      expect(find.text(_l10n.tutorialNext), findsOneWidget);
 
       await stop(tester);
     });
@@ -331,13 +339,13 @@ void main() {
       for (var i = 0; i < 8; i++) {
         await tester.pump(const Duration(milliseconds: 20));
       }
-      expect(find.text(kTutorialSteps.first.title), findsNothing);
+      expect(find.text(kTutorialSteps.first.title(_l10n)), findsNothing);
 
       // What Profile → Help & tour does.
       container.read(tutorialProvider.notifier).start();
       await tester.pump();
 
-      expect(find.text(kTutorialSteps.first.title), findsOneWidget,
+      expect(find.text(kTutorialSteps.first.title(_l10n)), findsOneWidget,
           reason: 'a replay begins at the greeting, not mid-tour');
 
       await stop(tester);
@@ -374,7 +382,7 @@ void main() {
         container.read(tutorialProvider.notifier).next();
         await tester.pump();
       }
-      expect(find.text(kTutorialSteps[target].title), findsOneWidget);
+      expect(find.text(kTutorialSteps[target].title(_l10n)), findsOneWidget);
 
       // Let the scroll run.
       for (var i = 0; i < 20; i++) {
@@ -400,7 +408,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
       }
 
-      expect(find.text(kTutorialSteps.first.title), findsNothing,
+      expect(find.text(kTutorialSteps.first.title(_l10n)), findsNothing,
           reason: 'a returning user must not see the tour again');
 
       await stop(tester);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../services/set_video_recorder.dart';
 import '../theme/app_theme.dart';
@@ -24,49 +25,53 @@ class VideoSettingsScreen extends ConsumerWidget {
     final maxSeconds = resolveVideoMaxSeconds(setting?.maxSeconds);
     final clips = ref.watch(videoPathsProvider).value ?? const <String>[];
     final used = ref.watch(videoUsageProvider).value;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Set videos')),
+      appBar: AppBar(title: Text(l10n.videoSettingsTitle)),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            Text('QUALITY',
+            Text(l10n.videoSettingsQuality,
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             _Choices(
               values: kVideoHeights,
               chosen: height,
-              label: (v) => '${v}p',
+              label: l10n.videoSettingsHeight,
               onSelect: db.setVideoHeight,
             ),
             const SizedBox(height: 22),
-            Text('MAX CLIP LENGTH',
+            Text(l10n.videoSettingsMaxLength,
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             _Choices(
               values: kVideoMaxSeconds,
               chosen: maxSeconds,
-              label: (v) => v < 60 ? '$v s' : '${v ~/ 60} min',
+              label: (v) => v < 60
+                  ? l10n.videoSettingsSeconds(v)
+                  : l10n.videoSettingsMinutes(v ~/ 60),
               onSelect: db.setVideoMaxSeconds,
             ),
             const SizedBox(height: 28),
-            Text('STORAGE',
+            Text(l10n.videoSettingsStorage,
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
             _UsageRow(
-              label: '${clips.length} ${clips.length == 1 ? 'clip' : 'clips'}',
+              label: l10n.commonClipCount(clips.length),
               value: used == null ? '…' : fmtBytes(used),
             ),
             const SizedBox(height: 10),
             if (clips.isNotEmpty)
               OutlinedButton(
-                onPressed: () => _confirmDeleteAll(context, ref, clips.length),
-                child: const Text('Delete every clip'),
+                onPressed: () =>
+                    _confirmDeleteAll(context, l10n, ref, clips.length),
+                child: Text(l10n.videoSettingsDeleteAll),
               ),
           ],
         ),
@@ -80,6 +85,7 @@ class VideoSettingsScreen extends ConsumerWidget {
   /// actually is.
   Future<void> _confirmDeleteAll(
     BuildContext context,
+    AppLocalizations l10n,
     WidgetRef ref,
     int count,
   ) async {
@@ -87,16 +93,16 @@ class VideoSettingsScreen extends ConsumerWidget {
       context: context,
       builder: (dialog) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text('Delete $count ${count == 1 ? 'clip' : 'clips'}?'),
-        content: const Text('The sets stay. The recordings do not come back.'),
+        title: Text(l10n.videoSettingsDeleteTitle(count)),
+        content: Text(l10n.videoSettingsDeleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Delete'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),

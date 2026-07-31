@@ -24,12 +24,14 @@ import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/home_shell.dart';
+import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/util/locales.dart';
 import 'package:foss_lift/widgets/resume_workout_bar.dart';
 
 import 'support/harness.dart';
@@ -43,6 +45,10 @@ Future<void> _settle() =>
 /// Waits out a two-second rest, and the tick that ends it.
 Future<void> _restRunsOut() =>
     Future<void>.delayed(const Duration(milliseconds: 2400));
+
+/// The English catalogue: the shade's buttons are named from it, so the
+/// assertions read them from the same place rather than re-typing them.
+final _l10n = l10nFor();
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -240,9 +246,13 @@ void main() {
       final ctl = await startPush();
       ctl.startRest(90, null);
 
-      final buttons = shadeButtons(cue());
+      final buttons = shadeButtons(_l10n, cue());
 
-      expect(buttons.map((b) => b.text), ['−15s', '+15s', 'Skip']);
+      expect(buttons.map((b) => b.text), [
+        _l10n.sessionRestMinus,
+        _l10n.sessionRestPlus,
+        _l10n.sessionRestSkip,
+      ]);
       expect(buttons.map((b) => b.id), [
         WorkoutShade.restSubAction,
         WorkoutShade.restAddAction,
@@ -344,9 +354,9 @@ void main() {
       test('offers one button, Start', () async {
         final ctl = await startPlank();
 
-        final buttons = shadeButtons(cue());
+        final buttons = shadeButtons(_l10n, cue());
 
-        expect(buttons.map((b) => b.text), ['Start']);
+        expect(buttons.map((b) => b.text), [_l10n.shadeStart]);
         expect(buttons.single.id, WorkoutShade.startAction);
 
         ctl.discard();
@@ -409,6 +419,7 @@ void main() {
         purpose: RestPurpose.anotherSet,
         weightKg: null,
         exercise: null,
+        exerciseSeedKey: null,
       ));
       await snapshot();
 
@@ -631,6 +642,8 @@ void main() {
           container: container!,
           child: MaterialApp.router(
             theme: AppTheme.build(kDefaultPalette),
+            supportedLocales: kSupportedLocales,
+            localizationsDelegates: kTestDelegates,
             routerConfig: router,
             builder: (context, child) =>
                 ResumeWorkoutOverlay(router: router, child: child!),
@@ -740,7 +753,11 @@ class _RecordingAlarm extends RestAlarm {
   int cleared = 0;
 
   @override
-  Future<void> ring({required String title, required String body}) async =>
+  Future<void> ring({
+    required NotificationChannelCopy channel,
+    required String title,
+    required String body,
+  }) async =>
       rung.add(body);
 
   @override

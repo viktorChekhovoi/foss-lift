@@ -35,12 +35,18 @@ enum CueKind {
 /// say what the set is. A counted set has [reps]; a held one has [seconds];
 /// neither has both. [restLeft] is only set while [kind] is [CueKind.resting].
 ///
+/// [exercise] is the canonical English name and [exerciseSeedKey] the movement's
+/// seed key, exactly as [ExerciseEntry] carries them: whatever renders the cue
+/// resolves the pair with `seededName`, so the notification names a starter
+/// movement in the app's language rather than in the one it was seeded in.
+///
 /// [setIndex] and [setCount] are the position *within the list this set belongs
 /// to* — the warm-up rungs for a rung, the working sets for a working set.
 /// Four identical sets of bench read identically from a pocket without them.
 typedef WorkoutCue = ({
   CueKind kind,
   String exercise,
+  String? exerciseSeedKey,
   bool warmup,
   int exerciseIndex,
   int setIndex,
@@ -92,6 +98,7 @@ WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
   return (
     kind: CueKind.finished,
     exercise: '',
+    exerciseSeedKey: null,
     warmup: false,
     exerciseIndex: -1,
     setIndex: -1,
@@ -119,6 +126,7 @@ WorkoutCue _cue(
           ? CueKind.resting
           : (entry.timed ? CueKind.hold : CueKind.lift),
       exercise: e.name,
+      exerciseSeedKey: e.seedKey,
       warmup: warmup,
       exerciseIndex: ei,
       setIndex: si,

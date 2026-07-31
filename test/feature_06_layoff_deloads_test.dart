@@ -262,6 +262,8 @@ void main() {
   // has to agree with its numbers — a threshold of one is the default for a
   // weight slot, so the singular is the common case, not the edge one.
   group('a back-off rule reads correctly at every threshold', () {
+    final l10n = l10nFor();
+
     ItemDraft slot({int misses = 1, int cleans = 1}) => ItemDraft(
           exerciseId: 1,
           name: 'Bench Press',
@@ -271,29 +273,29 @@ void main() {
         );
 
     test('one miss is one missed session, with nothing to be in a row with', () {
-      final rule = progressionRule(slot(), 'kg');
+      final rule = progressionRule(l10n, slot(), 'kg');
       expect(rule, contains('after 1 missed session.'));
       expect(rule, isNot(contains('sessions')));
       expect(rule, isNot(contains('in a row')));
     });
 
     test('two or more misses are sessions, in a row', () {
-      expect(progressionRule(slot(misses: 2), 'kg'),
+      expect(progressionRule(l10n, slot(misses: 2), 'kg'),
           contains('after 2 missed sessions in a row.'));
-      expect(progressionRule(slot(misses: 10), 'kg'),
+      expect(progressionRule(l10n, slot(misses: 10), 'kg'),
           contains('after 10 missed sessions in a row.'));
     });
 
     test('the clean-session half agrees with its number too', () {
-      expect(progressionRule(slot(cleans: 1), 'kg'),
+      expect(progressionRule(l10n, slot(cleans: 1), 'kg'),
           contains('after 1 clean session;'));
-      expect(progressionRule(slot(cleans: 3), 'kg'),
+      expect(progressionRule(l10n, slot(cleans: 3), 'kg'),
           contains('after 3 clean sessions;'));
     });
 
     test('the amounts are named in the display unit', () {
-      expect(progressionRule(slot(), 'kg'), startsWith('Add 2.5 kg'));
-      expect(progressionRule(slot(), 'lb'), startsWith('Add 5.5 lb'));
+      expect(progressionRule(l10n, slot(), 'kg'), startsWith('Add 2.5 kg'));
+      expect(progressionRule(l10n, slot(), 'lb'), startsWith('Add 5.5 lb'));
     });
   });
 }

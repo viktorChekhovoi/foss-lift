@@ -342,6 +342,28 @@ concepts:
     what: What a screen says when there is nothing on it yet.
     code: [lib/screens/today_screen.dart, lib/screens/history_screen.dart]
 
+  - id: ui.language
+    area: ui
+    what: >-
+      Which language the app renders in — the phone's, or the one the user
+      picked — and how a region tag resolves to a catalogue.
+    code: [lib/util/locales.dart, lib/screens/language_screen.dart]
+
+  - id: ui.string-catalogue
+    area: ui
+    what: >-
+      Every user-facing string, once, keyed. Adding a language is adding one
+      more file to it; adding a screen means adding to it rather than typing a
+      literal.
+    code: [lib/l10n/app_en.arb]
+
+  - id: ui.seeded-name
+    area: ui
+    what: >-
+      The name of a row the app shipped, resolved from its seed key at display
+      time so it follows the language instead of being frozen at install.
+    code: [lib/util/seed_names.dart]
+
   # ------------------------------------------------------------------- share
   - id: share.routine-code
     area: share

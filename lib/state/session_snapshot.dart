@@ -23,10 +23,12 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
       'routineId': s.routineId,
       'workoutId': s.workoutId,
       'name': s.name,
+      'seedKey': s.seedKey,
       'startedAt': s.startedAt.millisecondsSinceEpoch,
       'elapsed': s.elapsed,
       'unit': s.unit,
-      'notice': s.notice,
+      if (s.notice case final n?)
+        'notice': {'percent': n.percent, 'days': n.days},
       'plates': [for (final p in s.plates) _stack(p)],
       'restLeft': s.restLeft,
       if (s.restPrompt case final p?)
@@ -34,6 +36,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
           'purpose': p.purpose.name,
           'weightKg': p.weightKg,
           'exercise': p.exercise,
+          'exerciseSeedKey': p.exerciseSeedKey,
         },
       'exercises': [
         for (final e in s.exercises)
@@ -41,6 +44,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'exerciseId': e.exerciseId,
             'itemId': e.itemId,
             'name': e.name,
+            'seedKey': e.seedKey,
             'muscle': e.muscle,
             'mode': e.mode.name,
             'weightType': e.weightType.name,
@@ -77,10 +81,11 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       routineId: m['routineId'] as int?,
       workoutId: m['workoutId'] as int?,
       name: m['name'] as String,
+      seedKey: m['seedKey'] as String?,
       startedAt: DateTime.fromMillisecondsSinceEpoch(m['startedAt'] as int),
       elapsed: (m['elapsed'] as int) + gone,
       unit: m['unit'] as String,
-      notice: m['notice'] as String?,
+      notice: _readNotice(m['notice']),
       plates: [
         for (final p in m['plates'] as List) _readStack(p as Map<String, dynamic>),
       ],
@@ -130,15 +135,22 @@ RestPrompt? _readPrompt(Object? raw) {
       purpose: purpose,
       weightKg: (raw['weightKg'] as num?)?.toDouble(),
       exercise: raw['exercise'] as String?,
+      exerciseSeedKey: raw['exerciseSeedKey'] as String?,
     );
   }
   return null;
+}
+
+LayoffNotice? _readNotice(Object? raw) {
+  if (raw is! Map<String, dynamic>) return null;
+  return (percent: raw['percent'] as int, days: raw['days'] as int);
 }
 
 ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
       exerciseId: m['exerciseId'] as int?,
       itemId: m['itemId'] as int?,
       name: m['name'] as String,
+      seedKey: m['seedKey'] as String?,
       muscle: m['muscle'] as String,
       mode: ProgressionMode.values.byName(m['mode'] as String),
       weightType: WeightType.values.byName(m['weightType'] as String),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
-import '../state/active_workout.dart' show fmtWeight;
 import '../theme/app_theme.dart';
 import '../util/units.dart';
+import '../util/format.dart';
 
 /// The stand-ins the tour shows for the live workout.
 ///
@@ -32,7 +33,10 @@ const kTutorialDemoNoteKey = ValueKey('tutorial-demo-note');
 const kTutorialDemoCameraKey = ValueKey('tutorial-demo-camera');
 
 /// The example: one barbell lift, three working sets, the first one logged.
-const _kDemoExercise = 'Bench Press';
+///
+/// The lift is named from the starter library rather than spelled out here, so
+/// the tour shows the movement under the name the library screen would give it.
+/// Everything else the mock says is its own — see the note on this file.
 const _kDemoWeightKg = 80.0;
 const _kDemoGoal = 8;
 const _kDemoSets = 3;
@@ -46,6 +50,7 @@ class TutorialBoardDemo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
 
@@ -59,11 +64,11 @@ class TutorialBoardDemo extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _heading(),
+          _heading(l10n),
           const SizedBox(height: 12),
-          _goalLine(weight, unit),
+          _goalLine(l10n, weight, unit),
           const SizedBox(height: 8),
-          _columnHeaders(unit),
+          _columnHeaders(l10n, unit),
           for (var i = 1; i <= _kDemoSets; i++)
             _SetRowDemo(
               number: i,
@@ -84,7 +89,7 @@ class TutorialBoardDemo extends ConsumerWidget {
     );
   }
 
-  Widget _heading() => Row(
+  Widget _heading(AppLocalizations l10n) => Row(
         children: [
           Container(
             width: 8,
@@ -97,7 +102,7 @@ class TutorialBoardDemo extends ConsumerWidget {
           ),
           Expanded(
             child: Text(
-              _kDemoExercise,
+              l10n.exerciseBenchPress,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
@@ -120,7 +125,7 @@ class TutorialBoardDemo extends ConsumerWidget {
 
   /// What the exercise is aiming at and what it is loaded to, the way the board
   /// says it: `3 × 8 @ 80 kg`.
-  Widget _goalLine(String weight, String unit) => Row(
+  Widget _goalLine(AppLocalizations l10n, String weight, String unit) => Row(
         children: [
           const Spacer(),
           Text(
@@ -151,7 +156,7 @@ class TutorialBoardDemo extends ConsumerWidget {
                 ),
                 const SizedBox(width: 3),
                 Text(
-                  unitLabel(unit),
+                  unitSuffix(l10n, unit),
                   style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
                 ),
                 const SizedBox(width: 7),
@@ -162,7 +167,7 @@ class TutorialBoardDemo extends ConsumerWidget {
         ],
       );
 
-  Widget _columnHeaders(String unit) {
+  Widget _columnHeaders(AppLocalizations l10n, String unit) {
     Widget h(String t, {double? width}) {
       final child = Text(
         t.toUpperCase(),
@@ -182,9 +187,9 @@ class TutorialBoardDemo extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 4, left: 5, right: 5),
       child: Row(
         children: [
-          h('Set', width: 40),
-          h(unitLabel(unit)),
-          h('Reps done'),
+          h(l10n.sessionColSet, width: 40),
+          h(unitSuffix(l10n, unit)),
+          h(l10n.sessionColRepsDone),
           const SizedBox(width: 36),
         ],
       ),
@@ -198,6 +203,7 @@ class TutorialRestDemo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
 
@@ -212,7 +218,8 @@ class TutorialRestDemo extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Set up $weight ${unitLabel(unit)}, rest, then lift.',
+            l10n.sessionRestSetUpThenRest(
+                l10n.unitWeightShort(weight, unitSuffix(l10n, unit))),
             style:
                 kMono.copyWith(fontSize: 11, height: 1.3, color: AppColors.muted),
           ),
@@ -221,7 +228,7 @@ class TutorialRestDemo extends ConsumerWidget {
           // the mock is narrower than the screen it sits on, and one layout is
           // one layout to keep honest.
           Text(
-            '1:30',
+            l10n.tutorialDemoRestSeconds,
             style: kMono.copyWith(
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -233,7 +240,12 @@ class TutorialRestDemo extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final label in ['−15s', '+15s', 'Skip']) _pill(label),
+              for (final label in [
+                l10n.sessionRestMinus,
+                l10n.sessionRestPlus,
+                l10n.sessionRestSkip,
+              ])
+                _pill(label),
             ],
           ),
         ],
@@ -261,6 +273,7 @@ class TutorialShadeDemo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
 
@@ -279,7 +292,7 @@ class TutorialShadeDemo extends ConsumerWidget {
               Icon(Icons.fitness_center, size: 13, color: AppColors.accent),
               const SizedBox(width: 6),
               Text(
-                'Foss Lift',
+                l10n.commonAppName,
                 style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
               ),
             ],
@@ -289,18 +302,20 @@ class TutorialShadeDemo extends ConsumerWidget {
           // shadeText. Kept to the same shape so the tour is not teaching a
           // notification nobody will recognise.
           Text(
-            '$_kDemoExercise · Set 2/$_kDemoSets',
+            l10n.shadeWhereExerciseSet(l10n.exerciseBenchPress, 2, _kDemoSets),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Text(
-            '$weight ${unitLabel(unit)} × $_kDemoGoal',
+            l10n.shadeSetWeightReps(
+                l10n.unitWeightShort(weight, unitSuffix(l10n, unit)),
+                _kDemoGoal),
             style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              for (final label in ['Done', 'Missed'])
+              for (final label in [l10n.shadeDone, l10n.shadeMissed])
                 Padding(
                   padding: const EdgeInsets.only(right: 18),
                   child: Text(

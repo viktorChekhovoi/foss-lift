@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
 import '../data/exercise_filter.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../widgets/exercise_filters.dart';
 
 /// Browsable, searchable exercise library. Tap a row for details; the FAB adds
@@ -22,16 +24,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final library = ref.watch(exerciseLibraryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Exercise library')),
+      appBar: AppBar(title: Text(l10n.libraryTitle)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/library/new'),
         backgroundColor: AppColors.accent,
         foregroundColor: const Color(0xFF1A0E07),
         icon: const Icon(Icons.add),
-        label: const Text('New exercise'),
+        label: Text(l10n.commonNewExercise),
       ),
       body: SafeArea(
         top: false,
@@ -41,7 +44,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           error: (e, _) =>
               Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (all) {
-            final list = _filter.apply(all);
+            final list = _filter.apply(all, shown: (e) => shownWords(l10n, e));
 
             // Group by muscle, preserving the already-sorted order.
             final groups = <String, List<Exercise>>{};
@@ -78,7 +81,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         Padding(
                           padding: EdgeInsets.only(top: 60),
                           child: Center(
-                            child: Text('Nothing matches.',
+                            child: Text(l10n.libraryNothingMatches,
                                 style: TextStyle(color: AppColors.muted)),
                           ),
                         ),
@@ -86,7 +89,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(22, 16, 22, 8),
                           child: Text(
-                            '${entry.key.toUpperCase()} · ${entry.value.length}',
+                            l10n
+                                .libraryGroupHeading(
+                                  muscleGroupLabel(l10n, entry.key),
+                                  entry.value.length,
+                                )
+                                .toUpperCase(),
                             style: kMono.copyWith(
                                 fontSize: 11,
                                 letterSpacing: 1.2,
@@ -135,11 +143,12 @@ class _SearchField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return TextField(
       onChanged: onChanged,
       style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
-        hintText: 'Search exercises…',
+        hintText: l10n.commonSearchExercises,
         prefixIcon: Icon(Icons.search, color: AppColors.muted),
         isDense: true,
         filled: true,
@@ -166,6 +175,7 @@ class _ExerciseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -182,17 +192,18 @@ class _ExerciseTile extends StatelessWidget {
                   Row(
                     children: [
                       Flexible(
-                        child: Text(exercise.name,
+                        child: Text(
+                            seededName(l10n, exercise.seedKey, exercise.name),
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                       ),
                       if (exercise.isCustom) ...[
                         const SizedBox(width: 8),
-                        _customBadge(),
+                        _customBadge(l10n),
                       ],
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(exercise.equipment,
+                  Text(equipmentLabel(l10n, exercise.equipment),
                       style: TextStyle(fontSize: 12, color: AppColors.muted)),
                 ],
               ),
@@ -204,13 +215,13 @@ class _ExerciseTile extends StatelessWidget {
     );
   }
 
-  Widget _customBadge() => Container(
+  Widget _customBadge(AppLocalizations l10n) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: AppColors.accent.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text('CUSTOM',
+        child: Text(l10n.libraryCustomBadge,
             style: kMono.copyWith(
                 fontSize: 9, letterSpacing: 0.8, color: AppColors.accent)),
       );

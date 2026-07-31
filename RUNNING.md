@@ -214,6 +214,20 @@ While `flutter run` is attached, use these keys in the terminal:
   A schema change also means the on-device data is stale — uninstall the app (or
   `adb uninstall com.fosslift.foss_lift`) to get a fresh seed while pre-release.
 
+- After changing `design/icon/foss-lift.svg`, re-export the PNGs under
+  `assets/icon/` and `assets/splash/`, then regenerate the Android resources:
+
+  ```bash
+  ./tool/icon_assets.sh            # needs inkscape and ImageMagick 7
+  dart run flutter_launcher_icons
+  dart run flutter_native_splash:create
+  ```
+
+  Both write into `android/app/src/main/res/`, and the result is committed. The
+  configuration for each, and the reasoning behind the sizes, is at the bottom
+  of `pubspec.yaml`. A launcher icon is cached by the launcher, so reinstall
+  rather than hot-restart to see it change.
+
 ## Build a shareable APK
 
 To hand someone an installable file (no PC needed on their end):

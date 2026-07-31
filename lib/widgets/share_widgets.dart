@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../util/qr_capacity.dart';
 
@@ -90,8 +91,9 @@ class ShareQr extends StatelessWidget {
   Widget build(BuildContext context) {
     // How much redundancy this payload can afford — medium while it fits, low
     // when only low will hold it. See `util/qr_capacity.dart`.
+    final l10n = AppLocalizations.of(context);
     final ecc = qrEccFor(data.length);
-    if (ecc == null) return _tooBig();
+    if (ecc == null) return _tooBig(l10n);
     final side = _sideFor(context);
 
     return Column(
@@ -128,7 +130,7 @@ class ShareQr extends StatelessWidget {
               // The capacity check above should make this unreachable; it is
               // here because a QR library refusing to encode must show the
               // honest card, never throw into a build.
-              errorStateBuilder: (_, _) => _tooBig(),
+              errorStateBuilder: (_, _) => _tooBig(l10n),
             ),
           ),
         ),
@@ -144,7 +146,7 @@ class ShareQr extends StatelessWidget {
 
   /// What a payload past every error-correction level gets instead of a symbol
   /// nothing could read.
-  Widget _tooBig() => Container(
+  Widget _tooBig(AppLocalizations l10n) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -152,8 +154,7 @@ class ShareQr extends StatelessWidget {
           border: Border.all(color: AppColors.line),
         ),
         child: Text(
-          'Too big for a QR code. Send the code instead — same thing, '
-          'no camera needed.',
+          l10n.shareQrTooBig,
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
       );
@@ -227,6 +228,7 @@ class _PasteDialogState extends State<_PasteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -243,11 +245,11 @@ class _PasteDialogState extends State<_PasteDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('Continue'),
+          child: Text(l10n.shareContinue),
         ),
       ],
     );

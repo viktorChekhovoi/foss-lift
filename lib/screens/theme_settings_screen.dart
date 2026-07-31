@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_code.dart';
+import '../util/seed_names.dart';
 import '../widgets/share_widgets.dart';
 import '../widgets/theme_preview.dart';
 
@@ -21,6 +23,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final active = ref.watch(activePaletteProvider);
     final db = ref.read(databaseProvider);
     final mine = ref.watch(customThemesProvider).value ?? const <AppPalette>[];
@@ -31,7 +34,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
     final selectedId = active.id;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Colour theme')),
+      appBar: AppBar(title: Text(l10n.themeTitle)),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -41,9 +44,9 @@ class ThemeSettingsScreen extends ConsumerWidget {
             // scan. Each group ends with its high-contrast option, which the
             // row badges — picking legibility should never also mean giving up
             // the brightness you prefer.
-            for (final group in const [
-              ('DARK', Brightness.dark),
-              ('LIGHT', Brightness.light),
+            for (final group in [
+              (l10n.themeDarkGroup, Brightness.dark),
+              (l10n.themeLightGroup, Brightness.light),
             ]) ...[
               Text(group.$1,
                   style: kMono.copyWith(
@@ -53,6 +56,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   in kThemePresets.where((p) => p.brightness == group.$2)) ...[
                 _ThemeOption(
                   palette: preset,
+                  label: themeDisplayName(l10n, preset),
                   selected: selectedId == preset.id,
                   onTap: () => db.setThemePreset(preset.id),
                   // The pencil on a preset copies rather than edits: it opens
@@ -64,7 +68,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
               ],
               const SizedBox(height: 10),
             ],
-            Text('YOUR THEMES',
+            Text(l10n.themeYourThemes,
                 style: kMono.copyWith(
                     fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
             const SizedBox(height: 10),
@@ -73,6 +77,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
             for (final palette in mine) ...[
               _ThemeOption(
                 palette: palette,
+                label: palette.name,
                 selected: selectedId == palette.id,
                 onTap: () => db.setThemePreset(palette.id),
                 onEdit: () => context.push(
@@ -80,9 +85,9 @@ class ThemeSettingsScreen extends ConsumerWidget {
                 // Your own can be edited in place, so copying needs a control
                 // of its own — the pencil is already spoken for. A preset has
                 // no copy icon: its pencil already means "copy and edit".
-                onDuplicate: () => db.addCustomTheme(
-                    _seedCustom(palette, _freeName('${palette.name} copy', mine))
-                        .toJson()),
+                onDuplicate: () => db.addCustomTheme(_seedCustom(palette,
+                        _freeName(l10n.themeCopyName(palette.name), mine))
+                    .toJson()),
               ),
               const SizedBox(height: 10),
             ],
@@ -92,23 +97,35 @@ class ThemeSettingsScreen extends ConsumerWidget {
             // them something they already have.
             if (customThemeRowId(selectedId) != null) ...[
               const SizedBox(height: 26),
-              shareSectionLabel('SHARE THIS THEME'),
+              shareSectionLabel(l10n.themeShareSection),
               const SizedBox(height: 10),
               shareActionRow([
-                (Icons.qr_code_2, 'Show QR', () => _showQr(context, active)),
-                (Icons.ios_share, 'Send code', () => _shareCode(active)),
+                (
+                  Icons.qr_code_2,
+                  l10n.commonShowQr,
+                  () => _showQr(context, active)
+                ),
+                (
+                  Icons.ios_share,
+                  l10n.commonSendCode,
+                  () => _shareCode(l10n, active)
+                ),
               ]),
             ],
             const SizedBox(height: 22),
-            shareSectionLabel('ADD A THEME'),
+            shareSectionLabel(l10n.themeAddSection),
             const SizedBox(height: 10),
             shareActionRow([
               (
                 Icons.qr_code_scanner,
-                'Scan QR',
+                l10n.themeScanQr,
                 () => context.push('/scan?for=theme')
               ),
-              (Icons.content_paste, 'Paste code', () => _paste(context)),
+              (
+                Icons.content_paste,
+                l10n.themePasteCode,
+                () => _paste(context)
+              ),
             ]),
           ],
         ),
@@ -138,8 +155,8 @@ String _freeName(String base, List<AppPalette> existing) {
 }
 
 /// The name a new theme opens with.
-String _nextThemeName(List<AppPalette> existing) =>
-    _freeName('My theme', existing);
+String _nextThemeName(AppLocalizations l10n, List<AppPalette> existing) =>
+    _freeName(l10n.themeDefaultName, existing);
 
 /// The row that starts a new theme. Shaped like a theme option so the list
 /// reads as one column, but with nothing to select — a plus, and the words.
@@ -165,7 +182,7 @@ class _NewThemeRow extends StatelessWidget {
               Icon(Icons.add_rounded, size: 20, color: AppColors.accent),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('New theme',
+                child: Text(AppLocalizations.of(context).themeNew,
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -188,13 +205,12 @@ Future<void> _showQr(BuildContext context, AppPalette palette) {
       title: Text(palette.name),
       content: ShareQr(
         data: ThemeCode.link(palette),
-        caption: 'Point another phone at this. Foss Lift will ask before '
-            'changing anything.',
+        caption: AppLocalizations.of(context).themeQrCaption,
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Done'),
+          child: Text(AppLocalizations.of(context).commonDone),
         ),
       ],
     ),
@@ -208,11 +224,11 @@ Future<void> _showQr(BuildContext context, AppPalette palette) {
 /// a custom scheme, so a link arrived as unclickable text that had to be pasted
 /// anyway, carrying a prefix the reader then strips. The QR still holds the
 /// link, where a camera can act on it.
-Future<void> _shareCode(AppPalette palette) async {
+Future<void> _shareCode(AppLocalizations l10n, AppPalette palette) async {
   await SharePlus.instance.share(
     ShareParams(
       text: ThemeCode.encode(palette),
-      subject: 'Foss Lift theme: ${palette.name}',
+      subject: l10n.themeShareSubject(palette.name),
     ),
   );
 }
@@ -220,8 +236,9 @@ Future<void> _shareCode(AppPalette palette) async {
 /// Prompts for a pasted code or link and hands it to the import screen, which
 /// is the only thing allowed to apply a theme.
 Future<void> _paste(BuildContext context) async {
+  final l10n = AppLocalizations.of(context);
   final text = await promptForCode(context,
-      title: 'Paste a theme', hint: 'FLT1.… or a fosslift:// link');
+      title: l10n.themePasteTitle, hint: l10n.themePasteHint);
   if (text == null || !context.mounted) return;
   context.push('/settings/theme/import?code=${Uri.encodeQueryComponent(text)}');
 }
@@ -233,12 +250,17 @@ Future<void> _paste(BuildContext context) async {
 class _ThemeOption extends StatelessWidget {
   const _ThemeOption({
     required this.palette,
+    required this.label,
     required this.selected,
     required this.onTap,
     this.onEdit,
     this.onDuplicate,
   });
   final AppPalette palette;
+
+  /// The name as it reads on screen — a preset's translated one, or the name
+  /// the user gave their own. See [themeDisplayName].
+  final String label;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onEdit;
@@ -268,7 +290,7 @@ class _ThemeOption extends StatelessWidget {
               _Swatches(palette: palette),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(palette.name,
+                child: Text(label,
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
               ),
@@ -281,7 +303,7 @@ class _ThemeOption extends StatelessWidget {
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onDuplicate,
-                  tooltip: 'Duplicate',
+                  tooltip: AppLocalizations.of(context).themeDuplicate,
                   icon: Icon(Icons.copy_outlined,
                       size: 18, color: AppColors.muted),
                 ),
@@ -289,7 +311,7 @@ class _ThemeOption extends StatelessWidget {
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onEdit,
-                  tooltip: 'Edit',
+                  tooltip: AppLocalizations.of(context).commonEdit,
                   icon: Icon(Icons.edit_outlined,
                       size: 18, color: AppColors.muted),
                 ),
@@ -328,20 +350,21 @@ class _AaaBadgeState extends State<_AaaBadge> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: widget.explainOnTap
           ? () => _tooltip.currentState?.ensureTooltipVisible()
           : null,
       child: Tooltip(
         key: _tooltip,
-        message: 'Meets WCAG AAA contrast',
+        message: l10n.themeAaaTooltip,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppColors.line),
           ),
-          child: Text('AAA',
+          child: Text(l10n.themeAaaBadge,
               style: kMono.copyWith(
                   fontSize: 10,
                   letterSpacing: 0.8,
@@ -398,28 +421,47 @@ class _Swatches extends StatelessWidget {
 
 /// One editable role: its label and how to read/write it on a palette.
 typedef _Role = ({
-  String label,
+  String Function(AppLocalizations) label,
   Color Function(AppPalette) get,
   AppPalette Function(AppPalette, Color) set,
 });
 
+/// The twelve editable roles, in the order the editor lists them.
+///
+/// The labels are looked up rather than stored, so the editor follows a
+/// language switch. The role *identifiers* they stand for — the JSON keys and
+/// the byte order in a theme code — are a wire format and live in
+/// `AppPalette._roles` and `ThemeCode._roleOrder`; nothing here moves them.
 const List<_Role> _roles = [
-  (label: 'Background', get: _gGround, set: _sGround),
-  (label: 'Surface', get: _gSurface, set: _sSurface),
-  (label: 'Raised surface', get: _gSurface2, set: _sSurface2),
-  (label: 'Highest surface', get: _gSurface3, set: _sSurface3),
-  (label: 'Lines & borders', get: _gLine, set: _sLine),
-  (label: 'Text', get: _gText, set: _sText),
-  (label: 'Muted text', get: _gMuted, set: _sMuted),
-  (label: 'Faint text', get: _gFaint, set: _sFaint),
-  (label: 'Accent', get: _gAccent, set: _sAccent),
-  (label: 'Accent pressed', get: _gAccentPress, set: _sAccentPress),
+  (label: _lGround, get: _gGround, set: _sGround),
+  (label: _lSurface, get: _gSurface, set: _sSurface),
+  (label: _lSurface2, get: _gSurface2, set: _sSurface2),
+  (label: _lSurface3, get: _gSurface3, set: _sSurface3),
+  (label: _lLine, get: _gLine, set: _sLine),
+  (label: _lText, get: _gText, set: _sText),
+  (label: _lMuted, get: _gMuted, set: _sMuted),
+  (label: _lFaint, get: _gFaint, set: _sFaint),
+  (label: _lAccent, get: _gAccent, set: _sAccent),
+  (label: _lAccentPress, get: _gAccentPress, set: _sAccentPress),
   // `gold` is the came-up-short marker everywhere it is painted — a missed
   // goal, a backed-off weight, a downward delta. It used to be labelled
   // "Personal record" here, which named the opposite of what it does.
-  (label: 'Completed', get: _gGood, set: _sGood),
-  (label: 'Missed goal', get: _gGold, set: _sGold),
+  (label: _lGood, get: _gGood, set: _sGood),
+  (label: _lGold, get: _gGold, set: _sGold),
 ];
+
+String _lGround(AppLocalizations l) => l.themeRoleGround;
+String _lSurface(AppLocalizations l) => l.themeRoleSurface;
+String _lSurface2(AppLocalizations l) => l.themeRoleSurface2;
+String _lSurface3(AppLocalizations l) => l.themeRoleSurface3;
+String _lLine(AppLocalizations l) => l.themeRoleLine;
+String _lText(AppLocalizations l) => l.themeRoleText;
+String _lMuted(AppLocalizations l) => l.themeRoleMuted;
+String _lFaint(AppLocalizations l) => l.themeRoleFaint;
+String _lAccent(AppLocalizations l) => l.themeRoleAccent;
+String _lAccentPress(AppLocalizations l) => l.themeRoleAccentPressed;
+String _lGood(AppLocalizations l) => l.themeRoleGood;
+String _lGold(AppLocalizations l) => l.themeRoleGold;
 
 Color _gGround(AppPalette p) => p.ground;
 Color _gSurface(AppPalette p) => p.surface;
@@ -497,6 +539,7 @@ class _CustomThemeEditorScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final mine = ref.watch(customThemesProvider).value ?? const <AppPalette>[];
     final active = ref.watch(activePaletteProvider);
     // Seeded once: after that the draft is the truth, so a rebuild cannot
@@ -506,26 +549,27 @@ class _CustomThemeEditorScreenState
     final source =
         widget.themeId == null ? presetById(widget.fromPresetId) : null;
     final draft = _draft ??=
-        _stored(mine) ?? _seedCustom(source ?? active, _nextThemeName(mine));
+        _stored(mine) ?? _seedCustom(source ?? active, _nextThemeName(l10n, mine));
     final nameField = _name ??= TextEditingController(text: draft.name);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(switch ((widget.themeId, source)) {
-          (final int _, _) => 'Edit theme',
-          (_, final AppPalette p) => 'New from ${p.name}',
-          _ => 'New theme',
+          (final int _, _) => l10n.themeEditTitle,
+          (_, final AppPalette p) =>
+            l10n.themeNewFrom(themeDisplayName(l10n, p)),
+          _ => l10n.themeNew,
         }),
         actions: [
           if (widget.themeId != null)
             IconButton(
               onPressed: () => _confirmDelete(widget.themeId!, draft.name),
               icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete',
+              tooltip: l10n.commonDelete,
             ),
           TextButton(
             onPressed: () => _save(draft),
-            child: const Text('Save'),
+            child: Text(l10n.commonSave),
           ),
         ],
       ),
@@ -544,13 +588,13 @@ class _CustomThemeEditorScreenState
             const SizedBox(height: 20),
             for (final role in _roles) ...[
               _RoleRow(
-                label: role.label,
+                label: role.label(l10n),
                 color: role.get(draft),
                 onPick: () async {
                   final picked = await showDialog<Color>(
                     context: context,
                     builder: (_) => _ColorPickerDialog(
-                      title: role.label,
+                      title: role.label(l10n),
                       initial: role.get(draft),
                     ),
                   );
@@ -584,19 +628,20 @@ class _CustomThemeEditorScreenState
   /// Deletes after asking. Losing a palette somebody spent an evening on to a
   /// mis-tap is exactly the sort of thing a confirmation is for.
   Future<void> _confirmDelete(int id, String name) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text('Delete $name?'),
+        title: Text(l10n.themeDeleteConfirm(name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -621,7 +666,7 @@ class _NameField extends StatelessWidget {
       textCapitalization: TextCapitalization.sentences,
       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
-        labelText: 'Name',
+        labelText: AppLocalizations.of(context).commonName,
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -657,10 +702,11 @@ class _RoleRow extends StatelessWidget {
 
   Future<void> _copy(BuildContext context) async {
     final hex = '#${_hexOf(color)}';
+    final message = AppLocalizations.of(context).themeCopiedHex(hex);
     await Clipboard.setData(ClipboardData(text: hex));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Copied $hex')));
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -772,6 +818,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -794,29 +841,29 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                 Expanded(child: _hexField()),
                 _hexAction(
                   icon: Icons.copy_rounded,
-                  tooltip: 'Copy hex',
+                  tooltip: l10n.themeCopyHex,
                   onTap: _copyHex,
                 ),
                 _hexAction(
                   icon: Icons.content_paste_rounded,
-                  tooltip: 'Paste hex',
+                  tooltip: l10n.themePasteHex,
                   onTap: _pasteHex,
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            ..._rgbChannels(),
+            ..._rgbChannels(l10n),
           ],
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _color),
-          child: const Text('Use'),
+          child: Text(l10n.themeUseColour),
         ),
       ],
     );
@@ -830,10 +877,11 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
   /// bothering with, and then the family drifts.
   Future<void> _copyHex() async {
     final hex = '#${_hexOf(_color)}';
+    final message = AppLocalizations.of(context).themeCopiedHex(hex);
     await Clipboard.setData(ClipboardData(text: hex));
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Copied $hex')));
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Takes a colour off the clipboard, in any form the field itself accepts.
@@ -847,7 +895,9 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     final parsed = parseHex(data?.text ?? '');
     if (parsed == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No colour on the clipboard.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).themeNoColourOnClipboard),
+        ),
       );
       return;
     }
@@ -895,7 +945,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     );
   }
 
-  List<Widget> _rgbChannels() {
+  List<Widget> _rgbChannels(AppLocalizations l10n) {
     final r = (_color.r * 255).roundToDouble();
     final g = (_color.g * 255).roundToDouble();
     final b = (_color.b * 255).roundToDouble();
@@ -903,21 +953,21 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
         255, nr ?? r.round(), ng ?? g.round(), nb ?? b.round());
     return [
       _channel(
-        label: 'R',
+        label: l10n.themeChannelRed,
         value: r,
         max: 255,
         gradient: [at(0, null, null), at(255, null, null)],
         onChanged: (v) => _adopt(at(v.round(), null, null)),
       ),
       _channel(
-        label: 'G',
+        label: l10n.themeChannelGreen,
         value: g,
         max: 255,
         gradient: [at(null, 0, null), at(null, 255, null)],
         onChanged: (v) => _adopt(at(null, v.round(), null)),
       ),
       _channel(
-        label: 'B',
+        label: l10n.themeChannelBlue,
         value: b,
         max: 255,
         gradient: [at(null, null, 0), at(null, null, 255)],

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../router.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
+import '../util/seed_names.dart';
 
 /// Finds the resume bar in a test.
 const resumeWorkoutBarKey = ValueKey('resume-workout-bar');
@@ -147,6 +149,7 @@ class ResumeWorkoutBar extends ConsumerWidget {
     final session = ref.watch(activeWorkoutProvider);
     final onSessionScreen = ref.watch(workoutScreenVisibleProvider);
     if (session == null || onSessionScreen) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
 
     return Material(
       color: AppColors.surface3,
@@ -185,7 +188,7 @@ class ResumeWorkoutBar extends ConsumerWidget {
                   // the clock off the end of the bar.
                   Expanded(
                     child: Text(
-                      session.name,
+                      seededName(l10n, session.seedKey, session.name),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -206,7 +209,7 @@ class ResumeWorkoutBar extends ConsumerWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'RESUME',
+                    l10n.resumeBarResume,
                     style: kMono.copyWith(
                       fontSize: 11,
                       letterSpacing: 1.0,

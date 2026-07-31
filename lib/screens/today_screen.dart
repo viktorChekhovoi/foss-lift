@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
@@ -17,23 +19,27 @@ class TodayScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     final current = ref.watch(currentRoutineProvider);
+    // Skeleton constructors rather than a pattern: the language decides both
+    // the words and the order the day and date come out in.
     final eyebrow =
-        '${DateFormat('EEEE').format(now)} · ${DateFormat('MMM d').format(now)}';
+        '${DateFormat.EEEE(l10n.localeName).format(now)} · '
+        '${DateFormat.MMMd(l10n.localeName).format(now)}';
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          ScreenHeader(eyebrow: eyebrow, title: 'Today'),
+          ScreenHeader(eyebrow: eyebrow, title: l10n.todayTitle),
           if (current != null)
             _CurrentRoutineSection(current: current)
           else
             const _RoutineChooserSection(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: SectionLabel('Lifetime'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SectionLabel(l10n.todayLifetime),
           ),
           Padding(
             // Anchor for the tour's "lifetime totals" coach mark.
@@ -55,7 +61,9 @@ class _CurrentRoutineSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final routine = current.routine;
+    final routineName = seededName(l10n, routine.seedKey, routine.name);
     final workouts = ref.watch(routineWorkoutsProvider(routine.id));
     final nextId = ref.watch(nextWorkoutIdProvider(routine.id));
 
@@ -64,9 +72,9 @@ class _CurrentRoutineSection extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: SectionLabel(
-            routine.name,
+            routineName,
             trailing: _TextLink(
-              label: 'Change',
+              label: l10n.todayChange,
               onTap: () => context.push('/routines'),
             ),
           ),
@@ -80,10 +88,9 @@ class _CurrentRoutineSection extends ConsumerWidget {
               children: [
                 if (list.isEmpty)
                   _EmptyCard(
-                    title: 'No workouts yet',
-                    body: '${routine.name} has no training days. Add some to '
-                        'start training it.',
-                    action: 'Edit routine',
+                    title: l10n.todayNoWorkoutsTitle,
+                    body: l10n.todayNoWorkoutsBody(routineName),
+                    action: l10n.todayEditRoutine,
                     onAction: () => context.push('/routine/${routine.id}/edit'),
                   )
                 else
@@ -117,12 +124,13 @@ class _RoutineChooserSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final routines = ref.watch(routinesProvider);
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: SectionLabel('Pick a routine'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SectionLabel(l10n.todayPickRoutine),
         ),
         routines.when(
           loading: () => const _PadLoader(),
@@ -133,9 +141,9 @@ class _RoutineChooserSection extends ConsumerWidget {
               children: [
                 if (list.isEmpty)
                   _EmptyCard(
-                    title: 'No routines yet',
-                    body: 'Build one from the exercise library to get started.',
-                    action: 'Build a routine',
+                    title: l10n.todayNoRoutinesTitle,
+                    body: l10n.todayNoRoutinesBody,
+                    action: l10n.todayBuildRoutine,
                     onAction: () => context.push('/routine/new'),
                   )
                 else
@@ -174,6 +182,7 @@ class _WorkoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Material(
       color: isNext ? AppColors.surface2 : AppColors.surface,
       borderRadius: BorderRadius.circular(18),
@@ -208,7 +217,8 @@ class _WorkoutCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            data.workout.name,
+                            seededName(
+                                l10n, data.workout.seedKey, data.workout.name),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -224,8 +234,7 @@ class _WorkoutCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${data.exerciseCount} '
-                      '${data.exerciseCount == 1 ? 'exercise' : 'exercises'}',
+                      l10n.commonExerciseCount(data.exerciseCount),
                       style:
                           kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
                     ),
@@ -312,6 +321,7 @@ class _LifetimeCard extends ConsumerWidget {
     final totals =
         ref.watch(lifetimeTotalsProvider).value ?? const LifetimeTotals();
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -323,10 +333,12 @@ class _LifetimeCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(child: _MiniStat(label: 'Workouts', value: '$workouts')),
+              Expanded(
+                  child: _MiniStat(
+                      label: l10n.commonStatWorkouts, value: '$workouts')),
               Expanded(
                 child: _MiniStat(
-                  label: 'Volume (${unitLabel(unit)})',
+                  label: l10n.todayStatVolume(unitSuffix(l10n, unit)),
                   value: fmtTotal(toDisplayWeight(totals.volumeKg, unit)),
                 ),
               ),
@@ -336,11 +348,13 @@ class _LifetimeCard extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                  child:
-                      _MiniStat(label: 'Sets', value: fmtTotal(totals.sets))),
+                  child: _MiniStat(
+                      label: l10n.todayStatSets,
+                      value: fmtTotal(totals.sets))),
               Expanded(
-                  child:
-                      _MiniStat(label: 'Reps', value: fmtTotal(totals.reps))),
+                  child: _MiniStat(
+                      label: l10n.todayStatReps,
+                      value: fmtTotal(totals.reps))),
             ],
           ),
         ],

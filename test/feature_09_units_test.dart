@@ -43,12 +43,13 @@ void main() {
     test('unknown units are treated as kilograms', () {
       expect(toDisplayWeight(50, 'stone'), 50);
       expect(toKg(50, 'stone'), 50);
-      expect(unitLabel('stone'), 'kg');
+      expect(unitSuffix(l10nFor(), 'stone'), l10nFor().unitKgSuffix);
     });
 
     test('the label follows the unit', () {
-      expect(unitLabel('kg'), 'kg');
-      expect(unitLabel('lb'), 'lb');
+      final l10n = l10nFor();
+      expect(unitSuffix(l10n, 'kg'), l10n.unitKgSuffix);
+      expect(unitSuffix(l10n, 'lb'), l10n.unitLbSuffix);
     });
 
     test('the standard bar is named in the unit but stored in kg', () {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/routine_code.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/share_widgets.dart';
@@ -24,10 +25,11 @@ class RoutineShareScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final shared = ref.watch(sharedRoutineProvider(routineId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Share routine')),
+      appBar: AppBar(title: Text(l10n.routineShareTitle)),
       body: SafeArea(
         top: false,
         child: shared.when(
@@ -36,13 +38,14 @@ class RoutineShareScreen extends ConsumerWidget {
           error: (e, _) => Center(
             child: Text('$e', style: TextStyle(color: AppColors.muted)),
           ),
-          data: (routine) => _body(context, routine),
+          data: (routine) => _body(context, l10n, routine),
         ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, SharedRoutine routine) {
+  Widget _body(
+      BuildContext context, AppLocalizations l10n, SharedRoutine routine) {
     // Two payloads for the same routine: the symbol carries the link, the share
     // sheet carries the code. The capacity question is about the longer one.
     final code = RoutineCode.encode(routine);
@@ -58,47 +61,44 @@ class RoutineShareScreen extends ConsumerWidget {
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Text(
-          '${routine.workouts.length} '
-          '${routine.workouts.length == 1 ? 'workout' : 'workouts'} · '
-          '$slots ${slots == 1 ? 'exercise slot' : 'exercise slots'} · '
-          '${routine.exercises.length} '
-          '${routine.exercises.length == 1 ? 'exercise' : 'exercises'}',
+          l10n.routineShareSummary(
+              routine.workouts.length, slots, routine.exercises.length),
           style: kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 22),
         // No QR on the page as well as behind the button. Two of the same
         // symbol on one screen is one too many, and the button is the one the
         // theme screen has.
-        shareSectionLabel('SEND IT'),
+        shareSectionLabel(l10n.routineShareSendIt),
         const SizedBox(height: 10),
         shareActionRow([
           (
             Icons.qr_code_2,
-            'Show QR',
-            scannable ? () => _showQr(context, routine, link) : null,
+            l10n.commonShowQr,
+            scannable ? () => _showQr(context, l10n, routine, link) : null,
           ),
-          (Icons.ios_share, 'Send code', () => _shareCode(routine, code)),
+          (
+            Icons.ios_share,
+            l10n.commonSendCode,
+            () => _shareCode(l10n, routine, code),
+          ),
         ]),
       ],
     );
   }
 
-  Future<void> _showQr(
-      BuildContext context, SharedRoutine routine, String link) {
+  Future<void> _showQr(BuildContext context, AppLocalizations l10n,
+      SharedRoutine routine, String link) {
     return showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: Text(routine.name),
-        content: ShareQr(
-          data: link,
-          caption: 'Point another phone at this. Foss Lift will ask before '
-              'adding anything.',
-        ),
+        content: ShareQr(data: link, caption: l10n.routineShareQrCaption),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
+            child: Text(l10n.commonDone),
           ),
         ],
       ),
@@ -107,9 +107,11 @@ class RoutineShareScreen extends ConsumerWidget {
 
   /// Hands the code to the system share sheet — Quick Share, a chat app, the
   /// clipboard. Nothing is uploaded: the code *is* the routine.
-  Future<void> _shareCode(SharedRoutine routine, String code) {
+  Future<void> _shareCode(
+      AppLocalizations l10n, SharedRoutine routine, String code) {
     return SharePlus.instance.share(
-      ShareParams(text: code, subject: 'Foss Lift routine: ${routine.name}'),
+      ShareParams(
+          text: code, subject: l10n.routineShareSubject(routine.name)),
     );
   }
 }

@@ -138,7 +138,12 @@ abstract final class ThemeCode {
   /// Never throws and never returns a half-read palette: the result is either
   /// [ThemeCodeOk] with a complete theme or a [ThemeCodeFailure] saying which
   /// of the three things went wrong.
-  static ThemeCodeResult decode(String source) {
+  ///
+  /// [unnamed] is what a palette that arrived without a name is called. It is a
+  /// translated string, so it comes from the screen showing the result rather
+  /// than from here; a caller that only asks whether the code reads at all can
+  /// leave it out and get the empty name the sender sent.
+  static ThemeCodeResult decode(String source, {String? unnamed}) {
     // Long enough for the fixed header and an empty name.
     final read = ShareCodec.unpack(source,
         version: version, host: host, minBody: _nameAt);
@@ -168,7 +173,7 @@ abstract final class ThemeCode {
       // A code carries a theme, not a claim to be one of ours: it always
       // arrives as the recipient's custom palette.
       id: kCustomThemeId,
-      name: name.trim().isEmpty ? 'Shared theme' : name,
+      name: name.trim().isEmpty ? (unnamed ?? '') : name,
       accessible: bytes[_flagsAt] & 0x01 != 0,
       ground: role(0),
       surface: role(1),
@@ -203,9 +208,6 @@ final class ThemeCodeOk extends ThemeCodeResult {
 final class ThemeCodeFailure extends ThemeCodeResult {
   const ThemeCodeFailure(this.problem);
   final ThemeCodeProblem problem;
-
-  /// Wording for the user, in the shared phrasing — see [ShareCodeProblem].
-  String get message => problem.message('theme');
 }
 
 /// The three ways reading a theme code can fail. The same three as every other

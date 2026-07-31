@@ -2,6 +2,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/routine_code.dart';
+import '../l10n/app_localizations.dart';
 import '../services/deep_links.dart';
 import '../services/qr_decoder.dart';
 import '../theme/app_theme.dart';
@@ -18,21 +20,26 @@ import '../theme/app_theme.dart';
 /// about offering to open third-party URL schemes, and this path bypasses OS
 /// URL routing entirely by decoding the string itself.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key, required this.host, required this.noun});
+  const ScanScreen({super.key, required this.host});
 
-  /// What is being scanned for, as the link host: `theme` or `routine`.
+  /// What is being scanned for, as the link host: `theme` or `routine`. It is
+  /// also what picks the wording: every sentence on this screen exists once per
+  /// kind of code rather than once with the noun spliced in, because a language
+  /// that inflects the noun cannot be handed it as a substituted word.
   final String host;
-
-  /// The same thing in the words shown to the user: "theme", "routine".
-  final String noun;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
+/// What stopped the scanner, held as a value rather than as a finished
+/// sentence: the camera fails in [initState], where there is nothing to read
+/// the string catalogue with, and the wording is chosen in [build].
+enum _ScanProblem { noCamera, denied, failed }
+
 class _ScanScreenState extends State<ScanScreen> {
   CameraController? _camera;
-  String? _problem;
+  _ScanProblem? _problem;
   bool _busy = false;
   bool _handled = false;
 
@@ -46,7 +53,7 @@ class _ScanScreenState extends State<ScanScreen> {
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        setState(() => _problem = 'This device has no camera.');
+        setState(() => _problem = _ScanProblem.noCamera);
         return;
       }
       final back = cameras.firstWhere(
@@ -72,11 +79,10 @@ class _ScanScreenState extends State<ScanScreen> {
       // Overwhelmingly this is a declined permission, which is a choice rather
       // than a fault — say what it means and offer the way round it.
       setState(() => _problem = e.code == 'CameraAccessDenied'
-          ? 'Foss Lift needs the camera to scan a code. You can still paste a '
-              '${widget.noun} code instead.'
-          : 'The camera could not be started.');
+          ? _ScanProblem.denied
+          : _ScanProblem.failed);
     } catch (_) {
-      setState(() => _problem = 'The camera could not be started.');
+      setState(() => _problem = _ScanProblem.failed);
     }
   }
 
@@ -122,12 +128,21 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final camera = _camera;
+    final routine = widget.host == RoutineCode.host;
+    final problem = _problem;
     return Scaffold(
-      appBar: AppBar(title: Text('Scan a ${widget.noun}')),
+      appBar: AppBar(
+          title: Text(routine ? l10n.scanRoutineTitle : l10n.scanThemeTitle)),
       body: SafeArea(
-        child: _problem != null
-            ? _message(_problem!)
+        child: problem != null
+            ? _message(l10n, switch (problem) {
+                _ScanProblem.noCamera => l10n.commonNoCamera,
+                _ScanProblem.denied =>
+                  routine ? l10n.scanRoutineDenied : l10n.scanThemeDenied,
+                _ScanProblem.failed => l10n.commonCameraFailed,
+              })
             : camera == null
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
@@ -136,8 +151,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       Padding(
                         padding: const EdgeInsets.all(20),
                         child: Text(
-                          'Point the camera at a Foss Lift ${widget.noun} QR '
-                          'code.',
+                          routine ? l10n.scanRoutineHint : l10n.scanThemeHint,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: AppColors.muted, fontSize: 13),
@@ -149,7 +163,7 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
-  Widget _message(String text) => Center(
+  Widget _message(AppLocalizations l10n, String text) => Center(
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
@@ -165,7 +179,7 @@ class _ScanScreenState extends State<ScanScreen> {
               const SizedBox(height: 22),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text('Back'),
+                child: Text(l10n.commonBack),
               ),
             ],
           ),

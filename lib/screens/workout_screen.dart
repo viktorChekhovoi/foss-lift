@@ -8,11 +8,13 @@ import 'package:go_router/go_router.dart';
 
 import '../data/plates.dart';
 import '../data/warmup.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/plate_line.dart';
@@ -240,7 +242,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
     final kg = await _askWeight(
-      title: e.name,
+      title: seededName(AppLocalizations.of(context), e.seedKey, e.name),
       weightKg: e.workingKg ?? 0,
       minKg: _floorFor(e),
     );
@@ -259,6 +261,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       await context.push('/session/record/$ei/$si');
       return;
     }
+    final l10n = AppLocalizations.of(context);
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -268,14 +271,14 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
           children: [
             ListTile(
               leading: Icon(Icons.videocam_rounded, color: AppColors.accent),
-              title: const Text('Film it again'),
-              subtitle: const Text('Replaces this clip'),
+              title: Text(l10n.sessionVideoRefilm),
+              subtitle: Text(l10n.sessionVideoRefilmNote),
               onTap: () => Navigator.pop(sheet, 'again'),
             ),
             ListTile(
               leading: Icon(Icons.delete_outline, color: AppColors.muted),
-              title: const Text('Delete the clip'),
-              subtitle: const Text('The set stays'),
+              title: Text(l10n.sessionVideoDelete),
+              subtitle: Text(l10n.sessionVideoDeleteNote),
               onTap: () => Navigator.pop(sheet, 'delete'),
             ),
           ],
@@ -293,9 +296,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   Future<void> _editSetWeight(int ei, int si) async {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
+    final l10n = AppLocalizations.of(context);
     final kg = await _askWeight(
-      title: 'Set ${si + 1}',
-      subtitle: 'This set only',
+      title: l10n.sessionSetTitle(si + 1),
+      subtitle: l10n.sessionSetOnly,
       weightKg: e.sets[si].weight,
       minKg: _floorFor(e),
     );
@@ -306,9 +310,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   Future<void> _editWarmupWeight(int ei, int wi) async {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
+    final l10n = AppLocalizations.of(context);
     final kg = await _askWeight(
-      title: 'Warm-up ${wi + 1}',
-      subtitle: 'This rung only',
+      title: l10n.sessionWarmupTitle(wi + 1),
+      subtitle: l10n.sessionWarmupOnly,
       weightKg: e.warmups[wi].weight,
       minKg: _floorFor(e),
     );
@@ -333,24 +338,25 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// Always confirmed, and never the default: it is the one button on this
   /// screen that destroys work, so it asks even when nothing has been logged.
   Future<void> _abort() async {
+    final l10n = AppLocalizations.of(context);
     final sure = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Abort this workout?'),
+        title: Text(l10n.sessionAbortTitle),
         content: Text(
-          'Nothing from it is saved, and no target moves.',
+          l10n.sessionAbortBody,
           style: TextStyle(color: AppColors.muted, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep going'),
+            child: Text(l10n.sessionAbortKeep),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.gold),
-            child: const Text('Abort'),
+            child: Text(l10n.sessionAbortConfirm),
           ),
         ],
       ),
@@ -366,6 +372,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (session == null) {
       return const Scaffold(body: SizedBox.shrink());
     }
+    final l10n = AppLocalizations.of(context);
     final controller = ref.read(activeWorkoutProvider.notifier);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final plates = ref.watch(plateSettingsProvider);
@@ -385,7 +392,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
         // the resume bar made, and the same fix.
         child: Column(
           children: [
-            _Header(title: session.name, onFinish: _finish, onAbort: _abort),
+            _Header(
+              title: seededName(l10n, session.seedKey, session.name),
+              onFinish: _finish,
+              onAbort: _abort,
+            ),
             _StatStrip(session: session),
             // Pinned beside the duration and set count rather than scrolled
             // with the rows: it answers "how do I log this?", a question
@@ -404,8 +415,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                         children: [
-                          if (session.notice != null)
-                            _SessionNotice(text: session.notice!),
+                          if (session.notice case final notice?)
+                            _SessionNotice(notice: notice),
                           for (var ei = 0; ei < session.exercises.length; ei++)
                             _ExerciseBlock(
                               index: ei,
@@ -558,6 +569,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 16, 8),
       child: Row(
@@ -566,7 +578,7 @@ class _Header extends StatelessWidget {
             onPressed: () =>
                 context.canPop() ? context.pop() : context.go('/today'),
             icon: const Icon(Icons.keyboard_arrow_down_rounded),
-            tooltip: 'Minimize',
+            tooltip: l10n.sessionMinimize,
           ),
           Expanded(
             child: Text(
@@ -579,7 +591,7 @@ class _Header extends StatelessWidget {
           IconButton(
             onPressed: onAbort,
             icon: Icon(Icons.delete_outline, color: AppColors.muted),
-            tooltip: 'Abort workout',
+            tooltip: l10n.sessionAbortTooltip,
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -595,7 +607,7 @@ class _Header extends StatelessWidget {
               ),
             ),
             onPressed: onFinish,
-            child: const Text('Finish'),
+            child: Text(l10n.sessionFinish),
           ),
         ],
       ),
@@ -609,6 +621,7 @@ class _StatStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -620,10 +633,13 @@ class _StatStrip extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Stat(label: 'Duration', value: fmtDuration(session.elapsed)),
+            _Stat(
+              label: l10n.sessionStatDuration,
+              value: fmtDuration(session.elapsed),
+            ),
             VerticalDivider(width: 1, color: AppColors.line),
             _Stat(
-              label: 'Sets',
+              label: l10n.sessionStatSets,
               value: '${session.doneSets}/${session.totalSets}',
               accent: true,
             ),
@@ -678,8 +694,11 @@ class _Stat extends StatelessWidget {
 /// the question "why is this lighter?" occurs to people mid-set, not on the way
 /// in, and there is nowhere else on this screen to answer it.
 class _SessionNotice extends StatelessWidget {
-  const _SessionNotice({required this.text});
-  final String text;
+  const _SessionNotice({required this.notice});
+
+  /// The facts, not a sentence — see [LayoffNotice]. The line is composed here
+  /// so it follows a language switch made mid-workout.
+  final LayoffNotice notice;
 
   @override
   Widget build(BuildContext context) {
@@ -698,7 +717,8 @@ class _SessionNotice extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              text,
+              AppLocalizations.of(context)
+                  .startWorkoutDeloadNotice(notice.percent, notice.days),
               style: kMono.copyWith(
                 fontSize: 11.5,
                 height: 1.45,
@@ -722,6 +742,7 @@ class _LoggingHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -729,9 +750,9 @@ class _LoggingHint extends StatelessWidget {
         border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Text(
-        'Tap a set to log it at the goal · tap again for each rep you fell '
-        'short · hold to type'
-        '${anyTimed ? '\nA held set times itself: tap to start, tap to stop.' : ''}',
+        anyTimed
+            ? '${l10n.sessionLoggingHint}\n${l10n.sessionLoggingHintTimed}'
+            : l10n.sessionLoggingHint,
         style: kMono.copyWith(
           fontSize: 11,
           height: 1.45,
@@ -775,21 +796,25 @@ class _ExerciseBlock extends StatelessWidget {
   /// The weight is not in here. It is the control beside it, and a goal with an
   /// editable box wedged into the middle of it reads as neither a goal nor a
   /// control.
-  String? get _goal {
+  String? _goal(AppLocalizations l10n) {
     if (exercise.sets.isEmpty) return null;
     final first = exercise.sets.first;
-    return '${exercise.sets.length} × ${first.goal}${first.timed ? 's' : ''}';
+    final sets = exercise.sets.length;
+    return first.timed
+        ? l10n.sessionGoalTimed(sets, first.goal)
+        : l10n.sessionGoalCounted(sets, first.goal);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ExerciseHeading(
-            name: exercise.name,
+            name: seededName(l10n, exercise.seedKey, exercise.name),
             exerciseId: exercise.exerciseId,
           ),
           // The warm-up ramp, kept in a group of its own above the working sets
@@ -823,7 +848,7 @@ class _ExerciseBlock extends StatelessWidget {
                   // control on this row and has to stay whole and tappable.
                   Flexible(
                     child: Text(
-                      'WORKING SETS',
+                      l10n.sessionWorkingSets,
                       overflow: TextOverflow.ellipsis,
                       style: kMono.copyWith(
                         fontSize: 10,
@@ -833,7 +858,7 @@ class _ExerciseBlock extends StatelessWidget {
                     ),
                   ),
                 const Spacer(),
-                if (_goal case final goal?)
+                if (_goal(l10n) case final goal?)
                   Text(
                     goal,
                     key: kExerciseGoalKey,
@@ -928,7 +953,7 @@ class _WorkingWeight extends StatelessWidget {
             ),
             const SizedBox(width: 3),
             Text(
-              unitLabel(unit),
+              unitSuffix(AppLocalizations.of(context), unit),
               style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
             ),
             const SizedBox(width: 7),
@@ -976,6 +1001,7 @@ class _ExerciseHeading extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final id = exerciseId;
     final note = id == null ? null : ref.watch(exerciseNoteProvider(id));
 
@@ -1027,7 +1053,7 @@ class _ExerciseHeading extends ConsumerWidget {
                 note == null
                     ? Icons.note_add_outlined
                     : Icons.sticky_note_2_outlined,
-                note == null ? 'Add a note' : 'My note',
+                note == null ? l10n.sessionAddNote : l10n.sessionMyNote,
                 () => _open(context, ref, id, note),
                 lit: note != null,
               ),
@@ -1069,11 +1095,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final exercise = widget.exercise;
     final count = exercise.warmupCount;
-    final summary = count == 0
-        ? 'None'
-        : '$count ${count == 1 ? 'set' : 'sets'}';
+    final summary = l10n.sessionWarmupSummary(count);
     final next = widget.isNext;
     return Container(
       key: next ? kNextWarmupKey : null,
@@ -1110,7 +1135,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'WARM-UP',
+                    l10n.sessionWarmupLabel,
                     style: kMono.copyWith(
                       fontSize: 10,
                       letterSpacing: 1.2,
@@ -1141,7 +1166,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Sets',
+                      l10n.sessionWarmupSets,
                       style: kMono.copyWith(
                         fontSize: 10,
                         letterSpacing: 1.0,
@@ -1168,7 +1193,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'Too light to ramp — nothing fits under this weight.',
+                  l10n.sessionWarmupTooLight,
                   style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
                 ),
               ),
@@ -1180,8 +1205,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
             ],
             const SizedBox(height: 8),
             Text(
-              'Suggested to prime the movement — not medical advice. Adjust to '
-              'how you feel, and consult a professional.',
+              l10n.sessionWarmupDisclaimer,
               style: kMono.copyWith(
                 fontSize: 9.5,
                 height: 1.4,
@@ -1261,6 +1285,7 @@ class _ColumnHeaders extends StatelessWidget {
   final bool showWeight;
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     Widget h(String t, {double? width, bool left = false}) {
       final child = Text(
         t.toUpperCase(),
@@ -1283,9 +1308,9 @@ class _ColumnHeaders extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 4, top: 2, left: 5, right: 5),
       child: Row(
         children: [
-          h('Set', width: 40),
-          if (showWeight) h(unitLabel(unit)),
-          h(timed ? 'Sec held' : 'Reps done'),
+          h(l10n.sessionColSet, width: 40),
+          if (showWeight) h(unitSuffix(l10n, unit)),
+          h(timed ? l10n.sessionColSecHeld : l10n.sessionColRepsDone),
         ],
       ),
     );
@@ -1373,7 +1398,7 @@ class _SetRow extends StatelessWidget {
           children: [
             SizedBox(width: 40, child: Center(child: _setNumber())),
             if (showWeight) Expanded(child: _weightCell()),
-            Expanded(child: _resultBox()),
+            Expanded(child: _resultBox(AppLocalizations.of(context))),
             SizedBox(
               width: 36,
               child: onVideo == null
@@ -1473,12 +1498,13 @@ class _SetRow extends StatelessWidget {
   /// all**, and this column is the app's most-read signal — you glance down it
   /// to see how the session went. The arrow says the same thing the colour
   /// does, without asking anyone to tell two hues apart.
-  Widget _resultBox() {
+  Widget _resultBox(AppLocalizations l10n) {
     final holding = holdingSeconds != null;
     final done = _entry.done || holding;
-    final value = holding
-        ? '${holdingSeconds}s'
-        : '${_entry.logged ?? _entry.goal}${_entry.timed ? 's' : ''}';
+    final seconds = holdingSeconds ?? _entry.logged ?? _entry.goal;
+    final value = holding || _entry.timed
+        ? l10n.unitSecondsShort('$seconds')
+        : '${_entry.logged ?? _entry.goal}';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
@@ -1570,10 +1596,12 @@ class _WeightDialogState extends State<_WeightDialog> {
   /// What the field says, with the floor named where there is one: a constraint
   /// on the control belongs beside the control. Null when there is neither a
   /// subtitle nor a floor — an empty line under the field is still a line.
-  String? get _said {
+  String? _said(AppLocalizations l10n) {
     if (widget.minKg <= 0) return widget.subtitle;
     final floor = fmtWeight(toDisplayWeight(widget.minKg, widget.unit));
-    final said = 'no lighter than the $floor ${unitLabel(widget.unit)} bar';
+    final said = l10n.sessionWeightFloor(
+      l10n.unitWeightShort(floor, unitSuffix(l10n, widget.unit)),
+    );
     return widget.subtitle == null ? said : '${widget.subtitle} · $said';
   }
 
@@ -1592,6 +1620,7 @@ class _WeightDialogState extends State<_WeightDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -1609,7 +1638,7 @@ class _WeightDialogState extends State<_WeightDialog> {
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               filled: true,
               fillColor: AppColors.surface2,
-              suffixText: unitLabel(widget.unit),
+              suffixText: unitSuffix(l10n, widget.unit),
               suffixStyle: kMono.copyWith(color: AppColors.muted),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -1622,7 +1651,7 @@ class _WeightDialogState extends State<_WeightDialog> {
             ),
             onSubmitted: (_) => _save(),
           ),
-          if (_said case final said?) ...[
+          if (_said(l10n) case final said?) ...[
             const SizedBox(height: 10),
             Text(
               said,
@@ -1635,9 +1664,9 @@ class _WeightDialogState extends State<_WeightDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
-        TextButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: _save, child: Text(l10n.commonSave)),
       ],
     );
   }
@@ -1678,9 +1707,12 @@ class _ResultDialogState extends State<_ResultDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: Text(_timed ? 'Seconds held' : 'Reps done'),
+      title: Text(
+        _timed ? l10n.sessionResultSecondsTitle : l10n.sessionResultRepsTitle,
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1708,7 +1740,9 @@ class _ResultDialogState extends State<_ResultDialog> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Goal ${widget.entry.goal}${_timed ? 's' : ''}',
+            _timed
+                ? l10n.sessionResultGoalSeconds(widget.entry.goal)
+                : l10n.sessionResultGoalReps(widget.entry.goal),
             style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
           ),
         ],
@@ -1717,13 +1751,13 @@ class _ResultDialogState extends State<_ResultDialog> {
         TextButton(
           onPressed: () => _pop(null),
           style: TextButton.styleFrom(foregroundColor: AppColors.muted),
-          child: const Text('Clear'),
+          child: Text(l10n.sessionResultClear),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
-        TextButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: _save, child: Text(l10n.commonSave)),
       ],
     );
   }
@@ -1761,32 +1795,36 @@ class _RestBanner extends StatelessWidget {
   /// One line saying what to do, not what is happening: the clock underneath
   /// already says that. Names the weight about to be lifted, because "set up"
   /// is only useful if it says what to set up to.
-  String get _caption {
+  String _caption(AppLocalizations l10n) {
     final p = prompt;
-    if (p == null) return 'Rest, then lift.';
+    if (p == null) return l10n.sessionRestPlain;
     String weight() {
       final w = p.weightKg;
       return w == null
           ? ''
-          : '${fmtWeight(toDisplayWeight(w, unit))} ${unitLabel(unit)}';
+          : l10n.unitWeightShort(
+              fmtWeight(toDisplayWeight(w, unit)), unitSuffix(l10n, unit));
     }
 
     return switch (p.purpose) {
       RestPurpose.anotherWarmup =>
         p.weightKg == null
-            ? 'Rest, then lift.'
-            : 'Set up ${weight()}, then lift.',
+            ? l10n.sessionRestPlain
+            : l10n.sessionRestSetUp(weight()),
       RestPurpose.theWorkingSet =>
         p.weightKg == null
-            ? 'Rest, then lift.'
-            : 'Set up ${weight()}, rest, then lift.',
-      RestPurpose.anotherSet => 'Rest, then lift.',
-      RestPurpose.nextExercise => 'Set up ${p.exercise}, rest, then lift.',
+            ? l10n.sessionRestPlain
+            : l10n.sessionRestSetUpThenRest(weight()),
+      RestPurpose.anotherSet => l10n.sessionRestPlain,
+      RestPurpose.nextExercise => l10n.sessionRestNextExercise(
+          seededName(l10n, p.exerciseSeedKey, p.exercise ?? ''),
+        ),
     };
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       key: kRestBannerKey,
       width: double.infinity,
@@ -1805,7 +1843,7 @@ class _RestBanner extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final pills = [
-              for (final (label, onTap) in _controls) _pill(label, onTap),
+              for (final (label, onTap) in _controls(l10n)) _pill(label, onTap),
             ];
             // The caption takes the whole width, on its own line above the clock
             // and the controls. Sharing a row with them left it about eighty
@@ -1821,7 +1859,7 @@ class _RestBanner extends StatelessWidget {
                 // docked, so a second line costs the board a second line and
                 // nothing is hidden by it.
                 Text(
-                  _caption,
+                  _caption(l10n),
                   style: kMono.copyWith(
                     fontSize: 11,
                     height: 1.3,
@@ -1834,7 +1872,7 @@ class _RestBanner extends StatelessWidget {
                 // renders, three buttons and a countdown do not fit across a phone
                 // — and a squeezed button is worse than a taller bar, because the
                 // button is the part you have to hit.
-                if (_controlsWidth(context) <=
+                if (_controlsWidth(context, l10n) <=
                     constraints.maxWidth - _kClockRoom)
                   Row(
                     children: [
@@ -1877,10 +1915,10 @@ class _RestBanner extends StatelessWidget {
 
   /// What the banner offers, in the order it offers it. Declared once so the
   /// measurement below and the buttons above cannot drift apart.
-  List<(String, VoidCallback)> get _controls => [
-    ('−15s', onSub),
-    ('+15s', onAdd),
-    ('Skip', onSkip),
+  List<(String, VoidCallback)> _controls(AppLocalizations l10n) => [
+    (l10n.sessionRestMinus, onSub),
+    (l10n.sessionRestPlus, onAdd),
+    (l10n.sessionRestSkip, onSkip),
   ];
 
   /// The width the three controls need, laid out in a row.
@@ -1889,10 +1927,10 @@ class _RestBanner extends StatelessWidget {
   /// monospaced, so this is exact, and the alternative — a breakpoint on the
   /// text scale — puts a number in the code that has to be re-checked every
   /// time a label or a padding changes.
-  double _controlsWidth(BuildContext context) {
+  double _controlsWidth(BuildContext context, AppLocalizations l10n) {
     final scaler = MediaQuery.textScalerOf(context);
     var width = 16.0; // the two 8 px gaps between the three buttons
-    for (final (label, _) in _controls) {
+    for (final (label, _) in _controls(l10n)) {
       final painter = TextPainter(
         text: TextSpan(text: label, style: kMono.copyWith(fontSize: 12)),
         textDirection: TextDirection.ltr,

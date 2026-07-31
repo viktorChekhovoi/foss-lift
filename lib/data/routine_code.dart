@@ -565,7 +565,4 @@ final class RoutineCodeOk extends RoutineCodeResult {
 final class RoutineCodeFailure extends RoutineCodeResult {
   const RoutineCodeFailure(this.problem);
   final ShareCodeProblem problem;
-
-  /// Wording for the user, in the shared phrasing — see [ShareCodeProblem].
-  String get message => problem.message('routine');
 }

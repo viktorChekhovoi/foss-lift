@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -13,13 +14,15 @@ class RoutinesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final routines = ref.watch(routinesProvider);
     final currentId = ref.watch(currentRoutineProvider)?.routine.id;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          const ScreenHeader(eyebrow: 'Your programmes', title: 'Routines'),
+          ScreenHeader(
+              eyebrow: l10n.routinesEyebrow, title: l10n.routinesTitle),
           const SizedBox(height: 4),
           routines.when(
             loading: () => Padding(
@@ -50,18 +53,18 @@ class RoutinesScreen extends ConsumerWidget {
                   const SizedBox(height: 18),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: shareSectionLabel('IMPORT A ROUTINE'),
+                    child: shareSectionLabel(l10n.routinesImportSection),
                   ),
                   const SizedBox(height: 10),
                   shareActionRow([
                     (
                       Icons.qr_code_scanner,
-                      'Scan QR',
+                      l10n.themeScanQr,
                       () => context.push('/scan?for=routine')
                     ),
                     (
                       Icons.content_paste,
-                      'Paste code',
+                      l10n.themePasteCode,
                       () => _pasteRoutine(context)
                     ),
                   ]),
@@ -78,8 +81,9 @@ class RoutinesScreen extends ConsumerWidget {
 /// Takes a pasted routine code or link to the import screen — the only place a
 /// shared routine is ever added.
 Future<void> _pasteRoutine(BuildContext context) async {
+  final l10n = AppLocalizations.of(context);
   final text = await promptForCode(context,
-      title: 'Paste a routine', hint: 'FLR1.… or a fosslift:// link');
+      title: l10n.routinesPasteTitle, hint: l10n.routinesPasteHint);
   if (text == null || !context.mounted) return;
   context.push('/routine/import?code=${Uri.encodeQueryComponent(text)}');
 }
@@ -97,7 +101,7 @@ class _NewRoutineButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: () => context.push('/routine/new'),
-        child: const Text('+ New routine'),
+        child: Text(AppLocalizations.of(context).routinesNewRoutine),
       ),
     );
   }

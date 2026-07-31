@@ -9,6 +9,7 @@ import 'screens/exercise_form_screen.dart';
 import 'screens/exercise_progress_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_shell.dart';
+import 'screens/language_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/plate_inventory_screen.dart';
 import 'screens/profile_screen.dart';
@@ -124,6 +125,10 @@ final appRouter = GoRouter(
       builder: (c, s) => const VideoSettingsScreen(),
     ),
     GoRoute(
+      path: '/settings/language',
+      builder: (c, s) => const LanguageScreen(),
+    ),
+    GoRoute(
       path: '/settings/theme',
       builder: (c, s) => const ThemeSettingsScreen(),
     ),
@@ -154,8 +159,8 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/scan',
       builder: (c, s) => switch (s.uri.queryParameters['for']) {
-        'routine' => const ScanScreen(host: 'routine', noun: 'routine'),
-        _ => const ScanScreen(host: 'theme', noun: 'theme'),
+        'routine' => const ScanScreen(host: 'routine'),
+        _ => const ScanScreen(host: 'theme'),
       },
     ),
     // The live session in progress (distinct from /workout/:id, its template).

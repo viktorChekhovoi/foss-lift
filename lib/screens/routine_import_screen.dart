@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -44,25 +45,28 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final result = RoutineCode.decode(widget.code);
     final library = ref.watch(exerciseLibraryProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Shared routine')),
+      appBar: AppBar(title: Text(l10n.routineImportTitle)),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: switch (result) {
-            RoutineCodeOk(:final routine) => _offer(routine, library),
-            RoutineCodeFailure(:final message) => _refuse(message),
+            RoutineCodeOk(:final routine) => _offer(l10n, routine, library),
+            RoutineCodeFailure(:final problem) =>
+              _refuse(l10n, problem.routineMessage(l10n)),
           },
         ),
       ),
     );
   }
 
-  List<Widget> _offer(SharedRoutine routine, List<Exercise>? library) {
+  List<Widget> _offer(
+      AppLocalizations l10n, SharedRoutine routine, List<Exercise>? library) {
     // The library is a stream; until it arrives there is nothing to compare
     // against and so nothing honest to say about clashes.
     if (library == null) {
@@ -87,20 +91,20 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
       const SizedBox(height: 6),
       Text(
-        'Shared with you. Here is what it would add.',
+        l10n.routineImportSharedWithYou,
         style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
       ),
       const SizedBox(height: 18),
       for (final workout in routine.workouts) ...[
-        _DayCard(workout: workout, routine: routine),
+        _DayCard(workout: workout, routine: routine, l10n: l10n),
         const SizedBox(height: 10),
       ],
       if (fresh.isNotEmpty) ...[
         const SizedBox(height: 12),
-        shareSectionLabel('NEW EXERCISES'),
+        shareSectionLabel(l10n.routineImportNewExercises),
         const SizedBox(height: 10),
         Text(
-          'Added to your library.',
+          l10n.routineImportAddedToLibrary,
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 8),
@@ -113,10 +117,10 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
       ],
       if (clashes.isNotEmpty) ...[
         const SizedBox(height: 18),
-        shareSectionLabel('NAMES YOU ALREADY USE'),
+        shareSectionLabel(l10n.routineImportNameClashes),
         const SizedBox(height: 10),
         Text(
-          'Keep yours, or take theirs. Either way the history stays.',
+          l10n.routineImportClashHelp,
           style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 10),
@@ -124,6 +128,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _ClashRow(
+              l10n: l10n,
               name: a.incoming.name,
               replace: _replace.contains(i),
               onChanged: (on) => setState(
@@ -134,22 +139,22 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
       const SizedBox(height: 22),
       FilledButton(
         onPressed: _adding ? null : () => _add(routine),
-        child: const Text('Add this routine'),
+        child: Text(l10n.routineImportAdd),
       ),
       const SizedBox(height: 10),
       OutlinedButton(
         onPressed: _leave,
-        child: const Text('Cancel'),
+        child: Text(l10n.commonCancel),
       ),
       const SizedBox(height: 14),
       Text(
-        'Adds a routine. Nothing you have is removed or replaced.',
+        l10n.routineImportFootnote,
         style: TextStyle(color: AppColors.faint, fontSize: 12, height: 1.5),
       ),
     ];
   }
 
-  List<Widget> _refuse(String message) {
+  List<Widget> _refuse(AppLocalizations l10n, String message) {
     return [
       const SizedBox(height: 24),
       Icon(Icons.error_outline, size: 40, color: AppColors.muted),
@@ -158,7 +163,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
           textAlign: TextAlign.center,
           style: TextStyle(color: AppColors.text, fontSize: 15, height: 1.5)),
       const SizedBox(height: 24),
-      OutlinedButton(onPressed: _leave, child: const Text('Back')),
+      OutlinedButton(onPressed: _leave, child: Text(l10n.commonBack)),
     ];
   }
 
@@ -179,9 +184,14 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
 
 /// One training day as it would arrive: its name and every slot in it.
 class _DayCard extends StatelessWidget {
-  const _DayCard({required this.workout, required this.routine});
+  const _DayCard({
+    required this.workout,
+    required this.routine,
+    required this.l10n,
+  });
   final SharedWorkout workout;
   final SharedRoutine routine;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +235,7 @@ class _DayCard extends StatelessWidget {
                         style:
                             TextStyle(color: AppColors.text, fontSize: 13.5)),
                   ),
-                  Text(_target(item),
+                  Text(_target(l10n, item),
                       style: kMono.copyWith(
                           fontSize: 12.5, color: AppColors.muted)),
                 ],
@@ -238,25 +248,27 @@ class _DayCard extends StatelessWidget {
 
   /// "4 × 6–8", "3 × 45s", "3 × Failure" — the same shape the workout detail
   /// screen uses, built from the shared slot rather than a database row.
-  static String _target(SharedItem it) {
+  static String _target(AppLocalizations l10n, SharedItem it) {
     final reps = it.progression.timed
-        ? '${it.holdSeconds}s'
+        ? l10n.unitSecondsShort('${it.holdSeconds}')
         : it.toFailure
-            ? 'Failure'
+            ? l10n.routineImportTargetFailure
             : it.repsMax == null || it.repsMax == it.repsMin
                 ? '${it.repsMin}'
                 : '${it.repsMin}–${it.repsMax}';
-    return '${it.targetSets} × $reps';
+    return l10n.routineImportTarget(it.targetSets, reps);
   }
 }
 
 /// One name clash: whose definition wins.
 class _ClashRow extends StatelessWidget {
   const _ClashRow({
+    required this.l10n,
     required this.name,
     required this.replace,
     required this.onChanged,
   });
+  final AppLocalizations l10n;
   final String name;
   final bool replace;
   final ValueChanged<bool> onChanged;
@@ -280,7 +292,9 @@ class _ClashRow extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(replace ? 'Use theirs' : 'Keep mine',
+                Text(replace
+                        ? l10n.routineImportUseTheirs
+                        : l10n.routineImportKeepMine,
                     style: kMono.copyWith(
                         fontSize: 12, color: AppColors.muted)),
               ],

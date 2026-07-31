@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../data/database.dart';
 import '../data/exercise_filter.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 
 /// Finds one of the two dimension buttons in a test — `muscle` or `equipment`.
 ValueKey<String> filterButtonKey(String dimension) =>
@@ -52,6 +54,7 @@ class ExerciseFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       // Full width and left-aligned, or the buttons float in the middle of the
       // screen under a search box that runs edge to edge.
@@ -68,18 +71,20 @@ class ExerciseFilterChips extends StatelessWidget {
           FilterFacetButton(
             key: filterButtonKey('muscle'),
             dimension: 'muscle',
-            fallback: 'Muscle',
-            title: 'Muscle group',
+            fallback: l10n.filtersMuscle,
+            title: l10n.filtersMuscleGroup,
             values: kMuscleGroups,
+            label: (group) => muscleGroupLabel(l10n, group),
             chosen: filter.muscles,
             onToggle: (group) => onChanged(filter.toggleMuscle(group)),
           ),
           FilterFacetButton(
             key: filterButtonKey('equipment'),
             dimension: 'equipment',
-            fallback: 'Equipment',
-            title: 'Equipment',
+            fallback: l10n.filtersEquipment,
+            title: l10n.filtersEquipment,
             values: kEquipmentTypes,
+            label: (kind) => equipmentLabel(l10n, kind),
             chosen: filter.equipment,
             onToggle: (kind) => onChanged(filter.toggleEquipment(kind)),
           ),
@@ -102,6 +107,7 @@ class FilterFacetButton extends StatelessWidget {
     required this.fallback,
     required this.title,
     required this.values,
+    required this.label,
     required this.chosen,
     required this.onToggle,
   });
@@ -114,15 +120,23 @@ class FilterFacetButton extends StatelessWidget {
 
   /// The heading over the ticks, which is the long form of [fallback].
   final String title;
+
+  /// The vocabulary as stored — English, and an index in a routine code.
   final List<String> values;
+
+  /// One stored value in the words on screen. Kept apart from [values] because
+  /// what is ticked, keyed and toggled is the stored word throughout; only the
+  /// button and the ticks are translated.
+  final String Function(String) label;
   final Set<String> chosen;
   final ValueChanged<String> onToggle;
 
   /// The choices, in the vocabulary's own order rather than the order they were
   /// tapped in — a button whose words move about as you tick them is a button
   /// you have to re-read.
-  String get _said =>
-      chosen.isEmpty ? fallback : values.where(chosen.contains).join(', ');
+  String get _said => chosen.isEmpty
+      ? fallback
+      : values.where(chosen.contains).map(label).join(', ');
 
   @override
   Widget build(BuildContext context) {
@@ -174,6 +188,7 @@ class FilterFacetButton extends StatelessWidget {
       dimension: dimension,
       title: title,
       values: values,
+      label: label,
       chosen: chosen,
       onToggle: onToggle,
     ),
@@ -191,6 +206,7 @@ class FilterFacetSheet extends StatelessWidget {
     required this.dimension,
     required this.title,
     required this.values,
+    required this.label,
     required this.chosen,
     required this.onToggle,
   });
@@ -198,6 +214,7 @@ class FilterFacetSheet extends StatelessWidget {
   final String dimension;
   final String title;
   final List<String> values;
+  final String Function(String) label;
   final Set<String> chosen;
   final ValueChanged<String> onToggle;
 
@@ -234,7 +251,7 @@ class FilterFacetSheet extends StatelessWidget {
                   TextButton(
                     key: kFilterSheetDoneKey,
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Done'),
+                    child: Text(AppLocalizations.of(context).commonDone),
                   ),
                 ],
               ),
@@ -247,7 +264,7 @@ class FilterFacetSheet extends StatelessWidget {
                   for (final value in values)
                     _Tick(
                       key: filterChipKey(dimension, value),
-                      label: value,
+                      label: label(value),
                       selected: chosen.contains(value),
                       onTap: () => onToggle(value),
                     ),
@@ -338,7 +355,7 @@ class _ClearButton extends StatelessWidget {
             Icon(Icons.close_rounded, size: 14, color: AppColors.muted),
             const SizedBox(width: 4),
             Text(
-              'Clear',
+              AppLocalizations.of(context).filtersClear,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

@@ -37,13 +37,6 @@ enum WeightType {
   /// to it, and every screen asks the same question of it as of the others.
   none;
 
-  String get label => switch (this) {
-    WeightType.bar => 'Bar',
-    WeightType.machine => 'Machine',
-    WeightType.dumbbell => 'Dumbbell',
-    WeightType.none => 'None',
-  };
-
   /// The loadings a picker offers. [none] is not among them — it is what you
   /// get by deselecting, not a fourth kind of weight, and a chip labelled
   /// "None" beside three real ones invites the wrong reading.
@@ -245,14 +238,6 @@ List<PlateStack> defaultPlatesFor(String unit) => [
   for (final p in unit == 'lb' ? _standardLb : _standardKg)
     (kg: toKg(p.size, unit), count: p.count),
 ];
-
-/// A plate or bar weight for display: up to two decimals, no trailing zeros.
-///
-/// `fmtWeight` rounds to one decimal, which is right for a logged set and wrong
-/// here — a 1.25 kg plate that reads "1.3" is a plate nobody can find on the
-/// rack, and a stack of them adds up to a number that does not match the bar.
-String fmtPlateWeight(double kg) =>
-    kg.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
 
 /// The stored plate setup as a string for the settings row.
 String encodePlates(List<PlateStack> plates) =>

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../util/format.dart';
+
 /// The heights a set clip can be filmed at. 720 is the default; 480 is for
 /// people who would rather have the space.
 ///
@@ -211,8 +213,13 @@ class SetVideoStore {
 }
 
 /// A size in bytes, said the way a storage screen says it.
+///
+/// The unit symbols are the SI/IEC ones and are the same in every language the
+/// app ships in, so they are not in the string catalogue. The number is not —
+/// it goes through `util/format.dart`, which reads the app's locale, so a
+/// Ukrainian phone says "1,4 GB".
 String fmtBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024) return '${fmtWeight(bytes.toDouble())} B';
   const units = ['kB', 'MB', 'GB'];
   var value = bytes / 1024;
   var unit = 0;
@@ -220,8 +227,8 @@ String fmtBytes(int bytes) {
     value /= 1024;
     unit++;
   }
-  return '${value < 10 ? value.toStringAsFixed(1) : value.round()} '
-      '${units[unit]}';
+  final n = value < 10 ? fmtOneDecimal(value) : fmtWeight(value.roundToDouble());
+  return '$n ${units[unit]}';
 }
 
 /// Where set clips live on disk.

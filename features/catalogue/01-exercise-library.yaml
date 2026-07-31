@@ -29,14 +29,18 @@ groups:
     defines:
     - exercise.seed
   - id: searchable-name
-    t: Searchable by name
+    t: Searchable by name, in your language and in English
     d: >-
       so "a barbell movement for legs" does not require knowing it is called a
-      squat.
+      squat. The text is matched against the name on screen <i>and</i> against
+      the English the row is stored under, so a Ukrainian lifter finds the bench
+      press by typing <i>жим</i> and still finds it by typing <i>bench</i> —
+      which is what they have in hand when a training partner has sent them a
+      routine.
     defines:
     - exercise.filter
     uses:
-    - exercise.filter
+    - ui.seeded-name
   - id: filterable-muscle-group-equipment
     t: Filterable by muscle group and equipment
     d: >-

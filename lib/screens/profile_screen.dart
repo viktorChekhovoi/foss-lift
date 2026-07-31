@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/tutorial.dart';
@@ -11,6 +12,7 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final workouts = ref.watch(sessionCountProvider).value ?? 0;
     final routineCount = ref.watch(routinesProvider).value?.length ?? 0;
 
@@ -44,21 +46,25 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Center(
-            child: Text('Your profile',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          Center(
+            child: Text(l10n.profileTitle,
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(height: 2),
           Center(
-            child: Text('Foss Lift — open-source workout tracker',
+            child: Text(l10n.profileTagline,
                 style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
           ),
           const SizedBox(height: 22),
           Row(
             children: [
-              _PStat(value: '$workouts', label: 'Workouts', accent: true),
+              _PStat(
+                  value: '$workouts',
+                  label: l10n.commonStatWorkouts,
+                  accent: true),
               const SizedBox(width: 12),
-              _PStat(value: '$routineCount', label: 'Routines'),
+              _PStat(value: '$routineCount', label: l10n.profileStatRoutines),
             ],
           ),
           const SizedBox(height: 20),
@@ -67,19 +73,19 @@ class ProfileScreen extends ConsumerWidget {
           // layoff rules, the bar and the plate rack.
           _SettingsTile(
             icon: Icons.tune_rounded,
-            label: 'Settings',
+            label: l10n.settingsTitle,
             onTap: () => context.push('/settings'),
           ),
           _SettingsTile(
             icon: Icons.list_alt_rounded,
-            label: 'Exercise library',
+            label: l10n.profileExerciseLibrary,
             onTap: () => context.push('/library'),
           ),
           // Replays the first-run tour on demand. Jumps to Today first, where
           // its coach marks are anchored, then starts it.
           _SettingsTile(
             icon: Icons.help_outline_rounded,
-            label: 'Help & tour',
+            label: l10n.profileHelpAndTour,
             onTap: () {
               ref.read(tutorialProvider.notifier).start();
               context.go('/today');
@@ -87,12 +93,12 @@ class ProfileScreen extends ConsumerWidget {
           ),
           _SettingsTile(
             icon: Icons.brightness_6_outlined,
-            label: 'Appearance',
+            label: l10n.profileAppearance,
             onTap: () => context.push('/settings/theme'),
           ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
-            label: 'About Foss Lift',
+            label: l10n.aboutTitle,
             onTap: () => context.push('/about'),
             last: true,
           ),

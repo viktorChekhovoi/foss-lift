@@ -5,9 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/workout_cue.dart';
 import '../util/format.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
+import 'notifications.dart' show NotificationChannelCopy;
 
 /// The live workout in the notification shade.
 ///
@@ -66,6 +69,17 @@ import '../util/units.dart';
 /// starting a session — rather than on launch, where a permission dialog is
 /// noise beside a splash screen. A refusal is not an error: the workout runs as
 /// before, minus the shade, and nothing interrupts it to say so.
+///
+/// ## It holds no words of its own
+///
+/// Every string it posts arrives finished, in a [ShadeCopy] the caller built —
+/// see [shadeCopy]. The class itself never sees an `AppLocalizations`, which is
+/// the only arrangement that survives where this runs: the notification is
+/// written by a foreground service whose task handler lives in an isolate of
+/// its own, with no widget tree and so no `BuildContext` to look a catalogue up
+/// from. The one place that pushes state in here — `workoutShadeSyncProvider` —
+/// already watches the language, so it composes the text and the service posts
+/// it.
 class WorkoutShade {
   /// [platformSupported] and [requestPermission] both default to the real
   /// thing; a test overrides them because the runner is not Android and there
@@ -92,9 +106,6 @@ class WorkoutShade {
       NotificationPermission.granted;
 
   static const _channelId = 'live_workout';
-  static const _channelName = 'Live workout';
-  static const _channelDescription =
-      'Shows the set you are on while a workout is running.';
 
   /// The button ids, which are also what crosses the isolate boundary.
   static const doneAction = 'set_done';
@@ -121,6 +132,10 @@ class WorkoutShade {
 
   bool _ready = false;
   bool _running = false;
+
+  /// The channel labels [_init] last registered, so a language switch re-runs it
+  /// and nothing else does.
+  NotificationChannelCopy? _channelCopy;
 
   /// Android is the only platform this ships on, and the only one with a
   /// foreground service to put a workout in. See issue #33.
@@ -156,13 +171,19 @@ class WorkoutShade {
     }
   }
 
-  void _init() {
-    if (_ready || !supported) return;
+  /// Registers the channel [copy] names. Re-run whenever the language changes:
+  /// Android takes a channel's name and description from the last call, so a
+  /// switch is what re-labels the row in the phone's notification settings.
+  /// Its *sound* is fixed at creation, but this channel is silent anyway.
+  void _init(ShadeCopy copy) {
+    if (_ready && _channelCopy == copy.channel) return;
+    if (!supported) return;
+    _channelCopy = copy.channel;
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: _channelId,
-        channelName: _channelName,
-        channelDescription: _channelDescription,
+        channelName: copy.channel.name,
+        channelDescription: copy.channel.description,
         // Low importance and silent: this notification is *furniture* for the
         // length of a workout, not an alert. The one thing that should make a
         // sound — the rest ending — is the tone, which has its own switch.
@@ -188,18 +209,17 @@ class WorkoutShade {
     _ready = true;
   }
 
-  /// Puts [cue] in the shade, starting the service if it is not up yet.
+  /// Puts [copy] in the shade, starting the service if it is not up yet.
   ///
   /// Safe to call on every change of the session: an update is cheap and the
   /// alternative is tracking what changed.
-  Future<void> show(WorkoutCue cue, {required String unit}) async {
+  Future<void> show(ShadeCopy copy) async {
     if (!supported) return;
-    if (cue.kind == CueKind.finished) return hide();
-    _init();
+    _init(copy);
 
-    final title = shadeTitle(cue);
-    final text = shadeText(cue, unit);
-    final buttons = shadeButtons(cue);
+    final title = copy.title;
+    final text = copy.text;
+    final buttons = copy.buttons;
 
     try {
       if (await _up) {
@@ -358,11 +378,38 @@ final pendingShadeActionsProvider = Provider<PendingShadeActions>(
 // that has to read right at a glance through a coat pocket, and it can be
 // tested without a platform anywhere near it.
 
+/// Everything the shade posts, already in the app's language.
+///
+/// The whole of [WorkoutShade]'s vocabulary in one value, so the service takes
+/// finished text and nothing else — see the note on that class.
+typedef ShadeCopy = ({
+  NotificationChannelCopy channel,
+  String title,
+  String text,
+  List<NotificationButton> buttons,
+});
+
+/// What the shade should say for [cue], or **null when there is nothing left to
+/// say** — every set is logged, and the caller should take the notification
+/// down rather than post an empty one.
+ShadeCopy? shadeCopy(AppLocalizations l10n, WorkoutCue cue, String unit) {
+  if (cue.kind == CueKind.finished) return null;
+  return (
+    channel: (
+      name: l10n.shadeChannelName,
+      description: l10n.shadeChannelDescription,
+    ),
+    title: shadeTitle(l10n, cue),
+    text: shadeText(l10n, cue, unit),
+    buttons: shadeButtons(l10n, cue),
+  );
+}
+
 /// The bold line: what you are doing, or how long is left.
-String shadeTitle(WorkoutCue cue) => switch (cue.kind) {
-  CueKind.resting => 'Rest · ${fmtDuration(cue.restLeft ?? 0)}',
-  CueKind.hold || CueKind.lift => shadeWhere(cue),
-  CueKind.finished => 'Workout',
+String shadeTitle(AppLocalizations l10n, WorkoutCue cue) => switch (cue.kind) {
+  CueKind.resting => l10n.shadeRestTitle(fmtDuration(cue.restLeft ?? 0)),
+  CueKind.hold || CueKind.lift => shadeWhere(l10n, cue),
+  CueKind.finished => l10n.shadeWorkoutTitle,
 };
 
 /// Where in the session you are: the movement, whether this is its ramp, and
@@ -371,67 +418,100 @@ String shadeTitle(WorkoutCue cue) => switch (cue.kind) {
 /// The count is the part four identical sets of bench need — without it every
 /// one of them reads the same from a pocket, and the only way to tell the first
 /// from the last is to open the app the shade exists to save you opening.
-String shadeWhere(WorkoutCue cue) {
-  final warmup = cue.warmup ? 'Warm-up · ' : '';
-  final of = cue.setCount > 0
-      ? ' · Set ${cue.setIndex + 1}/${cue.setCount}'
-      : '';
-  return '$warmup${cue.exercise}$of';
+///
+/// Four whole sentences rather than three fragments glued together: a language
+/// that puts the ramp's name after the movement, or that declines it, cannot be
+/// built out of a prefix and a suffix.
+String shadeWhere(AppLocalizations l10n, WorkoutCue cue) {
+  final name = seededName(l10n, cue.exerciseSeedKey, cue.exercise);
+  final counted = cue.setCount > 0;
+  if (cue.warmup) {
+    return counted
+        ? l10n.shadeWhereWarmupSet(name, cue.setIndex + 1, cue.setCount)
+        : l10n.shadeWhereWarmup(name);
+  }
+  return counted
+      ? l10n.shadeWhereExerciseSet(name, cue.setIndex + 1, cue.setCount)
+      : l10n.shadeWhereExercise(name);
 }
 
 /// The second line: the set itself, in enough detail to load a bar from.
-String shadeText(WorkoutCue cue, String unit) {
-  final what = describeCue(cue, unit);
+String shadeText(AppLocalizations l10n, WorkoutCue cue, String unit) {
+  final what = describeCue(l10n, cue, unit);
   if (cue.kind != CueKind.resting) return what;
   // While resting the bold line is the countdown, so this is the only line the
   // exercise can be named on — and "Next: 80 kg × 8" is a weight and a rep
   // count belonging to nothing. "Next" itself is the difference between a
   // countdown and an instruction, so it stays.
-  return 'Next: ${shadeWhere(cue)} · $what';
+  return l10n.shadeNextLine(shadeWhere(l10n, cue), what);
 }
 
 /// The buttons: two to log a set with, or three to run the rest with.
-List<NotificationButton> shadeButtons(WorkoutCue cue) => switch (cue.kind) {
-  CueKind.finished => const [],
-  // Nothing to log during a rest — but the rest itself is the thing you are
-  // least likely to have the phone in your hand for. See issue #62.
-  CueKind.resting => const [
-    NotificationButton(id: WorkoutShade.restSubAction, text: '−15s'),
-    NotificationButton(id: WorkoutShade.restAddAction, text: '+15s'),
-    NotificationButton(id: WorkoutShade.restSkipAction, text: 'Skip'),
-  ],
-  // A hold cannot be "done at the goal" from a pocket — how long you held
-  // it is the whole measurement — so it gets one button that raises the app
-  // at the stopwatch instead, and logs nothing on the way.
-  CueKind.hold => const [
-    NotificationButton(id: WorkoutShade.startAction, text: 'Start'),
-  ],
-  CueKind.lift => const [
-    NotificationButton(id: WorkoutShade.doneAction, text: 'Done'),
-    NotificationButton(id: WorkoutShade.missedAction, text: 'Missed'),
-  ],
-};
+List<NotificationButton> shadeButtons(AppLocalizations l10n, WorkoutCue cue) =>
+    switch (cue.kind) {
+      CueKind.finished => const [],
+      // Nothing to log during a rest — but the rest itself is the thing you are
+      // least likely to have the phone in your hand for. See issue #62.
+      //
+      // The same three words the rest bar uses, from the same three keys: the
+      // two places a rest can be nudged from must not disagree about what the
+      // nudge is called any more than about what it does.
+      CueKind.resting => [
+        NotificationButton(
+          id: WorkoutShade.restSubAction,
+          text: l10n.sessionRestMinus,
+        ),
+        NotificationButton(
+          id: WorkoutShade.restAddAction,
+          text: l10n.sessionRestPlus,
+        ),
+        NotificationButton(
+          id: WorkoutShade.restSkipAction,
+          text: l10n.sessionRestSkip,
+        ),
+      ],
+      // A hold cannot be "done at the goal" from a pocket — how long you held
+      // it is the whole measurement — so it gets one button that raises the app
+      // at the stopwatch instead, and logs nothing on the way.
+      CueKind.hold => [
+        NotificationButton(
+          id: WorkoutShade.startAction,
+          text: l10n.shadeStart,
+        ),
+      ],
+      CueKind.lift => [
+        NotificationButton(id: WorkoutShade.doneAction, text: l10n.shadeDone),
+        NotificationButton(
+          id: WorkoutShade.missedAction,
+          text: l10n.shadeMissed,
+        ),
+      ],
+    };
 
 /// One line describing a set: the load and the target.
 ///
 /// Kept out of [WorkoutShade] so it can be read and tested without a platform
 /// anywhere near it — "80 kg × 8", "45s", "Bodyweight × 12".
-String describeCue(WorkoutCue cue, String unit) {
+String describeCue(AppLocalizations l10n, WorkoutCue cue, String unit) {
   final weight = cue.weightKg == null
       ? null
-      : '${fmtCueWeight(cue.weightKg!, unit)} ${unitLabel(unit)}';
-  if (cue.seconds != null) {
-    return weight == null ? '${cue.seconds}s' : '$weight · ${cue.seconds}s';
+      : l10n.unitWeightShort(
+          fmtCueWeight(cue.weightKg!, unit), unitSuffix(l10n, unit));
+  final seconds = cue.seconds;
+  if (seconds != null) {
+    return weight == null
+        ? l10n.unitSecondsShort('$seconds')
+        : l10n.shadeSetWeightSeconds(weight, seconds);
   }
-  final reps = '${cue.reps ?? 0}';
-  return weight == null ? 'Bodyweight × $reps' : '$weight × $reps';
+  final reps = cue.reps ?? 0;
+  return weight == null
+      ? l10n.shadeSetBodyweightReps(reps)
+      : l10n.shadeSetWeightReps(weight, reps);
 }
 
-/// A weight for the shade: no trailing `.0`, converted to the display unit.
-String fmtCueWeight(double kg, String unit) {
-  final v = toDisplayWeight(kg, unit);
-  return v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
-}
+/// A weight for the shade, converted to the display unit.
+String fmtCueWeight(double kg, String unit) =>
+    fmtWeight(toDisplayWeight(kg, unit));
 
 /// The service's entry point, which Android calls in its own isolate.
 ///

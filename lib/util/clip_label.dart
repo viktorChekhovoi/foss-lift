@@ -1,7 +1,7 @@
-import 'package:intl/intl.dart';
-
 import '../data/exercise_stats.dart';
+import '../l10n/app_localizations.dart';
 import 'units.dart';
+import 'format.dart';
 
 /// The speeds a clip plays at.
 ///
@@ -21,14 +21,9 @@ double nextPlaybackSpeed(double current) {
   return kPlaybackSpeeds[(i + 1) % kPlaybackSpeeds.length];
 }
 
-/// How a speed is written on the toggle: "1×", "0.5×", "0.25×".
-String fmtPlaybackSpeed(double speed) {
-  final s = speed.toStringAsFixed(2);
-  final trimmed = s
-      .replaceFirst(RegExp(r'0+$'), '')
-      .replaceFirst(RegExp(r'\.$'), '');
-  return '$trimmed×';
-}
+/// How a speed is written on the toggle: "1×", "0.5×", "0.25×" — and "0,5×"
+/// in a language that writes the decimal that way.
+String fmtPlaybackSpeed(double speed) => '${fmtUpTo(speed, 2)}×';
 
 /// What a clip is, in one line: `12 Mar · set 3 · 100 kg × 5`.
 ///
@@ -38,7 +33,13 @@ String fmtPlaybackSpeed(double speed) {
 ///
 /// A held set reads its duration instead of a rep count (`set 2 · 45s`), and a
 /// set done under no load drops the weight entirely rather than claiming "0 kg".
-String clipLabel(ExerciseSetEntry set, String unit) => clipLabelOf(
+///
+/// Takes [l10n] rather than a `BuildContext`: this runs for every row of the
+/// reel and for every set of the recap, and the widget that is already holding
+/// the localisations passes them down.
+String clipLabel(AppLocalizations l10n, ExerciseSetEntry set, String unit) =>
+    clipLabelOf(
+      l10n,
       date: set.date,
       setNumber: set.setNumber,
       weightKg: set.weightKg,
@@ -51,7 +52,12 @@ String clipLabel(ExerciseSetEntry set, String unit) => clipLabelOf(
 /// rows rather than the flattened history entries the reel is built from. One
 /// implementation, two callers: the label has to read identically in both
 /// places or the same clip appears to be two different things.
-String clipLabelOf({
+///
+/// Four whole messages rather than one frame with an effort spliced into it:
+/// the load, the reps and the hold are the part that changes shape, and a
+/// language that inflects around them cannot be handed a finished fragment.
+String clipLabelOf(
+  AppLocalizations l10n, {
   required DateTime date,
   required int setNumber,
   required double weightKg,
@@ -61,16 +67,16 @@ String clipLabelOf({
 }) {
   final load = weightKg == 0
       ? null
-      : '${fmtWeightShort(toDisplayWeight(weightKg, unit))} ${unitLabel(unit)}';
-  final String effort;
+      : l10n.unitWeightShort(
+          fmtWeight(toDisplayWeight(weightKg, unit)), unitSuffix(l10n, unit));
   if (seconds != null) {
-    effort = load == null ? '${seconds}s' : '$load × ${seconds}s';
-  } else {
-    effort = load == null ? '$reps reps' : '$load × $reps';
+    final held = l10n.unitSecondsShort('$seconds');
+    return load == null
+        ? l10n.clipLabelHold(date, setNumber, held)
+        : l10n.clipLabelLoadedHold(date, setNumber, load, held);
   }
-  return '${DateFormat('d MMM').format(date)} · set $setNumber · $effort';
+  return load == null
+      ? l10n.clipLabelReps(date, setNumber, reps)
+      : l10n.clipLabelLoadedReps(date, setNumber, load, reps);
 }
 
-/// A weight with no trailing `.0` — 100.0 → "100", 102.5 → "102.5".
-String fmtWeightShort(double w) =>
-    w == w.roundToDouble() ? w.toStringAsFixed(0) : w.toStringAsFixed(1);

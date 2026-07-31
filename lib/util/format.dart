@@ -10,9 +10,21 @@ import 'package:intl/intl.dart';
 String fmtTotal(num value) {
   final v = value.round();
   if (v.abs() < 10000) return NumberFormat.decimalPattern().format(v);
-  if (v.abs() < 1000000) return '${_oneDecimal(v / 1000)}k';
-  return '${_oneDecimal(v / 1000000)}M';
+  if (v.abs() < 1000000) return '${_mantissa(v / 1000)}k';
+  return '${_mantissa(v / 1000000)}M';
 }
+
+/// The number in front of a k or an M: one decimal, a bare `.0` dropped, and
+/// the language's own decimal mark — 12.0 → "12", 12.45 → "12.5", and "12,5"
+/// where that is how it is written.
+///
+/// Grouping is off because this never reaches four digits by design; the one
+/// input that rounds there (999 999 → 1000k) would otherwise pick up a
+/// thousands separator inside a figure that is already an abbreviation.
+String _mantissa(double v) => (NumberFormat.decimalPattern()
+      ..maximumFractionDigits = 1
+      ..turnOffGrouping())
+    .format(v);
 
 /// A running clock: `m:ss`, counting minutes past the hour rather than wrapping
 /// to hours. A session that ran 95 minutes reads "95:12", which is what a lifter
@@ -23,16 +35,33 @@ String fmtDuration(int seconds) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-/// A count and the thing it counts, agreeing: 1 → "1 clean session", 3 → "3
-/// clean sessions".
+/// A weight for display: no trailing `.0`, one decimal when it needs one.
 ///
-/// Only the regular `-s` case, which is every noun the app counts. Pass
-/// [plural] for anything else.
-String plural(int n, String noun, {String? plural}) =>
-    '$n ${n == 1 ? noun : (plural ?? '${noun}s')}';
+/// 100.0 → "100", 102.5 → "102.5" — and "102,5" in a language that writes it
+/// that way, because every formatter here goes through `intl` and `intl` reads
+/// `Intl.defaultLocale`, which the app root keeps in step with the language.
+///
+/// One decimal is right for a logged set and wrong for a plate: see
+/// [fmtPlateWeight].
+String fmtWeight(double w) => fmtUpTo(w, 1);
 
-/// One decimal place, with a bare `.0` dropped: 12.0 → "12", 12.45 → "12.5".
-String _oneDecimal(double v) {
-  final s = v.toStringAsFixed(1);
-  return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
-}
+/// A plate or bar weight: up to two decimals, no trailing zeros.
+///
+/// [fmtWeight] rounds to one decimal, which is wrong here — a 1.25 kg plate
+/// that reads "1.3" is a plate nobody can find on the rack, and a stack of them
+/// adds up to a number that does not match the bar.
+String fmtPlateWeight(double kg) => fmtUpTo(kg, 2);
+
+/// Exactly one decimal place, in the app's language: 2.0 → "2.0", 1.44 → "1.4".
+///
+/// The zero is kept, unlike [fmtWeight]. A storage figure reading "2 kB" beside
+/// "1.4 GB" looks like a different measurement rather than a rounder one.
+String fmtOneDecimal(double v) => (NumberFormat.decimalPattern()
+      ..minimumFractionDigits = 1
+      ..maximumFractionDigits = 1)
+    .format(v);
+
+/// [v] with at most [max] decimals and no trailing zeros, in the app's
+/// language.
+String fmtUpTo(double v, int max) =>
+    (NumberFormat.decimalPattern()..maximumFractionDigits = max).format(v);

@@ -80,15 +80,24 @@ void main() {
       final service = ReminderService();
       expect(service.supported, isFalse);
 
+      final l10n = l10nFor();
       await service.sync(
-        const [
-          RoutineReminder(
-            routineId: 1,
-            name: 'Push / Pull / Legs',
-            scheduleDays: 1 << 0,
-            reminderMinutes: 600,
+        [
+          (
+            reminder: const RoutineReminder(
+              routineId: 1,
+              name: 'Push / Pull / Legs',
+              scheduleDays: 1 << 0,
+              reminderMinutes: 600,
+            ),
+            title: 'Push / Pull / Legs',
+            body: l10n.reminderBody,
           ),
         ],
+        channel: (
+          name: l10n.reminderChannelName,
+          description: l10n.reminderChannelDescription,
+        ),
         now: DateTime(2024, 1, 1, 8, 0),
       );
 

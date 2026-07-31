@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -40,7 +42,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.6.0+eol
   path_provider: ^2.1.6
   path: ^1.9.1
-  intl: ^0.20.3
+  intl: ^0.20.2
   flutter_local_notifications: ^22.1.0
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
@@ -73,11 +75,21 @@ dev_dependencies:
   build_runner: ^2.15.1
   qr: ^3.0.2
 
+  # Both write generated files into android/ and are re-run by hand when
+  # design/icon/foss-lift.svg changes — see the icon and splash sections below.
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  # Compiles lib/l10n/*.arb into AppLocalizations — see l10n.yaml. Adding a
+  # language is adding one more .arb file and one more entry in
+  # lib/util/locales.dart; nothing else counts them.
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -119,3 +131,54 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# The launcher icon, generated from design/icon/foss-lift.svg. The PNGs under
+# assets/icon/ are build inputs only — they are not bundled into the app, so
+# they are deliberately absent from the asset list above.
+#
+# `image_path` is the whole plate, rounded corners and all, for launchers that
+# predate adaptive icons. Everything since Android 8 uses the two adaptive
+# layers instead: the plate colour as the background, and the wordmark centred
+# in the 108dp canvas at the size it has on the plate. The foreground already
+# carries that padding, hence `adaptive_icon_foreground_inset: 0` — adding the
+# package's default 16% on top would shrink it twice.
+#
+#     dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#0E1117"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  adaptive_icon_foreground_inset: 0
+  adaptive_icon_monochrome: assets/icon/icon_foreground.png
+  min_sdk_android: 24
+
+# The splash screen behind the window while the Flutter engine starts.
+#
+# The colour is the icon's own plate rather than any of the app's themes: the
+# theme is a user choice read out of the database, and nothing has read the
+# database yet at this point. A fixed brand colour is the only honest answer,
+# and it is the same in light mode so the splash does not flash white on the
+# way to a dark app.
+#
+# Android 12 and up ignore `image` and mask `android_12.image` to a 160dp
+# circle inside a 240dp icon, so that copy of the logo is sized for its diagonal
+# to be the circle's diameter.
+#
+#     dart run flutter_native_splash:create
+flutter_native_splash:
+  android: true
+  ios: false
+  web: false
+  color: "#0E1117"
+  color_dark: "#0E1117"
+  image: assets/splash/logo.png
+  image_dark: assets/splash/logo.png
+  android_12:
+    color: "#0E1117"
+    color_dark: "#0E1117"
+    image: assets/splash/logo_android12.png
+    image_dark: assets/splash/logo_android12.png
+    icon_background_color: "#0E1117"
+    icon_background_color_dark: "#0E1117"

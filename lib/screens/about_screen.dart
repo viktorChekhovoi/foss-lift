@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 /// Where to write when the app misbehaves. The only address in the app, and the
 /// only reason it holds one.
 const String kContactEmail = 'birdie.software.studios@gmail.com';
+
+/// The app's name, as it is written everywhere. A proper noun, so it is a
+/// constant rather than a catalogue entry — there is nothing here to translate.
+const String kAppName = 'Foss Lift';
 
 /// What this app is, who made it, and how to complain about it.
 class AboutScreen extends StatelessWidget {
@@ -14,40 +19,30 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('About Foss Lift')),
+      appBar: AppBar(title: Text(l10n.aboutTitle)),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            Text('Foss Lift',
+            Text(kAppName,
                 style: const TextStyle(
                     fontSize: 24, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('An offline workout tracker.',
+            Text(l10n.aboutSubtitle,
                 style: TextStyle(color: AppColors.muted, fontSize: 14)),
             const SizedBox(height: 22),
-            _Section('WHAT IT DOES WITH YOUR DATA'),
-            _Para(
-              'Nothing leaves this phone. No account, no server, no analytics. '
-              'The app asks for no network permission, so it could not send '
-              'your training anywhere if it wanted to.',
-            ),
+            _Section(l10n.aboutDataSection),
+            _Para(l10n.aboutDataPara1),
             const SizedBox(height: 8),
-            _Para(
-              'Two things reach outside, and both hand off to another app you '
-              'can see: opening a demo link in your browser, and passing a '
-              'share code to the share sheet.',
-            ),
+            _Para(l10n.aboutDataPara2),
             const SizedBox(height: 22),
-            _Section('LICENCE'),
-            _Para(
-              'AGPL-3.0. Free to use, read, change and pass on — the source is '
-              'the whole of it, and anything built on it stays free too.',
-            ),
+            _Section(l10n.aboutLicenceSection),
+            _Para(l10n.aboutLicenceBody),
             const SizedBox(height: 22),
-            _Section('SOMETHING BROKEN?'),
+            _Section(l10n.aboutSomethingBrokenSection),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
@@ -60,8 +55,8 @@ class AboutScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 icon: Icon(Icons.bug_report_outlined, color: AppColors.accent),
-                label: const Text('Report a bug'),
-                onPressed: () => _mail(context),
+                label: Text(l10n.aboutReportBug),
+                onPressed: () => _mail(context, l10n),
               ),
             ),
             const SizedBox(height: 8),
@@ -69,7 +64,7 @@ class AboutScreen extends StatelessWidget {
             // otherwise leave you with a button that does nothing and no
             // address to write down.
             GestureDetector(
-              onLongPress: () => _copy(context),
+              onLongPress: () => _copy(context, l10n),
               child: Text(kContactEmail,
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
             ),
@@ -81,11 +76,11 @@ class AboutScreen extends StatelessWidget {
 
   /// Opens a pre-addressed draft in whatever handles mail. Falls back to the
   /// clipboard, which leaves you somewhere you can still act.
-  Future<void> _mail(BuildContext context) async {
+  Future<void> _mail(BuildContext context, AppLocalizations l10n) async {
     final uri = Uri(
       scheme: 'mailto',
       path: kContactEmail,
-      query: 'subject=${Uri.encodeComponent('Foss Lift bug report')}',
+      query: 'subject=${Uri.encodeComponent(l10n.aboutBugReportSubject)}',
     );
     var opened = false;
     try {
@@ -93,14 +88,14 @@ class AboutScreen extends StatelessWidget {
     } catch (_) {
       opened = false;
     }
-    if (!opened && context.mounted) await _copy(context);
+    if (!opened && context.mounted) await _copy(context, l10n);
   }
 
-  Future<void> _copy(BuildContext context) async {
+  Future<void> _copy(BuildContext context, AppLocalizations l10n) async {
     await Clipboard.setData(const ClipboardData(text: kContactEmail));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Address copied')),
+      SnackBar(content: Text(l10n.aboutAddressCopied)),
     );
   }
 }

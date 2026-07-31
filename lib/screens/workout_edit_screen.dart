@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/workout_items_editor.dart';
 
@@ -26,6 +28,12 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
   bool _loaded = false;
   bool _saving = false;
 
+  /// The name put in the field. On a day the app shipped that is a translation
+  /// of the stored English, so handing it back untouched must not count as a
+  /// rename — writing it would store the translation and clear the seed key,
+  /// and the day would stop following the language for good.
+  String _shownName = '';
+
   @override
   void initState() {
     super.initState();
@@ -38,8 +46,10 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
     final routine = await db.routineById(workout.routineId);
     final items = await db.itemsForWorkout(widget.workoutId);
     if (!mounted) return;
+    _shownName =
+        seededName(AppLocalizations.of(context), workout.seedKey, workout.name);
     setState(() {
-      _name.text = workout.name;
+      _name.text = _shownName;
       _routineId = workout.routineId;
       _routineRest = routine.restSeconds;
       _items
@@ -58,12 +68,14 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      _toast('Give the workout a name first.');
+      _toast(AppLocalizations.of(context).workoutEditNameRequired);
       return;
     }
     setState(() => _saving = true);
     final db = ref.read(databaseProvider);
-    await db.renameWorkout(widget.workoutId, name);
+    // Only a name that actually changed is written: renaming is what makes a
+    // day yours, and [AppDatabase.renameWorkout] clears the seed key to say so.
+    if (name != _shownName) await db.renameWorkout(widget.workoutId, name);
     await db.replaceWorkoutItems(
       widget.workoutId,
       itemCompanions(
@@ -76,22 +88,22 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
   }
 
   Future<void> _delete() async {
+    final l10n = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Delete workout?'),
-        content: const Text(
-            'This removes the day from the routine. Logged history is kept.'),
+        title: Text(l10n.workoutEditDeleteTitle),
+        content: Text(l10n.workoutEditDeleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('Delete', style: TextStyle(color: Color(0xFFFF5D5D))),
+            child: Text(l10n.commonDelete,
+                style: const TextStyle(color: Color(0xFFFF5D5D))),
           ),
         ],
       ),
@@ -108,13 +120,14 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit workout'),
+        title: Text(l10n.workoutEditTitle),
         actions: [
           IconButton(
-            tooltip: 'Delete',
+            tooltip: l10n.commonDelete,
             icon: const Icon(Icons.delete_outline),
             onPressed: _delete,
           ),
@@ -131,14 +144,14 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                       children: [
-                        builderLabel('Name'),
+                        builderLabel(l10n.commonName),
                         TextField(
                           controller: _name,
                           textCapitalization: TextCapitalization.sentences,
                           maxLength: kMaxNameLength,
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
-                          decoration: builderInput('e.g. Push'),
+                          decoration: builderInput(l10n.workoutEditNameHint),
                         ),
                         WorkoutItemsEditor(
                           defaultBarKg: ref.watch(plateSettingsProvider).barKg,
@@ -158,7 +171,8 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _saving ? null : _save,
-                        child: Text(_saving ? 'Saving…' : 'Save workout'),
+                        child: Text(
+                            _saving ? l10n.commonSaving : l10n.workoutEditSave),
                       ),
                     ),
                   ),

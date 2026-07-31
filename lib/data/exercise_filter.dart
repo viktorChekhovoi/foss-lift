@@ -1,5 +1,9 @@
 import 'database.dart';
 
+/// One exercise's words as a screen is rendering them — translated where the
+/// row is one the app shipped. See `util/seed_names.dart`.
+typedef ExerciseWords = ({String name, String muscleGroup, String equipment});
+
 /// What is being asked of the exercise library: some text, and any number of
 /// equipment kinds and muscle groups.
 ///
@@ -21,7 +25,9 @@ class ExerciseFilter {
     this.muscles = const {},
   });
 
-  /// Free text, matched against the name, the muscle group and the equipment.
+  /// Free text, matched against the name, the muscle group and the equipment —
+  /// in the language on screen as well as in the English underneath. See
+  /// [matches].
   final String query;
 
   /// The equipment kinds to keep — see [kEquipmentTypes]. Empty means all.
@@ -65,16 +71,47 @@ class ExerciseFilter {
     return next;
   }
 
-  bool matches(Exercise e) {
+  /// Whether [e] survives the filter.
+  ///
+  /// The chips test the stored value, which is the English one: they are set
+  /// from `kMuscleGroups`/`kEquipmentTypes`, and the label on the chip is a
+  /// display concern the screen has already resolved.
+  ///
+  /// The text is matched against **both** the words on screen and the English
+  /// underneath. [shown] carries the former — the translated name, muscle group
+  /// and equipment the screen is rendering — and defaults to the row's own
+  /// values, which is the right answer for an English install and for anything
+  /// with no translation.
+  ///
+  /// Both, rather than only what is on screen: the English is what a share code
+  /// carries and what a training partner types into a message, so somebody
+  /// hunting for the movement in a routine they were sent has the English name
+  /// in hand and nothing else. Matching only the visible words would fail them
+  /// on their own phone.
+  bool matches(Exercise e, {ExerciseWords? shown}) {
     if (equipment.isNotEmpty && !equipment.contains(e.equipment)) return false;
     if (muscles.isNotEmpty && !muscles.contains(e.muscleGroup)) return false;
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return true;
-    return e.name.toLowerCase().contains(q) ||
-        e.muscleGroup.toLowerCase().contains(q) ||
-        e.equipment.toLowerCase().contains(q);
+    for (final word in [
+      e.name,
+      e.muscleGroup,
+      e.equipment,
+      if (shown != null) ...[shown.name, shown.muscleGroup, shown.equipment],
+    ]) {
+      if (word.toLowerCase().contains(q)) return true;
+    }
+    return false;
   }
 
-  List<Exercise> apply(Iterable<Exercise> all) =>
-      [for (final e in all) if (matches(e)) e];
+  /// [all], filtered. [shown] resolves one row's words as the screen renders
+  /// them — see [matches].
+  List<Exercise> apply(
+    Iterable<Exercise> all, {
+    ExerciseWords Function(Exercise)? shown,
+  }) =>
+      [
+        for (final e in all)
+          if (matches(e, shown: shown?.call(e))) e,
+      ];
 }

@@ -9,6 +9,14 @@ import 'local_time_zone.dart';
 import 'notification_ids.dart';
 import 'notifications.dart';
 
+/// One routine's reminder, with the words already chosen for it.
+///
+/// [reminder] says *when* — the schedule arithmetic stays where it is. [title]
+/// and [body] are what the notification reads, resolved by the caller: the
+/// title is the routine's name as the app renders it, which for a routine the
+/// app shipped is a translation rather than the stored English.
+typedef ReminderPost = ({RoutineReminder reminder, String title, String body});
+
 /// Schedules the local notifications that remind you a training day is on.
 ///
 /// Local in the strict sense: the notification is laid down on the device by
@@ -19,14 +27,18 @@ import 'notifications.dart';
 /// what was pending and lays the next reminder for each routine down again —
 /// cheap, and it means a schedule edit, a finished session and a fresh launch
 /// all converge on the same answer without anyone tracking which is which.
+///
+/// It holds no words either. A reminder names its routine, and a routine the
+/// app shipped is named from the string catalogue rather than from the `name`
+/// column — so the caller resolves the language and hands the finished text
+/// over as [ReminderPost]s. There is no `BuildContext` here to look one up
+/// from, and a remembered `AppLocalizations` would post yesterday's language
+/// after a switch.
 class ReminderService {
   ReminderService([FlutterLocalNotificationsPlugin? plugin])
       : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   static const _channelId = 'workout_reminders';
-  static const _channelName = 'Workout reminders';
-  static const _channelDescription =
-      'Nudges on the days a routine is scheduled to be trained.';
 
   final FlutterLocalNotificationsPlugin _plugin;
 
@@ -76,11 +88,15 @@ class ReminderService {
   /// quick succession (a routine edit is also a change to the reminder list),
   /// and two overlapping runs would have one cancelling what the other had just
   /// scheduled.
-  Future<void> sync(List<RoutineReminder> routines, {DateTime? now}) {
+  Future<void> sync(
+    List<ReminderPost> posts, {
+    required NotificationChannelCopy channel,
+    DateTime? now,
+  }) {
     if (!supported) return Future<void>.value();
     final at = now ?? DateTime.now();
     _queue = _queue
-        .then((_) => _sync(routines, at))
+        .then((_) => _sync(posts, channel, at))
         // A failure to schedule must not poison the queue for every later
         // sync; the next change to a routine gets a clean run at it.
         .catchError((Object e) =>
@@ -88,7 +104,11 @@ class ReminderService {
     return _queue;
   }
 
-  Future<void> _sync(List<RoutineReminder> routines, DateTime now) async {
+  Future<void> _sync(
+    List<ReminderPost> posts,
+    NotificationChannelCopy channel,
+    DateTime now,
+  ) async {
     await init();
     if (!_ready) return;
 
@@ -100,21 +120,21 @@ class ReminderService {
       if (isReminderId(pending.id)) await _plugin.cancel(id: pending.id);
     }
 
-    for (final r in routines) {
-      final at = r.nextFireAt(now);
+    for (final post in posts) {
+      final at = post.reminder.nextFireAt(now);
       if (at == null) continue;
       await _plugin.zonedSchedule(
         // The routine's own id, so re-syncing replaces its reminder rather than
         // stacking a second one beside it.
-        id: r.routineId,
-        title: r.name,
-        body: 'Training day — time to lift.',
+        id: post.reminder.routineId,
+        title: post.title,
+        body: post.body,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
-            _channelName,
-            channelDescription: _channelDescription,
+            channel.name,
+            channelDescription: channel.description,
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
           ),

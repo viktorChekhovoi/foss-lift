@@ -13,6 +13,7 @@ import 'layoff.dart';
 import 'plates.dart';
 import 'progression.dart';
 import 'schedule.dart';
+import 'seed_keys.dart';
 
 export 'exercise_stats.dart';
 export 'exercise_taxonomy.dart';
@@ -40,7 +41,20 @@ const int kMaxNameLength = 80;
 /// users can add their own ([isCustom] == true).
 class Exercises extends Table {
   IntColumn get id => integer().autoIncrement()();
+
+  /// The canonical English name. What a routine code carries, what history
+  /// denormalises, and what an importer matches on — see `seedKey` for what is
+  /// actually rendered.
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
+
+  /// Which movement of the starter library this is, or null for one you added.
+  ///
+  /// A screen renders `seededName(l10n, seedKey, name)` rather than `name`, so
+  /// the whole starter library follows a language switch instead of being
+  /// frozen at whatever the phone was set to on install day. Seeded exercises
+  /// cannot be renamed (see [isCustom]), so unlike a routine or a training day
+  /// this key is never cleared. See `util/seed_names.dart`.
+  TextColumn get seedKey => text().nullable()();
   TextColumn get muscleGroup => text().withDefault(const Constant('Other'))();
   TextColumn get equipment => text().withDefault(const Constant('Other'))();
   TextColumn get videoUrl => text().nullable()();
@@ -94,6 +108,13 @@ class Exercises extends Table {
 class Routines extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
+
+  /// Which demo programme this is, or null for one of your own.
+  ///
+  /// Cleared the moment the routine is renamed — a programme you have named is
+  /// yours, and must not revert to "Push / Pull / Legs" on the next language
+  /// switch. See `util/seed_names.dart`.
+  TextColumn get seedKey => text().nullable()();
   TextColumn get colorHex => text().withDefault(const Constant('FF6A3D'))();
   IntColumn get position => integer().withDefault(const Constant(0))();
 
@@ -118,6 +139,10 @@ class Workouts extends Table {
   IntColumn get routineId =>
       integer().references(Routines, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
+
+  /// Which training day of a demo programme this is, or null. Cleared on
+  /// rename, for the same reason as [Routines.seedKey].
+  TextColumn get seedKey => text().nullable()();
   IntColumn get position => integer().withDefault(const Constant(0))();
 }
 
@@ -197,6 +222,12 @@ class Sessions extends Table {
   IntColumn get routineId => integer().nullable()();
   IntColumn get workoutId => integer().nullable()();
   TextColumn get name => text()();
+
+  /// The seed key of the training day this was, or null. Denormalised beside
+  /// [name] for the same two reasons the sets denormalise theirs: the template
+  /// may be edited or deleted, and the name still has to follow the language.
+  TextColumn get seedKey => text().nullable()();
+
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
   IntColumn get durationSeconds => integer().withDefault(const Constant(0))();
@@ -213,6 +244,12 @@ class SessionSets extends Table {
       integer().references(Sessions, #id, onDelete: KeyAction.cascade)();
   IntColumn get exerciseId => integer().nullable()();
   TextColumn get exerciseName => text()();
+
+  /// The seed key of the movement, copied alongside its name and for the same
+  /// reason: a logged set has to stay readable after a library edit, *and* has
+  /// to follow a language switch. Null for a movement you added yourself, whose
+  /// name is the only answer there is.
+  TextColumn get exerciseSeedKey => text().nullable()();
   IntColumn get setNumber => integer()();
   RealColumn get weight => real().withDefault(const Constant(0))();
   IntColumn get reps => integer().withDefault(const Constant(0))();
@@ -340,6 +377,14 @@ class Settings extends Table {
   IntColumn get videoMaxSeconds =>
       integer().withDefault(const Constant(kDefaultVideoSeconds))();
 
+  /// The language the user picked, as `uk` or `pt_BR` — see `util/locales.dart`.
+  ///
+  /// Null means "follow the phone", which is the default and the right answer
+  /// for almost everybody: the phone has already been asked this question. It
+  /// exists for the gap that leaves — a phone kept in one language by an
+  /// employer or a habit, and an app you would rather read in another.
+  TextColumn get localeTag => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -430,6 +475,13 @@ class Bars extends Table {
   TextColumn get unit => text().withLength(min: 2, max: 2)();
 
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
+
+  /// Which of the bars the app ships with this is, or null for one you added.
+  ///
+  /// The seeded bars are fixed — [isCustom] false, unrenameable — so unlike a
+  /// routine or a training day this key is never cleared. See
+  /// `util/seed_names.dart`.
+  TextColumn get seedKey => text().nullable()();
 
   /// What the bar weighs, in kilograms.
   RealColumn get weightKg => real()();
@@ -1111,7 +1163,9 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> renameWorkout(int id, String name) {
     return (update(workouts)..where((w) => w.id.equals(id))).write(
-      WorkoutsCompanion(name: Value(name)),
+      // Naming a day makes it yours: the seed key goes, so the name stops
+      // following the language.
+      WorkoutsCompanion(name: Value(name), seedKey: const Value(null)),
     );
   }
 
@@ -1150,8 +1204,19 @@ class AppDatabase extends _$AppDatabase {
           );
         } else {
           workoutId = d.id!;
+          final before = existing.firstWhere((w) => w.id == workoutId);
           await (update(workouts)..where((w) => w.id.equals(workoutId))).write(
-            WorkoutsCompanion(name: Value(d.name), position: Value(i)),
+            WorkoutsCompanion(
+              name: Value(d.name),
+              // Renaming a day through the builder makes it yours, exactly as
+              // [renameWorkout] does. A draft that came back with the name it
+              // was given leaves the key alone, so a demo day survives a save
+              // that only reordered the routine.
+              seedKey: before.name == d.name
+                  ? const Value.absent()
+                  : const Value(null),
+              position: Value(i),
+            ),
           );
         }
         ids.add(workoutId);
@@ -1250,6 +1315,12 @@ class AppDatabase extends _$AppDatabase {
   /// Rewrites a routine's own settings. The schedule and reminder are written
   /// every time, including back to null: the editor always holds the whole
   /// answer, so a null here means "no reminder", never "leave it alone".
+  ///
+  /// [seedKey] is the same kind of whole answer: null — the default — is what
+  /// naming a routine yourself means, and the editor passes the routine's
+  /// existing key back only when it saved the name it was given. Saving a demo
+  /// routine after changing nothing but its colour must not cost it the key
+  /// that makes it follow the language.
   Future<void> updateRoutineMeta(
     int id, {
     required String name,
@@ -1257,10 +1328,12 @@ class AppDatabase extends _$AppDatabase {
     required int restSeconds,
     int scheduleDays = kNoScheduleMask,
     int? reminderMinutes,
+    String? seedKey,
   }) {
     return (update(routines)..where((r) => r.id.equals(id))).write(
       RoutinesCompanion(
         name: Value(name),
+        seedKey: Value(seedKey),
         colorHex: Value(color),
         restSeconds: Value(restSeconds),
         scheduleDays: Value(scheduleDays),
@@ -1295,6 +1368,7 @@ class AppDatabase extends _$AppDatabase {
         return RoutineReminder(
           routineId: routine.id,
           name: routine.name,
+          seedKey: routine.seedKey,
           scheduleDays: routine.scheduleDays,
           reminderMinutes: routine.reminderMinutes,
           lastTrainedAt: r.read(lastAt),
@@ -1534,6 +1608,7 @@ class AppDatabase extends _$AppDatabase {
     required int? routineId,
     required int? workoutId,
     required String name,
+    String? seedKey,
     required DateTime startedAt,
     required DateTime endedAt,
     required int durationSeconds,
@@ -1546,6 +1621,7 @@ class AppDatabase extends _$AppDatabase {
           routineId: Value(routineId),
           workoutId: Value(workoutId),
           name: name,
+          seedKey: Value(seedKey),
           startedAt: startedAt,
           endedAt: Value(endedAt),
           durationSeconds: Value(durationSeconds),
@@ -1758,6 +1834,16 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setTextScale(double scale) =>
       _writeSettings(SettingsCompanion(textScale: Value(scale)));
+
+  /// The language the user picked, or null to follow the phone.
+  Stream<String?> watchLocaleTag() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => s?.localeTag);
+  }
+
+  Future<void> setLocaleTag(String? tag) =>
+      _writeSettings(SettingsCompanion(localeTag: Value(tag)));
 
   /// The layoff rules, falling back to the defaults if the settings row has
   /// somehow not been written yet.
@@ -2041,7 +2127,12 @@ class AppDatabase extends _$AppDatabase {
     for (final unit in const ['kg', 'lb']) {
       for (final b in namedBars(unit)) {
         await into(bars).insert(
-          BarsCompanion.insert(unit: unit, name: b.name, weightKg: b.weight),
+          BarsCompanion.insert(
+            unit: unit,
+            name: b.name,
+            seedKey: Value(kSeedBarKeys[b.name]),
+            weightKg: b.weight,
+          ),
         );
       }
     }
@@ -2060,6 +2151,8 @@ class AppDatabase extends _$AppDatabase {
       return ids[name] ??= await into(exercises).insert(
         ExercisesCompanion.insert(
           name: name,
+          // What the screens actually render from — see `seed_names.dart`.
+          seedKey: Value(kSeedExerciseKeys[name]),
           muscleGroup: Value(muscle),
           equipment: Value(equip),
           measure: Value(measure),
@@ -2103,6 +2196,7 @@ class AppDatabase extends _$AppDatabase {
       final rid = await into(routines).insert(
         RoutinesCompanion.insert(
           name: name,
+          seedKey: Value(kSeedRoutineKeys[name]),
           colorHex: Value(color),
           position: Value(pos),
           restSeconds: Value(rest),
@@ -2115,6 +2209,7 @@ class AppDatabase extends _$AppDatabase {
           WorkoutsCompanion.insert(
             routineId: rid,
             name: day.name,
+            seedKey: Value(kSeedWorkoutKeys[day.name]),
             position: Value(dayPos++),
           ),
         );

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import 'tutorial_demo.dart';
@@ -67,8 +68,14 @@ class TutorialStep {
   /// too small to be found by prose alone.
   final TutorialDemoFocus focus;
 
-  final String title;
-  final String body;
+  /// The heading and the prose, **looked up rather than held**.
+  ///
+  /// The step list is built once, at start-up, and outlives any number of
+  /// language switches; a string captured then would still be in the old
+  /// language on the next step. So a step carries the way to ask for its text
+  /// and the card asks on every build.
+  final String Function(AppLocalizations) title;
+  final String Function(AppLocalizations) body;
 }
 
 /// The first-run tour, in order: a greeting, then the high-value targets.
@@ -93,82 +100,72 @@ class TutorialStep {
 ///
 /// Not `const`: the anchors are runtime [GlobalKey] instances.
 final List<TutorialStep> kTutorialSteps = [
-  const TutorialStep(
-    title: 'Welcome to Foss Lift',
-    body: 'Plan a routine, log your lifts, watch the numbers move. '
-        'Here is where it all is.',
+  TutorialStep(
+    title: (l) => l.tutorialWelcomeTitle,
+    body: (l) => l.tutorialWelcomeBody,
   ),
   TutorialStep(
     key: tutorialTodayWorkoutKey,
-    title: 'Your next workout',
-    body: 'This training day is queued up next. Tap it to see the exercises, '
-        'then Start when you are ready to lift.',
+    title: (l) => l.tutorialTodayTitle,
+    body: (l) => l.tutorialTodayBody,
   ),
   // The five steps below are about a screen the tour cannot point at: the board
   // only exists while a workout is running, and starting one to show it off
   // would leave somebody mid-session they did not ask for. So each draws the
   // mock instead and talks about that — see lib/widgets/tutorial_demo.dart.
-  const TutorialStep(
+  TutorialStep(
     demo: TutorialDemo.board,
     focus: TutorialDemoFocus.nextSet,
-    title: 'While you lift',
-    body: 'The set you are on is outlined. Tap its reps to log the goal, tap '
-        'again for each rep you missed, or hold to type a number.',
+    title: (l) => l.tutorialBoardTitle,
+    body: (l) => l.tutorialBoardBody,
   ),
-  const TutorialStep(
+  TutorialStep(
     demo: TutorialDemo.restBar,
-    title: 'The rest timer',
-    body: 'Logging a set starts it, and it keeps running if you leave the '
-        'screen. Longer, shorter or skip; it sounds when it is up.',
+    title: (l) => l.tutorialRestTitle,
+    body: (l) => l.tutorialRestBody,
   ),
-  const TutorialStep(
+  TutorialStep(
     demo: TutorialDemo.board,
     focus: TutorialDemoFocus.note,
-    title: 'Your note on a movement',
-    body: 'The seat height, the pin, the cue that worked. Tap the note icon to '
-        'write it mid-set; it is kept on the exercise, so it is there next '
-        'time you train it.',
+    title: (l) => l.tutorialNoteTitle,
+    body: (l) => l.tutorialNoteBody,
   ),
-  const TutorialStep(
+  TutorialStep(
     demo: TutorialDemo.board,
     focus: TutorialDemoFocus.camera,
-    title: 'Film a set',
-    body: 'The camera on a logged set records a silent clip of it. Watch it '
-        'back at quarter speed, or line the movement up over months from the '
-        'exercise in your library. Clips never leave the phone.',
+    title: (l) => l.tutorialVideoTitle,
+    body: (l) => l.tutorialVideoBody,
   ),
-  const TutorialStep(
+  TutorialStep(
     demo: TutorialDemo.shade,
-    title: 'In your notifications',
-    body: 'The workout sits in your notification shade: the set you are on, '
-        'Done and Missed to log it, and the rest counting down with Skip.',
+    title: (l) => l.tutorialShadeTitle,
+    body: (l) => l.tutorialShadeBody,
   ),
   TutorialStep(
     key: tutorialLifetimeKey,
-    title: 'Lifetime totals',
-    body: 'Every session you finish adds to your volume, sets and reps here.',
+    title: (l) => l.tutorialLifetimeTitle,
+    body: (l) => l.tutorialLifetimeBody,
   ),
   TutorialStep(
     key: tutorialNavBarKey,
     navSlot: 1,
     navSlotCount: 4,
-    title: 'Routines',
-    body: 'Build a new programme, or switch which routine Today follows.',
+    title: (l) => l.tutorialRoutinesTitle,
+    body: (l) => l.tutorialRoutinesBody,
   ),
   TutorialStep(
     key: tutorialNavBarKey,
     navSlot: 2,
     navSlotCount: 4,
-    title: 'History',
-    body: 'Every workout you finish is logged here to look back on.',
+    title: (l) => l.tutorialHistoryTitle,
+    body: (l) => l.tutorialHistoryBody,
   ),
   TutorialStep(
     key: tutorialNavBarKey,
     navSlot: 3,
     navSlotCount: 4,
-    title: 'Profile & help',
-    body: 'Settings, the exercise library, and this tour all live here — replay '
-        'it any time from “Help & tour”.',
+    title: (l) => l.tutorialProfileTitle,
+    body: (l) => l.tutorialProfileBody,
   ),
 ];
 
@@ -474,6 +471,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
   /// The card itself: the step's title, its text, and the way on. Positioned by
   /// its caller — beside an anchor, or under a mock.
   Widget _calloutCard(TutorialStep step, int index) {
+    final l10n = AppLocalizations.of(context);
     final isLast = index == kTutorialSteps.length - 1;
     // The greeting asks a question the rest of the tour does not: whether to
     // have one at all. So its buttons answer that, rather than reading as
@@ -504,7 +502,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                 children: [
                   Expanded(
                     child: Text(
-                      step.title,
+                      step.title(l10n),
                       style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w700,
@@ -523,7 +521,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
               ),
               const SizedBox(height: 6),
               Text(
-                step.body,
+                step.body(l10n),
                 style: TextStyle(
                     fontSize: 13.5, height: 1.35, color: AppColors.muted),
               ),
@@ -546,7 +544,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                         textStyle: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w700),
                       ),
-                      child: const Text('Take the tour'),
+                      child: Text(l10n.tutorialTakeTour),
                     ),
                     TextButton(
                       onPressed: _dismiss,
@@ -554,7 +552,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                         foregroundColor: AppColors.faint,
                         minimumSize: const Size(0, 36),
                       ),
-                      child: const Text('Not now'),
+                      child: Text(l10n.tutorialNotNow),
                     ),
                   ],
                 )
@@ -570,7 +568,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                       minimumSize: const Size(0, 36),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text('Skip'),
+                    child: Text(l10n.tutorialSkip),
                   ),
                   const Spacer(),
                   if (index > 0)
@@ -583,7 +581,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                         minimumSize: const Size(0, 36),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Text('Back'),
+                      child: Text(l10n.tutorialBack),
                     ),
                   const SizedBox(width: 4),
                   FilledButton(
@@ -598,7 +596,7 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                       textStyle: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700),
                     ),
-                    child: Text(isLast ? 'Done' : 'Next'),
+                    child: Text(isLast ? l10n.commonDone : l10n.tutorialNext),
                   ),
                 ],
                 ),

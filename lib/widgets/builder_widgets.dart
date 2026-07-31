@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/exercise_filter.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../screens/exercise_form_screen.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
 import '../util/units.dart';
 import 'common.dart';
 import 'exercise_filters.dart';
+import '../util/format.dart';
 
 /// Shared chrome for the routine and workout builders.
 
@@ -111,6 +114,7 @@ class _WeightDialogState extends State<_WeightDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -120,7 +124,7 @@ class _WeightDialogState extends State<_WeightDialog> {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textAlign: TextAlign.center,
         style: kMono.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
-        decoration: builderInput(unitLabel(widget.unit)),
+        decoration: builderInput(unitSuffix(l10n, widget.unit)),
         onSubmitted: (_) => _save(),
       ),
       actions: [
@@ -132,9 +136,9 @@ class _WeightDialogState extends State<_WeightDialog> {
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
-        TextButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: _save, child: Text(l10n.commonSave)),
       ],
     );
   }
@@ -236,6 +240,7 @@ class _BarEditDialogState extends State<_BarEditDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -247,7 +252,7 @@ class _BarEditDialogState extends State<_BarEditDialog> {
             autofocus: widget.name == null,
             maxLength: kMaxNameLength,
             textCapitalization: TextCapitalization.sentences,
-            decoration: builderInput('Name'),
+            decoration: builderInput(l10n.commonName),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -255,7 +260,7 @@ class _BarEditDialogState extends State<_BarEditDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
             style: kMono.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
-            decoration: builderInput(unitLabel(widget.unit)),
+            decoration: builderInput(unitSuffix(l10n, widget.unit)),
             onSubmitted: (_) => _save(),
           ),
         ],
@@ -263,9 +268,9 @@ class _BarEditDialogState extends State<_BarEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
-        TextButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: _save, child: Text(l10n.commonSave)),
       ],
     );
   }
@@ -285,6 +290,7 @@ class _BarDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final bars = ref.watch(barsProvider).value ?? const [];
     // Within a hundred grams is the same bar: a 45 lb bar is 20.41 kg and will
     // never compare equal to anything typed in kilograms.
@@ -294,7 +300,11 @@ class _BarDialog extends ConsumerWidget {
     /// Adds a bar the list does not have yet, and picks it in the same breath —
     /// which is the only reason to be adding one from here.
     Future<void> addOne() async {
-      final draft = await askBarEdit(context, title: 'Add a bar', unit: unit);
+      final draft = await askBarEdit(
+        context,
+        title: l10n.commonAddBar,
+        unit: unit,
+      );
       if (draft == null) return;
       // A refusal means the list already holds a bar of that weight — which is
       // the bar being described, so picking it is still the right answer.
@@ -350,16 +360,17 @@ class _BarDialog extends ConsumerWidget {
           children: [
             for (final b in bars)
               row(
-                label: b.name,
-                trailing:
-                    '${fmtPlateWeight(toDisplayWeight(b.weightKg, unit))} '
-                    '${unitLabel(unit)}',
+                label: seededName(l10n, b.seedKey, b.name),
+                trailing: l10n.unitWeightShort(
+                  fmtPlateWeight(toDisplayWeight(b.weightKg, unit)),
+                  unitSuffix(l10n, unit),
+                ),
                 selected: isCurrent(b.weightKg),
                 onTap: () =>
                     Navigator.pop<WeightChoice>(context, (kg: b.weightKg)),
               ),
             Divider(height: 1, color: AppColors.line),
-            row(label: 'Add a bar', selected: false, onTap: addOne),
+            row(label: l10n.commonAddBar, selected: false, onTap: addOne),
           ],
         ),
       ),
@@ -372,7 +383,7 @@ class _BarDialog extends ConsumerWidget {
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
       ],
     );
@@ -422,6 +433,7 @@ class _NoteDialogState extends State<_NoteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
@@ -433,7 +445,7 @@ class _NoteDialogState extends State<_NoteDialog> {
         maxLength: kNoteMaxLength,
         textCapitalization: TextCapitalization.sentences,
         style: const TextStyle(fontSize: 15, height: 1.4),
-        decoration: builderInput('Seat 4, pin 7, stop at mid-shin'),
+        decoration: builderInput(l10n.builderNoteHint),
       ),
       actions: [
         // Only offered when there is something to clear, so the common case —
@@ -442,15 +454,15 @@ class _NoteDialogState extends State<_NoteDialog> {
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppColors.muted),
             onPressed: () => Navigator.pop<String>(context, ''),
-            child: const Text('Clear'),
+            child: Text(l10n.builderClear),
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop<String>(context, _c.text),
-          child: const Text('Save'),
+          child: Text(l10n.commonSave),
         ),
       ],
     );
@@ -968,6 +980,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final library = ref.watch(exerciseLibraryProvider);
     final height = MediaQuery.of(context).size.height * 0.8;
     return SizedBox(
@@ -986,7 +999,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                 autofocus: false,
                 onChanged: (v) =>
                     setState(() => _filter = _filter.withQuery(v)),
-                decoration: builderInput('Search exercises…').copyWith(
+                decoration: builderInput(l10n.commonSearchExercises).copyWith(
                   prefixIcon: Icon(Icons.search, color: AppColors.muted),
                 ),
               ),
@@ -1001,7 +1014,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                   child: Text('$e', style: TextStyle(color: AppColors.muted)),
                 ),
                 data: (all) {
-                  final list = _filter.apply(all);
+                  final list = _filter.apply(all, shown: (e) => shownWords(l10n, e));
                   return ListView.separated(
                     // The chips ride at the head of the list rather than in a
                     // band above it: wrapped, they are as tall as the
@@ -1032,7 +1045,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                             contentPadding: EdgeInsets.zero,
                             leading: Icon(Icons.add, color: AppColors.accent),
                             title: Text(
-                              'New exercise',
+                              l10n.commonNewExercise,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
