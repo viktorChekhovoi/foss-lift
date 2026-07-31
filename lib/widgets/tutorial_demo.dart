@@ -32,6 +32,15 @@ const kTutorialDemoNoteKey = ValueKey('tutorial-demo-note');
 /// A camera cell on a mock set row. One per row, so this matches several.
 const kTutorialDemoCameraKey = ValueKey('tutorial-demo-camera');
 
+/// The accent ring the tour draws around the icon a step is about. At most one
+/// is on screen at a time.
+const kTutorialDemoRingKey = ValueKey('tutorial-demo-ring');
+
+/// The set row behind you, and the one you are on. Both are drawn only by the
+/// step about the set rows — see [TutorialBoardDemo].
+const kTutorialDemoDoneRowKey = ValueKey('tutorial-demo-done-row');
+const kTutorialDemoNextRowKey = ValueKey('tutorial-demo-next-row');
+
 /// The example: one barbell lift, three working sets, the first one logged.
 ///
 /// The lift is named from the starter library rather than spelled out here, so
@@ -41,8 +50,13 @@ const _kDemoWeightKg = 80.0;
 const _kDemoGoal = 8;
 const _kDemoSets = 3;
 
-/// A miniature of the live board — the exercise, its note icon, and the set
-/// rows with the one you are on outlined.
+/// A miniature of the live board — the exercise, its note icon, and its set
+/// rows.
+///
+/// The board shows only what [focus] is about. A session under way (one set
+/// logged, the next outlined) is the subject of one step, so only that step
+/// draws it; the note and camera steps get the board at rest with a single ring
+/// on the icon they are describing.
 class TutorialBoardDemo extends ConsumerWidget {
   const TutorialBoardDemo({super.key, this.focus = TutorialDemoFocus.none});
 
@@ -73,16 +87,22 @@ class TutorialBoardDemo extends ConsumerWidget {
             _SetRowDemo(
               number: i,
               weight: weight,
-              // The first is behind you, the second is the one to do now, the
-              // rest are still ahead — the three states the column ever has.
-              state: switch (i) {
-                1 => _RowState.done,
-                2 => _RowState.next,
-                _ => _RowState.todo,
-              },
+              // Mid-session only on the step that is about the rows: the first
+              // is behind you, the second is the one to do now, the rest are
+              // still ahead. Every other step leaves the board at rest, so the
+              // one ringed icon is the only thing on it asking to be looked at.
+              state: focus == TutorialDemoFocus.nextSet
+                  ? switch (i) {
+                      1 => _RowState.done,
+                      2 => _RowState.next,
+                      _ => _RowState.todo,
+                    }
+                  : _RowState.todo,
               goal: _kDemoGoal,
               highlightNext: focus == TutorialDemoFocus.nextSet,
-              highlightCamera: focus == TutorialDemoFocus.camera,
+              // One ring, on the first row: three rings for one icon would
+              // point at the column rather than at the thing.
+              ringCamera: focus == TutorialDemoFocus.camera && i == 1,
             ),
         ],
       ),
@@ -346,7 +366,7 @@ class _SetRowDemo extends StatelessWidget {
     required this.state,
     required this.goal,
     required this.highlightNext,
-    required this.highlightCamera,
+    required this.ringCamera,
   });
 
   final int number;
@@ -354,7 +374,7 @@ class _SetRowDemo extends StatelessWidget {
   final _RowState state;
   final int goal;
   final bool highlightNext;
-  final bool highlightCamera;
+  final bool ringCamera;
 
   bool get _done => state == _RowState.done;
   bool get _isNext => state == _RowState.next;
@@ -363,6 +383,11 @@ class _SetRowDemo extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = AppColors.good;
     return Container(
+      key: switch (state) {
+        _RowState.done => kTutorialDemoDoneRowKey,
+        _RowState.next => kTutorialDemoNextRowKey,
+        _RowState.todo => null,
+      },
       margin: const EdgeInsets.symmetric(vertical: 3),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: _isNext
@@ -386,19 +411,21 @@ class _SetRowDemo extends StatelessWidget {
             SizedBox(
               width: 36,
               child: Center(
-                // Ringed on the logged set only: three rings for one icon
-                // would point at the column rather than at the thing, and the
-                // filmed set is the one carrying a clip anyway.
+                // The accent is the ring's, not the row's: a camera lit up on
+                // the logged set drew the eye away from whatever step was
+                // running.
                 child: _ring(
-                  on: highlightCamera && _done,
+                  on: ringCamera,
                   child: Padding(
                     key: kTutorialDemoCameraKey,
                     padding:
                         const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                     child: Icon(
-                      _done ? Icons.videocam_rounded : Icons.videocam_outlined,
+                      ringCamera
+                          ? Icons.videocam_rounded
+                          : Icons.videocam_outlined,
                       size: 20,
-                      color: _done ? AppColors.accent : AppColors.faint,
+                      color: ringCamera ? AppColors.accent : AppColors.faint,
                     ),
                   ),
                 ),
@@ -463,6 +490,7 @@ class _SetRowDemo extends StatelessWidget {
 /// Rings [child] in the accent when the current step is about it. Nothing is
 /// drawn when it is not, so the ring is only ever on one thing at a time.
 Widget _ring({required bool on, required Widget child}) => Container(
+      key: on ? kTutorialDemoRingKey : null,
       decoration: on
           ? BoxDecoration(
               color: AppColors.accent.withValues(alpha: 0.12),

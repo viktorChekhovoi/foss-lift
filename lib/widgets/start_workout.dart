@@ -97,8 +97,8 @@ class _SwitchDialog extends StatelessWidget {
       backgroundColor: AppColors.surface,
       title: Text(l10n.startWorkoutSwitchTitle(starting)),
       content: Text(
-        l10n.startWorkoutSwitchBody(running, live.doneSets, live.totalSets,
-            fmtDuration(live.elapsed), starting),
+        l10n.startWorkoutSwitchBody(
+            running, live.doneSets, live.totalSets, fmtDuration(live.elapsed)),
         style: TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [

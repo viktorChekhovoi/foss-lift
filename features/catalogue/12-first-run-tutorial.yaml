@@ -35,10 +35,10 @@ groups:
     t: Draws the live workout it cannot show you
     d: >-
       the steps about a running session put a stand-in on the dimmed screen —
-      the board (one exercise, its note icon, three set rows with the one you are
-      on outlined and a camera on each), the rest bar with its countdown and −15s
-      / +15s / Skip, and the notification with Done and Missed on it. Read the
-      step, look at the thing it is describing.
+      the board (one exercise, its note icon, three set rows with a camera on
+      each), the rest bar with its countdown and −15s / +15s / Skip, and the
+      notification with Done and Missed on it. Read the step, look at the thing
+      it is describing.
     defines:
     - ui.tutorial
     uses:
@@ -80,6 +80,20 @@ groups:
     uses:
     - ui.tutorial
     - session.live-state
+  - id: mock-shows-only-what-the-step-is-about
+    t: The mock highlights one thing at a time
+    d: >-
+      each board step rings its own subject and leaves the rest of the board in
+      its default state: the note step rings the note, the clip step rings one
+      camera, and neither shows a logged set or an outlined next set. Only the
+      step about the set rows puts the board mid-session — one set behind you,
+      the next one outlined — because that is what it is describing. A camera is
+      drawn in the accent only while it is the ringed thing, so it never competes
+      with the step that is running.
+    uses:
+    - ui.tutorial
+    - exercise.notes
+    - video.capture
   - id: mock-is-a-picture-not-the-board
     t: The mock is a picture, not the board
     d: >-

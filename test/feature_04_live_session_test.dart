@@ -1254,6 +1254,117 @@ void main() {
     });
   });
 
+  group('Finishing with working sets unlogged asks first', () {
+    // Finish is the one tap that turns a half-done session into history and
+    // moves next session's targets with it. Leaving sets unlogged is sometimes
+    // deliberate and sometimes a forgotten row, and the two look identical from
+    // the outside — so it asks, and says what it would cost.
+
+    /// The Push day on screen, with a `/summary/:id` to land on when it does
+    /// finish.
+    Future<void> pumpRouted(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        final wid = await workoutIdNamed(db, 'Push');
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Push');
+      });
+      await tester.pumpWidget(routedAppUnder(
+        container!,
+        const WorkoutScreen(),
+        alsoRoutes: const ['summary/:id'],
+      ));
+      await tester.pump();
+    }
+
+    /// Logs every working set of the running session.
+    void logEverything() {
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      for (var ei = 0; ei < session().exercises.length; ei++) {
+        for (var si = 0; si < session().exercises[ei].sets.length; si++) {
+          ctl.cycleSet(ei, si);
+        }
+      }
+    }
+
+    testWidgets('it names the count and defaults to going back',
+        (tester) async {
+      await pumpRouted(tester);
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      await tester.tap(find.text('Finish'));
+      await frames(tester);
+
+      expect(find.text('Finish with ${kPushTotalSets - 1} sets unlogged?'),
+          findsOneWidget);
+
+      await tester.tap(find.text('Back to the board'));
+      await frames(tester);
+
+      expect(container!.read(activeWorkoutProvider), isNotNull,
+          reason: 'the default answer leaves the session running');
+      final sessions = await tester.runAsync(() => db.watchHistory().first);
+      expect(sessions, isEmpty, reason: 'nothing was written on the way past');
+
+      await stopAll(tester);
+    });
+
+    testWidgets('confirming finishes it', (tester) async {
+      await pumpRouted(tester);
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      await tester.tap(find.text('Finish'));
+      await frames(tester);
+      await tester.tap(find.text('Finish anyway'));
+      await frames(tester);
+
+      expect(container!.read(activeWorkoutProvider), isNull);
+      final sessions = await tester.runAsync(() => db.watchHistory().first);
+      expect(sessions, hasLength(1),
+          reason: 'the session it warned about is still the one it writes');
+
+      await stop(tester);
+    });
+
+    testWidgets('a fully logged session finishes without asking',
+        (tester) async {
+      await pumpRouted(tester);
+      logEverything();
+      await tester.pump();
+
+      await tester.tap(find.text('Finish'));
+      await frames(tester);
+
+      expect(find.textContaining('unlogged'), findsNothing,
+          reason: 'there is nothing to warn about');
+      expect(container!.read(activeWorkoutProvider), isNull);
+
+      await stop(tester);
+    });
+
+    testWidgets('an unlogged warm-up rung never triggers it', (tester) async {
+      // Skipping rungs of the ramp is ordinary: they are never written and
+      // never decide whether a session was clean.
+      await pumpRouted(tester);
+      logEverything();
+      await tester.pump();
+      expect(
+          session().exercises.any((e) => e.warmups.any((w) => !w.done)), isTrue,
+          reason: 'this proves nothing unless a rung is left unlogged');
+
+      await tester.tap(find.text('Finish'));
+      await frames(tester);
+
+      expect(find.textContaining('unlogged'), findsNothing);
+      expect(container!.read(activeWorkoutProvider), isNull);
+
+      await stop(tester);
+    });
+  });
+
   group('Finish advances progression, in the right order', () {
     test(
       'a clean session steps the slot up, with its sets on disk to justify it',

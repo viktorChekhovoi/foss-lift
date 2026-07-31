@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/today_screen.dart';
+import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
 import 'package:foss_lift/widgets/tutorial_demo.dart';
 
@@ -193,6 +194,98 @@ void main() {
       // with its note icon, and set rows with a camera each.
       expect(find.byKey(kTutorialDemoNoteKey), findsOneWidget);
       expect(find.byKey(kTutorialDemoCameraKey), findsWidgets);
+
+      await stop(tester);
+    });
+
+    /// Every icon the mock board is currently painting, with its colour.
+    List<Icon> boardIcons(WidgetTester tester, Key key) => tester
+        .widgetList<Icon>(
+            find.descendant(of: find.byKey(key), matching: find.byType(Icon)))
+        .toList();
+
+    /// True when the mock board is painting a session in progress: a set behind
+    /// you, or the next one outlined.
+    bool showsProgress(WidgetTester tester) =>
+        find.byKey(kTutorialDemoDoneRowKey).evaluate().isNotEmpty ||
+        find.byKey(kTutorialDemoNextRowKey).evaluate().isNotEmpty;
+
+    /// The step whose mock board is focused on [focus].
+    int boardStepFocused(TutorialDemoFocus focus) {
+      final i = kTutorialSteps.indexWhere(
+          (s) => s.demo == TutorialDemo.board && s.focus == focus);
+      expect(i, greaterThan(0), reason: 'no board step focuses on $focus');
+      return i;
+    }
+
+    testWidgets('the note step rings the note and nothing else',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.note));
+
+      expect(find.byKey(kTutorialDemoRingKey), findsOneWidget,
+          reason: 'the ring points at one thing at a time');
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoNoteKey)),
+          findsOneWidget,
+          reason: 'the note is the subject of this step');
+      expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
+          AppColors.accent);
+      for (final camera in boardIcons(tester, kTutorialDemoCameraKey)) {
+        expect(camera.color, isNot(AppColors.accent),
+            reason: 'a camera in the accent pulls the eye off the note');
+      }
+      expect(showsProgress(tester), isFalse,
+          reason: 'the note step should leave the board in its default state — '
+              'no logged set, no outlined next set');
+
+      await stop(tester);
+    });
+
+    testWidgets('the clip step rings one camera and nothing else',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.camera));
+
+      expect(find.byKey(kTutorialDemoRingKey), findsOneWidget,
+          reason: 'the ring points at one camera, not at the column');
+      final cameras = boardIcons(tester, kTutorialDemoCameraKey);
+      expect(cameras.where((i) => i.color == AppColors.accent), hasLength(1),
+          reason: 'exactly one camera is the subject of this step');
+      expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
+          isNot(AppColors.accent));
+      expect(showsProgress(tester), isFalse,
+          reason: 'the clip step should leave the board in its default state');
+
+      await stop(tester);
+    });
+
+    testWidgets('the set-row step is the one that shows a session under way',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.nextSet));
+
+      expect(showsProgress(tester), isTrue,
+          reason: 'a set behind you and the next one outlined is what this '
+              'step is describing');
+      expect(find.byKey(kTutorialDemoRingKey), findsNothing,
+          reason: 'the outlined row is the pointer here; a ring as well would '
+              'be two pointers');
+      // But the icons stay quiet: the step is about the rows, not the camera.
+      for (final camera in boardIcons(tester, kTutorialDemoCameraKey)) {
+        expect(camera.color, isNot(AppColors.accent),
+            reason: 'an accent camera outshouts the row the step is about');
+      }
+      expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
+          isNot(AppColors.accent));
 
       await stop(tester);
     });

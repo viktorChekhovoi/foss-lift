@@ -272,13 +272,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
             ListTile(
               leading: Icon(Icons.videocam_rounded, color: AppColors.accent),
               title: Text(l10n.sessionVideoRefilm),
-              subtitle: Text(l10n.sessionVideoRefilmNote),
               onTap: () => Navigator.pop(sheet, 'again'),
             ),
             ListTile(
               leading: Icon(Icons.delete_outline, color: AppColors.muted),
               title: Text(l10n.sessionVideoDelete),
-              subtitle: Text(l10n.sessionVideoDeleteNote),
               onTap: () => Navigator.pop(sheet, 'delete'),
             ),
           ],
@@ -321,7 +319,20 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setWarmupWeight(ei, wi, kg);
   }
 
+  /// Ends the session and writes it, asking first if working sets are still
+  /// unlogged.
+  ///
+  /// Finish is the one tap that turns the session into history and moves next
+  /// session's targets with it, and a forgotten row looks exactly like a set
+  /// deliberately skipped. **Warm-up rungs are not counted**: they are never
+  /// written and never decide whether a session was clean, so leaving them is
+  /// ordinary rather than something to warn about.
   Future<void> _finish() async {
+    final session = ref.read(activeWorkoutProvider);
+    if (session == null) return;
+    final unlogged = session.totalSets - session.doneSets;
+    if (unlogged > 0 && !await _confirmUnlogged(unlogged)) return;
+
     final id = await ref.read(activeWorkoutProvider.notifier).finish();
     if (!mounted) return;
     if (id != null) {
@@ -329,6 +340,35 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     } else {
       context.go('/today');
     }
+  }
+
+  /// Asks whether to finish with [unlogged] working sets still open. Going back
+  /// to the board is the default: it is the answer that loses nothing.
+  Future<bool> _confirmUnlogged(int unlogged) async {
+    final l10n = AppLocalizations.of(context);
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(l10n.sessionFinishUnloggedTitle(unlogged)),
+        content: Text(
+          l10n.sessionFinishUnloggedBody,
+          style: TextStyle(color: AppColors.muted, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.sessionFinishUnloggedBack),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.gold),
+            child: Text(l10n.sessionFinishUnloggedConfirm),
+          ),
+        ],
+      ),
+    );
+    return sure == true && mounted;
   }
 
   /// Throws the session away without writing it. For the workout started by a

@@ -751,6 +751,28 @@
   "@sessionFinish": {
     "description": "Button that ends the workout and writes it to history. One short word — it shares the top bar with the workout's name and must not push the name out."
   },
+  "sessionFinishUnloggedTitle": "{count, plural, =1{Finish with 1 set unlogged?} other{Finish with {count} sets unlogged?}}",
+  "@sessionFinishUnloggedTitle": {
+    "description": "Title of the dialog shown when Finish is tapped with working sets still unlogged. Warm-up rungs are not counted. The count is how many working sets would go unwritten.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "sessionFinishUnloggedBody": "Unlogged sets are not saved, and an exercise short of its sets counts as a missed session.",
+  "@sessionFinishUnloggedBody": {
+    "description": "Body of that dialog. Says what finishing early costs: the sets never reach history, and progression treats the exercise as missed, which can drop next session's weight."
+  },
+  "sessionFinishUnloggedBack": "Back to the board",
+  "@sessionFinishUnloggedBack": {
+    "description": "Dismisses the unlogged-sets dialog and leaves the workout running. The default answer."
+  },
+  "sessionFinishUnloggedConfirm": "Finish anyway",
+  "@sessionFinishUnloggedConfirm": {
+    "description": "Confirms the unlogged-sets dialog: writes the session as it stands and advances progression."
+  },
   "sessionAbortTitle": "Abort this workout?",
   "@sessionAbortTitle": {
     "description": "Title of the dialog confirming that the running workout will be thrown away."
@@ -802,15 +824,15 @@
   },
   "sessionWarmupSets": "Sets",
   "@sessionWarmupSets": {
-    "description": "Label beside the −/+ stepper that sets how many warm-up rungs the ramp has. Rendered in small capitals inside the opened group."
+    "description": "Label beside the -/+ stepper that sets how many warm-up rungs the ramp has. Rendered in small capitals inside the opened group."
   },
-  "sessionWarmupTooLight": "Too light to ramp — nothing fits under this weight.",
+  "sessionWarmupTooLight": "Weight too light to auto calculate warm-up.",
   "@sessionWarmupTooLight": {
     "description": "Shown inside the warm-up group when rungs were asked for but the working weight is so light that no lighter step exists between the empty bar and it."
   },
-  "sessionWarmupDisclaimer": "Suggested to prime the movement — not medical advice. Adjust to how you feel, and consult a professional.",
+  "sessionWarmupDisclaimer": "Suggested to prime the movement, not medical advice.",
   "@sessionWarmupDisclaimer": {
-    "description": "Standing note at the foot of the opened warm-up ramp. A disclaimer, not a caption — keep the whole of the meaning, including that the rungs are suggestions and that a professional is the authority."
+    "description": "Standing note at the foot of the opened warm-up ramp. A disclaimer, not a caption — keep both halves: the rungs are a suggestion, and they are not medical advice."
   },
   "sessionWarmupTitle": "Warm-up {number}",
   "@sessionWarmupTitle": {
@@ -886,17 +908,9 @@
   "@sessionVideoRefilm": {
     "description": "Choice in the sheet offered when the camera on a set that already has a clip is tapped: shoot a new take."
   },
-  "sessionVideoRefilmNote": "Replaces this clip",
-  "@sessionVideoRefilmNote": {
-    "description": "Subtitle under sessionVideoRefilm, warning that the take already filmed is lost."
-  },
   "sessionVideoDelete": "Delete the clip",
   "@sessionVideoDelete": {
     "description": "Choice in the same sheet: throw the filmed take away."
-  },
-  "sessionVideoDeleteNote": "The set stays",
-  "@sessionVideoDeleteNote": {
-    "description": "Subtitle under sessionVideoDelete: only the video goes; the logged set and its weight and reps are untouched."
   },
   "sessionWeightFloor": "no lighter than the {bar} bar",
   "@sessionWeightFloor": {
@@ -1533,9 +1547,9 @@
   "@routineEditNotifyMe": {
     "description": "Label beside the switch that turns this routine's reminder notification on."
   },
-  "routineEditNotifyDenied": "Foss Lift is not allowed to notify — turn it on in Android settings.",
+  "routineEditNotifyDenied": "Turn on notifications for Foss Lift in Android settings.",
   "@routineEditNotifyDenied": {
-    "description": "Shown when the user turns the reminder on but Android refuses the notification permission. Foss Lift and Android are names and stay as they are."
+    "description": "Toast shown when the user turns the reminder on but Android refuses the notification permission. Foss Lift and Android are names and stay as they are."
   },
   "routineEditWorkouts": "Workouts",
   "@routineEditWorkouts": {
@@ -1639,9 +1653,9 @@
       }
     }
   },
-  "startWorkoutSwitchBody": "{running} is still running — {done} of {total} sets logged, {clock} on the clock. Starting {starting} throws it away.",
+  "startWorkoutSwitchBody": "{running} has {done} of {total} sets logged at {clock}. Discard it and switch to a new workout?",
   "@startWorkoutSwitchBody": {
-    "description": "How much of the live session there is to lose. {clock} is an elapsed time such as 12:04.",
+    "description": "How much of the live session there is to lose. {clock} is an elapsed time such as 12:04. The day being started is named in the title and on the buttons, so it is not repeated here.",
     "placeholders": {
       "running": {
         "type": "String"
@@ -1653,9 +1667,6 @@
         "type": "int"
       },
       "clock": {
-        "type": "String"
-      },
-      "starting": {
         "type": "String"
       }
     }
@@ -1983,11 +1994,11 @@
       }
     }
   },
-  "progressEmptyLift": "Finish a session with this lift logged and the curve starts here.",
+  "progressEmptyLift": "Finish a session with this exercise logged and the curve starts here.",
   "@progressEmptyLift": {
     "description": "Empty state of the progress chart for a weighted movement."
   },
-  "progressEmptyHold": "Finish a session with this hold logged and the curve starts here.",
+  "progressEmptyHold": "Finish a session with this exercise logged and the curve starts here.",
   "@progressEmptyHold": {
     "description": "Empty state of the progress chart for a movement measured in time."
   },
@@ -2065,9 +2076,9 @@
   "@exerciseFormLoadedAsOptional": {
     "description": "The same label for a movement held for time, where carrying any load is the exception. Rendered in small capitals by the app; write it in ordinary case."
   },
-  "exerciseFormHoldLoadNote": "Most holds carry nothing. This is for the ones that do — a weighted plank, a loaded carry.",
+  "exerciseFormHoldLoadNote": "For static exercises with added weight, e.g. Farmer's Carry",
   "@exerciseFormHoldLoadNote": {
-    "description": "Note under the loading chips for a movement held for time. A weighted plank has a plate laid on the back; a loaded carry is walking with weight in the hands."
+    "description": "Note under the loading chips for a movement held for time. A farmer's carry is walking with a weight in each hand; substitute a loaded static exercise your readers will recognise if that name does not travel."
   },
   "exerciseFormDemoLink": "Demo link (optional)",
   "@exerciseFormDemoLink": {
@@ -2175,7 +2186,7 @@
   "@exerciseDetailLinkCopied": {
     "description": "Snack bar confirming a long-press copied the demo link."
   },
-  "exerciseDetailNoOpener": "Nothing here can open links — copied it to the clipboard instead",
+  "exerciseDetailNoOpener": "Foss Lift can't open this link, copied to clipboard instead",
   "@exerciseDetailNoOpener": {
     "description": "Snack bar shown when the phone has nothing installed that will open a web address, so the app copied it instead."
   },
@@ -2425,7 +2436,7 @@
       }
     }
   },
-  "barSettingsNote": "Every barbell lift uses the ticked bar unless the exercise carries its own.",
+  "barSettingsNote": "Every barbell lift uses the ticked bar unless otherwise stated.",
   "@barSettingsNote": {
     "description": "Caption under the bar list explaining what the tick does. An exercise may name a barbell of its own, which wins over this one."
   },
@@ -2451,13 +2462,13 @@
   "@plateRackAdd": {
     "description": "The row at the foot of the plate list that opens the new-plate dialog. It adds a denomination, not one more of a plate already listed."
   },
-  "plateRackEmpty": "No plates. Every barbell weight will read as just the bar until you add some.",
+  "plateRackEmpty": "No plates. Add some to enable bar loading suggestions",
   "@plateRackEmpty": {
     "description": "Shown in place of the plate list when the rack is empty. Without plates the app can only ever suggest the bare barbell."
   },
-  "plateRackNote": "Counts go up two at a time because plates go on the bar in pairs. When a weight cannot be made from available plates, you are shown the closest load you can actually build.\n\nThis rack is the one for {unit}. Switching units gives you the rack for the other unit.",
+  "plateRackNote": "This rack is for {unit} plates. Switching units gives you a separate rack for the other unit.",
   "@plateRackNote": {
-    "description": "Caption under the plate list, two paragraphs separated by a blank line. Plates are loaded one per side, hence the pairs. `unit` is the short weight-unit suffix.",
+    "description": "Caption under the plate list. Each unit has its own rack; the one on screen holds the plates for the unit currently in use. `unit` is the short weight-unit suffix.",
     "placeholders": {
       "unit": {
         "type": "String",
@@ -2534,11 +2545,11 @@
       }
     }
   },
-  "videoSettingsDeleteBody": "The sets stay. The recordings do not come back.",
+  "videoSettingsDeleteBody": "This will delete every clip recorded so far. Exercise history is not affected",
   "@videoSettingsDeleteBody": {
     "description": "Body of the delete-every-clip confirmation: the logged sets themselves are untouched, but the footage is gone for good."
   },
-  "plateLineBelowBar": "LIGHTER THAN THE BAR — THE BAR ALONE IS {weight} {unit}",
+  "plateLineBelowBar": "LIGHTER THAN THE BAR ({weight} {unit})",
   "@plateLineBelowBar": {
     "description": "The plate breakdown under an exercise when the target weight is less than the empty barbell, which cannot be loaded. Rendered in small capitals in a monospaced font on the session board, where width is tight — keep it short. `weight` is a formatted number and `unit` its suffix, already upper-cased by the app.",
     "placeholders": {
@@ -2626,9 +2637,9 @@
   "@commonCameraFailed": {
     "description": "Shown in place of the viewfinder when the camera exists but would not open, for a reason the app cannot name. Used by both the QR scanner and the set recorder."
   },
-  "shareQrTooBig": "Too big for a QR code. Send the code instead — same thing, no camera needed.",
+  "shareQrTooBig": "Too big for a QR code. Share a code instead.",
   "@shareQrTooBig": {
-    "description": "Replaces the QR symbol when the payload is longer than any error-correction level can hold. \"Send the code\" points at the neighbouring button that hands the same text to the system share sheet."
+    "description": "Replaces the QR symbol when the payload is longer than any error-correction level can hold. \"Share a code\" points at the neighbouring button that hands the same text to the system share sheet."
   },
   "shareContinue": "Continue",
   "@shareContinue": {
@@ -2714,9 +2725,9 @@
   "@routineImportNameClashes": {
     "description": "Section heading over the incoming movements whose names are already taken in the recipient's library. Rendered in small capitals; translate as a heading, not a sentence."
   },
-  "routineImportClashHelp": "Keep yours, or take theirs. Either way the history stays.",
+  "routineImportClashHelp": "Your logged exercise history is kept.",
   "@routineImportClashHelp": {
-    "description": "One line under the NAMES YOU ALREADY USE heading. \"Yours\" and \"theirs\" are the two definitions of a movement with the same name — the recipient's and the sender's."
+    "description": "One line under the NAMES YOU ALREADY USE heading, answering the question the Keep mine / Use theirs switch raises: taking the sender's definition of a movement does not touch the sets already logged against it."
   },
   "routineImportKeepMine": "Keep mine",
   "@routineImportKeepMine": {
@@ -2812,9 +2823,9 @@
   "@clipPlayerDeleteTitle": {
     "description": "Title of the dialog confirming that the recording of a set should be removed."
   },
-  "clipPlayerDeleteBody": "The set stays. The recording does not come back.",
+  "clipPlayerDeleteBody": "Only the video goes — the set stays.",
   "@clipPlayerDeleteBody": {
-    "description": "Body of the delete-clip dialog: the logged set and its weights and reps survive, only the video goes, and it is not recoverable."
+    "description": "Body of the delete-clip dialog, answering the only question the title leaves open: the logged set and its weights and reps survive; just the recording is removed."
   },
   "clipPlayerMissing": "This clip is no longer on the phone.",
   "@clipPlayerMissing": {
@@ -2932,7 +2943,7 @@
   "@tutorialWelcomeTitle": {
     "description": "Title of the first tour step, a greeting that points at nothing. Foss Lift is the app's name and stays as it is. One line on a card about 320 logical pixels wide."
   },
-  "tutorialWelcomeBody": "Plan a routine, log your lifts, watch the numbers move. Here is where it all is.",
+  "tutorialWelcomeBody": "Pick a routine, select a workout, and log your lifts. We handle the rest.",
   "@tutorialWelcomeBody": {
     "description": "Body of the greeting step: what the app is for, then what the tour is about to do. Budget about three lines on a card 320 pixels wide; longer text pushes the two buttons under it down but the card scrolls, so aim for three and accept four."
   },
@@ -2940,7 +2951,7 @@
   "@tutorialTodayTitle": {
     "description": "Title of the tour step spotlighting the current routine's next training day on the Today screen. One line."
   },
-  "tutorialTodayBody": "This training day is queued up next. Tap it to see the exercises, then Start when you are ready to lift.",
+  "tutorialTodayBody": "This training day is queued up next. Tap it to see the exercises, then Start when you are ready to work out.",
   "@tutorialTodayBody": {
     "description": "Body of the step about the next training day. 'Start' names a button on the workout screen — see workoutDetailStart — so use the same word you translated that button with. Budget three lines; this callout floats beside the card it points at, so a fourth line risks covering it."
   },
@@ -2956,7 +2967,7 @@
   "@tutorialRestTitle": {
     "description": "Title of the tour step about the rest bar, shown over a drawn mock of it. Two or three words on one line."
   },
-  "tutorialRestBody": "Logging a set starts it, and it keeps running if you leave the screen. Longer, shorter or skip; it sounds when it is up.",
+  "tutorialRestBody": "Logging a set starts the timer. You can change its length or skip it.",
   "@tutorialRestBody": {
     "description": "Body of the step about the rest timer: what starts it, that it survives leaving the screen, and the three controls it offers. Budget three lines, four at the outside."
   },
@@ -2964,7 +2975,7 @@
   "@tutorialNoteTitle": {
     "description": "Title of the tour step about the per-exercise note. One line — three or four words."
   },
-  "tutorialNoteBody": "The seat height, the pin, the cue that worked. Tap the note icon to write it mid-set; it is kept on the exercise, so it is there next time you train it.",
+  "tutorialNoteBody": "Optionally, write down exercise details like a form cue or a seat position for a machine. Tap the note icon to write, and it is saved for future workouts.",
   "@tutorialNoteBody": {
     "description": "Body of the step about exercise notes: what people write in them, how to open one, and that it persists across sessions. The longest body in the tour — budget four lines and do not exceed five."
   },
@@ -2972,7 +2983,7 @@
   "@tutorialVideoTitle": {
     "description": "Title of the tour step about recording a clip of a set. Two or three words on one line."
   },
-  "tutorialVideoBody": "The camera on a logged set records a silent clip of it. Watch it back at quarter speed, or line the movement up over months from the exercise in your library. Clips never leave the phone.",
+  "tutorialVideoBody": "Optionally, record your set to review your form later. Clip length and quality can be changed in Settings.",
   "@tutorialVideoBody": {
     "description": "Body of the step about filming a set: what the camera icon does, the two ways to watch a clip back, and that nothing is uploaded. Budget four lines, five at the outside."
   },
@@ -2980,7 +2991,7 @@
   "@tutorialShadeTitle": {
     "description": "Title of the tour step about the live workout in the phone's notification shade, shown over a drawn mock of that notification. One line."
   },
-  "tutorialShadeBody": "The workout sits in your notification shade: the set you are on, Done and Missed to log it, and the rest counting down with Skip.",
+  "tutorialShadeBody": "If you exit the app mid-workout, you can log your exercises from the notification bar. It shows the current set and the rest timer in between sets.",
   "@tutorialShadeBody": {
     "description": "Body of the step about the notification. 'Done', 'Missed' and 'Skip' name the notification's own buttons — use the words you translated shadeDone, shadeMissed and sessionRestSkip with. Budget three lines."
   },
@@ -3012,7 +3023,7 @@
   "@tutorialProfileTitle": {
     "description": "Title of the tour step spotlighting the Profile tab, which also holds the help entry. One line."
   },
-  "tutorialProfileBody": "Settings, the exercise library, and this tour all live here — replay it any time from “Help & tour”.",
+  "tutorialProfileBody": "Settings, the exercise library, and this tour all live here. Replay it any time from “Help & tour”.",
   "@tutorialProfileBody": {
     "description": "Body of the last step. The quoted phrase is a menu entry on the Profile screen, so it must match how that entry is translated, and it keeps its curly quotation marks. Two or three lines — the callout sits above the bottom navigation bar."
   },
@@ -3166,7 +3177,7 @@
   "@restAlarmChannelName": {
     "description": "Name of the Android notification channel the end of a rest is announced on. Shown in the phone's own notification settings. Two words."
   },
-  "restAlarmChannelDescription": "Sounds when a rest timer runs out with the app in your pocket.",
+  "restAlarmChannelDescription": "Sounds when a rest timer runs out.",
   "@restAlarmChannelDescription": {
     "description": "Description of the rest-alarm notification channel, shown under its name in the phone's notification settings. One sentence."
   },

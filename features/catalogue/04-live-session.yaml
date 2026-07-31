@@ -117,7 +117,8 @@ groups:
   - id: finish-writes-only-completed-sets
     t: On Finish, writes only the completed sets
     d: >-
-      tap Finish: it advances progression and opens the post-session recap.
+      tap Finish: it advances progression and opens the post-session recap. With
+      working sets still unlogged it asks first, saying how many.
     defines:
     - session.finish
     uses:
@@ -168,6 +169,28 @@ groups:
     uses:
     - session.abort
     - session.finish
+  - id: finish-asks-when-sets-are-unlogged
+    t: Finishing with sets unlogged asks first
+    d: >-
+      the dialog says how many working sets are still unlogged and what that
+      costs — they are not written, and their exercise is a missed session for
+      progression — then offers Finish anyway against going back to the board,
+      which is the default. A session with every working set logged finishes
+      straight away.
+    screen: session
+    uses:
+    - session.finish
+    - progression.rates
+  - id: unlogged-warm-ups-never-ask
+    t: An unlogged warm-up never triggers it
+    d: >-
+      skipping rungs of the ramp is ordinary — warm-ups are not written to
+      history and do not decide whether a session was clean — so only working
+      sets are counted when deciding whether to ask.
+    screen: session
+    uses:
+    - session.finish
+    - session.warmup-ramp
   - id: only-one-session-runs-time
     t: Only one session runs at a time, and Start knows it
     d: >-
