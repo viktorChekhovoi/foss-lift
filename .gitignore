@@ -77,3 +77,12 @@ android/.kotlin/
 # itself is a 1.5 MB binary that a diff cannot review and that every clone would
 # carry for good. Record it when Play asks for it — see that README.
 /design/play/foreground-service/*.mp4
+
+# Localisations. The .arb catalogues are the source and are committed; the Dart
+# gen_l10n builds from them is not, and neither is the list of keys a locale has
+# not answered yet — both are rebuilt by `flutter gen-l10n`. See l10n.yaml.
+lib/l10n/app_localizations*.dart
+lib/l10n/untranslated.json
+
+
+.vscode
