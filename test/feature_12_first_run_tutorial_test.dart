@@ -20,6 +20,7 @@ import 'package:foss_lift/screens/profile_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
+import 'package:foss_lift/util/locales.dart';
 import 'package:foss_lift/widgets/tutorial_demo.dart';
 
 import 'support/harness.dart';
@@ -516,8 +517,9 @@ void main() {
 
   group('the mock workout', () {
     /// Walks a freshly started full tour to [index] and lets the frame settle.
-    Future<void> walkTo(WidgetTester tester, int index) async {
-      container.read(tutorialProvider.notifier).start(TutorialTrack.full);
+    Future<void> walkTo(WidgetTester tester, int index,
+        {TutorialTrack track = TutorialTrack.full}) async {
+      container.read(tutorialProvider.notifier).start(track);
       for (var i = 0; i < index; i++) {
         container.read(tutorialProvider.notifier).next();
       }
@@ -557,6 +559,35 @@ void main() {
         find.byKey(kTutorialDemoDoneRowKey).evaluate().isNotEmpty ||
         find.byKey(kTutorialDemoNextRowKey).evaluate().isNotEmpty;
 
+    testWidgets('and in every language at the top of the text scale',
+        (tester) async {
+      // The bodies are the longest strings in the app and a callout is a
+      // fixed-width card, so the language that runs long is the one that
+      // overflows — and it is never the one the text was written in.
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await db.setTutorialSeen(true);
+
+      final overflows = await overflowsDuring(() async {
+        for (final locale in kSupportedLocales) {
+          await tester.pumpWidget(appUnder(
+              container, TutorialOverlay(child: _anchoredHost()),
+              textScale: 2.0, locale: locale));
+          for (final track in TutorialTrack.values) {
+            final steps = kTutorialTracks[track]!;
+            for (var i = 0; i < steps.length; i++) {
+              await walkTo(tester, i, track: track);
+              await tester.pump(const Duration(milliseconds: 300));
+            }
+          }
+        }
+      });
+
+      expect(overflows, isEmpty, reason: overflows.toSet().join(' | '));
+      await stop(tester);
+    });
+
     for (final scale in [1.0, 2.0]) {
       testWidgets('every drawn step survives $scale× text on a 360 dp phone',
           (tester) async {
@@ -572,13 +603,15 @@ void main() {
           await tester.pumpWidget(appUnder(
               container, TutorialOverlay(child: _anchoredHost()),
               textScale: scale));
-          for (final step in kTutorialTracks[TutorialTrack.full]!) {
-            if (step.demo == null) continue;
-            await walkTo(
-                tester,
-                kTutorialTracks[TutorialTrack.full]!
-                    .indexWhere((s) => s.id == step.id));
-            await tester.pump(const Duration(milliseconds: 300));
+          // Every step of every track, anchored ones included: a callout is a
+          // fixed-width card holding whatever the catalogue says, and the
+          // longest translation of a four-line body is nobody's guess.
+          for (final track in TutorialTrack.values) {
+            final steps = kTutorialTracks[track]!;
+            for (var i = 0; i < steps.length; i++) {
+              await walkTo(tester, i, track: track);
+              await tester.pump(const Duration(milliseconds: 300));
+            }
           }
         });
 

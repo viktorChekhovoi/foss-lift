@@ -1095,7 +1095,14 @@
   "itemEditorRepRangeSpan": "{min}–{max}",
   "@itemEditorRepRangeSpan": {
     "description": "The range the rep-range stepper currently produces, shown as a note beside its caption so the pair reads \"REP RANGE · 8-12\". The character between the numbers is an en dash. The app upper-cases it.",
-    "placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
   },
   "itemEditorNoUpper": "none",
   "@itemEditorNoUpper": {
@@ -1148,7 +1155,11 @@
   "itemEditorSchemeSetNumber": "Set {n}",
   "@itemEditorSchemeSetNumber": {
     "description": "Row label in a custom scheme, naming which set the reps and percentage beside it belong to.",
-    "placeholders": {"n": {"type": "int"}}
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   },
   "itemEditorSchemeOfWeight": "% of weight",
   "@itemEditorSchemeOfWeight": {
@@ -3071,15 +3082,15 @@
   "@tutorialTabTodayTitle": {
     "description": "Title of the tour step spotlighting the Today tab. It names that tab, so use the same word the tab is labeled with."
   },
-  "tutorialTabTodayBody": "Where you land, and where a session starts. Tap it.",
+  "tutorialTabTodayBody": "The main page. Shows your upcoming workouts.",
   "@tutorialTabTodayBody": {
-    "description": "Body of the step about the Today tab. It ends by asking for the tap that moves the tour on, because the tab really is tapped. Two lines — the callout sits above the bottom navigation bar with little room."
+    "description": "Body of the step about the Today tab. Two lines — the callout sits above the bottom navigation bar with little room."
   },
   "tutorialRoutinesTitle": "Routines",
   "@tutorialRoutinesTitle": {
     "description": "Title of the tour step spotlighting the Routines tab. It names that tab, so use the same word the tab is labeled with."
   },
-  "tutorialRoutinesBody": "A routine is a training program — the set of days you rotate through, like Push, Pull and Legs. Yours live here. Tap it.",
+  "tutorialRoutinesBody": "A routine is a training program — the set of workouts you rotate through, like Push, Pull and Legs. Pre-built and custom routines live here.",
   "@tutorialRoutinesBody": {
     "description": "Body of the step about the Routines tab. This is where the tour defines the word 'routine' for somebody who has never trained, so keep the definition; Push, Pull and Legs are the names of the shipped demo routine's days and should match how those are translated. Three lines."
   },
@@ -3087,7 +3098,7 @@
   "@tutorialHistoryTitle": {
     "description": "Title of the tour step spotlighting the History tab. It names that tab, so use the same word the tab is labeled with."
   },
-  "tutorialHistoryBody": "Every session you finish is logged here: what you lifted, and when. Tap it.",
+  "tutorialHistoryBody": "Every session you finish is logged here: what you lifted, and when.",
   "@tutorialHistoryBody": {
     "description": "Body of the step about the History tab. Two lines — the callout sits above the bottom navigation bar with little room."
   },
@@ -3095,7 +3106,7 @@
   "@tutorialProfileTitle": {
     "description": "Title of the tour step spotlighting the Profile tab. It names that tab, so use the same word the tab is labeled with."
   },
-  "tutorialProfileBody": "Settings, your exercise library, and these tours. Tap it.",
+  "tutorialProfileBody": "Settings, your exercise library, and the tutorial tour.",
   "@tutorialProfileBody": {
     "description": "Body of the step about the Profile tab. Two lines — the callout sits above the bottom navigation bar with little room."
   },
@@ -3103,23 +3114,23 @@
   "@tutorialBackToTodayTitle": {
     "description": "Title of the tour step that sends you back to the Today tab after the four tabs have been walked. 'Today' names a tab. One line."
   },
-  "tutorialBackToTodayBody": "Tap Today, and we will go through what is on it.",
+  "tutorialBackToTodayBody": "Now we'll cover Today in depth.",
   "@tutorialBackToTodayBody": {
-    "description": "Body of the step returning to the Today tab. 'Today' names a tab. Two lines — the callout sits above the bottom navigation bar."
+    "description": "Body of the step returning to the Today tab, which introduces the run of steps about what is on it. 'Today' names a tab. One line — the callout sits above the bottom navigation bar."
   },
   "tutorialTodayRoutineTitle": "The routine you are on",
   "@tutorialTodayRoutineTitle": {
     "description": "Title of the tour step spotlighting the current routine's name at the top of the Today screen. One line."
   },
-  "tutorialTodayRoutineBody": "One routine is current at a time, and Today lists its days. Change swaps to another.",
+  "tutorialTodayRoutineBody": "One routine is active at a time, and this page lists its workouts. 'Change' swaps to another routine.",
   "@tutorialTodayRoutineBody": {
-    "description": "Body of the step about the current routine. 'Change' names the small text link beside the routine name — see todayChange — so use the same word you translated that with. Two or three lines."
+    "description": "Body of the step about the current routine. 'Change' names the small text link beside the routine name — see todayChange — so use the same word you translated that with, and keep it quoted. Two or three lines."
   },
   "tutorialTodayTitle": "Your next training day",
   "@tutorialTodayTitle": {
     "description": "Title of the tour step spotlighting the current routine's next training day on the Today screen. One line."
   },
-  "tutorialTodayBody": "Each card is one training day — a single session's worth of exercises. A push day trains what you push with: chest, shoulders and triceps. The badged one is what you are due next.",
+  "tutorialTodayBody": "Each card is one training day — a single session's worth of exercises. A push day trains what you push with: chest, shoulders and triceps. The highlighted one is next in line.",
   "@tutorialTodayBody": {
     "description": "Body of the step about the training-day cards. This is where the tour defines 'training day' and 'push day' for somebody new to the gym, so keep both definitions rather than shortening to the nouns. Budget four lines; this callout floats beside the card it points at."
   },
@@ -3127,33 +3138,33 @@
   "@tutorialLifetimeTitle": {
     "description": "Title of the tour step spotlighting the running totals card on the Today screen. One line — two or three words."
   },
-  "tutorialLifetimeBody": "Every session you finish adds to your volume, sets and reps here.",
+  "tutorialLifetimeBody": "Every session you finish adds to your volume (overall weight lifted), sets and reps here.",
   "@tutorialLifetimeBody": {
-    "description": "Body of the step about the lifetime totals card. Two lines; this callout floats beside the card it points at, so keep it short."
+    "description": "Body of the step about the lifetime totals card. The parenthesis glosses 'volume', which is the gym term for weight times reps summed over every set — keep the gloss, and match how todayStatVolume was translated. Two or three lines; this callout floats beside the card it points at."
   },
   "tutorialSessionOpenTitle": "Starting a workout",
   "@tutorialSessionOpenTitle": {
     "description": "Title of the tour step that explains where the live-workout screen comes from. It is the first step drawn over a full-size mock of that screen, and nothing behind the tour has actually moved. Two or three words on one line."
   },
-  "tutorialSessionOpenBody": "Tap a training day, then Start workout, and this takes over the screen until you finish. The next few steps are all on it.",
+  "tutorialSessionOpenBody": "Tap a training day, then Start workout to see this screen. This is where you'll log your exercises.",
   "@tutorialSessionOpenBody": {
-    "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it."
+    "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it — see workoutDetailStart."
   },
   "tutorialBoardTitle": "While you lift",
   "@tutorialBoardTitle": {
     "description": "Title of the tour step about the live workout board, shown over a drawn mock of it. Two or three words on one line."
   },
-  "tutorialBoardBody": "A rep is one repetition of a movement, and a set is a run of them done back to back. Each row here is one set, and the outlined row is the one you are on. Tap its number to log the goal, tap again for each rep you fell short, or hold to type a number.",
+  "tutorialBoardBody": "A rep is one repetition of a movement, and a set is a run of reps done back to back. Each row here is one set, and the outlined row is the one you are on. Tap its number to log the goal, tap again for each rep you fell short, or hold to type a number.",
   "@tutorialBoardBody": {
-    "description": "Body of the step about logging a set: what the two words mean, then the three gestures a set row takes. This is where the tour defines 'set' and 'rep', so keep both definitions. The card sits under a mock board and the pair scrolls together, so five lines is survivable."
+    "description": "Body of the step about logging a set: what the two words mean, then the three gestures a set row takes. This is where the tour defines 'set' and 'rep', so keep both definitions. The card sits over a mock board, so five lines is survivable."
   },
   "tutorialRestTitle": "The rest timer",
   "@tutorialRestTitle": {
     "description": "Title of the tour step about the rest bar, shown over a drawn mock of it. Two or three words on one line."
   },
-  "tutorialRestBody": "Rest is the pause between sets. Logging one starts the clock, and you can lengthen it, shorten it or skip it.",
+  "tutorialRestBody": "In between sets, you rest to recover. The rest timer starts after you log a set, and you can change its duration or skip it.",
   "@tutorialRestBody": {
-    "description": "Body of the step about the rest timer: what rest is, what starts it, and the three controls it offers. Budget three lines, four at the outside."
+    "description": "Body of the step about the rest timer: what rest is for, what starts it, and what you can do to it. Budget three lines, four at the outside."
   },
   "tutorialNoteTitle": "Your note on a movement",
   "@tutorialNoteTitle": {

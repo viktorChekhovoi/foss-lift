@@ -789,19 +789,22 @@ class TutorialShadeDemo extends ConsumerWidget {
             style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 10),
-          Row(
+          // A [Wrap], because these are two words in whatever language the app
+          // is in, upper-cased, in a card narrower than the phone — and at the
+          // top of the text scale the pair is wider than that card in every
+          // language but the one they were written in.
+          Wrap(
+            spacing: 18,
+            runSpacing: 6,
             children: [
               for (final label in [l10n.shadeDone, l10n.shadeMissed])
-                Padding(
-                  padding: const EdgeInsets.only(right: 18),
-                  child: Text(
-                    label.toUpperCase(),
-                    style: kMono.copyWith(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: AppColors.accent,
-                    ),
+                Text(
+                  label.toUpperCase(),
+                  style: kMono.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: AppColors.accent,
                   ),
                 ),
             ],
