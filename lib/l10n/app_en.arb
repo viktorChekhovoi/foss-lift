@@ -3240,7 +3240,7 @@
   },
   "tutorialBuildSlotBody": "Tap an exercise to configure it. Sets is how many times you repeat it, the rep target is what each set aims at, and rest is the pause between them. Step up by is how much is added after a clean session; back off by is how much comes off after missing one.",
   "@tutorialBuildSlotBody": {
-    "description": "Body of the step ringing one exercise row. It says what the settings sheet behind that row contains, in the words that sheet uses — the sheet itself is a modal the tour does not draw. Five lines is survivable."
+    "description": "Body of the step about one exercise's settings, shown against a drawing of the sheet those settings are on. It names five of the fields on that sheet, so use the same words you translated those field captions with — itemEditorSets, itemEditorReps, itemEditorRest, itemEditorStepUpBy and itemEditorBackOffBy. Five lines is survivable."
   },
   "tutorialBuildQuickTitle": "Name it and fill it",
   "@tutorialBuildQuickTitle": {

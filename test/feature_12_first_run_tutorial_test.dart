@@ -240,6 +240,40 @@ void main() {
       }
     });
 
+    testWidgets('the step about a slot draws the slot sheet, not the list',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      final steps = kTutorialTracks[TutorialTrack.builder]!;
+      final index = steps.indexWhere((s) => s.focus == TutorialDemoFocus.slot);
+      expect(index, greaterThanOrEqualTo(0));
+      container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
+      for (var i = 0; i < index; i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      // The callout names five fields; the picture has to be the one with
+      // those fields on it.
+      final l10n = _l10n;
+      for (final label in [
+        l10n.itemEditorSets,
+        l10n.itemEditorReps,
+        l10n.itemEditorRest,
+        l10n.itemEditorStepUpBy,
+        l10n.itemEditorBackOffBy,
+      ]) {
+        expect(
+            find.textContaining(label.toUpperCase(), findRichText: true),
+            findsOneWidget,
+            reason: 'the sheet the step describes does not show $label');
+      }
+
+      await stop(tester);
+    });
+
     test('the chapter opens on the Routines tab, placed in the app', () {
       // A drawn chapter changes the picture with nothing on the phone having
       // moved, so it has to say where the picture is.

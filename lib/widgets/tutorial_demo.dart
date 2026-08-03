@@ -7,7 +7,14 @@ import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../util/format.dart';
 import 'board_cells.dart';
-import 'builder_widgets.dart' show builderInput, builderLabel;
+import 'builder_widgets.dart'
+    show
+        BuilderField,
+        NumberStepper,
+        builderCard,
+        builderGrid,
+        builderInput,
+        builderLabel;
 
 /// The stand-ins the tour shows for the live workout.
 ///
@@ -45,8 +52,8 @@ enum TutorialDemoFocus {
   save,
 }
 
-/// The three screens the builder chapter is drawn on.
-enum _BuilderScreen { routines, routine, day }
+/// The four screens the builder chapter is drawn on.
+enum _BuilderScreen { routines, routine, day, slot }
 
 /// Which of them [focus] is about. The routines list is the fallback, so a
 /// focus belonging to the session cannot draw a blank screen.
@@ -55,10 +62,9 @@ _BuilderScreen _screenFor(TutorialDemoFocus focus) => switch (focus) {
       TutorialDemoFocus.days ||
       TutorialDemoFocus.save =>
         _BuilderScreen.routine,
-      TutorialDemoFocus.exercises ||
-      TutorialDemoFocus.slot ||
-      TutorialDemoFocus.saveDay =>
+      TutorialDemoFocus.exercises || TutorialDemoFocus.saveDay =>
         _BuilderScreen.day,
+      TutorialDemoFocus.slot => _BuilderScreen.slot,
       _ => _BuilderScreen.routines,
     };
 
@@ -463,6 +469,7 @@ class TutorialBuilderDemo extends StatelessWidget {
           _BuilderScreen.routines => _routines(l10n),
           _BuilderScreen.routine => _routine(l10n),
           _BuilderScreen.day => _day(l10n),
+          _BuilderScreen.slot => _slot(l10n),
         },
       ),
     );
@@ -617,6 +624,81 @@ class TutorialBuilderDemo extends StatelessWidget {
             child: _filled(l10n.workoutEditSave),
           )),
         ],
+      );
+
+  /// One exercise's settings, as the sheet that opens on tapping its row.
+  ///
+  /// The step about it used to draw the day's list with the row ringed and
+  /// describe the sheet in prose — which is a callout naming five fields
+  /// against a picture of none of them. The sheet is the subject, so the sheet
+  /// is what is drawn. Nothing on it is ringed for the same reason: the whole
+  /// picture is what the words are about.
+  ///
+  /// The cards, the grid and the steppers are the builder's own, so the fields
+  /// sit where they sit in the app and read what they read there.
+  Widget _slot(AppLocalizations l10n) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.ground,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border.all(color: AppColors.line),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        child: ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.exerciseBenchPress,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(l10n.muscleChest,
+                          style: TextStyle(
+                              fontSize: 13, color: AppColors.muted)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.close, size: 20, color: AppColors.muted),
+              ],
+            ),
+            const SizedBox(height: 14),
+            builderCard(l10n.itemEditorTarget, [
+              builderGrid([
+                _field(l10n.itemEditorSets, _kDemoSets),
+                _field(l10n.itemEditorReps, _kDemoGoal),
+                _field(l10n.itemEditorRest, 90,
+                    suffix: l10n.itemEditorSecondsSuffix),
+              ]),
+            ]),
+            const SizedBox(height: 14),
+            builderCard(l10n.itemEditorProgression, [
+              builderGrid([
+                _field(l10n.itemEditorStepUpBy, 2, suffix: '.5'),
+                _field(l10n.itemEditorCleanSessions, 1),
+                _field(l10n.itemEditorBackOffBy, 5),
+                _field(l10n.itemEditorMisses, 2),
+              ]),
+            ]),
+          ],
+        ),
+      );
+
+  /// One captioned number on the drawn sheet. The stepper is the builder's own
+  /// and is never pressed — the overlay puts the whole picture behind an
+  /// [IgnorePointer].
+  Widget _field(String label, int value, {String suffix = ''}) => BuilderField(
+        label: label,
+        child: NumberStepper(
+          value: value,
+          suffix: suffix,
+          onChanged: (_) {},
+        ),
       );
 
   /// A screen's top bar: a back chevron and the title, as the real ones have.

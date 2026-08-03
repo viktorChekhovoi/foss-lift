@@ -198,7 +198,8 @@ groups:
       Routines → New routine → name it → add a training day → add its exercises →
       configure one → save the day → save the routine, each step against a
       full-size picture of the screen it is about, with the control in question
-      ringed. It is the same treatment the live workout gets, and for the same
+      ringed. Four screens are drawn: the Routines tab, the routine builder, a
+      training day, and one exercise's settings sheet. It is the same treatment the live workout gets, and for the same
       reason: the tour would otherwise have to march you through four screens it
       does not own, waiting on each to mount before it could point at anything,
       and every callout would be one badly-timed frame away from spotlighting a
@@ -250,13 +251,14 @@ groups:
     uses:
     - ui.tutorial
   - id: builder-tour-explains-each-slot-setting
-    t: It says what each per-exercise setting does
+    t: It says what each per-exercise setting does, against the sheet they are on
     d: >-
       sets, the rep target, rest, step up by and back off by — one clause each,
-      in the words the config sheet uses, against the exercise list with a slot
-      ringed. The sheet itself is not drawn: it is a modal the tour has nothing
-      to point at until you open it, and the step is about what is inside it
-      rather than about where it is.
+      in the words the config sheet uses, against a drawing of that sheet with
+      those fields on it. Naming five controls beside a picture of none of them
+      was the previous arrangement, and it asked the reader to take the tour's
+      word for a screen they had not seen. Nothing on this one is ringed: the
+      whole picture is what the words are about.
     points:
     - workout-edit
     uses:
