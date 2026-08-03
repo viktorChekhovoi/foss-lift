@@ -13,6 +13,7 @@ import '../util/units.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
 import '../widgets/tutorial.dart';
+import '../widgets/workout_estimate.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -70,6 +71,8 @@ class _CurrentRoutineSection extends ConsumerWidget {
     return Column(
       children: [
         Padding(
+          // Anchor for the tour's "the routine you are on" coach mark.
+          key: tutorialTodayRoutineKey,
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: SectionLabel(
             routineName,
@@ -183,6 +186,7 @@ class _WorkoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final sub = kMono.copyWith(fontSize: 12.5, color: AppColors.muted);
     return Material(
       color: isNext ? AppColors.surface2 : AppColors.surface,
       borderRadius: BorderRadius.circular(18),
@@ -233,10 +237,19 @@ class _WorkoutCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      l10n.commonExerciseCount(data.exerciseCount),
-                      style:
-                          kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
+                    // A Wrap, not a Row: at 2× text the count and the estimate
+                    // no longer share a line, and they take a second one rather
+                    // than overflowing the card.
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        Text(l10n.commonExerciseCount(data.exerciseCount),
+                            style: sub),
+                        WorkoutEstimate(
+                          workoutId: data.workout.id,
+                          builder: (_, label) => Text('· $label', style: sub),
+                        ),
+                      ],
                     ),
                   ],
                 ),

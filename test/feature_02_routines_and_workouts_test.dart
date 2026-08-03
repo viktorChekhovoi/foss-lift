@@ -1,7 +1,8 @@
 // Integration tests for features/index.html#sec02
 //
 // The three-level template hierarchy — routine → workout (training day) →
-// exercise slot. Two demo routines seeded on first launch; one current routine;
+// exercise slot. Five starter programmes seeded on first launch, each carrying
+// the prescription it is actually run on; one current routine;
 // split editing where reordering days never disturbs their exercises; drafts
 // built in memory before saving; a deleted current routine degrading to "none".
 import 'package:flutter/material.dart';
@@ -27,6 +28,59 @@ import 'support/seeded.dart';
 bool wasTruncated(WidgetTester tester, Finder finder) =>
     (tester.renderObject(finder) as RenderParagraph).didExceedMaxLines;
 
+/// One expected exercise slot of a seeded programme.
+///
+/// [inc], [deload] and [ft] are the progression settings the programme is
+/// actually run with — they are what makes Starting Strength a different
+/// prescription from StrongLifts rather than the same slot shape twice. They
+/// are null on a slot that carries no weight, where the programme says nothing
+/// about kilograms and only the axis is worth asserting.
+typedef _Slot = ({
+  String name,
+  int sets,
+  int min,
+  int? max,
+  double? w,
+  double? inc,
+  double? deload,
+  int? ft,
+});
+
+/// A slot the programme loads: sets × reps at a weight, stepping [inc] and
+/// backing off [deload] after [ft] failed sessions.
+_Slot _loaded(
+  String name, {
+  required int sets,
+  required int min,
+  int? max,
+  required double w,
+  required double inc,
+  required double deload,
+  required int ft,
+}) => (
+  name: name,
+  sets: sets,
+  min: min,
+  max: max,
+  w: w,
+  inc: inc,
+  deload: deload,
+  ft: ft,
+);
+
+/// A slot on a movement that carries nothing, so it goes up in reps.
+_Slot _unloaded(String name, {required int sets, required int min, int? max}) =>
+    (
+      name: name,
+      sets: sets,
+      min: min,
+      max: max,
+      w: null,
+      inc: null,
+      deload: null,
+      ft: null,
+    );
+
 void main() {
   late AppDatabase db;
 
@@ -34,12 +88,59 @@ void main() {
   tearDown(() => db.close());
 
   group('seeded hierarchy', () {
-    test('two demo routines are seeded, with their day counts', () async {
+    /// Asserts the [day] of [routine] holds exactly [want], in order.
+    Future<void> expectSlots(
+      String routine,
+      String day,
+      List<_Slot> want,
+    ) async {
+      final w = await workoutNamed(db, day, routine: routine);
+      final items = await db.itemsForWorkout(w.id);
+
+      expect(
+        items.map((v) => v.exercise.name),
+        want.map((s) => s.name),
+        reason: '$routine / $day holds the wrong movements, or in the wrong '
+            'order',
+      );
+
+      for (var i = 0; i < want.length; i++) {
+        final s = want[i];
+        final it = items[i].item;
+        final where = '$routine / $day / ${s.name}';
+        expect(it.targetSets, s.sets, reason: '$where: sets');
+        expect(it.repsMin, s.min, reason: '$where: reps floor');
+        expect(it.repsMax, s.max, reason: '$where: reps ceiling');
+        expect(it.suggestedWeight, s.w, reason: '$where: suggested weight');
+        expect(
+          it.progression,
+          s.w == null ? ProgressionMode.reps : ProgressionMode.weight,
+          reason: '$where: a slot with no load has nothing to add load to',
+        );
+        if (s.inc != null) {
+          expect(it.increment, s.inc, reason: '$where: step up');
+          expect(it.deload, s.deload, reason: '$where: back-off');
+          expect(
+            it.failureThreshold,
+            s.ft,
+            reason: '$where: sessions missed before the back-off',
+          );
+        }
+      }
+    }
+
+    test('five starter programmes are seeded, with their day counts', () async {
       final routines = await db.watchRoutines().first;
 
       expect(
         routines.map((r) => r.routine.name),
-        containsAll(['Push / Pull / Legs', 'Upper / Lower']),
+        containsAll([
+          'Push / Pull / Legs',
+          'Upper / Lower',
+          'Starting Strength',
+          'StrongLifts 5x5',
+          'Full Body 3x',
+        ]),
       );
       expect(
         (await routineWithCountNamed(db, 'Push / Pull / Legs')).workoutCount,
@@ -49,6 +150,189 @@ void main() {
         (await routineWithCountNamed(db, 'Upper / Lower')).workoutCount,
         4,
       );
+      expect(
+        (await routineWithCountNamed(db, 'Starting Strength')).workoutCount,
+        2,
+      );
+      expect(
+        (await routineWithCountNamed(db, 'StrongLifts 5x5')).workoutCount,
+        2,
+      );
+      expect(
+        (await routineWithCountNamed(db, 'Full Body 3x')).workoutCount,
+        3,
+      );
+    });
+
+    test('the five sit in a fixed order, hypertrophy first', () async {
+      final byName = {
+        for (final r in await db.watchRoutines().first)
+          r.routine.name: r.routine.position,
+      };
+
+      expect(byName['Push / Pull / Legs'], 0);
+      expect(byName['Upper / Lower'], 1);
+      expect(byName['Starting Strength'], 2);
+      expect(byName['StrongLifts 5x5'], 3);
+      expect(byName['Full Body 3x'], 4);
+    });
+
+    // -- The three beginner strength programmes ----------------------------
+    // Each one is the prescription the programme is actually run on, not one
+    // slot shape copied five times: the rest default, the training days it
+    // alternates, the sets and reps of every lift, and how fast each lift
+    // moves.
+
+    group('Starting Strength', () {
+      const name = 'Starting Strength';
+
+      test('rests five minutes and is trained Mon/Wed/Fri', () async {
+        final r = await routineNamed(db, name);
+
+        expect(r.restSeconds, 300, reason: 'a heavy triple needs five minutes');
+        expect(r.scheduleDays, 1 << 0 | 1 << 2 | 1 << 4);
+      });
+
+      test('alternates two workouts', () async {
+        final r = await routineNamed(db, name);
+        final days = await db.workoutsForRoutine(r.id);
+
+        expect(days.map((w) => w.name), ['Workout A', 'Workout B']);
+      });
+
+      test('Workout A squats, benches and pulls one set of deadlifts',
+          () async {
+        await expectSlots(name, 'Workout A', [
+          _loaded('Back Squat',
+              sets: 3, min: 5, w: 60, inc: 5, deload: 10, ft: 3),
+          _loaded('Bench Press',
+              sets: 3, min: 5, w: 45, inc: 2.5, deload: 5, ft: 3),
+          _loaded('Deadlift',
+              sets: 1, min: 5, w: 70, inc: 5, deload: 10, ft: 3),
+        ]);
+      });
+
+      test('Workout B squats again, presses overhead and cleans', () async {
+        await expectSlots(name, 'Workout B', [
+          _loaded('Back Squat',
+              sets: 3, min: 5, w: 60, inc: 5, deload: 10, ft: 3),
+          _loaded('Overhead Press',
+              sets: 3, min: 5, w: 30, inc: 2.5, deload: 5, ft: 3),
+          _loaded('Power Clean',
+              sets: 5, min: 3, w: 40, inc: 2.5, deload: 5, ft: 3),
+        ]);
+      });
+    });
+
+    group('StrongLifts 5x5', () {
+      const name = 'StrongLifts 5x5';
+
+      test('rests three minutes and is trained Mon/Wed/Fri', () async {
+        final r = await routineNamed(db, name);
+
+        expect(r.restSeconds, 180);
+        expect(r.scheduleDays, 1 << 0 | 1 << 2 | 1 << 4);
+      });
+
+      test('alternates two workouts', () async {
+        final r = await routineNamed(db, name);
+        final days = await db.workoutsForRoutine(r.id);
+
+        expect(days.map((w) => w.name), ['Workout A', 'Workout B']);
+      });
+
+      test('Workout A is five by five throughout', () async {
+        await expectSlots(name, 'Workout A', [
+          _loaded('Back Squat',
+              sets: 5, min: 5, w: 40, inc: 2.5, deload: 5, ft: 3),
+          _loaded('Bench Press',
+              sets: 5, min: 5, w: 30, inc: 2.5, deload: 5, ft: 3),
+          _loaded('Barbell Row',
+              sets: 5, min: 5, w: 30, inc: 2.5, deload: 5, ft: 3),
+        ]);
+      });
+
+      test('Workout B keeps the deadlift to a single set', () async {
+        await expectSlots(name, 'Workout B', [
+          _loaded('Back Squat',
+              sets: 5, min: 5, w: 40, inc: 2.5, deload: 5, ft: 3),
+          _loaded('Overhead Press',
+              sets: 5, min: 5, w: 20, inc: 2.5, deload: 5, ft: 3),
+          _loaded('Deadlift',
+              sets: 1, min: 5, w: 60, inc: 5, deload: 10, ft: 3),
+        ]);
+      });
+    });
+
+    group('Full Body 3x', () {
+      const name = 'Full Body 3x';
+
+      test('rests two minutes and is trained Tue/Thu/Sat', () async {
+        final r = await routineNamed(db, name);
+
+        expect(r.restSeconds, 120);
+        expect(r.scheduleDays, 1 << 1 | 1 << 3 | 1 << 5);
+      });
+
+      test('rotates three workouts', () async {
+        final r = await routineNamed(db, name);
+        final days = await db.workoutsForRoutine(r.id);
+
+        expect(days.map((w) => w.name), [
+          'Workout A',
+          'Workout B',
+          'Workout C',
+        ]);
+      });
+
+      test('Workout A ends on an unloaded core movement', () async {
+        await expectSlots(name, 'Workout A', [
+          _loaded('Back Squat',
+              sets: 3, min: 5, w: 55, inc: 5, deload: 10, ft: 2),
+          _loaded('Bench Press',
+              sets: 3, min: 5, w: 40, inc: 2.5, deload: 5, ft: 2),
+          _loaded('Seated Cable Row',
+              sets: 3, min: 10, w: 45, inc: 2.5, deload: 5, ft: 2),
+          _unloaded('Hanging Leg Raise', sets: 3, min: 8, max: 12),
+        ]);
+      });
+
+      test('Workout B works in rep ranges rather than fixed fives', () async {
+        await expectSlots(name, 'Workout B', [
+          _loaded('Romanian Deadlift',
+              sets: 3, min: 8, w: 60, inc: 5, deload: 10, ft: 2),
+          _loaded('Overhead Press',
+              sets: 3, min: 6, max: 8, w: 30, inc: 2.5, deload: 5, ft: 2),
+          _loaded('Lat Pulldown',
+              sets: 3, min: 10, max: 12, w: 50, inc: 2.5, deload: 5, ft: 2),
+          _loaded('Cable Crunch',
+              sets: 3, min: 12, max: 15, w: 30, inc: 2.5, deload: 5, ft: 2),
+        ]);
+      });
+
+      test('Workout C opens heavy and finishes on chin-ups', () async {
+        await expectSlots(name, 'Workout C', [
+          _loaded('Deadlift',
+              sets: 2, min: 5, w: 80, inc: 5, deload: 10, ft: 2),
+          _loaded('Incline DB Press',
+              sets: 3, min: 8, max: 10, w: 22.5, inc: 2.5, deload: 5, ft: 2),
+          _unloaded('Chin-Up', sets: 3, min: 5, max: 8),
+          _loaded('Leg Curl',
+              sets: 3, min: 12, w: 40, inc: 2.5, deload: 5, ft: 2),
+        ]);
+      });
+    });
+
+    test('the linear programmes back off later than the hypertrophy ones',
+        () async {
+      // The distinguishing rule, asserted once as a rule rather than only as a
+      // column of numbers: a beginner who misses a session on Starting
+      // Strength is having a bad day, not stalling.
+      final ss = await slotNamed(db, 'Workout A', 'Back Squat',
+          routine: 'Starting Strength');
+      final ppl = await slotNamed(db, 'Legs', 'Back Squat');
+
+      expect(ss.item.failureThreshold, greaterThan(ppl.item.failureThreshold));
     });
 
     test('a routine holds its ordered training days', () async {

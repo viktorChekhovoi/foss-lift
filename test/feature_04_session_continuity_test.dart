@@ -195,14 +195,17 @@ void main() {
       expect(
         alarm.rung,
         hasLength(1),
-        reason: 'off screen the ding is the notification, posted now',
+        reason: 'off screen the notification is posted now, not scheduled',
       );
       expect(
         alarm.rung.single,
         contains('Bench Press'),
         reason: '"rest done" makes you open the app to find out what for',
       );
-      expect(tone.played, 0, reason: 'the phone is in a pocket');
+      // `volume-is-a-gain-because-app-plays-it`: the notification is the
+      // picture, the player is the noise — including from a pocket, which is
+      // the only reason the volume setting means anything.
+      expect(tone.played, 1, reason: 'the sound is the tone either way');
 
       ctl.discard();
     });

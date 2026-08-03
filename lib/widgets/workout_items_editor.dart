@@ -1,14 +1,23 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
+import '../providers/providers.dart';
+import '../screens/exercise_detail_screen.dart'
+    show ExerciseLoadingSection, ExerciseNoteSection;
+import '../screens/exercise_form_screen.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/units.dart';
 import 'builder_widgets.dart';
-import 'common.dart';
+import 'common.dart' show sectionLabelStyle;
 import 'plate_line.dart' show loadFloorKg;
+
+/// Finds the two progression-amount fields in a test.
+const kStepUpFieldKey = ValueKey('amount-step-up');
+const kBackOffFieldKey = ValueKey('amount-back-off');
 
 /// A mutable working copy of one workout item while editing.
 ///
@@ -25,6 +34,9 @@ class ItemDraft {
     this.toFailure = false,
     this.restSeconds,
     double? weightKg,
+    this.scheme = SetScheme.flat,
+    this.schemePercent = kDefaultSchemePercent,
+    this.customSets = const [],
     this.measure = ExerciseMeasure.reps,
     this.weightType = WeightType.machine,
     this.barKg,
@@ -36,6 +48,7 @@ class ItemDraft {
     this.failureThreshold = defaultFailureThreshold,
     this.successStreak = 0,
     this.failStreak = 0,
+    this.exercise,
   })  : progression = _startingMode(measure, weightType, progression),
         increment = increment ??
             _startingMode(measure, weightType, progression).defaultIncrement,
@@ -68,6 +81,7 @@ class ItemDraft {
 
   /// Rehydrates a draft from a stored item.
   factory ItemDraft.fromView(WorkoutItemView v) => ItemDraft(
+        exercise: v.exercise,
         exerciseId: v.exercise.id,
         name: v.exercise.name,
         muscle: v.exercise.muscleGroup,
@@ -77,6 +91,9 @@ class ItemDraft {
         toFailure: v.item.toFailure,
         restSeconds: v.item.restSeconds,
         weightKg: v.item.suggestedWeight,
+        scheme: v.item.scheme,
+        schemePercent: v.item.schemePercent,
+        customSets: decodeCustomSets(v.item.customSets),
         // The library has the final say on the axis: an exercise that changed
         // measure — or lost its loading — must not leave a saved workout
         // counting reps against a hold or kilograms against a pull-up.
@@ -93,40 +110,94 @@ class ItemDraft {
         failStreak: v.item.failStreak,
       );
 
-  /// A brand-new slot for [e], on whichever axis it can actually move along.
-  factory ItemDraft.forExercise(Exercise e) => ItemDraft(
-        exerciseId: e.id,
-        name: e.name,
-        muscle: e.muscleGroup,
-        measure: e.measure,
-        weightType: e.weightType,
-        barKg: e.barWeight,
-        progression: e.measure.defaultMode,
-      );
+  /// A brand-new slot for [e], on whichever axis it can actually move along,
+  /// stepping by whatever [unit] counts by — 2.5 kg, or 5 lb.
+  factory ItemDraft.forExercise(Exercise e, {String unit = 'kg'}) {
+    final mode = e.measure.defaultMode;
+    return ItemDraft(
+      exercise: e,
+      exerciseId: e.id,
+      name: e.name,
+      muscle: e.muscleGroup,
+      measure: e.measure,
+      weightType: e.weightType,
+      barKg: e.barWeight,
+      progression: mode,
+      increment: defaultIncrementFor(mode, unit),
+      deload: defaultDeloadFor(mode, unit),
+    );
+  }
 
   final int exerciseId;
-  final String name;
-  final String muscle;
+
+  /// The library row this slot points at, as of the last [adoptExercise], or
+  /// null for a draft built without one.
+  ///
+  /// Carried rather than looked up so the slot sheet can show the movement's
+  /// own properties on its first frame: reading them off a stream instead means
+  /// a card that arrives late and shoves everything under it down the sheet.
+  Exercise? exercise;
+
+  /// The library's copy of the movement, as of the last [adoptExercise]. Not
+  /// edited through the draft — a rename happens to the exercise, and this
+  /// follows it.
+  String name;
+  String muscle;
 
   /// Whether the movement is counted or held. Fixed by the library, not the
-  /// programme — it is what limits which axes [setMode] will accept.
-  final ExerciseMeasure measure;
+  /// program — it is what limits which axes [setMode] will accept.
+  ExerciseMeasure measure;
 
   /// What the movement's weight column means, [WeightType.none] included. Also
   /// fixed by the library, and the other half of what [modes] allows: there is
   /// no load to add to a movement that carries none.
-  final WeightType weightType;
+  WeightType weightType;
 
   /// The exercise's own bar, if it has one. Null means the app-wide default,
   /// which the draft cannot see — callers pass it to [floorKg].
-  final double? barKg;
+  double? barKg;
 
   int sets;
   int repsMin;
   int? repsMax;
   bool toFailure;
   int? restSeconds;
+
+  /// The top of every ladder [scheme] produces, not the weight of set one —
+  /// see `data/set_scheme.dart`.
   double? weightKg;
+
+  /// How the sets differ from one another.
+  SetScheme scheme;
+
+  /// One rung of a back-off or a ramp, as a whole percentage.
+  int schemePercent;
+
+  /// The written-out rows of a custom scheme. Kept across a switch to another
+  /// scheme and back, so trying a ramp does not throw away what was typed.
+  List<CustomSet> customSets;
+
+  /// Whether anything in the Advanced half of the Target card is in use. The
+  /// card opens expanded when it is, so nothing a slot actually does is hidden
+  /// behind a toggle somebody has to think to press.
+  bool get usesAdvanced =>
+      toFailure || repsMax != null || scheme != SetScheme.flat;
+
+  /// What each set is aiming at, given the gym's [unit] and the lightest weight
+  /// this slot may be loaded to. The one place the scheme is turned into
+  /// numbers on this side of the app — the live session calls the same
+  /// function with the session's own unit and bar.
+  List<SetTarget> targets({required String unit, double defaultBarKg = 0}) =>
+      resolveSetTargets(
+        scheme: scheme,
+        sets: sets,
+        goalReps: toFailure ? repsMin : (repsMax ?? repsMin),
+        topWeightKg: clampedWeightKg(defaultBarKg),
+        unit: unit,
+        percent: schemePercent,
+        custom: customSets,
+        floorKg: floorKg(defaultBarKg),
+      );
 
   ProgressionMode progression;
   int holdSeconds;
@@ -167,14 +238,36 @@ class ItemDraft {
     return w < floor ? floor : w;
   }
 
-  /// Switches the axis, resetting the rates to that mode's defaults: 2.5 of
-  /// anything is a sane step in kilograms and nonsense in reps. An axis the
-  /// exercise does not allow is ignored.
-  void setMode(ProgressionMode mode) {
+  /// Switches the axis, resetting the rates to that mode's defaults in [unit]:
+  /// 2.5 of anything is a sane step in kilograms and nonsense in reps. An axis
+  /// the exercise does not allow is ignored.
+  void setMode(ProgressionMode mode, {String unit = 'kg'}) {
     if (mode == progression || !modes.contains(mode)) return;
+    _putOnAxis(mode, unit);
+  }
+
+  void _putOnAxis(ProgressionMode mode, String unit) {
     progression = mode;
-    increment = mode.defaultIncrement;
-    deload = mode.defaultDeload;
+    increment = defaultIncrementFor(mode, unit);
+    deload = defaultDeloadFor(mode, unit);
+  }
+
+  /// Takes the library's word for what this movement now is.
+  ///
+  /// The exercise is editable while a slot on it is open — from the slot sheet
+  /// itself — and everything the draft copied off it can change underneath:
+  /// a rename, a different measure, a loading that has gone. So the copy is
+  /// refreshed, and anything the new facts no longer permit is pulled back into
+  /// line rather than left to reach the database as nonsense.
+  void adoptExercise(Exercise e, {String unit = 'kg'}) {
+    exercise = e;
+    name = e.name;
+    muscle = e.muscleGroup;
+    measure = e.measure;
+    weightType = e.weightType;
+    barKg = e.barWeight;
+    if (!modes.contains(progression)) _putOnAxis(modes.first, unit);
+    if (!weightType.carriesWeight) weightKg = null;
   }
 }
 
@@ -197,6 +290,13 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         toFailure: Value(drafts[i].toFailure),
         restSeconds: Value(drafts[i].restSeconds),
         suggestedWeight: Value(drafts[i].clampedWeightKg(defaultBarKg)),
+        scheme: Value(drafts[i].scheme),
+        schemePercent: Value(drafts[i].schemePercent),
+        // Only a custom slot spends a column on rows: a back-off that was once
+        // a custom keeps them in the draft, not in the database.
+        customSets: Value(drafts[i].scheme.isCustom
+            ? encodeCustomSets(drafts[i].customSets)
+            : null),
         progression: Value(drafts[i].progression),
         holdSeconds: Value(drafts[i].holdSeconds),
         increment: Value(drafts[i].increment),
@@ -208,6 +308,11 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
       ),
   ];
 }
+
+/// The decimals [fmtWeight] will show, as a rounding: what the field puts back
+/// must be what the field says.
+double roundStepWeight(double display) =>
+    double.parse(display.toStringAsFixed(2));
 
 /// Formats a progression amount in its mode's own unit: "2.5 kg", "1 rep",
 /// "5s". Weight is converted to the display unit like every other weight.
@@ -259,7 +364,13 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
       : l10n.unitWeightShort(
           fmtWeight(toDisplayWeight(d.weightKg!, unit)), unitSuffix(l10n, unit));
   final step = '+${progressionAmount(l10n, d.increment, d.progression, unit)}';
-  return ['${d.sets} × $target', ?w, step].join(' · ');
+  // A slot whose sets are a ladder must not read in the list exactly like one
+  // whose sets are all alike. Flat says nothing, because flat is the default
+  // and naming it on every row would be noise on nearly every row.
+  final scheme = d.scheme == SetScheme.flat
+      ? null
+      : _SchemePicker._label(l10n, d.scheme).toLowerCase();
+  return ['${d.sets} × $target', ?w, ?scheme, step].join(' · ');
 }
 
 /// The ordered exercise list of one workout: add, reorder, configure, remove.
@@ -311,7 +422,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     final picked = await pickExercise(context);
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
-    _bump(() => _items.add(ItemDraft.forExercise(picked)));
+    _bump(() => _items.add(ItemDraft.forExercise(picked, unit: widget.unit)));
   }
 
   Future<void> _configure(int i) async {
@@ -326,12 +437,19 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _ItemConfigSheet(
-        draft: _items[i],
-        unit: widget.unit,
-        routineRest: widget.routineRest,
-        defaultBarKg: widget.defaultBarKg,
-        onChanged: () => _bump(() {}),
+      // The keyboard inset is taken here, outside the sheet's own scroll view:
+      // that is what ends the viewport above the keyboard, so a field tapped
+      // near the bottom of the sheet can be scrolled clear of it rather than
+      // left underneath it.
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: _ItemConfigSheet(
+          draft: _items[i],
+          unit: widget.unit,
+          routineRest: widget.routineRest,
+          defaultBarKg: widget.defaultBarKg,
+          onChanged: () => _bump(() {}),
+        ),
       ),
     );
     FocusManager.instance.primaryFocus?.unfocus();
@@ -358,8 +476,9 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   }
 }
 
-/// Bottom-sheet editor for a single item's sets / reps / rest / weight.
-class _ItemConfigSheet extends StatefulWidget {
+/// Bottom-sheet editor for a single item's sets / reps / rest / weight, plus
+/// the library properties of the movement it stands for.
+class _ItemConfigSheet extends ConsumerStatefulWidget {
   const _ItemConfigSheet({
     required this.draft,
     required this.unit,
@@ -374,11 +493,21 @@ class _ItemConfigSheet extends StatefulWidget {
   final VoidCallback onChanged;
 
   @override
-  State<_ItemConfigSheet> createState() => _ItemConfigSheetState();
+  ConsumerState<_ItemConfigSheet> createState() => _ItemConfigSheetState();
 }
 
-class _ItemConfigSheetState extends State<_ItemConfigSheet> {
+class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   late final TextEditingController _weight;
+
+  /// Whether the Target card's advanced half is open.
+  ///
+  /// Shut on a slot that only uses the three fields above it, and open on one
+  /// that does not — a setting a slot is actually using must not be hidden
+  /// behind a toggle somebody has to think to press. Once open it stays open
+  /// for the life of the sheet, including after the last advanced setting is
+  /// turned back off: closing the panel out from under the tap that emptied it
+  /// is the app arguing with you.
+  late bool _advanced = widget.draft.usesAdvanced;
 
   ItemDraft get d => widget.draft;
 
@@ -415,18 +544,51 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
     widget.onChanged();
   }
 
+  /// Opens the same form the library edits a movement you made with, and takes
+  /// what comes back — the name at the top of this sheet is one of the things
+  /// it may have changed.
+  Future<void> _editExercise() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final saved = await Navigator.of(context, rootNavigator: true)
+        .push<Exercise>(
+          MaterialPageRoute(
+            builder: (_) => ExerciseFormScreen(exerciseId: d.exerciseId),
+          ),
+        );
+    if (saved == null || !mounted) return;
+    _adopt(saved);
+  }
+
+  /// Takes the library's new facts, and the weight field with them: a movement
+  /// that has just been told it carries nothing has no number left to show.
+  void _adopt(Exercise e) {
+    _bump(() {
+      d.adoptExercise(e, unit: widget.unit);
+      if (d.weightKg == null) _weight.text = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final bottom = bottomSystemInset(context);
+    final mq = MediaQuery.of(context);
+    final ex = d.exercise;
+    // The exercise is editable from this sheet, and from the library while a
+    // builder sits behind it. Either way the slot above has to hear about it.
+    ref.listen(exerciseLibraryProvider, (_, next) {
+      final all = next.value;
+      if (all == null || !mounted) return;
+      for (final e in all) {
+        if (e.id == d.exerciseId) _adopt(e);
+      }
+    });
     return SingleChildScrollView(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + bottom),
+        padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + mq.padding.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SheetGrabber(),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -480,7 +642,7 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                       onChanged: (v) => _bump(() => d.holdSeconds = v),
                     ),
                   )
-                else ...[
+                else
                   BuilderField(
                     label: d.toFailure
                         ? l10n.itemEditorRepsToBeat
@@ -495,25 +657,6 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                       }),
                     ),
                   ),
-                  // A range has no meaning once the set runs to failure, so the
-                  // field goes away rather than sitting there greyed out.
-                  if (!d.toFailure)
-                    BuilderField(
-                      label: l10n.itemEditorUpTo,
-                      child: NumberStepper(
-                        // Stepping down past the lower bound drops the upper
-                        // one entirely — no stray clear button to knock the
-                        // row out of line with the rest of the grid.
-                        value: d.repsMax ?? d.repsMin,
-                        isEmpty: d.repsMax == null,
-                        emptyLabel: l10n.itemEditorNoUpper,
-                        min: d.repsMin,
-                        max: 100,
-                        onChanged: (v) => _bump(() => d.repsMax = v),
-                        onClear: () => _bump(() => d.repsMax = null),
-                      ),
-                    ),
-                ],
                 BuilderField(
                   label: l10n.itemEditorRest,
                   // Editing rest here creates an explicit per-exercise
@@ -532,13 +675,52 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                   ),
                 ),
               ]),
+              // A hold has no rep range, no failure and no ladder, so it has no
+              // advanced half either — and a toggle that opens onto nothing is
+              // worse than no toggle.
               if (!_timed) ...[
                 const SizedBox(height: 14),
-                _CheckRow(
-                  label: l10n.itemEditorToFailure,
-                  value: d.toFailure,
-                  onChanged: (v) => _bump(() => d.toFailure = v),
+                _AdvancedToggle(
+                  open: _advanced,
+                  onTap: () => setState(() => _advanced = !_advanced),
                 ),
+                if (_advanced) ...[
+                  const SizedBox(height: 14),
+                  // A range has no meaning once the set runs to failure, so the
+                  // field goes away rather than sitting there greyed out.
+                  if (!d.toFailure) ...[
+                    builderGrid([
+                      BuilderField(
+                        label: l10n.itemEditorUpTo,
+                        child: NumberStepper(
+                          // Stepping down past the lower bound drops the upper
+                          // one entirely — no stray clear button to knock the
+                          // row out of line with the rest of the grid.
+                          value: d.repsMax ?? d.repsMin,
+                          isEmpty: d.repsMax == null,
+                          emptyLabel: l10n.itemEditorNoUpper,
+                          min: d.repsMin,
+                          max: 100,
+                          onChanged: (v) => _bump(() => d.repsMax = v),
+                          onClear: () => _bump(() => d.repsMax = null),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 14),
+                  ],
+                  _CheckRow(
+                    label: l10n.itemEditorToFailure,
+                    value: d.toFailure,
+                    onChanged: (v) => _bump(() => d.toFailure = v),
+                  ),
+                  const SizedBox(height: 18),
+                  _SchemeSection(
+                    draft: d,
+                    unit: widget.unit,
+                    defaultBarKg: widget.defaultBarKg,
+                    onChanged: () => _bump(() {}),
+                  ),
+                ],
               ],
             ]),
             const SizedBox(height: 14),
@@ -584,7 +766,8 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 _ModePicker(
                   modes: d.modes,
                   mode: d.progression,
-                  onChanged: (m) => _bump(() => d.setMode(m)),
+                  onChanged: (m) =>
+                      _bump(() => d.setMode(m, unit: widget.unit)),
                 )
               else
                 Text(
@@ -597,9 +780,13 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 BuilderField(
                   label: l10n.itemEditorStepUpBy,
                   child: _AmountField(
+                    key: kStepUpFieldKey,
                     value: d.increment,
                     mode: d.progression,
                     unit: widget.unit,
+                    // A slot that steps up by nothing never progresses, so the
+                    // buttons stop at one tap's worth rather than at zero.
+                    allowZero: false,
                     onChanged: (v) => _bump(() => d.increment = v),
                   ),
                 ),
@@ -615,9 +802,12 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                 BuilderField(
                   label: l10n.itemEditorBackOffBy,
                   child: _AmountField(
+                    key: kBackOffFieldKey,
                     value: d.deload,
                     mode: d.progression,
                     unit: widget.unit,
+                    // Zero is a real answer here: a missed session that never
+                    // lightens the load.
                     onChanged: (v) => _bump(() => d.deload = v),
                   ),
                 ),
@@ -639,6 +829,42 @@ class _ItemConfigSheetState extends State<_ItemConfigSheet> {
                     fontSize: 11, height: 1.5, color: AppColors.faint),
               ),
             ]),
+            // Last, and in a card of its own: everything above belongs to this
+            // slot, everything here belongs to the movement.
+            if (ex != null) ...[
+              const SizedBox(height: 14),
+              builderCard(l10n.itemEditorExercise, [
+                Text(
+                  l10n.itemEditorExerciseShared,
+                  style: kMono.copyWith(
+                      fontSize: 11, height: 1.5, color: AppColors.faint),
+                ),
+                const SizedBox(height: 16),
+                ExerciseLoadingSection(exercise: ex),
+                const SizedBox(height: 18),
+                ExerciseNoteSection(exercise: ex),
+                // The name and the classification of a movement the app
+                // shipped are shared vocabulary — a routine code that says
+                // "Bench Press" has to mean what everyone else calls that — so
+                // the form that changes them is offered only for your own.
+                if (ex.isCustom) ...[
+                  const SizedBox(height: 18),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.text,
+                      side: BorderSide(color: AppColors.line),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: Icon(Icons.edit_outlined, color: AppColors.accent),
+                    label: Text(l10n.itemEditorEditExercise),
+                    onPressed: _editExercise,
+                  ),
+                ],
+              ]),
+            ],
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.pop(context),
@@ -657,6 +883,310 @@ String _soleAxis(AppLocalizations l10n, ProgressionMode m) => switch (m) {
       ProgressionMode.reps => l10n.itemEditorAxisReps,
       ProgressionMode.weight => l10n.itemEditorAxisWeight,
     };
+
+/// Finds the Target card's advanced half in a test.
+const kAdvancedToggleKey = ValueKey('target-advanced');
+const kSchemePickerKey = ValueKey('set-scheme');
+const kSchemePercentKey = ValueKey('scheme-percent');
+const kSchemePreviewKey = ValueKey('scheme-preview');
+
+/// The one control that opens the rest of the Target card.
+///
+/// A row rather than a Material [ExpansionTile]: the card already has its own
+/// padding and its own type, and a tile brings a second set of both.
+class _AdvancedToggle extends StatelessWidget {
+  const _AdvancedToggle({required this.open, required this.onTap});
+
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return InkWell(
+      key: kAdvancedToggleKey,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(
+              open ? Icons.expand_less : Icons.expand_more,
+              size: 20,
+              color: AppColors.accent,
+            ),
+            const SizedBox(width: 8),
+            // The label gives before the chevron does, as everywhere else.
+            Expanded(
+              child: Text(
+                l10n.itemEditorAdvanced,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: kMono.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: AppColors.accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// How the sets of this slot differ from one another: the four schemes, the
+/// percentage the two ladders are made of, the written-out rows of a custom
+/// one, and the whole thing read back as the weights it produces.
+class _SchemeSection extends StatelessWidget {
+  const _SchemeSection({
+    required this.draft,
+    required this.unit,
+    required this.defaultBarKg,
+    required this.onChanged,
+  });
+
+  final ItemDraft draft;
+  final String unit;
+  final double defaultBarKg;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final d = draft;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(l10n.itemEditorSetScheme, style: sectionLabelStyle()),
+        const SizedBox(height: 10),
+        _SchemePicker(
+          key: kSchemePickerKey,
+          scheme: d.scheme,
+          // The rows a custom scheme was given survive a trip through another
+          // scheme and back, so trying a ramp does not throw away what was
+          // typed. Only a custom slot ever writes them to the database.
+          onChanged: (s) {
+            d.scheme = s;
+            if (s.isCustom && d.customSets.isEmpty) {
+              d.customSets = _seedCustomRows(d);
+            }
+            onChanged();
+          },
+        ),
+        if (d.scheme == SetScheme.backOff || d.scheme == SetScheme.ramp) ...[
+          const SizedBox(height: 14),
+          builderGrid([
+            BuilderField(
+              label: d.scheme == SetScheme.backOff
+                  ? l10n.itemEditorSchemeDropPerSet
+                  : l10n.itemEditorSchemeStepPerSet,
+              child: NumberStepper(
+                key: kSchemePercentKey,
+                value: d.schemePercent,
+                suffix: '%',
+                step: 5,
+                min: 5,
+                max: 50,
+                onChanged: (v) {
+                  d.schemePercent = v;
+                  onChanged();
+                },
+              ),
+            ),
+          ]),
+        ],
+        if (d.scheme.isCustom) ...[
+          const SizedBox(height: 14),
+          // One row per set the slot asks for, so adding a set adds a row
+          // rather than leaving the two lists to disagree.
+          for (var i = 0; i < d.sets; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _CustomSetRow(
+              index: i,
+              row: i < d.customSets.length
+                  ? d.customSets[i]
+                  : CustomSet(reps: _goalReps(d), percent: 100),
+              onChanged: (row) {
+                final rows = [
+                  for (var j = 0; j < d.sets; j++)
+                    j < d.customSets.length
+                        ? d.customSets[j]
+                        : CustomSet(reps: _goalReps(d), percent: 100),
+                ];
+                rows[i] = row;
+                d.customSets = rows;
+                onChanged();
+              },
+            ),
+          ],
+        ],
+        const SizedBox(height: 14),
+        // The scheme read back as the sets it adds up to — the same trick the
+        // progression card plays with its four numbers.
+        Text(
+          key: kSchemePreviewKey,
+          _schemeLine(l10n, d, unit, defaultBarKg),
+          style:
+              kMono.copyWith(fontSize: 11, height: 1.5, color: AppColors.faint),
+        ),
+      ],
+    );
+  }
+}
+
+/// The rep target a scheme repeats: the top of the range, or the number to beat
+/// on a set run to failure.
+int _goalReps(ItemDraft d) => d.toFailure ? d.repsMin : (d.repsMax ?? d.repsMin);
+
+/// What a fresh custom scheme opens on: the slot as it already is, one row per
+/// set. Editing from what you have beats editing from blanks.
+List<CustomSet> _seedCustomRows(ItemDraft d) => [
+      for (var i = 0; i < d.sets; i++)
+        CustomSet(reps: _goalReps(d), percent: 100),
+    ];
+
+/// The scheme as the sets it produces: "100 · 90 · 80 kg", or the rep counts
+/// alone on a movement with no weight to scale.
+String _schemeLine(
+  AppLocalizations l10n,
+  ItemDraft d,
+  String unit,
+  double defaultBarKg,
+) {
+  final targets = d.targets(unit: unit, defaultBarKg: defaultBarKg);
+  final sep = l10n.itemEditorSchemeSeparator;
+  if (targets.every((t) => t.weightKg == null)) {
+    return targets.map((t) => '${t.reps}').join(sep);
+  }
+  // Reps only when they differ set to set, so a back-off does not repeat the
+  // same number three times beside the weights that are the point of it.
+  final varyingReps = targets.map((t) => t.reps).toSet().length > 1;
+  final body = targets
+      .map((t) => varyingReps
+          ? '${t.reps}×${fmtWeight(toDisplayWeight(t.weightKg ?? 0, unit))}'
+          : fmtWeight(toDisplayWeight(t.weightKg ?? 0, unit)))
+      .join(sep);
+  return '$body ${unitSuffix(l10n, unit)}';
+}
+
+/// The four schemes as one row of pills.
+class _SchemePicker extends StatelessWidget {
+  const _SchemePicker({
+    super.key,
+    required this.scheme,
+    required this.onChanged,
+  });
+
+  final SetScheme scheme;
+  final ValueChanged<SetScheme> onChanged;
+
+  static String _label(AppLocalizations l10n, SetScheme s) => switch (s) {
+        SetScheme.flat => l10n.itemEditorSchemeFlat,
+        SetScheme.backOff => l10n.itemEditorSchemeBackOff,
+        SetScheme.ramp => l10n.itemEditorSchemeRamp,
+        SetScheme.custom => l10n.itemEditorSchemeCustom,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    // Wrapped rather than four equal columns: "Back-off" in a language that
+    // spells it out does not fit a quarter of a phone at 2× text.
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final s in SetScheme.values)
+          _pill(label: _label(l10n, s), on: s == scheme, onTap: () => onChanged(s)),
+      ],
+    );
+  }
+
+  Widget _pill({
+    required String label,
+    required bool on,
+    required VoidCallback onTap,
+  }) =>
+      Material(
+        color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: on ? AppColors.accent : AppColors.line),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Text(
+              label,
+              style: kMono.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: on ? AppColors.accent : AppColors.muted,
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+/// One written-out set of a custom scheme: which set it is, its reps, and its
+/// percentage of the slot's weight.
+class _CustomSetRow extends StatelessWidget {
+  const _CustomSetRow({
+    required this.index,
+    required this.row,
+    required this.onChanged,
+  });
+
+  final int index;
+  final CustomSet row;
+  final ValueChanged<CustomSet> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.itemEditorSchemeSetNumber(index + 1),
+          style: kMono.copyWith(
+              fontSize: 11, letterSpacing: 0.5, color: AppColors.faint),
+        ),
+        const SizedBox(height: 6),
+        builderGrid([
+          BuilderField(
+            label: l10n.itemEditorReps,
+            child: NumberStepper(
+              value: row.reps,
+              min: 1,
+              max: 100,
+              onChanged: (v) => onChanged(CustomSet(reps: v, percent: row.percent)),
+            ),
+          ),
+          BuilderField(
+            label: l10n.itemEditorSchemeOfWeight,
+            child: NumberStepper(
+              value: row.percent,
+              suffix: '%',
+              step: 5,
+              min: 0,
+              max: 150,
+              onChanged: (v) => onChanged(CustomSet(reps: row.reps, percent: v)),
+            ),
+          ),
+        ]),
+      ],
+    );
+  }
+}
 
 /// A label with a checkbox, tappable across its whole width.
 class _CheckRow extends StatelessWidget {
@@ -767,20 +1297,41 @@ class _ModePicker extends StatelessWidget {
   }
 }
 
-/// A compact decimal entry for a progression amount, in the mode's own unit.
+/// One tap of a progression amount, in the display unit of [mode].
+///
+/// A weight moves by the smallest pair of plates a gym actually racks — 1.25 kg
+/// in a metric gym, 2.5 lb in a pounds one — rather than by the same number in
+/// whichever unit happens to be on. Reps move by one and a hold by five
+/// seconds, matching the hold stepper above.
+double amountStep(ProgressionMode mode, String unit) => switch (mode) {
+      ProgressionMode.weight => unit == 'lb' ? 2.5 : 1.25,
+      ProgressionMode.reps => 1,
+      ProgressionMode.time => 5,
+    };
+
+/// A compact decimal entry for a progression amount, in the mode's own unit,
+/// with a − and a + either side of it.
 ///
 /// Weight is typed and shown in the display unit and stored in kilograms like
 /// every other weight; reps and seconds are unitless and pass straight through.
+/// Typing is not rounded to the tap: 3 kg is a step somebody may want, and only
+/// the buttons move in [amountStep]s.
 class _AmountField extends StatefulWidget {
   const _AmountField({
+    super.key,
     required this.value,
     required this.mode,
     required this.unit,
     required this.onChanged,
+    this.allowZero = true,
   });
   final double value;
   final ProgressionMode mode;
   final String unit;
+
+  /// Whether the value may be taken all the way down to nothing. False on the
+  /// step-up, where zero is a slot that never progresses.
+  final bool allowZero;
   final ValueChanged<double> onChanged;
 
   @override
@@ -789,23 +1340,74 @@ class _AmountField extends StatefulWidget {
 
 class _AmountFieldState extends State<_AmountField> {
   late final TextEditingController _c = TextEditingController(text: _shown);
+  final _focus = FocusNode();
 
-  String get _shown => widget.mode == ProgressionMode.weight
-      ? fmtWeight(toDisplayWeight(widget.value, widget.unit))
-      : fmtWeight(widget.value);
+  /// The value in the unit it is typed in: the display unit for a weight,
+  /// itself for anything else.
+  double get _display => widget.mode == ProgressionMode.weight
+      ? toDisplayWeight(widget.value, widget.unit)
+      : widget.value;
+
+  /// The value as the box shows it.
+  String get _shown => fmtWeight(_display);
+
+  double get _step => amountStep(widget.mode, widget.unit);
+
+  /// The lowest this may be driven from the buttons.
+  double get _floor => widget.allowZero ? 0 : _step;
+
+  @override
+  void initState() {
+    super.initState();
+    // Leaving the field settles it: a half-typed entry stops disagreeing with
+    // the value behind it, and a number below the floor is raised to it. The
+    // check waits for the field to be left rather than firing per keystroke,
+    // because 1.25 is typed through 1, and refusing that would make the floor
+    // impossible to type.
+    _focus.addListener(() {
+      if (_focus.hasFocus) return;
+      if (_display < _floor) {
+        _commit(_floor);
+      } else if (_c.text != _shown) {
+        _c.text = _shown;
+      }
+    });
+  }
 
   @override
   void didUpdateWidget(_AmountField old) {
     super.didUpdateWidget(old);
-    // Switching the axis resets the amount underneath the field; typing in it
-    // does not, and rewriting the text mid-edit would fight the cursor.
-    if (widget.mode != old.mode) _c.text = _shown;
+    // Switching the axis resets the amount underneath the field, and so does a
+    // button press; typing does not, and rewriting the text mid-edit would
+    // fight the cursor.
+    if (widget.mode != old.mode || (!_focus.hasFocus && _shown != _c.text)) {
+      _c.text = _shown;
+    }
   }
 
   @override
   void dispose() {
+    _focus.dispose();
     _c.dispose();
     super.dispose();
+  }
+
+  /// Moves the value one tap, held at [_floor] on the way down.
+  void _nudge(int sign) {
+    final next = _display + sign * _step;
+    _commit(next < _floor ? _floor : next);
+  }
+
+  void _commit(double display) {
+    // Rounded to what the box will actually show, so a converted pound cannot
+    // leave a tail behind the text on every tap.
+    final tidy = widget.mode == ProgressionMode.weight
+        ? roundStepWeight(display)
+        : display;
+    _c.text = fmtWeight(tidy);
+    widget.onChanged(widget.mode == ProgressionMode.weight
+        ? toKg(tidy, widget.unit)
+        : tidy);
   }
 
   @override
@@ -818,35 +1420,49 @@ class _AmountFieldState extends State<_AmountField> {
             : l10n.itemEditorSuffixReps);
     return SizedBox(
       height: 36, // matches a NumberStepper, so grid rows line up
-      child: TextField(
-        controller: _c,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textAlign: TextAlign.right,
-        style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          filled: true,
-          fillColor: AppColors.surface,
-          suffixText: suffix,
-          suffixStyle: kMono.copyWith(fontSize: 12, color: AppColors.faint),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: AppColors.line),
+      child: Row(
+        children: [
+          stepperButton(
+            Icons.remove,
+            _display - _step < _floor - 0.001 ? null : () => _nudge(-1),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: AppColors.accent),
+          Expanded(
+            child: TextField(
+                controller: _c,
+                focusNode: _focus,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textAlign: TextAlign.right,
+                style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  suffixText: suffix,
+                  suffixStyle:
+                      kMono.copyWith(fontSize: 12, color: AppColors.faint),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.line),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.accent),
+                  ),
+                ),
+                onChanged: (v) {
+                  final parsed = double.tryParse(v.trim().replaceAll(',', '.'));
+                  if (parsed == null || parsed < 0) return;
+                  widget.onChanged(widget.mode == ProgressionMode.weight
+                      ? toKg(parsed, widget.unit)
+                      : parsed);
+                },
+            ),
           ),
-        ),
-        onChanged: (v) {
-          final parsed = double.tryParse(v.trim());
-          if (parsed == null || parsed < 0) return;
-          widget.onChanged(widget.mode == ProgressionMode.weight
-              ? toKg(parsed, widget.unit)
-              : parsed);
-        },
+          stepperButton(Icons.add, () => _nudge(1)),
+        ],
       ),
     );
   }

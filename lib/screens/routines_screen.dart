@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
 import '../widgets/share_widgets.dart';
+import '../widgets/tutorial.dart';
 
 class RoutinesScreen extends ConsumerWidget {
   const RoutinesScreen({super.key});
@@ -57,11 +58,15 @@ class RoutinesScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   shareActionRow([
-                    (
-                      Icons.qr_code_scanner,
-                      l10n.themeScanQr,
-                      () => context.push('/scan?for=routine')
-                    ),
+                    // Scanning needs camera frames one at a time, which a
+                    // browser does not offer. Pasting is the way in that never
+                    // needed a permission, so it is the only one left there.
+                    if (ref.watch(capabilitiesProvider).scanning)
+                      (
+                        Icons.qr_code_scanner,
+                        l10n.themeScanQr,
+                        () => context.push('/scan?for=routine')
+                      ),
                     (
                       Icons.content_paste,
                       l10n.themePasteCode,
@@ -92,6 +97,8 @@ class _NewRoutineButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      // Anchor for the builder tour's "tap New routine" step.
+      key: tutorialNewRoutineKey,
       width: double.infinity,
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(

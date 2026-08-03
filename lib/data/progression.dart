@@ -49,7 +49,7 @@ enum ProgressionMode {
 }
 
 /// How a movement is measured — a property of the exercise itself, not of any
-/// programme built on it. A squat is counted; a plank is held.
+/// program built on it. A squat is counted; a plank is held.
 ///
 /// This is what decides which progression axes an exercise may use at all.
 /// Offering to progress a deadlift by time, or a plank by reps, is offering a
@@ -80,7 +80,7 @@ enum ExerciseMeasure {
       modes.contains(mode) ? mode : defaultMode;
 }
 
-/// One clean session earns a step up: the common case is a programme that adds
+/// One clean session earns a step up: the common case is a program that adds
 /// weight every time you finish the sets it asked for.
 const defaultSuccessThreshold = 1;
 

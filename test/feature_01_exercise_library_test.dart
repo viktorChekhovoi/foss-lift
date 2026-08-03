@@ -971,12 +971,19 @@ void main() {
       await tester.tap(find.text('Time held'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('LOADED AS'), findsOneWidget);
+      final l10n = l10nFor();
+      // The label is the demoted variant — the loading is now the exception.
+      expect(
+        find.text(l10n.exerciseFormLoadedAsOptional.toUpperCase()),
+        findsOneWidget,
+      );
       // "Bar" belongs to this control alone — Machine and Dumbbell are also
       // equipment kinds further up the form.
       expect(find.text('Bar'), findsOneWidget);
-      // And it says why it is still being asked.
-      expect(find.textContaining('Most holds carry nothing'), findsOneWidget);
+      // And it says why it is still being asked. Matched through the strings
+      // file rather than a copy of the sentence, so rewording the caption is
+      // not a test failure.
+      expect(find.text(l10n.exerciseFormHoldLoadNote), findsOneWidget);
     });
 
     testWidgets('a held movement can be saved with a load on it', (

@@ -16,9 +16,11 @@ code:
 - lib/services/workout_shade.dart
 - lib/state/workout_cue.dart
 - lib/widgets/start_workout.dart
+- lib/screens/exercise_settings_screen.dart
 test:
 - test/feature_04_live_session_test.dart
 - test/feature_04_shade_permission_test.dart
+- test/feature_04_rest_alarm_test.dart
 where: >-
   <b>State</b> lib/state/active_workout.dart · <b>Warm-up ramp</b> lib/data/warmup.dart,
   loadLadder in lib/data/plates.dart · <b>Screens</b> lib/screens/workout_screen.dart,
@@ -65,15 +67,16 @@ groups:
     d: >-
       the accent breathes in and out of the result cell on the working set you
       are on, roughly once a second, so where to tap is something you notice
-      rather than something you work out. Exactly one cell on the board ever
-      pulses, and it stops the moment the set is logged. A warm-up rung is
-      marked like any other row but does not pulse, and neither does a hold that
-      is running — that cell is a stop button and already says so. Where the
-      phone is set to reduce motion the cell rests at the top of the pulse
-      instead of moving.
+      rather than something you work out. A warm-up rung pulses on exactly the
+      same terms — the ramp is where you are before the work is, and it is found
+      the same way. Exactly one cell on the board ever pulses, and it stops the
+      moment the set is logged. A hold that is running does not pulse — that
+      cell is a stop button and already says so. Where the phone is set to
+      reduce motion the cell rests at the top of the pulse instead of moving.
     uses:
     - session.set-logging
     - session.progress-mark
+    - session.warmup-ramp
   - id: carries-one-weight-per-exercise
     t: Carries one weight per exercise
     d: >-
@@ -104,7 +107,10 @@ groups:
     d: >-
       for barbell/weighted lifts — an ascending ramp toward the working weight,
       landing only on loads the gym can actually be set to. The group sits above
-      the working sets and starts collapsed; its stepper changes the number of rungs.
+      the working sets and starts open, since the ramp is the first thing you do;
+      its stepper changes the number of rungs. Shutting one is remembered for the
+      rest of the session, and per exercise — shutting Bench's ramp leaves the
+      one on Overhead Press open.
     defines:
     - session.warmup-ramp
     uses:
@@ -331,6 +337,31 @@ groups:
     uses:
     - session.progress-mark
     - session.warmup-ramp
+  - id: name-gives-so-counter-stays
+    t: The exercise name gives way so the set counter stays on its line
+    d: >-
+      "Bulgarian Split Squat · Set 4/5" is longer than a notification line, and
+      what wrapped off the end was the counter — the half that tells four
+      identical sets apart. So the line is held to a budget and the name is what
+      is cut, ending in an ellipsis: "Bulgarian Split S… · Set 4/5". The counter
+      is never shortened and never wraps away from the movement it counts.
+    uses:
+    - session.progress-mark
+  - id: shade-ranked-to-open-expanded
+    t: It is ranked so the shade opens it expanded, as far as Android allows
+    d: >-
+      the buttons live in a notification's expanded form, so a shade that opens
+      collapsed is a shade with nothing to press. Android has no API for "post
+      this expanded" — the top-ranked notification is auto-expanded and that
+      ranking is the system's to decide — so what the app can do is rank: the
+      live workout sits on a default-importance channel rather than a low one,
+      which keeps it out of the silent section at the bottom of the shade. It
+      still makes no sound and never takes over the screen: the channel is
+      created with no sound and no vibration, and it alerts only once.
+    uses:
+    - session.shade
+    - platform.android
+    manual: true
   - id: while-resting-second-line-names
     t: While resting, the second line names the exercise
     d: >-
@@ -474,30 +505,53 @@ groups:
     t: Declared as an alarm on Android
     d: >-
       so it follows the phone's own silent and Do-Not-Disturb behaviour rather
-      than overriding it. It takes transient focus, so music pauses for the length
-      of the ding and resumes. (Flutter's SystemSound.play is documented as ignored
-      on Android and iOS both.)
+      than overriding it — on screen and off, since both are now the same player.
+      It takes transient focus, so music pauses for the length of the ding and
+      resumes. (Flutter's SystemSound.play is documented as ignored on Android and
+      iOS both.)
     screen: system
     uses:
     - session.rest-sound
     - platform.android
     manual: true
-  - id: there-no-switch
-    t: There is no switch on it
+  - id: rest-alert-volume-slider
+    t: How loud it is belongs to the phone, not to the app
     d: >-
-      a rest timer that ends silently is a rest timer that does not work, and
-      the phone already has three better controls for the same intent — volume
-      keys, silent mode, Do Not Disturb.
+      there is no volume control in the app. The tone is declared as an alarm, so
+      the phone's own alarm slider is what sets it — the control people already
+      know, already reachable with the hardware keys, and already respected by
+      silent and Do-Not-Disturb. A second slider in Settings would have been a
+      gain stacked on that one, which is two numbers to get wrong for one
+      question.
     screen: none
     uses:
     - session.rest-sound
-  - id: off-screen-ding-notification-instead
-    t: Off screen, the ding is a notification instead
+    - platform.android
+  - id: volume-is-a-gain-because-app-plays-it
+    t: The app plays the sound itself, so it sounds the same in a pocket
     d: >-
-      its own high-importance channel, at alarm volume, with a buzz, naming what
-      is next ("Rest done — Bench Press · 80 kg × 8"); it clears itself, and the
-      next rest starting takes it down. Never both — two dings for one rest reads
-      as two rests.
+      a rest alert that rings from a notification channel is at the mercy of when
+      Android decides to post it. This one does not ring from a channel. The
+      foreground service already keeps the app's process alive to the end of its
+      own countdown, and an app with a foreground service running may play audio
+      while it is in the background — so the same player sounds the same asset
+      whether you are looking at the board or not. The notification off screen is
+      the picture beside it, not the noise.
+    screen: none
+    uses:
+    - session.rest-sound
+    - session.shade
+    - platform.android
+  - id: off-screen-ding-notification-instead
+    t: Off screen the sound is joined by a notification, not replaced by one
+    d: >-
+      the tone plays either way; what the pocket adds is something to look at
+      when you take the phone out. A silent high-importance notification, with a
+      buzz, naming what is next ("Rest done — Bench Press · 80 kg × 8"); it
+      clears itself, and the next rest starting takes it down. Silent because the
+      sound has already been made — a channel that rang as well would be two
+      dings for one rest. On screen there is no notification at all: the
+      countdown you are already watching is the picture.
     screen: shade
     uses:
     - session.rest-sound
@@ -537,9 +591,10 @@ groups:
   - id: same-sound-either-way
     t: It is the same sound either way
     d: >-
-      the generator writes the wav twice, once as a Flutter asset and once as
-      an Android raw resource, because a notification can only sound from Android's
-      own resources — the same bytes, reached two ways.
+      one asset, one player, one gain — so a rest cannot end with one noise in
+      your hand and a different one in your pocket. It used to be two copies of
+      the wav, the second an Android raw resource for the notification channel to
+      sound; the channel no longer makes a sound, so there is one copy again.
     uses:
     - session.rest-sound
     manual: true
@@ -576,8 +631,11 @@ groups:
   - id: warm-ups-count-toward-mark
     t: Warm-ups count toward the mark
     d: >-
-      when the ramp is where you are and its group is shut, the group carries
-      the mark; opening it moves the mark onto the rung.
+      the rung you are on is marked and pulses like any other row. The group
+      around it is never filled or outlined in the accent — a whole block lit up
+      says "somewhere in here", which is what the row already answers. Shut, the
+      group has no rung to mark, so its header takes the accent instead and the
+      mark moves onto the group.
     uses:
     - session.progress-mark
     - session.warmup-ramp

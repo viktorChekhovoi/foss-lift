@@ -24,13 +24,17 @@ groups:
     defines:
     - privacy.offline
   - id: stores-all-data-device
-    t: Stores all data on-device
-    d: in a local SQLite database (drift).
+    t: Stores all data on the machine you are using
+    d: >-
+      in a local SQLite database (drift) — a file in the app's own storage on a
+      phone, and the browser's storage for the page's origin on the web. Same
+      schema, same queries, no server either way.
     screen: none
     defines:
     - storage.schema
     uses:
     - storage.schema
+    - storage.database-location
     - privacy.offline
   - id: preferences-live-one-row
     t: Every app-wide preference lives in one row

@@ -26,7 +26,7 @@ import 'package:foss_lift/data/share_code.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/home_shell.dart';
 import 'package:foss_lift/screens/theme_import_screen.dart';
-import 'package:foss_lift/screens/theme_settings_screen.dart';
+import 'package:foss_lift/screens/appearance_screen.dart';
 import 'package:foss_lift/services/deep_links.dart';
 import 'package:foss_lift/services/qr_decoder.dart';
 import 'package:foss_lift/theme/app_theme.dart';
@@ -624,11 +624,58 @@ void main() {
     });
   });
 
+  group("the app's own headings read in every palette", () {
+    // `faint` is the one role no palette is asked to keep legible — it exists
+    // for a column heading nobody reads twice. Headings and eyebrows are read,
+    // so they take the two roles that are held to 4.5:1.
+    test('the dimmest role is the one no palette keeps readable', () {
+      // Not a requirement on the palettes — a statement of why the widgets may
+      // not use it. If this ever stops being true the rule can be revisited.
+      expect(
+        kThemePresets.where((p) => contrastRatio(p.faint, p.ground) < 4.5),
+        isNotEmpty,
+        reason: 'faint is legible everywhere; the heading rule has no basis',
+      );
+    });
+
+    test('the heading roles clear 4.5:1 against the ground, in every preset',
+        () {
+      for (final p in kThemePresets) {
+        expect(contrastRatio(p.muted, p.ground), greaterThanOrEqualTo(4.5),
+            reason: '${p.id}: a section heading on the ground');
+        expect(contrastRatio(p.text, p.ground), greaterThanOrEqualTo(4.5),
+            reason: '${p.id}: an eyebrow on the ground');
+      }
+    });
+
+    testWidgets('a section heading is not painted in the dimmest role',
+        (tester) async {
+      await tester.pumpWidget(
+          appUnder(container, const SectionLabel('your routines')));
+      await tester.pump();
+      final style = tester.widget<Text>(find.text('YOUR ROUTINES')).style!;
+      expect(style.color, isNot(AppColors.faint),
+          reason: 'a heading you are meant to read cannot take the dim role');
+      expect(style.color, AppColors.muted);
+      await stop(tester);
+    });
+
+    testWidgets('a screen eyebrow is painted in the body role', (tester) async {
+      await tester.pumpWidget(appUnder(
+          container, const ScreenHeader(eyebrow: 'today', title: 'Push')));
+      await tester.pump();
+      final style = tester.widget<Text>(find.text('TODAY')).style!;
+      expect(style.color, isNot(AppColors.faint));
+      expect(style.color, AppColors.text);
+      await stop(tester);
+    });
+  });
+
   group('the picker widget', () {
     testWidgets('tapping a preset stores it and drives the active palette',
         (tester) async {
       await tester.pumpWidget(
-          appUnder(container, const ThemeSettingsScreen()));
+          appUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -650,7 +697,7 @@ void main() {
         (tester) async {
       tallScreen(tester);
       await tester
-          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+          .pumpWidget(appUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -668,7 +715,7 @@ void main() {
         (tester) async {
       tallScreen(tester);
       await tester
-          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+          .pumpWidget(appUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -700,7 +747,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester
-          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+          .pumpWidget(appUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
     }
@@ -783,7 +830,7 @@ void main() {
     Future<void> pumpPicker(WidgetTester tester) async {
       tallScreen(tester);
       await tester
-          .pumpWidget(routedAppUnder(container, const ThemeSettingsScreen()));
+          .pumpWidget(routedAppUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
     }
@@ -958,7 +1005,7 @@ void main() {
         {List<String> alsoRoutes = const []}) async {
       tallScreen(tester);
       await tester.pumpWidget(routedAppUnder(
-          container, const ThemeSettingsScreen(),
+          container, const AppearanceScreen(),
           alsoRoutes: alsoRoutes));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
@@ -986,11 +1033,11 @@ void main() {
 
     testWidgets('the pencil on a preset opens the theme editor',
         (tester) async {
-      await pumpPicker(tester, alsoRoutes: ['settings/theme/custom']);
+      await pumpPicker(tester, alsoRoutes: ['settings/appearance/custom']);
       await tester.tap(find.byIcon(Icons.edit_outlined).first);
       await frames(tester);
 
-      expect(find.text('at /settings/theme/custom'), findsOneWidget);
+      expect(find.text('at /settings/appearance/custom'), findsOneWidget);
 
       await stop(tester);
     });
@@ -1052,7 +1099,7 @@ void main() {
     Future<void> pumpPicker(WidgetTester tester) async {
       tallScreen(tester);
       await tester
-          .pumpWidget(routedAppUnder(container, const ThemeSettingsScreen()));
+          .pumpWidget(routedAppUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
     }
@@ -1378,7 +1425,7 @@ void main() {
       final code = ThemeCode.encode(_mineCustom());
       final route = routeForLink(Uri.parse(ThemeCode.link(_mineCustom())));
       expect(route, isNotNull);
-      expect(route, startsWith('/settings/theme/import?code='));
+      expect(route, startsWith('/settings/appearance/import?code='));
       // The route has to survive being parsed back out again, or the import
       // screen gets a mangled code.
       final back = Uri.parse(route!).queryParameters['code'];
@@ -1471,14 +1518,14 @@ void main() {
       addTearDown(themes.close);
 
       final router = GoRouter(
-        initialLocation: '/settings/theme',
+        initialLocation: '/settings/appearance',
         routes: [
           GoRoute(
-            path: '/settings/theme',
+            path: '/settings/appearance',
             builder: (_, _) => const Scaffold(body: Text('the theme picker')),
           ),
           GoRoute(
-            path: '/settings/theme/import',
+            path: '/settings/appearance/import',
             builder: (_, s) =>
                 ThemeImportScreen(code: s.uri.queryParameters['code'] ?? ''),
           ),
@@ -1504,7 +1551,7 @@ void main() {
       ));
       await tester.pump();
 
-      router.push('/settings/theme/import'
+      router.push('/settings/appearance/import'
           '?code=${Uri.encodeQueryComponent(ThemeCode.encode(incoming))}');
       await frames(tester);
       expect(find.byType(ThemeImportScreen), findsOneWidget);
@@ -1578,7 +1625,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester
-          .pumpWidget(appUnder(container, const ThemeSettingsScreen()));
+          .pumpWidget(appUnder(container, const AppearanceScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 

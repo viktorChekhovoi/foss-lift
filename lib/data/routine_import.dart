@@ -9,6 +9,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../util/units.dart';
 import '../util/video_links.dart';
 import 'database.dart';
 import 'routine_code.dart';
@@ -107,15 +108,21 @@ extension RoutineSharing on AppDatabase {
           repsMax: it.repsMax,
           toFailure: it.toFailure,
           restSeconds: it.restSeconds,
-          suggestedWeight: it.suggestedWeight,
+          // The weight stays behind with the streaks: it is the sender's body,
+          // not the sender's program. See routine_code.dart.
           progression: it.progression,
           holdSeconds: it.holdSeconds,
           increment: it.increment,
           deload: it.deload,
           successThreshold: it.successThreshold,
           failureThreshold: it.failureThreshold,
+          // The scheme is part of the prescription, so it travels — as a shape
+          // and its percentages, not as the weights it produces.
+          scheme: it.scheme,
+          schemePercent: it.schemePercent,
+          customSets: decodeCustomSets(it.customSets),
           // successStreak and failStreak are left behind on purpose: momentum
-          // is earned on your own bar, not inherited with a programme.
+          // is earned on your own bar, not inherited with a program.
         ));
       }
       workouts.add(SharedWorkout(name: day.name, items: items));
@@ -140,7 +147,7 @@ extension RoutineSharing on AppDatabase {
   ///
   /// Nothing existing is ever removed: a replaced exercise is *edited*, keeping
   /// its id, so its logged history and every other routine pointing at it
-  /// survive. The current routine is left alone too — importing a programme is
+  /// survive. The current routine is left alone too — importing a program is
   /// not the same as deciding to train it.
   Future<int> importSharedRoutine(
     SharedRoutine shared, {
@@ -169,6 +176,22 @@ extension RoutineSharing on AppDatabase {
         ids.add(existing.id);
       }
 
+      // A rate the sender did not spend bytes on is *their* default, which is
+      // the kilogram one whatever unit they train in — the wire format has no
+      // unit in it. Filling it in from this phone's unit is what keeps an
+      // imported routine stepping by 5 lb in a pounds gym.
+      final unit = (await (select(settings)..where((s) => s.id.equals(1)))
+                  .getSingleOrNull())
+              ?.weightUnit ??
+          'kg';
+
+      // Each slot's weight comes off *this* phone: what it last logged for the
+      // movement, or nothing at all, which is exactly what a slot added by hand
+      // starts as.
+      final weights = <int, double?>{
+        for (final id in ids.toSet()) id: await lastLoggedWeight(id),
+      };
+
       final routineId = await createRoutine(
         name: shared.name,
         color: shared.colorHex,
@@ -193,13 +216,24 @@ extension RoutineSharing on AppDatabase {
                   repsMax: Value(it.repsMax),
                   toFailure: Value(it.toFailure),
                   restSeconds: Value(it.restSeconds),
-                  suggestedWeight: Value(it.suggestedWeight),
+                  suggestedWeight: Value(weights[ids[it.exercise]]),
                   progression: Value(it.progression),
                   holdSeconds: Value(it.holdSeconds),
-                  increment: Value(it.increment),
-                  deload: Value(it.deload),
+                  increment: Value(isDefaultIncrement(
+                          it.increment, it.progression, 'kg')
+                      ? defaultIncrementFor(it.progression, unit)
+                      : it.increment),
+                  deload: Value(
+                      isDefaultDeload(it.deload, it.progression, 'kg')
+                          ? defaultDeloadFor(it.progression, unit)
+                          : it.deload),
                   successThreshold: Value(it.successThreshold),
                   failureThreshold: Value(it.failureThreshold),
+                  scheme: Value(it.scheme),
+                  schemePercent: Value(it.schemePercent),
+                  customSets: Value(it.scheme.isCustom
+                      ? encodeCustomSets(it.customSets)
+                      : null),
                 ),
             ],
           ),

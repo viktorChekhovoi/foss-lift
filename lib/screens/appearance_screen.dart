@@ -7,19 +7,28 @@ import 'package:share_plus/share_plus.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 import '../theme/theme_code.dart';
+import '../util/locales.dart';
 import '../util/seed_names.dart';
+import '../util/text_scale.dart';
+import '../widgets/builder_widgets.dart';
 import '../widgets/share_widgets.dart';
 import '../widgets/theme_preview.dart';
 
-/// Pick a colour theme: a shipped preset or your own, with import/export.
+/// How the app looks: the text size, the language, and the colour theme —
+/// a shipped preset or your own, with import/export.
 ///
-/// Selecting a theme writes it to the settings row; the app root watches the
-/// resolved palette and repaints every screen. A routine's own accent colour is
-/// parsed straight from its `colorHex` and so still shows through, whatever is
-/// chosen here.
-class ThemeSettingsScreen extends ConsumerWidget {
-  const ThemeSettingsScreen({super.key});
+/// The three are one screen because they are one question. Selecting a theme
+/// writes it to the settings row; the app root watches the resolved palette and
+/// repaints every screen. A routine's own accent colour is parsed straight from
+/// its `colorHex` and so still shows through, whatever is chosen here.
+///
+/// Text size and language come first, above the theme list. The list runs long
+/// — eight presets, your own, and the share and import rows under them — and a
+/// two-line control put after all that is a control nobody finds.
+class AppearanceScreen extends ConsumerWidget {
+  const AppearanceScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,12 +43,31 @@ class ThemeSettingsScreen extends ConsumerWidget {
     final selectedId = active.id;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.themeTitle)),
+      appBar: AppBar(title: Text(l10n.profileAppearance)),
       body: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
+            Text(l10n.settingsTextSize, style: sectionLabelStyle()),
+            const SizedBox(height: 10),
+            _ScaleChoices(
+              chosen: ref.watch(textScaleProvider).value ?? 1.0,
+              onSelect: db.setTextScale,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.settingsTextSizeNote,
+              style:
+                  TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 28),
+            SettingRow(
+              label: l10n.settingsLanguage,
+              value: kLanguageNames[localeTag(ref.watch(activeLocaleProvider))]!,
+              onTap: () => context.push('/settings/language'),
+            ),
+            const SizedBox(height: 28),
             // Presets grouped by brightness so light and dark are easy to
             // scan. Each group ends with its high-contrast option, which the
             // row badges — picking legibility should never also mean giving up
@@ -49,8 +77,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
               (l10n.themeLightGroup, Brightness.light),
             ]) ...[
               Text(group.$1,
-                  style: kMono.copyWith(
-                      fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                  style: sectionLabelStyle()),
               const SizedBox(height: 10),
               for (final preset
                   in kThemePresets.where((p) => p.brightness == group.$2)) ...[
@@ -62,15 +89,14 @@ class ThemeSettingsScreen extends ConsumerWidget {
                   // The pencil on a preset copies rather than edits: it opens
                   // the editor with no row behind it, seeded from this preset.
                   onEdit: () =>
-                      context.push('/settings/theme/custom?from=${preset.id}'),
+                      context.push('/settings/appearance/custom?from=${preset.id}'),
                 ),
                 const SizedBox(height: 10),
               ],
               const SizedBox(height: 10),
             ],
             Text(l10n.themeYourThemes,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                style: sectionLabelStyle()),
             const SizedBox(height: 10),
             // Each of the user's own: a tap selects it, the pencil opens it —
             // which is where its name, its colours and its bin all live.
@@ -81,7 +107,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
                 selected: selectedId == palette.id,
                 onTap: () => db.setThemePreset(palette.id),
                 onEdit: () => context.push(
-                    '/settings/theme/custom/${customThemeRowId(palette.id)}'),
+                    '/settings/appearance/custom/${customThemeRowId(palette.id)}'),
                 // Your own can be edited in place, so copying needs a control
                 // of its own — the pencil is already spoken for. A preset has
                 // no copy icon: its pencil already means "copy and edit".
@@ -91,7 +117,7 @@ class ThemeSettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
             ],
-            _NewThemeRow(onTap: () => context.push('/settings/theme/custom')),
+            _NewThemeRow(onTap: () => context.push('/settings/appearance/custom')),
             // Only your own themes are shareable. The presets ship with every
             // copy of the app, so sending someone a code for one is sending
             // them something they already have.
@@ -116,11 +142,12 @@ class ThemeSettingsScreen extends ConsumerWidget {
             shareSectionLabel(l10n.themeAddSection),
             const SizedBox(height: 10),
             shareActionRow([
-              (
-                Icons.qr_code_scanner,
-                l10n.themeScanQr,
-                () => context.push('/scan?for=theme')
-              ),
+              if (ref.watch(capabilitiesProvider).scanning)
+                (
+                  Icons.qr_code_scanner,
+                  l10n.themeScanQr,
+                  () => context.push('/scan?for=theme')
+                ),
               (
                 Icons.content_paste,
                 l10n.themePasteCode,
@@ -240,7 +267,7 @@ Future<void> _paste(BuildContext context) async {
   final text = await promptForCode(context,
       title: l10n.themePasteTitle, hint: l10n.themePasteHint);
   if (text == null || !context.mounted) return;
-  context.push('/settings/theme/import?code=${Uri.encodeQueryComponent(text)}');
+  context.push('/settings/appearance/import?code=${Uri.encodeQueryComponent(text)}');
 }
 
 /// A selectable theme row: a strip of its key colours, its name, and a radio.
@@ -863,7 +890,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _color),
-          child: Text(l10n.themeUseColour),
+          child: Text(l10n.themeUseColor),
         ),
       ],
     );
@@ -896,7 +923,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     if (parsed == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).themeNoColourOnClipboard),
+          content: Text(AppLocalizations.of(context).themeNoColorOnClipboard),
         ),
       );
       return;
@@ -1037,6 +1064,80 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
               style: kMono.copyWith(color: AppColors.muted, fontSize: 13)),
         ),
       ],
+    );
+  }
+}
+/// The four text-size steps, each previewing itself.
+///
+/// A chip drawn at the size it selects is the only honest preview: the point of
+/// the control is how big the words get, and a row of same-sized labels says
+/// nothing about that.
+class _ScaleChoices extends StatelessWidget {
+  const _ScaleChoices({required this.chosen, required this.onSelect});
+  final double chosen;
+  final ValueChanged<double> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final choice in kTextScaleChoices)
+          TextScaleChip(
+            choice: choice,
+            // The stored scale marks whichever step it is on, however it got
+            // there: the chips and the pinch write the same setting, so
+            // pinching to 200% leaves Largest selected here. A value between
+            // two steps marks neither, because neither is what is rendering.
+            selected: (choice.scale - chosen).abs() < 0.001,
+            onTap: () => onSelect(choice.scale),
+          ),
+      ],
+    );
+  }
+}
+
+/// One text-size step, drawn at the size it selects.
+class TextScaleChip extends StatelessWidget {
+  const TextScaleChip({
+    super.key,
+    required this.choice,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final TextScaleChoice choice;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.14)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.line,
+          ),
+        ),
+        child: Text(
+          choice.label(l10n),
+          // Its own scale, not the page's: the chip shows what it does.
+          textScaler: TextScaler.linear(choice.scale),
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.accent : AppColors.muted,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -121,7 +121,7 @@ class _SwitchDialog extends StatelessWidget {
 ///
 /// It comes *before* the session is hydrated, so accepting it moves the template
 /// and the first set row is drawn at the new weight — there is no moment where
-/// the screen shows one number and the programme holds another. Declining is not
+/// the screen shows one number and the program holds another. Declining is not
 /// remembered anywhere: training today resets the gap on its own, so the
 /// question cannot come back to nag.
 class _LayoffDialog extends StatelessWidget {

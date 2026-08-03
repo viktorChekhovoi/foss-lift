@@ -1,21 +1,22 @@
-// Integration tests for features/index.html#sec12 — the one-time
-// coach-mark tour.
+// Integration tests for features/index.html#sec12 — the guided tours.
 //
-// The spec, kept modest by design:
-//   * on first launch the tour shows (tutorialSeen defaults false on a fresh
-//     install);
-//   * it runs ONCE — a "seen" flag is recorded and remembered, so it never
-//     reappears on its own;
-//   * it is anchored to real UI (a light, robust widget check — not a
-//     transcription of the callout copy).
+// The spec, from the catalogue:
+//   * first launch offers a choice of two tours rather than starting one;
+//   * the full tour walks the four tabs, then Today, then the live workout it
+//     cannot show; the quick tour is the four tabs and stops;
+//   * a third tour covers building a routine and starts on its own;
+//   * a step that asks you to tap something lets the tap through to the real
+//     widget, and the tour moves on with it;
+//   * skipping says where to replay it from, and it runs once by itself.
 //
 // Tested through the real surface: the [AppDatabase] seen flag, the
-// [tutorialSeenProvider], and the [TutorialOverlay] widget with a real anchor.
+// [tutorialSeenProvider], and the [TutorialOverlay] widget with real anchors.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/profile_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
@@ -24,23 +25,50 @@ import 'package:foss_lift/widgets/tutorial_demo.dart';
 import 'support/harness.dart';
 import 'support/settle.dart';
 
-/// A minimal host that carries the tour's first real anchor, so the overlay can
-/// measure a target instead of guessing a position — mirroring how the app
-/// hangs [tutorialTodayWorkoutKey] on Today's next-workout card.
-Widget _anchoredHost(Widget? overlayChildExtra) => Scaffold(
+/// The English catalogue: a step carries the way to ask for its words rather
+/// than the words, so a test that wants to read one has to ask too.
+final _l10n = l10nFor();
+
+/// A minimal host carrying the tour's Today anchor plus a stand-in navigation
+/// bar, so the overlay can measure a target instead of guessing a position —
+/// mirroring how the app hangs the keys on Today and on `HomeShell`'s nav bar.
+///
+/// [onNavTap] and [onCardTap] record that the *real* widget got the tap, which
+/// is the whole question a tap-through step asks.
+Widget _anchoredHost({
+  void Function(int)? onNavTap,
+  VoidCallback? onCardTap,
+}) =>
+    Scaffold(
       body: Center(
         child: SizedBox(
           key: tutorialTodayWorkoutKey,
           width: 200,
           height: 60,
-          child: overlayChildExtra,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onCardTap,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SizedBox(
+        key: tutorialNavBarKey,
+        height: 64,
+        child: Row(
+          children: [
+            for (var i = 0; i < 4; i++)
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onNavTap?.call(i),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+          ],
         ),
       ),
     );
-
-/// The English catalogue: a step carries the way to ask for its words rather
-/// than the words, so a test that wants to read one has to ask too.
-final _l10n = l10nFor();
 
 void main() {
   late AppDatabase db;
@@ -56,6 +84,12 @@ void main() {
     await db.close();
   });
 
+  /// Everything a track says, lower-cased, for a "does it mention X" check.
+  String saidBy(TutorialTrack track) => kTutorialTracks[track]!
+      .map((step) => '${step.title(_l10n)} ${step.body(_l10n)}')
+      .join(' ')
+      .toLowerCase();
+
   group('the seen flag lifecycle', () {
     test('a fresh install has not seen the tour', () async {
       expect(await db.watchTutorialSeen().first, isFalse);
@@ -66,7 +100,7 @@ void main() {
         (v) => v.hasValue,
       );
       expect(seen.value, isFalse,
-          reason: 'first launch should trigger the tour');
+          reason: 'first launch should offer the tour');
     });
 
     test('marking it seen is remembered', () async {
@@ -90,85 +124,357 @@ void main() {
     });
   });
 
-  group('what the tour covers', () {
-    // Issue #64. The tour was written in week one and pointed at the app as it
-    // was then; everything a new user would not find on their own — the live
-    // board, the rest timer, the workout in the shade — went unmentioned.
+  group('the tracks', () {
+    test('every track begins at the four tabs, in order', () {
+      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
+        final steps = kTutorialTracks[track]!;
+        for (var slot = 0; slot < 4; slot++) {
+          expect(steps[slot].anchors, contains(tutorialNavBarKey),
+              reason: '$track step $slot should point at the nav bar');
+          expect(steps[slot].navSlot, slot,
+              reason: '$track should walk the tabs left to right');
+          expect(steps[slot].tapThrough, isTrue,
+              reason: 'a tab step is a tab you actually tap');
+        }
+      }
+    });
 
-    String saidAltogether() => kTutorialSteps
-        .map((step) => '${step.title(_l10n)} ${step.body(_l10n)}')
-        .join(' ')
-        .toLowerCase();
+    test('the quick tour is the four tabs and little else', () {
+      final steps = kTutorialTracks[TutorialTrack.quick]!;
+      expect(steps.length, lessThanOrEqualTo(6));
+      expect(steps.where((s) => s.demo != null), isEmpty,
+          reason: 'the quick tour shows no mock workout');
+    });
 
-    test('it introduces the live board, the rest timer and the shade', () {
-      final said = saidAltogether();
-      for (final subject in ['set', 'rest', 'notification']) {
+    test('the full tour covers Today and the live workout', () {
+      final said = saidBy(TutorialTrack.full);
+      for (final subject in ['set', 'rest', 'notification', 'note', 'clip']) {
         expect(said, contains(subject),
-            reason: 'the tour never mentions $subject');
+            reason: 'the full tour never mentions $subject');
+      }
+      expect(kTutorialTracks[TutorialTrack.full]!.length,
+          lessThanOrEqualTo(16),
+          reason: 'still one sitting, not a manual');
+    });
+
+    test('the full tour explains the gym words it uses', () {
+      final said = saidBy(TutorialTrack.full);
+      for (final word in ['routine', 'training day', 'rep']) {
+        expect(said, contains(word),
+            reason: 'somebody new to the gym is left guessing at "$word"');
       }
     });
 
-    test('the other tabs are told about, not navigated to', () {
-      // The tour stays on the tab it opened on. A step about another tab
-      // highlights that tab's button and describes what is behind it; it never
-      // pushes a route, so nobody is left somewhere they did not ask to be.
-      final onToday = {tutorialTodayWorkoutKey, tutorialLifetimeKey};
-      for (final step in kTutorialSteps) {
-        final key = step.key;
-        if (key == null) continue; // the greeting points at nothing
-        expect(key == tutorialNavBarKey || onToday.contains(key), isTrue,
-            reason: 'a step is anchored to a screen the tour cannot reach: '
-                '${step.title}');
+    test('the builder tour covers making a routine', () {
+      final steps = kTutorialTracks[TutorialTrack.builder]!;
+      // It starts by sending you to Routines, then points at the real controls.
+      expect(steps.first.anchors, contains(tutorialNavBarKey));
+      expect(steps.first.navSlot, 1);
+      final anchors = steps.expand((s) => s.anchors).toSet();
+      for (final key in [
+        tutorialNewRoutineKey,
+        tutorialRoutineNameKey,
+        tutorialRoutineDaysKey,
+        tutorialRoutineSaveKey,
+      ]) {
+        expect(anchors, contains(key),
+            reason: 'the builder tour never points at $key');
       }
     });
 
-    test('and it is still one sitting, not a manual', () {
-      expect(kTutorialSteps.length, lessThanOrEqualTo(12));
+    test('the builder tour says what each per-exercise setting does', () {
+      final said = saidBy(TutorialTrack.builder);
+      for (final setting in ['sets', 'rep target', 'rest', 'step up', 'back off']) {
+        expect(said, contains(setting),
+            reason: 'the builder tour never explains "$setting"');
+      }
     });
 
-    test('it explains the note and the clip', () {
-      final said = saidAltogether();
-      for (final subject in ['note', 'clip']) {
-        expect(said, contains(subject),
-            reason: 'the tour never mentions the $subject');
+    test('the builder tour is not chained onto the first-run one', () {
+      final builderAnchors =
+          kTutorialTracks[TutorialTrack.builder]!.expand((s) => s.anchors);
+      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
+        final anchors = kTutorialTracks[track]!.expand((s) => s.anchors);
+        expect(anchors, isNot(contains(tutorialNewRoutineKey)),
+            reason: '$track should end without walking into the builder');
       }
+      expect(builderAnchors, contains(tutorialNewRoutineKey));
+    });
+
+    test('the live-workout steps carry a mock rather than an anchor', () {
+      final demos =
+          kTutorialTracks[TutorialTrack.full]!.where((s) => s.demo != null);
+      expect(
+          demos.map((s) => s.demo).toSet(),
+          containsAll(<Object>[
+            TutorialDemo.screen,
+            TutorialDemo.shade,
+          ]),
+          reason: 'the session screen and the shade should both be drawn');
+      expect(
+          demos.map((s) => s.focus).toSet(),
+          containsAll(<Object>[
+            TutorialDemoFocus.nextSet,
+            TutorialDemoFocus.rest,
+            TutorialDemoFocus.note,
+            TutorialDemoFocus.camera,
+          ]),
+          reason: 'the set rows, the rest bar, the note and the clip each get '
+              'their own step against the same screen');
+      for (final step in demos) {
+        expect(step.anchors, isEmpty,
+            reason: 'a mock step points at its picture, not at a widget behind '
+                'it: ${step.id}');
+      }
+    });
+
+    test('the live workout follows the training day that starts one', () {
+      final ids = kTutorialTracks[TutorialTrack.full]!.map((s) => s.id).toList();
+      final next = ids.indexOf('today-next');
+      final session = ids.where((id) => id.startsWith('session-')).toList();
+      expect(next, greaterThan(0));
+      expect(session, isNotEmpty);
+
+      // The chapter opens on the transition, immediately after the card that
+      // leads to it — a card you tap, a screen it opens, the thing you do there.
+      expect(ids[next + 1], 'session-open');
+      expect(ids.sublist(next + 1, next + 1 + session.length), session,
+          reason: 'the session chapter is one unbroken run');
+      expect(ids.indexOf('today-lifetime'), next + 1 + session.length,
+          reason: 'the lifetime totals come out the other side of it');
+    });
+
+    test('the chapter opens by naming the transition', () {
+      final open = kTutorialTracks[TutorialTrack.full]!
+          .firstWhere((s) => s.id == 'session-open');
+      expect(open.demo, TutorialDemo.screen);
+      final said =
+          '${open.title(_l10n)} ${open.body(_l10n)}'.toLowerCase();
+      expect(said, contains('start workout'),
+          reason: 'nothing on screen moved, so the tour has to say why the '
+              'picture changed');
     });
 
     test('the shade step is titled for what it is about', () {
-      // "Phone in your pocket" said where the phone was, not what the step was
-      // about. Whichever step describes the notification says so in its title.
-      final shade = kTutorialSteps.where(
-          (s) => s.body(_l10n).toLowerCase().contains('notification'));
+      final shade = kTutorialTracks[TutorialTrack.full]!
+          .where((s) => s.body(_l10n).toLowerCase().contains('notification'));
       expect(shade, isNotEmpty, reason: 'no step covers the shade at all');
       for (final step in shade) {
         expect(step.title(_l10n).toLowerCase(), contains('notification'),
             reason: 'the shade step is titled "${step.title(_l10n)}"');
       }
-      expect(saidAltogether(), isNot(contains('pocket')));
+      expect(saidBy(TutorialTrack.full), isNot(contains('pocket')));
+    });
+  });
+
+  group('the opening choice', () {
+    testWidgets('a first run offers two tours and neither', (tester) async {
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      expect(find.text(_l10n.tutorialChooseTitle), findsOneWidget);
+      // Both tracks, each with the one line saying what is in it — the choice
+      // is informative, not a ranking.
+      for (final label in [
+        _l10n.tutorialTrackFull,
+        _l10n.tutorialTrackFullHint,
+        _l10n.tutorialTrackQuick,
+        _l10n.tutorialTrackQuickHint,
+        _l10n.tutorialNotNow,
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      // No coach mark yet: nothing has been chosen.
+      expect(container.read(tutorialProvider).track, isNull);
+
+      await stop(tester);
     });
 
-    test('the live-workout steps carry a demo rather than an anchor', () {
-      final demos = kTutorialSteps.where((s) => s.demo != null).toList();
-      expect(
-          demos.map((s) => s.demo).toSet(),
-          containsAll(<Object>[
-            TutorialDemo.board,
-            TutorialDemo.restBar,
-            TutorialDemo.shade,
-          ]),
-          reason: 'the board, the rest bar and the shade should all be drawn');
-      for (final step in demos) {
-        expect(step.key, isNull,
-            reason: 'a demo step points at the mock, not at a widget behind it: '
-                '${step.title}');
+    testWidgets('choosing a tour starts it at its first step', (tester) async {
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
       }
+
+      await tester.tap(find.text(_l10n.tutorialTrackQuick));
+      await tester.pump();
+
+      final state = container.read(tutorialProvider);
+      expect(state.track, TutorialTrack.quick);
+      expect(state.step, 0);
+      expect(find.text(kTutorialTracks[TutorialTrack.quick]!.first.title(_l10n)),
+          findsOneWidget);
+      expect(find.text(_l10n.tutorialSkip), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('declining records that it has been seen', (tester) async {
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      await tester.tap(find.text(_l10n.tutorialNotNow));
+      await pumpUntil(
+          tester, () => container.read(tutorialSeenProvider).value == true);
+
+      expect(container.read(tutorialSeenProvider).value, isTrue);
+      expect(find.text(_l10n.tutorialChooseTitle), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('and says where to replay it from', (tester) async {
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      await tester.tap(find.text(_l10n.tutorialNotNow));
+      await tester.pump();
+
+      expect(find.text(_l10n.tutorialReplayHint), findsOneWidget,
+          reason: 'somebody who declines must be told where the tour lives');
+
+      // It gets out of the way on its own — no button to dismiss.
+      await tester.pump(const Duration(seconds: 6));
+      expect(find.text(_l10n.tutorialReplayHint), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('never reappears once the flag is set', (tester) async {
+      await db.setTutorialSeen(true);
+
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      expect(find.text(_l10n.tutorialChooseTitle), findsNothing,
+          reason: 'a returning user must not see the tour again');
+
+      await stop(tester);
+    });
+  });
+
+  group('tapping through', () {
+    testWidgets('a tab step hands the tap to the real tab', (tester) async {
+      await db.setTutorialSeen(true);
+      final tapped = <int>[];
+      await tester.pumpWidget(appUnder(
+          container,
+          TutorialOverlay(child: _anchoredHost(onNavTap: tapped.add))));
+      container.read(tutorialProvider.notifier).start(TutorialTrack.quick);
+      await tester.pump();
+      // Step 1 spotlights the Routines tab.
+      container.read(tutorialProvider.notifier).next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      final bar = tester.getRect(find.byKey(tutorialNavBarKey));
+      await tester.tapAt(Offset(bar.left + bar.width * 3 / 8, bar.center.dy));
+      await tester.pump();
+
+      expect(tapped, [1],
+          reason: 'the tour is meant to feel like the app, not sit over it');
+      expect(container.read(tutorialProvider).step, 2,
+          reason: 'doing what the step asked moves the tour on');
+
+      await stop(tester);
+    });
+
+    testWidgets('outside the spotlight the scrim eats the tap', (tester) async {
+      await db.setTutorialSeen(true);
+      final tapped = <int>[];
+      var cards = 0;
+      await tester.pumpWidget(appUnder(
+          container,
+          TutorialOverlay(
+              child: _anchoredHost(
+                  onNavTap: tapped.add, onCardTap: () => cards++))));
+      container.read(tutorialProvider.notifier).start(TutorialTrack.quick);
+      await tester.pump();
+      container.read(tutorialProvider.notifier).next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      // The Today card is nowhere near the spotlit tab.
+      await tester.tap(find.byKey(tutorialTodayWorkoutKey), warnIfMissed: false);
+      await tester.pump();
+
+      expect(cards, 0, reason: 'the app is not poked mid-sentence');
+      expect(tapped, isEmpty);
+      expect(container.read(tutorialProvider).step, 2,
+          reason: 'a tap on the scrim is still the forgiving way through');
+
+      await stop(tester);
+    });
+
+    testWidgets('an informational step does not hand the tap on',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      var cards = 0;
+      await tester.pumpWidget(appUnder(container,
+          TutorialOverlay(child: _anchoredHost(onCardTap: () => cards++))));
+      container.read(tutorialProvider.notifier).start(TutorialTrack.full);
+      await tester.pump();
+      final steps = kTutorialTracks[TutorialTrack.full]!;
+      final target =
+          steps.indexWhere((s) => s.anchors.contains(tutorialTodayWorkoutKey));
+      expect(target, greaterThan(0));
+      for (var i = 0; i < target; i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(steps[target].tapThrough, isFalse,
+          reason: 'the tour should not send you off Today mid-tour');
+
+      await tester.tap(find.byKey(tutorialTodayWorkoutKey), warnIfMissed: false);
+      await tester.pump();
+
+      expect(cards, 0, reason: 'this step is "look at this", not "tap this"');
+      expect(container.read(tutorialProvider).step, target + 1);
+
+      await stop(tester);
+    });
+
+    testWidgets('a step whose anchor is missing still reads', (tester) async {
+      // Tapping Next instead of the control leaves a later step pointing at a
+      // screen nobody is on. It must still say its piece.
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: const Scaffold())));
+      final steps = kTutorialTracks[TutorialTrack.builder]!;
+      final target =
+          steps.indexWhere((s) => s.anchors.contains(tutorialRoutineNameKey));
+      expect(target, greaterThan(0));
+      container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
+      for (var i = 0; i < target; i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.text(steps[target].title(_l10n)), findsOneWidget);
+
+      await stop(tester);
     });
   });
 
   group('the mock workout', () {
-    /// Walks a freshly started tour to [index] and lets the frame settle.
+    /// Walks a freshly started full tour to [index] and lets the frame settle.
     Future<void> walkTo(WidgetTester tester, int index) async {
-      container.read(tutorialProvider.notifier).start();
+      container.read(tutorialProvider.notifier).start(TutorialTrack.full);
       for (var i = 0; i < index; i++) {
         container.read(tutorialProvider.notifier).next();
       }
@@ -177,31 +483,29 @@ void main() {
     }
 
     int stepWith(TutorialDemo demo) {
-      final i = kTutorialSteps.indexWhere((s) => s.demo == demo);
+      final i =
+          kTutorialTracks[TutorialTrack.full]!.indexWhere((s) => s.demo == demo);
       expect(i, greaterThan(0), reason: 'no step draws $demo');
       return i;
     }
 
-    testWidgets('the board step draws a board, not a hole in the screen',
-        (tester) async {
-      await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      await walkTo(tester, stepWith(TutorialDemo.board));
+    /// The step whose mock board is focused on [focus].
+    int boardStepFocused(TutorialDemoFocus focus) {
+      final i = kTutorialTracks[TutorialTrack.full]!.indexWhere(
+          (s) => s.demo == TutorialDemo.screen && s.focus == focus);
+      expect(i, greaterThan(0), reason: 'no board step focuses on $focus');
+      return i;
+    }
 
-      expect(find.byType(TutorialBoardDemo), findsOneWidget);
-      // The parts the step is talking about are actually on it: the exercise
-      // with its note icon, and set rows with a camera each.
-      expect(find.byKey(kTutorialDemoNoteKey), findsOneWidget);
-      expect(find.byKey(kTutorialDemoCameraKey), findsWidgets);
-
-      await stop(tester);
-    });
-
-    /// Every icon the mock board is currently painting, with its colour.
+    /// Every icon the *focused* exercise of the mock session is painting, with
+    /// its colour. Scoped to the first block: the day has a second lift under
+    /// it, drawn at rest, which no step is ever about.
     List<Icon> boardIcons(WidgetTester tester, Key key) => tester
-        .widgetList<Icon>(
-            find.descendant(of: find.byKey(key), matching: find.byType(Icon)))
+        .widgetList<Icon>(find.descendant(
+          of: find.descendant(
+              of: find.byType(TutorialBoardDemo).first, matching: find.byKey(key)),
+          matching: find.byType(Icon),
+        ))
         .toList();
 
     /// True when the mock board is painting a session in progress: a set behind
@@ -210,19 +514,89 @@ void main() {
         find.byKey(kTutorialDemoDoneRowKey).evaluate().isNotEmpty ||
         find.byKey(kTutorialDemoNextRowKey).evaluate().isNotEmpty;
 
-    /// The step whose mock board is focused on [focus].
-    int boardStepFocused(TutorialDemoFocus focus) {
-      final i = kTutorialSteps.indexWhere(
-          (s) => s.demo == TutorialDemo.board && s.focus == focus);
-      expect(i, greaterThan(0), reason: 'no board step focuses on $focus');
-      return i;
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('the session chapter survives $scale× text on a 360 dp phone',
+          (tester) async {
+        // The mock is a whole screen now, so it is swept like one — the screen
+        // sweep in feature 15 cannot see it, because it is drawn by an overlay
+        // over whatever route happens to be up.
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await db.setTutorialSeen(true);
+
+        final overflows = await overflowsDuring(() async {
+          await tester.pumpWidget(appUnder(
+              container, TutorialOverlay(child: _anchoredHost()),
+              textScale: scale));
+          for (final step in kTutorialTracks[TutorialTrack.full]!) {
+            if (step.demo == null) continue;
+            await walkTo(
+                tester,
+                kTutorialTracks[TutorialTrack.full]!
+                    .indexWhere((s) => s.id == step.id));
+            await tester.pump(const Duration(milliseconds: 300));
+          }
+        });
+
+        expect(overflows, isEmpty, reason: overflows.toSet().join(' | '));
+        await stop(tester);
+      });
     }
+
+    testWidgets('the session steps fill the screen with the session',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, stepWith(TutorialDemo.screen));
+
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final mock = tester.getSize(find.byType(TutorialSessionDemo));
+      expect(mock.width, closeTo(screen.width, 1),
+          reason: 'a thumbnail of a screen teaches the thumbnail');
+      expect(mock.height, closeTo(screen.height, 1));
+      // Two exercises, so the mock reads as a training day rather than as one
+      // lift somebody was shown in isolation.
+      expect(find.byType(TutorialBoardDemo), findsNWidgets(2));
+
+      await stop(tester);
+    });
+
+    testWidgets('the rest bar is docked only on the step about resting',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.nextSet));
+      expect(find.byType(TutorialRestDemo), findsNothing);
+
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.rest));
+      expect(find.byType(TutorialRestDemo), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('the board step draws a board, not a hole in the screen',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, stepWith(TutorialDemo.screen));
+
+      expect(find.byType(TutorialBoardDemo), findsWidgets);
+      expect(find.byKey(kTutorialDemoNoteKey), findsWidgets);
+      expect(find.byKey(kTutorialDemoCameraKey), findsWidgets);
+
+      await stop(tester);
+    });
 
     testWidgets('the note step rings the note and nothing else',
         (tester) async {
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
       await walkTo(tester, boardStepFocused(TutorialDemoFocus.note));
 
       expect(find.byKey(kTutorialDemoRingKey), findsOneWidget,
@@ -231,17 +605,16 @@ void main() {
           find.descendant(
               of: find.byKey(kTutorialDemoRingKey),
               matching: find.byKey(kTutorialDemoNoteKey)),
-          findsOneWidget,
-          reason: 'the note is the subject of this step');
+          findsOneWidget);
+      expect(find.byKey(kTutorialDemoNoteKey), findsNWidgets(2),
+          reason: 'the second lift has a note icon too, just not a ring');
       expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
           AppColors.accent);
       for (final camera in boardIcons(tester, kTutorialDemoCameraKey)) {
         expect(camera.color, isNot(AppColors.accent),
             reason: 'a camera in the accent pulls the eye off the note');
       }
-      expect(showsProgress(tester), isFalse,
-          reason: 'the note step should leave the board in its default state — '
-              'no logged set, no outlined next set');
+      expect(showsProgress(tester), isFalse);
 
       await stop(tester);
     });
@@ -249,19 +622,16 @@ void main() {
     testWidgets('the clip step rings one camera and nothing else',
         (tester) async {
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
       await walkTo(tester, boardStepFocused(TutorialDemoFocus.camera));
 
-      expect(find.byKey(kTutorialDemoRingKey), findsOneWidget,
-          reason: 'the ring points at one camera, not at the column');
+      expect(find.byKey(kTutorialDemoRingKey), findsOneWidget);
       final cameras = boardIcons(tester, kTutorialDemoCameraKey);
-      expect(cameras.where((i) => i.color == AppColors.accent), hasLength(1),
-          reason: 'exactly one camera is the subject of this step');
+      expect(cameras.where((i) => i.color == AppColors.accent), hasLength(1));
       expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
           isNot(AppColors.accent));
-      expect(showsProgress(tester), isFalse,
-          reason: 'the clip step should leave the board in its default state');
+      expect(showsProgress(tester), isFalse);
 
       await stop(tester);
     });
@@ -269,20 +639,14 @@ void main() {
     testWidgets('the set-row step is the one that shows a session under way',
         (tester) async {
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
       await walkTo(tester, boardStepFocused(TutorialDemoFocus.nextSet));
 
-      expect(showsProgress(tester), isTrue,
-          reason: 'a set behind you and the next one outlined is what this '
-              'step is describing');
-      expect(find.byKey(kTutorialDemoRingKey), findsNothing,
-          reason: 'the outlined row is the pointer here; a ring as well would '
-              'be two pointers');
-      // But the icons stay quiet: the step is about the rows, not the camera.
+      expect(showsProgress(tester), isTrue);
+      expect(find.byKey(kTutorialDemoRingKey), findsNothing);
       for (final camera in boardIcons(tester, kTutorialDemoCameraKey)) {
-        expect(camera.color, isNot(AppColors.accent),
-            reason: 'an accent camera outshouts the row the step is about');
+        expect(camera.color, isNot(AppColors.accent));
       }
       expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
           isNot(AppColors.accent));
@@ -293,9 +657,9 @@ void main() {
     testWidgets('the rest step draws the bar with its controls',
         (tester) async {
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      await walkTo(tester, stepWith(TutorialDemo.restBar));
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.rest));
 
       expect(find.byType(TutorialRestDemo), findsOneWidget);
       for (final control in [
@@ -317,13 +681,10 @@ void main() {
 
     testWidgets('the mock is drawn under a Material, so its text is styled',
         (tester) async {
-      // Text with no Material above it paints in the framework's unstyled
-      // red-on-yellow. The overlay is a bare Stack, so the mock has to bring
-      // one — this caught exactly that on a device.
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      await walkTo(tester, stepWith(TutorialDemo.board));
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, stepWith(TutorialDemo.screen));
 
       expect(
           find.ancestor(
@@ -338,14 +699,13 @@ void main() {
     testWidgets('the shade step draws the notification it describes',
         (tester) async {
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
       await walkTo(tester, stepWith(TutorialDemo.shade));
 
       expect(find.byType(TutorialShadeDemo), findsOneWidget);
       for (final action in ['DONE', 'MISSED']) {
-        expect(find.text(action), findsOneWidget,
-            reason: 'the mock notification should offer $action');
+        expect(find.text(action), findsOneWidget);
       }
 
       await stop(tester);
@@ -354,9 +714,9 @@ void main() {
     testWidgets('tapping the mock advances the tour rather than logging a set',
         (tester) async {
       await db.setTutorialSeen(true);
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      final index = stepWith(TutorialDemo.board);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      final index = stepWith(TutorialDemo.screen);
       await walkTo(tester, index);
 
       await tester.tap(find.byKey(kTutorialDemoCameraKey).first,
@@ -365,91 +725,42 @@ void main() {
 
       expect(container.read(tutorialProvider).step, index + 1,
           reason: 'the mock is a picture: a tap on it is a tap on the tour');
-      // And nothing behind it started a session.
       expect(container.read(activeWorkoutProvider), isNull);
 
       await stop(tester);
     });
   });
 
-  group('the overlay', () {
-    testWidgets('shows on a genuine first run and dismissing remembers it',
-        (tester) async {
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      // Let the seen-flag stream emit false and the auto-start post-frame fire.
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-      }
-
-      // It opens on the greeting, not mid-sentence on a coach mark: the app
-      // says what it is and offers the tour before pointing at anything.
-      expect(find.text(kTutorialSteps.first.title(_l10n)), findsOneWidget,
-          reason: 'the tour should open on its welcome step');
-      expect(find.text(_l10n.tutorialTakeTour), findsOneWidget);
-      expect(find.text(_l10n.tutorialNotNow), findsOneWidget);
-
-      // Declining means "don't run again on its own" — it must persist the flag.
-      await tester.tap(find.text(_l10n.tutorialNotNow));
-      await pumpUntil(
-          tester, () => container.read(tutorialSeenProvider).value == true);
-
-      expect(container.read(tutorialSeenProvider).value, isTrue,
-          reason: 'dismissing records that the tour has been seen');
-
-      // And the overlay is gone, cleanly — nothing of it left on screen.
-      expect(find.text(kTutorialSteps.first.title(_l10n)), findsNothing);
-      expect(find.text(_l10n.tutorialTakeTour), findsNothing);
-
-      await stop(tester);
-    });
-
-    testWidgets('taking it goes on to the first coach mark', (tester) async {
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-      }
-
-      await tester.tap(find.text(_l10n.tutorialTakeTour));
-      await tester.pump();
-
-      // The second step is the first one that points at something, and its
-      // buttons go back to reading as navigation.
-      expect(find.text(kTutorialSteps[1].title(_l10n)), findsOneWidget);
-      expect(find.text(_l10n.tutorialSkip), findsOneWidget);
-      expect(find.text(_l10n.tutorialNext), findsOneWidget);
-
-      await stop(tester);
-    });
-
-    testWidgets('a replay from the help menu starts at the welcome too',
-        (tester) async {
-      // A returning user: the flag is already set, so nothing auto-starts.
+  group('replaying', () {
+    testWidgets('Profile offers all three tours', (tester) async {
       await db.setTutorialSeen(true);
       await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
+          routedAppUnder(container, const ProfileScreen(), scaffold: true));
+      await pumpThroughDatabase(tester);
+
+      await tester.tap(find.text(_l10n.profileHelpAndTour));
+      await frames(tester);
+
+      for (final label in [
+        _l10n.tutorialTrackFull,
+        _l10n.tutorialTrackQuick,
+        _l10n.tutorialTrackBuilder,
+      ]) {
+        expect(find.text(label), findsOneWidget,
+            reason: 'Help & tour should offer $label');
       }
-      expect(find.text(kTutorialSteps.first.title(_l10n)), findsNothing);
 
-      // What Profile → Help & tour does.
-      container.read(tutorialProvider.notifier).start();
-      await tester.pump();
+      await tester.tap(find.text(_l10n.tutorialTrackBuilder));
+      await frames(tester);
 
-      expect(find.text(kTutorialSteps.first.title(_l10n)), findsOneWidget,
-          reason: 'a replay begins at the greeting, not mid-tour');
+      expect(container.read(tutorialProvider).track, TutorialTrack.builder,
+          reason: 'the builder tour starts on its own, not after the others');
 
       await stop(tester);
     });
 
     testWidgets('an anchor below the fold is scrolled into view',
         (tester) async {
-      // The whole point of a coach mark is that it points at something. On a
-      // short screen with three training days queued, the lifetime card is off
-      // the bottom of the Today tab — so the tour brings it up before
-      // spotlighting it, rather than cutting a hole in a screen nobody can see.
       tester.view.physicalSize = const Size(390, 480);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -466,18 +777,17 @@ void main() {
           reason: 'the anchor should start off screen for this to mean '
               'anything');
 
-      // Walk the tour to the step that points at it.
+      final steps = kTutorialTracks[TutorialTrack.full]!;
       final target =
-          kTutorialSteps.indexWhere((s) => s.key == tutorialLifetimeKey);
+          steps.indexWhere((s) => s.anchors.contains(tutorialLifetimeKey));
       expect(target, greaterThan(0));
-      container.read(tutorialProvider.notifier).start();
+      container.read(tutorialProvider.notifier).start(TutorialTrack.full);
       for (var i = 0; i < target; i++) {
         container.read(tutorialProvider.notifier).next();
         await tester.pump();
       }
-      expect(find.text(kTutorialSteps[target].title(_l10n)), findsOneWidget);
+      expect(find.text(steps[target].title(_l10n)), findsOneWidget);
 
-      // Let the scroll run.
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 40));
       }
@@ -486,23 +796,6 @@ void main() {
       expect(rect.top, greaterThanOrEqualTo(0.0));
       expect(rect.bottom, lessThanOrEqualTo(480.0),
           reason: 'the tour did not bring its anchor into view');
-
-      await stop(tester);
-    });
-
-    testWidgets('never reappears once the flag is set', (tester) async {
-      // The flag is written before the overlay ever subscribes, so its stream's
-      // first emission is already `true` — the tour has no window to auto-start.
-      await db.setTutorialSeen(true);
-
-      await tester.pumpWidget(
-          appUnder(container, TutorialOverlay(child: _anchoredHost(null))));
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-      }
-
-      expect(find.text(kTutorialSteps.first.title(_l10n)), findsNothing,
-          reason: 'a returning user must not see the tour again');
 
       await stop(tester);
     });

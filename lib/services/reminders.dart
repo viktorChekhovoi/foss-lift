@@ -46,9 +46,14 @@ class ReminderService {
   Future<void> _queue = Future<void>.value();
 
   /// Android is the only platform this app ships on, and the only one with a
-  /// notification story worth having here. Everywhere else — desktop, and the
-  /// test runner — every method below is a no-op rather than a crash.
-  bool get supported => Platform.isAndroid;
+  /// notification story worth having here. Everywhere else — desktop, the
+  /// browser, and the test runner — every method below is a no-op rather than a
+  /// crash.
+  ///
+  /// The web is checked first and separately: `Platform.isAndroid` does not
+  /// return false in a browser, it throws. `dart:io` compiles for the web and
+  /// then refuses to do anything.
+  bool get supported => !kIsWeb && Platform.isAndroid;
 
   /// Prepares the time-zone database and the plugin. Safe to call repeatedly;
   /// only the first call does anything.

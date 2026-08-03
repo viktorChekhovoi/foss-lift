@@ -100,7 +100,7 @@ groups:
     d: >-
       overriding the app-wide default. Open any exercise → Bar weight → pick one
       of the bars you keep, add one there and then, or hand it back to the default.
-      The same list is what Settings → Default bar shows.
+      The same list is what Exercise settings → Default bar shows.
     screen: exercise-detail
     defines:
     - load.bar-weight
@@ -222,8 +222,9 @@ groups:
     t: The group and equipment lists are a wire format
     d: >-
       a shared routine sends "muscle group #4" rather than the word, which is
-      most of the reason a routine fits in a QR code. Free to change until the
-      first public release.
+      most of the reason a routine fits in a QR code. Frozen: new entries go on
+      the end, and reordering one would silently re-label every code already
+      shared.
     screen: none
     uses:
     - exercise.taxonomy

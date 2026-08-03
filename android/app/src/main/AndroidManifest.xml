@@ -53,9 +53,10 @@
     <!-- Android 13+ will not show any notification without it being granted,
          including the live workout and the workout reminders. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- The rest-finished notification buzzes as well as sounding: a phone in a
-         gym bag is not always somewhere a ding carries. See
-         lib/services/rest_alarm.dart. -->
+    <!-- The rest-finished notification buzzes: it makes no sound of its own —
+         the app plays the ding itself, so that the rest-alert volume can reach
+         it — and a phone in a gym bag is not always somewhere a ding carries.
+         See lib/services/rest_alarm.dart. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- The live workout runs as a foreground service, which is what keeps the
          session's isolate alive while the phone is in a pocket — see

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 
 /// Where to write when the app misbehaves. The only address in the app, and the
 /// only reason it holds one.
@@ -39,8 +40,8 @@ class AboutScreen extends StatelessWidget {
             const SizedBox(height: 8),
             _Para(l10n.aboutDataPara2),
             const SizedBox(height: 22),
-            _Section(l10n.aboutLicenceSection),
-            _Para(l10n.aboutLicenceBody),
+            _Section(l10n.aboutLicenseSection),
+            _Para(l10n.aboutLicenseBody),
             const SizedBox(height: 22),
             _Section(l10n.aboutSomethingBrokenSection),
             const SizedBox(height: 10),
@@ -105,8 +106,7 @@ class _Section extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text,
-      style: kMono.copyWith(
-          fontSize: 11, letterSpacing: 1.2, color: AppColors.faint));
+      style: sectionLabelStyle());
 }
 
 class _Para extends StatelessWidget {

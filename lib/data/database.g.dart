@@ -943,9 +943,9 @@ class Routine extends DataClass implements Insertable<Routine> {
   final int id;
   final String name;
 
-  /// Which demo programme this is, or null for one of your own.
+  /// Which demo program this is, or null for one of your own.
   ///
-  /// Cleared the moment the routine is renamed — a programme you have named is
+  /// Cleared the moment the routine is renamed — a program you have named is
   /// yours, and must not revert to "Push / Pull / Legs" on the next language
   /// switch. See `util/seed_names.dart`.
   final String? seedKey;
@@ -1397,7 +1397,7 @@ class Workout extends DataClass implements Insertable<Workout> {
   final int routineId;
   final String name;
 
-  /// Which training day of a demo programme this is, or null. Cleared on
+  /// Which training day of a demo program this is, or null. Cleared on
   /// rename, for the same reason as [Routines.seedKey].
   final String? seedKey;
   final int position;
@@ -1725,6 +1725,39 @@ class $WorkoutItemsTable extends WorkoutItems
     requiredDuringInsert: false,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<SetScheme, String> scheme =
+      GeneratedColumn<String>(
+        'scheme',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('flat'),
+      ).withConverter<SetScheme>($WorkoutItemsTable.$converterscheme);
+  static const VerificationMeta _schemePercentMeta = const VerificationMeta(
+    'schemePercent',
+  );
+  @override
+  late final GeneratedColumn<int> schemePercent = GeneratedColumn<int>(
+    'scheme_percent',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultSchemePercent),
+  );
+  static const VerificationMeta _customSetsMeta = const VerificationMeta(
+    'customSets',
+  );
+  @override
+  late final GeneratedColumn<String> customSets = GeneratedColumn<String>(
+    'custom_sets',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
   late final GeneratedColumnWithTypeConverter<ProgressionMode, String>
   progression = GeneratedColumn<String>(
     'progression',
@@ -1828,6 +1861,9 @@ class $WorkoutItemsTable extends WorkoutItems
     toFailure,
     restSeconds,
     suggestedWeight,
+    scheme,
+    schemePercent,
+    customSets,
     progression,
     holdSeconds,
     increment,
@@ -1914,6 +1950,21 @@ class $WorkoutItemsTable extends WorkoutItems
           data['suggested_weight']!,
           _suggestedWeightMeta,
         ),
+      );
+    }
+    if (data.containsKey('scheme_percent')) {
+      context.handle(
+        _schemePercentMeta,
+        schemePercent.isAcceptableOrUnknown(
+          data['scheme_percent']!,
+          _schemePercentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_sets')) {
+      context.handle(
+        _customSetsMeta,
+        customSets.isAcceptableOrUnknown(data['custom_sets']!, _customSetsMeta),
       );
     }
     if (data.containsKey('hold_seconds')) {
@@ -2019,6 +2070,20 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.double,
         data['${effectivePrefix}suggested_weight'],
       ),
+      scheme: $WorkoutItemsTable.$converterscheme.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}scheme'],
+        )!,
+      ),
+      schemePercent: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}scheme_percent'],
+      )!,
+      customSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_sets'],
+      ),
       progression: $WorkoutItemsTable.$converterprogression.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -2061,6 +2126,8 @@ class $WorkoutItemsTable extends WorkoutItems
     return $WorkoutItemsTable(attachedDatabase, alias);
   }
 
+  static JsonTypeConverter2<SetScheme, String, String> $converterscheme =
+      const EnumNameConverter<SetScheme>(SetScheme.values);
   static JsonTypeConverter2<ProgressionMode, String, String>
   $converterprogression = const EnumNameConverter<ProgressionMode>(
     ProgressionMode.values,
@@ -2085,7 +2152,20 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
 
   /// Per-exercise rest override, in seconds. Null falls back to the routine.
   final int? restSeconds;
+
+  /// The top of every ladder this slot produces — see [SetScheme]. Null on a
+  /// movement that carries no load.
   final double? suggestedWeight;
+  final SetScheme scheme;
+
+  /// What one rung of a back-off or a ramp moves by, as a whole percentage of
+  /// [suggestedWeight]. Ignored by the other two schemes.
+  final int schemePercent;
+
+  /// The written-out rows of a [SetScheme.custom] slot, encoded — see
+  /// `encodeCustomSets`. Null on every other scheme, and on a custom slot
+  /// nobody has filled in yet.
+  final String? customSets;
 
   /// The axis this slot advances along — see [ProgressionMode].
   final ProgressionMode progression;
@@ -2130,6 +2210,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     required this.toFailure,
     this.restSeconds,
     this.suggestedWeight,
+    required this.scheme,
+    required this.schemePercent,
+    this.customSets,
     required this.progression,
     required this.holdSeconds,
     required this.increment,
@@ -2157,6 +2240,15 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     }
     if (!nullToAbsent || suggestedWeight != null) {
       map['suggested_weight'] = Variable<double>(suggestedWeight);
+    }
+    {
+      map['scheme'] = Variable<String>(
+        $WorkoutItemsTable.$converterscheme.toSql(scheme),
+      );
+    }
+    map['scheme_percent'] = Variable<int>(schemePercent);
+    if (!nullToAbsent || customSets != null) {
+      map['custom_sets'] = Variable<String>(customSets);
     }
     {
       map['progression'] = Variable<String>(
@@ -2191,6 +2283,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       suggestedWeight: suggestedWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(suggestedWeight),
+      scheme: Value(scheme),
+      schemePercent: Value(schemePercent),
+      customSets: customSets == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customSets),
       progression: Value(progression),
       holdSeconds: Value(holdSeconds),
       increment: Value(increment),
@@ -2218,6 +2315,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       toFailure: serializer.fromJson<bool>(json['toFailure']),
       restSeconds: serializer.fromJson<int?>(json['restSeconds']),
       suggestedWeight: serializer.fromJson<double?>(json['suggestedWeight']),
+      scheme: $WorkoutItemsTable.$converterscheme.fromJson(
+        serializer.fromJson<String>(json['scheme']),
+      ),
+      schemePercent: serializer.fromJson<int>(json['schemePercent']),
+      customSets: serializer.fromJson<String?>(json['customSets']),
       progression: $WorkoutItemsTable.$converterprogression.fromJson(
         serializer.fromJson<String>(json['progression']),
       ),
@@ -2244,6 +2346,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'toFailure': serializer.toJson<bool>(toFailure),
       'restSeconds': serializer.toJson<int?>(restSeconds),
       'suggestedWeight': serializer.toJson<double?>(suggestedWeight),
+      'scheme': serializer.toJson<String>(
+        $WorkoutItemsTable.$converterscheme.toJson(scheme),
+      ),
+      'schemePercent': serializer.toJson<int>(schemePercent),
+      'customSets': serializer.toJson<String?>(customSets),
       'progression': serializer.toJson<String>(
         $WorkoutItemsTable.$converterprogression.toJson(progression),
       ),
@@ -2268,6 +2375,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     bool? toFailure,
     Value<int?> restSeconds = const Value.absent(),
     Value<double?> suggestedWeight = const Value.absent(),
+    SetScheme? scheme,
+    int? schemePercent,
+    Value<String?> customSets = const Value.absent(),
     ProgressionMode? progression,
     int? holdSeconds,
     double? increment,
@@ -2289,6 +2399,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     suggestedWeight: suggestedWeight.present
         ? suggestedWeight.value
         : this.suggestedWeight,
+    scheme: scheme ?? this.scheme,
+    schemePercent: schemePercent ?? this.schemePercent,
+    customSets: customSets.present ? customSets.value : this.customSets,
     progression: progression ?? this.progression,
     holdSeconds: holdSeconds ?? this.holdSeconds,
     increment: increment ?? this.increment,
@@ -2318,6 +2431,13 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       suggestedWeight: data.suggestedWeight.present
           ? data.suggestedWeight.value
           : this.suggestedWeight,
+      scheme: data.scheme.present ? data.scheme.value : this.scheme,
+      schemePercent: data.schemePercent.present
+          ? data.schemePercent.value
+          : this.schemePercent,
+      customSets: data.customSets.present
+          ? data.customSets.value
+          : this.customSets,
       progression: data.progression.present
           ? data.progression.value
           : this.progression,
@@ -2354,6 +2474,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('toFailure: $toFailure, ')
           ..write('restSeconds: $restSeconds, ')
           ..write('suggestedWeight: $suggestedWeight, ')
+          ..write('scheme: $scheme, ')
+          ..write('schemePercent: $schemePercent, ')
+          ..write('customSets: $customSets, ')
           ..write('progression: $progression, ')
           ..write('holdSeconds: $holdSeconds, ')
           ..write('increment: $increment, ')
@@ -2367,7 +2490,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     workoutId,
     exerciseId,
@@ -2378,6 +2501,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     toFailure,
     restSeconds,
     suggestedWeight,
+    scheme,
+    schemePercent,
+    customSets,
     progression,
     holdSeconds,
     increment,
@@ -2386,7 +2512,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     failureThreshold,
     successStreak,
     failStreak,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2401,6 +2527,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.toFailure == this.toFailure &&
           other.restSeconds == this.restSeconds &&
           other.suggestedWeight == this.suggestedWeight &&
+          other.scheme == this.scheme &&
+          other.schemePercent == this.schemePercent &&
+          other.customSets == this.customSets &&
           other.progression == this.progression &&
           other.holdSeconds == this.holdSeconds &&
           other.increment == this.increment &&
@@ -2422,6 +2551,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<bool> toFailure;
   final Value<int?> restSeconds;
   final Value<double?> suggestedWeight;
+  final Value<SetScheme> scheme;
+  final Value<int> schemePercent;
+  final Value<String?> customSets;
   final Value<ProgressionMode> progression;
   final Value<int> holdSeconds;
   final Value<double> increment;
@@ -2441,6 +2573,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.toFailure = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.suggestedWeight = const Value.absent(),
+    this.scheme = const Value.absent(),
+    this.schemePercent = const Value.absent(),
+    this.customSets = const Value.absent(),
     this.progression = const Value.absent(),
     this.holdSeconds = const Value.absent(),
     this.increment = const Value.absent(),
@@ -2461,6 +2596,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.toFailure = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.suggestedWeight = const Value.absent(),
+    this.scheme = const Value.absent(),
+    this.schemePercent = const Value.absent(),
+    this.customSets = const Value.absent(),
     this.progression = const Value.absent(),
     this.holdSeconds = const Value.absent(),
     this.increment = const Value.absent(),
@@ -2482,6 +2620,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<bool>? toFailure,
     Expression<int>? restSeconds,
     Expression<double>? suggestedWeight,
+    Expression<String>? scheme,
+    Expression<int>? schemePercent,
+    Expression<String>? customSets,
     Expression<String>? progression,
     Expression<int>? holdSeconds,
     Expression<double>? increment,
@@ -2502,6 +2643,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (toFailure != null) 'to_failure': toFailure,
       if (restSeconds != null) 'rest_seconds': restSeconds,
       if (suggestedWeight != null) 'suggested_weight': suggestedWeight,
+      if (scheme != null) 'scheme': scheme,
+      if (schemePercent != null) 'scheme_percent': schemePercent,
+      if (customSets != null) 'custom_sets': customSets,
       if (progression != null) 'progression': progression,
       if (holdSeconds != null) 'hold_seconds': holdSeconds,
       if (increment != null) 'increment': increment,
@@ -2524,6 +2668,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<bool>? toFailure,
     Value<int?>? restSeconds,
     Value<double?>? suggestedWeight,
+    Value<SetScheme>? scheme,
+    Value<int>? schemePercent,
+    Value<String?>? customSets,
     Value<ProgressionMode>? progression,
     Value<int>? holdSeconds,
     Value<double>? increment,
@@ -2544,6 +2691,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       toFailure: toFailure ?? this.toFailure,
       restSeconds: restSeconds ?? this.restSeconds,
       suggestedWeight: suggestedWeight ?? this.suggestedWeight,
+      scheme: scheme ?? this.scheme,
+      schemePercent: schemePercent ?? this.schemePercent,
+      customSets: customSets ?? this.customSets,
       progression: progression ?? this.progression,
       holdSeconds: holdSeconds ?? this.holdSeconds,
       increment: increment ?? this.increment,
@@ -2588,6 +2738,17 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     if (suggestedWeight.present) {
       map['suggested_weight'] = Variable<double>(suggestedWeight.value);
     }
+    if (scheme.present) {
+      map['scheme'] = Variable<String>(
+        $WorkoutItemsTable.$converterscheme.toSql(scheme.value),
+      );
+    }
+    if (schemePercent.present) {
+      map['scheme_percent'] = Variable<int>(schemePercent.value);
+    }
+    if (customSets.present) {
+      map['custom_sets'] = Variable<String>(customSets.value);
+    }
     if (progression.present) {
       map['progression'] = Variable<String>(
         $WorkoutItemsTable.$converterprogression.toSql(progression.value),
@@ -2630,6 +2791,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('toFailure: $toFailure, ')
           ..write('restSeconds: $restSeconds, ')
           ..write('suggestedWeight: $suggestedWeight, ')
+          ..write('scheme: $scheme, ')
+          ..write('schemePercent: $schemePercent, ')
+          ..write('customSets: $customSets, ')
           ..write('progression: $progression, ')
           ..write('holdSeconds: $holdSeconds, ')
           ..write('increment: $increment, ')
@@ -4120,10 +4284,9 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   late final GeneratedColumn<String> weightUnit = GeneratedColumn<String>(
     'weight_unit',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('kg'),
   );
   static const VerificationMeta _activeRoutineIdMeta = const VerificationMeta(
     'activeRoutineId',
@@ -4416,7 +4579,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       weightUnit: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}weight_unit'],
-      )!,
+      ),
       activeRoutineId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}active_routine_id'],
@@ -4478,7 +4641,13 @@ class Setting extends DataClass implements Insertable<Setting> {
   final int id;
 
   /// 'kg' or 'lb'. Weights are stored in kg; this only affects display/input.
-  final String weightUnit;
+  ///
+  /// **Null means the question has not been asked yet**, which is not the same
+  /// as kilograms: a fresh install opens on the first-run unit choice, and this
+  /// column is what says whether it still has to. Everything that only wants to
+  /// *display* a weight reads null as kilograms, so nothing downstream has to
+  /// cope with a missing unit.
+  final String? weightUnit;
 
   /// The routine the Today tab is currently about. Null means "not chosen yet",
   /// which makes Today fall back to a routine chooser. Not a foreign key: a
@@ -4511,7 +4680,7 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// Whether the first-run tutorial has already been shown. False on a fresh
   /// install, so the coach marks run exactly once; set true when the tour is
   /// completed or skipped. An upgrade marks it true — an existing user is not a
-  /// first run and should never be ambushed by it mid-programme. Re-running the
+  /// first run and should never be ambushed by it mid-program. Re-running the
   /// tour from the help menu does not clear it.
   final bool tutorialSeen;
 
@@ -4565,7 +4734,7 @@ class Setting extends DataClass implements Insertable<Setting> {
   final String? localeTag;
   const Setting({
     required this.id,
-    required this.weightUnit,
+    this.weightUnit,
     this.activeRoutineId,
     required this.layoffDays,
     required this.layoffPercent,
@@ -4583,7 +4752,9 @@ class Setting extends DataClass implements Insertable<Setting> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    map['weight_unit'] = Variable<String>(weightUnit);
+    if (!nullToAbsent || weightUnit != null) {
+      map['weight_unit'] = Variable<String>(weightUnit);
+    }
     if (!nullToAbsent || activeRoutineId != null) {
       map['active_routine_id'] = Variable<int>(activeRoutineId);
     }
@@ -4614,7 +4785,9 @@ class Setting extends DataClass implements Insertable<Setting> {
   SettingsCompanion toCompanion(bool nullToAbsent) {
     return SettingsCompanion(
       id: Value(id),
-      weightUnit: Value(weightUnit),
+      weightUnit: weightUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weightUnit),
       activeRoutineId: activeRoutineId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeRoutineId),
@@ -4649,7 +4822,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Setting(
       id: serializer.fromJson<int>(json['id']),
-      weightUnit: serializer.fromJson<String>(json['weightUnit']),
+      weightUnit: serializer.fromJson<String?>(json['weightUnit']),
       activeRoutineId: serializer.fromJson<int?>(json['activeRoutineId']),
       layoffDays: serializer.fromJson<int>(json['layoffDays']),
       layoffPercent: serializer.fromJson<int>(json['layoffPercent']),
@@ -4669,7 +4842,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'weightUnit': serializer.toJson<String>(weightUnit),
+      'weightUnit': serializer.toJson<String?>(weightUnit),
       'activeRoutineId': serializer.toJson<int?>(activeRoutineId),
       'layoffDays': serializer.toJson<int>(layoffDays),
       'layoffPercent': serializer.toJson<int>(layoffPercent),
@@ -4687,7 +4860,7 @@ class Setting extends DataClass implements Insertable<Setting> {
 
   Setting copyWith({
     int? id,
-    String? weightUnit,
+    Value<String?> weightUnit = const Value.absent(),
     Value<int?> activeRoutineId = const Value.absent(),
     int? layoffDays,
     int? layoffPercent,
@@ -4702,7 +4875,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> localeTag = const Value.absent(),
   }) => Setting(
     id: id ?? this.id,
-    weightUnit: weightUnit ?? this.weightUnit,
+    weightUnit: weightUnit.present ? weightUnit.value : this.weightUnit,
     activeRoutineId: activeRoutineId.present
         ? activeRoutineId.value
         : this.activeRoutineId,
@@ -4823,7 +4996,7 @@ class Setting extends DataClass implements Insertable<Setting> {
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> id;
-  final Value<String> weightUnit;
+  final Value<String?> weightUnit;
   final Value<int?> activeRoutineId;
   final Value<int> layoffDays;
   final Value<int> layoffPercent;
@@ -4904,7 +5077,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
 
   SettingsCompanion copyWith({
     Value<int>? id,
-    Value<String>? weightUnit,
+    Value<String?>? weightUnit,
     Value<int?>? activeRoutineId,
     Value<int>? layoffDays,
     Value<int>? layoffPercent,
@@ -7109,6 +7282,9 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<bool> toFailure,
       Value<int?> restSeconds,
       Value<double?> suggestedWeight,
+      Value<SetScheme> scheme,
+      Value<int> schemePercent,
+      Value<String?> customSets,
       Value<ProgressionMode> progression,
       Value<int> holdSeconds,
       Value<double> increment,
@@ -7130,6 +7306,9 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<bool> toFailure,
       Value<int?> restSeconds,
       Value<double?> suggestedWeight,
+      Value<SetScheme> scheme,
+      Value<int> schemePercent,
+      Value<String?> customSets,
       Value<ProgressionMode> progression,
       Value<int> holdSeconds,
       Value<double> increment,
@@ -7225,6 +7404,22 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<double> get suggestedWeight => $composableBuilder(
     column: $table.suggestedWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SetScheme, SetScheme, String> get scheme =>
+      $composableBuilder(
+        column: $table.scheme,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<int> get schemePercent => $composableBuilder(
+    column: $table.schemePercent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customSets => $composableBuilder(
+    column: $table.customSets,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7365,6 +7560,21 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scheme => $composableBuilder(
+    column: $table.scheme,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemePercent => $composableBuilder(
+    column: $table.schemePercent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customSets => $composableBuilder(
+    column: $table.customSets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get progression => $composableBuilder(
     column: $table.progression,
     builder: (column) => ColumnOrderings(column),
@@ -7491,6 +7701,19 @@ class $$WorkoutItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<SetScheme, String> get scheme =>
+      $composableBuilder(column: $table.scheme, builder: (column) => column);
+
+  GeneratedColumn<int> get schemePercent => $composableBuilder(
+    column: $table.schemePercent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customSets => $composableBuilder(
+    column: $table.customSets,
+    builder: (column) => column,
+  );
+
   GeneratedColumnWithTypeConverter<ProgressionMode, String> get progression =>
       $composableBuilder(
         column: $table.progression,
@@ -7613,6 +7836,9 @@ class $$WorkoutItemsTableTableManager
                 Value<bool> toFailure = const Value.absent(),
                 Value<int?> restSeconds = const Value.absent(),
                 Value<double?> suggestedWeight = const Value.absent(),
+                Value<SetScheme> scheme = const Value.absent(),
+                Value<int> schemePercent = const Value.absent(),
+                Value<String?> customSets = const Value.absent(),
                 Value<ProgressionMode> progression = const Value.absent(),
                 Value<int> holdSeconds = const Value.absent(),
                 Value<double> increment = const Value.absent(),
@@ -7632,6 +7858,9 @@ class $$WorkoutItemsTableTableManager
                 toFailure: toFailure,
                 restSeconds: restSeconds,
                 suggestedWeight: suggestedWeight,
+                scheme: scheme,
+                schemePercent: schemePercent,
+                customSets: customSets,
                 progression: progression,
                 holdSeconds: holdSeconds,
                 increment: increment,
@@ -7653,6 +7882,9 @@ class $$WorkoutItemsTableTableManager
                 Value<bool> toFailure = const Value.absent(),
                 Value<int?> restSeconds = const Value.absent(),
                 Value<double?> suggestedWeight = const Value.absent(),
+                Value<SetScheme> scheme = const Value.absent(),
+                Value<int> schemePercent = const Value.absent(),
+                Value<String?> customSets = const Value.absent(),
                 Value<ProgressionMode> progression = const Value.absent(),
                 Value<int> holdSeconds = const Value.absent(),
                 Value<double> increment = const Value.absent(),
@@ -7672,6 +7904,9 @@ class $$WorkoutItemsTableTableManager
                 toFailure: toFailure,
                 restSeconds: restSeconds,
                 suggestedWeight: suggestedWeight,
+                scheme: scheme,
+                schemePercent: schemePercent,
+                customSets: customSets,
                 progression: progression,
                 holdSeconds: holdSeconds,
                 increment: increment,
@@ -8651,7 +8886,7 @@ typedef $$SessionSetsTableProcessedTableManager =
 typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
       Value<int> id,
-      Value<String> weightUnit,
+      Value<String?> weightUnit,
       Value<int?> activeRoutineId,
       Value<int> layoffDays,
       Value<int> layoffPercent,
@@ -8668,7 +8903,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
       Value<int> id,
-      Value<String> weightUnit,
+      Value<String?> weightUnit,
       Value<int?> activeRoutineId,
       Value<int> layoffDays,
       Value<int> layoffPercent,
@@ -8944,7 +9179,7 @@ class $$SettingsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<String> weightUnit = const Value.absent(),
+                Value<String?> weightUnit = const Value.absent(),
                 Value<int?> activeRoutineId = const Value.absent(),
                 Value<int> layoffDays = const Value.absent(),
                 Value<int> layoffPercent = const Value.absent(),
@@ -8976,7 +9211,7 @@ class $$SettingsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<String> weightUnit = const Value.absent(),
+                Value<String?> weightUnit = const Value.absent(),
                 Value<int?> activeRoutineId = const Value.absent(),
                 Value<int> layoffDays = const Value.absent(),
                 Value<int> layoffPercent = const Value.absent(),

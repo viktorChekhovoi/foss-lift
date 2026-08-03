@@ -2,16 +2,19 @@ id: "15"
 title: Text size
 tagline: >-
   The app follows the phone's text setting, and can be nudged on top of it.
-screen: settings
+screen: theme-settings
 code:
 - lib/util/text_scale.dart
+- lib/widgets/pinch_text_scale.dart
 - lib/main.dart
 test:
 - test/feature_15_text_size_test.dart
 where: >-
-  <b>Arithmetic</b> lib/util/text_scale.dart (resolveTextScale, kTextScaleChoices,
-  the two bounds) · <b>Applied once</b> at the app root in lib/main.dart · <b>Stored
-  as</b> Settings.textScale, read through textScaleProvider
+  <b>Arithmetic</b> lib/util/text_scale.dart (resolveTextScale, clampTextNudge,
+  kTextScaleChoices, the two bounds) · <b>Applied once</b> by PinchTextScale, mounted
+  at the app root in lib/main.dart · <b>The gesture</b> lib/widgets/pinch_text_scale.dart
+  · <b>The chips</b> lib/screens/appearance_screen.dart · <b>Stored as</b>
+  Settings.textScale, read through textScaleProvider
 groups:
 - name: What it does
   items:
@@ -27,10 +30,41 @@ groups:
   - id: offers-nudge-own
     t: Offers a nudge of its own
     d: >-
-      Profile → Settings → Text size: Smaller / Default / Larger / Largest, for
+      Profile → Appearance → Text size: Smaller / Default / Larger / Largest, for
       wanting this app bigger without enlarging everything else, or smaller to fit
       more of a workout on screen. Each chip is drawn at the size it selects, because
       how big the words get is the only thing the control is about.
+    defines:
+    - ui.text-scale
+  - id: chips-span-the-whole-pinch-range
+    t: The four chips span the whole range the pinch does
+    d: >-
+      85%, 100%, 130% and 200% — the two ends are exactly the two the pinch stops
+      at, so the chips are named stops on one scale rather than a second, narrower
+      control beside it. Largest is the largest text the app will render, and
+      Smaller is the smallest; pinching to either end lands on a chip rather than
+      somewhere past the last one.
+    defines:
+    - ui.text-scale
+  - id: pinching-onto-a-chip-selects-it
+    t: A pinch that lands on a chip's percentage selects that chip
+    d: >-
+      the chips and the gesture write the same setting, so Appearance marks
+      whichever step the stored value is on however it got there. Pinch to 200%
+      and Largest is the selected chip when you next open the screen; land between
+      two and neither is marked, because neither is what the app is rendering at.
+    uses:
+    - ui.text-scale
+  - id: pinch-two-fingers-scales-text
+    t: A two-finger pinch scales the text, anywhere in the app
+    d: >-
+      the same nudge the chips write, so it survives leaving the screen and the
+      whole app follows it — this is text scaling, not a zoomed canvas, so a
+      scrolling list stays a scrolling list at every size. The gesture only takes
+      over once two fingers have moved apart or together past a threshold, which
+      is what keeps a one-finger scroll from ever being read as a pinch. While it
+      runs, the scale it is on is shown as a percentage over the screen, and the
+      value is written once the fingers come off.
     defines:
     - ui.text-scale
 - name: Behaviour & edge cases
@@ -50,7 +84,9 @@ groups:
       an unchecked layout is not an accessibility feature. The result stays in a range
       every screen is checked at, so no combination of the two produces a layout
       nobody has seen: 2.0 is the ceiling because 2.0 is what the sweep covers, and
-      the floor is where the set rows stop being readable across a gym.
+      the floor is where the set rows stop being readable across a gym. The pinch is
+      held to the same two bounds, so a gesture with no stops on it cannot walk out
+      of the range either.
     screen: none
     uses:
     - ui.text-scale

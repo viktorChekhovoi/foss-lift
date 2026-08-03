@@ -52,11 +52,14 @@ Locale? localeFromTag(String? tag) {
   return null;
 }
 
-/// The language to render in, given what the user chose and what the phone is
-/// set to.
+/// The language to render in, given what is stored and what the phone is set
+/// to.
 ///
-/// [chosen] wins when it names a language we have. Otherwise the phone's list
-/// is walked in preference order and the first one we can answer is taken:
+/// [chosen] wins when it names a language we have. The phone is consulted only
+/// when it does not — which, after first run has written its answer to
+/// `Settings.localeTag`, means only a stored tag for a language since removed.
+/// Then the phone's list is walked in preference order and the first one we can
+/// answer is taken:
 ///
 /// - an exact language-and-region match first, so a Brazilian phone gets the
 ///   Brazilian catalogue rather than the European one;

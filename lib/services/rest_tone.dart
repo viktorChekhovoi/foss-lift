@@ -25,11 +25,29 @@ import 'package:flutter/foundation.dart';
 /// the answer to that on most players is no, which is half of why this was
 /// reported as too quiet.
 ///
-/// **What it does not do.** It plays while the app is on screen, and only then
-/// — with the phone in a pocket the ding is a notification's job, which is
-/// [RestAlarm]'s, and one it is given *in advance* because the process may not
-/// be alive to be asked. `ActiveWorkoutController` picks between them. Nothing
-/// here needs a network permission, and `audioplayers` is MIT.
+/// **It plays with the phone in a pocket too**, which it did not always. The
+/// off-screen ding used to be a notification channel's own sound, posted
+/// whenever Android got round to it. Both cases take this route now, so the
+/// same asset sounds the same way wherever the phone is.
+///
+/// **How loud it is is not this app's business.** The alarm stream already has
+/// a slider on it, on every phone, reachable with the hardware keys; a gain of
+/// the app's own stacked on top would be a second number to get wrong for one
+/// question.
+///
+/// Three things have to hold for that, and all three do. The countdown is a
+/// timer in the app's own isolate, so the end of a rest is reached here rather
+/// than in the foreground service's isolate. The live session runs behind that
+/// foreground service, so the process is still alive to reach it — and Android
+/// permits background audio to an app running a foreground service that is not
+/// `SHORT_SERVICE`, which `specialUse` is not. And `audioplayers` holds only the
+/// *application* context, so nothing here depends on an activity being up.
+///
+/// What is still silent is the rest that ends with the app not running at all —
+/// a force-stop, or a reclaim the service did not prevent. Nothing is handed to
+/// Android in advance to cover that; see [RestAlarm].
+///
+/// Nothing here needs a network permission, and `audioplayers` is MIT.
 class RestTone {
   RestTone({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
@@ -47,12 +65,7 @@ class RestTone {
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  /// Plays the tone once.
-  ///
-  /// There is no switch on it. A rest timer that ends silently is a rest timer
-  /// that does not work, and the phone already has three better controls for
-  /// the same intent — the volume keys, silent mode and Do Not Disturb — all of
-  /// which this follows by being declared an alarm.
+  /// Plays the tone once, at whatever the phone's alarm stream is set to.
   ///
   /// Never throws: a device with no audio route, a locked player, an asset that
   /// failed to decode — none of that is worth interrupting a workout over, and
@@ -63,9 +76,6 @@ class RestTone {
       if (!_ready) {
         await _player.setAudioContext(_context);
         await _player.setReleaseMode(ReleaseMode.stop);
-        // Full scale. The stream's own volume is the user's to set; quieting
-        // the app's one sound underneath it is not a decision to make here.
-        await _player.setVolume(1.0);
         _ready = true;
       }
       await _player.stop();
@@ -86,14 +96,20 @@ class RestTone {
   static final AudioContext _context = AudioContext(
     android: const AudioContextAndroid(
       isSpeakerphoneOn: false,
-      stayAwake: false,
+      // A partial wake lock for the length of the tone. The foreground service
+      // already holds one, so this is belt and braces — but the sound that most
+      // needs to arrive is the one with the screen off, and half a second of CPU
+      // is not worth being clever about. `WAKE_LOCK` is already in the manifest.
+      stayAwake: true,
       contentType: AndroidContentType.sonification,
       usageType: AndroidUsageType.alarm,
       audioFocus: AndroidAudioFocus.gainTransient,
     ),
-    iOS: AudioContextIOS(
-      category: AVAudioSessionCategory.ambient,
-      options: const {AVAudioSessionOptions.mixWithOthers},
-    ),
+    // `ambient` already mixes, and asking for `mixWithOthers` on top of it is
+    // an error the package asserts on — which in a debug build meant this whole
+    // context threw on construction and `play` swallowed it, so the tone never
+    // sounded at all. The category is the thing that was wanted; the option was
+    // the same wish stated twice.
+    iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
   );
 }

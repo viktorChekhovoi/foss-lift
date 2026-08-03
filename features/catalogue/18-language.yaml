@@ -1,8 +1,8 @@
 id: "18"
 title: Language
 tagline: >-
-  The app speaks English, Ukrainian, Spanish and both Portugueses, and follows
-  the phone unless told otherwise.
+  The app speaks English, Ukrainian, Spanish and both Portugueses, picks the
+  phone's language on first run and lets you change it.
 screen: language-settings
 code:
 - lib/l10n/app_en.arb
@@ -13,9 +13,10 @@ test:
 where: >-
   <b>The strings</b> lib/l10n/*.arb, compiled to AppLocalizations by gen_l10n ·
   <b>Which language</b> lib/util/locales.dart (kSupportedLocales, resolveLocale)
-  · <b>Stored as</b> Settings.localeTag, read through localeProvider · <b>Applied
-  once</b> at the app root in lib/main.dart · <b>Seeded rows</b> resolve through
-  Exercises.seedKey, Routines.seedKey and Workouts.seedKey
+  · <b>Stored as</b> Settings.localeTag — written on first run and never null
+  after it — read through localeTagProvider · <b>Applied once</b> at the app root
+  in lib/main.dart · <b>Seeded rows</b> resolve through Exercises.seedKey,
+  Routines.seedKey and Workouts.seedKey
 groups:
 - name: What it does
   items:
@@ -30,12 +31,15 @@ groups:
     - ui.language
     uses:
     - ui.string-catalogue
-  - id: follows-phone-by-default
-    t: Follows the phone by default
+  - id: first-run-picks-the-phone-language
+    t: First run picks the phone's language and stores it as a choice
     d: >-
-      A fresh install renders in the phone's language if it is one of the five,
-      and in English if it is not. Nothing asks on first run — the phone has
-      already answered.
+      A fresh install resolves the phone's language list against the five —
+      language and region first, then the language alone, then English — and
+      writes the answer to <code>Settings.localeTag</code>. It is a real choice
+      from then on, not a standing deference: the phone is consulted once, and
+      changing the phone's language afterwards leaves the app where it is.
+      Nothing asks on first run, because the phone has already answered.
     defines:
     - ui.language
     uses:
@@ -43,10 +47,10 @@ groups:
   - id: language-picker-in-settings
     t: The language can be set in the app, independently of the phone
     d: >-
-      Profile → Settings → Language lists the five plus <i>Follow phone</i>,
-      which is the default. Each language names itself in its own language, so
-      the row you want is legible from whatever the app is currently rendering
-      in.
+      Profile → Appearance → Language lists the five, one of them always
+      selected — there is no <i>follow the phone</i> row to fall back to. Each
+      language names itself in its own language, so the row you want is legible
+      from whatever the app is currently rendering in.
     defines:
     - ui.language
   - id: change-applies-immediately
@@ -80,10 +84,12 @@ groups:
     - exercise.seed
     - exercise.identity
   - id: demo-routines-translated
-    t: The demo routines and their training days read in the chosen language
+    t: The starter programs and their training days read in the chosen language
     d: >-
-      Push / Pull / Legs and Upper / Lower, by the same mechanism — until you
-      rename one.
+      Push / Pull / Legs, Upper / Lower, Full Body 3x and the training days of
+      all five, by the same mechanism — until you rename one. Starting Strength
+      and StrongLifts 5x5 are the names of published programs and stay in
+      English everywhere, the way a book title does.
     uses:
     - ui.seeded-name
     - template.routine
@@ -144,8 +150,9 @@ groups:
   - id: portuguese-region-resolution
     t: A Portuguese phone gets European Portuguese and a Brazilian one gets Brazilian
     d: >-
-      pt-BR resolves to the Brazilian catalogue; every other Portuguese region
-      tag, including a bare pt, resolves to the European one.
+      On first run pt-BR resolves to the Brazilian catalogue; every other
+      Portuguese region tag, including a bare pt, resolves to the European one.
+      Either way it is the resolved tag that gets stored.
     screen: none
     uses:
     - ui.language

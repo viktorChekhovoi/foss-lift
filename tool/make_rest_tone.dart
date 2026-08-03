@@ -63,18 +63,12 @@ const _peak = 0.99;
 void main() {
   final samples = _render();
   final wav = _wav(samples);
-  // Two copies of one sound, and both are needed. The asset is what the app
-  // plays through `RestTone` while it is on screen. The raw resource is what the
-  // *notification channel* names as its sound, and Android will only take a
-  // sound it owns: a channel cannot point at a Flutter asset, and the
-  // notification is often posted by an alarm the app handed over minutes earlier
-  // — possibly after the process was killed, with no Dart alive to read an asset.
-  // Same generator, so a rest cannot end with one noise in your hand and a
-  // different one in your pocket.
-  final targets = [
-    File('assets/sound/rest_done.wav'),
-    File('android/app/src/main/res/raw/rest_done.wav'),
-  ];
+  // One copy, and the app plays it itself. There used to be a second — an
+  // Android raw resource, because a notification channel will only sound
+  // something Android owns and cannot point at a Flutter asset. The rest
+  // notification no longer makes a sound (see `services/rest_alarm.dart`), so
+  // the raw resource had nothing left naming it.
+  final targets = [File('assets/sound/rest_done.wav')];
   if (!targets.first.parent.existsSync()) {
     stderr.writeln('Run this from the repository root — ${targets.first.path} '
         'is not somewhere I can write.');

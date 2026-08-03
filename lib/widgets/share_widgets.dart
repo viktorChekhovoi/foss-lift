@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
+import 'common.dart';
 import '../util/qr_capacity.dart';
 
 /// The chrome every "share this thing" screen is built from.
@@ -160,10 +161,11 @@ class ShareQr extends StatelessWidget {
       );
 }
 
-/// A small all-caps section heading, matching the theme picker's group labels.
-Widget shareSectionLabel(String text) => Text(text,
-    style: kMono.copyWith(
-        fontSize: 11, letterSpacing: 1.2, color: AppColors.faint));
+/// A small all-caps section heading, at the app's own heading size and colour.
+///
+/// Bare text rather than a [SectionLabel]: these sit inside layouts that supply
+/// their own spacing, and the widget's padding would double it.
+Widget shareSectionLabel(String text) => Text(text, style: sectionLabelStyle());
 
 /// A row of equal-width outlined actions. Two per row keeps the labels legible
 /// at large font scales, where a four-across row would truncate. A null

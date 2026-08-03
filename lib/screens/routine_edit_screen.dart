@@ -10,6 +10,7 @@ import '../util/schedule_labels.dart';
 import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/common.dart';
+import '../widgets/tutorial.dart';
 import '../widgets/workout_items_editor.dart';
 
 /// Swatches offered for a routine's accent colour.
@@ -37,7 +38,7 @@ class _WorkoutDraft {
   /// The name on screen: [name] translated for as long as [seedKey] survives.
   String shown;
 
-  /// Which day of a demo programme this is, until you rename it.
+  /// Which day of a demo program this is, until you rename it.
   String? seedKey;
 
   /// Exercise count as stored, used until [items] is loaded.
@@ -83,7 +84,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   bool _loaded = false;
   bool _saving = false;
 
-  /// Which demo programme this routine is, until the name is changed.
+  /// Which demo program this routine is, until the name is changed.
   String? _seedKey;
 
   /// The name as stored, and the name put in the field — the same string unless
@@ -349,7 +350,12 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                       children: [
                         builderLabel(l10n.commonName),
-                        TextField(
+                        // KeyedSubtree, not a key on the field: a GlobalKey on
+                        // a TextField is its element identity, and the tour has
+                        // no business owning that.
+                        KeyedSubtree(
+                          key: tutorialRoutineNameKey,
+                          child: TextField(
                           controller: _name,
                           // Naming it is the first thing you do on a new
                           // routine — but never grab focus when editing one
@@ -360,9 +366,10 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration: builderInput(l10n.routineEditNameHint),
+                          ),
                         ),
                         const SizedBox(height: 20),
-                        builderLabel(l10n.routineEditAccentColour),
+                        builderLabel(l10n.routineEditAccentColor),
                         _ColorRow(
                           selected: _color,
                           onSelect: (c) => setState(() => _color = c),
@@ -386,17 +393,25 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           onToggle: (d) => setState(
                               () => _scheduleDays = toggleDay(_scheduleDays, d)),
                         ),
-                        const SizedBox(height: 18),
-                        builderLabel(l10n.routineEditReminder),
-                        _ReminderRow(
-                          minutes: _reminderMinutes,
-                          onToggle: _toggleReminder,
-                          onPickTime: _pickReminderTime,
-                        ),
+                        // The days stay on every build — they are part of the
+                        // programme and they travel in a share code. Only the
+                        // reminder goes, on a build with nothing to post one
+                        // with.
+                        if (ref.watch(capabilitiesProvider).reminders) ...[
+                          const SizedBox(height: 18),
+                          builderLabel(l10n.routineEditReminder),
+                          _ReminderRow(
+                            minutes: _reminderMinutes,
+                            onToggle: _toggleReminder,
+                            onPickTime: _pickReminderTime,
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         // The same list the exercises inside a day get, so a
                         // day is dragged into place exactly the way a slot is.
                         BuilderReorderList<_WorkoutDraft>(
+                          // Anchor for the builder tour's "training days" step.
+                          key: tutorialRoutineDaysKey,
                           caption: l10n.routineEditWorkouts,
                           items: _workouts,
                           emptyText: l10n.routineEditNoWorkouts,
@@ -421,6 +436,8 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                       border: Border(top: BorderSide(color: AppColors.line)),
                     ),
                     child: SizedBox(
+                      // Anchor for the builder tour's "save it" step.
+                      key: tutorialRoutineSaveKey,
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _saving ? null : _save,
@@ -500,6 +517,9 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                       onChanged: (_) => _commitName(),
                     ),
                     WorkoutItemsEditor(
+                      // Anchor for the builder tour's "its exercises" step, on
+                      // the draft screen rather than the saved-workout route.
+                      key: tutorialWorkoutDraftItemsKey,
                       defaultBarKg: ref.watch(plateSettingsProvider).barKg,
                       items: items,
                       unit: unit,
@@ -515,6 +535,7 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                   border: Border(top: BorderSide(color: AppColors.line)),
                 ),
                 child: SizedBox(
+                  key: tutorialWorkoutDraftSaveKey,
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () {

@@ -7,13 +7,13 @@ screen: workout-detail
 code:
 - lib/data/layoff.dart
 - lib/screens/workout_detail_screen.dart
-- lib/screens/settings_screen.dart
+- lib/screens/exercise_settings_screen.dart
 test:
 - test/feature_06_layoff_deloads_test.dart
 where: >-
   <b>Pure rules</b> lib/data/layoff.dart (layoffDeload / deloadedTarget) · <b>Applied
   by</b> applyLayoffDeload(...) · <b>Offered on Start</b> lib/screens/workout_detail_screen.dart
-  · <b>Settings</b> lib/screens/settings_screen.dart
+  · <b>Settings</b> lib/screens/exercise_settings_screen.dart
 groups:
 - name: What it does
   items:
@@ -51,7 +51,7 @@ groups:
   - id: set-rules
     t: The rules are app-wide, and set in Settings
     d: >-
-      Profile → Settings → the layoff days threshold and percent per period. Unlike
+      Profile → Exercise settings → the layoff days threshold and percent per period. Unlike
       per-slot progression rates: a layoff is something that happened to you, not
       to one exercise.
     screen: settings

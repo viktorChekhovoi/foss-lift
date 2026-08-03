@@ -20,7 +20,7 @@ const kDefaultLayoffPercent = 10;
 
 /// The most periods that can stack. Three at the default rate is a 30% cut,
 /// which is about as far as an automatic decision should go — past that the
-/// programme is not a layoff away from the truth, it is stale, and the user
+/// program is not a layoff away from the truth, it is stale, and the user
 /// should be setting the weights themselves.
 const kMaxLayoffPeriods = 3;
 

@@ -30,11 +30,16 @@ const double kMinTextScale = 0.85;
 ///
 /// The label is looked up rather than stored, because a step is a number and
 /// the word for it changes with the language.
+/// The four steps span the whole range, ends included: [smaller] is
+/// [kMinTextScale] and [largest] is [kMaxTextScale], which are the two values
+/// the pinch stops at. So the chips are named stops on one scale rather than a
+/// second, narrower control beside the gesture — pinch all the way out and you
+/// land on Largest rather than somewhere past the last chip.
 enum TextScaleChoice {
-  smaller(0.9),
+  smaller(kMinTextScale),
   standard(1.0),
-  larger(1.15),
-  largest(1.3);
+  larger(1.3),
+  largest(kMaxTextScale);
 
   const TextScaleChoice(this.scale);
 
@@ -55,6 +60,16 @@ enum TextScaleChoice {
 /// the difference between 1.12 and 1.15 is not a decision anybody wants to make
 /// about their workout log.
 const List<TextScaleChoice> kTextScaleChoices = TextScaleChoice.values;
+
+/// The nudge itself, held inside the same range the product is.
+///
+/// The chips can only pick values that are already in range; a pinch is
+/// continuous and has no stops on it, so it is clamped as it goes rather than
+/// left to be caught by [resolveTextScale] afterwards — otherwise a gesture that
+/// had run well past the ceiling would have to be dragged all the way back
+/// before the text moved again.
+double clampTextNudge(double nudge) =>
+    nudge.clamp(kMinTextScale, kMaxTextScale);
 
 /// The scale to actually render at: the phone's, nudged by the user's, held
 /// inside the range the layouts are checked against.

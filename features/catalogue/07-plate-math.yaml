@@ -39,7 +39,7 @@ groups:
   - id: bars-are-list-you-keep
     t: The bars are a list you keep, one per unit
     d: >-
-      Profile → Settings → Default bar opens the list itself: the six standard bars
+      Profile → Exercise settings → Default bar opens the list itself: the six standard bars
       are the starting set, and they are fixed — an Olympic bar weighs 20 kg
       everywhere, and the name and weight another phone resolves a shared routine
       against are not a preference, so no pencil is offered on one. Tap a bar to
@@ -66,7 +66,7 @@ groups:
   items:
   - id: edit-rack
     t: Edit the rack
-    d: Profile → Settings → plates — step plate pair counts up and down.
+    d: Profile → Exercise settings → plates — step plate pair counts up and down.
     screen: plate-inventory
     uses:
     - load.plate-rack

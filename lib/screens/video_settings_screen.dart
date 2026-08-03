@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../services/set_video_recorder.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common.dart';
 
 /// How set clips are filmed, how much space they take, and how to get it back.
 ///
@@ -35,8 +36,7 @@ class VideoSettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
             Text(l10n.videoSettingsQuality,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                style: sectionLabelStyle()),
             const SizedBox(height: 10),
             _Choices(
               values: kVideoHeights,
@@ -46,8 +46,7 @@ class VideoSettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 22),
             Text(l10n.videoSettingsMaxLength,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                style: sectionLabelStyle()),
             const SizedBox(height: 10),
             _Choices(
               values: kVideoMaxSeconds,
@@ -59,8 +58,7 @@ class VideoSettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             Text(l10n.videoSettingsStorage,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                style: sectionLabelStyle()),
             const SizedBox(height: 10),
             _UsageRow(
               label: l10n.commonClipCount(clips.length),

@@ -88,7 +88,7 @@ double loadFloorKg({
 /// they can make instead.
 String plateSummary(AppLocalizations l10n, PlateSolution s, String unit) {
   final u = unitSuffix(l10n, unit).toUpperCase();
-  String w(double kg) => fmtPlateWeight(toDisplayWeight(kg, unit));
+  String w(double kg) => fmtWeight(toDisplayWeight(kg, unit));
 
   if (s.belowBar) return l10n.plateLineBelowBar(w(s.barKg), u);
 
@@ -108,7 +108,7 @@ String plateSummary(AppLocalizations l10n, PlateSolution s, String unit) {
 
 /// One side of the bar, heaviest plate first: "20×2 + 10 + 1.25".
 String plateStackLabel(List<PlateStack> plates, String unit) => plates.map((p) {
-      final w = fmtPlateWeight(toDisplayWeight(p.kg, unit));
+      final w = fmtWeight(toDisplayWeight(p.kg, unit));
       return p.count == 1 ? w : '$w×${p.count}';
     }).join(' + ');
 
@@ -130,6 +130,6 @@ String? perSideLabel({
     inventory: settings.plates,
   );
   if (s.belowBar) return l10n.plateLineUnderBar;
-  final per = fmtPlateWeight(toDisplayWeight(s.perSideKg, unit));
+  final per = fmtWeight(toDisplayWeight(s.perSideKg, unit));
   return '${s.exact ? '' : '≈'}${l10n.plateLinePerSideShort(per)}';
 }

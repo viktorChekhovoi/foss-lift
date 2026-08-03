@@ -75,6 +75,31 @@ Only `id` and `t` are required.
 a group states a tag once instead of every item under it repeating it. An item
 **adds** to what it inherits; it does not replace it.
 
+## points — an entry that describes another screen
+
+```yaml
+  - id: starts-with-the-four-tabs
+    t: Starts at the four tabs
+    screen: tutorial              # where you go to look at it
+    points: [today, routines, history, profile]   # what it is talking about
+```
+
+`screen` says where a behaviour is; `points` says which *other* screens it
+describes. Only the tour needs it — a coach mark is on the tour, and the thing
+it explains is somewhere else — and it is what makes the link run both ways: the
+catalogue shows the pointed screens as accent chips beside the entry, and the
+walkthrough prints "The tour says:" at the top of each screen's block, so
+changing a screen surfaces the tour steps that describe it.
+
+`points` is item-level only and is never inherited: a section-wide "this is about
+the session screen" would tag every entry under it, and a link that is always
+true carries no information.
+
+`--check` fails on a screen id that does not exist, exactly as `screen` does. It
+**reports, without failing**, a step that points at a screen it shares no concept
+with — the step and the screen have no subject in common, so one of them has
+moved on without the other.
+
 ## defines vs uses
 
 - `defines` — this entry is where the concept lives. Change the concept and this

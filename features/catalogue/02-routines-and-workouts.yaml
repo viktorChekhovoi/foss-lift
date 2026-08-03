@@ -1,7 +1,7 @@
 id: "02"
 title: Routines & workouts
 tagline: >-
-  A programme is three levels deep — routine → workout → exercise slot. You build,
+  A program is three levels deep — routine → workout → exercise slot. You build,
   edit, reorder and delete at every level.
 screen: routines
 code:
@@ -12,18 +12,22 @@ code:
 - lib/screens/workout_edit_screen.dart
 - lib/widgets/workout_items_editor.dart
 - lib/widgets/routine_card.dart
+- lib/data/workout_estimate.dart
+- lib/widgets/workout_estimate.dart
 test:
 - test/feature_02_routines_and_workouts_test.dart
+- test/feature_02_workout_duration_test.dart
 where: >-
   <b>Screens</b> routines_screen.dart, routine_detail_screen.dart, routine_edit_screen.dart,
   workout_detail_screen.dart, workout_edit_screen.dart · <b>Shared editor</b>
-  lib/widgets/workout_items_editor.dart, routine_card.dart · <b>Data</b> Routines,
+  lib/widgets/workout_items_editor.dart, routine_card.dart · <b>Estimate</b>
+  lib/data/workout_estimate.dart, lib/widgets/workout_estimate.dart · <b>Data</b> Routines,
   Workouts, WorkoutItems
 groups:
 - name: What it does
   items:
   - id: routine-whole-programme
-    t: A routine is a whole programme
+    t: A routine is a whole program
     d: >-
       Push/Pull/Legs, Upper/Lower… It carries a name, a colour, a default rest
       time and its weekly schedule.
@@ -48,11 +52,44 @@ groups:
     defines:
     - template.active-routine
   - id: two-demo-routines-seeded-first
-    t: Two demo routines are seeded on first launch
-    d: PPL and Upper/Lower.
+    t: Five starter programs are seeded on first launch
+    d: >-
+      Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three
+      beginner strength programs: Starting Strength, StrongLifts 5x5 and
+      Full Body 3x. Push / Pull / Legs is the one Today starts out about.
     uses:
     - template.routine
     - exercise.seed
+  - id: seeded-programmes-carry-their-prescription
+    t: A seeded program is set up the way the program is actually run
+    d: >-
+      Not one shape copied five times. Starting Strength opens on 3&nbsp;&times;&nbsp;5
+      with the deadlift a single set and the power clean 5&nbsp;&times;&nbsp;3;
+      StrongLifts is 5&nbsp;&times;&nbsp;5 with the deadlift 1&nbsp;&times;&nbsp;5.
+      The linear-progression programs step the squat and the deadlift 5&nbsp;kg a
+      session and the presses 2.5&nbsp;kg, and back off 10% only after
+      <b>three</b> failed sessions rather than the usual two. Rest defaults follow
+      the program too — five minutes on Starting Strength, three on StrongLifts.
+    uses:
+    - template.routine
+    - template.rest
+    - progression.rates
+    - exercise.seed
+  - id: workout-carries-estimated-duration
+    t: A workout says how long it will take
+    d: >-
+      an estimate read off the template alone — the working sets, the warm-up
+      rungs before them, the rest after every set but the last, and time under
+      the bar scaled by the reps or the hold. Shown as a single rounded figure
+      next to the exercise count, on the training day and on its Today card.
+    screen: workout-detail
+    defines:
+    - template.duration-estimate
+    uses:
+    - template.item
+    - template.rest
+    - template.rep-target
+    - session.warmup-ramp
 - name: How to use it
   items:
   - id: see-current-routine-s-days
@@ -100,6 +137,38 @@ groups:
     screen: workout-edit
 - name: Behaviour & edge cases
   items:
+  - id: estimate-rounded-not-precise
+    t: The estimate is rounded to five minutes and marked as approximate
+    d: >-
+      a workout that comes out at 47 minutes reads <b>~45 min</b>. Anything above
+      zero rounds up to at least five, and a day with no exercises shows no
+      estimate at all rather than zero.
+    screen: workout-detail
+    uses:
+    - template.duration-estimate
+  - id: estimate-follows-template-edits
+    t: The estimate moves when the template does
+    d: >-
+      add a set, widen the rep range, lengthen the rest or override it on one
+      slot, and the figure on the training day and on the Today card follows.
+      A slot's own rest override is used where it is set; every other slot falls
+      back to the routine's default rest.
+    screen: workout-detail
+    uses:
+    - template.duration-estimate
+    - template.rest
+  - id: estimate-is-planned-time-not-history
+    t: The estimate is what the plan costs, not what past sessions took
+    d: >-
+      logged durations are wall-clock from Start to Finish with no pause, so a
+      session left running while you walk home records an hour that was never
+      trained and nothing stored distinguishes it. The estimate is derived from
+      the template alone, which is also what lets a day that has never been
+      trained carry one.
+    screen: none
+    uses:
+    - template.duration-estimate
+    - history.session-record
   - id: editing-split-match-hierarchy
     t: Editing is split to match the hierarchy
     d: >-

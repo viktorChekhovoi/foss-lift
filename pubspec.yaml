@@ -57,6 +57,12 @@ dependencies:
   flutter_foreground_task: ^10.0.0
   fc_native_video_thumbnail: ^3.0.1
 
+  # Pure-Dart deflate for the routine share code. dart:io's ZLibCodec cannot be
+  # used: it compiles for the web and then throws from every call, and the code
+  # has to mean the same thing in a browser as on a phone. See
+  # lib/data/routine_code.dart and docs/web-build.md.
+  archive: ^4.0.9
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

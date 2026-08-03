@@ -1,6 +1,10 @@
 {
   "@@locale": "en",
   "commonCancel": "Cancel",
+  "commonContinue": "Continue",
+  "@commonContinue": {
+    "description": "Accepts the choice on screen and moves on. Used by the first-run weight-unit question."
+  },
   "@commonCancel": {
     "description": "Dismisses a dialog without doing the thing it offered."
   },
@@ -84,6 +88,16 @@
       }
     }
   },
+  "commonEstimatedMinutes": "~{minutes} min",
+  "@commonEstimatedMinutes": {
+    "description": "How long a training day is estimated to take, in minutes, rounded to the nearest five. Shown beside the exercise count on the training day and on its Today card. The tilde marks it as approximate.",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "45"
+      }
+    }
+  },
   "commonClipCount": "{count, plural, =1{1 clip} other{{count} clips}}",
   "@commonClipCount": {
     "description": "How many recorded set clips there are — on the button opening one movement’s reel, and in settings beside the bytes they occupy. A clip is a few seconds of video of a single set.",
@@ -122,11 +136,7 @@
   "@languageTitle": {
     "description": "Title of the language picker screen."
   },
-  "languageFollowPhone": "Follow phone",
-  "@languageFollowPhone": {
-    "description": "The default option on the language picker: use whatever language the phone is set to."
-  },
-  "settingsTitle": "Settings",
+  "settingsTitle": "Exercise settings",
   "@settingsTitle": {
     "description": "Title of the settings screen."
   },
@@ -681,39 +691,63 @@
   },
   "seedRoutinePushPullLegs": "Push / Pull / Legs",
   "@seedRoutinePushPullLegs": {
-    "description": "Name of a demo programme the app ships with."
+    "description": "Name of a demo program the app ships with."
   },
   "seedRoutineUpperLower": "Upper / Lower",
   "@seedRoutineUpperLower": {
-    "description": "Name of a demo programme the app ships with."
+    "description": "Name of a demo program the app ships with."
+  },
+  "seedRoutineStartingStrength": "Starting Strength",
+  "@seedRoutineStartingStrength": {
+    "description": "Name of a published beginner strength program the app ships as a starter routine. A proper noun — leave it in English in every language, the way a book title is left alone."
+  },
+  "seedRoutineStrongLifts5x5": "StrongLifts 5x5",
+  "@seedRoutineStrongLifts5x5": {
+    "description": "Name of a published beginner strength program the app ships as a starter routine. A proper noun — leave it in English in every language, the way a book title is left alone."
+  },
+  "seedRoutineFullBody3x": "Full Body 3x",
+  "@seedRoutineFullBody3x": {
+    "description": "Name of a demo program the app ships with: a whole-body session trained three times a week."
+  },
+  "seedDayWorkoutA": "Workout A",
+  "@seedDayWorkoutA": {
+    "description": "Name of a training day in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
+  },
+  "seedDayWorkoutB": "Workout B",
+  "@seedDayWorkoutB": {
+    "description": "Name of a training day in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
+  },
+  "seedDayWorkoutC": "Workout C",
+  "@seedDayWorkoutC": {
+    "description": "Name of a training day in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
   },
   "seedDayPush": "Push",
   "@seedDayPush": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedDayPull": "Pull",
   "@seedDayPull": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedDayLegs": "Legs",
   "@seedDayLegs": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedDayUpper1": "Upper 1",
   "@seedDayUpper1": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedDayLower1": "Lower 1",
   "@seedDayLower1": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedDayUpper2": "Upper 2",
   "@seedDayUpper2": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedDayLower2": "Lower 2",
   "@seedDayLower2": {
-    "description": "Name of a training day in a demo programme."
+    "description": "Name of a training day in a demo program."
   },
   "seedBarOlympicBar": "Olympic bar",
   "@seedBarOlympicBar": {
@@ -1022,6 +1056,18 @@
   "@itemEditorClose": {
     "description": "Tooltip on the button that dismisses the sheet configuring one exercise slot."
   },
+  "itemEditorExercise": "Exercise",
+  "@itemEditorExercise": {
+    "description": "Card caption in the slot sheet over the settings that belong to the exercise itself rather than to this slot."
+  },
+  "itemEditorExerciseShared": "Applies everywhere this exercise is used.",
+  "@itemEditorExerciseShared": {
+    "description": "Line under the Exercise caption in the slot sheet, warning that these settings are shared with every other routine using the movement."
+  },
+  "itemEditorEditExercise": "Edit exercise",
+  "@itemEditorEditExercise": {
+    "description": "Button in the slot sheet that opens the library form for a movement the user made — its name, muscle group, equipment, measure and demo link."
+  },
   "itemEditorTarget": "Target",
   "@itemEditorTarget": {
     "description": "Card caption over the sets, reps, hold and rest of one exercise slot — what the slot asks you to do."
@@ -1061,6 +1107,51 @@
   "itemEditorRestCustom": "custom",
   "@itemEditorRestCustom": {
     "description": "Qualifier appended to the Rest caption when the slot overrides the routine's rest. Rendered in small capitals beside the caption."
+  },
+  "itemEditorAdvanced": "Advanced",
+  "@itemEditorAdvanced": {
+    "description": "Label on the toggle inside the Target card that opens the rest of the target — the upper bound of the rep range, the to-failure checkbox and the set scheme. One word if your language has one."
+  },
+  "itemEditorSetScheme": "Set scheme",
+  "@itemEditorSetScheme": {
+    "description": "Caption over the row of four pills choosing how a slot's sets differ from one another. Rendered in small capitals above a row of buttons, so keep it short."
+  },
+  "itemEditorSchemeFlat": "Flat",
+  "@itemEditorSchemeFlat": {
+    "description": "One of four set-scheme pills: every set at the same weight and the same target. The default. One short word — the four pills share one row."
+  },
+  "itemEditorSchemeBackOff": "Back-off",
+  "@itemEditorSchemeBackOff": {
+    "description": "One of four set-scheme pills: the first set at the slot's weight and each one after it lighter. The gym term for the lighter sets after a heavy one. One short word — the four pills share one row."
+  },
+  "itemEditorSchemeRamp": "Ramp",
+  "@itemEditorSchemeRamp": {
+    "description": "One of four set-scheme pills: the lighter sets come first and the last one is at the slot's weight — a back-off climbed the other way. One short word — the four pills share one row."
+  },
+  "itemEditorSchemeCustom": "Custom",
+  "@itemEditorSchemeCustom": {
+    "description": "One of four set-scheme pills: a row per set, each with its own reps and its own percentage. One short word — the four pills share one row."
+  },
+  "itemEditorSchemeDropPerSet": "Drop per set",
+  "@itemEditorSchemeDropPerSet": {
+    "description": "Field label over the percentage each back-off set comes down by. Shown only when Back-off is chosen."
+  },
+  "itemEditorSchemeStepPerSet": "Step per set",
+  "@itemEditorSchemeStepPerSet": {
+    "description": "The same field when Ramp is chosen, where the percentage is climbed rather than dropped."
+  },
+  "itemEditorSchemeSetNumber": "Set {n}",
+  "@itemEditorSchemeSetNumber": {
+    "description": "Row label in a custom scheme, naming which set the reps and percentage beside it belong to.",
+    "placeholders": {"n": {"type": "int"}}
+  },
+  "itemEditorSchemeOfWeight": "% of weight",
+  "@itemEditorSchemeOfWeight": {
+    "description": "Field label over the percentage of the slot's weight one custom set is done at. 100 is the slot's own weight. Shares a narrow row with a rep count, so keep it short."
+  },
+  "itemEditorSchemeSeparator": " · ",
+  "@itemEditorSchemeSeparator": {
+    "description": "What goes between the weights in the line reading a scheme back — \"100 · 90 · 80 kg\". A separator, not a word; change it only if your language punctuates a list of numbers differently."
   },
   "itemEditorToFailure": "To failure",
   "@itemEditorToFailure": {
@@ -1187,10 +1278,6 @@
       }
     }
   },
-  "themeTitle": "Colour theme",
-  "@themeTitle": {
-    "description": "Title of the screen where a colour theme is picked."
-  },
   "themeDarkGroup": "DARK",
   "@themeDarkGroup": {
     "description": "Heading over the dark presets in the theme picker. Rendered in small capitals; translate as a heading, not a sentence."
@@ -1297,7 +1384,7 @@
   },
   "themePresetGraphite": "Graphite",
   "@themePresetGraphite": {
-    "description": "Name of a theme the app ships with: a neutral dark grey with a blue accent."
+    "description": "Name of a theme the app ships with: a neutral dark gray with a blue accent."
   },
   "themePresetSolarizedDark": "Solarized dark",
   "@themePresetSolarizedDark": {
@@ -1325,55 +1412,55 @@
   },
   "themeRoleGround": "Background",
   "@themeRoleGround": {
-    "description": "Label for the colour role painted behind every screen. One of twelve editable roles in the custom theme editor."
+    "description": "Label for the color role painted behind every screen. One of twelve editable roles in the custom theme editor."
   },
   "themeRoleSurface": "Surface",
   "@themeRoleSurface": {
-    "description": "Label for the colour role painted on cards sitting on the background."
+    "description": "Label for the color role painted on cards sitting on the background."
   },
   "themeRoleSurface2": "Raised surface",
   "@themeRoleSurface2": {
-    "description": "Label for the colour role one step above a card — a filled input, a chip."
+    "description": "Label for the color role one step above a card — a filled input, a chip."
   },
   "themeRoleSurface3": "Highest surface",
   "@themeRoleSurface3": {
-    "description": "Label for the colour role at the top of the stack, painted on the smallest raised details."
+    "description": "Label for the color role at the top of the stack, painted on the smallest raised details."
   },
   "themeRoleLine": "Lines & borders",
   "@themeRoleLine": {
-    "description": "Label for the colour role used for dividers and the outlines around cards and fields."
+    "description": "Label for the color role used for dividers and the outlines around cards and fields."
   },
   "themeRoleText": "Text",
   "@themeRoleText": {
-    "description": "Label for the colour role used for body text. The contrast warning in the preview names this label, so the two have to match."
+    "description": "Label for the color role used for body text. The contrast warning in the preview names this label, so the two have to match."
   },
   "themeRoleMuted": "Muted text",
   "@themeRoleMuted": {
-    "description": "Label for the colour role used for secondary text — captions and labels beside a value."
+    "description": "Label for the color role used for secondary text — captions and labels beside a value."
   },
   "themeRoleFaint": "Faint text",
   "@themeRoleFaint": {
-    "description": "Label for the colour role used for the dimmest text — column headings and untouched rows."
+    "description": "Label for the color role used for the dimmest text — column headings and untouched rows."
   },
   "themeRoleAccent": "Accent",
   "@themeRoleAccent": {
-    "description": "Label for the colour role used for the primary button and anything the app wants looked at first."
+    "description": "Label for the color role used for the primary button and anything the app wants looked at first."
   },
   "themeRoleAccentPressed": "Accent pressed",
   "@themeRoleAccentPressed": {
-    "description": "Label for the colour role the accent takes while a button is held down."
+    "description": "Label for the color role the accent takes while a button is held down."
   },
   "themeRoleGood": "Completed",
   "@themeRoleGood": {
-    "description": "Label for the colour role marking a set that hit its goal. The marker warning in the preview names this label, so the two have to match."
+    "description": "Label for the color role marking a set that hit its goal. The marker warning in the preview names this label, so the two have to match."
   },
   "themeRoleGold": "Missed goal",
   "@themeRoleGold": {
-    "description": "Label for the colour role marking a set that came up short of its goal. The marker warning in the preview names this label, so the two have to match."
+    "description": "Label for the color role marking a set that came up short of its goal. The marker warning in the preview names this label, so the two have to match."
   },
   "themeCopiedHex": "Copied {hex}",
   "@themeCopiedHex": {
-    "description": "Confirmation shown after a colour's hex code is put on the clipboard.",
+    "description": "Confirmation shown after a color's hex code is put on the clipboard.",
     "placeholders": {
       "hex": {
         "type": "String",
@@ -1383,31 +1470,31 @@
   },
   "themeCopyHex": "Copy hex",
   "@themeCopyHex": {
-    "description": "Tooltip on the button that copies the picked colour as a hex code."
+    "description": "Tooltip on the button that copies the picked color as a hex code."
   },
   "themePasteHex": "Paste hex",
   "@themePasteHex": {
     "description": "Tooltip on the button that takes a hex code off the clipboard."
   },
-  "themeUseColour": "Use",
-  "@themeUseColour": {
-    "description": "Button that accepts the colour picked in the dialog and closes it."
+  "themeUseColor": "Use",
+  "@themeUseColor": {
+    "description": "Button that accepts the color picked in the dialog and closes it."
   },
-  "themeNoColourOnClipboard": "No colour on the clipboard.",
-  "@themeNoColourOnClipboard": {
-    "description": "Shown when paste is tapped and the clipboard holds something that is not a hex colour."
+  "themeNoColorOnClipboard": "No color on the clipboard.",
+  "@themeNoColorOnClipboard": {
+    "description": "Shown when paste is tapped and the clipboard holds something that is not a hex color."
   },
   "themeChannelRed": "R",
   "@themeChannelRed": {
-    "description": "One-letter label on the red slider in the colour picker. Widely left as R even where the word for red starts with another letter; use the local convention."
+    "description": "One-letter label on the red slider in the color picker. Widely left as R even where the word for red starts with another letter; use the local convention."
   },
   "themeChannelGreen": "G",
   "@themeChannelGreen": {
-    "description": "One-letter label on the green slider in the colour picker. Widely left as G; use the local convention."
+    "description": "One-letter label on the green slider in the color picker. Widely left as G; use the local convention."
   },
   "themeChannelBlue": "B",
   "@themeChannelBlue": {
-    "description": "One-letter label on the blue slider in the colour picker. Widely left as B; use the local convention."
+    "description": "One-letter label on the blue slider in the color picker. Widely left as B; use the local convention."
   },
   "themeSharedTitle": "Shared theme",
   "@themeSharedTitle": {
@@ -1421,13 +1508,13 @@
   "@themeUseThis": {
     "description": "Button that accepts a shared theme and paints the app in it."
   },
-  "themePreviewContrastWarning": "This text is hard to read on this background. Try a lighter or darker \"Text\" colour.",
+  "themePreviewContrastWarning": "This text is hard to read on this background. Try a lighter or darker \"Text\" color.",
   "@themePreviewContrastWarning": {
     "description": "Warning under the theme preview when body text does not have enough contrast against the background. This is guidance that changes what somebody does next, so it has to read naturally rather than literally — keep it plain and specific. The quoted word names the \"Text\" role in the editor above, so use the same wording you gave themeRoleText."
   },
   "themePreviewMarkersWarning": "\"Completed\" and \"Missed goal\" look alike. A glance down a column of sets should tell them apart.",
   "@themePreviewMarkersWarning": {
-    "description": "Warning under the theme preview when the two set markers are too close in colour to tell apart. This is guidance that changes what somebody does next, so it has to read naturally rather than literally. The two quoted words name the \"Completed\" and \"Missed goal\" roles in the editor above, so use the same wording you gave themeRoleGood and themeRoleGold."
+    "description": "Warning under the theme preview when the two set markers are too close in color to tell apart. This is guidance that changes what somebody does next, so it has to read naturally rather than literally. The two quoted words name the \"Completed\" and \"Missed goal\" roles in the editor above, so use the same wording you gave themeRoleGood and themeRoleGold."
   },
   "themePreviewSetHeader": "Set",
   "@themePreviewSetHeader": {
@@ -1451,7 +1538,7 @@
   },
   "themePreviewStartWorkout": "Start workout",
   "@themePreviewStartWorkout": {
-    "description": "Label on the sample primary button in the theme preview, shown so the accent colour can be judged on the control it is mostly used for."
+    "description": "Label on the sample primary button in the theme preview, shown so the accent color can be judged on the control it is mostly used for."
   },
   "themeAaaBadge": "AAA",
   "@themeAaaBadge": {
@@ -1527,9 +1614,9 @@
   "@routineEditNameHint": {
     "description": "Placeholder in the routine's name field. Name a well-known split in the target language rather than translating this one word for word."
   },
-  "routineEditAccentColour": "Accent colour",
-  "@routineEditAccentColour": {
-    "description": "Label over the row of colour swatches that mark this routine throughout the app."
+  "routineEditAccentColor": "Accent color",
+  "@routineEditAccentColor": {
+    "description": "Label over the row of color swatches that mark this routine throughout the app."
   },
   "routineEditDefaultRest": "Default rest between sets",
   "@routineEditDefaultRest": {
@@ -2078,7 +2165,7 @@
   },
   "exerciseFormHoldLoadNote": "For static exercises with added weight, e.g. Farmer's Carry",
   "@exerciseFormHoldLoadNote": {
-    "description": "Note under the loading chips for a movement held for time. A farmer's carry is walking with a weight in each hand; substitute a loaded static exercise your readers will recognise if that name does not travel."
+    "description": "Note under the loading chips for a movement held for time. A farmer's carry is walking with a weight in each hand; substitute a loaded static exercise your readers will recognize if that name does not travel."
   },
   "exerciseFormDemoLink": "Demo link (optional)",
   "@exerciseFormDemoLink": {
@@ -2220,7 +2307,7 @@
   },
   "navRoutines": "Routines",
   "@navRoutines": {
-    "description": "Bottom navigation tab label for the list of training programmes. One of four labels sharing a single row — see navToday; keep it as short as the language allows."
+    "description": "Bottom navigation tab label for the list of training programs. One of four labels sharing a single row — see navToday; keep it as short as the language allows."
   },
   "navHistory": "History",
   "@navHistory": {
@@ -2266,7 +2353,7 @@
   },
   "todayNoRoutinesTitle": "No routines yet",
   "@todayNoRoutinesTitle": {
-    "description": "Title of the empty card on the home screen when the user has no routines at all. A routine is a training programme made of several training days."
+    "description": "Title of the empty card on the home screen when the user has no routines at all. A routine is a training program made of several training days."
   },
   "todayNoRoutinesBody": "Build one from the exercise library to get started.",
   "@todayNoRoutinesBody": {
@@ -2302,9 +2389,9 @@
   "@commonNextBadge": {
     "description": "Tiny pill badge marking the workout a routine suggests doing next. Rendered at 9pt inside a small pill, so it must be very short — an abbreviation is fine. The capitals are the app's own styling in English; use whatever case reads as a badge in your language."
   },
-  "routinesEyebrow": "Your programmes",
+  "routinesEyebrow": "Your programs",
   "@routinesEyebrow": {
-    "description": "Small line above the Routines screen title. Rendered in small capitals by the app. A programme here is a routine: a named plan made of several training days."
+    "description": "Small line above the Routines screen title. Rendered in small capitals by the app. A program here is a routine: a named plan made of several training days."
   },
   "routinesTitle": "Routines",
   "@routinesTitle": {
@@ -2348,7 +2435,7 @@
   },
   "profileAppearance": "Appearance",
   "@profileAppearance": {
-    "description": "Row on the profile screen leading to the colour theme settings."
+    "description": "Row on the profile screen leading to the color theme settings."
   },
   "aboutTitle": "About Foss Lift",
   "@aboutTitle": {
@@ -2370,13 +2457,13 @@
   "@aboutDataPara2": {
     "description": "Second paragraph of the app's privacy statement, naming the only two exceptions to the first. Its meaning is load-bearing: translate it exactly, neither softening nor embellishing, and keep it as one paragraph. The 'share sheet' is the system dialog Android shows for sending something to another app."
   },
-  "aboutLicenceSection": "LICENCE",
-  "@aboutLicenceSection": {
-    "description": "Heading over the licence statement on the about screen. Rendered in small capitals by the app — the capitals are the app's styling, not part of the word."
+  "aboutLicenseSection": "LICENSE",
+  "@aboutLicenseSection": {
+    "description": "Heading over the license statement on the about screen. Rendered in small capitals by the app — the capitals are the app's styling, not part of the word."
   },
-  "aboutLicenceBody": "AGPL-3.0. Free to use, read, change and pass on — the source is the whole of it, and anything built on it stays free too.",
-  "@aboutLicenceBody": {
-    "description": "The licence statement on the about screen. 'AGPL-3.0' is the identifier of the GNU Affero General Public License version 3 — a proper noun that is never translated or spelled differently. 'Free' here means free as in freedom, not free of charge. Keep it as one paragraph."
+  "aboutLicenseBody": "AGPL-3.0. Free to use, read, change and pass on — the source is the whole of it, and anything built on it stays free too.",
+  "@aboutLicenseBody": {
+    "description": "The license statement on the about screen. 'AGPL-3.0' is the identifier of the GNU Affero General Public License version 3 — a proper noun that is never translated or spelled differently. 'Free' here means free as in freedom, not free of charge. Keep it as one paragraph."
   },
   "aboutSomethingBrokenSection": "SOMETHING BROKEN?",
   "@aboutSomethingBrokenSection": {
@@ -2639,7 +2726,7 @@
   },
   "shareQrTooBig": "Too big for a QR code. Share a code instead.",
   "@shareQrTooBig": {
-    "description": "Replaces the QR symbol when the payload is longer than any error-correction level can hold. \"Share a code\" points at the neighbouring button that hands the same text to the system share sheet."
+    "description": "Replaces the QR symbol when the payload is longer than any error-correction level can hold. \"Share a code\" points at the neighboring button that hands the same text to the system share sheet."
   },
   "shareContinue": "Continue",
   "@shareContinue": {
@@ -2651,7 +2738,7 @@
   },
   "shareRoutineDamaged": "Invalid routine code — characters missing.",
   "@shareRoutineDamaged": {
-    "description": "Shown on the import screen when the text is recognisably a routine code but did not survive the trip: the checksum fails, usually because a copy-paste cut it short."
+    "description": "Shown on the import screen when the text is recognizably a routine code but did not survive the trip: the checksum fails, usually because a copy-paste cut it short."
   },
   "shareThemeNotACode": "Invalid theme code.",
   "@shareThemeNotACode": {
@@ -2659,7 +2746,7 @@
   },
   "shareThemeDamaged": "Invalid theme code — characters missing.",
   "@shareThemeDamaged": {
-    "description": "The theme counterpart of shareRoutineDamaged: recognisably a theme code, but the checksum fails."
+    "description": "The theme counterpart of shareRoutineDamaged: recognizably a theme code, but the checksum fails."
   },
   "shareThemeFallbackName": "Shared theme",
   "@shareThemeFallbackName": {
@@ -2687,7 +2774,7 @@
       }
     }
   },
-  "routineShareSendIt": "SEND IT",
+  "routineShareSendIt": "SHARE",
   "@routineShareSendIt": {
     "description": "Section heading over the two share buttons. Rendered in small capitals; translate as a heading, not a sentence."
   },
@@ -2769,7 +2856,7 @@
   },
   "scanThemeTitle": "Scan a theme",
   "@scanThemeTitle": {
-    "description": "App bar title while the camera is looking for a colour-theme QR code."
+    "description": "App bar title while the camera is looking for a color-theme QR code."
   },
   "scanRoutineHint": "Point the camera at a Foss Lift routine QR code.",
   "@scanRoutineHint": {
@@ -2777,7 +2864,7 @@
   },
   "scanThemeHint": "Point the camera at a Foss Lift theme QR code.",
   "@scanThemeHint": {
-    "description": "The colour-theme counterpart of scanRoutineHint."
+    "description": "The color-theme counterpart of scanRoutineHint."
   },
   "scanRoutineDenied": "Foss Lift needs the camera to scan a code. You can still paste a routine code instead.",
   "@scanRoutineDenied": {
@@ -2785,7 +2872,7 @@
   },
   "scanThemeDenied": "Foss Lift needs the camera to scan a code. You can still paste a theme code instead.",
   "@scanThemeDenied": {
-    "description": "The colour-theme counterpart of scanRoutineDenied."
+    "description": "The color-theme counterpart of scanRoutineDenied."
   },
   "setVideoTitle": "Record this set",
   "@setVideoTitle": {
@@ -2919,17 +3006,13 @@
   "@commonAppName": {
     "description": "The application's own name. A proper noun — leave it as it is in every language. Appears in the first-run greeting and on the mock notification the tour draws."
   },
-  "tutorialTakeTour": "Take the tour",
-  "@tutorialTakeTour": {
-    "description": "The accept button on the first-run greeting card, which is the only tour step that asks whether to have a tour at all. Full width on its own line, so a few words fit; keep it under about 20 characters."
-  },
   "tutorialNotNow": "Not now",
   "@tutorialNotNow": {
-    "description": "The decline button under 'Take the tour' on the first-run greeting. Declining ends the tour and does not offer it again automatically. Two words at most."
+    "description": "The decline button under the two tours on the first-run card. Declining ends the tour and does not offer it again automatically. Two words at most."
   },
   "tutorialSkip": "Skip",
   "@tutorialSkip": {
-    "description": "Leaves the tour, offered on every step after the greeting. It sits on the left of a row that also holds Back and Next, so all three together must fit across a narrow card — one short word."
+    "description": "Leaves the tour, offered on every step. It sits on the left of a row that also holds Back and Next, so all three together must fit across a narrow card — one short word."
   },
   "tutorialBack": "Back",
   "@tutorialBack": {
@@ -2939,37 +3022,133 @@
   "@tutorialNext": {
     "description": "Advances to the next tour step; the last step says Done instead (commonDone). Shares one row with Skip and Back — one short word."
   },
-  "tutorialWelcomeTitle": "Welcome to Foss Lift",
-  "@tutorialWelcomeTitle": {
-    "description": "Title of the first tour step, a greeting that points at nothing. Foss Lift is the app's name and stays as it is. One line on a card about 320 logical pixels wide."
+  "tutorialChooseTitle": "Welcome to Foss Lift",
+  "@tutorialChooseTitle": {
+    "description": "Title of the card the app opens on the first time it is launched, which asks which of two tours to take. Foss Lift is the app's name and stays as it is. One line on a card about 320 logical pixels wide."
   },
-  "tutorialWelcomeBody": "Pick a routine, select a workout, and log your lifts. We handle the rest.",
-  "@tutorialWelcomeBody": {
-    "description": "Body of the greeting step: what the app is for, then what the tour is about to do. Budget about three lines on a card 320 pixels wide; longer text pushes the two buttons under it down but the card scrolls, so aim for three and accept four."
+  "tutorialChooseBody": "Two tours to pick from. Neither takes long.",
+  "@tutorialChooseBody": {
+    "description": "Body of the first-run card, above the two tour buttons. It must not rank the two — somebody who knows their way around a gym is not taking the lesser option. Two lines."
   },
-  "tutorialTodayTitle": "Your next workout",
+  "tutorialTrackFull": "Full tour",
+  "@tutorialTrackFull": {
+    "description": "Button starting the long tour: the four tabs, the Today screen and the live workout, with the gym vocabulary explained. Full width on its own line — keep it under about 20 characters."
+  },
+  "tutorialTrackFullHint": "Every screen, and the gym words explained",
+  "@tutorialTrackFullHint": {
+    "description": "The one line under the Full tour button saying what is in it. Not a recommendation — a description. One line, about 40 characters."
+  },
+  "tutorialTrackQuick": "Quick tour",
+  "@tutorialTrackQuick": {
+    "description": "Button starting the short tour, which shows the four tabs and stops. Full width on its own line — keep it under about 20 characters."
+  },
+  "tutorialTrackQuickHint": "Just the four tabs",
+  "@tutorialTrackQuickHint": {
+    "description": "The one line under the Quick tour button saying what is in it. One line, about 40 characters."
+  },
+  "tutorialTrackBuilder": "Building a routine",
+  "@tutorialTrackBuilder": {
+    "description": "Button starting the third tour, which walks through making a program of your own. Offered from Profile rather than on first launch. Under about 24 characters."
+  },
+  "tutorialTrackBuilderHint": "Make a program of your own, step by step",
+  "@tutorialTrackBuilderHint": {
+    "description": "The one line under the Building a routine button saying what is in it. One line, about 40 characters."
+  },
+  "tutorialReplayTitle": "Take a tour",
+  "@tutorialReplayTitle": {
+    "description": "Heading of the sheet Profile's 'Help & tour' entry opens, listing the three tours. Two or three words."
+  },
+  "tutorialReplayHint": "Replay it from Profile → Help & tour.",
+  "@tutorialReplayHint": {
+    "description": "The single line shown at the bottom of the screen when somebody skips or declines the tour, saying where to find it again. 'Profile' names a tab and 'Help & tour' names an entry on it, so both must match how those are translated. It fades away by itself — one line."
+  },
+  "tutorialTabTodayTitle": "Today",
+  "@tutorialTabTodayTitle": {
+    "description": "Title of the tour step spotlighting the Today tab. It names that tab, so use the same word the tab is labeled with."
+  },
+  "tutorialTabTodayBody": "Where you land, and where a session starts. Tap it.",
+  "@tutorialTabTodayBody": {
+    "description": "Body of the step about the Today tab. It ends by asking for the tap that moves the tour on, because the tab really is tapped. Two lines — the callout sits above the bottom navigation bar with little room."
+  },
+  "tutorialRoutinesTitle": "Routines",
+  "@tutorialRoutinesTitle": {
+    "description": "Title of the tour step spotlighting the Routines tab. It names that tab, so use the same word the tab is labeled with."
+  },
+  "tutorialRoutinesBody": "A routine is a training program — the set of days you rotate through, like Push, Pull and Legs. Yours live here. Tap it.",
+  "@tutorialRoutinesBody": {
+    "description": "Body of the step about the Routines tab. This is where the tour defines the word 'routine' for somebody who has never trained, so keep the definition; Push, Pull and Legs are the names of the shipped demo routine's days and should match how those are translated. Three lines."
+  },
+  "tutorialHistoryTitle": "History",
+  "@tutorialHistoryTitle": {
+    "description": "Title of the tour step spotlighting the History tab. It names that tab, so use the same word the tab is labeled with."
+  },
+  "tutorialHistoryBody": "Every session you finish is logged here: what you lifted, and when. Tap it.",
+  "@tutorialHistoryBody": {
+    "description": "Body of the step about the History tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  },
+  "tutorialProfileTitle": "Profile",
+  "@tutorialProfileTitle": {
+    "description": "Title of the tour step spotlighting the Profile tab. It names that tab, so use the same word the tab is labeled with."
+  },
+  "tutorialProfileBody": "Settings, your exercise library, and these tours. Tap it.",
+  "@tutorialProfileBody": {
+    "description": "Body of the step about the Profile tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  },
+  "tutorialBackToTodayTitle": "Back to Today",
+  "@tutorialBackToTodayTitle": {
+    "description": "Title of the tour step that sends you back to the Today tab after the four tabs have been walked. 'Today' names a tab. One line."
+  },
+  "tutorialBackToTodayBody": "Tap Today, and we will go through what is on it.",
+  "@tutorialBackToTodayBody": {
+    "description": "Body of the step returning to the Today tab. 'Today' names a tab. Two lines — the callout sits above the bottom navigation bar."
+  },
+  "tutorialTodayRoutineTitle": "The routine you are on",
+  "@tutorialTodayRoutineTitle": {
+    "description": "Title of the tour step spotlighting the current routine's name at the top of the Today screen. One line."
+  },
+  "tutorialTodayRoutineBody": "One routine is current at a time, and Today lists its days. Change swaps to another.",
+  "@tutorialTodayRoutineBody": {
+    "description": "Body of the step about the current routine. 'Change' names the small text link beside the routine name — see todayChange — so use the same word you translated that with. Two or three lines."
+  },
+  "tutorialTodayTitle": "Your next training day",
   "@tutorialTodayTitle": {
     "description": "Title of the tour step spotlighting the current routine's next training day on the Today screen. One line."
   },
-  "tutorialTodayBody": "This training day is queued up next. Tap it to see the exercises, then Start when you are ready to work out.",
+  "tutorialTodayBody": "Each card is one training day — a single session's worth of exercises. A push day trains what you push with: chest, shoulders and triceps. The badged one is what you are due next.",
   "@tutorialTodayBody": {
-    "description": "Body of the step about the next training day. 'Start' names a button on the workout screen — see workoutDetailStart — so use the same word you translated that button with. Budget three lines; this callout floats beside the card it points at, so a fourth line risks covering it."
+    "description": "Body of the step about the training-day cards. This is where the tour defines 'training day' and 'push day' for somebody new to the gym, so keep both definitions rather than shortening to the nouns. Budget four lines; this callout floats beside the card it points at."
+  },
+  "tutorialLifetimeTitle": "Lifetime totals",
+  "@tutorialLifetimeTitle": {
+    "description": "Title of the tour step spotlighting the running totals card on the Today screen. One line — two or three words."
+  },
+  "tutorialLifetimeBody": "Every session you finish adds to your volume, sets and reps here.",
+  "@tutorialLifetimeBody": {
+    "description": "Body of the step about the lifetime totals card. Two lines; this callout floats beside the card it points at, so keep it short."
+  },
+  "tutorialSessionOpenTitle": "Starting a workout",
+  "@tutorialSessionOpenTitle": {
+    "description": "Title of the tour step that explains where the live-workout screen comes from. It is the first step drawn over a full-size mock of that screen, and nothing behind the tour has actually moved. Two or three words on one line."
+  },
+  "tutorialSessionOpenBody": "Tap a training day, then Start workout, and this takes over the screen until you finish. The next few steps are all on it.",
+  "@tutorialSessionOpenBody": {
+    "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it."
   },
   "tutorialBoardTitle": "While you lift",
   "@tutorialBoardTitle": {
     "description": "Title of the tour step about the live workout board, shown over a drawn mock of it. Two or three words on one line."
   },
-  "tutorialBoardBody": "The set you are on is outlined. Tap its reps to log the goal, tap again for each rep you missed, or hold to type a number.",
+  "tutorialBoardBody": "A rep is one repetition of a movement, and a set is a run of them done back to back. Each row here is one set, and the outlined row is the one you are on. Tap its number to log the goal, tap again for each rep you fell short, or hold to type a number.",
   "@tutorialBoardBody": {
-    "description": "Body of the step about logging a set: the three gestures a set row takes. Budget three lines; the card sits under a mock board and the pair scrolls together on a short phone, so four is survivable and five is not."
+    "description": "Body of the step about logging a set: what the two words mean, then the three gestures a set row takes. This is where the tour defines 'set' and 'rep', so keep both definitions. The card sits under a mock board and the pair scrolls together, so five lines is survivable."
   },
   "tutorialRestTitle": "The rest timer",
   "@tutorialRestTitle": {
     "description": "Title of the tour step about the rest bar, shown over a drawn mock of it. Two or three words on one line."
   },
-  "tutorialRestBody": "Logging a set starts the timer. You can change its length or skip it.",
+  "tutorialRestBody": "Rest is the pause between sets. Logging one starts the clock, and you can lengthen it, shorten it or skip it.",
   "@tutorialRestBody": {
-    "description": "Body of the step about the rest timer: what starts it, that it survives leaving the screen, and the three controls it offers. Budget three lines, four at the outside."
+    "description": "Body of the step about the rest timer: what rest is, what starts it, and the three controls it offers. Budget three lines, four at the outside."
   },
   "tutorialNoteTitle": "Your note on a movement",
   "@tutorialNoteTitle": {
@@ -2995,37 +3174,81 @@
   "@tutorialShadeBody": {
     "description": "Body of the step about the notification. 'Done', 'Missed' and 'Skip' name the notification's own buttons — use the words you translated shadeDone, shadeMissed and sessionRestSkip with. Budget three lines."
   },
-  "tutorialLifetimeTitle": "Lifetime totals",
-  "@tutorialLifetimeTitle": {
-    "description": "Title of the tour step spotlighting the running totals card on the Today screen. One line — two or three words."
+  "tutorialDoneTitle": "That is the tour",
+  "@tutorialDoneTitle": {
+    "description": "Title of the last step of the full tour. Three or four words on one line."
   },
-  "tutorialLifetimeBody": "Every session you finish adds to your volume, sets and reps here.",
-  "@tutorialLifetimeBody": {
-    "description": "Body of the step about the lifetime totals card. Two lines; this callout floats beside the card it points at, so keep it short."
+  "tutorialDoneBody": "Replay it from Profile → Help & tour, where there is also a walk-through of building a routine.",
+  "@tutorialDoneBody": {
+    "description": "Body of the last step of the full tour. 'Profile' names a tab and 'Help & tour' names an entry on it, so both must match how those are translated. The arrow is a separator between them and stays as it is. Three lines."
   },
-  "tutorialRoutinesTitle": "Routines",
-  "@tutorialRoutinesTitle": {
-    "description": "Title of the tour step spotlighting the Routines tab. It names that tab, so use the same word the tab is labelled with."
+  "tutorialDoneQuickBody": "Replay it from Profile → Help & tour, where the longer tour is too.",
+  "@tutorialDoneQuickBody": {
+    "description": "Body of the last step of the quick tour, in place of tutorialDoneBody. Same naming rules: 'Profile' is a tab, 'Help & tour' is an entry on it. Two or three lines."
   },
-  "tutorialRoutinesBody": "Build a new programme, or switch which routine Today follows.",
-  "@tutorialRoutinesBody": {
-    "description": "Body of the step about the Routines tab. 'Today' names another tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  "tutorialBuildOpenTitle": "Start at Routines",
+  "@tutorialBuildOpenTitle": {
+    "description": "Title of the first step of the routine-builder tour. 'Routines' names a tab. One line."
   },
-  "tutorialHistoryTitle": "History",
-  "@tutorialHistoryTitle": {
-    "description": "Title of the tour step spotlighting the History tab. It names that tab, so use the same word the tab is labelled with."
+  "tutorialBuildOpenBody": "A program is built here. Tap Routines.",
+  "@tutorialBuildOpenBody": {
+    "description": "Body of the first step of the builder tour, which asks for the tap that opens the Routines tab. 'Routines' names a tab. Two lines — the callout sits above the bottom navigation bar."
   },
-  "tutorialHistoryBody": "Every workout you finish is logged here to look back on.",
-  "@tutorialHistoryBody": {
-    "description": "Body of the step about the History tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  "tutorialBuildNewTitle": "A new routine",
+  "@tutorialBuildNewTitle": {
+    "description": "Title of the builder-tour step spotlighting the New routine button. One line."
   },
-  "tutorialProfileTitle": "Profile & help",
-  "@tutorialProfileTitle": {
-    "description": "Title of the tour step spotlighting the Profile tab, which also holds the help entry. One line."
+  "tutorialBuildNewBody": "A routine is a training program: the days you rotate through. Tap New routine.",
+  "@tutorialBuildNewBody": {
+    "description": "Body of the step about starting a routine. 'New routine' names the button it points at — see routinesNewRoutine — so use the same words you translated that with. Three lines."
   },
-  "tutorialProfileBody": "Settings, the exercise library, and this tour all live here. Replay it any time from “Help & tour”.",
-  "@tutorialProfileBody": {
-    "description": "Body of the last step. The quoted phrase is a menu entry on the Profile screen, so it must match how that entry is translated, and it keeps its curly quotation marks. Two or three lines — the callout sits above the bottom navigation bar."
+  "tutorialBuildNameTitle": "Name it",
+  "@tutorialBuildNameTitle": {
+    "description": "Title of the builder-tour step spotlighting the routine's name field. Two words."
+  },
+  "tutorialBuildNameBody": "Whatever you will recognise on Today — “Push Pull Legs”, “Mondays and Thursdays”.",
+  "@tutorialBuildNameBody": {
+    "description": "Body of the step about naming a routine. 'Today' names a tab. The two quoted examples are illustrations, not fixed strings: translate them into names somebody would actually give a program in your language, keeping the curly quotation marks. Three lines."
+  },
+  "tutorialBuildDaysTitle": "Training days",
+  "@tutorialBuildDaysTitle": {
+    "description": "Title of the builder-tour step spotlighting the routine's list of training days. It matches the label on that list — see routineEditWorkouts. One line."
+  },
+  "tutorialBuildDaysBody": "A training day is one session: the exercises you do in one visit. Most programs have three to five and rotate through them. Add one.",
+  "@tutorialBuildDaysBody": {
+    "description": "Body of the step about training days. This is where the builder tour defines 'training day', so keep the definition. It ends by asking for the tap on the add button. Four lines."
+  },
+  "tutorialBuildExercisesTitle": "Its exercises",
+  "@tutorialBuildExercisesTitle": {
+    "description": "Title of the builder-tour step spotlighting the exercise list inside a training day. Two or three words."
+  },
+  "tutorialBuildExercisesBody": "Add the movements this day is made of, in the order you will do them. Drag the grip on the left to reorder.",
+  "@tutorialBuildExercisesBody": {
+    "description": "Body of the step about a training day's exercises. 'Grip' is the drag handle on the left of each row. Three lines."
+  },
+  "tutorialBuildSlotTitle": "What each exercise is set to",
+  "@tutorialBuildSlotTitle": {
+    "description": "Title of the builder-tour step explaining the per-exercise settings. One line, five or six words."
+  },
+  "tutorialBuildSlotBody": "Tap an exercise to configure it. Sets is how many times you repeat it, the rep target is what each set aims at, and rest is the pause between them. Step up by is how much is added after a clean session; back off by is how much comes off after missing one.",
+  "@tutorialBuildSlotBody": {
+    "description": "Body of the step explaining every setting in the exercise config sheet. Each named setting is a label in that sheet — use the same words you translated itemEditorSets, itemEditorReps, itemEditorRest, itemEditorStepUp and itemEditorBackOff with. The longest body in any tour: it stands alone on a dimmed screen that scrolls, so six lines is fine."
+  },
+  "tutorialBuildSaveTitle": "Save it",
+  "@tutorialBuildSaveTitle": {
+    "description": "Title of the builder-tour step spotlighting the Save button. Two words."
+  },
+  "tutorialBuildSaveBody": "The routine appears under Routines, and on Today once you make it the current one.",
+  "@tutorialBuildSaveBody": {
+    "description": "Body of the step about saving. 'Routines' and 'Today' name tabs. Three lines."
+  },
+  "tutorialBuildDoneTitle": "That is a routine",
+  "@tutorialBuildDoneTitle": {
+    "description": "Title of the last step of the routine-builder tour. Three or four words."
+  },
+  "tutorialBuildDoneBody": "Replay this from Profile → Help & tour.",
+  "@tutorialBuildDoneBody": {
+    "description": "Body of the last step of the builder tour. 'Profile' names a tab and 'Help & tour' names an entry on it. The arrow is a separator and stays as it is. Two lines."
   },
   "tutorialDemoRestSeconds": "1:30",
   "@tutorialDemoRestSeconds": {

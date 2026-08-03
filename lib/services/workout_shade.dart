@@ -105,7 +105,13 @@ class WorkoutShade {
       await FlutterForegroundTask.requestNotificationPermission() ==
       NotificationPermission.granted;
 
-  static const _channelId = 'live_workout';
+  /// **A channel's importance is fixed when Android first creates it**, and no
+  /// later call moves it — importance is the user's to change from there, not
+  /// the app's. The id is a new one rather than the old `live_workout` because
+  /// that one was created LOW, and it was changed before the first release, when
+  /// the only phones holding the old channel were development installs. Changing
+  /// it again would abandon a channel somebody has since tuned.
+  static const _channelId = 'live_workout_ongoing';
 
   /// The button ids, which are also what crosses the isolate boundary.
   static const doneAction = 'set_done';
@@ -175,6 +181,23 @@ class WorkoutShade {
   /// Android takes a channel's name and description from the last call, so a
   /// switch is what re-labels the row in the phone's notification settings.
   /// Its *sound* is fixed at creation, but this channel is silent anyway.
+  ///
+  /// ## Why a default-importance channel for a notification that says nothing
+  ///
+  /// The buttons live in a notification's *expanded* form, so a shade that
+  /// opens this one collapsed is a shade with nothing to press — which is the
+  /// whole of what it is for. There is no API for "post this expanded":
+  /// `BigTextStyle` (which the plugin already applies) says what the expanded
+  /// form contains, and the system decides which notification is shown in it.
+  /// What it decides on is rank — the top-ranked notification is the one the
+  /// shade auto-expands — and a LOW channel is ranked into the silent section
+  /// at the very bottom, where it is never the top of anything.
+  ///
+  /// So the channel is DEFAULT, which is a rank rather than a noise: the
+  /// plugin creates the channel with no sound and no vibration whatever the
+  /// importance, [onlyAlertOnce] keeps a per-second rest countdown from
+  /// alerting sixty times, and DEFAULT is below the HIGH that would make it a
+  /// heads-up. This is as close to "expanded" as Android lets an app get.
   void _init(ShadeCopy copy) {
     if (_ready && _channelCopy == copy.channel) return;
     if (!supported) return;
@@ -184,11 +207,11 @@ class WorkoutShade {
         channelId: _channelId,
         channelName: copy.channel.name,
         channelDescription: copy.channel.description,
-        // Low importance and silent: this notification is *furniture* for the
-        // length of a workout, not an alert. The one thing that should make a
-        // sound — the rest ending — is the tone, which has its own switch.
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
+        // Ranked, but silent: see above. This notification is *furniture* for
+        // the length of a workout, not an alert. The one thing that should make
+        // a sound — the rest ending — is the tone, which has its own volume.
+        channelImportance: NotificationChannelImportance.DEFAULT,
+        priority: NotificationPriority.DEFAULT,
         playSound: false,
         enableVibration: false,
         // It is rewritten every second while a rest runs; alerting once keeps
@@ -412,6 +435,15 @@ String shadeTitle(AppLocalizations l10n, WorkoutCue cue) => switch (cue.kind) {
   CueKind.finished => l10n.shadeWorkoutTitle,
 };
 
+/// The longest the "where you are" line may run before the exercise name gives
+/// way.
+///
+/// Roughly what a notification line holds at the default text size on a 360 dp
+/// phone. It is a character count rather than a measurement because there is no
+/// text painter within reach of the isolate that posts this, and it errs short:
+/// a line with room to spare costs nothing, a line that wraps costs the counter.
+const int kShadeWhereChars = 32;
+
 /// Where in the session you are: the movement, whether this is its ramp, and
 /// which set of how many.
 ///
@@ -422,17 +454,37 @@ String shadeTitle(AppLocalizations l10n, WorkoutCue cue) => switch (cue.kind) {
 /// Four whole sentences rather than three fragments glued together: a language
 /// that puts the ramp's name after the movement, or that declines it, cannot be
 /// built out of a prefix and a suffix.
+///
+/// **The name is what gives when the line runs long.** "Bulgarian Split Squat ·
+/// Set 4/5" is wider than a notification line, and Android wraps at the last
+/// word that fits — which drops "Set 4/5" onto a line of its own, or off the
+/// bottom of a collapsed notification entirely. Losing the counter loses the
+/// only thing distinguishing four identical sets, and the movement is still
+/// recognisable from its first dozen characters, so the movement is cut and the
+/// counter is never touched. The whole line is composed either way, so the
+/// budget is spent on the line rather than guessed at per language.
 String shadeWhere(AppLocalizations l10n, WorkoutCue cue) {
-  final name = seededName(l10n, cue.exerciseSeedKey, cue.exercise);
   final counted = cue.setCount > 0;
-  if (cue.warmup) {
+  String compose(String name) {
+    if (cue.warmup) {
+      return counted
+          ? l10n.shadeWhereWarmupSet(name, cue.setIndex + 1, cue.setCount)
+          : l10n.shadeWhereWarmup(name);
+    }
     return counted
-        ? l10n.shadeWhereWarmupSet(name, cue.setIndex + 1, cue.setCount)
-        : l10n.shadeWhereWarmup(name);
+        ? l10n.shadeWhereExerciseSet(name, cue.setIndex + 1, cue.setCount)
+        : l10n.shadeWhereExercise(name);
   }
-  return counted
-      ? l10n.shadeWhereExerciseSet(name, cue.setIndex + 1, cue.setCount)
-      : l10n.shadeWhereExercise(name);
+
+  final name = seededName(l10n, cue.exerciseSeedKey, cue.exercise);
+  final full = compose(name);
+  if (full.length <= kShadeWhereChars) return full;
+  // One character back for the ellipsis that replaces what was cut.
+  final keep = name.length - (full.length - kShadeWhereChars) - 1;
+  // Nothing left to give: everything but the name is already over budget, and a
+  // bare ellipsis names no movement at all. The line stands as it is.
+  if (keep < 1) return full;
+  return compose('${name.substring(0, keep).trimRight()}…');
 }
 
 /// The second line: the set itself, in enough detail to load a bar from.

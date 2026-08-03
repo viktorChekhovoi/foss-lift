@@ -7,12 +7,14 @@ code:
 - lib/screens/workout_edit_screen.dart
 - lib/widgets/builder_widgets.dart
 - lib/widgets/workout_items_editor.dart
+- lib/data/set_scheme.dart
 test:
 - test/feature_03_workout_configuration_test.dart
 where: >-
   <b>Screen</b> lib/screens/workout_edit_screen.dart (_ItemConfigSheet) · <b>Shared
-  chrome</b> lib/widgets/builder_widgets.dart, workout_items_editor.dart · <b>Data</b>
-  WorkoutItems columns
+  chrome</b> lib/widgets/builder_widgets.dart, workout_items_editor.dart · <b>Set
+  schemes</b> lib/data/set_scheme.dart (resolveSetTargets), applied by
+  ActiveWorkoutController.start · <b>Data</b> WorkoutItems columns
 groups:
 - name: What it does
   items:
@@ -35,6 +37,68 @@ groups:
     - template.rep-target
     uses:
     - exercise.measure
+  - id: target-opens-on-three-fields
+    t: The Target card opens on sets, reps and rest, and nothing else
+    d: >-
+      those are the three numbers every slot has an answer for, and the three
+      most people ever change. Everything else about the target sits behind an
+      Advanced toggle in the same card, shut by default.
+    defines:
+    - template.item
+  - id: advanced-holds-the-rest-of-the-target
+    t: Advanced holds the rep range, to failure, and the set scheme
+    d: >-
+      tapping it opens the upper bound of the rep range, the to-failure checkbox
+      and the way the sets differ from one another. It opens already expanded on
+      a slot that is using any of them, so nothing a slot actually does is hidden
+      behind a toggle somebody has to think to press.
+    defines:
+    - template.set-scheme
+    uses:
+    - template.rep-target
+  - id: sets-can-back-off-ramp-or-be-written-out
+    t: The sets of a slot can back off, ramp up, or be written out one by one
+    d: >-
+      four schemes. <b>Flat</b> — the default — is every set at the same weight
+      and the same target. <b>Back-off</b> opens at the slot's weight and takes a
+      configurable percentage off each set after it: at 10%, three sets are 100%,
+      90%, 80%. <b>Ramp</b> is the same ladder climbed the other way, so the last
+      set is the slot's weight and the ones before it are lighter. <b>Custom</b>
+      is a row per set, each with its own rep count and its own percentage of the
+      slot's weight. The slot's weight is the top of the ladder in every case, so
+      progression still moves one number and the whole scheme moves with it.
+    defines:
+    - template.set-scheme
+    uses:
+    - template.item
+    - progression.rates
+  - id: scheme-weights-land-on-something-loadable
+    t: A scheme's weights land on something you can actually load
+    d: >-
+      90% of 102.5 kg is 92.25, which is not a bar anybody sets. Every weight a
+      scheme computes is snapped to the step the current unit counts by — 2.5 kg
+      or 5 lb — and held at or above the empty bar for a bar-loaded movement, the
+      same two rules a converted target obeys.
+    screen: none
+    uses:
+    - template.set-scheme
+    - load.units
+    - load.bar-weight
+  - id: scheme-reaches-the-live-board
+    t: The scheme is what the board hydrates from
+    d: >-
+      each set row opens at its own weight and its own rep goal, so a back-off
+      set is judged against the back-off weight rather than against the top one —
+      finishing it is not a miss. Editing the exercise's weight mid-session moves
+      the whole ladder with it, keeping the proportions: every set still to come
+      is recomputed, and sets already logged keep what they were done at.
+    screen: session
+    points:
+    - session
+    uses:
+    - template.set-scheme
+    - session.set-logging
+    - session.live-state
   - id: progression-rates
     t: A slot carries its own progression rates
     d: >-
@@ -42,6 +106,38 @@ groups:
       amount, failure threshold.
     uses:
     - progression.rates
+  - id: step-amounts-tapped-or-typed
+    t: The step-up and back-off amounts are tapped as well as typed
+    d: >-
+      each has − and + beside the box. One tap moves a weight by 1.25 kg, or by
+      2.5 lb when the display unit is pounds; a rep count by 1 and a hold by 5 s.
+      Typing a value still works and is not rounded to a tap. A step-up will not
+      settle below one tap's worth — the buttons stop there, and a smaller number
+      typed in is raised to it when you leave the box, because a slot that steps up
+      by nothing never progresses. A back-off may be taken to zero, which means a
+      missed session never lightens the load.
+    uses:
+    - progression.rates
+    - load.units
+  - id: exercise-library-properties-in-sheet
+    t: The exercise's own library properties are editable from the config sheet
+    d: >-
+      how it is loaded, which bar it is over, your note on it, and — for a movement
+      you made yourself — the form that holds its name, muscle group, equipment,
+      measure and demo link. They sit in an Exercise card below the per-slot
+      settings, captioned to say that they belong to the exercise: an edit lands in
+      every routine that uses it, and the sheet above takes the new name, measure and
+      loading straight away. A starter exercise's name and classification stay put,
+      as they do in the library — a routine code that says "Bench Press" has to mean
+      the movement everyone else calls that.
+    uses:
+    - exercise.identity
+    - exercise.taxonomy
+    - exercise.measure
+    - exercise.notes
+    - exercise.weight-type
+    - exercise.video-url
+    - load.bar-weight
 - name: How to use it
   items:
   - id: open-config-sheet
@@ -53,6 +149,11 @@ groups:
       because it decides whether everything below asks for reps or for seconds.
     uses:
     - progression.axis
+  - id: sheet-field-stays-above-keyboard
+    t: A field tapped in the config sheet scrolls clear of the keyboard
+    d: >-
+      the sheet scrolls the box you are typing in into view above the keyboard, and
+      does it for every text field in it — the weight and both progression amounts.
   - id: reorder-slots-up-down
     t: Drag slots into order by the handle
     d: and add more from the exercise picker.
@@ -62,7 +163,7 @@ groups:
   items:
   - id: which-targets-offered-depends-exercise
     t: >-
-      Which targets are offered depends on the exercise, not the programme
+      Which targets are offered depends on the exercise, not the program
     d: >-
       the axis is constrained by the measure rather than chosen freely: a counted
       exercise offers weight and reps; a held one offers only a timed hold; and a

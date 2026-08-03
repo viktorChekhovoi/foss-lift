@@ -6,7 +6,11 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/locales.dart';
 
-/// The language picker: follow the phone, or one of the five.
+/// The language picker: the five, one of them always selected.
+///
+/// There is no "follow the phone" row. First run resolves the phone's language
+/// and stores it (see `localeTagProvider`), so by the time anyone opens this
+/// screen the question has already been answered with one of these five.
 ///
 /// Every row names its language in that language and nothing else. A row
 /// labelled "Ucraniano" is no use to the person who needs it, and a subtitle
@@ -18,7 +22,11 @@ class LanguageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final chosen = ref.watch(localeTagProvider).value;
+    // The language actually being painted, rather than the raw stored tag: on
+    // the very first launch the write that stores it may still be in flight,
+    // and a picker with nothing ticked would be the one frame where the
+    // "always one selected" rule does not hold.
+    final chosen = localeTag(ref.watch(activeLocaleProvider));
     final db = ref.read(databaseProvider);
 
     return Scaffold(
@@ -28,13 +36,8 @@ class LanguageScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           children: [
-            _LanguageOption(
-              label: l10n.languageFollowPhone,
-              selected: chosen == null,
-              onTap: () => db.setLocaleTag(null),
-            ),
             for (final locale in kSupportedLocales) ...[
-              const SizedBox(height: 10),
+              if (locale != kSupportedLocales.first) const SizedBox(height: 10),
               _LanguageOption(
                 label: kLanguageNames[localeTag(locale)]!,
                 selected: chosen == localeTag(locale),

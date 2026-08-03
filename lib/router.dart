@@ -19,12 +19,12 @@ import 'screens/routine_import_screen.dart';
 import 'screens/routine_share_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/set_video_screen.dart';
-import 'screens/settings_screen.dart';
+import 'screens/exercise_settings_screen.dart';
 import 'screens/video_settings_screen.dart';
 import 'screens/summary_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/theme_import_screen.dart';
-import 'screens/theme_settings_screen.dart';
+import 'screens/appearance_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/workout_detail_screen.dart';
 import 'screens/workout_edit_screen.dart';
@@ -111,7 +111,7 @@ final appRouter = GoRouter(
           ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
     ),
     GoRoute(path: '/about', builder: (c, s) => const AboutScreen()),
-    GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+    GoRoute(path: '/settings', builder: (c, s) => const ExerciseSettingsScreen()),
     GoRoute(
       path: '/settings/bar',
       builder: (c, s) => const BarSettingsScreen(),
@@ -129,19 +129,19 @@ final appRouter = GoRouter(
       builder: (c, s) => const LanguageScreen(),
     ),
     GoRoute(
-      path: '/settings/theme',
-      builder: (c, s) => const ThemeSettingsScreen(),
+      path: '/settings/appearance',
+      builder: (c, s) => const AppearanceScreen(),
     ),
     // No id builds a new theme; an id edits (and renames, and deletes) that one.
     // `?from=<slug>` seeds a new one from a preset — the pencil on a preset row,
     // which copies rather than edits.
     GoRoute(
-      path: '/settings/theme/custom',
+      path: '/settings/appearance/custom',
       builder: (c, s) =>
           CustomThemeEditorScreen(fromPresetId: s.uri.queryParameters['from']),
     ),
     GoRoute(
-      path: '/settings/theme/custom/:id',
+      path: '/settings/appearance/custom/:id',
       builder: (c, s) => CustomThemeEditorScreen(
         themeId: int.parse(s.pathParameters['id']!),
       ),
@@ -151,7 +151,7 @@ final appRouter = GoRouter(
     // anything on its own — see ThemeImportScreen.
 
     GoRoute(
-      path: '/settings/theme/import',
+      path: '/settings/appearance/import',
       builder: (c, s) =>
           ThemeImportScreen(code: s.uri.queryParameters['code'] ?? ''),
     ),

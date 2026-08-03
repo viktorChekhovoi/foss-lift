@@ -50,7 +50,7 @@ class BarSettingsScreen extends ConsumerWidget {
     void refused(double kg) {
       if (!context.mounted) return;
       final w = l10n.unitWeightShort(
-          fmtPlateWeight(toDisplayWeight(kg, unit)), u);
+          fmtWeight(toDisplayWeight(kg, unit)), u);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.barSettingsDuplicate(w))));
@@ -105,7 +105,7 @@ class BarSettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       child: Text(
                         l10n.barSettingsEmpty(l10n.unitWeightShort(
-                            fmtPlateWeight(toDisplayWeight(setup.barKg, unit)),
+                            fmtWeight(toDisplayWeight(setup.barKg, unit)),
                             u)),
                         style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
@@ -230,7 +230,7 @@ class _BarRow extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             l10n.unitWeightShort(
-                              fmtPlateWeight(
+                              fmtWeight(
                                   toDisplayWeight(bar.weightKg, unit)),
                               unitSuffix(l10n, unit),
                             ),

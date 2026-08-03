@@ -153,7 +153,7 @@ class _PlateRow extends StatelessWidget {
           Expanded(
             child: Text(
               l10n.unitWeightShort(
-                  fmtPlateWeight(toDisplayWeight(plate.kg, unit)),
+                  fmtWeight(toDisplayWeight(plate.kg, unit)),
                   unitSuffix(l10n, unit)),
               style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
             ),

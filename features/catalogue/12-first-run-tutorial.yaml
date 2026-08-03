@@ -1,6 +1,6 @@
 id: "12"
 title: First-run tutorial
-tagline: A one-time coach-mark tour that runs on first launch.
+tagline: Tours of the app you can tap through for real, offered on first launch and replayable from Profile.
 screen: tutorial
 code:
 - lib/widgets/tutorial.dart
@@ -8,46 +8,116 @@ code:
 test:
 - test/feature_12_first_run_tutorial_test.dart
 where: >-
-  <b>Overlay + anchors</b> lib/widgets/tutorial.dart · <b>Mock board and rest
-  bar</b> lib/widgets/tutorial_demo.dart · <b>Seen flag</b> Settings.tutorialSeen
+  <b>Overlay, tracks and anchors</b> lib/widgets/tutorial.dart · <b>Mock board,
+  rest bar and shade</b> lib/widgets/tutorial_demo.dart · <b>Seen flag</b>
+  Settings.tutorialSeen
 groups:
 - name: What it does
   items:
   - id: opens-welcome-card
-    t: Opens on an unanchored welcome card
+    t: Opens on a choice of two tours
     d: >-
-      the first time the app is opened: what the app is, and the choice to take the
-      tour or not — Take the tour to walk through it, Not now to dismiss. The step
-      has no anchor at all, a plain dimmed screen with a card in the middle of it,
-      and it is where a replay starts too.
+      the first time the app is opened: what the app is, and which tour to take —
+      the full walk-through, the quick one, or neither. The card has no anchor at
+      all, a plain dimmed screen with a card in the middle of it.
     defines:
     - ui.tutorial
+    - ui.tutorial-track
   - id: overlays-guided-coach-mark-tour
-    t: Overlays a guided coach-mark tour
+    t: Overlays a coach-mark tour anchored to real widgets
     d: >-
-      pointing at the key parts of the UI to get a new user started, with each
-      callout attached to an on-screen anchor rather than to a hard-coded position.
+      each callout is attached to an on-screen anchor rather than to a hard-coded
+      position, and the anchor is spotlighted by cutting a hole in the dimmed
+      backdrop.
     defines:
     - ui.tutorial
     uses:
     - ui.navigation
-  - id: shows-mock-board-rest-bar
-    t: Draws the live workout it cannot show you
+  - id: you-tap-the-real-control
+    t: You tap the real control, not a picture of it
     d: >-
-      the steps about a running session put a stand-in on the dimmed screen —
-      the board (one exercise, its note icon, three set rows with a camera on
-      each), the rest bar with its countdown and −15s / +15s / Skip, and the
-      notification with Done and Missed on it. Read the step, look at the thing
-      it is describing. The mock board is built from the real board's columns
-      and cells rather than a second copy of them, down to the pulse on the cell
-      that logs the set — change how the board looks and the tour follows, which
-      is the only way a picture of a screen stays a picture of that screen.
+      on a step that asks you to do something, the hole in the scrim is a hole in
+      its hit test too: the tap reaches the widget underneath, the app does what
+      it would normally do, and the tour moves on with you. Everywhere else the
+      scrim absorbs the tap so a stray touch cannot poke the app mid-sentence.
+    defines:
+    - ui.tutorial
+    uses:
+    - ui.navigation
+  - id: starts-with-the-four-tabs
+    t: Starts at the four tabs
+    d: >-
+      Today, Routines, History and Profile in turn, before any one screen is
+      described — the shape of the app first, then what is inside it. Each step
+      spotlights that tab's button and you tap it to go there.
+    points:
+    - today
+    - routines
+    - history
+    - profile
+    uses:
+    - ui.navigation
+    - template.routine
+    - template.active-routine
+    - history.session-record
+    - ui.tutorial
+  - id: explains-gym-words
+    t: Explains the gym words where they first matter
+    d: >-
+      routine, training day, push day, set, rep and rest each get one plain
+      sentence, at the step where the word first appears, so the tour is followable
+      by somebody who has never trained before without reading as a glossary.
+    defines:
+    - ui.gym-vocabulary
+  - id: shows-mock-board-rest-bar
+    t: Draws the live workout it cannot show you, at full size
+    d: >-
+      the steps about a running session fill the screen with a stand-in for it —
+      the session's own header, two exercises, their set rows with a note icon
+      and a camera on each, and the rest bar docked at the bottom when the step
+      is about resting. It is a whole screen rather than a card in the middle of
+      one because that is what somebody is about to be looking at, and a
+      thumbnail of a screen teaches the thumbnail. The callout sits over it, at
+      whichever end leaves the thing being described uncovered. The mock is built
+      from the real board's columns and cells rather than a second copy of them,
+      down to the pulse on the cell that logs the set — change how the board
+      looks and the tour follows, which is the only way a picture of a screen
+      stays a picture of that screen.
+    points:
+    - session
     defines:
     - ui.tutorial
     uses:
     - session.set-logging
     - session.progress-mark
     - session.rest-timer
+  - id: session-chapter-follows-the-training-day
+    t: The live workout comes straight after the training day that starts one
+    d: >-
+      the step pointing at the next training day is followed by the one that
+      says what tapping it leads to, and then by the whole live-workout chapter —
+      the board, the rest timer, the note, the clip and the notification. The
+      lifetime totals come after all of it. That is the order somebody actually
+      moves in: a card you tap, a screen it opens, the thing you do there. The
+      chapter opens by naming the transition, because nothing on screen has
+      moved and the tour has to say why the picture changed.
+    points:
+    - today
+    - session
+    uses:
+    - ui.tutorial
+    - ui.tutorial-track
+    - session.live-state
+  - id: shade-step-keeps-its-own-picture
+    t: The notification step keeps a notification-sized picture
+    d: >-
+      it is the one step in the chapter that is not about the screen, so it does
+      not borrow the screen's frame: a shade card in the middle of a dimmed
+      display, with Done and Missed on it.
+    points:
+    - shade
+    uses:
+    - ui.tutorial
     - session.shade
   - id: explains-note-and-clip
     t: Explains the note and the clip on their own steps
@@ -55,23 +125,118 @@ groups:
       what the note icon beside an exercise opens and where that note is kept,
       and what the camera on a set records — one step each, both against the mock
       board with the icon in question ringed.
+    points:
+    - session
     uses:
     - exercise.notes
     - video.capture
   - id: runs-once
     t: Runs once
-    d: Settings.tutorialSeen records that it has run, so it never reappears.
+    d: Settings.tutorialSeen records that it has run, so it never reappears on its own.
     uses:
     - ui.tutorial
     - storage.settings
+- name: The tracks
+  items:
+  - id: full-tour-walks-the-app
+    t: The full tour walks the whole app
+    d: >-
+      the four tabs, then the routine you are following and the training day you
+      are due next, then straight into the session that day opens — the board,
+      the rest timer, the note, the clip and the notification — and out again to
+      the lifetime totals. It assumes no gym vocabulary and defines each word
+      once.
+    points:
+    - today
+    - session
+    - shade
+    uses:
+    - ui.tutorial-track
+    - ui.gym-vocabulary
+    - template.active-routine
+    - history.aggregates
+    - session.set-logging
+    - session.shade
+  - id: quick-tour-is-the-four-tabs
+    t: The quick tour is the four tabs and nothing else
+    d: >-
+      for somebody who has used a tracker before: where the four destinations are,
+      then out. It ends on Profile, next to where both tours are replayed from.
+    points:
+    - today
+    - routines
+    - history
+    - profile
+    uses:
+    - ui.tutorial-track
+    - ui.navigation
+    - template.routine
+    - history.session-record
+  - id: track-choice-is-not-a-judgement
+    t: Neither track is presented as the lesser one
+    d: >-
+      the two are offered side by side with one line each saying what is in them —
+      "every screen, with the gym words explained" and "just the four tabs" — and
+      no wording that ranks the reader.
+    uses:
+    - ui.tutorial-track
+- name: The builder tour
+  items:
+  - id: builder-tour-covers-making-a-routine
+    t: A second tour covers building a routine
+    d: >-
+      Routines → New routine → name it → add a training day → add its exercises →
+      Save, each step spotlighting the real control and advancing when you use it.
+    points:
+    - routines
+    - routine-edit
+    - workout-edit
+    uses:
+    - ui.tutorial-track
+    - ui.gym-vocabulary
+    - template.routine
+    - template.workout
+    - template.item
+  - id: builder-tour-explains-each-slot-setting
+    t: It says what each per-exercise setting does
+    d: >-
+      sets, the rep target, rest, step up by and back off by — one clause each,
+      in the words the config sheet uses.
+    points:
+    - workout-edit
+    uses:
+    - template.item
+    - template.rep-target
+    - template.rest
+    - progression.rates
+    - progression.axis
+  - id: builder-tour-starts-on-its-own
+    t: It is a tour of its own, not the tail of the first-run one
+    d: >-
+      it is never chained onto the first-run tour and is started directly from
+      Profile, so somebody who took the quick tour on day one can build a routine
+      with help on day ten.
+    uses:
+    - ui.tutorial-track
 - name: How to use it
   items:
   - id: replay-any-time
-    t: Replay it any time
-    d: Profile → Help &amp; tour, which also starts at the welcome.
+    t: Replay any of them any time
+    d: >-
+      Profile → Help &amp; tour asks which one — the full tour, the quick tour, or
+      the routine builder — and starts it from its first step.
     screen: profile
     uses:
     - ui.tutorial
+    - ui.tutorial-track
+  - id: skipping-says-where-to-replay
+    t: Skipping says where to find it again
+    d: >-
+      one line at the bottom of the screen naming Profile → Help &amp; tour, which
+      fades on its own. No button, no second card to dismiss.
+    uses:
+    - ui.tutorial
+    - ui.tutorial-track
 - name: Behaviour & edge cases
   items:
   - id: covers-live-workout-which-cannot
@@ -80,7 +245,10 @@ groups:
       the board, the rest timer and the shade are where the app is least like
       every other tracker — and none of them exists until a session is running.
       Rather than starting a workout nobody asked for, those steps draw a stand-in
-      and talk about that.
+      and talk about that. They are the only steps that still do.
+    points:
+    - session
+    - shade
     uses:
     - ui.tutorial
     - session.live-state
@@ -94,6 +262,8 @@ groups:
       the next one outlined — because that is what it is describing. A camera is
       drawn in the accent only while it is the ringed thing, so it never competes
       with the step that is running.
+    points:
+    - session
     uses:
     - ui.tutorial
     - exercise.notes
@@ -119,30 +289,53 @@ groups:
   - id: shade-step-named-for-the-shade
     t: The shade step is named for the shade
     d: >-
-      "Phone in your pocket" said where the phone was, not what the step was
-      about; the title now names the notification the step is describing.
+      the title names the notification the step is describing, rather than saying
+      where the phone was.
     uses:
     - session.shade
+  - id: full-screen-mock-still-takes-no-taps
+    t: A full-screen mock is still a picture
+    d: >-
+      filling the screen does not make it the app: nothing on it is wired to a
+      session, no session is started or resumed, and a tap anywhere on it
+      advances the tour exactly as a tap on the scrim does. The only controls
+      that do anything are the callout's own Skip, Back and Next.
+    points:
+    - session
+    uses:
+    - ui.tutorial
+    - session.live-state
   - id: every-anchored-step-today-tab
     t: An anchored step scrolls its target into view
     d: >-
-      the tour scrolls the Today tab until the anchor is on screen before
-      spotlighting it, so a step can point at something below the fold — the
-      lifetime card on a routine with more days than fit. It never navigates
-      between tabs: steps about the other three highlight that tab's button and
-      describe what is behind it.
+      the tour scrolls until the anchor is on screen before spotlighting it, so a
+      step can point at something below the fold — the lifetime card on a routine
+      with more days than fit. It never navigates by itself: when the tour changes
+      tab or pushes a screen it is because you tapped the thing it was pointing at.
     screen: today
     uses:
     - ui.tutorial
     - ui.navigation
-  - id: greeting-stacks-two-answers
-    t: The greeting stacks its two answers
+  - id: anchor-off-screen-falls-back-to-the-middle
+    t: A step whose anchor is not on screen still reads
     d: >-
-      "Take the tour" over "Not now", rather than side by side: two long labels
-      in a callout narrower than either the phone or the font can be relied on
-      to be. Every later step is a short Skip / Back / Next.
+      tapping Next instead of the control a step asked for leaves the following
+      step pointing at a widget that is not mounted, or is mounted on a tab that
+      is not showing. That callout is centred on a plain dimmed screen rather than
+      spotlighting a rectangle nobody can see.
     uses:
     - ui.tutorial
+    - ui.navigation
+  - id: greeting-stacks-two-answers
+    t: The opening card stacks its answers
+    d: >-
+      the tours one above the other and "Not now" under them, rather than side by
+      side: they are long labels in a callout narrower than either the phone or
+      the font can be relied on to be. Every later step is a short Skip / Back /
+      Next.
+    uses:
+    - ui.tutorial
+    - ui.tutorial-track
   - id: declining-ends-cleanly
     t: Declining ends it cleanly
     d: >-

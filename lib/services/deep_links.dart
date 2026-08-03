@@ -29,7 +29,7 @@ String? routeForLink(Uri uri) {
 String? importRoute(String host, String code) {
   final encoded = Uri.encodeQueryComponent(code);
   return switch (host) {
-    ThemeCode.host => '/settings/theme/import?code=$encoded',
+    ThemeCode.host => '/settings/appearance/import?code=$encoded',
     RoutineCode.host => '/routine/import?code=$encoded',
     _ => null,
   };

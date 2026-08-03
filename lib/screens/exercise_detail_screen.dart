@@ -147,14 +147,61 @@ class _Body extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 22),
-        Text(
-          l10n.exerciseDetailLoadedAs,
-          style: kMono.copyWith(
-            fontSize: 11,
-            letterSpacing: 1.2,
-            color: AppColors.faint,
+        ExerciseLoadingSection(exercise: exercise),
+        const SizedBox(height: 22),
+        ExerciseNoteSection(exercise: exercise),
+        if (exercise.videoUrl != null) ...[
+          const SizedBox(height: 22),
+          Text(
+            l10n.exerciseDetailDemo,
+            style: kMono.copyWith(
+              fontSize: 11,
+              letterSpacing: 1.2,
+              color: AppColors.faint,
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          _VideoLink(url: exercise.videoUrl!),
+        ],
+      ],
+    );
+  }
+}
+
+/// A caption over one of the library-property sections below.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: kMono.copyWith(
+      fontSize: 11,
+      letterSpacing: 1.2,
+      color: AppColors.faint,
+    ),
+  );
+}
+
+/// How this movement is loaded, which bar it is over, and where its plates come
+/// from.
+///
+/// A section rather than part of the screen, because the builder's slot sheet
+/// shows the same three things: they are facts about the exercise, and a second
+/// copy of them would answer the question differently within a fortnight.
+class ExerciseLoadingSection extends ConsumerWidget {
+  const ExerciseLoadingSection({super.key, required this.exercise});
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionLabel(l10n.exerciseDetailLoadedAs),
         const SizedBox(height: 8),
         // A fact on a seeded barbell, dumbbell, machine or cable movement, and a
         // choice everywhere else — see `Exercise.loadingIsFixed`. A barbell curl
@@ -162,9 +209,15 @@ class _Body extends ConsumerWidget {
         // it counts as bodyweight, and the one thing the seed genuinely cannot
         // know — what that bar weighs — is the row below.
         if (exercise.loadingIsFixed)
-          Text(
-            weightTypeLabel(l10n, exercise.weightType),
-            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              weightTypeLabel(l10n, exercise.weightType),
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           )
         else
           // Editable here rather than only on the create form: a weighted
@@ -195,7 +248,7 @@ class _Body extends ConsumerWidget {
           ),
         if (exercise.weightType == WeightType.bar) ...[
           const SizedBox(height: 12),
-          _BarWeightRow(exercise: exercise),
+          ExerciseBarRow(exercise: exercise),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () => context.push('/settings/plates'),
@@ -209,30 +262,26 @@ class _Body extends ConsumerWidget {
             ),
           ),
         ],
-        const SizedBox(height: 22),
-        Text(
-          l10n.exerciseDetailMyNote,
-          style: kMono.copyWith(
-            fontSize: 11,
-            letterSpacing: 1.2,
-            color: AppColors.faint,
-          ),
-        ),
+      ],
+    );
+  }
+}
+
+/// The personal note on a movement, under its caption. Shared with the
+/// builder's slot sheet for the same reason [ExerciseLoadingSection] is.
+class ExerciseNoteSection extends StatelessWidget {
+  const ExerciseNoteSection({super.key, required this.exercise});
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionLabel(AppLocalizations.of(context).exerciseDetailMyNote),
         const SizedBox(height: 8),
         _NoteBlock(exercise: exercise),
-        if (exercise.videoUrl != null) ...[
-          const SizedBox(height: 22),
-          Text(
-            l10n.exerciseDetailDemo,
-            style: kMono.copyWith(
-              fontSize: 11,
-              letterSpacing: 1.2,
-              color: AppColors.faint,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _VideoLink(url: exercise.videoUrl!),
-        ],
       ],
     );
   }
@@ -304,8 +353,8 @@ class _NoteBlock extends ConsumerWidget {
 /// Lives on the exercise rather than in settings because a gym is not one bar:
 /// the EZ curl bar is 10, the trap bar 25, and both are facts about the
 /// movement, not about the app.
-class _BarWeightRow extends ConsumerWidget {
-  const _BarWeightRow({required this.exercise});
+class ExerciseBarRow extends ConsumerWidget {
+  const ExerciseBarRow({super.key, required this.exercise});
   final Exercise exercise;
 
   @override
@@ -338,7 +387,7 @@ class _BarWeightRow extends ConsumerWidget {
     final kg = own ?? fallback;
     final named = ref.watch(barsProvider).value?.atWeight(kg);
     final weight =
-        l10n.unitWeightShort(fmtPlateWeight(toDisplayWeight(kg, unit)), u);
+        l10n.unitWeightShort(fmtWeight(toDisplayWeight(kg, unit)), u);
 
     return SettingRow(
       label: l10n.exerciseDetailBarWeight,

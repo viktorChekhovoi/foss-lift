@@ -631,6 +631,28 @@ class AppColors {
   }
 }
 
+/// The sizes the app's own type steps through.
+///
+/// Three steps, deliberately far apart. The scale used to run 11.5 / 12 / 27,
+/// which is two sizes that are the same size and one that is merely bigger —
+/// the hierarchy on a screen had to be read rather than seen. These are spread
+/// so the rank of a line is obvious before any of its words are.
+///
+/// They live here, and the shared widgets in `widgets/common.dart` are what
+/// apply them. A screen that wants a heading uses [SectionLabel] or
+/// [ScreenHeader]; it does not retype a `fontSize`, because a scale that is
+/// re-entered per screen is not a scale.
+abstract final class AppType {
+  /// A small-caps heading over a list — "YOUR ROUTINES".
+  static const double sectionLabel = 12;
+
+  /// The line above a screen title — "TUESDAY · WEEK 3".
+  static const double eyebrow = 15;
+
+  /// The screen title itself.
+  static const double screenTitle = 34;
+}
+
 /// A monospace text style for numeric data (weights, reps, timers, volume) —
 /// tabular figures so columns of digits line up like a barbell readout.
 const TextStyle kMono = TextStyle(

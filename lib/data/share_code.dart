@@ -88,9 +88,10 @@ abstract final class ShareCodec {
   ///
   /// Never throws. Any tag that is not exactly [version] — another family's, or
   /// the same family at a number this build does not know — is
-  /// [ShareCodeProblem.notACode]. Nothing has shipped, so there is no older
-  /// build in the wild whose codes we would be turning away, and no newer one
-  /// to send anybody off to install.
+  /// [ShareCodeProblem.notACode]. There is only one version of each family so
+  /// far; the day a second exists, this is where the older one has to keep being
+  /// accepted, because the codes written against it are in messages people can
+  /// still open.
   ///
   /// [minBody] is the shortest body the caller's format can possibly have; a
   /// code below it is damaged rather than parsed into a half-read anything.

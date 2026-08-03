@@ -1,18 +1,16 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../services/set_video_store.dart';
 import '../theme/theme_id.dart';
+import '../util/units.dart';
 import '../util/video_links.dart';
+import 'db_open.dart';
 import 'exercise_stats.dart';
 import 'layoff.dart';
 import 'plates.dart';
 import 'progression.dart';
 import 'schedule.dart';
+import 'set_scheme.dart';
 import 'seed_keys.dart';
 
 export 'exercise_stats.dart';
@@ -21,6 +19,7 @@ export 'layoff.dart';
 export 'plates.dart';
 export 'progression.dart';
 export 'schedule.dart';
+export 'set_scheme.dart';
 
 part 'database.g.dart';
 
@@ -103,15 +102,15 @@ class Exercises extends Table {
   RealColumn get barWeight => real().nullable()();
 }
 
-/// A training programme ("PPL", "Upper/Lower"). A routine is a container: the
+/// A training program ("PPL", "Upper/Lower"). A routine is a container: the
 /// thing you actually train is one of its [Workouts].
 class Routines extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
 
-  /// Which demo programme this is, or null for one of your own.
+  /// Which demo program this is, or null for one of your own.
   ///
-  /// Cleared the moment the routine is renamed — a programme you have named is
+  /// Cleared the moment the routine is renamed — a program you have named is
   /// yours, and must not revert to "Push / Pull / Legs" on the next language
   /// switch. See `util/seed_names.dart`.
   TextColumn get seedKey => text().nullable()();
@@ -140,7 +139,7 @@ class Workouts extends Table {
       integer().references(Routines, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
 
-  /// Which training day of a demo programme this is, or null. Cleared on
+  /// Which training day of a demo program this is, or null. Cleared on
   /// rename, for the same reason as [Routines.seedKey].
   TextColumn get seedKey => text().nullable()();
   IntColumn get position => integer().withDefault(const Constant(0))();
@@ -168,12 +167,31 @@ class WorkoutItems extends Table {
   /// Per-exercise rest override, in seconds. Null falls back to the routine.
   IntColumn get restSeconds => integer().nullable()();
 
+  /// The top of every ladder this slot produces — see [SetScheme]. Null on a
+  /// movement that carries no load.
   RealColumn get suggestedWeight => real().nullable()();
+
+  // -- Set scheme ----------------------------------------------------------
+  // How the sets differ from one another. Flat — every set alike — is the
+  // default and what most programs want; see `data/set_scheme.dart`.
+
+  TextColumn get scheme =>
+      textEnum<SetScheme>().withDefault(const Constant('flat'))();
+
+  /// What one rung of a back-off or a ramp moves by, as a whole percentage of
+  /// [suggestedWeight]. Ignored by the other two schemes.
+  IntColumn get schemePercent =>
+      integer().withDefault(const Constant(kDefaultSchemePercent))();
+
+  /// The written-out rows of a [SetScheme.custom] slot, encoded — see
+  /// `encodeCustomSets`. Null on every other scheme, and on a custom slot
+  /// nobody has filled in yet.
+  TextColumn get customSets => text().nullable()();
 
   // -- Progression ---------------------------------------------------------
   // Which number goes up when the sets go well, by how much, and how long it
   // takes. Defaults are the weight case, so an exercise nobody has configured
-  // behaves like the barbell programme everyone expects.
+  // behaves like the barbell program everyone expects.
 
   /// The axis this slot advances along — see [ProgressionMode].
   TextColumn get progression =>
@@ -295,7 +313,13 @@ class Settings extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
 
   /// 'kg' or 'lb'. Weights are stored in kg; this only affects display/input.
-  TextColumn get weightUnit => text().withDefault(const Constant('kg'))();
+  ///
+  /// **Null means the question has not been asked yet**, which is not the same
+  /// as kilograms: a fresh install opens on the first-run unit choice, and this
+  /// column is what says whether it still has to. Everything that only wants to
+  /// *display* a weight reads null as kilograms, so nothing downstream has to
+  /// cope with a missing unit.
+  TextColumn get weightUnit => text().nullable()();
 
   /// The routine the Today tab is currently about. Null means "not chosen yet",
   /// which makes Today fall back to a routine chooser. Not a foreign key: a
@@ -330,7 +354,7 @@ class Settings extends Table {
   /// Whether the first-run tutorial has already been shown. False on a fresh
   /// install, so the coach marks run exactly once; set true when the tour is
   /// completed or skipped. An upgrade marks it true — an existing user is not a
-  /// first run and should never be ambushed by it mid-programme. Re-running the
+  /// first run and should never be ambushed by it mid-program. Re-running the
   /// tour from the help menu does not clear it.
   BoolColumn get tutorialSeen => boolean().withDefault(const Constant(false))();
 
@@ -399,11 +423,11 @@ class Settings extends Table {
 /// a column would be a second thing to keep in step for no gain. Listing the
 /// themes parses the JSON either way, to draw their swatches.
 ///
-/// **No migration rung, deliberately.** This table replaced the single
-/// `Settings.customTheme` column outright, at schema v1, because nothing has
-/// shipped and no install exists that could hold the old shape — see the
-/// format-freeze rule in `CLAUDE.md`. On the first public release that rule
-/// inverts and this becomes a table like any other.
+/// **No migration rung, and none needed.** This table replaced the single
+/// `Settings.customTheme` column outright, before the first release and while
+/// the schema was still edited in place, so no install has ever held the old
+/// shape. It is a table like any other now — a change to it needs a rung, as
+/// everything else does.
 class CustomThemes extends Table {
   IntColumn get id => integer().autoIncrement()();
 
@@ -576,8 +600,44 @@ extension BarAtWeight on List<Bar> {
 /// the values on offer and why.
 typedef VideoSetting = ({int height, int maxSeconds});
 
-/// One seeded exercise slot (first-run demo data only).
-typedef _SeedItem = ({String name, int sets, int min, int? max, double? w});
+/// One seeded exercise slot (first-run starter programs only).
+class _SeedItem {
+  /// A slot that steps at whatever its progression axis steps at by default:
+  /// 2.5 kg on a press, a rep on a movement that carries no load.
+  const _SeedItem(
+    this.name, {
+    required this.sets,
+    required this.min,
+    this.max,
+    this.w,
+  }) : inc = null,
+       deload = null;
+
+  /// A slot on one of the lifts a linear-progression program moves 5 kg a
+  /// session — the squat, the deadlift and their variants — rather than the
+  /// 2.5 kg the presses take. The back-off is twice the step, as everywhere.
+  const _SeedItem.heavy(
+    this.name, {
+    required this.sets,
+    required this.min,
+    required this.w,
+  }) : max = null,
+       inc = 5,
+       deload = 10;
+
+  /// The canonical English name of a movement in [_starterLibrary].
+  final String name;
+  final int sets;
+  final int min;
+  final int? max;
+
+  /// The load to open at, in kilograms, or null for a slot that carries none.
+  final double? w;
+
+  /// The program's own step up and back-off, or null to take the axis's.
+  final double? inc;
+  final double? deload;
+}
 
 /// The curated starter library, as muscle group → movement → equipment.
 ///
@@ -830,7 +890,7 @@ const Map<String, Map<String, String>> _starterLibrary = {
     'Overhead Cable Extension': 'Cable',
     'Cable Curl': 'Cable',
     'Triceps Dip': 'Bodyweight',
-    // The forearm and grip movements. Programmed for the part that gives out
+    // The forearm and grip movements. Programd for the part that gives out
     // first, and still an arm day either way.
     'Reverse Curl': 'Barbell',
     'Wrist Curl': 'Dumbbell',
@@ -951,18 +1011,17 @@ class AppDatabase extends _$AppDatabase {
   /// For unit tests: pass an in-memory `NativeDatabase.memory()`.
   AppDatabase.forTesting(super.e);
 
-  /// Still v1, and staying there until the app ships.
+  /// The shipped schema version, and the bottom of the migration ladder.
   ///
-  /// Nothing is installed anywhere, so there is no older database in the world
-  /// to climb a ladder from. A schema change is made by editing the table and
-  /// regenerating — not by appending a migration step whose only possible input
-  /// is a database that has never existed. There was a v2 here once, for
-  /// dropping the coaching cue from `Exercises`; it was carrying a rung nobody
-  /// could ever stand on, and the column is simply absent now.
+  /// **v1 is the shipped shape, and it is real now.** Installed databases exist,
+  /// so every schema change from here is an `onUpgrade` rung that takes the
+  /// version before it to the version after. A rung that has shipped is never
+  /// edited and never renumbered: its input is a database on somebody's phone,
+  /// and rewriting the ladder makes that phone climb the wrong steps.
   ///
-  /// **This changes on the first public release.** From that build onward the
-  /// shipped shape is v1 for real, every later change is a rung, and none of
-  /// them may be rewritten.
+  /// Everything at v1 was settled before the first release, when the schema was
+  /// still edited in place — which is why there is no ladder below this line and
+  /// why nothing here needs one.
   @override
   int get schemaVersion => 1;
 
@@ -1754,6 +1813,35 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// The weight this phone last logged for [exerciseId], in kg, or null if it
+  /// has never trained the movement — or trained it carrying nothing.
+  ///
+  /// What an imported routine puts on a slot: a shared program carries the
+  /// prescription but never the sender's weights, so the load has to come from
+  /// the history that is actually here. See `routine_import.dart`.
+  Future<double?> lastLoggedWeight(int exerciseId) async {
+    final query =
+        select(sessionSets).join([
+            innerJoin(sessions, sessions.id.equalsExp(sessionSets.sessionId)),
+          ])
+          ..where(
+            sessionSets.exerciseId.equals(exerciseId) &
+                sessionSets.done.equals(true) &
+                sessionSets.weight.isBiggerThanValue(0) &
+                sessions.endedAt.isNotNull(),
+          )
+          ..orderBy([
+            OrderingTerm(
+                expression: sessions.startedAt, mode: OrderingMode.desc),
+            OrderingTerm(
+                expression: sessionSets.setNumber, mode: OrderingMode.desc),
+          ])
+          ..limit(1);
+
+    final row = await query.getSingleOrNull();
+    return row?.readTable(sessionSets).weight;
+  }
+
   // ---- Aggregate stats ----------------------------------------------------
 
   Stream<int> watchSessionCount() {
@@ -1800,8 +1888,84 @@ class AppDatabase extends _$AppDatabase {
         .map((s) => s?.weightUnit ?? 'kg');
   }
 
-  Future<void> setWeightUnit(String unit) =>
-      _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
+  /// Whether the unit has been stored yet. False for the moment between a fresh
+  /// install's first launch and [seedWeightUnit] answering for it — see
+  /// `unitSeedProvider`, and the holding frame in `main.dart` that waits on it.
+  Stream<bool> watchUnitChosen() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => s?.weightUnit != null);
+  }
+
+  /// Stores [unit] as the app's, but only on an install that has none.
+  ///
+  /// This is the first launch guessing from the phone's region. It is
+  /// deliberately not [setWeightUnit]: that one is a *switch*, with a dialog in
+  /// front of it and a pass over every template behind it, and neither means
+  /// anything on a database with nothing in it yet.
+  ///
+  /// The write-once rule is the point. The phone's region is a guess and the
+  /// stored unit is an answer, so once there is an answer the guess stops being
+  /// asked — moving abroad, or switching the app's language, must not silently
+  /// re-unit a training log somebody has been keeping.
+  Future<void> seedWeightUnit(String unit) async {
+    final row =
+        await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    if (row?.weightUnit != null) return;
+    await _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
+  }
+
+  /// Stores the chosen unit and moves the templates over with it.
+  ///
+  /// Two things follow a switch, and both are about the numbers the user is
+  /// about to *act on* rather than the ones they already lifted:
+  ///
+  /// * **The step rates.** A slot still sitting on the old unit's default takes
+  ///   the new unit's default, so switching to pounds gives 5 lb steps and not
+  ///   5.51. A rate that was set deliberately is left alone — it converts, like
+  ///   every other stored kilogram.
+  /// * **The suggested weight.** Converted exactly, 100 kg is 220.46 lb, which
+  ///   is not a bar anybody sets; it is snapped to the nearest step in the new
+  ///   unit instead.
+  ///
+  /// **Nothing else is rewritten.** Logged sets keep the kilograms they were
+  /// lifted at, their goal weights with them, and the bars and plates the gym
+  /// owns weigh what they weigh in any unit.
+  Future<void> setWeightUnit(String unit) {
+    return transaction(() async {
+      final row =
+          await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+      final was = row?.weightUnit ?? 'kg';
+      await _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
+      if (was == unit) return;
+
+      for (final item in await select(workoutItems).get()) {
+        final mode = item.progression;
+        var patch = const WorkoutItemsCompanion();
+        var moved = false;
+        if (isDefaultIncrement(item.increment, mode, was)) {
+          patch = patch.copyWith(
+              increment: Value(defaultIncrementFor(mode, unit)));
+          moved = true;
+        }
+        if (isDefaultDeload(item.deload, mode, was)) {
+          patch = patch.copyWith(deload: Value(defaultDeloadFor(mode, unit)));
+          moved = true;
+        }
+        final weight = item.suggestedWeight;
+        if (weight != null && weight > 0) {
+          final snapped = snapToUnitStep(weight, unit);
+          if (snapped != weight) {
+            patch = patch.copyWith(suggestedWeight: Value(snapped));
+            moved = true;
+          }
+        }
+        if (!moved) continue;
+        await (update(workoutItems)..where((i) => i.id.equals(item.id)))
+            .write(patch);
+      }
+    });
+  }
 
   /// The routine the Today tab is currently about, or null if none is chosen.
   Stream<int?> watchActiveRoutineId() {
@@ -1835,14 +1999,22 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setTextScale(double scale) =>
       _writeSettings(SettingsCompanion(textScale: Value(scale)));
 
-  /// The language the user picked, or null to follow the phone.
+  /// The language the app renders in, or null on an install where first run has
+  /// not answered yet.
+  ///
+  /// That null is the only one there is: `localeTagProvider` resolves the
+  /// phone's list against the catalogues we ship and writes the answer back the
+  /// first time it sees it, so a stored language is a choice from then on rather
+  /// than a standing deference to the phone.
   Stream<String?> watchLocaleTag() {
     return (select(settings)..where((s) => s.id.equals(1)))
         .watchSingleOrNull()
         .map((s) => s?.localeTag);
   }
 
-  Future<void> setLocaleTag(String? tag) =>
+  /// Picks the language. There is no unsetting it — one of the five is always
+  /// chosen, and the way out of a language is choosing another.
+  Future<void> setLocaleTag(String tag) =>
       _writeSettings(SettingsCompanion(localeTag: Value(tag)));
 
   /// The layoff rules, falling back to the defaults if the settings row has
@@ -2117,7 +2289,10 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seed() async {
     await into(settings).insert(
-      const SettingsCompanion(id: Value(1), weightUnit: Value('kg')),
+      // The unit is deliberately left null: an install that has never been
+      // asked which unit it trains in is the whole trigger for the first-run
+      // question. See `Settings.weightUnit`.
+      const SettingsCompanion(id: Value(1)),
       mode: InsertMode.insertOrIgnore,
     );
 
@@ -2183,7 +2358,7 @@ class AppDatabase extends _$AppDatabase {
       }
     }
 
-    // Two starter programmes, each split into its training days. Upper/Lower
+    // Five starter programs, each split into its training days. Upper/Lower
     // deliberately repeats a day name — that is legal and worth demonstrating.
     Future<int> routine(
       String name,
@@ -2192,6 +2367,7 @@ class AppDatabase extends _$AppDatabase {
       int rest,
       List<({String name, List<_SeedItem> items})> days, {
       int schedule = kNoScheduleMask,
+      int fails = defaultFailureThreshold,
     }) async {
       final rid = await into(routines).insert(
         RoutinesCompanion.insert(
@@ -2233,8 +2409,9 @@ class AppDatabase extends _$AppDatabase {
               repsMax: Value(it.max),
               suggestedWeight: Value(it.w),
               progression: Value(mode),
-              increment: Value(mode.defaultIncrement),
-              deload: Value(mode.defaultDeload),
+              increment: Value(it.inc ?? mode.defaultIncrement),
+              deload: Value(it.deload ?? mode.defaultDeload),
+              failureThreshold: Value(fails),
             ),
           );
         }
@@ -2246,31 +2423,31 @@ class AppDatabase extends _$AppDatabase {
       (
         name: 'Push',
         items: [
-          (name: 'Bench Press', sets: 4, min: 6, max: 8, w: 80),
-          (name: 'Overhead Press', sets: 4, min: 8, max: null, w: 50),
-          (name: 'Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
-          (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-          (name: 'Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
+          _SeedItem('Bench Press', sets: 4, min: 6, max: 8, w: 80),
+          _SeedItem('Overhead Press', sets: 4, min: 8, max: null, w: 50),
+          _SeedItem('Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
+          _SeedItem('Lateral Raise', sets: 3, min: 15, max: null, w: 12),
+          _SeedItem('Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
         ],
       ),
       (
         name: 'Pull',
         items: [
-          (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
-          (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
-          (name: 'Barbell Row', sets: 4, min: 8, max: null, w: 70),
-          (name: 'Face Pull', sets: 3, min: 15, max: 20, w: 25),
-          (name: 'Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
+          _SeedItem('Deadlift', sets: 3, min: 5, max: null, w: 140),
+          _SeedItem('Pull-Up', sets: 4, min: 6, max: 10, w: null),
+          _SeedItem('Barbell Row', sets: 4, min: 8, max: null, w: 70),
+          _SeedItem('Face Pull', sets: 3, min: 15, max: 20, w: 25),
+          _SeedItem('Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
         ],
       ),
       (
         name: 'Legs',
         items: [
-          (name: 'Back Squat', sets: 4, min: 6, max: null, w: 110),
-          (name: 'Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
-          (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
-          (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
-          (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+          _SeedItem('Back Squat', sets: 4, min: 6, max: null, w: 110),
+          _SeedItem('Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
+          _SeedItem('Leg Press', sets: 3, min: 12, max: 15, w: 180),
+          _SeedItem('Leg Curl', sets: 3, min: 12, max: null, w: 45),
+          _SeedItem('Calf Raise', sets: 4, min: 15, max: 20, w: 60),
         ],
       ),
       // Mondays, Wednesdays and Fridays — a schedule on one of the two demo
@@ -2283,50 +2460,126 @@ class AppDatabase extends _$AppDatabase {
       (
         name: 'Upper 1',
         items: [
-          (name: 'Bench Press', sets: 4, min: 5, max: null, w: 80),
-          (name: 'Barbell Row', sets: 4, min: 6, max: 8, w: 70),
-          (name: 'Overhead Press', sets: 3, min: 8, max: 10, w: 45),
-          (name: 'Lat Pulldown', sets: 3, min: 10, max: 12, w: 55),
+          _SeedItem('Bench Press', sets: 4, min: 5, max: null, w: 80),
+          _SeedItem('Barbell Row', sets: 4, min: 6, max: 8, w: 70),
+          _SeedItem('Overhead Press', sets: 3, min: 8, max: 10, w: 45),
+          _SeedItem('Lat Pulldown', sets: 3, min: 10, max: 12, w: 55),
         ],
       ),
       (
         name: 'Lower 1',
         items: [
-          (name: 'Back Squat', sets: 4, min: 5, max: null, w: 110),
-          (name: 'Romanian Deadlift', sets: 3, min: 8, max: 10, w: 90),
-          (name: 'Leg Curl', sets: 3, min: 12, max: null, w: 45),
-          (name: 'Calf Raise', sets: 4, min: 15, max: 20, w: 60),
+          _SeedItem('Back Squat', sets: 4, min: 5, max: null, w: 110),
+          _SeedItem('Romanian Deadlift', sets: 3, min: 8, max: 10, w: 90),
+          _SeedItem('Leg Curl', sets: 3, min: 12, max: null, w: 45),
+          _SeedItem('Calf Raise', sets: 4, min: 15, max: 20, w: 60),
         ],
       ),
       (
         name: 'Upper 2',
         items: [
-          (name: 'Incline DB Press', sets: 4, min: 8, max: 10, w: 30),
-          (name: 'Pull-Up', sets: 4, min: 6, max: 10, w: null),
-          (name: 'Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-          (name: 'Hammer Curl', sets: 3, min: 10, max: 12, w: 14),
+          _SeedItem('Incline DB Press', sets: 4, min: 8, max: 10, w: 30),
+          _SeedItem('Pull-Up', sets: 4, min: 6, max: 10, w: null),
+          _SeedItem('Lateral Raise', sets: 3, min: 15, max: null, w: 12),
+          _SeedItem('Hammer Curl', sets: 3, min: 10, max: 12, w: 14),
         ],
       ),
       (
         name: 'Lower 2',
         items: [
-          (name: 'Deadlift', sets: 3, min: 5, max: null, w: 140),
-          (name: 'Front Squat', sets: 3, min: 8, max: 10, w: 70),
-          (name: 'Leg Press', sets: 3, min: 12, max: 15, w: 180),
-          (name: 'Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
+          _SeedItem('Deadlift', sets: 3, min: 5, max: null, w: 140),
+          _SeedItem('Front Squat', sets: 3, min: 8, max: 10, w: 70),
+          _SeedItem('Leg Press', sets: 3, min: 12, max: 15, w: 180),
+          _SeedItem('Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
         ],
       ),
     ]);
+
+    // The three beginner strength programs. They are linear-progression
+    // barbell routines rather than splits, so they carry their own rates: the
+    // squat and the deadlift take 5 kg a session where a press takes 2.5, and
+    // the two published ones reset only after a third failed session — the
+    // extra attempt is part of the program, not a leniency.
+    await routine('Starting Strength', '4D9DE0', 2, 300, [
+      (
+        name: 'Workout A',
+        items: [
+          _SeedItem.heavy('Back Squat', sets: 3, min: 5, w: 60),
+          _SeedItem('Bench Press', sets: 3, min: 5, w: 45),
+          // One work set. The deadlift is the lift the program deliberately
+          // does not do three sets of.
+          _SeedItem.heavy('Deadlift', sets: 1, min: 5, w: 70),
+        ],
+      ),
+      (
+        name: 'Workout B',
+        items: [
+          _SeedItem.heavy('Back Squat', sets: 3, min: 5, w: 60),
+          _SeedItem('Overhead Press', sets: 3, min: 5, w: 30),
+          // Five triples, trained for speed rather than for load.
+          _SeedItem('Power Clean', sets: 5, min: 3, w: 40),
+        ],
+      ),
+    ], schedule: 1 << 0 | 1 << 2 | 1 << 4, fails: 3);
+
+    await routine('StrongLifts 5x5', 'C77DFF', 3, 180, [
+      (
+        name: 'Workout A',
+        items: [
+          // Everything but the deadlift takes the ordinary 2.5 kg here — the
+          // program is five sets of five on a bar that starts nearly empty.
+          _SeedItem('Back Squat', sets: 5, min: 5, w: 40),
+          _SeedItem('Bench Press', sets: 5, min: 5, w: 30),
+          _SeedItem('Barbell Row', sets: 5, min: 5, w: 30),
+        ],
+      ),
+      (
+        name: 'Workout B',
+        items: [
+          _SeedItem('Back Squat', sets: 5, min: 5, w: 40),
+          _SeedItem('Overhead Press', sets: 5, min: 5, w: 20),
+          _SeedItem.heavy('Deadlift', sets: 1, min: 5, w: 60),
+        ],
+      ),
+    ], schedule: 1 << 0 | 1 << 2 | 1 << 4, fails: 3);
+
+    // Not a published program, so it keeps the app's own back-off rule and
+    // trains on the other three days of the week.
+    await routine('Full Body 3x', 'E8C547', 4, 120, [
+      (
+        name: 'Workout A',
+        items: [
+          _SeedItem.heavy('Back Squat', sets: 3, min: 5, w: 55),
+          _SeedItem('Bench Press', sets: 3, min: 5, w: 40),
+          _SeedItem('Seated Cable Row', sets: 3, min: 10, w: 45),
+          _SeedItem('Hanging Leg Raise', sets: 3, min: 8, max: 12),
+        ],
+      ),
+      (
+        name: 'Workout B',
+        items: [
+          _SeedItem.heavy('Romanian Deadlift', sets: 3, min: 8, w: 60),
+          _SeedItem('Overhead Press', sets: 3, min: 6, max: 8, w: 30),
+          _SeedItem('Lat Pulldown', sets: 3, min: 10, max: 12, w: 50),
+          _SeedItem('Cable Crunch', sets: 3, min: 12, max: 15, w: 30),
+        ],
+      ),
+      (
+        name: 'Workout C',
+        items: [
+          _SeedItem.heavy('Deadlift', sets: 2, min: 5, w: 80),
+          _SeedItem('Incline DB Press', sets: 3, min: 8, max: 10, w: 22.5),
+          _SeedItem('Chin-Up', sets: 3, min: 5, max: 8),
+          _SeedItem('Leg Curl', sets: 3, min: 12, w: 40),
+        ],
+      ),
+    ], schedule: 1 << 1 | 1 << 3 | 1 << 5);
 
     // Give Today something to be about on first launch.
     await setActiveRoutineId(ppl);
   }
 }
 
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dir.path, 'foss_lift.sqlite'));
-    return NativeDatabase.createInBackground(file);
-  });
-}
+/// The database this build opens — a file on a phone, browser storage on the
+/// web. Which one is decided at compile time; see `db_open.dart`.
+QueryExecutor _openConnection() => openAppDatabase();

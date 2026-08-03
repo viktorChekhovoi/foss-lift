@@ -35,22 +35,18 @@ String fmtDuration(int seconds) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-/// A weight for display: no trailing `.0`, one decimal when it needs one.
+/// A weight for display: up to two decimals, trailing zeros dropped.
 ///
-/// 100.0 → "100", 102.5 → "102.5" — and "102,5" in a language that writes it
-/// that way, because every formatter here goes through `intl` and `intl` reads
-/// `Intl.defaultLocale`, which the app root keeps in step with the language.
+/// 100.0 → "100", 102.5 → "102.5", 1.25 → "1.25" — and "102,5" in a language
+/// that writes it that way, because every formatter here goes through `intl`
+/// and `intl` reads `Intl.defaultLocale`, which the app root keeps in step with
+/// the language.
 ///
-/// One decimal is right for a logged set and wrong for a plate: see
-/// [fmtPlateWeight].
-String fmtWeight(double w) => fmtUpTo(w, 1);
-
-/// A plate or bar weight: up to two decimals, no trailing zeros.
-///
-/// [fmtWeight] rounds to one decimal, which is wrong here — a 1.25 kg plate
-/// that reads "1.3" is a plate nobody can find on the rack, and a stack of them
-/// adds up to a number that does not match the bar.
-String fmtPlateWeight(double kg) => fmtUpTo(kg, 2);
+/// Two decimals rather than one, everywhere rather than only on the plate line:
+/// the smallest pair of plates a metric gym owns makes 1.25 kg, a step that
+/// reads "1.3" is a weight nobody can build, and the same number reading two
+/// ways on two screens is worse than either.
+String fmtWeight(double w) => fmtUpTo(w, 2);
 
 /// Exactly one decimal place, in the app's language: 2.0 → "2.0", 1.44 → "1.4".
 ///

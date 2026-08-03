@@ -16,13 +16,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/routine_share_screen.dart';
-import 'package:foss_lift/screens/settings_screen.dart';
-import 'package:foss_lift/screens/theme_settings_screen.dart';
+import 'package:foss_lift/screens/exercise_settings_screen.dart';
+import 'package:foss_lift/screens/appearance_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_edit_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/util/text_scale.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
+import 'package:foss_lift/widgets/pinch_text_scale.dart';
 import 'package:foss_lift/widgets/share_widgets.dart';
 
 import 'support/harness.dart';
@@ -33,6 +34,15 @@ import 'support/seeded.dart';
 /// mounts the same screens the same way — see `support/screens.dart`.
 Widget scaled(ProviderContainer c, Widget child, double scale) =>
     routedAppUnder(c, child, scaffold: true, textScale: scale);
+
+/// The one text-size chip Appearance is marking as selected, or null when the
+/// stored scale sits between two steps and none of them is what is rendering.
+TextScaleChoice? selectedScaleChip(WidgetTester tester) {
+  final on = tester
+      .widgetList<TextScaleChip>(find.byType(TextScaleChip))
+      .where((c) => c.selected);
+  return on.isEmpty ? null : on.single.choice;
+}
 
 void main() {
   late AppDatabase db;
@@ -161,12 +171,8 @@ void main() {
       };
       await tester.pumpWidget(scaled(container!, const WorkoutScreen(), scale));
       await tester.pump();
-      // Open the warm-up group too — it has its own rows and stepper.
-      final warm = find.text('WARM-UP');
-      if (warm.evaluate().isNotEmpty) {
-        await tester.tap(warm.first);
-        await tester.pump();
-      }
+      // The warm-up group is open from the start, so its own rows, stepper and
+      // disclaimer are already in the sweep.
       FlutterError.onError = prev;
 
       expect(errors, isEmpty,
@@ -209,6 +215,183 @@ void main() {
       // The guard that keeps the sweep honest: if the ceiling ever rises above
       // what the sweep covers, this says so before a user finds out.
       expect(kMaxTextScale, 2.0);
+    });
+
+    test('the four chips span the whole range the pinch does', () {
+      expect(kTextScaleChoices.map((c) => c.scale).toList(),
+          [0.85, 1.0, 1.3, 2.0]);
+      // The two ends are the two the gesture stops at, so pinching all the way
+      // out lands on a chip rather than somewhere past the last one.
+      expect(kTextScaleChoices.first.scale, kMinTextScale);
+      expect(kTextScaleChoices.last.scale, kMaxTextScale);
+      expect(clampTextNudge(9), kTextScaleChoices.last.scale);
+      expect(clampTextNudge(0.1), kTextScaleChoices.first.scale);
+    });
+  });
+
+  group('a two-finger pinch scales the text', () {
+    // The gesture is mounted once, above every route — so it is tested the way
+    // it is mounted: a scrolling list under a PinchTextScale, pinched, with the
+    // scale read back off the MediaQuery the list actually renders under.
+
+    /// The text scale the tree under [PinchTextScale] is rendering at.
+    double renderedScale(WidgetTester tester) => MediaQuery.textScalerOf(
+          tester.element(find.byKey(const ValueKey('pinch-probe'))),
+        ).scale(1);
+
+    /// A long list under the pinch handler, so a scroll and a pinch compete for
+    /// the same pointers exactly as they do in the app.
+    Widget host(ProviderContainer c) => UncontrolledProviderScope(
+          container: c,
+          child: MaterialApp(
+            localizationsDelegates: kTestDelegates,
+            home: Scaffold(
+              body: PinchTextScale(
+                child: ListView(
+                  key: const ValueKey('pinch-probe'),
+                  children: [
+                    for (var i = 0; i < 60; i++)
+                      const SizedBox(height: 40, child: Text('row')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+    /// Moves two fingers apart (or together, for [factor] < 1) about the centre
+    /// of the screen and lifts them.
+    Future<void> pinch(WidgetTester tester, double factor) async {
+      const centre = Offset(200, 400);
+      const half = 60.0;
+      final a = await tester.startGesture(centre - const Offset(half, 0));
+      final b = await tester.startGesture(centre + const Offset(half, 0));
+      await tester.pump();
+      // In steps, as a finger actually moves — one jump is a teleport the
+      // recognizer would see as a single enormous frame.
+      for (var i = 1; i <= 8; i++) {
+        final reach = half * (1 + (factor - 1) * i / 8);
+        await a.moveTo(centre - Offset(reach, 0));
+        await b.moveTo(centre + Offset(reach, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await a.up();
+      await b.up();
+      await tester.pump();
+    }
+
+    testWidgets('spreading two fingers makes the app text bigger',
+        (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+      expect(renderedScale(tester), closeTo(1.0, 0.001));
+
+      await pinch(tester, 1.4);
+      expect(renderedScale(tester), greaterThan(1.1),
+          reason: 'the pinch did not reach the text');
+      await stop(tester);
+    });
+
+    testWidgets('pinching together makes it smaller', (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+
+      await pinch(tester, 0.5);
+      expect(renderedScale(tester), lessThan(0.95));
+      await stop(tester);
+    });
+
+    testWidgets('the scale it lands on is written down', (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+
+      await pinch(tester, 1.5);
+      final onScreen = renderedScale(tester);
+      await pumpThroughDatabase(tester);
+      final stored = container!.read(textScaleProvider).value ?? 1.0;
+      expect(stored, closeTo(onScreen, 0.01),
+          reason: 'the gesture ended without persisting what it set');
+      await stop(tester);
+    });
+
+    testWidgets('it is held to the same bounds the chips are', (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+
+      // Far past the ceiling, then far past the floor.
+      await pinch(tester, 4.0);
+      expect(renderedScale(tester), closeTo(kMaxTextScale, 0.001));
+      await pinch(tester, 0.1);
+      await pinch(tester, 0.1);
+      expect(renderedScale(tester), closeTo(kMinTextScale, 0.001));
+      await stop(tester);
+    });
+
+    testWidgets('a one-finger drag scrolls and does not scale', (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+
+      await tester.drag(
+          find.byKey(const ValueKey('pinch-probe')), const Offset(0, -300));
+      await tester.pump();
+
+      expect(renderedScale(tester), closeTo(1.0, 0.001),
+          reason: 'a scroll was read as a pinch');
+      // And the list did move: the gesture handler did not eat the scroll.
+      final position =
+          tester.state<ScrollableState>(find.byType(Scrollable)).position;
+      expect(position.pixels, greaterThan(0),
+          reason: 'the pinch handler swallowed an ordinary scroll');
+      await stop(tester);
+    });
+
+    testWidgets('the current scale is shown while the fingers are down',
+        (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+
+      const centre = Offset(200, 400);
+      final a = await tester.startGesture(centre - const Offset(60, 0));
+      final b = await tester.startGesture(centre + const Offset(60, 0));
+      for (var i = 1; i <= 8; i++) {
+        await a.moveTo(centre - Offset(60 + i * 10, 0));
+        await b.moveTo(centre + Offset(60 + i * 10, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(find.textContaining('%'), findsOneWidget,
+          reason: 'nothing said what scale the pinch was on');
+      await a.up();
+      await b.up();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.textContaining('%'), findsNothing,
+          reason: 'the readout outstayed the gesture');
+      await stop(tester);
+    });
+
+    testWidgets('pinching to a chip\'s percentage selects that chip',
+        (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(host(container!));
+      await pumpThroughDatabase(tester);
+
+      // All the way out is the ceiling, which is exactly what Largest is.
+      await pinch(tester, 4.0);
+      await pumpThroughDatabase(tester);
+      expect(container!.read(textScaleProvider).value,
+          closeTo(TextScaleChoice.largest.scale, 0.001));
+
+      // Appearance marks the step the stored value is on, however it got there.
+      await tester.pumpWidget(appUnder(container!, const AppearanceScreen()));
+      await pumpThroughDatabase(tester);
+      expect(selectedScaleChip(tester), TextScaleChoice.largest,
+          reason: 'the gesture and the chips write the same setting');
+      await stop(tester);
     });
   });
 
@@ -365,7 +548,7 @@ void main() {
 
         found = await overflowsDuring(() async {
           await tester.pumpWidget(
-              scaled(container!, const SettingsScreen(), scale));
+              scaled(container!, const ExerciseSettingsScreen(), scale));
           await tester.pump(const Duration(milliseconds: 400));
           await reach(tester, find.text('Pounds · lb'));
           expect(find.text('Switch to pounds?'), findsOneWidget);

@@ -17,6 +17,12 @@ storage on your device. Android prevents other apps from reading it.
 
 That data is never uploaded anywhere by Foss Lift.
 
+**In a browser**, the same database is held by the browser itself, in the storage
+set aside for the page's address. No other site can read it and it is still never
+uploaded — but it is browser data, so clearing your browsing data deletes it, and
+a private window starts empty and keeps nothing. The Android app is the one to
+use if you want your training history to persist.
+
 ## Sharing a routine or a theme
 
 Foss Lift can turn one of your routines, or a color theme you have built, into

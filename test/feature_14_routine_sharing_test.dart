@@ -34,10 +34,13 @@ import 'package:foss_lift/services/deep_links.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/util/qr_capacity.dart';
+import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/util/video_links.dart';
+import 'package:foss_lift/widgets/workout_items_editor.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'support/harness.dart';
+import 'support/seeded.dart';
 import 'support/settle.dart';
 
 /// A run of [length] characters that will not compress, seeded by [seed].
@@ -154,7 +157,6 @@ void main() {
       expect(bench.targetSets, 4);
       expect(bench.repsMin, 6);
       expect(bench.repsMax, 8);
-      expect(bench.suggestedWeight, 80);
       expect(bench.progression, ProgressionMode.weight);
 
       // A pull-up: no load, so the seed puts it on the reps axis with that
@@ -162,8 +164,51 @@ void main() {
       final pullUp = back.workouts[1].items[1];
       expect(back.exercises[pullUp.exercise].name, 'Pull-Up');
       expect(pullUp.progression, ProgressionMode.reps);
-      expect(pullUp.suggestedWeight, isNull);
       expect(pullUp.increment, ProgressionMode.reps.defaultIncrement);
+    });
+
+    test('a set scheme travels as a shape, not as weights', () async {
+      final squat = await exerciseNamed(db, 'Back Squat');
+      final rid = await db.createRoutine(
+          name: 'Ladders', color: 'FF0000', restSeconds: 90);
+      final wid = await db.createWorkout(rid, 'Day');
+      await db.replaceWorkoutItems(
+        wid,
+        itemCompanions([
+          ItemDraft.forExercise(squat)
+            ..sets = 3
+            ..weightKg = 100
+            ..scheme = SetScheme.backOff
+            ..schemePercent = 15,
+          ItemDraft.forExercise(squat)
+            ..sets = 2
+            ..scheme = SetScheme.custom
+            ..customSets = const [
+              CustomSet(reps: 5, percent: 100),
+              CustomSet(reps: 10, percent: 70),
+            ],
+        ], workoutId: wid),
+      );
+
+      final back = (RoutineCode.decode(
+                  RoutineCode.encode(await db.sharedRoutine(rid)))
+              as RoutineCodeOk)
+          .routine;
+      final slots = back.workouts.single.items;
+
+      expect(slots.first.scheme, SetScheme.backOff);
+      expect(slots.first.schemePercent, 15);
+      expect(slots[1].scheme, SetScheme.custom);
+      expect(slots[1].customSets, const [
+        CustomSet(reps: 5, percent: 100),
+        CustomSet(reps: 10, percent: 70),
+      ]);
+    });
+
+    test('a flat slot spends no bytes saying so', () async {
+      final plain = SharedItem(exercise: 0);
+      expect(plain.scheme, SetScheme.flat);
+      expect(plain.customSets, isEmpty);
     });
 
     test('every configurable field on a slot survives the trip', () async {
@@ -184,11 +229,28 @@ void main() {
       expect(slot.repsMin, 3);
       expect(slot.repsMax, 5);
       expect(slot.restSeconds, 240);
-      expect(slot.suggestedWeight, 102.5);
       expect(slot.increment, 5);
       expect(slot.deload, 12.5);
       expect(slot.successThreshold, 3);
       expect(slot.failureThreshold, 4);
+    });
+
+    test('the weight is not on the wire at all', () async {
+      final routineId = await _seedCustomRoutine(db);
+      final before = RoutineCode.encode(await db.sharedRoutine(routineId));
+
+      // The same routine, with the one thing that is personal changed.
+      final day = (await db.workoutsForRoutine(routineId)).single;
+      final slot = (await db.itemsForWorkout(day.id)).single.item;
+      await db.replaceWorkoutItems(day.id, [
+        slot.toCompanion(false).copyWith(
+              id: const Value.absent(),
+              suggestedWeight: const Value(60),
+            ),
+      ]);
+
+      expect(RoutineCode.encode(await db.sharedRoutine(routineId)), before,
+          reason: 'someone else\'s working weight is not part of the program');
     });
 
     test('a held movement carries its hold, not a rep count', () async {
@@ -280,7 +342,9 @@ void main() {
       final item = (await fresh.itemsForWorkout(workout.id)).single.item;
       expect(item.successStreak, 0);
       expect(item.failStreak, 0);
-      expect(item.suggestedWeight, 102.5);
+      expect(item.suggestedWeight, isNull,
+          reason: 'a phone that has never trained the movement has no weight '
+              'to put on it');
     });
 
     test('an ordinary routine is small enough for a QR code', () async {
@@ -679,7 +743,65 @@ void main() {
       expect(push.first.item.targetSets, 4);
       expect(push.first.item.repsMin, 6);
       expect(push.first.item.repsMax, 8);
-      expect(push.first.item.suggestedWeight, 80);
+    });
+
+    test('a rate the sender never sent is filled in from my unit', () async {
+      final shared =
+          await theirs((s) async => (await _routineNamed(s, 'Push / Pull / Legs')).id);
+      await db.setWeightUnit('lb');
+
+      final id = await db.importSharedRoutine(shared);
+      final days = await db.workoutsForRoutine(id);
+      final bench = (await db.itemsForWorkout(days.first.id))
+          .firstWhere((v) => v.exercise.name == 'Bench Press')
+          .item;
+
+      expect(bench.increment, closeTo(toKg(5, 'lb'), 1e-6),
+          reason: 'a pounds gym steps by 5 lb, not by 5.51');
+      expect(bench.deload, closeTo(toKg(10, 'lb'), 1e-6));
+    });
+
+    test('the importing phone supplies the weights out of its own history',
+        () async {
+      final shared =
+          await theirs((s) async => (await _routineNamed(s, 'Push / Pull / Legs')).id);
+
+      // This phone has benched 72.5 kg, whatever the sender presses.
+      final bench = (await _exerciseNamed(db, 'Bench Press'))!;
+      await db.saveSession(
+        routineId: null,
+        workoutId: null,
+        name: 'Push',
+        startedAt: DateTime.now().subtract(const Duration(days: 1)),
+        endedAt: DateTime.now().subtract(const Duration(days: 1)),
+        durationSeconds: 600,
+        totalVolume: 362.5,
+        sets: [
+          SessionSetsCompanion.insert(
+            sessionId: 0,
+            exerciseId: Value(bench.id),
+            exerciseName: 'Bench Press',
+            setNumber: 1,
+            weight: const Value(72.5),
+            reps: const Value(5),
+            done: const Value(true),
+          ),
+        ],
+      );
+
+      final id = await db.importSharedRoutine(shared);
+      final days = await db.workoutsForRoutine(id);
+      final push = await db.itemsForWorkout(days.first.id);
+
+      final landedBench =
+          push.firstWhere((v) => v.exercise.name == 'Bench Press').item;
+      expect(landedBench.suggestedWeight, 72.5,
+          reason: 'my bench, not theirs');
+
+      final lateral =
+          push.firstWhere((v) => v.exercise.name == 'Lateral Raise').item;
+      expect(lateral.suggestedWeight, isNull,
+          reason: 'never trained here, so there is nothing to suggest');
     });
 
     test('reuses the library rather than duplicating it', () async {
@@ -906,7 +1028,7 @@ void main() {
 
     test('a theme link still goes to the theme import', () {
       final route = routeForLink(Uri.parse(ThemeCode.link(kDefaultPalette)));
-      expect(route, startsWith('/settings/theme/import?code='));
+      expect(route, startsWith('/settings/appearance/import?code='));
     });
 
     test('anything else is ignored', () {

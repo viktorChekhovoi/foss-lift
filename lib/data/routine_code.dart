@@ -1,4 +1,4 @@
-/// A whole training programme squeezed into one line of text.
+/// A whole training program squeezed into one line of text.
 ///
 /// ```
 /// FLR1.AeNiYGBgZGRkYWBhZWBgY2BgYWJgYGZgYGVgYGdgYGFiYGBmYmBgZWJgYGdiYGBhYWBgZmFg…
@@ -6,7 +6,7 @@
 ///
 /// ## Why a format at all
 ///
-/// A routine is a programme, its days, every exercise slot in every day with
+/// A routine is a program, its days, every exercise slot in every day with
 /// its full configuration, and the definition of every exercise it leans on —
 /// including the custom ones the recipient has never heard of. As JSON that is
 /// several kilobytes and quite unshareable. This gets the PPL demo routine to
@@ -24,11 +24,17 @@
 /// 3. **The rest is deflated**, when deflating actually helps — a short routine
 ///    is often smaller raw, and the flag byte says which happened.
 ///
-/// And one thing is simply not carried: an exercise's coaching cue. It was the
+/// Two things are simply not carried. One is an exercise's coaching cue. It was the
 /// largest field on the row and the least worth the space — the recipient can
 /// read the movement's name, and the video link that *does* travel shows them
 /// the rest. That link travels as its eleven-character id rather than as a URL,
 /// which is why a search results page (no video behind it) travels as nothing.
+///
+/// The other is **every suggested weight**. Someone else's working load is the
+/// one number in a program that is certainly wrong for the person importing it,
+/// so a slot travels with its whole prescription — sets, reps, rest, axis, step
+/// and back-off rates, thresholds — and no weight at all. The importing phone
+/// fills that in from its own history; see `routine_import.dart`.
 ///
 /// ## The wire format
 ///
@@ -62,6 +68,8 @@
 ///     …only the fields the mask names, in bit order
 /// ```
 ///
+/// There is no weight field in a slot, by design — see above.
+///
 /// **The orders are frozen**: the field bits, the exercise flag bits, and the
 /// two vocabularies. Reordering any of them silently re-reads every code
 /// already shared. Appending is safe — a reader that stops early simply ignores
@@ -70,19 +78,21 @@
 ///
 /// ## What deliberately does not travel
 ///
-/// The sender's progression streaks and their reminder time. Both are facts
-/// about the sender rather than about the programme: a streak is momentum you
-/// have to earn on your own bar, and a notification is something a person asks
-/// for rather than inherits.
+/// The sender's progression streaks, their reminder time and their weights. All
+/// three are facts about the sender rather than about the program: a streak is
+/// momentum you have to earn on your own bar, a notification is something a
+/// person asks for rather than inherits, and a working weight belongs to the
+/// body doing the work.
 library;
 
-import 'dart:io';
+import 'package:archive/archive.dart' show Deflate, DeflateLevel, Inflate;
 
 import '../util/qr_capacity.dart';
 import '../util/video_links.dart';
 import 'exercise_taxonomy.dart';
 import 'plates.dart';
 import 'progression.dart';
+import 'set_scheme.dart';
 import 'share_code.dart';
 
 /// One exercise as it travels: enough to find it in the recipient's library, or
@@ -134,13 +144,15 @@ class SharedItem {
     int? repsMax,
     bool toFailure = false,
     int? restSeconds,
-    double? suggestedWeight,
     ProgressionMode progression = ProgressionMode.weight,
     int holdSeconds = 30,
     double? increment,
     double? deload,
     int successThreshold = defaultSuccessThreshold,
     int failureThreshold = defaultFailureThreshold,
+    SetScheme scheme = SetScheme.flat,
+    int schemePercent = kDefaultSchemePercent,
+    List<CustomSet> customSets = const [],
   }) =>
       SharedItem._(
         exercise: exercise,
@@ -149,13 +161,15 @@ class SharedItem {
         repsMax: repsMax,
         toFailure: toFailure,
         restSeconds: restSeconds,
-        suggestedWeight: suggestedWeight,
         progression: progression,
         holdSeconds: holdSeconds,
         increment: increment ?? progression.defaultIncrement,
         deload: deload ?? progression.defaultDeload,
         successThreshold: successThreshold,
         failureThreshold: failureThreshold,
+        scheme: scheme,
+        schemePercent: schemePercent,
+        customSets: customSets,
       );
 
   const SharedItem._({
@@ -165,13 +179,15 @@ class SharedItem {
     required this.repsMax,
     required this.toFailure,
     required this.restSeconds,
-    required this.suggestedWeight,
     required this.progression,
     required this.holdSeconds,
     required this.increment,
     required this.deload,
     required this.successThreshold,
     required this.failureThreshold,
+    required this.scheme,
+    required this.schemePercent,
+    required this.customSets,
   });
 
   /// Index into [SharedRoutine.exercises].
@@ -182,7 +198,6 @@ class SharedItem {
   final int? repsMax;
   final bool toFailure;
   final int? restSeconds;
-  final double? suggestedWeight;
   final ProgressionMode progression;
   final int holdSeconds;
   final int successThreshold;
@@ -191,6 +206,15 @@ class SharedItem {
   /// How far the target steps, and how far it backs off, in the mode's own unit.
   final double increment;
   final double deload;
+
+  /// The shape of the slot's sets, and the percentages that shape is made of.
+  ///
+  /// The shape travels rather than the weights it produces — which is what lets
+  /// the ladder arrive already snapped to the *receiving* phone's unit, the
+  /// same way a step rate does.
+  final SetScheme scheme;
+  final int schemePercent;
+  final List<CustomSet> customSets;
 }
 
 /// One training day as it travels.
@@ -200,7 +224,7 @@ class SharedWorkout {
   final List<SharedItem> items;
 }
 
-/// A whole programme, ready to encode or to land in a database.
+/// A whole program, ready to encode or to land in a database.
 class SharedRoutine {
   const SharedRoutine({
     required this.name,
@@ -215,7 +239,7 @@ class SharedRoutine {
   final String colorHex;
   final int restSeconds;
 
-  /// The weekday bitmask from `schedule.dart`. Part of the programme — "this is
+  /// The weekday bitmask from `schedule.dart`. Part of the program — "this is
   /// a Monday/Wednesday/Friday split" is something the author decided.
   final int scheduleDays;
 
@@ -246,7 +270,7 @@ abstract final class RoutineCode {
   /// is legal in the app never loses characters here first — and bounded all
   /// the same, so a corrupt or hostile code cannot claim a megabyte of routine
   /// name and be believed. Names past it are cut rather than rejected: losing
-  /// the tail of a label is a smaller harm than refusing the whole programme.
+  /// the tail of a label is a smaller harm than refusing the whole program.
   static const int maxNameBytes = 200;
 
   /// Cuts [name] to [maxNameBytes], on a boundary that still decodes.
@@ -261,33 +285,46 @@ abstract final class RoutineCode {
   static bool fitsQr(String link) => qrHolds(link.length);
 
   // -- Exercise flag bits ---------------------------------------------------
-  // Frozen from the first public release, not before it. Bit 1 was the
-  // instructions field and was briefly held open as a reserved hole, on the
-  // reasoning that codes people already hold would be misread otherwise —
-  // except the app has never shipped, so nobody holds one. The hole is closed.
+  // **Frozen.** These numbers are in codes people are holding. Append at the
+  // top only; never reorder, never renumber, never reuse a retired bit. The
+  // renumbering that happened before the first release is history, not licence.
+  // A change these bits cannot express is an `FLR2`, with this reader kept.
   static const int _exCustom = 1 << 0;
   static const int _exVideo = 1 << 1;
   static const int _exTimed = 1 << 2;
   static const int _exWeightType = 1 << 3;
   static const int _exBarWeight = 1 << 4;
 
-  // -- Slot field bits (frozen; read in ascending order) --------------------
+  // -- Slot field bits (read in ascending order) ----------------------------
+  // **Frozen**, on the same terms as the exercise bits above: append only. Bit
+  // 5 was the suggested weight and the bits above it were renumbered down when
+  // weights stopped travelling — which was before any code existed to break.
   static const int _fSets = 1 << 0;
   static const int _fRepsMin = 1 << 1;
   static const int _fRepsMax = 1 << 2;
   static const int _fToFailure = 1 << 3;
   static const int _fRest = 1 << 4;
-  static const int _fWeight = 1 << 5;
-  static const int _fProgression = 1 << 6;
-  static const int _fHold = 1 << 7;
-  static const int _fIncrement = 1 << 8;
-  static const int _fDeload = 1 << 9;
-  static const int _fSuccess = 1 << 10;
-  static const int _fFailure = 1 << 11;
+  static const int _fProgression = 1 << 5;
+  static const int _fHold = 1 << 6;
+  static const int _fIncrement = 1 << 7;
+  static const int _fDeload = 1 << 8;
+  static const int _fSuccess = 1 << 9;
+  static const int _fFailure = 1 << 10;
+  static const int _fScheme = 1 << 11;
+  static const int _fCustomSets = 1 << 12;
 
   /// Deflate without the zlib wrapper — six bytes of header and checksum this
   /// format already provides for itself.
-  static final ZLibCodec _deflate = ZLibCodec(raw: true, level: 9);
+  ///
+  /// Pure Dart rather than `dart:io`'s `ZLibCodec`, because the app also builds
+  /// for the browser and `dart:io` compiles there and then throws from every
+  /// call. The output is ordinary deflate either way — byte for byte the same
+  /// length in practice, and each decodes the other's — so `FLR1` means one
+  /// thing on every platform and a code does not carry which build wrote it.
+  static List<int> _deflate(List<int> raw) =>
+      Deflate(raw, level: DeflateLevel.bestCompression).takeBytes();
+
+  static List<int> _inflate(List<int> packed) => Inflate(packed).getBytes();
 
   /// Encodes [routine] as a shareable code.
   static String encode(SharedRoutine routine) {
@@ -333,7 +370,7 @@ abstract final class RoutineCode {
     // Compress only when it actually helps: a short routine of common words
     // deflates to more than it started as, and paying for that in QR density
     // would be silly.
-    final packed = _deflate.encode(raw);
+    final packed = _deflate(raw);
     final smaller = packed.length < raw.length;
 
     return ShareCodec.pack(
@@ -356,7 +393,7 @@ abstract final class RoutineCode {
   /// Reads a code, a share link, or either with whitespace through it.
   ///
   /// Never throws and never returns half a routine: the result is either a
-  /// [RoutineCodeOk] with a complete programme or a [RoutineCodeFailure] saying
+  /// [RoutineCodeOk] with a complete program or a [RoutineCodeFailure] saying
   /// which of the three things went wrong.
   static RoutineCodeResult decode(String source) {
     final read = ShareCodec.unpack(source,
@@ -367,7 +404,7 @@ abstract final class RoutineCode {
     List<int> raw;
     try {
       raw = envelope[0] & 0x01 != 0
-          ? _deflate.decode(envelope.sublist(1))
+          ? _inflate(envelope.sublist(1))
           : envelope.sublist(1);
     } catch (_) {
       return const RoutineCodeFailure(ShareCodeProblem.damaged);
@@ -456,26 +493,41 @@ abstract final class RoutineCode {
     if (it.repsMax != null) mask |= _fRepsMax;
     if (it.toFailure) mask |= _fToFailure;
     if (it.restSeconds != null) mask |= _fRest;
-    if (it.suggestedWeight != null) mask |= _fWeight;
     if (it.progression != plain.progression) mask |= _fProgression;
     if (it.holdSeconds != plain.holdSeconds) mask |= _fHold;
     if (it.increment != it.progression.defaultIncrement) mask |= _fIncrement;
     if (it.deload != it.progression.defaultDeload) mask |= _fDeload;
     if (it.successThreshold != plain.successThreshold) mask |= _fSuccess;
     if (it.failureThreshold != plain.failureThreshold) mask |= _fFailure;
+    if (it.scheme != plain.scheme || it.schemePercent != plain.schemePercent) {
+      mask |= _fScheme;
+    }
+    if (it.customSets.isNotEmpty) mask |= _fCustomSets;
 
     out.varint(mask);
     if (mask & _fSets != 0) out.varint(it.targetSets);
     if (mask & _fRepsMin != 0) out.varint(it.repsMin);
     if (mask & _fRepsMax != 0) out.varint(it.repsMax!);
     if (mask & _fRest != 0) out.varint(it.restSeconds!);
-    if (mask & _fWeight != 0) out.fixed2(it.suggestedWeight!);
     if (mask & _fProgression != 0) out.byte(it.progression.index);
     if (mask & _fHold != 0) out.varint(it.holdSeconds);
     if (mask & _fIncrement != 0) out.fixed2(it.increment);
     if (mask & _fDeload != 0) out.fixed2(it.deload);
     if (mask & _fSuccess != 0) out.varint(it.successThreshold);
     if (mask & _fFailure != 0) out.varint(it.failureThreshold);
+    if (mask & _fScheme != 0) {
+      out.byte(it.scheme.index);
+      out.varint(it.schemePercent);
+    }
+    // Each row is a pair, so one count and twice that many varints. Only a
+    // custom slot ever writes any.
+    if (mask & _fCustomSets != 0) {
+      out.varint(it.customSets.length);
+      for (final row in it.customSets) {
+        out.varint(row.reps);
+        out.varint(row.percent);
+      }
+    }
   }
 
   static SharedItem _readItem(ByteReader r, int exercise) {
@@ -488,7 +540,6 @@ abstract final class RoutineCode {
     final repsMin = mask & _fRepsMin != 0 ? r.varint() : plain.repsMin;
     final repsMax = mask & _fRepsMax != 0 ? r.varint() : null;
     final rest = mask & _fRest != 0 ? r.varint() : null;
-    final weight = mask & _fWeight != 0 ? r.fixed2() : null;
     final mode =
         mask & _fProgression != 0 ? _progression(r.byte()) : plain.progression;
     final hold = mask & _fHold != 0 ? r.varint() : plain.holdSeconds;
@@ -498,6 +549,16 @@ abstract final class RoutineCode {
         mask & _fSuccess != 0 ? r.varint() : plain.successThreshold;
     final failure =
         mask & _fFailure != 0 ? r.varint() : plain.failureThreshold;
+    final scheme = mask & _fScheme != 0 ? _scheme(r.byte()) : plain.scheme;
+    final schemePercent =
+        mask & _fScheme != 0 ? r.varint() : plain.schemePercent;
+    final custom = <CustomSet>[];
+    if (mask & _fCustomSets != 0) {
+      final rows = r.varint();
+      for (var i = 0; i < rows; i++) {
+        custom.add(CustomSet(reps: r.varint(), percent: r.varint()));
+      }
+    }
 
     return SharedItem(
       exercise: exercise,
@@ -506,15 +567,24 @@ abstract final class RoutineCode {
       repsMax: repsMax,
       toFailure: mask & _fToFailure != 0,
       restSeconds: rest,
-      suggestedWeight: weight,
       progression: mode,
       holdSeconds: hold,
       increment: increment,
       deload: deload,
       successThreshold: success,
       failureThreshold: failure,
+      scheme: scheme,
+      schemePercent: schemePercent,
+      customSets: custom,
     );
   }
+
+  /// A scheme by its index, or flat for one this build has never heard of —
+  /// the same forgiveness the progression axis gets.
+  static SetScheme _scheme(int index) => index >= 0 &&
+          index < SetScheme.values.length
+      ? SetScheme.values[index]
+      : SetScheme.flat;
 
   /// A word from a frozen vocabulary as its index + 1, or 0 and the word
   /// spelled out — so a library exercise carrying something the app has never

@@ -1,0 +1,22 @@
+# Response headers for the browser build.
+#
+# This is the Cloudflare Pages / Netlify `_headers` format. It has to sit in the
+# *published* directory, so it lives in web/ and `flutter build web` copies it
+# to build/web alongside everything else. Vercel does not read this file — see
+# vercel.json at the repository root.
+#
+# Cross-origin isolation is what lets Chrome and Safari put the database in the
+# origin-private file system instead of IndexedDB. It is an optimisation, not a
+# requirement: without these headers drift falls back to IndexedDB in a shared
+# worker, which is durable and safe across tabs, just slower. See
+# docs/web-build.md.
+#
+# It is safe to enable here only because the page loads nothing cross-origin —
+# `--no-web-resources-cdn` keeps the engine on this origin. Adding a remote
+# script or font later means removing these headers or the page will not load
+# at all.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer

@@ -19,7 +19,7 @@ Do not deviate from these rules. They describe important approaches to writing c
     4. **Refactor.** Improve the code while keeping the tests passing, to remove code duplication, inefficiencies, and suboptimal practices.
     5. Regenerate the pages (`dart run tool/features.dart`) and tick the issue's acceptance criteria. The HTML is gitignored — do not commit it.
 6. Do NOT write duplicate code. DO NOT NEVER EVER
-7. For every change, assume this app has no prior users. legacy formats do not need to be supported, data does not need migration
+7. For every change, assume this app has users on the shipped build. Their data has to survive the update, and formats already in the wild have to keep being readable — see "The app has shipped" below. If a change cannot be made without breaking that, say so and wait rather than deciding for me.
 8. When a change alters behaviour that is already catalogued, **edit that entry in place**. Never add a second entry describing the new behaviour beside the old one — the catalogue is what the app does now, not a changelog. 
 
 ## Key writing style guide
@@ -159,34 +159,44 @@ rather than implementing it.
   hard to read on this background" warning stays — that is guidance; a running
   ratio would make the picker an accessibility workbench it is not meant to be.
 
-## Nothing has shipped yet — do not write compatibility code
+## The app has shipped — every change must install cleanly as an update
 
-**There are no existing installs.** No phone anywhere holds a FossLift
-database, a shared routine code or an exported file. Every user is a fresh
-install, today and until the first public release.
+**There are existing installs.** Phones hold FossLift databases, shared routine
+codes and exported files that this repository has to keep being able to read.
+An update that loses somebody's training log is not a bug to fix in the next
+build; the log is gone.
 
-So: **change formats in place. Never add a compatibility layer for a past that
-does not exist.**
+So: **every change is an upgrade path.** Someone on the shipped build must be
+able to install the new one on top and find their history, their routines and
+their settings where they left them.
 
-- **The drift schema stays at v1.** Change the table, run build_runner, done.
-  Do not bump `schemaVersion` and do not add an `onUpgrade` rung — its only
-  possible input is a database that has never existed. A migration written now
-  is untestable, unreachable, and a lie about the app's history.
-- **Wire formats are not frozen yet.** `kMuscleGroups`, `kEquipmentTypes`, the
-  `FLR1` flag bits — reorder, renumber and reuse them freely. Do not leave
-  reserved holes, do not renumber around a "codes people may already hold": no
-  one holds one.
-- **Data loss is not a consideration for shipped data.** There is none. A
-  removed column takes nothing with it.
+- **The drift schema climbs.** Changing a table means bumping `schemaVersion`
+  and adding an `onUpgrade` rung that takes the previous version to the new one.
+  Never edit a rung that has shipped and never renumber one — the input to a
+  migration is a real database on a real phone, and rewriting history in the
+  ladder means the phone climbs the wrong steps. Adding a nullable column or one
+  with a default is the cheap case; anything that drops or retypes a column
+  needs the rung to carry the data across, not just the shape.
+- **Wire formats are frozen.** `kMuscleGroups`, `kEquipmentTypes` and the `FLR1`
+  flag bits are append-only: add at the end, never reorder, never renumber,
+  never reuse a retired slot. Somebody is holding a code that was written
+  against the old numbering, and it has to keep decoding. A format that genuinely
+  cannot be extended gets a new version tag (`FLR2`) with the old reader kept
+  beside it, not a redefinition of the old one.
+- **Data loss is a consideration.** A removed column takes what was in it. If a
+  feature goes, decide explicitly what happens to what it stored — migrated into
+  its replacement, or dropped on purpose and said so.
+- **Say so if an upgrade cannot be clean.** Some changes genuinely cannot
+  preserve everything. That is a decision for me to make, not one to make
+  quietly inside a commit: raise it, say what would be lost, and wait.
 
-This is the one rule with an expiry date. **On the first public release it
-inverts:** the shipped schema becomes v1 for real, every later change is a
-migration rung, and every wire format is frozen for good. Anything relying on
-this rule should say so where it lives, so it can be found again then. When
-the release happens, this section gets rewritten, not deleted.
+If I tell you a particular change may break compatibility, take that as given
+for that change and note it in the commit. Otherwise the rule above holds.
 
-If a change seems to need compatibility code, you have found a case this rule
-did not anticipate — raise it rather than quietly writing the migration.
+Comments in the source still describe the pre-release period in places — the
+frozen-from-first-release notes on the flag bits, and the `schemaVersion`
+comment. Those are now history rather than instructions; the rule above is what
+applies.
 
 ## Writing UI text
 

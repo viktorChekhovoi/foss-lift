@@ -1,0 +1,135 @@
+id: "19"
+title: The browser build
+tagline: >-
+  The same app, served as a web page. Everything still stays on your own
+  machine — the browser holds the database instead of the phone.
+screen: none
+code:
+- lib/data/db_open.dart
+- lib/data/db_open_native.dart
+- lib/data/db_open_web.dart
+- lib/util/capabilities.dart
+- web/index.html
+test:
+- test/feature_19_web_build_test.dart
+where: >-
+  <b>Opener</b> lib/data/db_open.dart, chosen at compile time between
+  db_open_native.dart and db_open_web.dart · <b>What this build can do</b>
+  lib/util/capabilities.dart · <b>Page and assets</b> web/ ·
+  <b>How to build and where to host it</b> docs/web-build.md
+groups:
+- name: What it does
+  items:
+  - id: runs-in-browser-same-code
+    t: Runs in a browser from the same code
+    d: >-
+      one Flutter codebase, built for Android and for the web. No separate
+      front end, no cut-down version of the screens — the routine builder, the
+      live board, the plate maths and the charts are the same widgets either
+      way.
+    defines:
+    - platform.web
+  - id: browser-holds-database
+    t: The browser holds the database
+    d: >-
+      sqlite3 compiled to WebAssembly, stored through the browser's own
+      origin-private file system or IndexedDB. It is the same schema and the
+      same drift queries as on the phone — only the file underneath is
+      different. Nothing is uploaded and there is no account: close the tab and
+      the data is still in that browser, on that machine.
+    defines:
+    - storage.database-location
+    uses:
+    - storage.schema
+    - privacy.offline
+  - id: first-run-seeds-in-browser
+    t: A fresh browser gets the starter library and the demo routines
+    d: >-
+      the first-run seed is a property of an empty database, not of a phone, so
+      opening the page for the first time lands on the same 87 movements, two
+      demo programs and racked bars an install does.
+    uses:
+    - storage.schema
+  - id: web-build-serves-itself
+    t: The page serves everything it needs from its own origin
+    d: >-
+      the engine, the fonts, the sqlite3 WebAssembly module and the drift
+      worker are all served from the same place as the app. Nothing is fetched
+      from a CDN, which is what keeps "no network" true of the running app and
+      what lets it work offline once loaded.
+    uses:
+    - privacy.offline
+    - platform.web
+- name: Behaviour & edge cases
+  items:
+  - id: capabilities-absent-not-broken
+    t: What a browser cannot do is absent, not broken
+    d: >-
+      every control that needs a phone is hidden on the web rather than left to
+      fail when tapped. One place answers what this build can do, and the
+      screens ask it — the same shape the Android-only services already use.
+    defines:
+    - platform.web
+    uses:
+    - platform.portability
+  - id: no-reminders-on-web
+    t: A routine cannot ask to be reminded on the web
+    d: >-
+      the reminder is a scheduled local notification, and a browser has nothing
+      to schedule one with. The weekday schedule is still editable — it is part
+      of the program and it travels in a share code — but the reminder time
+      is not offered.
+    screen: routine-edit
+    uses:
+    - platform.reminders
+    - platform.web
+  - id: no-set-videos-on-web
+    t: Set videos are not offered on the web
+    d: >-
+      filming a set writes a file into app storage the browser has no
+      equivalent of, so the camera button, the clip reel and the video settings
+      screen are all absent. History and progression are untouched — a clip was
+      never anything a set needed.
+    screen: session
+    uses:
+    - video.capture
+    - platform.web
+  - id: no-scanning-on-web
+    t: A code is pasted on the web, not scanned
+    d: >-
+      the scanner reads camera frames one at a time, which browsers do not
+      offer. Showing a QR still works, and so does pasting a code — which was
+      always the way in that needs no permission.
+    screen: routine-import
+    uses:
+    - share.qr
+    - platform.web
+  - id: no-shade-on-web
+    t: The live workout does not leave the tab
+    d: >-
+      no ongoing notification, no Done button outside the app, and no ding once
+      the tab is in the background. A rest timer on the web is something you
+      watch. The session itself is unaffected: it is in memory, and collapsing
+      it to another screen resumes exactly as it does on a phone.
+    screen: session
+    uses:
+    - platform.web
+  - id: share-codes-work-everywhere
+    t: A routine code made in a browser opens on a phone
+    d: >-
+      the compression under the code is the same on both, so `FLR1` means one
+      thing everywhere and a code does not carry which build wrote it.
+    screen: routine-share
+    uses:
+    - share.routine-code
+    - platform.web
+  - id: browser-storage-can-be-cleared
+    t: Clearing site data clears the workout log
+    d: >-
+      the database sits in the browser's storage for that origin, so "clear
+      cookies and site data" takes the training history with it, and a private
+      window starts empty every time. This is the honest cost of not having a
+      server, and it is why the phone build is the one to train off.
+    uses:
+    - storage.database-location
+    - privacy.offline

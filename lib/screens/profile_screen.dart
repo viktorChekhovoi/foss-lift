@@ -68,9 +68,9 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Named for the screen, not for one thing on it: the row said "Units"
-          // when units were all that was behind it, and has since collected the
-          // layoff rules, the bar and the plate rack.
+          // Two settings screens, split by what a setting is about. This one is
+          // the training half — units, the bar and the plate rack, the deload
+          // rules, the set-video caps; Appearance below is how the app looks.
           _SettingsTile(
             icon: Icons.tune_rounded,
             label: l10n.settingsTitle,
@@ -81,20 +81,18 @@ class ProfileScreen extends ConsumerWidget {
             label: l10n.profileExerciseLibrary,
             onTap: () => context.push('/library'),
           ),
-          // Replays the first-run tour on demand. Jumps to Today first, where
-          // its coach marks are anchored, then starts it.
+          // Replays a tour on demand. It asks which one and then starts where
+          // you are: every tour opens on the navigation bar, which is under
+          // this screen as much as any other.
           _SettingsTile(
             icon: Icons.help_outline_rounded,
             label: l10n.profileHelpAndTour,
-            onTap: () {
-              ref.read(tutorialProvider.notifier).start();
-              context.go('/today');
-            },
+            onTap: () => showTutorialPicker(context, ref),
           ),
           _SettingsTile(
             icon: Icons.brightness_6_outlined,
             label: l10n.profileAppearance,
-            onTap: () => context.push('/settings/theme'),
+            onTap: () => context.push('/settings/appearance'),
           ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,

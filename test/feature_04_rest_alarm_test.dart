@@ -152,11 +152,87 @@ void main() {
       );
 
       await expectLater(
-          off.ring(channel: _channel, title: 'Rest done', body: 'x'),
+          off.ring(
+              channel: _channel,
+              title: 'Rest done',
+              body: 'x'),
           completes);
       await expectLater(off.clear(), completes);
 
       expect(calls, isEmpty);
+    });
+  });
+
+  group('Off screen the sound is joined by a notification, not replaced by one',
+      () {
+    // `off-screen-ding-notification-instead`. The tone has already been made by
+    // the app itself, so a channel that rang as well would be two dings for one
+    // rest. What is left for the notification is the picture: high importance,
+    // a buzz, and the words for what is next.
+
+    /// The arguments of the channel created with [id].
+    Map channelCreated(String id) => callsTo('createNotificationChannel')
+        .map((c) => c.arguments as Map)
+        .firstWhere((a) => a['id'] == id,
+            orElse: () => fail('no channel "$id" was created'));
+
+    /// The Android half of the last notification posted.
+    Map posted() =>
+        (callsTo('show').last.arguments as Map)['platformSpecifics'] as Map;
+
+    Future<void> ring({RestAlarm? on}) => (on ?? alarm()).ring(
+          channel: _channel,
+          title: 'Rest done',
+          body: 'Bench Press · 80 kg × 8',
+        );
+
+    test('it is posted on the one rest channel there is', () async {
+      await ring();
+
+      expect(posted()['channelId'], RestAlarm.channelId);
+      final created = callsTo('createNotificationChannel')
+          .map((c) => (c.arguments as Map)['id'])
+          .toSet();
+      expect(created, {RestAlarm.channelId},
+          reason: 'one channel: the second one existed only to be the quiet '
+              'version of a channel that rang');
+    });
+
+    test('and that channel makes no sound of its own', () async {
+      await ring();
+
+      final channel = channelCreated(RestAlarm.channelId);
+      expect(channel['playSound'], isFalse);
+      expect(channel['sound'], isNull,
+          reason: 'the app has already played the wav itself');
+      expect(channel['importance'], Importance.max.value,
+          reason: 'a rest ending is an alert, not furniture');
+      expect(channel['enableVibration'], isTrue);
+      expect(channel['audioAttributesUsage'], AudioAttributesUsage.alarm.value);
+    });
+
+    test('the notification asks for no sound, but it does buzz', () async {
+      await ring();
+
+      expect(posted()['playSound'], isFalse);
+      expect(posted()['sound'], isNull);
+      expect(posted()['enableVibration'], isTrue,
+          reason: 'a phone in a pocket is felt before it is read');
+
+      final args = callsTo('show').last.arguments as Map;
+      expect(args['title'], 'Rest done');
+      expect(args['body'], contains('Bench Press'),
+          reason: 'it names what the rest is over for');
+    });
+
+    test('and two rests in a row stay on the same channel', () async {
+      final a = alarm();
+      await ring(on: a);
+      final first = posted()['channelId'];
+
+      await ring(on: a);
+
+      expect(posted()['channelId'], first);
     });
   });
 }

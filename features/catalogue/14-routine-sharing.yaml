@@ -1,7 +1,7 @@
 id: "14"
 title: Sharing a routine
 tagline: >-
-  A whole programme — days, slots, rep schemes, progression rates and the custom
+  A whole program — days, slots, rep schemes, progression rates and the custom
   exercises it depends on — as one line of text you can paste into a message.
 screen: routine-share
 code:
@@ -30,8 +30,11 @@ groups:
     d: >-
       a versioned, compressed, base64 line beginning FLR1. It carries the routine's
       name, colour, default rest and training days; every workout in order; every
-      exercise slot with its full configuration; and a definition of every exercise
-      the routine references.
+      exercise slot's prescription — sets, reps, rest, the set scheme and its
+      percentages, progression axis, step and back-off rates, thresholds — and a
+      definition of every exercise the routine references. Not the weights: see
+      below. A scheme travels as its shape rather than as its numbers, which is
+      what lets it arrive already snapped to the receiving phone's unit.
     defines:
     - share.routine-code
   - id: two-ways-out-qr-or
@@ -124,12 +127,15 @@ groups:
     t: Defaults are not transmitted
     d: >-
       a slot only spends bytes on fields that differ from the app's defaults,
-      and increment/deload defaults are read per progression mode. The PPL demo
-      routine encodes to 421 characters.
+      and increment/deload defaults are read per progression mode. A default
+      that was never sent is filled in from the *receiving* phone's unit, so a
+      routine written in a metric gym still steps by 5 lb in a pounds one. The
+      PPL demo routine encodes to 421 characters.
     screen: none
     uses:
     - share.routine-code
     - template.item
+    - load.unit-defaults
   - id: qr-offered-whenever-one-can
     t: A QR is offered whenever one can hold the routine
     d: >-
@@ -195,14 +201,20 @@ groups:
     - share.deep-link
     - platform.android
   - id: progress-does-not-travel
-    t: Progress does not travel
+    t: Neither progress nor weights travel
     d: >-
-      the success/failure streaks and the sender's reminder time are left behind.
-      Everything else — including the training-day schedule — comes across.
+      the success/failure streaks, the sender's reminder time and every suggested
+      weight are left behind — someone else's working load is the one number in a
+      program that is certainly wrong for you. The importing phone fills each slot
+      in itself: the weight it last logged for that movement, or nothing at all
+      when it has never trained it, exactly as a slot you add by hand starts
+      empty. Everything else — the whole prescription, including the
+      training-day schedule — comes across.
     screen: none
     uses:
     - share.routine-code
     - progression.streak
+    - template.item
   - id: built-exercises-travel-name
     t: Built-in exercises travel by name
     d: >-

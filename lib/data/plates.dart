@@ -11,7 +11,7 @@ import '../util/units.dart';
 /// How the load on an exercise is arranged, and therefore what the number in
 /// the weight column *means*.
 ///
-/// A property of the movement, not of the programme — the same way
+/// A property of the movement, not of the program — the same way
 /// [ExerciseMeasure] is. Bench Press is loaded on a bar wherever it appears.
 enum WeightType {
   /// Loaded on a bar: the number is the bar plus everything on it, and it can

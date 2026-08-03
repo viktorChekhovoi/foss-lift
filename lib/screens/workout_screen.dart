@@ -464,8 +464,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               exercise: session.exercises[ei],
                               unit: unit,
                               plates: plates,
-                              // The ramp is where you are, and it is shut by
-                              // default — so the group itself carries the mark.
+                              // Whether the ramp is where you are. Open — as
+                              // it starts — the rung carries the mark; shut,
+                              // the group does.
                               warmupIsNext:
                                   next != null &&
                                   next.warmup &&
@@ -482,7 +483,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                   number: wi + 1,
                                   entry: entry,
                                   unit: unit,
-                                  warmup: true,
                                   isNext:
                                       next != null &&
                                       next.warmup &&
@@ -552,7 +552,14 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                   },
                                   onTypeResult: () =>
                                       _editResult(ei, si, entry),
-                                  onVideo: () => _video(ei, si, entry),
+                                  // Null takes the whole trailing column away
+                                  // — a build that cannot film has no camera
+                                  // to grey out.
+                                  onVideo: ref
+                                          .watch(capabilitiesProvider)
+                                          .setVideos
+                                      ? () => _video(ei, si, entry)
+                                      : null,
                                 );
                               },
                             ),
@@ -864,6 +871,7 @@ class _ExerciseBlock extends StatelessWidget {
           // gets one.
           if (exercise.hasWarmups)
             _WarmupGroup(
+              index: index,
               exercise: exercise,
               unit: unit,
               isNext: warmupIsNext,
@@ -1107,23 +1115,37 @@ class _ExerciseHeading extends ConsumerWidget {
 }
 
 /// The warm-up ramp for one exercise: a labelled group above the working sets,
-/// collapsed by default to a single summary line so it never crowds the work.
-/// Tapping the header opens the ramp — the rows, the stepper and a one-line
-/// disclaimer. Visually quieter than the working block (dimmer label, no plate
-/// breakdowns) so the eye goes to the work.
+/// **open from the start**, because the ramp is the first thing you do and a
+/// group you have to open first is one more tap between arriving at the rack
+/// and logging. Tapping the header shuts it again — the rows, the stepper and
+/// the one-line disclaimer fold away to a summary line — and that stays shut
+/// for the rest of the session. The state is per group, so shutting one
+/// exercise's ramp leaves the next exercise's open: a lifter who skips the
+/// warm-up on the second movement has not said anything about the third.
+///
+/// Visually quieter than the working block (dimmer label, no plate breakdowns)
+/// so the eye goes to the work. **The block is never lit up as a whole.** The
+/// rung you are on is marked and pulses like any other row, which says where
+/// you are precisely; an accent fill over the whole group only said
+/// "somewhere in here", and competed with the row inside it saying exactly
+/// where. Shut, there is no rung to mark, so the header takes the accent
+/// instead — see [kNextWarmupKey].
 class _WarmupGroup extends StatefulWidget {
   const _WarmupGroup({
+    required this.index,
     required this.exercise,
     required this.unit,
     required this.isNext,
     required this.onCount,
     required this.rowBuilder,
   });
+
+  /// Where this exercise sits in the session — only used to key the group.
+  final int index;
   final ExerciseEntry exercise;
   final String unit;
 
-  /// Whether the next thing to do is a rung of this ramp. Shut, the group is
-  /// all there is on screen to say so — see [kNextWarmupKey].
+  /// Whether the next thing to do is a rung of this ramp.
   final bool isNext;
   final ValueChanged<int> onCount;
   final Widget Function(int warmupIndex) rowBuilder;
@@ -1133,7 +1155,7 @@ class _WarmupGroup extends StatefulWidget {
 }
 
 class _WarmupGroupState extends State<_WarmupGroup> {
-  bool _open = false;
+  bool _open = true;
 
   @override
   Widget build(BuildContext context) {
@@ -1141,21 +1163,16 @@ class _WarmupGroupState extends State<_WarmupGroup> {
     final exercise = widget.exercise;
     final count = exercise.warmupCount;
     final summary = l10n.sessionWarmupSummary(count);
-    final next = widget.isNext;
+    // Only a shut group carries the mark: open, the rung inside it does.
+    final marked = widget.isNext && !_open;
     return Container(
-      key: next ? kNextWarmupKey : null,
+      key: ValueKey('warmup-${widget.index}'),
       margin: const EdgeInsets.only(top: 10),
       padding: EdgeInsets.fromLTRB(12, 6, 12, _open ? 10 : 6),
       decoration: BoxDecoration(
-        color: next
-            ? AppColors.accent.withValues(alpha: 0.08)
-            : AppColors.surface2.withValues(alpha: 0.5),
+        color: AppColors.surface2.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: next
-              ? AppColors.accent.withValues(alpha: 0.55)
-              : AppColors.line,
-        ),
+        border: Border.all(color: AppColors.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1165,6 +1182,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
             onTap: () => setState(() => _open = !_open),
             behavior: HitTestBehavior.opaque,
             child: Padding(
+              key: marked ? kNextWarmupKey : null,
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
@@ -1173,7 +1191,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                         ? Icons.keyboard_arrow_down_rounded
                         : Icons.keyboard_arrow_right_rounded,
                     size: 18,
-                    color: next ? AppColors.accent : AppColors.faint,
+                    color: marked ? AppColors.accent : AppColors.faint,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -1181,7 +1199,7 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                     style: kMono.copyWith(
                       fontSize: 10,
                       letterSpacing: 1.2,
-                      color: next ? AppColors.accent : AppColors.faint,
+                      color: marked ? AppColors.accent : AppColors.faint,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1335,19 +1353,12 @@ class _SetRow extends StatelessWidget {
     required this.onTypeResult,
     this.isNext = false,
     this.showWeight = true,
-    this.warmup = false,
     this.onVideo,
     this.holdingSeconds,
   });
   final int number;
   final SetEntry entry;
   final String unit;
-
-  /// Whether this row is a warm-up rung rather than a working set. A rung that
-  /// is next is marked like any other row, but it does not pulse: the ramp is
-  /// a suggestion you work through at your own pace, and something breathing
-  /// at you through all of it would be an alarm rather than a pointer.
-  final bool warmup;
 
   /// Whether this row carries a weight cell — see [_showsWeight]. A movement
   /// done under no load has none, rather than an empty box under an empty
@@ -1533,8 +1544,11 @@ class _SetRow extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: BoardPulse(
           // Nothing already logged pulses, and neither does a hold that is
-          // running: that cell is a stop button, and it says so already.
-          on: isNext && !warmup && !done,
+          // running: that cell is a stop button, and it says so already. A
+          // warm-up rung pulses on the same terms as a working set — the ramp
+          // is where you are before the work is, and it is worth finding the
+          // same way.
+          on: isNext && !done,
           builder: (context, pulse) => Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1838,7 +1852,11 @@ class _RestBanner extends StatelessWidget {
         p.weightKg == null
             ? l10n.sessionRestPlain
             : l10n.sessionRestSetUpThenRest(weight()),
-      RestPurpose.anotherSet => l10n.sessionRestPlain,
+      // Usually plain — another set of the same thing at the same weight. A
+      // back-off or a ramp changes the bar between sets, and then it says so.
+      RestPurpose.anotherSet => p.weightKg == null
+          ? l10n.sessionRestPlain
+          : l10n.sessionRestSetUp(weight()),
       RestPurpose.nextExercise => l10n.sessionRestNextExercise(
           seededName(l10n, p.exerciseSeedKey, p.exercise ?? ''),
         ),

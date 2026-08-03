@@ -111,13 +111,22 @@ const Map<String, String> kSeedBarKeys = {
   'Smith carriage': 'smith_carriage',
 };
 
-/// The same, for the two demo programmes.
+/// The same, for the five starter programs.
+///
+/// "Starting Strength" and "StrongLifts 5x5" are the names of published
+/// programs. They carry a key like the rest so a rename still clears it, but
+/// the string behind that key is the same English in every language — a
+/// program is named the way a book is.
 const Map<String, String> kSeedRoutineKeys = {
   'Push / Pull / Legs': 'push_pull_legs',
   'Upper / Lower': 'upper_lower',
+  'Starting Strength': 'starting_strength',
+  'StrongLifts 5x5': 'stronglifts_5x5',
+  'Full Body 3x': 'full_body_3x',
 };
 
-/// The same, for their training days.
+/// The same, for their training days. The three barbell programs all name
+/// their days A, B and C, so one key each serves all of them.
 const Map<String, String> kSeedWorkoutKeys = {
   'Push': 'push',
   'Pull': 'pull',
@@ -126,5 +135,8 @@ const Map<String, String> kSeedWorkoutKeys = {
   'Lower 1': 'lower_1',
   'Upper 2': 'upper_2',
   'Lower 2': 'lower_2',
+  'Workout A': 'workout_a',
+  'Workout B': 'workout_b',
+  'Workout C': 'workout_c',
 };
 

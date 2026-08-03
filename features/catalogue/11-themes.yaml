@@ -1,13 +1,14 @@
 id: "11"
-title: Colour themes
+title: Color themes
 tagline: Pick a preset theme, build your own, or bring in one someone shared.
 screen: theme-settings
 code:
 - lib/theme/app_theme.dart
 - lib/theme/theme_code.dart
+- lib/widgets/common.dart
 - lib/widgets/theme_preview.dart
 - lib/widgets/share_widgets.dart
-- lib/screens/theme_settings_screen.dart
+- lib/screens/appearance_screen.dart
 - lib/screens/theme_import_screen.dart
 - lib/screens/scan_screen.dart
 - lib/services/deep_links.dart
@@ -17,12 +18,24 @@ test:
 where: >-
   <b>Palette + presets</b> lib/theme/app_theme.dart (AppColors) · <b>Code format</b>
   lib/theme/theme_code.dart · <b>Preview</b> lib/widgets/theme_preview.dart; <b>QR</b>
-  share_widgets.dart · <b>Screens</b> theme_settings_screen.dart, theme_import_screen.dart,
+  share_widgets.dart · <b>Screens</b> appearance_screen.dart, theme_import_screen.dart,
   scan_screen.dart · <b>Links</b> lib/services/deep_links.dart; <b>frames</b>
   lib/services/qr_decoder.dart · <b>Stored in</b> Settings.themePresetId + CustomThemes
 groups:
 - name: What it does
   items:
+  - id: appearance-holds-look-app
+    t: Appearance holds the whole of how the app looks
+    d: >-
+      Profile → Appearance is the theme, the text size and the language in one
+      place; Profile → Exercise settings is the training ones — units, bars and
+      plates, the deload rules, set videos. The split is by what a setting is
+      about, not by when it was added.
+    uses:
+    - theme.palette-source
+    - ui.text-scale
+    - ui.language
+    - ui.navigation
   - id: eight-preset-themes-four-dark
     t: Eight preset themes as four dark/light pairs
     d: >-
@@ -284,6 +297,21 @@ groups:
     - theme.palette-source
     - storage.settings
     - storage.schema
+- name: Legibility of the app's own type
+  screen: today
+  items:
+  - id: headings-readable-every-palette
+    t: Section headings and eyebrows are readable in every palette
+    d: >-
+      the small-caps heading over a list takes the secondary text role, and the
+      eyebrow over a screen title takes the body one. Neither is drawn in the
+      dimmest colour a palette owns — that role is for a column heading nobody
+      is meant to read twice, and it is the one role no palette keeps legible.
+      Every shipped palette clears 4.5:1 for both against the ground they are
+      painted on, the light ones and the two Solarized ones included.
+    uses:
+    - theme.colour-role
+    - theme.type-scale
 - name: Sharing format
   screen: none
   uses:

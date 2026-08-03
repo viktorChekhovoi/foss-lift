@@ -112,5 +112,5 @@ class ThemeImportScreen extends ConsumerWidget {
   /// so that case lands on the theme screen — where someone who just imported a
   /// theme wants to be anyway.
   void _leave(BuildContext context) => leaveShareScreen(
-      context, () => GoRouter.maybeOf(context)?.go('/settings/theme'));
+      context, () => GoRouter.maybeOf(context)?.go('/settings/appearance'));
 }

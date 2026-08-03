@@ -2,22 +2,53 @@
 // The conversion helpers are pure functions and get direct coverage; the
 // end-to-end paths (the stored setting, the per-unit rack that follows the
 // unit, and the confirm dialog) go through the AppDatabase, the providers, and
-// the real SettingsScreen.
+// the real ExerciseSettingsScreen.
 //
 // Drift streams emit asynchronously, so provider-derived state is read through
 // the shared settle helpers — `readWhen` in pure-Dart tests, `pumpUntil` under
 // the widget binding — rather than by awaiting `.future` (which never settles
 // for a stream that only fires once the event loop is pumped).
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
-import 'package:foss_lift/screens/settings_screen.dart';
+import 'package:foss_lift/screens/exercise_settings_screen.dart';
+import 'package:foss_lift/screens/workout_screen.dart';
+import 'package:foss_lift/util/format.dart';
 import 'package:foss_lift/util/units.dart';
+import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
+import 'support/seeded.dart';
 import 'support/settle.dart';
+
+/// A one-day routine holding a single Back Squat slot at [weightKg], with
+/// whatever step rates are passed. Returns the slot's workout id.
+Future<int> _slotAt(
+  AppDatabase db, {
+  double? weightKg,
+  double? increment,
+  double? deload,
+  String exercise = 'Back Squat',
+}) async {
+  final ex = await exerciseNamed(db, exercise);
+  final rid = await db.createRoutine(name: 'Solo', color: 'FF0000', restSeconds: 90);
+  final wid = await db.createWorkout(rid, 'Day');
+  final draft = ItemDraft.forExercise(ex)
+    ..sets = 3
+    ..repsMin = 5
+    ..weightKg = weightKg;
+  if (increment != null) draft.increment = increment;
+  if (deload != null) draft.deload = deload;
+  await db.replaceWorkoutItems(wid, itemCompanions([draft], workoutId: wid));
+  return wid;
+}
+
+/// The single slot of a workout built by [_slotAt], read back.
+Future<WorkoutItem> _onlySlot(AppDatabase db, int workoutId) async =>
+    (await db.itemsForWorkout(workoutId)).single.item;
 
 void main() {
   group('conversion is pure display arithmetic', () {
@@ -55,6 +86,260 @@ void main() {
     test('the standard bar is named in the unit but stored in kg', () {
       expect(defaultBarKg('kg'), closeTo(20, 1e-9));
       expect(defaultBarKg('lb'), closeTo(toKg(45, 'lb'), 1e-9));
+    });
+  });
+
+  group('a weight reads to two decimals', () {
+    test('trailing zeros are dropped, 1.25 is not rounded to 1.3', () {
+      expect(fmtWeight(100), '100');
+      expect(fmtWeight(102.5), '102.5');
+      expect(fmtWeight(1.25), '1.25');
+      expect(fmtWeight(toDisplayWeight(100, 'lb')), '220.46');
+    });
+
+    test('one helper formats every weight the app shows', () {
+      // A plate, a step and a set row all read the same — see rule 6 in
+      // CLAUDE.md, and the two helpers this replaced.
+      for (final v in [1.25, 2.5, 20.0, 220.462262]) {
+        expect(fmtWeight(v), fmtUpTo(v, 2));
+      }
+    });
+  });
+
+  group('a fresh install takes its unit from the phone\'s region', () {
+    test('the phone\'s region decides', () {
+      expect(localeDefaultUnit(const [Locale('en', 'US')]), 'lb');
+      expect(localeDefaultUnit(const [Locale('en', 'LR')]), 'lb');
+      expect(localeDefaultUnit(const [Locale('my', 'MM')]), 'lb');
+      expect(localeDefaultUnit(const [Locale('en', 'GB')]), 'kg');
+      expect(localeDefaultUnit(const [Locale('uk', 'UA')]), 'kg');
+      expect(localeDefaultUnit(const [Locale('en')]), 'kg',
+          reason: 'a locale with no country is not the United States');
+      expect(localeDefaultUnit(const []), 'kg');
+    });
+
+    test('nothing is stored until the guess is made', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      expect(await db.watchUnitChosen().first, isFalse);
+      // Unstored still reads as kilograms everywhere, so nothing in between
+      // launch and the write has to cope with a null unit.
+      expect(await db.watchWeightUnit().first, 'kg');
+
+      await db.seedWeightUnit('lb');
+      expect(await db.watchUnitChosen().first, isTrue);
+      expect(await db.watchWeightUnit().first, 'lb');
+    });
+
+    test('a region change later never moves a unit already stored', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      await db.seedWeightUnit('lb');
+      // A phone that moves to Britain, or an app language switched to Ukrainian.
+      await db.seedWeightUnit('kg');
+      expect(await db.watchWeightUnit().first, 'lb',
+          reason: 'by now it is a setting somebody has trained against');
+    });
+
+    testWidgets('the app stores the region\'s unit on its first launch',
+        (tester) async {
+      tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      // Watching the provider is what the app root does, and all it does — the
+      // unit question is gone, so there is no screen in front of the app.
+      await tester.pumpWidget(appUnder(
+          container,
+          Consumer(builder: (_, ref, _) {
+            ref.watch(unitSeedProvider);
+            return const Text('the app itself');
+          })));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('the app itself'), findsOneWidget);
+      expect(await tester.runAsync(() => db.watchWeightUnit().first), 'lb');
+      expect(await tester.runAsync(() => db.watchUnitChosen().first), isTrue);
+      await stop(tester);
+    });
+  });
+
+  group('each unit has its own default step', () {
+    test('the weight axis steps by 2.5 kg or by 5 lb', () {
+      expect(defaultIncrementFor(ProgressionMode.weight, 'kg'), 2.5);
+      expect(defaultIncrementFor(ProgressionMode.weight, 'lb'),
+          closeTo(toKg(5, 'lb'), 1e-9));
+      expect(defaultDeloadFor(ProgressionMode.weight, 'kg'), 5);
+      expect(defaultDeloadFor(ProgressionMode.weight, 'lb'),
+          closeTo(toKg(10, 'lb'), 1e-9));
+    });
+
+    test('reps and seconds are not a unit anybody converts', () {
+      for (final unit in ['kg', 'lb']) {
+        expect(defaultIncrementFor(ProgressionMode.reps, unit), 1);
+        expect(defaultIncrementFor(ProgressionMode.time, unit), 5);
+        expect(defaultDeloadFor(ProgressionMode.reps, unit), 2);
+      }
+    });
+
+    test('a slot left on the default takes the new unit\'s default', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100);
+      expect((await _onlySlot(db, wid)).increment, 2.5);
+
+      await db.setWeightUnit('lb');
+      final after = await _onlySlot(db, wid);
+      expect(after.increment, closeTo(toKg(5, 'lb'), 1e-6),
+          reason: '2.5 kg steps become 5 lb steps, not 5.51 lb');
+      expect(after.deload, closeTo(toKg(10, 'lb'), 1e-6));
+
+      await db.setWeightUnit('kg');
+      final back = await _onlySlot(db, wid);
+      expect(back.increment, closeTo(2.5, 1e-6));
+      expect(back.deload, closeTo(5, 1e-6));
+    });
+
+    test('a rate you set yourself is kept, not swapped', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100, increment: 7.5, deload: 15);
+      await db.setWeightUnit('lb');
+
+      final after = await _onlySlot(db, wid);
+      expect(after.increment, 7.5, reason: '7.5 kg was deliberate');
+      expect(after.deload, 15);
+    });
+
+    test('a reps-axis slot is untouched by a unit switch', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, exercise: 'Pull-Up');
+      final before = await _onlySlot(db, wid);
+      expect(before.progression, ProgressionMode.reps);
+
+      await db.setWeightUnit('lb');
+      final after = await _onlySlot(db, wid);
+      expect(after.increment, before.increment);
+      expect(after.deload, before.deload);
+    });
+  });
+
+  group('a converted target is snapped', () {
+    test('100 kg becomes 220 lb, not 220.46', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100);
+      await db.setWeightUnit('lb');
+
+      final slot = await _onlySlot(db, wid);
+      expect(toDisplayWeight(slot.suggestedWeight!, 'lb'), closeTo(220, 1e-6));
+
+      // And back the other way: the nearest 2.5 kg to 99.79 is 100.
+      await db.setWeightUnit('kg');
+      expect((await _onlySlot(db, wid)).suggestedWeight, closeTo(100, 1e-6));
+    });
+
+    test('a slot with no weight stays without one', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, exercise: 'Pull-Up');
+      await db.setWeightUnit('lb');
+      expect((await _onlySlot(db, wid)).suggestedWeight, isNull);
+    });
+
+    test('logged sets keep the kilograms they were lifted at', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100);
+      final item = await _onlySlot(db, wid);
+      final sessionId = await db.saveSession(
+        routineId: null,
+        workoutId: wid,
+        name: 'Day',
+        startedAt: DateTime.now(),
+        endedAt: DateTime.now(),
+        durationSeconds: 600,
+        totalVolume: 500,
+        sets: [
+          SessionSetsCompanion.insert(
+            sessionId: 0,
+            exerciseId: Value(item.exerciseId),
+            exerciseName: 'Back Squat',
+            setNumber: 1,
+            weight: const Value(100),
+            reps: const Value(5),
+            done: const Value(true),
+            goalReps: const Value(5),
+            goalWeight: const Value(100),
+          ),
+        ],
+      );
+
+      await db.setWeightUnit('lb');
+
+      final sets = await db.setsForSession(sessionId);
+      expect(sets.single.weight, 100, reason: 'history is never rewritten');
+      expect(sets.single.goalWeight, 100);
+    });
+
+    test('the gym\'s bars and plates are left alone', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      await db.setBarWeight(20);
+      await db.setPlateInventory([(kg: 1.25, count: 2)], 'kg');
+      await db.setWeightUnit('lb');
+
+      final setup = await db.watchPlateSetup().first;
+      expect(setup.barKg, 20, reason: 'a 20 kg bar weighs 20 kg in any unit');
+    });
+  });
+
+  group('a converted weight still fits the board', () {
+    testWidgets('a six-character weight does not overflow a set row',
+        (tester) async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      late int wid;
+      await tester.runAsync(() async {
+        await db.setWeightUnit('lb');
+        // Set after the switch, so the snap cannot round the awkward number
+        // this test is about away.
+        wid = await _slotAt(db, weightKg: 100);
+        await container
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Day');
+      });
+
+      final overflows = await overflowsDuring(() async {
+        await tester.pumpWidget(appUnder(container, const WorkoutScreen()));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+      });
+
+      expect(overflows, isEmpty, reason: overflows.join('\n'));
+      expect(find.text('220.46'), findsWidgets);
+      await stop(tester);
     });
   });
 
@@ -169,7 +454,7 @@ void main() {
   });
 
   group('switching pops a confirm dialog', () {
-    /// Pumps a freshly-mounted SettingsScreen and lets its drift-backed
+    /// Pumps a freshly-mounted ExerciseSettingsScreen and lets its drift-backed
     /// providers emit their first value.
     Future<ProviderContainer> pumpSettings(WidgetTester tester) async {
       final db = memoryDb();
@@ -178,7 +463,7 @@ void main() {
         container.dispose();
         await db.close();
       });
-      await tester.pumpWidget(appUnder(container, const SettingsScreen()));
+      await tester.pumpWidget(appUnder(container, const ExerciseSettingsScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
       return container;

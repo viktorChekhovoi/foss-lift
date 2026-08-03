@@ -3,6 +3,20 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
+/// The style a small-caps section heading is drawn in, for the handful of
+/// places that need the words without [SectionLabel]'s row and padding.
+///
+/// The colour is [AppColors.muted], never [AppColors.faint]. `faint` is the one
+/// role no palette is asked to keep legible — it exists for a column heading
+/// nobody reads twice, and across the shipped palettes it sits nearer 3:1 than
+/// 4.5:1 on the ground. A heading naming what a list is has to be read.
+TextStyle sectionLabelStyle() => kMono.copyWith(
+      fontSize: AppType.sectionLabel,
+      letterSpacing: 1.4,
+      color: AppColors.muted,
+      fontWeight: FontWeight.w600,
+    );
+
 /// A small uppercase monospace section header, e.g. "YOUR ROUTINES".
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key, this.trailing});
@@ -28,12 +42,7 @@ class SectionLabel extends StatelessWidget {
               // No line cap and no ellipsis: a heading that does not fit across
               // the phone wraps. These headings are routine names, and a name
               // cut to "PUSH / PULL / L…" tells you less than nothing.
-              style: kMono.copyWith(
-                fontSize: 11.5,
-                letterSpacing: 1.4,
-                color: AppColors.faint,
-                fontWeight: FontWeight.w600,
-              ),
+              style: sectionLabelStyle(),
             ),
           ),
           if (trailing != null) ...[
@@ -59,19 +68,23 @@ class ScreenHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The body role, not the muted one. This line names where you are,
+          // and a screen has exactly one of them — there is no column of them
+          // to recede into the background, so nothing is gained by dimming it
+          // and legibility is lost on the paler palettes.
           Text(
             eyebrow.toUpperCase(),
             style: kMono.copyWith(
-              fontSize: 12,
+              fontSize: AppType.eyebrow,
               letterSpacing: 1.2,
-              color: AppColors.muted,
+              color: AppColors.text,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             title,
             style: const TextStyle(
-              fontSize: 27,
+              fontSize: AppType.screenTitle,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
             ),

@@ -6,15 +6,19 @@ import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
-import '../util/locales.dart';
-import '../util/text_scale.dart';
+import '../widgets/common.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 import '../util/format.dart';
 
-/// App preferences: the weight unit, the bar and plates, and the layoff rules.
-class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+/// The settings that are about training: the weight unit, the bar and plates,
+/// the set-video caps and the layoff rules.
+///
+/// How the app *looks* — theme, text size, language — is the other half, and
+/// lives on `appearance_screen.dart`. The split is by what a setting is about,
+/// which is the only thing somebody looking for one has to go on.
+class ExerciseSettingsScreen extends ConsumerWidget {
+  const ExerciseSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,10 +37,9 @@ class SettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           children: [
             Text(l10n.settingsWeightUnit,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                style: sectionLabelStyle()),
             const SizedBox(height: 10),
-            _UnitOption(
+            UnitOption(
               label: l10n.settingsKilograms,
               suffix: unitSuffix(l10n, 'kg'),
               selected: unit == 'kg',
@@ -46,7 +49,7 @@ class SettingsScreen extends ConsumerWidget {
                   unit == 'kg' ? null : _switchUnit(context, l10n, db, 'kg'),
             ),
             const SizedBox(height: 10),
-            _UnitOption(
+            UnitOption(
               label: l10n.settingsPounds,
               suffix: unitSuffix(l10n, 'lb'),
               selected: unit == 'lb',
@@ -55,13 +58,12 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             Text(l10n.settingsBarAndPlates,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
+                style: sectionLabelStyle()),
             const SizedBox(height: 10),
             SettingRow(
               label: l10n.settingsDefaultBar,
               value: l10n.unitWeightShort(
-                  fmtPlateWeight(toDisplayWeight(plates.barKg, unit)),
+                  fmtWeight(toDisplayWeight(plates.barKg, unit)),
                   unitSuffix(l10n, unit)),
               onTap: () => context.push('/settings/bar'),
             ),
@@ -71,38 +73,20 @@ class SettingsScreen extends ConsumerWidget {
               value: l10n.settingsPlateSizes(plates.plates.length),
               onTap: () => context.push('/settings/plates'),
             ),
-            const SizedBox(height: 28),
-            Text(l10n.settingsSetVideos,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-            const SizedBox(height: 10),
-            SettingRow(
-              label: l10n.settingsStorage,
-              value: fmtBytes(ref.watch(videoUsageProvider).value ?? 0),
-              onTap: () => context.push('/settings/videos'),
-            ),
-            const SizedBox(height: 28),
-            SettingRow(
-              label: l10n.settingsLanguage,
-              value: kLanguageNames[ref.watch(localeTagProvider).value] ??
-                  l10n.languageFollowPhone,
-              onTap: () => context.push('/settings/language'),
-            ),
-            const SizedBox(height: 28),
-            Text(l10n.settingsTextSize,
-                style: kMono.copyWith(
-                    fontSize: 11, letterSpacing: 1.2, color: AppColors.faint)),
-            const SizedBox(height: 10),
-            _ScaleChoices(
-              chosen: ref.watch(textScaleProvider).value ?? 1.0,
-              onSelect: db.setTextScale,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.settingsTextSizeNote,
-              style: TextStyle(
-                  color: AppColors.muted, fontSize: 13, height: 1.5),
-            ),
+            // Nothing to size or cap on a build that cannot film. The whole
+            // section goes rather than showing 0 B and a quality picker for a
+            // camera that is never offered.
+            if (ref.watch(capabilitiesProvider).setVideos) ...[
+              const SizedBox(height: 28),
+              Text(l10n.settingsSetVideos,
+                  style: sectionLabelStyle()),
+              const SizedBox(height: 10),
+              SettingRow(
+                label: l10n.settingsStorage,
+                value: fmtBytes(ref.watch(videoUsageProvider).value ?? 0),
+                onTap: () => context.push('/settings/videos'),
+              ),
+            ],
             const SizedBox(height: 28),
             builderCard(l10n.settingsDeload, [
               builderGrid([
@@ -161,12 +145,13 @@ int _maxCut(int percent) {
 
 /// Changes the unit, once the user has seen what it will do.
 ///
-/// Stored weights are never rewritten — history in particular has to stay the
-/// weight it was lifted at. The cost of that is arithmetic in plain sight: a
-/// 100 kg squat reads as 220.5 lb, which is not a bar anybody loads, and the
-/// plate rack for the new unit is whatever was set up for it (a standard gym,
-/// until it is edited). Both are things to go and look at, so the dialog says
-/// so rather than letting them be discovered mid-set.
+/// History is never rewritten — a set stays the weight it was lifted at. What
+/// does move is the configuration: `AppDatabase.setWeightUnit` snaps each
+/// slot's target to a weight the new unit can be loaded to, and swaps any step
+/// rate still sitting on the old unit's default. The plate rack for the new
+/// unit is whatever was set up for it (a standard gym, until it is edited).
+/// Both are worth going to look at, so the dialog says so rather than letting
+/// them be discovered mid-set.
 Future<void> _switchUnit(BuildContext context, AppLocalizations l10n,
     AppDatabase db, String unit) async {
   final to = unit == 'lb' ? l10n.unitPoundsWord : l10n.unitKilogramsWord;
@@ -194,8 +179,13 @@ Future<void> _switchUnit(BuildContext context, AppLocalizations l10n,
   if (ok == true) await db.setWeightUnit(unit);
 }
 
-class _UnitOption extends StatelessWidget {
-  const _UnitOption({
+/// One of the two unit rows: its label, its suffix, and whether it is the one
+/// in force. Lives here because the settings screen is where the unit normally
+/// changes, and is reused by the first-run question — one row drawn the same
+/// way in both places, so the choice looks like the same choice.
+class UnitOption extends StatelessWidget {
+  const UnitOption({
+    super.key,
     required this.label,
     required this.suffix,
     required this.selected,
@@ -238,58 +228,6 @@ class _UnitOption extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The four text-size steps, each previewing itself.
-///
-/// A chip drawn at the size it selects is the only honest preview: the point of
-/// the control is how big the words get, and a row of same-sized labels says
-/// nothing about that.
-class _ScaleChoices extends StatelessWidget {
-  const _ScaleChoices({required this.chosen, required this.onSelect});
-  final double chosen;
-  final ValueChanged<double> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final choice in kTextScaleChoices)
-          GestureDetector(
-            onTap: () => onSelect(choice.scale),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: (choice.scale - chosen).abs() < 0.001
-                    ? AppColors.accent.withValues(alpha: 0.14)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: (choice.scale - chosen).abs() < 0.001
-                      ? AppColors.accent
-                      : AppColors.line,
-                ),
-              ),
-              child: Text(
-                choice.label(l10n),
-                // Its own scale, not the page's: the chip shows what it does.
-                textScaler: TextScaler.linear(choice.scale),
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: (choice.scale - chosen).abs() < 0.001
-                      ? AppColors.accent
-                      : AppColors.muted,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

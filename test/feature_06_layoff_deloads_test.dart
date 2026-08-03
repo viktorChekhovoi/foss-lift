@@ -295,7 +295,9 @@ void main() {
 
     test('the amounts are named in the display unit', () {
       expect(progressionRule(l10n, slot(), 'kg'), startsWith('Add 2.5 kg'));
-      expect(progressionRule(l10n, slot(), 'lb'), startsWith('Add 5.5 lb'));
+      // Two decimals: a 2.5 kg step is 5.51 lb, and rounding it to 5.5 would
+      // be a weight the arithmetic never produced.
+      expect(progressionRule(l10n, slot(), 'lb'), startsWith('Add 5.51 lb'));
     });
   });
 }

@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/plate_line.dart';
 import '../widgets/start_workout.dart';
+import '../widgets/workout_estimate.dart';
 
 /// One training day: the exercises it contains, and the button that starts it.
 class WorkoutDetailScreen extends ConsumerWidget {
@@ -52,7 +53,20 @@ class WorkoutDetailScreen extends ConsumerWidget {
                 data: (list) => ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                   children: [
-                    _CountChip(count: list.length),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _Pill(
+                          value: '${list.length}',
+                          label: l10n.workoutDetailExerciseCount(list.length),
+                        ),
+                        WorkoutEstimate(
+                          workoutId: workoutId,
+                          builder: (_, label) => _Pill(label: label),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 14),
                     if (list.isEmpty)
                       Padding(
@@ -104,34 +118,35 @@ class WorkoutDetailScreen extends ConsumerWidget {
   }
 }
 
-class _CountChip extends StatelessWidget {
-  const _CountChip({required this.count});
-  final int count;
+/// One small rounded fact about the day — how many exercises, how long it will
+/// take. [value] is the number picked out from the [label] beside it; a pill
+/// that is all label leaves it out.
+class _Pill extends StatelessWidget {
+  const _Pill({this.value, required this.label});
+  final String? value;
+  final String label;
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Text.rich(
-          TextSpan(
-            style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
-            children: [
+    final value = this.value;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Text.rich(
+        TextSpan(
+          style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
+          children: [
+            if (value != null)
               TextSpan(
-                text: '$count',
+                text: '$value ',
                 style: TextStyle(
                     color: AppColors.text, fontWeight: FontWeight.w600),
               ),
-              TextSpan(
-                  text: ' ${AppLocalizations.of(context)
-                      .workoutDetailExerciseCount(count)}'),
-            ],
-          ),
+            TextSpan(text: label),
+          ],
         ),
       ),
     );

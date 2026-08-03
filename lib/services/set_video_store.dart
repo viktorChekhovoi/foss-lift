@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../util/capabilities.dart';
 import '../util/format.dart';
 
 /// The heights a set clip can be filmed at. 720 is the default; 480 is for
@@ -204,8 +205,16 @@ class SetVideoStore {
   }
 
   /// Every file in the clip folder. Empty when the folder has never been made,
-  /// which is the state of any install where nobody has filmed anything.
+  /// which is the state of any install where nobody has filmed anything — and
+  /// the permanent state of a build with nowhere to make one.
+  ///
+  /// The capability check is here rather than on [bytesUsed] and [sweepOrphans]
+  /// separately because this is the one place either of them touches the disk.
+  /// It matters on the web: the orphan sweep runs unprompted on every launch
+  /// (see `orphanSweepProvider`), and `getApplicationSupportDirectory` in a
+  /// browser is not an empty directory, it is a missing plugin.
   Future<List<File>> _clipFiles() async {
+    if (!currentCapabilities.localFiles) return const [];
     final dir = Directory(p.join((await _baseDirectory()).path, folder));
     if (!await dir.exists()) return const [];
     return dir.list().where((e) => e is File).cast<File>().toList();
@@ -219,7 +228,7 @@ class SetVideoStore {
 /// it goes through `util/format.dart`, which reads the app's locale, so a
 /// Ukrainian phone says "1,4 GB".
 String fmtBytes(int bytes) {
-  if (bytes < 1024) return '${fmtWeight(bytes.toDouble())} B';
+  if (bytes < 1024) return '${fmtUpTo(bytes.toDouble(), 0)} B';
   const units = ['kB', 'MB', 'GB'];
   var value = bytes / 1024;
   var unit = 0;
@@ -227,7 +236,8 @@ String fmtBytes(int bytes) {
     value /= 1024;
     unit++;
   }
-  final n = value < 10 ? fmtOneDecimal(value) : fmtWeight(value.roundToDouble());
+  final n =
+      value < 10 ? fmtOneDecimal(value) : fmtUpTo(value.roundToDouble(), 0);
   return '$n ${units[unit]}';
 }
 

@@ -32,6 +32,7 @@ class Item {
     required this.title,
     required this.detail,
     required this.screen,
+    required this.points,
     required this.defines,
     required this.uses,
     required this.code,
@@ -45,6 +46,22 @@ class Item {
   final String title;
   final String? detail;
   final String screen;
+
+  /// The screens this entry *describes* rather than lives on.
+  ///
+  /// Only the tour needs it, and it is the whole of what keeps the tour honest.
+  /// A coach mark sits on the `tutorial` screen — that is where you go to look
+  /// at it — while the thing it is talking about is somewhere else entirely, so
+  /// `screen` alone cannot say "this step is about the Routines tab". Without
+  /// that edge, changing a screen surfaces every entry on it and none of the
+  /// tour steps that describe it, and the tour drifts out of date silently,
+  /// which is exactly how it came to point at an app that had moved on.
+  ///
+  /// `--check` fails on a screen that does not exist and reports — never fatally
+  /// — a step that points at a screen without sharing a single concept with the
+  /// entries that live there. The second one is the honest signal: it means the
+  /// step and the screen have no subject in common, so one of them is wrong.
+  final List<String> points;
   final List<String> defines;
   final List<String> uses;
   final List<String> code;
@@ -161,6 +178,10 @@ Section _loadSection(File f) {
         title: im['t'] as String,
         detail: im['d'] as String?,
         screen: im['screen'] as String? ?? gScreen,
+        // Item-level only, and deliberately not inherited: "this section is
+        // about the session screen" would tag every entry under it, and a link
+        // that is always true carries no information.
+        points: _strings(im['points']),
         defines: defines,
         uses: uses,
         code: _inherit(gCode, im['code']),
@@ -241,6 +262,11 @@ Findings validate(Catalogue cat, Directory root) {
     if (!screenIds.contains(item.screen)) {
       problems.add('${item.id}: no such screen "${item.screen}"');
     }
+    for (final s in item.points) {
+      if (!screenIds.contains(s)) {
+        problems.add('${item.id}: points at no such screen "$s"');
+      }
+    }
     for (final c in item.concepts) {
       if (!conceptIds.contains(c)) {
         problems.add('${item.id}: no such concept "$c" — add it to features/concepts.yaml');
@@ -283,6 +309,29 @@ Findings validate(Catalogue cat, Directory root) {
     if (!cat.items.any((i) => i.screen == s.id)) {
       findings.gaps.add('screen ${s.id}: no item is on it — nothing in the catalogue '
           'describes this screen');
+    }
+  }
+
+  // The `points` edge, checked in both directions.
+  //
+  // An entry that describes another screen — a tour step — has to be talking
+  // about the same thing that screen's own entries are, or the link is a label
+  // with nothing behind it. Sharing one concept is a low bar on purpose: it
+  // catches the step that has drifted onto a subject the screen no longer has,
+  // without demanding that a one-sentence coach mark enumerate the screen.
+  for (final item in cat.items) {
+    for (final s in item.points) {
+      if (!screenIds.contains(s)) continue; // already a problem, above
+      final onScreen = cat.items.where((i) => i.screen == s);
+      final theirs = {for (final i in onScreen) ...i.concepts};
+      if (theirs.isEmpty) {
+        findings.gaps.add('${item.id}: points at screen "$s", which no catalogue '
+            'entry describes');
+      } else if (!item.concepts.any(theirs.contains)) {
+        findings.gaps.add('${item.id}: points at screen "$s" but shares no concept '
+            'with the ${onScreen.length} entries on it — say what it is about, or '
+            'stop pointing at it');
+      }
     }
   }
 
@@ -441,6 +490,7 @@ const _css = r'''
   a.chip:hover { border-color: var(--accent); color: var(--accent); }
   .chip.def { border-color: var(--accent); color: var(--accent); }
   .chip.scr { border-style: dashed; }
+  .chip.pts { border-style: dashed; border-color: var(--accent); color: var(--accent); }
   .chip.man { border-color: var(--warn); color: var(--warn); }
 
   /* ---- concepts page ---- */
@@ -602,6 +652,7 @@ String buildIndex(Catalogue cat) {
                     't': i.title,
                     if (i.detail != null) 'd': i.detail,
                     'screen': i.screen,
+                    if (i.points.isNotEmpty) 'points': i.points,
                     'defines': i.defines,
                     'uses': i.uses,
                     if (i.manual) 'manual': true,
@@ -662,6 +713,7 @@ const _indexJs = r'''
         ids.push(it.id);
         const on = !!state[it.id];
         let links = chip(it.screen, 'scr', 'walkthrough.html#scr-' + it.screen);
+        (it.points || []).forEach(s => links += chip('→ ' + s, 'pts', 'walkthrough.html#scr-' + s));
         it.defines.forEach(c => links += chip(c, 'def', 'concepts.html#c-' + c));
         it.uses.forEach(c => links += chip(c, '', 'concepts.html#c-' + c));
         if (it.manual) links += chip('manual only', 'man');
@@ -955,13 +1007,22 @@ String buildWalkthrough(Catalogue cat) {
 
   final ordered = [
     for (final s in cat.screens)
-      if (s.id != 'none' && (byScreen[s.id]?.isNotEmpty ?? false))
+      if (s.id != 'none' &&
+          ((byScreen[s.id]?.isNotEmpty ?? false) ||
+              cat.items.any((i) => i.points.contains(s.id))))
         {
           'id': s.id,
           'title': s.title,
           'route': s.route,
           'reach': s.reach,
           'setup': s.setup,
+          // Entries that live elsewhere but describe this screen — the tour.
+          // Printed at the top of the block so a pass over a screen also
+          // re-reads what the app promises to say about it.
+          'describedBy': [
+            for (final i in cat.items.where((i) => i.points.contains(s.id)))
+              {'id': i.id, 't': i.title, 'sec': i.sectionId, 'secTitle': i.sectionTitle}
+          ],
           'items': [
             for (final i in byScreen[s.id]!)
               {
@@ -1036,6 +1097,10 @@ const _walkthroughJs = r'''
       '<span class="f"></span></h2>';
     if (scr.reach) html += '<p class="reach"><b>Get there:</b> ' + scr.reach + '</p>';
     if (scr.setup) html += '<p class="reach setup"><b>Needs first:</b> ' + scr.setup + '</p>';
+    if (scr.describedBy && scr.describedBy.length) {
+      html += '<p class="reach"><b>The tour says:</b> ' + scr.describedBy.map(d =>
+        '<a href="index.html#i-' + d.id + '">' + d.t + '</a>').join(' · ') + '</p>';
+    }
 
     scr.items.forEach(it => {
       const st = store[it.id] || {};

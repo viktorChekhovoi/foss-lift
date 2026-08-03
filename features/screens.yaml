@@ -36,7 +36,7 @@ screens:
     route: /profile
     reach: Bottom nav → Profile.
 
-  # ---------------------------------------------------------- the programme
+  # ---------------------------------------------------------- the program
   - id: routine-detail
     title: A routine
     route: /routine/:id
@@ -120,39 +120,39 @@ screens:
 
   # ------------------------------------------------------------- the settings
   - id: settings
-    title: Settings
+    title: Exercise settings
     route: /settings
-    reach: Profile → Settings.
+    reach: Profile → Exercise settings.
 
   - id: bar-settings
     title: Bar & plates
     route: /settings/bar
-    reach: Profile → Settings → Bar & plates.
+    reach: Profile → Exercise settings → Bar & plates.
 
   - id: plate-inventory
     title: The plate rack
     route: /settings/plates
-    reach: Profile → Settings → Bar & plates → plates.
+    reach: Profile → Exercise settings → Bar & plates → plates.
 
   - id: video-settings
     title: Video settings
     route: /settings/videos
-    reach: Profile → Settings → video quality & storage.
+    reach: Profile → Exercise settings → video quality & storage.
 
   - id: language-settings
     title: Language
     route: /settings/language
-    reach: Profile → Settings → Language.
+    reach: Profile → Appearance → Language.
 
   - id: theme-settings
-    title: Theme
-    route: /settings/theme
-    reach: Profile → Settings → Theme.
+    title: Appearance
+    route: /settings/appearance
+    reach: Profile → Appearance.
 
   - id: theme-custom
     title: Custom theme editor
-    route: /settings/theme/custom
-    reach: Profile → Settings → Theme → build a custom theme.
+    route: /settings/appearance/custom
+    reach: Profile → Appearance → New theme.
 
   # ------------------------------------------------------- in, out and around
   - id: routine-share
@@ -167,8 +167,8 @@ screens:
 
   - id: theme-import
     title: Import a theme
-    route: /settings/theme/import
-    reach: Theme → import, with a code on the clipboard.
+    route: /settings/appearance/import
+    reach: Appearance → Paste code, with a code on the clipboard.
 
   - id: scan
     title: The scanner

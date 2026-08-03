@@ -95,7 +95,7 @@ concepts:
   # ---------------------------------------------------------------- template
   - id: template.routine
     area: template
-    what: A programme. Its name, colour, order and default rest.
+    what: A program. Its name, colour, order and default rest.
     code: [lib/data/database.dart, lib/screens/routine_edit_screen.dart]
 
   - id: template.workout
@@ -113,10 +113,24 @@ concepts:
     what: What a set is aiming at — a fixed count, a range, a hold, or to failure.
     code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
 
+  - id: template.set-scheme
+    area: template
+    what: >-
+      How a slot's sets differ from one another — all alike, backing off,
+      ramping up, or a weight and a rep count written out per set.
+    code: [lib/data/set_scheme.dart, lib/widgets/workout_items_editor.dart]
+
   - id: template.rest
     area: template
     what: The rest a slot gets, and the routine default it falls back to.
     code: [lib/data/database.dart]
+
+  - id: template.duration-estimate
+    area: template
+    what: >-
+      How long a training day will take, derived from the template — sets,
+      targets, warm-up rungs and rest. Never read from logged sessions.
+    code: [lib/data/workout_estimate.dart, lib/widgets/workout_estimate.dart]
 
   - id: template.active-routine
     area: template
@@ -204,6 +218,11 @@ concepts:
     area: load
     what: kg or lb. A display concern only — storage is always kilograms.
     code: [lib/util/units.dart]
+
+  - id: load.unit-defaults
+    area: load
+    what: The step each unit counts by — 2.5 kg or 5 lb — what a fresh slot gets, and what a unit switch does with the slots already there.
+    code: [lib/util/units.dart, lib/data/progression.dart]
 
   - id: load.bar-weight
     area: load
@@ -314,17 +333,25 @@ concepts:
   - id: theme.picker
     area: theme
     what: Editing one role — the wheel, the sliders and the hex field.
-    code: [lib/screens/theme_settings_screen.dart]
+    code: [lib/screens/appearance_screen.dart]
 
   - id: theme.contrast-check
     area: theme
     what: The warning that says text will be hard to read on this background.
     code: [lib/widgets/theme_preview.dart]
 
+  - id: theme.type-scale
+    area: theme
+    what: >-
+      The sizes the app's own type steps through — the screen title, the eyebrow
+      above it, the small-caps section headings — held in one place so the
+      hierarchy is the same on every screen.
+    code: [lib/theme/app_theme.dart, lib/widgets/common.dart]
+
   - id: ui.text-scale
     area: theme
-    what: The user's text-size nudge on top of the phone's own.
-    code: [lib/util/text_scale.dart]
+    what: The user's text-size nudge on top of the phone's own, set by the chips or by a pinch.
+    code: [lib/util/text_scale.dart, lib/widgets/pinch_text_scale.dart]
 
   # ---------------------------------------------------------------------- ui
   - id: ui.navigation
@@ -342,7 +369,24 @@ concepts:
 
   - id: ui.tutorial
     area: ui
-    what: The first-run tour.
+    what: >-
+      The coach-mark overlay itself — the scrim, the spotlight it cuts, the
+      anchors it measures and what a tap does.
+    code: [lib/widgets/tutorial.dart]
+
+  - id: ui.tutorial-track
+    area: ui
+    what: >-
+      Which tour you are on — the full walk-through, the quick one or the routine
+      builder — how it is chosen on first launch, and how it is replayed later.
+    code: [lib/widgets/tutorial.dart, lib/screens/profile_screen.dart]
+
+  - id: ui.gym-vocabulary
+    area: ui
+    what: >-
+      The plain-language definitions of the words the app assumes — routine,
+      training day, set, rep, rest. The tour is the only place they are spelled
+      out; screens label their controls and leave the teaching to it.
     code: [lib/widgets/tutorial.dart]
 
   - id: ui.empty-state
@@ -353,8 +397,9 @@ concepts:
   - id: ui.language
     area: ui
     what: >-
-      Which language the app renders in — the phone's, or the one the user
-      picked — and how a region tag resolves to a catalogue.
+      Which language the app renders in — the phone's best match on first run,
+      or whatever was picked since — and how a region tag resolves to a
+      catalogue.
     code: [lib/util/locales.dart, lib/screens/language_screen.dart]
 
   - id: ui.string-catalogue
@@ -420,6 +465,20 @@ concepts:
     area: platform
     what: Scheduling the one local notification a routine may ask for.
     code: [lib/data/schedule.dart, lib/services/reminders.dart]
+
+  - id: platform.web
+    area: platform
+    what: >-
+      The browser build — which capabilities a browser has, and how each one the
+      app cannot get there is left absent rather than broken.
+    code: [lib/util/capabilities.dart, lib/data/db_open_web.dart]
+
+  - id: storage.database-location
+    area: platform
+    what: >-
+      Where the SQLite file actually lives, and the per-platform opener that
+      decides it.
+    code: [lib/data/db_open.dart, lib/data/db_open_native.dart, lib/data/db_open_web.dart]
 
   - id: storage.settings
     area: platform

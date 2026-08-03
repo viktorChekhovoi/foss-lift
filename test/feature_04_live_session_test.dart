@@ -14,9 +14,9 @@
 // controller test instead. The rest banner's countdown *is* a fake-zone timer,
 // so it advances with `pump(Duration(...))`.
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +26,7 @@ import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/home_shell.dart';
 import 'package:foss_lift/screens/library_screen.dart';
+import 'package:foss_lift/screens/exercise_settings_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
@@ -177,6 +178,17 @@ void main() {
         matching: find.byKey(const ValueKey('set-weight')),
       );
 
+  /// Scrolls [cell] into view and taps it.
+  ///
+  /// The board is taller than the test viewport — every exercise carrying a
+  /// warm-up ramp draws it open — so a row further down the session has to be
+  /// brought on screen before it can be hit, exactly as it would be on a phone.
+  Future<void> tapCell(WidgetTester tester, Finder cell) async {
+    await tester.ensureVisible(cell);
+    await tester.pump();
+    await tester.tap(cell);
+  }
+
   /// Puts the session down, then the tree.
   ///
   /// The rest clock belongs to the session rather than the logging screen now —
@@ -262,7 +274,7 @@ void main() {
       expect(find.text('0/$kPushTotalSets'), findsOneWidget);
       expect(find.text('0:00'), findsOneWidget); // duration stat
 
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       expect(find.text('1/$kPushTotalSets'), findsOneWidget);
@@ -296,7 +308,7 @@ void main() {
       tester,
     ) async {
       await pumpPushScreen(tester);
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       // The banner opens at the slot's configured rest (routine default 120s).
@@ -328,7 +340,7 @@ void main() {
     testWidgets('−15s ends a rest with less than 15s left, rather than doing '
         'nothing', (tester) async {
       await pumpPushScreen(tester);
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       // Run the 120s rest down to single figures.
@@ -380,7 +392,7 @@ void main() {
         (tester) async {
       await pumpRouted(tester);
       // Log something, so the discarded session is one that had work in it.
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
       expect(find.text('1/$kPushTotalSets'), findsOneWidget);
 
@@ -449,9 +461,10 @@ void main() {
       await frames(tester);
 
       expect(find.text('Switch to Pull?'), findsOneWidget);
+      // The facts the dialog owes: the day at risk and what is logged on it.
+      // The sentence they are said in is copy, and is not what this measures.
       expect(
-        find.textContaining('Push is still running — 1 of $kPushTotalSets '
-            'sets logged'),
+        find.textContaining('Push has 1 of $kPushTotalSets sets logged'),
         findsOneWidget,
       );
       // Nothing has happened yet.
@@ -541,11 +554,9 @@ void main() {
 
     testWidgets('tapping the last rung starts the full rest', (tester) async {
       await pumpPushScreen(tester);
-      await tester.tap(find.text('WARM-UP').first);
-      await tester.pump();
 
       // The first rung: the short warm-up rest.
-      await tester.tap(repsCell('w0-0-Bench Press'));
+      await tapCell(tester, repsCell('w0-0-Bench Press'));
       await tester.pump();
       expect(find.text('0:45'), findsOneWidget);
       await tester.tap(find.text('Skip'));
@@ -553,7 +564,7 @@ void main() {
 
       // The last rung: the routine's own 2:00, because the work is next.
       final last = session().exercises[0].warmups.length - 1;
-      await tester.tap(repsCell('w0-$last-Bench Press'));
+      await tapCell(tester, repsCell('w0-$last-Bench Press'));
       await tester.pump();
       expect(find.text('2:00'), findsOneWidget);
 
@@ -618,23 +629,60 @@ void main() {
     });
 
     testWidgets(
-      'the ramp is collapsed until expanded, then shows its disclaimer',
+      'the ramp is open from the start, with its disclaimer under it',
       (tester) async {
         await pumpPushScreen(tester);
-        // Collapsed: the header is drawn but no warm-up rows and no disclaimer.
+        // The ramp is the first thing you do, so it is on screen already.
         expect(find.text('WARM-UP'), findsWidgets);
-        expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsNothing);
-        expect(find.textContaining('not medical advice'), findsNothing);
+        expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsOneWidget);
+        expect(find.textContaining('not medical advice'), findsWidgets);
 
         await tester.tap(find.text('WARM-UP').first);
         await tester.pump();
 
-        expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsOneWidget);
-        expect(find.textContaining('not medical advice'), findsWidgets);
+        expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsNothing);
 
         await stopAll(tester);
       },
     );
+
+    testWidgets('shutting one ramp shuts only that exercise, and it stays shut',
+        (tester) async {
+      await pumpPushScreen(tester);
+      // Bench is the first exercise; Overhead Press is the second, and has a
+      // ramp of its own. Every ramp drawing open makes the first exercise
+      // taller than the screen, so the second one's rungs are scrolled to
+      // rather than found where the board starts.
+      expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsOneWidget);
+
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsNothing);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('w1-0-Overhead Press')),
+        120,
+        maxScrolls: 60,
+      );
+      expect(
+        find.byKey(const ValueKey('w1-0-Overhead Press')),
+        findsOneWidget,
+        reason: 'shutting one ramp shut another exercise\'s too',
+      );
+
+      // And it is remembered: logging a set rebuilds the board, and the ramp
+      // you shut does not spring back open.
+      container!.read(activeWorkoutProvider.notifier).cycleSet(1, 0);
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('warmup-0')),
+        -120,
+        maxScrolls: 60,
+      );
+      expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsNothing);
+
+      await stopAll(tester);
+    });
   });
 
   group('One working weight for the exercise, not one box per set', () {
@@ -723,7 +771,7 @@ void main() {
     testWidgets('one set can still be overridden from its own row',
         (tester) async {
       await pumpPushScreen(tester);
-      await tester.tap(weightCell('0-3-Bench Press'));
+      await tapCell(tester, weightCell('0-3-Bench Press'));
       await frames(tester);
       await tester.enterText(find.byType(TextField), '70');
       await tester.tap(find.text('Save'));
@@ -750,8 +798,6 @@ void main() {
             .start(workoutId: wid, name: 'Squat Day');
       });
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
-      await tester.pump();
-      await tester.tap(find.text('WARM-UP').first);
       await tester.pump();
 
       void expectRampOnScreen() {
@@ -1025,7 +1071,7 @@ void main() {
     testWidgets('and so does one set of its own', (tester) async {
       await pumpOne(tester, exercise: 'Back Squat', weightKg: 100);
 
-      await tester.tap(weightCell('0-2-Back Squat'));
+      await tapCell(tester, weightCell('0-2-Back Squat'));
       await frames(tester);
       await type(tester, '5');
 
@@ -1067,9 +1113,9 @@ void main() {
       expect(find.byKey(const ValueKey('working-weight-0')), findsNothing);
 
       // The set still logs — it is the weight that is absent, not the row.
-      await tester.tap(repsCell('0-0-Plank'));
+      await tapCell(tester, repsCell('0-0-Plank'));
       await tester.pump(const Duration(seconds: 4));
-      await tester.tap(repsCell('0-0-Plank'));
+      await tapCell(tester, repsCell('0-0-Plank'));
       await tester.pump();
       expect(session().exercises[0].sets[0].logged, 4);
 
@@ -1122,21 +1168,34 @@ void main() {
         (tester) async {
       await pumpPushScreen(tester);
 
-      const row = '0-0-Bench Press';
       // Every heading against the cell under it. A column the headings do not
       // know about — the camera on the end of each row — throws all three off
       // by a share of its width, which is the failure this measures.
-      final pairs = <String, Rect>{
-        'REPS DONE': tester.getRect(repsCell(row)),
-        'KG': tester.getRect(weightCell(row)),
-      };
-      for (final MapEntry(key: label, value: cell) in pairs.entries) {
-        expect(
-          tester.getRect(find.text(label).first).center.dx,
-          closeTo(cell.center.dx, 1.0),
-          reason: '$label is not over the cell it names',
-        );
+      //
+      // Both boards are checked, and each against its own headings: the ramp
+      // is inset inside its group, so its columns do not line up with the
+      // working ones and never should.
+      final headers = find.byType(BoardColumnHeaders);
+      void headingsOver(int header, String row) {
+        final pairs = <String, Rect>{
+          'REPS DONE': tester.getRect(repsCell(row)),
+          'KG': tester.getRect(weightCell(row)),
+        };
+        for (final MapEntry(key: label, value: cell) in pairs.entries) {
+          final heading = find.descendant(
+            of: headers.at(header),
+            matching: find.text(label),
+          );
+          expect(
+            tester.getRect(heading).center.dx,
+            closeTo(cell.center.dx, 1.0),
+            reason: '$label is not over the cell it names',
+          );
+        }
       }
+
+      headingsOver(0, 'w0-0-Bench Press'); // the ramp's own board
+      headingsOver(1, '0-0-Bench Press'); // the working sets
 
       await stopAll(tester);
     });
@@ -1168,7 +1227,7 @@ void main() {
     testWidgets('it stops pulsing once the set is logged', (tester) async {
       await pumpPushScreen(tester);
 
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       final logged = repsCell('0-0-Bench Press');
@@ -1180,20 +1239,21 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a warm-up rung that is next is marked but does not pulse',
+    testWidgets('the warm-up rung you are on pulses like any other set',
         (tester) async {
       await pumpPushScreen(tester);
-      // Opening the ramp moves the mark from the group onto its first rung.
-      await tester.tap(find.text('WARM-UP').first);
-      await tester.pump(const Duration(milliseconds: 300));
 
       final rung = repsCell('w0-0-Bench Press');
-      expect(rung, findsOneWidget, reason: 'the ramp did not open');
+      expect(rung, findsOneWidget, reason: 'the ramp is not open');
+      final later = repsCell('w0-1-Bench Press');
+      final restingBefore = fillOf(tester, later);
       final before = fillOf(tester, rung);
       await tester.pump(kBoardPulsePeriod ~/ 2);
 
-      expect(fillOf(tester, rung), before,
-          reason: 'the ramp is pulsing; it is a suggestion, not a prompt');
+      expect(fillOf(tester, rung), isNot(before),
+          reason: 'the rung you are on is not pulsing');
+      expect(fillOf(tester, later), restingBefore,
+          reason: 'a rung further up the ramp is pulsing too');
       await stopAll(tester);
     });
   });
@@ -1211,7 +1271,7 @@ void main() {
       await pumpPushScreen(tester);
       await tester.ensureVisible(repsCell('0-0-Bench Press'));
       await tester.pump();
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
       expect(find.byKey(kRestBannerKey), findsOneWidget);
 
@@ -1262,8 +1322,6 @@ void main() {
       });
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
-      await tester.tap(find.text('WARM-UP').first);
-      await tester.pump();
     }
 
     testWidgets('it names the reason, and never asks for the impossible',
@@ -1273,7 +1331,9 @@ void main() {
       expect(session().exercises[0].warmupCount, greaterThan(0));
       expect(session().exercises[0].warmups, isEmpty);
       expect(find.textContaining('add some above'), findsNothing);
-      expect(find.textContaining('Too light to ramp'), findsOneWidget);
+      // The line itself, read from the strings the screen reads it from: what
+      // matters is that the group says why, not the sentence it says it in.
+      expect(find.text(l10nFor().sessionWarmupTooLight), findsOneWidget);
 
       await stopAll(tester);
     });
@@ -1287,7 +1347,7 @@ void main() {
       }
 
       expect(session().exercises[0].warmupCount, 0);
-      expect(find.textContaining('Too light to ramp'), findsNothing,
+      expect(find.text(l10nFor().sessionWarmupTooLight), findsNothing,
           reason: 'the stepper beside it already reads 0');
 
       await stopAll(tester);
@@ -1414,7 +1474,7 @@ void main() {
     testWidgets('it names the count and defaults to going back',
         (tester) async {
       await pumpRouted(tester);
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       await tester.tap(find.text('Finish'));
@@ -1436,7 +1496,7 @@ void main() {
 
     testWidgets('confirming finishes it', (tester) async {
       await pumpRouted(tester);
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       await tester.tap(find.text('Finish'));
@@ -1655,25 +1715,54 @@ void main() {
           matching: find.byKey(kNextSetKey),
         );
 
-    testWidgets('the ramp is where you start, so the group carries the mark',
+    testWidgets('the ramp is where you start, so its first rung is marked',
         (tester) async {
       await pumpPushScreen(tester);
 
-      // The group is shut by default, so it is the only thing on screen that
-      // can say the ramp is where you are.
+      // The group is open by default, so the rung itself is what carries the
+      // mark — not the block around it.
+      expect(markOn('w0-0-Bench Press'), findsOneWidget);
+      expect(find.byKey(kNextSetKey), findsOneWidget,
+          reason: 'one rung, not the whole ramp');
+      expect(find.byKey(kNextWarmupKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('shutting the group moves the mark back onto it',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await tester.tap(find.text('WARM-UP').first);
+      await tester.pump();
+
       expect(find.byKey(kNextWarmupKey), findsOneWidget);
       expect(find.byKey(kNextSetKey), findsNothing);
       await stopAll(tester);
     });
 
-    testWidgets('opening the group marks the rung itself', (tester) async {
+    testWidgets('an open ramp is never lit up as a whole block',
+        (tester) async {
       await pumpPushScreen(tester);
-      await tester.tap(find.text('WARM-UP').first);
-      await tester.pump();
 
-      expect(markOn('w0-0-Bench Press'), findsOneWidget);
-      expect(find.byKey(kNextSetKey), findsOneWidget,
-          reason: 'one rung, not the whole ramp');
+      // The group's own container, while its first rung is the set you are on.
+      final group = find.byKey(const ValueKey('warmup-0'));
+      expect(group, findsOneWidget);
+      final marked = tester
+          .widget<Container>(group)
+          .decoration as BoxDecoration;
+
+      // The same container once the ramp is behind you and nothing in it is
+      // next. Being where you are may not change how the block is painted.
+      clearRamp(container!.read(activeWorkoutProvider.notifier));
+      await tester.pump();
+      final quiet = tester
+          .widget<Container>(find.byKey(const ValueKey('warmup-0')))
+          .decoration as BoxDecoration;
+
+      expect(marked.color, quiet.color,
+          reason: 'the whole warm-up block is filled for being where you are');
+      expect((marked.border as Border).top.color,
+          (quiet.border as Border).top.color,
+          reason: 'the whole warm-up block is outlined in the accent');
       await stopAll(tester);
     });
 
@@ -1696,7 +1785,7 @@ void main() {
       clearRamp(container!.read(activeWorkoutProvider.notifier));
       await tester.pump();
 
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       // A rest is running now; the set marked is still the one you are resting
@@ -2088,9 +2177,9 @@ void main() {
     });
 
     test('and in the unit on the phone, not the one in the database', () {
-      // 80 kg is 176.4 lb — the number you would set the bar to.
+      // 80 kg is 176.37 lb — the number you would set the bar to.
       expect(describeCue(l10n, cue(weightKg: 80, reps: 8), 'lb'),
-          l10n.shadeSetWeightReps(load('176.4', l10n.unitLbSuffix), 8));
+          l10n.shadeSetWeightReps(load('176.37', l10n.unitLbSuffix), 8));
     });
 
     test('a bodyweight movement says so rather than saying nothing', () {
@@ -2207,6 +2296,103 @@ void main() {
     test('and a finished session offers nothing', () {
       expect(shadeButtons(l10n, cue(kind: CueKind.finished)), isEmpty);
     });
+
+    group('the name gives way so the counter stays on the line', () {
+      // "Bulgarian Split Squat · Set 4/5" is longer than a notification line,
+      // and what wrapped off the end was the counter — the half that tells four
+      // identical sets apart. So the line is held to a budget and the name is
+      // what is cut.
+      const long = 'Bulgarian Split Squat, Rear Foot Elevated';
+
+      /// The line as it would read with nothing cut. The assertions take the
+      /// counter and whatever the language puts in front of the movement from
+      /// here, rather than re-typing either in English.
+      String whole(String name, {bool warmup = false}) => warmup
+          ? l10n.shadeWhereWarmupSet(name, 2, 3)
+          : l10n.shadeWhereExerciseSet(name, 4, 5);
+
+      /// Everything after the movement — the counter, which never gives.
+      String counterOf(String line, String name) =>
+          line.substring(line.indexOf(name) + name.length);
+
+      /// Everything before it, which never gives either.
+      String leadOf(String line, String name) =>
+          line.substring(0, line.indexOf(name));
+
+      test('a name short enough is left exactly as it is', () {
+        final line = shadeWhere(l10n, cue(setIndex: 3, setCount: 5));
+
+        expect(line, whole('Bench Press'));
+        expect(line.length, lessThanOrEqualTo(kShadeWhereChars));
+        expect(line, isNot(contains('…')),
+            reason: 'nothing here was too long to say');
+      });
+
+      test('a long one is cut to the budget, and it is the name that is cut',
+          () {
+        final full = whole(long);
+        expect(full.length, greaterThan(kShadeWhereChars),
+            reason: 'the case only means something if it would have overrun');
+
+        final line =
+            shadeWhere(l10n, cue(exercise: long, setIndex: 3, setCount: 5));
+
+        expect(line.length, lessThanOrEqualTo(kShadeWhereChars));
+        expect(line, contains('…'));
+        expect(line, endsWith(counterOf(full, long)),
+            reason: 'the counter is the half worth keeping');
+        expect(line, startsWith(leadOf(full, long)));
+      });
+
+      test('and what is left of the name is the start of the real one', () {
+        final full = whole(long);
+        final line =
+            shadeWhere(l10n, cue(exercise: long, setIndex: 3, setCount: 5));
+
+        final kept =
+            line.substring(leadOf(full, long).length, line.indexOf('…'));
+        expect(kept, isNotEmpty, reason: 'an ellipsis alone names nothing');
+        expect(long, startsWith(kept),
+            reason: 'the kept part has to be the movement, not a rewrite of it');
+      });
+
+      test('a warm-up rung gives its name the same way, and keeps its word',
+          () {
+        final full = whole(long, warmup: true);
+        final line = shadeWhere(
+            l10n, cue(exercise: long, warmup: true, setIndex: 1, setCount: 3));
+
+        expect(line.length, lessThanOrEqualTo(kShadeWhereChars));
+        expect(line, contains('…'));
+        expect(line, startsWith(leadOf(full, long)),
+            reason: 'the ramp is not what shortens; "Warm-up" stays');
+        expect(line, endsWith(counterOf(full, long)));
+      });
+
+      test('and the resting second line carries the same cut line', () {
+        final resting = cue(
+            kind: CueKind.resting,
+            exercise: long,
+            weightKg: 80,
+            reps: 8,
+            setIndex: 3,
+            setCount: 5,
+            restLeft: 40);
+
+        final text = shadeText(l10n, resting, 'kg');
+
+        expect(
+          text,
+          l10n.shadeNextLine(
+            shadeWhere(l10n, resting),
+            l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8),
+          ),
+        );
+        expect(text, contains('…'));
+        expect(text, isNot(contains(long)),
+            reason: 'the line the shade cannot fit is not fitted here either');
+      });
+    });
   });
 
   group('The shade runs the rest', () {
@@ -2243,9 +2429,10 @@ void main() {
   });
 
   group('The rest ding reaches you with the phone in a pocket', () {
-    // Issue #61. A media player is the right instrument while you are looking
-    // at the board and the wrong one with the screen off, so the two are a
-    // pair: the tone on screen, a notification off it, never both.
+    // Issue #61. The foreground service keeps the app's process alive to the
+    // end of its own countdown, so the app plays the same asset through the
+    // same player either way — see `volume-is-a-gain-because-app-plays-it`.
+    // What the pocket adds is a notification to look at, not a second noise.
     late _RecordingAlarm alarm;
     late _RecordingTone tone;
 
@@ -2274,10 +2461,12 @@ void main() {
       expect(alarm.rung, hasLength(1));
       expect(alarm.rung.single, contains('Bench Press'),
           reason: '"rest over" makes you open the app to find out what for');
-      expect(tone.played, 0, reason: 'one ding, not two');
+      expect(tone.played, 1,
+          reason: 'the notification joins the tone; it does not replace it');
     });
 
-    test('with the app on screen it does not — the tone is enough', () async {
+    test('with the app on screen there is no notification — you are looking '
+        'at the countdown', () async {
       final ctl = await startPushWithPhone(onScreen: true);
       ctl.startRest(90, null);
 
@@ -2309,6 +2498,44 @@ void main() {
       ctl.startRest(90, null);
 
       expect(alarm.cleared, greaterThan(0));
+    });
+
+    test('the tone sounds when the rest runs out', () async {
+      final ctl = await startPushWithPhone(onScreen: true);
+      ctl.startRest(90, null);
+
+      ctl.stopRest();
+
+      expect(tone.played, 1);
+    });
+
+    test('and off screen the same player sounds the same tone', () async {
+      // Nothing about the ding changes in a pocket: the app is alive behind its
+      // foreground service, so it plays the sound itself rather than handing it
+      // to a channel — see `volume-is-a-gain-because-app-plays-it`.
+      final ctl = await startPushWithPhone(onScreen: false);
+      ctl.startRest(90, null);
+
+      ctl.stopRest();
+
+      expect(tone.played, 1);
+      expect(alarm.rung, hasLength(1),
+          reason: 'the notification is the picture beside the sound');
+    });
+  });
+
+  group('how loud it is belongs to the phone', () {
+    testWidgets('Exercise settings offers no volume control at all',
+        (tester) async {
+      container = containerFor(db);
+      await tester.pumpWidget(
+          appUnder(container!, const ExerciseSettingsScreen()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(Slider), findsNothing,
+          reason: 'the phone\'s alarm slider is the one control for this');
+      await stop(tester);
     });
   });
 
@@ -2377,17 +2604,15 @@ void main() {
       await pumpPushScreen(tester);
 
       // Between working sets: nothing to change.
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
       expect(find.text('Rest, then lift.'), findsOneWidget);
       await tester.tap(find.text('Skip'));
       await tester.pump();
 
       // After the last warm-up rung: the working weight is next.
-      await tester.tap(find.text('WARM-UP').first);
-      await tester.pump();
       final last = session().exercises[0].warmups.length - 1;
-      await tester.tap(repsCell('w0-$last-Bench Press'));
+      await tapCell(tester, repsCell('w0-$last-Bench Press'));
       await tester.pump();
       expect(find.text('Set up 80 kg, rest, then lift.'), findsOneWidget);
 
@@ -2399,15 +2624,14 @@ void main() {
       await tester.runAsync(() => db.setWeightUnit('lb'));
       await pumpPushScreen(tester);
 
-      await tester.tap(find.text('WARM-UP').first);
-      await tester.pump();
       final last = session().exercises[0].warmups.length - 1;
-      await tester.tap(repsCell('w0-$last-Bench Press'));
+      await tapCell(tester, repsCell('w0-$last-Bench Press'));
       await tester.pump();
 
-      // 80 kg is 176.4 lb — the number you would set the bar to, not the
-      // number the database happens to hold.
-      expect(find.textContaining('Set up 176.4 lb'), findsOneWidget);
+      // The switch to pounds snapped the template's 80 kg to the nearest
+      // 5 lb, so the bar is set to a round 175 — which is the point of the
+      // snap, and the number the ramp then works back from.
+      expect(find.textContaining('Set up 175 lb'), findsOneWidget);
 
       await stopAll(tester);
     });
@@ -2500,9 +2724,9 @@ void main() {
       // happen, so it is logged rather than thrown away.
       await pumpPlank(tester);
 
-      await tester.tap(repsCell('0-0-Plank'));
+      await tapCell(tester, repsCell('0-0-Plank'));
       await tester.pump(const Duration(seconds: 7));
-      await tester.tap(repsCell('0-1-Plank'));
+      await tapCell(tester, repsCell('0-1-Plank'));
       await tester.pump();
 
       expect(session().exercises[0].sets[0].logged, 7,
@@ -2511,7 +2735,7 @@ void main() {
           reason: 'and the new one is running, not logged');
 
       await tester.pump(const Duration(seconds: 4));
-      await tester.tap(repsCell('0-1-Plank'));
+      await tapCell(tester, repsCell('0-1-Plank'));
       await tester.pump();
       expect(session().exercises[0].sets[1].logged, 4);
 
@@ -2549,16 +2773,15 @@ void main() {
   });
 
   group('And it makes a sound when it is over', () {
-    test('there is no switch on it, and nothing to turn off', () async {
-      // A rest timer that ends silently is a rest timer that does not work.
-      // The phone's own volume keys, silent mode and Do Not Disturb are the
-      // controls for this, and both routes follow them by being alarms.
-      final tone = RestTone(player: _NoPlayer());
-      addTearDown(tone.dispose);
+    test('the tone reaches the player, at the one volume there is', () async {
+      // The tone is Android-and-iOS only, and the runner is neither.
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final player = _WatchfulPlayer();
+      final tone = RestTone(player: player);
 
-      // Nothing to pass, and nothing thrown: on a runner with no audio channel
-      // the platform check turns it into a no-op.
-      await expectLater(tone.play(), completes);
+      await tone.play();
+      expect(player.touched, isTrue);
     });
   });
 
@@ -2570,7 +2793,7 @@ void main() {
       await pumpPushScreen(tester);
 
       // Set 1 at the goal: a hit, and nothing but colour to say so.
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
       expect(
         find.descendant(
@@ -2587,9 +2810,9 @@ void main() {
       await tester.pump();
 
       // Set 2 tapped twice: one rep short.
-      await tester.tap(repsCell('0-1-Bench Press'));
+      await tapCell(tester, repsCell('0-1-Bench Press'));
       await tester.pump();
-      await tester.tap(repsCell('0-1-Bench Press'));
+      await tapCell(tester, repsCell('0-1-Bench Press'));
       await tester.pump();
 
       final row = session().exercises[0].sets[1];
@@ -2938,7 +3161,7 @@ void main() {
       // to it is what a lifter would do, and the banner is what is under test.
       await tester.ensureVisible(repsCell('0-0-Triceps Pushdown'));
       await tester.pump();
-      await tester.tap(repsCell('0-0-Triceps Pushdown'));
+      await tapCell(tester, repsCell('0-0-Triceps Pushdown'));
       await tester.pump();
 
       expect(find.byKey(kRestBannerKey), findsOneWidget);
@@ -3034,7 +3257,7 @@ void main() {
       );
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
-      await tester.tap(repsCell('0-0-Triceps Pushdown'));
+      await tapCell(tester, repsCell('0-0-Triceps Pushdown'));
       await tester.pump();
 
       final caption = tester.widget<Text>(
@@ -3059,7 +3282,7 @@ void main() {
       await pumpPushScreen(tester);
       await tester.ensureVisible(repsCell('0-0-Bench Press'));
       await tester.pump();
-      await tester.tap(repsCell('0-0-Bench Press'));
+      await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
 
       final line = tester.getSize(find.text('Rest, then lift.'));
@@ -3111,14 +3334,15 @@ void main() {
       expect(peak, greaterThan(32767 * 0.9));
     });
 
-    test('the notification plays the same sound, not a different one', () {
-      // Android will only sound a notification from its own resources, so the
-      // tone ships twice — one generator, two copies. A rest ending in a
-      // pocket must not end with a noise the user has never heard.
-      final asset = File('assets/sound/rest_done.wav').readAsBytesSync();
-      final raw =
-          File('android/app/src/main/res/raw/rest_done.wav').readAsBytesSync();
-      expect(raw, equals(asset));
+    test('and there is one copy of it, because the app plays it either way', () {
+      // `same-sound-either-way`. The wav shipped twice while the notification
+      // channel was the thing that sounded off screen. The channel is silent
+      // now and the app plays the asset itself, so the Android raw resource is
+      // gone and there is one file left to be the ding.
+      expect(File('assets/sound/rest_done.wav').existsSync(), isTrue);
+      expect(File('android/app/src/main/res/raw/rest_done.wav').existsSync(),
+          isFalse,
+          reason: 'nothing sounds from a raw resource any more');
     });
 
     test('it strikes at once and only fades from there', () {
@@ -3258,8 +3482,9 @@ class _RecordingAlarm extends RestAlarm {
     required NotificationChannelCopy channel,
     required String title,
     required String body,
-  }) async =>
-      rung.add(body);
+  }) async {
+    rung.add(body);
+  }
 
   @override
   Future<void> clear() async => cleared++;
@@ -3272,4 +3497,17 @@ class _NoPlayer implements AudioPlayer {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw StateError('the tone reached the player while switched off');
+}
+
+/// A player that answers everything and remembers having been asked, so
+/// "nothing was played" is an assertion rather than an absence of a crash —
+/// [RestTone.play] swallows what the player throws.
+class _WatchfulPlayer implements AudioPlayer {
+  bool touched = false;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    touched = true;
+    return Future<void>.value();
+  }
 }

@@ -22,10 +22,10 @@ import 'board_cells.dart';
 /// come from the app, so what the tour shows is what the phone in the reader's
 /// hand will look like.
 
-/// Which part of the mock board the current step is talking about. The ring is
+/// Which part of the mock session the current step is talking about. The ring is
 /// the tour's own pointer for something too small to spotlight — the icon at the
 /// end of a row.
-enum TutorialDemoFocus { none, nextSet, note, camera }
+enum TutorialDemoFocus { none, nextSet, rest, note, camera }
 
 /// The note icon on the mock exercise heading.
 const kTutorialDemoNoteKey = ValueKey('tutorial-demo-note');
@@ -42,14 +42,106 @@ const kTutorialDemoRingKey = ValueKey('tutorial-demo-ring');
 const kTutorialDemoDoneRowKey = ValueKey('tutorial-demo-done-row');
 const kTutorialDemoNextRowKey = ValueKey('tutorial-demo-next-row');
 
-/// The example: one barbell lift, three working sets, the first one logged.
+/// The example: a push day of two barbell lifts, three working sets each, the
+/// first set of the first lift logged.
 ///
-/// The lift is named from the starter library rather than spelled out here, so
-/// the tour shows the movement under the name the library screen would give it.
+/// The lifts are named from the starter library rather than spelled out here, so
+/// the tour shows them under the names the library screen would give them.
 /// Everything else the mock says is its own — see the note on this file.
 const _kDemoWeightKg = 80.0;
+const _kDemoSecondWeightKg = 45.0;
 const _kDemoGoal = 8;
 const _kDemoSets = 3;
+
+/// The whole session screen, as the tour draws it: the day's header, its
+/// exercises, and the rest bar when the step is about resting.
+///
+/// **Full size, not a thumbnail.** This is what somebody is about to be looking
+/// at for the length of a workout, and a card in the middle of a dimmed screen
+/// teaches the card. The callout the overlay puts over it sits at whichever end
+/// leaves [focus] uncovered — see `_demoLayout` in `tutorial.dart`.
+class TutorialSessionDemo extends ConsumerWidget {
+  const TutorialSessionDemo({super.key, this.focus = TutorialDemoFocus.none});
+
+  final TutorialDemoFocus focus;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    return ColoredBox(
+      color: AppColors.ground,
+      child: SafeArea(
+        // A column with the bar docked at the bottom, exactly as the real
+        // screen has it — the bar takes room rather than lying over the rows.
+        child: Column(
+          children: [
+            _header(l10n),
+            Expanded(
+              child: ListView(
+                // Nothing scrolls it — the mock takes no gestures — but a list
+                // is what keeps a long day off the bottom of a short phone.
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                children: [
+                  TutorialBoardDemo(focus: focus),
+                  const SizedBox(height: 12),
+                  // A second lift, so the mock reads as a training day rather
+                  // than as one movement somebody was shown in isolation. It is
+                  // never the subject of a step, so it is never focused.
+                  TutorialBoardDemo(
+                    name: l10n.exerciseOverheadPress,
+                    weightKg: _kDemoSecondWeightKg,
+                  ),
+                ],
+              ),
+            ),
+            if (focus == TutorialDemoFocus.rest)
+              // Capped and scrollable, as the real bar is: docked furniture may
+              // not grow without limit, and at the top of the text scale the
+              // caption, the clock and the pills together want more height than
+              // the screen has under the board.
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: SingleChildScrollView(
+                    child: TutorialRestDemo(ringed: true),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The session header: the day being trained, and the way out of it.
+  Widget _header(AppLocalizations l10n) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.line)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.seedDayPush,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+            Text(
+              l10n.sessionFinish,
+              style: kMono.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: AppColors.accent,
+              ),
+            ),
+          ],
+        ),
+      );
+}
 
 /// A miniature of the live board — the exercise, its note icon, and its set
 /// rows.
@@ -59,15 +151,25 @@ const _kDemoSets = 3;
 /// draws it; the note and camera steps get the board at rest with a single ring
 /// on the icon they are describing.
 class TutorialBoardDemo extends ConsumerWidget {
-  const TutorialBoardDemo({super.key, this.focus = TutorialDemoFocus.none});
+  const TutorialBoardDemo({
+    super.key,
+    this.focus = TutorialDemoFocus.none,
+    this.name,
+    this.weightKg = _kDemoWeightKg,
+  });
 
   final TutorialDemoFocus focus;
+
+  /// The movement, or null for the day's first lift. Named from the starter
+  /// library by the caller, so the tour shows what the library screen would.
+  final String? name;
+  final double weightKg;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
-    final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
+    final weight = fmtWeight(toDisplayWeight(weightKg, unit));
 
     return Container(
       decoration: BoxDecoration(
@@ -126,7 +228,7 @@ class TutorialBoardDemo extends ConsumerWidget {
           ),
           Expanded(
             child: Text(
-              l10n.exerciseBenchPress,
+              name ?? l10n.exerciseBenchPress,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
@@ -149,19 +251,22 @@ class TutorialBoardDemo extends ConsumerWidget {
 
   /// What the exercise is aiming at and what it is loaded to, the way the board
   /// says it: `3 × 8 @ 80 kg`.
-  Widget _goalLine(AppLocalizations l10n, String weight, String unit) => Row(
+  /// A [Wrap] rather than a [Row]: at the top of the text scale the goal, the
+  /// "@" and the weight together are wider than a phone, and the weight is the
+  /// part that has to stay whole.
+  Widget _goalLine(AppLocalizations l10n, String weight, String unit) => Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        runSpacing: 4,
         children: [
-          const Spacer(),
           Text(
             '$_kDemoSets × $_kDemoGoal',
             style: kMono.copyWith(fontSize: 13, color: AppColors.muted),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Text(
-              '@',
-              style: kMono.copyWith(fontSize: 13, color: AppColors.faint),
-            ),
+          Text(
+            '@',
+            style: kMono.copyWith(fontSize: 13, color: AppColors.faint),
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
@@ -194,8 +299,14 @@ class TutorialBoardDemo extends ConsumerWidget {
 }
 
 /// The docked rest bar, counting down, with the three things it offers.
+///
+/// [ringed] draws the accent border the step about it wants: docked at the
+/// bottom of a whole screen it is one band among several, and the ring is what
+/// says which one the callout is talking about.
 class TutorialRestDemo extends ConsumerWidget {
-  const TutorialRestDemo({super.key});
+  const TutorialRestDemo({super.key, this.ringed = false});
+
+  final bool ringed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -204,10 +315,14 @@ class TutorialRestDemo extends ConsumerWidget {
     final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
 
     return Container(
+      key: ringed ? kTutorialDemoRingKey : null,
       decoration: BoxDecoration(
         color: AppColors.surface3,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(
+          color: ringed ? AppColors.accent : AppColors.line,
+          width: ringed ? 2 : 1,
+        ),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Column(

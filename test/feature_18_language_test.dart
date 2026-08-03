@@ -1,8 +1,10 @@
 // Integration tests for features/index.html#sec18 — the app's language.
 //
 // The behaviour under test, straight from the spec:
-//   * the app ships in English, Ukrainian, Spanish and both Portugueses, and
-//     follows the phone unless the picker says otherwise;
+//   * the app ships in English, Ukrainian, Spanish and both Portugueses; first
+//     run resolves the phone's language against those five and stores the
+//     answer, so the picker always has one of them selected and there is no
+//     row that defers to the phone;
 //   * the choice is a database write like any other setting, so changing it
 //     repaints the app rather than asking for a restart;
 //   * the muscle/equipment vocabulary and the names of the rows the app shipped
@@ -108,17 +110,26 @@ const _sameInEveryLanguage = {'kg', 'lb', 'OK', 'AAA', 'QR', 'RGB', '1RM'};
 ///
 /// Add to it only on a reviewer's say-so, and never to silence a string that
 /// was simply missed.
+///
+/// `seedRoutineStartingStrength` and `seedRoutineStrongLifts5x5` are in every
+/// language for the same reason and by the reviewer's decision: they are proper
+/// nouns — a book's title and an app's name — and a lifter looking for the
+/// programme they have heard of must find the name they have heard.
 const Map<String, Set<String>> _keptInEnglish = {
   'uk': {
-    'commonAppName', 'exerciseFormDemoLinkHint', 'themeChannelBlue',
+    'commonAppName', 'exerciseFormDemoLinkHint',
+    'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
+    'themeChannelBlue',
     'themeChannelGreen', 'themeChannelRed', 'videoSettingsHeight',
   },
   'es': {
     'clipPlayerTitle', 'commonAppName', 'commonClipCount',
+    'commonEstimatedMinutes',
     'exerciseClipsTitle', 'exerciseCrunch', 'exerciseDetailDemo',
     'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
     'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCore',
+    'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
     'settingsDeloadDaySuffix', 'shadeSetWeightSeconds',
     'summaryBackOffReps', 'summaryBackOffTime', 'summaryMinutesUnit',
@@ -128,12 +139,15 @@ const Map<String, Set<String>> _keptInEnglish = {
     'videoSettingsHeight', 'videoSettingsMinutes', 'videoSettingsSeconds',
   },
   'pt': {
-    'commonAppName', 'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
+    'commonAppName', 'commonEstimatedMinutes',
+    'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
     'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCore',
     'seedDayLegs', 'seedDayPull', 'seedDayPush', 'seedRoutinePushPullLegs',
+    'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
-    'settingsDeloadDaySuffix', 'shadeSetWeightSeconds',
+    'settingsDeloadDaySuffix',
+    'shadeSetWeightSeconds',
     'startWorkoutDeload', 'summaryBackOffReps', 'summaryBackOffTime',
     'summaryMinutesUnit', 'summaryStepReps', 'summaryStepTime',
     'summaryTargetReps', 'themeChannelBlue', 'themeChannelGreen',
@@ -142,12 +156,15 @@ const Map<String, Set<String>> _keptInEnglish = {
     'videoSettingsMinutes', 'videoSettingsSeconds',
   },
   'pt_BR': {
-    'commonAppName', 'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
+    'commonAppName', 'commonEstimatedMinutes',
+    'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
     'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCore',
     'seedDayLegs', 'seedDayPull', 'seedDayPush', 'seedRoutinePushPullLegs',
+    'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
-    'settingsDeloadDaySuffix', 'shadeSetWeightSeconds',
+    'settingsDeloadDaySuffix',
+    'shadeSetWeightSeconds',
     'summaryBackOffReps', 'summaryBackOffTime', 'summaryMinutesUnit',
     'summaryStepReps', 'summaryStepTime', 'summaryTargetReps',
     'themeChannelBlue', 'themeChannelGreen', 'themeChannelRed',
@@ -189,7 +206,6 @@ final Map<String, String Function(AppLocalizations)> _probes = {
   'commonCancel': (l) => l.commonCancel,
   'commonSave': (l) => l.commonSave,
   'languageTitle': (l) => l.languageTitle,
-  'languageFollowPhone': (l) => l.languageFollowPhone,
   'settingsTitle': (l) => l.settingsTitle,
   'muscleChest': (l) => l.muscleChest,
   'equipmentBarbell': (l) => l.equipmentBarbell,
@@ -236,21 +252,25 @@ Future<void> _switchTo(
   WidgetTester tester,
   AppDatabase db,
   ProviderContainer container,
-  String? tag,
+  String tag,
 ) async {
-  // What the tree should settle on: the tag when one was chosen, and the
-  // phone's answer when it was cleared.
-  Locale expected(String? t) =>
-      resolveLocale(t, WidgetsBinding.instance.platformDispatcher.locales);
   await tester.runAsync(() => db.setLocaleTag(tag));
   // The write lands on the real event loop and the drift stream emits there;
   // the widgets watching it only advance when the tree is pumped. Neither tool
   // does this alone — see pumpThroughDatabase.
   await pumpThroughDatabase(tester);
   await pumpUntil(
-      tester, () => container.read(activeLocaleProvider) == expected(tag));
+      tester, () => container.read(activeLocaleProvider) == localeFromTag(tag));
   await tester.pump();
 }
+
+/// The language a fresh install lands on, given the locale the test host is
+/// running under. Written out rather than hard-coded to `en`: the resolution is
+/// the app's own, and asserting against it is asserting that first run stores
+/// what the phone asked for.
+String _firstRunTag() => localeTag(
+      resolveLocale(null, WidgetsBinding.instance.platformDispatcher.locales),
+    );
 
 // ---------------------------------------------------------------------------
 // The hard-coded-string scan
@@ -369,16 +389,33 @@ void main() {
           const Locale('es'));
     });
 
-    test('a fresh install has chosen nothing', () async {
-      expect(await db.watchLocaleTag().first, isNull,
-          reason: 'nothing asks on first run — the phone has already answered');
+    test('first run stores the phone\'s answer as a real choice', () async {
+      // Nothing asks on first run — but the answer is written down rather than
+      // deferred to for ever, so the picker has a row selected and changing
+      // the phone's language later leaves the app where it is.
+      container = containerFor(db);
+      final tag = await readWhen(
+          container!, localeTagProvider, (v) => v.value != null);
+      expect(tag.value, _firstRunTag());
+      expect(await db.watchLocaleTag().first, tag.value,
+          reason: 'the resolution is persisted, not recomputed every launch');
     });
 
-    test('setLocaleTag round-trips, and null means follow the phone', () async {
+    test('a language already chosen is not overwritten on the next launch',
+        () async {
+      await db.setLocaleTag('uk');
+      container = containerFor(db);
+      final tag =
+          await readWhen(container!, localeTagProvider, (v) => v.value != null);
+      expect(tag.value, 'uk');
+      expect(await db.watchLocaleTag().first, 'uk');
+    });
+
+    test('setLocaleTag round-trips', () async {
       await db.setLocaleTag('uk');
       expect(await db.watchLocaleTag().first, 'uk');
-      await db.setLocaleTag(null);
-      expect(await db.watchLocaleTag().first, isNull);
+      await db.setLocaleTag('pt_BR');
+      expect(await db.watchLocaleTag().first, 'pt_BR');
     });
   });
 
@@ -497,11 +534,12 @@ void main() {
       container = containerFor(db);
       await tester.pumpWidget(_liveApp(container!, const LanguageScreen()));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      // First run resolves the phone's language and writes it, so the screen
+      // has a database round trip to wait for before a row is selected.
+      await pumpThroughDatabase(tester);
     }
 
-    testWidgets('it offers the five languages and Follow phone, and no more',
-        (tester) async {
+    testWidgets('it offers the five languages and nothing else', (tester) async {
       await pumpPicker(tester);
 
       for (final locale in kSupportedLocales) {
@@ -510,20 +548,27 @@ void main() {
       }
       expect(find.byIcon(Icons.radio_button_unchecked).evaluate().length +
               find.byIcon(Icons.radio_button_checked).evaluate().length,
-          kSupportedLocales.length + 1,
-          reason: 'the five, plus following the phone');
+          kSupportedLocales.length,
+          reason: 'the five, and no row that defers to the phone');
 
       await stop(tester);
     });
 
-    testWidgets('nothing chosen shows Follow phone as the selected row',
+    testWidgets('a fresh install already has one of them selected',
         (tester) async {
       await pumpPicker(tester);
 
-      final l10n = await _stringsFor(const Locale('en'));
-      expect(find.text(l10n.languageFollowPhone), findsOneWidget);
       expect(find.byIcon(Icons.radio_button_checked), findsOneWidget,
-          reason: 'exactly one row is selected, and it is the default');
+          reason: 'exactly one row is selected, and it is a language');
+      final selected = tester.widget<Text>(find.descendant(
+        of: find.ancestor(
+          of: find.byIcon(Icons.radio_button_checked),
+          matching: find.byType(Row),
+        ),
+        matching: find.byType(Text),
+      ));
+      expect(selected.data, kLanguageNames[_firstRunTag()],
+          reason: 'the row selected is what first run resolved the phone to');
 
       await stop(tester);
     });
@@ -543,16 +588,16 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('tapping Follow phone clears it again', (tester) async {
+    testWidgets('and the choice survives leaving the screen', (tester) async {
       await tester.runAsync(() => db.setLocaleTag('uk'));
       await pumpPicker(tester);
 
-      final l10n = await _stringsFor(const Locale('uk'));
-      await tester.tap(find.text(l10n.languageFollowPhone));
+      await tester.tap(find.text(kLanguageNames['pt_BR']!));
       await pumpUntil(
-          tester, () => container!.read(localeTagProvider).value == null);
+          tester, () => container!.read(localeTagProvider).value == 'pt_BR');
 
-      expect(await tester.runAsync(() => db.watchLocaleTag().first), isNull);
+      expect(await tester.runAsync(() => db.watchLocaleTag().first), 'pt_BR',
+          reason: 'a language is never unset — only replaced by another');
 
       await stop(tester);
     });
@@ -771,7 +816,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, 'Zercher');
       await tester.pump();
-      for (final tag in ['uk', 'es', 'pt', 'pt_BR', null]) {
+      for (final tag in ['uk', 'es', 'pt', 'pt_BR', 'en']) {
         await _switchTo(tester, db, container!, tag);
         expect(find.text('Zercher Squat'), findsWidgets,
             reason: 'a movement with no seed key has only one name — $tag');
@@ -854,9 +899,97 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      for (final tag in ['uk', 'pt_BR', null]) {
+      for (final tag in ['uk', 'pt_BR', 'en']) {
         await _switchTo(tester, db, container!, tag);
         expect(find.text('Chest & Tris'), findsWidgets, reason: 'at $tag');
+      }
+
+      await stop(tester);
+    });
+
+    test('every seeded programme and training day renders from its key',
+        () async {
+      // The three beginner programmes and the workout days they share. A key
+      // with nothing behind it renders as the stored English for ever, which
+      // is exactly what the seed keys exist to avoid.
+      const keys = [
+        'starting_strength',
+        'stronglifts_5x5',
+        'full_body_3x',
+        'workout_a',
+        'workout_b',
+        'workout_c',
+      ];
+
+      for (final locale in kSupportedLocales) {
+        final l10n = await _stringsFor(locale);
+        for (final key in keys) {
+          expect(seededName(l10n, key, '\u0000none'), isNot('\u0000none'),
+              reason: '${localeTag(locale)}: $key has no string behind it');
+        }
+      }
+    });
+
+    test('the seeded rows carry those keys', () async {
+      for (final entry in const {
+        'Starting Strength': 'starting_strength',
+        'StrongLifts 5x5': 'stronglifts_5x5',
+        'Full Body 3x': 'full_body_3x',
+      }.entries) {
+        final routine = await routineNamed(db, entry.key);
+        expect(routine.seedKey, entry.value,
+            reason: '${entry.key} cannot follow a language switch');
+        final days = await db.workoutsForRoutine(routine.id);
+        expect(
+            days.map((w) => w.seedKey),
+            days
+                .map((w) => 'workout_${w.name.split(' ').last.toLowerCase()}')
+                .toList(),
+            reason: '${entry.key}: the training days share one set of keys');
+      }
+    });
+
+    test('a programme named after its author reads the same in every language',
+        () async {
+      // "Starting Strength" and "StrongLifts 5x5" are proper nouns — the title
+      // of a book and the name of an app. Translating them would send someone
+      // looking for the programme they have heard of to a name that matches
+      // nothing they can search for.
+      for (final key in ['starting_strength', 'stronglifts_5x5']) {
+        final english = seededName(l10nFor(), key, key);
+        for (final locale in kSupportedLocales) {
+          expect(seededName(await _stringsFor(locale), key, key), english,
+              reason: '${localeTag(locale)} translated a proper noun: $key');
+        }
+      }
+      expect(seededName(l10nFor(), 'starting_strength', '?'),
+          'Starting Strength');
+      expect(seededName(l10nFor(), 'stronglifts_5x5', '?'), 'StrongLifts 5x5');
+    });
+
+    testWidgets('a beginner programme reads in the chosen language',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      late int routineId;
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        routineId = (await routineNamed(db, 'Full Body 3x')).id;
+      });
+
+      final uk = await _stringsFor(const Locale('uk'));
+      await tester.pumpWidget(
+          _liveApp(container!, RoutineDetailScreen(routineId: routineId)));
+      await tester.pump();
+      await _switchTo(tester, db, container!, 'uk');
+
+      expect(find.text(seededName(uk, 'full_body_3x', 'Full Body 3x')),
+          findsWidgets,
+          reason: 'the programme names itself in Ukrainian');
+      for (final day in ['workout_a', 'workout_b', 'workout_c']) {
+        expect(find.text(seededName(uk, day, day)), findsWidgets,
+            reason: '$day still reads English');
       }
 
       await stop(tester);

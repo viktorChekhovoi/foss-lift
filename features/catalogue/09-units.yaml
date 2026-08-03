@@ -6,19 +6,33 @@ tagline: >-
 screen: settings
 code:
 - lib/util/units.dart
-- lib/screens/settings_screen.dart
+- lib/util/format.dart
+- lib/screens/exercise_settings_screen.dart
 test:
 - test/feature_09_units_test.dart
 where: >-
-  <b>Conversion helpers</b> lib/util/units.dart · <b>Toggle + confirm</b> lib/screens/settings_screen.dart
+  <b>Conversion helpers</b> lib/util/units.dart · <b>Toggle + confirm</b> lib/screens/exercise_settings_screen.dart
   (_switchUnit) · <b>Read via</b> weightUnitProvider
 groups:
 - name: What it does
   items:
+  - id: asks-which-unit-on-first-launch
+    t: A fresh install takes its unit from the phone's region, without asking
+    d: >-
+      pounds for the United States, Liberia and Myanmar, kilograms everywhere
+      else. The guess is stored on the first launch and is the user's from then
+      on: changing the phone's language or region later never moves it, because
+      by then it is a setting somebody has trained against rather than a guess.
+      Nothing is painted until it has been stored, so no screen ever opens in the
+      wrong unit and corrects itself.
+    screen: none
+    uses:
+    - load.units
+    - storage.settings
   - id: one-app-wide-setting-kg
     t: 'One app-wide setting: kg or lb'
     d: >-
-      Profile → Settings → tap kg or lb. Tapping the unit you are already on does
+      Profile → Exercise settings → tap kg or lb. Tapping the unit you are already on does
       nothing — it is not a switch.
     defines:
     - load.units
@@ -31,11 +45,51 @@ groups:
     - load.units
     - load.plate-rack
   - id: switching-units-pops-confirm-dialog
-    t: Switching units confirms first, and never rewrites history
+    t: Switching units confirms first, and never rewrites what you lifted
     d: >-
-      weights are stored in kilograms, so switching is pure display arithmetic —
-      a 100 kg squat reads as 220.5 lb, which is not a bar anybody loads. That is
-      what the dialog says to go and check.
+      logged sets keep the kilograms they were lifted at, for good — a session
+      trained at 100 kg still reads 100 kg after a switch to pounds, whatever the
+      screen now calls it. What does move is the configuration you are about to
+      act on: see the snapping and the per-unit steps below. The dialog says so
+      before anything changes.
     uses:
     - load.units
+    - load.unit-defaults
     - history.session-record
+  - id: converted-targets-are-snapped
+    t: A converted target is snapped to a weight somebody can load
+    d: >-
+      100 kg converts to 220.46 lb, which is not a bar anybody sets. On a switch
+      every slot's suggested weight is snapped to the nearest step in the new
+      unit — 2.5 kg or 5 lb — so it lands on 220 lb. Only that target moves;
+      logged sets, their goal weights and the bars and plates the gym owns are
+      left exactly as they are.
+    uses:
+    - load.units
+    - load.unit-defaults
+    - template.item
+    - history.session-record
+  - id: each-unit-has-its-own-default-step
+    t: Step up and back off have a default in each unit
+    d: >-
+      2.5 kg up and 5 kg down in a metric gym, 5 lb up and 10 lb down in a
+      pounds one. A slot still sitting on the old unit's default takes the new
+      unit's default when the unit changes, so a switch to pounds gives 5 lb
+      steps rather than 5.51. A rate you set yourself is yours: it converts, and
+      2.5 kg deliberately chosen stays 2.5 kg.
+    screen: workout-edit
+    defines:
+    - load.unit-defaults
+    uses:
+    - load.units
+    - progression.rates
+  - id: weights-read-to-two-decimals
+    t: A weight reads to two decimals, with trailing zeros dropped
+    d: >-
+      100 kg is "100", a 1.25 kg plate is "1.25" and not "1.3", and a 2.5 lb step
+      is "2.5". One helper formats every weight the app shows — a set row, a step
+      rate, a plate breakdown — so the same number never reads two ways on two
+      screens.
+    screen: none
+    uses:
+    - load.units

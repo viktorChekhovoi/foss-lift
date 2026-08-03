@@ -171,6 +171,41 @@ void main() {
     });
   });
 
+  group('It is ranked so the shade opens it expanded', () {
+    // The buttons live in a notification's expanded form, so a shade that opens
+    // collapsed is a shade with nothing to press. Android has no API for "post
+    // this expanded" — the top-ranked notification is auto-expanded and the
+    // ranking is the system's to decide — so what the app can do is rank, and
+    // stay out of the silent section at the bottom of the shade.
+    //
+    // The plugin keeps what `init` was handed on a `@visibleForTesting` static,
+    // which is the only side of the channel a test can see: the options are
+    // read by the platform when the service starts, not sent as arguments.
+    Future<AndroidNotificationOptions> optionsAfterShow() async {
+      await shadeThatIsAnswered(true, calls).show(await livePush());
+      return FlutterForegroundTask.androidNotificationOptions!;
+    }
+
+    test('the channel is default importance, not low', () async {
+      final options = await optionsAfterShow();
+
+      expect(options.channelImportance, NotificationChannelImportance.DEFAULT);
+      expect(options.priority, NotificationPriority.DEFAULT,
+          reason: 'a LOW-priority post is ranked below everything else there');
+    });
+
+    test('and it still says nothing out loud', () async {
+      // Ranking it is not making an alert of it: the one thing in a session
+      // that should make a sound is the rest ending.
+      final options = await optionsAfterShow();
+
+      expect(options.playSound, isFalse);
+      expect(options.enableVibration, isFalse);
+      expect(options.onlyAlertOnce, isTrue,
+          reason: 'it is rewritten every second while a rest runs');
+    });
+  });
+
   group('A shade Android still has up is the one that gets used', () {
     // The service runs its handler in an engine of its own, so Android can tear
     // down the app's isolate and leave the notification standing. The shade the

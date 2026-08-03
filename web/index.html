@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    Replaced by `flutter build web --base-href`. Leave it alone unless the app
+    is served from a subdirectory, in which case pass the flag rather than
+    editing this.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="An offline workout tracker. Your training log stays in this browser.">
+
+  <!-- Installable to a home screen, and dark from the first frame: the app is
+       dark, and a white flash on launch is the one thing a splash exists to
+       prevent. #0E1117 is the icon's own plate — see flutter_native_splash in
+       pubspec.yaml for why a fixed colour rather than the chosen theme. -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Foss Lift">
+  <meta name="theme-color" content="#0E1117">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Foss Lift</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background-color: #0E1117; }
+  </style>
+</head>
+<body>
+  <!--
+    The engine is loaded from this origin, never from a CDN. Two reasons, and
+    both are requirements rather than preferences:
+
+      * "no network" has to stay true of the running app. A CanvasKit fetch
+        from gstatic.com is a third-party request on every cold load, which is
+        exactly the thing this app promises not to make.
+      * a cross-origin subresource is blocked outright under
+        `Cross-Origin-Embedder-Policy: require-corp`, and those headers are how
+        Chrome reaches the faster OPFS storage for the database.
+
+    `flutter build web --no-web-resources-cdn` is what puts canvaskit/ next to
+    this file. Building without that flag produces a page that fetches the
+    engine remotely — see docs/web-build.md.
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

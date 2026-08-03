@@ -48,7 +48,7 @@ groups:
     - video.playback
   - id: shows-what-clips-cost-offers
     t: Shows what the clips cost, and offers to reclaim it
-    d: Profile → Settings → Storage, under Set videos.
+    d: Profile → Exercise settings → Storage, under Set videos.
     screen: video-settings
     defines:
     - video.storage

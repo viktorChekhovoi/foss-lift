@@ -24,11 +24,12 @@ import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/router.dart';
 import 'package:foss_lift/screens/history_screen.dart';
 import 'package:foss_lift/screens/routine_detail_screen.dart';
-import 'package:foss_lift/screens/theme_settings_screen.dart';
+import 'package:foss_lift/screens/appearance_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_edit_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
+import 'package:foss_lift/widgets/common.dart';
 import 'package:foss_lift/util/locales.dart';
 
 import 'support/harness.dart';
@@ -348,6 +349,60 @@ void main() {
       expect(tester.getRect(tab).bottom,
           lessThanOrEqualTo(screen.height - navBar),
           reason: 'the Profile tab is under the strip');
+      await stop(tester);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+
+  group('one type scale, in the shared widgets', () {
+    // The sizes are a property of ScreenHeader and SectionLabel, so they are
+    // read back off what those widgets actually render rather than off the
+    // constants — a screen that retyped a fontSize would pass a test of the
+    // constants and still look flat.
+    TextStyle styleOf(WidgetTester tester, String text) =>
+        tester.widget<Text>(find.text(text)).style!;
+
+    testWidgets('a title, an eyebrow and a section heading are three sizes',
+        (tester) async {
+      await tester.pumpWidget(appUnder(
+        containerFor(db),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ScreenHeader(eyebrow: 'eyebrow', title: 'Title'),
+            SectionLabel('heading'),
+          ],
+        ),
+      ));
+      await tester.pump();
+
+      final title = styleOf(tester, 'Title').fontSize!;
+      final eyebrow = styleOf(tester, 'EYEBROW').fontSize!;
+      final heading = styleOf(tester, 'HEADING').fontSize!;
+
+      expect(title / heading, greaterThanOrEqualTo(2.5),
+          reason: 'a screen title has to dwarf a section heading, not edge it');
+      expect(eyebrow, greaterThan(heading),
+          reason: 'the line above a title outranks a heading in a list');
+      expect(title / eyebrow, greaterThanOrEqualTo(1.8),
+          reason: 'the title has to be the thing you see first');
+      await stop(tester);
+    });
+
+    testWidgets('the same sizes wherever the widgets are used', (tester) async {
+      // Two SectionLabels in different places render identically: the size
+      // belongs to the widget, not to the screen that mounted it.
+      await tester.pumpWidget(appUnder(
+        containerFor(db),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [SectionLabel('one'), SectionLabel('two')],
+        ),
+      ));
+      await tester.pump();
+      expect(styleOf(tester, 'ONE').fontSize, styleOf(tester, 'TWO').fontSize);
+      expect(styleOf(tester, 'ONE').color, styleOf(tester, 'TWO').color);
       await stop(tester);
     });
   });

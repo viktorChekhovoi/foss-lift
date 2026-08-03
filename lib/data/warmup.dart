@@ -7,7 +7,7 @@
 /// own where it can be read and tested is the whole of it.
 ///
 /// **Where the numbers come from.** The shape is the one every strength
-/// programme uses: start with the empty bar, take even jumps, drop the reps as
+/// program uses: start with the empty bar, take even jumps, drop the reps as
 /// the load climbs, and never let the last warm-up become a working set
 /// (Starting Strength, "Our warm-up is…a warm-up"; the same source's own worked
 /// example divides the gap between bar and work into equal jumps). The

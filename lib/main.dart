@@ -10,7 +10,7 @@ import 'router.dart';
 import 'services/deep_links.dart';
 import 'theme/app_theme.dart';
 import 'util/locales.dart';
-import 'util/text_scale.dart';
+import 'widgets/pinch_text_scale.dart';
 import 'widgets/resume_workout_bar.dart';
 import 'widgets/tutorial.dart';
 
@@ -40,6 +40,9 @@ class FossLiftApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(reminderSyncProvider);
+    // Stores the phone's region as the weight unit, once, on a fresh install.
+    // Above the holding frame below, which is what waits for it to land.
+    ref.watch(unitSeedProvider);
     // Puts the live workout in the notification shade and keeps it current.
     ref.watch(workoutShadeSyncProvider);
     // Brings back a session Android killed the process out from under. Once, on
@@ -63,7 +66,9 @@ class FossLiftApp extends ConsumerWidget {
     // frame or two, behind the launch screen, so there is nothing to wait
     // through. The holding frame is the ground colour the guess arrived at,
     // which is what the launch screen is showing anyway.
-    if (!ref.watch(themeReadyProvider) || !ref.watch(localeReadyProvider)) {
+    if (!ref.watch(themeReadyProvider) ||
+        !ref.watch(localeReadyProvider) ||
+        ref.watch(unitChosenProvider).value != true) {
       return ColoredBox(color: palette.ground, child: const SizedBox.expand());
     }
     // Status-bar icons have to contrast with the app's ground: dark icons over a
@@ -99,17 +104,9 @@ class FossLiftApp extends ConsumerWidget {
       routerConfig: appRouter,
       // Wraps every route so a collapsed workout can be resumed from anywhere,
       // and — on top of that — so the first-run tour can spotlight any of it.
-      builder: (context, child) => MediaQuery(
-        // The phone's text size, nudged by the user's own and held inside the
-        // range every screen is swept at — see util/text_scale.dart.
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(
-            resolveTextScale(
-              system: MediaQuery.textScalerOf(context).scale(1),
-              chosen: ref.watch(textScaleProvider).value ?? 1.0,
-            ),
-          ),
-        ),
+      // PinchTextScale owns the text size: it applies the stored nudge and lets
+      // a two-finger pinch move it, on any screen — see widgets/pinch_text_scale.dart.
+      builder: (context, child) => PinchTextScale(
         child: DeepLinkListener(
           router: appRouter,
           child: TutorialOverlay(

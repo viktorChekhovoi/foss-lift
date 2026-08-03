@@ -32,6 +32,17 @@ groups:
       carries a navigation bar and all of them come back to the tab you left.
     defines:
     - ui.navigation
+  - id: one-type-scale-shared-widgets
+    t: One type scale, and it lives in the shared widgets
+    d: >-
+      a screen title, the eyebrow above it and a small-caps section heading are
+      three obviously different sizes rather than three sizes within two points
+      of each other, so the hierarchy on a screen reads before any of the words
+      do. The sizes belong to ScreenHeader and SectionLabel; a screen that wants
+      a heading uses the widget and inherits them rather than retyping a
+      fontSize.
+    defines:
+    - theme.type-scale
   - id: empty-screen-says-so-in-line
     t: A screen with nothing on it yet says so in a line
     d: >-

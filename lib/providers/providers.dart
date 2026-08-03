@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -16,8 +17,10 @@ import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
+import '../util/capabilities.dart';
 import '../util/locales.dart';
 import '../util/seed_names.dart';
+import '../util/units.dart';
 import 'db_provider.dart';
 
 export 'db_provider.dart' show databaseProvider;
@@ -44,7 +47,7 @@ final routineWorkoutsProvider =
 /// One routine gathered into the shape it travels in — see `routine_code.dart`.
 ///
 /// Watches the routine's workouts as well as reading it, so the code on the
-/// share screen re-gathers if the programme is edited underneath it rather than
+/// share screen re-gathers if the program is edited underneath it rather than
 /// handing someone a QR of a routine that no longer exists.
 final sharedRoutineProvider = FutureProvider.family<SharedRoutine, int>((
   ref,
@@ -157,6 +160,13 @@ final currentRoutineProvider = Provider<RoutineWithCount?>((ref) {
   }
   return null;
 });
+
+/// What this build can do — see `util/capabilities.dart`.
+///
+/// A provider rather than a bare constant so a test can mount a screen as the
+/// browser build would draw it without being in a browser.
+final capabilitiesProvider =
+    Provider<Capabilities>((ref) => currentCapabilities);
 
 /// When each routine's next reminder is due, and when it was last trained.
 final routineRemindersProvider = StreamProvider<List<RoutineReminder>>((ref) {
@@ -345,18 +355,33 @@ final textScaleProvider = StreamProvider<double>((ref) {
   return ref.watch(databaseProvider).watchTextScale();
 });
 
-/// The language the user picked, as a tag (`uk`, `pt_BR`), or null to follow
-/// the phone — which is the default. Resolve it with `resolveLocale`.
+/// The language the app renders in, as a stored tag (`uk`, `pt_BR`).
+///
+/// **The phone is consulted once, not for ever.** An install that has not
+/// chosen yet emits null exactly once; that null is answered by resolving the
+/// phone's preference list against the catalogues we ship and writing the
+/// answer to `Settings.localeTag`. So there is no "follow the phone" state to
+/// be in — the picker always has one of the five selected, and changing the
+/// phone's language afterwards leaves the app where the user left it.
 final localeTagProvider = StreamProvider<String?>((ref) {
-  return ref.watch(databaseProvider).watchLocaleTag();
+  final db = ref.watch(databaseProvider);
+  return db.watchLocaleTag().asyncMap((tag) async {
+    if (tag != null) return tag;
+    final resolved = localeTag(resolveLocale(
+      null,
+      WidgetsBinding.instance.platformDispatcher.locales,
+    ));
+    await db.setLocaleTag(resolved);
+    return resolved;
+  });
 });
 
-/// The language to render in, resolved against the phone's own list.
+/// The language to render in.
 ///
 /// Synchronous, and deliberately: the app root needs a locale for the very
-/// first frame, and a stored choice that has not arrived yet is
-/// indistinguishable from no choice at all — both mean "follow the phone",
-/// which is what this returns until the settings row lands. See
+/// first frame, and the stored choice has not arrived yet. Until it does — and
+/// on the first launch, until the write above lands — this is the phone's own
+/// answer, which is what first run is about to store anyway. See
 /// [localeReadyProvider] for the gate that keeps that guess off the screen.
 final activeLocaleProvider = Provider<Locale>((ref) {
   return resolveLocale(
@@ -391,9 +416,30 @@ final layoffSettingsProvider = StreamProvider<LayoffSettings>((ref) {
   return ref.watch(databaseProvider).watchLayoffSettings();
 });
 
-/// The user's chosen weight unit ('kg' or 'lb').
+/// The user's chosen weight unit ('kg' or 'lb'). Kilograms until they say
+/// otherwise, including while the first-run question is still on screen.
 final weightUnitProvider = StreamProvider<String>((ref) {
   return ref.watch(databaseProvider).watchWeightUnit();
+});
+
+/// Whether the unit has been stored yet. The app root holds a blank frame until
+/// it is true, so no screen ever opens in kilograms and corrects itself to
+/// pounds a frame later.
+final unitChosenProvider = StreamProvider<bool>((ref) {
+  return ref.watch(databaseProvider).watchUnitChosen();
+});
+
+/// Writes the phone's region into the weight unit, once, on a fresh install.
+///
+/// Watched by the app root and nothing else. The unit is not something a
+/// tracker needs to open with a question about: a country weighs a barbell one
+/// way, the phone already says which country it is in, and anybody the guess is
+/// wrong for is one tap away from Profile → Exercise settings. See
+/// [AppDatabase.seedWeightUnit] for why the guess is only ever made once.
+final unitSeedProvider = Provider<void>((ref) {
+  final unit =
+      localeDefaultUnit(WidgetsBinding.instance.platformDispatcher.locales);
+  unawaited(ref.watch(databaseProvider).seedWeightUnit(unit));
 });
 
 /// The selected theme's stored id — a preset slug, `custom:<n>`, or null for

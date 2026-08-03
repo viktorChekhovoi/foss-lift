@@ -19,9 +19,9 @@ import 'package:foss_lift/screens/routine_detail_screen.dart';
 import 'package:foss_lift/screens/routine_edit_screen.dart';
 import 'package:foss_lift/screens/routine_share_screen.dart';
 import 'package:foss_lift/screens/routines_screen.dart';
-import 'package:foss_lift/screens/settings_screen.dart';
+import 'package:foss_lift/screens/exercise_settings_screen.dart';
 import 'package:foss_lift/screens/summary_screen.dart';
-import 'package:foss_lift/screens/theme_settings_screen.dart';
+import 'package:foss_lift/screens/appearance_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_edit_screen.dart';
@@ -33,13 +33,15 @@ final Map<String, Widget Function()> kSweepScreens = {
   'history': () => const HistoryScreen(),
   'profile': () => const ProfileScreen(),
   'library': () => const LibraryScreen(),
-  'settings': () => const SettingsScreen(),
+  'settings': () => const ExerciseSettingsScreen(),
   'bar': () => const BarSettingsScreen(),
   'plates': () => const PlateInventoryScreen(),
-  'theme': () => const ThemeSettingsScreen(),
+  'theme': () => const AppearanceScreen(),
   'language': () => const LanguageScreen(),
   'about': () => const AboutScreen(),
   'exercise form': () => const ExerciseFormScreen(),
+  // A fresh database has never been asked which unit it trains in, so the gate
+  // renders the question rather than its child — which is the thing to sweep.
 };
 
 /// The rest: screens that only exist pointed at a row, keyed the same way.

@@ -93,7 +93,7 @@ class _WeightDialogState extends State<_WeightDialog> {
   late final TextEditingController _c = TextEditingController(
     text: widget.initialKg == null
         ? ''
-        : fmtPlateWeight(toDisplayWeight(widget.initialKg!, widget.unit)),
+        : fmtWeight(toDisplayWeight(widget.initialKg!, widget.unit)),
   );
 
   @override
@@ -215,7 +215,7 @@ class _BarEditDialogState extends State<_BarEditDialog> {
   late final TextEditingController _weight = TextEditingController(
     text: widget.kg == null
         ? ''
-        : fmtPlateWeight(toDisplayWeight(widget.kg!, widget.unit)),
+        : fmtWeight(toDisplayWeight(widget.kg!, widget.unit)),
   );
 
   @override
@@ -362,7 +362,7 @@ class _BarDialog extends ConsumerWidget {
               row(
                 label: seededName(l10n, b.seedKey, b.name),
                 trailing: l10n.unitWeightShort(
-                  fmtPlateWeight(toDisplayWeight(b.weightKg, unit)),
+                  fmtWeight(toDisplayWeight(b.weightKg, unit)),
                   unitSuffix(l10n, unit),
                 ),
                 selected: isCurrent(b.weightKg),
@@ -604,7 +604,7 @@ class NumberStepper extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _btn(Icons.remove, canGoDown ? _down : null),
+        stepperButton(Icons.remove, canGoDown ? _down : null),
         // The number gives, the two buttons never do: a stepper you cannot
         // press is not a stepper. At a large font scale in a two-column grid
         // there is not room for all three at their natural width, and 54 is a
@@ -625,7 +625,7 @@ class NumberStepper extends StatelessWidget {
             ),
           ),
         ),
-        _btn(Icons.add, isEmpty || value < max ? _up : null),
+        stepperButton(Icons.add, isEmpty || value < max ? _up : null),
       ],
     );
   }
@@ -641,27 +641,32 @@ class NumberStepper extends StatelessWidget {
   void _up() => onChanged(isEmpty ? min : _clamp(value + step));
 
   int _clamp(int v) => v < min ? min : (v > max ? max : v);
+}
 
-  Widget _btn(IconData icon, VoidCallback? onTap) {
-    return Material(
-      color: onTap == null ? AppColors.surface : AppColors.surface2,
+/// One − or + of a stepper. Greyed rather than removed when there is nowhere
+/// left to go, so the control keeps its width and the row keeps its alignment.
+///
+/// Shared with the decimal amount fields in the slot sheet, which are steppers
+/// with a text box in the middle instead of a number.
+Widget stepperButton(IconData icon, VoidCallback? onTap) {
+  return Material(
+    color: onTap == null ? AppColors.surface : AppColors.surface2,
+    borderRadius: BorderRadius.circular(10),
+    child: InkWell(
+      onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: Icon(
-            icon,
-            size: 18,
-            color: onTap == null ? AppColors.faint : AppColors.text,
-          ),
+      child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 18,
+          color: onTap == null ? AppColors.faint : AppColors.text,
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// A titled group of settings.

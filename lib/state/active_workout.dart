@@ -9,7 +9,8 @@ import '../data/database.dart';
 import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/db_provider.dart';
-import '../providers/providers.dart' show appLocalizationsProvider;
+import '../providers/providers.dart'
+    show appLocalizationsProvider;
 import '../services/rest_alarm.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
@@ -116,6 +117,11 @@ class ExerciseEntry {
     this.warmupBarKg = 0,
     this.warmupLadder = const [],
     this.warmupRestSeconds = kWarmupRestSeconds,
+    this.scheme = SetScheme.flat,
+    this.schemePercent = kDefaultSchemePercent,
+    this.customSets = const [],
+    this.goalReps = 0,
+    this.floorKg = 0,
   }) : warmups = warmups ?? <SetEntry>[];
   final int? exerciseId;
 
@@ -166,6 +172,34 @@ class ExerciseEntry {
   /// The bar the warm-up ramp stands on — the resolved bar for a barbell lift,
   /// 0 for a machine or dumbbell where there is no empty bar to start from.
   final double warmupBarKg;
+
+  // -- The set scheme ------------------------------------------------------
+  // Carried rather than resolved once at start, because [workingKg] is
+  // editable: moving it has to move the whole ladder, keeping the proportions,
+  // and that means recomputing rather than scaling the numbers already there.
+
+  /// How the sets differ from one another — see `data/set_scheme.dart`.
+  final SetScheme scheme;
+  final int schemePercent;
+  final List<CustomSet> customSets;
+
+  /// The slot's own rep target, which every scheme but a custom one repeats.
+  final int goalReps;
+
+  /// The lightest this exercise may be loaded to — the empty bar, or 0.
+  final double floorKg;
+
+  /// What each set is aiming at, given [workingKg] as the top of the ladder.
+  List<SetTarget> targetsAt(double? topKg, String unit) => resolveSetTargets(
+        scheme: scheme,
+        sets: sets.length,
+        goalReps: goalReps,
+        topWeightKg: topKg,
+        unit: unit,
+        percent: schemePercent,
+        custom: customSets,
+        floorKg: floorKg,
+      );
 
   /// The loads this exercise can actually be set to at this gym — every rung the
   /// ramp is allowed to land on. Rebuilt whenever [workingKg] moves (the ladder
@@ -228,7 +262,7 @@ class ExerciseEntry {
   /// Whether this counts as a clean session for progression: every planned set
   /// logged, and none of them short.
   ///
-  /// Skipping a set is a miss. The programme asked for four and got three —
+  /// Skipping a set is a miss. The program asked for four and got three —
   /// that is not the performance the next step up should be built on.
   bool get succeeded =>
       sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal);
@@ -401,8 +435,22 @@ class ActiveWorkout {
   /// a different movement — and that is a walk across the gym, not a wait.
   RestPrompt restAfterSet(int ei, int si) {
     final e = exercises[ei];
-    final more = e.sets.skip(si + 1).any((s) => !s.done);
-    if (more) return _justRest;
+    final next = e.sets.skip(si + 1).where((s) => !s.done).firstOrNull;
+    if (next != null) {
+      // Usually nothing: another set of the same thing at the same weight. On a
+      // back-off or a ramp it is a different bar, and a rest bar that says
+      // "just rest" while the plates have to change is the one case this line
+      // exists to prevent.
+      final changed = (next.weight - e.sets[si].weight).abs() > 1e-9;
+      return changed
+          ? (
+              purpose: RestPurpose.anotherSet,
+              weightKg: next.weight,
+              exercise: null,
+              exerciseSeedKey: null,
+            )
+          : _justRest;
+    }
     // The next exercise is the next one with anything left to do — skipping
     // past any that are already finished.
     for (var i = ei + 1; i < exercises.length; i++) {
@@ -543,28 +591,37 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     ref.read(restAlarmProvider).clear();
   }
 
-  /// The one event this app makes a noise for, sent down whichever route can
-  /// actually reach the user.
+  /// The one event this app makes a noise for.
   ///
-  /// On screen it is the tone: instant, and it does not put a notification in
-  /// front of somebody already looking at the countdown. Off screen — pocket,
-  /// screen dark, which is most of what a rest timer is for — it is the
-  /// notification.
+  /// **The sound is always the tone**, on screen and in a pocket, because the
+  /// tone is the only route with a volume in it. A notification channel's
+  /// loudness belongs to the phone's alarm slider and nothing an app posts can
+  /// move it, so a rest alert that rang from a channel could not be turned down
+  /// — which is what made the setting worth nothing to somebody whose phone is
+  /// in a pocket, the one case a rest timer is for. It does not have to ring
+  /// from a channel: the live session already runs behind a foreground service,
+  /// an app with one running may play audio while it is in the background, and
+  /// so the same player sounds the same asset at the same gain either way.
+  ///
+  /// **What the pocket adds is the notification, not the noise** — something to
+  /// look at when the phone comes out, silent because the sound has already been
+  /// made. On screen it is left off entirely: the countdown is already in front
+  /// of you.
   ///
   /// **Both are made here, at the moment the rest ends.** Nothing is handed to
-  /// Android in advance any more: what keeps this isolate alive to reach this
-  /// line is the foreground service the live session runs behind — see
-  /// [RestAlarm] for what that trades away, and `workout_shade.dart` for the
-  /// service itself. A rest that ends with the app not running at all is silent.
+  /// Android in advance: what keeps this isolate alive to reach this line is the
+  /// foreground service — see [RestAlarm], and `workout_shade.dart` for the
+  /// service itself. A rest that ends with the app not running at all is silent,
+  /// and always was.
   /// **The words are resolved here, at the moment of ringing**, and handed to
   /// [RestAlarm] finished — see that class. Read rather than remembered: a rest
   /// can outlive a language switch, and a catalogue cached when the session
   /// started would announce the set in the language it started in.
   void _sayTheRestIsOver() {
     final alarm = ref.read(restAlarmProvider);
+    ref.read(restToneProvider).play();
     if (ref.read(appOnScreenProvider)()) {
       alarm.clear();
-      ref.read(restToneProvider).play();
       return;
     }
     final l10n = ref.read(appLocalizationsProvider);
@@ -705,6 +762,21 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         final warmupBar = v.exercise.weightType == WeightType.bar
             ? (v.exercise.barWeight ?? setup.barKg)
             : 0.0;
+        // What each set actually opens at. Flat is every set at [w], which is
+        // what it was before there were schemes; a back-off or a ramp is a
+        // ladder off it — see `data/set_scheme.dart`.
+        final targets = resolveSetTargets(
+          scheme: v.item.scheme,
+          sets: v.item.targetSets,
+          // A to-failure set has no upper bound, so its goal is `repsMin` —
+          // the number you have to beat, which is what `goal` already is.
+          goalReps: goal,
+          topWeightKg: w,
+          unit: unit,
+          percent: v.item.schemePercent,
+          custom: decodeCustomSets(v.item.customSets),
+          floorKg: warmupBar,
+        );
         final e = ExerciseEntry(
           exerciseId: v.exercise.id,
           itemId: v.item.id,
@@ -717,10 +789,21 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
           workingKg: w,
           warmupBarKg: warmupBar,
-          sets: List.generate(
-            v.item.targetSets,
-            (_) => SetEntry(goal: goal, goalWeight: w, timed: mode.timed),
-          ),
+          scheme: v.item.scheme,
+          schemePercent: v.item.schemePercent,
+          customSets: decodeCustomSets(v.item.customSets),
+          goalReps: goal,
+          floorKg: warmupBar,
+          sets: [
+            for (final t in targets)
+              SetEntry(
+                // A hold is counted in seconds and no scheme touches that; the
+                // weight on it still ramps like anything else.
+                goal: mode.timed ? goal : t.reps,
+                goalWeight: t.weightKg,
+                timed: mode.timed,
+              ),
+          ],
         );
         _rebuildRamp(e, unit: unit, inventory: setup.plates);
         exercises.add(e);
@@ -812,8 +895,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (s == null) return;
     final e = s.exercises[ei];
     e.workingKg = value < 0 ? 0 : value;
-    for (final set in e.sets) {
-      if (!set.done) set.weight = e.workingKg!;
+    // Through the scheme, not straight onto every row: on a back-off or a ramp
+    // the sets are a ladder, and moving its top has to move the rungs with it
+    // rather than flatten them all onto the new number.
+    final targets = e.targetsAt(e.workingKg, s.unit);
+    for (var i = 0; i < e.sets.length; i++) {
+      if (!e.sets[i].done) e.sets[i].weight = targets[i].weightKg ?? 0;
     }
     _rebuildRamp(e, unit: s.unit, inventory: s.plates);
     _commit(s.copyWith());
