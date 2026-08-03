@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../util/format.dart';
 import 'board_cells.dart';
+import 'builder_widgets.dart' show builderInput, builderLabel;
 
 /// The stand-ins the tour shows for the live workout.
 ///
@@ -22,10 +23,40 @@ import 'board_cells.dart';
 /// come from the app, so what the tour shows is what the phone in the reader's
 /// hand will look like.
 
-/// Which part of the mock session the current step is talking about. The ring is
+/// Which part of the drawn screen the current step is talking about. The ring is
 /// the tour's own pointer for something too small to spotlight — the icon at the
 /// end of a row.
-enum TutorialDemoFocus { none, nextSet, rest, note, camera }
+///
+/// The first group belongs to the live session, the second to the builder. They
+/// share one enum because a step has one subject, whichever screen it is on.
+enum TutorialDemoFocus {
+  none,
+  nextSet,
+  rest,
+  note,
+  camera,
+  newRoutine,
+  name,
+  days,
+  exercises,
+  slot,
+  save,
+}
+
+/// The three screens the builder chapter is drawn on.
+enum _BuilderScreen { routines, routine, day }
+
+/// Which of them [focus] is about. The routines list is the fallback, so a
+/// focus belonging to the session cannot draw a blank screen.
+_BuilderScreen _screenFor(TutorialDemoFocus focus) => switch (focus) {
+      TutorialDemoFocus.name ||
+      TutorialDemoFocus.days ||
+      TutorialDemoFocus.save =>
+        _BuilderScreen.routine,
+      TutorialDemoFocus.exercises || TutorialDemoFocus.slot =>
+        _BuilderScreen.day,
+      _ => _BuilderScreen.routines,
+    };
 
 /// The note icon on the mock exercise heading.
 const kTutorialDemoNoteKey = ValueKey('tutorial-demo-note');
@@ -76,38 +107,59 @@ class TutorialSessionDemo extends ConsumerWidget {
         child: Column(
           children: [
             _header(l10n),
+            // The board and the bar share what the header leaves, and the
+            // LayoutBuilder is how the bar's cap gets measured against that
+            // rather than against the whole screen — the same shape the real
+            // screen uses, and for the same reason.
+            //
+            // The bar is *capped*, not [Flexible]: two flex children of one
+            // column divide the space between them, which put the bar halfway
+            // up the screen with the board squeezed into the top half.
             Expanded(
-              child: ListView(
-                // Nothing scrolls it — the mock takes no gestures — but a list
-                // is what keeps a long day off the bottom of a short phone.
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                children: [
-                  TutorialBoardDemo(focus: focus),
-                  const SizedBox(height: 12),
-                  // A second lift, so the mock reads as a training day rather
-                  // than as one movement somebody was shown in isolation. It is
-                  // never the subject of a step, so it is never focused.
-                  TutorialBoardDemo(
-                    name: l10n.exerciseOverheadPress,
-                    weightKg: _kDemoSecondWeightKg,
-                  ),
-                ],
-              ),
-            ),
-            if (focus == TutorialDemoFocus.rest)
-              // Capped and scrollable, as the real bar is: docked furniture may
-              // not grow without limit, and at the top of the text scale the
-              // caption, the clock and the pills together want more height than
-              // the screen has under the board.
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: SingleChildScrollView(
-                    child: TutorialRestDemo(ringed: true),
-                  ),
+              child: LayoutBuilder(
+                builder: (context, box) => Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        // Nothing scrolls it — the mock takes no gestures — but
+                        // a list is what keeps a long day off the bottom of a
+                        // short phone.
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        children: [
+                          TutorialBoardDemo(focus: focus),
+                          const SizedBox(height: 12),
+                          // A second lift, so the mock reads as a training day
+                          // rather than as one movement somebody was shown in
+                          // isolation. It is never the subject of a step, so it
+                          // is never focused.
+                          TutorialBoardDemo(
+                            name: l10n.exerciseOverheadPress,
+                            weightKg: _kDemoSecondWeightKg,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (focus == TutorialDemoFocus.rest)
+                      ConstrainedBox(
+                        // Docked furniture may not grow without limit: at the
+                        // top of the text scale the caption, the clock and the
+                        // pills together want more height than the board has to
+                        // give, and the board is what the screen is for. It
+                        // scrolls inside whatever it gets, so nothing is cut.
+                        constraints:
+                            BoxConstraints(maxHeight: box.maxHeight * 0.45),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: SingleChildScrollView(
+                            child: TutorialRestDemo(ringed: true),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -374,6 +426,319 @@ class TutorialRestDemo extends ConsumerWidget {
           label,
           style: kMono.copyWith(fontSize: 12, color: AppColors.text),
         ),
+      );
+}
+
+/// The routine builder, as the tour draws it: whichever of its three screens
+/// [focus] is on, at full size, with the control in question ringed.
+///
+/// **Drawn rather than driven.** Pointing at the real builder meant marching
+/// somebody through four screens the tour does not own — Routines, the routine
+/// builder, the day it pushes, and back — waiting on each to mount before a
+/// callout could measure anything. Every step was one badly-timed frame away
+/// from spotlighting a rectangle that had moved, and the highlight around the
+/// name field routinely landed beside it. A picture has none of those failure
+/// modes, and the chapter now runs wherever you are standing and leaves you
+/// there.
+///
+/// It is a *picture*, not a screenshot: the fields, lists and rows are the
+/// builders' own widgets under the app's own theme, so a change to the real
+/// screen shows up here rather than drifting away from it.
+class TutorialBuilderDemo extends StatelessWidget {
+  const TutorialBuilderDemo({super.key, required this.focus});
+
+  final TutorialDemoFocus focus;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ColoredBox(
+      color: AppColors.ground,
+      child: SafeArea(
+        child: switch (_screenFor(focus)) {
+          _BuilderScreen.routines => _routines(l10n),
+          _BuilderScreen.routine => _routine(l10n),
+          _BuilderScreen.day => _day(l10n),
+        },
+      ),
+    );
+  }
+
+  /// The Routines tab with one routine on it and New routine underneath —
+  /// which is what a first run looks like once the demo program is there.
+  Widget _routines(AppLocalizations l10n) => Column(
+        children: [
+          _bar(l10n.routinesTitle),
+          Expanded(
+            child: ListView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              children: [
+                _card(l10n.seedRoutinePushPullLegs,
+                    l10n.routineEditWorkouts.toLowerCase()),
+                const SizedBox(height: 16),
+                _ringed(
+                  on: focus == TutorialDemoFocus.newRoutine,
+                  child: _outlined(l10n.routinesNewRoutine),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+
+  /// The routine builder: its name field, its training days, and Save.
+  Widget _routine(AppLocalizations l10n) => Column(
+        children: [
+          _bar(l10n.routineEditNewTitle),
+          Expanded(
+            child: ListView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              children: [
+                builderLabel(l10n.commonName),
+                _ringed(
+                  on: focus == TutorialDemoFocus.name,
+                  child: TextField(
+                    // Never focused and never typed into: it is a picture of a
+                    // field, and a keyboard rising over the tour would be the
+                    // mock reaching out of its frame.
+                    enabled: false,
+                    controller: TextEditingController(
+                        text: l10n.seedRoutinePushPullLegs),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: builderInput(l10n.routineEditNameHint),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _ringed(
+                  on: focus == TutorialDemoFocus.days,
+                  child: _list(
+                    caption: l10n.routineEditWorkouts,
+                    addLabel: l10n.routineEditAddWorkout,
+                    rows: [
+                      (l10n.seedDayPush, '5'),
+                      (l10n.seedDayPull, '5'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _dock(_ringed(
+            on: focus == TutorialDemoFocus.save,
+            child: _filled(l10n.routineEditSave),
+          )),
+        ],
+      );
+
+  /// One training day: the exercises in it, and the day's own Save.
+  Widget _day(AppLocalizations l10n) => Column(
+        children: [
+          _bar(l10n.seedDayPush),
+          Expanded(
+            child: ListView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              children: [
+                _ringed(
+                  on: focus == TutorialDemoFocus.exercises,
+                  child: _list(
+                    caption: l10n.itemEditorCaption,
+                    addLabel: l10n.itemEditorAdd,
+                    // The slot step rings one row rather than the list: it is
+                    // about what opens when you tap one.
+                    ringRow: focus == TutorialDemoFocus.slot ? 0 : null,
+                    rows: [
+                      (l10n.exerciseBenchPress, '3 × 8 · 80'),
+                      (l10n.exerciseOverheadPress, '3 × 8 · 45'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _dock(_filled(l10n.workoutEditSave)),
+        ],
+      );
+
+  /// A screen's top bar: a back chevron and the title, as the real ones have.
+  Widget _bar(String title) => Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 20, 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.line)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.arrow_back, size: 20, color: AppColors.muted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  /// The docked Save at the foot of both builders.
+  Widget _dock(Widget child) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.line)),
+        ),
+        child: child,
+      );
+
+  /// A reorderable list as the builders draw one, minus the reordering: the
+  /// caption, the rows and the add button under them.
+  Widget _list({
+    required String caption,
+    required String addLabel,
+    required List<(String, String)> rows,
+    int? ringRow,
+  }) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          builderLabel(caption),
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _ringed(
+              on: ringRow == i,
+              child: _row(rows[i].$1, rows[i].$2),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _outlined(addLabel),
+        ],
+      );
+
+  /// One row of such a list: the drag grip, the name, its summary, the bin.
+  Widget _row(String title, String subtitle) => Container(
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.drag_indicator, size: 20, color: AppColors.faint),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: kMono.copyWith(
+                          fontSize: 11.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.close, size: 18, color: AppColors.faint),
+          ],
+        ),
+      );
+
+  /// A routine as the Routines tab lists it.
+  Widget _card(String name, String subtitle) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 34,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('3 $subtitle',
+                      style: kMono.copyWith(
+                          fontSize: 11.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _outlined(String label) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.line),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.text),
+        ),
+      );
+
+  Widget _filled(String label) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onAccent),
+        ),
+      );
+
+  /// The accent frame around whatever the current step is about. Drawn *around*
+  /// the control rather than as a hole in a scrim, because there is no scrim to
+  /// cut — the whole screen is the tour's.
+  Widget _ringed({required bool on, required Widget child}) => Container(
+        key: on ? kTutorialDemoRingKey : null,
+        padding: const EdgeInsets.all(6),
+        decoration: on
+            ? BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.accent, width: 2),
+              )
+            : null,
+        child: child,
       );
 }
 

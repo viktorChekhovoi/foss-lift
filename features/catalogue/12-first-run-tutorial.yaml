@@ -34,12 +34,15 @@ groups:
     uses:
     - ui.navigation
   - id: you-tap-the-real-control
-    t: You tap the real control, not a picture of it
+    t: You tap the real tabs, and look at everything else
     d: >-
-      on a step that asks you to do something, the hole in the scrim is a hole in
-      its hit test too: the tap reaches the widget underneath, the app does what
-      it would normally do, and the tour moves on with you. Everywhere else the
+      the four tab steps are the ones you walk: the hole in the scrim is a hole
+      in its hit test too, the tap reaches the tab underneath, and the tour moves
+      on with you. Every other step draws what it is describing instead, and the
       scrim absorbs the tap so a stray touch cannot poke the app mid-sentence.
+      The split is not arbitrary — a tab is one button that is always mounted in
+      the same place, and everything else the tour has to say lives on a screen
+      the tour would first have to get you to.
     defines:
     - ui.tutorial
     uses:
@@ -189,10 +192,17 @@ groups:
 - name: The builder tour
   items:
   - id: builder-tour-covers-making-a-routine
-    t: A second tour covers building a routine
+    t: The builder chapter is drawn, not driven
     d: >-
       Routines → New routine → name it → add a training day → add its exercises →
-      Save, each step spotlighting the real control and advancing when you use it.
+      Save, each step against a full-size picture of the screen it is about, with
+      the control in question ringed. It is the same treatment the live workout
+      gets, and for the same reason: the tour would otherwise have to march you
+      through four screens it does not own, waiting on each to mount before it
+      could point at anything, and every callout would be one badly-timed frame
+      away from spotlighting a rectangle that has moved. The mocks are built from
+      the builders' own field, list and row widgets rather than copies of them,
+      so a change to the real screen shows up here.
     points:
     - routines
     - routine-edit
@@ -207,7 +217,10 @@ groups:
     t: It says what each per-exercise setting does
     d: >-
       sets, the rep target, rest, step up by and back off by — one clause each,
-      in the words the config sheet uses.
+      in the words the config sheet uses, against the exercise list with a slot
+      ringed. The sheet itself is not drawn: it is a modal the tour has nothing
+      to point at until you open it, and the step is about what is inside it
+      rather than about where it is.
     points:
     - workout-edit
     uses:
@@ -221,10 +234,12 @@ groups:
     d: >-
       an empty app is the state every first run is in, so neither tour ends
       without showing the way out of it — the full one walks the whole builder,
-      the quick one a condensed four steps. The same chapter is still offered by
+      the quick one a condensed three steps. The same chapter is still offered by
       itself from Profile, for somebody coming back on day ten who wants the
       builder and not the tour around it. The steps are one list used by all
-      three tracks rather than three descriptions of the same screen.
+      three tracks rather than three descriptions of the same screen. Because it
+      is drawn rather than driven, it runs wherever you happen to be standing and
+      leaves you there — no tab is switched and no screen is pushed.
     points:
     - routines
     - routine-edit
@@ -259,8 +274,10 @@ groups:
     d: >-
       the board, the rest timer and the shade are where the app is least like
       every other tracker — and none of them exists until a session is running.
-      Rather than starting a workout nobody asked for, those steps draw a stand-in
-      and talk about that. They are the only steps that still do.
+      Rather than starting a workout nobody asked for, those steps draw a
+      stand-in and talk about that. The builder chapter is drawn for a different
+      reason — its screens exist, they are just four navigations away — so what
+      the two have in common is the treatment, not the cause.
     points:
     - session
     - shade
@@ -284,14 +301,16 @@ groups:
     - exercise.notes
     - video.capture
   - id: mock-is-a-picture-not-the-board
-    t: The mock is a picture, not the board
+    t: A mock is a picture, not the screen
     d: >-
-      it takes no taps of its own: a tap anywhere, the mock included, advances the
-      tour. Nothing on it is wired to a session, so no session is started, resumed
-      or written to by the tour.
+      it takes no taps of its own: a tap anywhere, the mock included, advances
+      the tour. Nothing on one is wired to anything — no session is started,
+      resumed or written to, no routine is created, and the drawn name field
+      never takes focus, so no keyboard rises over a tour.
     uses:
     - ui.tutorial
     - session.live-state
+    - template.routine
   - id: mock-follows-the-live-display-rules
     t: The mock follows the same display rules as the real screen
     d: >-

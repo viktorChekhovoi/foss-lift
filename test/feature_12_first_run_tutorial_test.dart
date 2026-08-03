@@ -139,15 +139,15 @@ void main() {
       }
     });
 
-    test('the quick tour is the four tabs and a routine in four steps', () {
+    test('the quick tour is the four tabs and a routine in three steps', () {
       final steps = kTutorialTracks[TutorialTrack.quick]!;
-      expect(steps.where((s) => s.demo != null), isEmpty,
-          reason: 'the quick tour shows no mock workout');
+      expect(steps.where((s) => s.demo == TutorialDemo.screen), isEmpty,
+          reason: 'the quick tour skips the live workout');
+      expect(steps.where((s) => s.demo == TutorialDemo.shade), isEmpty);
 
       final builder = steps.where((s) => s.id.startsWith('build-')).toList();
-      expect(builder, hasLength(4),
-          reason: 'condensed: New routine, name and days, Save, plus the tab '
-              'step that gets you there');
+      expect(builder, hasLength(3),
+          reason: 'condensed: New routine, name and days, Save');
       expect(steps.length, lessThanOrEqualTo(10));
       // And it is genuinely shorter than the full tour's version of the same
       // chapter, which is the whole claim the word "quick" makes.
@@ -159,8 +159,7 @@ void main() {
     test('both first-run tours end by building a routine', () {
       for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
         final steps = kTutorialTracks[track]!;
-        final anchors = steps.expand((s) => s.anchors).toSet();
-        expect(anchors, contains(tutorialNewRoutineKey),
+        expect(steps.where((s) => s.demo == TutorialDemo.builder), isNotEmpty,
             reason: '$track never shows the way out of an empty app');
         // Last, after everything else the track covers.
         final lastBuild =
@@ -209,21 +208,23 @@ void main() {
       }
     });
 
-    test('the builder tour covers making a routine', () {
+    test('the builder chapter is drawn, not driven', () {
       final steps = kTutorialTracks[TutorialTrack.builder]!;
-      // It starts by sending you to Routines, then points at the real controls.
-      expect(steps.first.anchors, contains(tutorialNavBarKey));
-      expect(steps.first.navSlot, 1);
-      final anchors = steps.expand((s) => s.anchors).toSet();
-      for (final key in [
-        tutorialNewRoutineKey,
-        tutorialRoutineNameKey,
-        tutorialRoutineDaysKey,
-        tutorialRoutineSaveKey,
-      ]) {
-        expect(anchors, contains(key),
-            reason: 'the builder tour never points at $key');
-      }
+      final drawn = steps.where((s) => s.demo == TutorialDemo.builder);
+      expect(drawn.map((s) => s.focus).toSet(), {
+        TutorialDemoFocus.newRoutine,
+        TutorialDemoFocus.name,
+        TutorialDemoFocus.days,
+        TutorialDemoFocus.exercises,
+        TutorialDemoFocus.slot,
+        TutorialDemoFocus.save,
+      }, reason: 'each control the chapter is about gets its own picture');
+
+      // Nothing in it anchors, navigates or waits on a screen to mount — that
+      // is the whole point of drawing it.
+      expect(steps.expand((s) => s.anchors), isEmpty);
+      expect(steps.where((s) => s.tapThrough), isEmpty);
+      expect(steps.every((s) => s.navSlot == null), isTrue);
     });
 
     test('the builder tour says what each per-exercise setting does', () {
@@ -236,11 +237,11 @@ void main() {
 
     test('and is still a tour of its own, for coming back to', () {
       // Startable from Profile without the tour around it — the day-ten case.
+      // Because it is drawn, it runs from wherever you happen to be standing.
       final builder = kTutorialTracks[TutorialTrack.builder]!;
-      expect(builder.first.anchors, contains(tutorialNavBarKey));
-      expect(builder.first.navSlot, 1);
-      expect(builder.expand((s) => s.anchors), contains(tutorialNewRoutineKey));
-      expect(builder.where((s) => s.demo != null), isEmpty,
+      expect(builder, isNotEmpty);
+      expect(builder.first.demo, TutorialDemo.builder);
+      expect(builder.where((s) => s.demo == TutorialDemo.screen), isEmpty,
           reason: 'the builder tour is not about the live workout');
     });
 
@@ -491,24 +492,23 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a step whose anchor is missing still reads', (tester) async {
-      // Tapping Next instead of the control leaves a later step pointing at a
-      // screen nobody is on. It must still say its piece.
+    testWidgets('the builder chapter reads from wherever you are',
+        (tester) async {
+      // Nothing under it, not even a nav bar: a drawn chapter brings its own
+      // screens, so it does not care what route the app is on when it starts.
       await db.setTutorialSeen(true);
       await tester.pumpWidget(
           appUnder(container, TutorialOverlay(child: const Scaffold())));
       final steps = kTutorialTracks[TutorialTrack.builder]!;
-      final target =
-          steps.indexWhere((s) => s.anchors.contains(tutorialRoutineNameKey));
-      expect(target, greaterThan(0));
       container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
-      for (var i = 0; i < target; i++) {
-        container.read(tutorialProvider.notifier).next();
-      }
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 20));
 
-      expect(find.text(steps[target].title(_l10n)), findsOneWidget);
+      for (var i = 0; i < steps.length; i++) {
+        if (i > 0) container.read(tutorialProvider.notifier).next();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(find.text(steps[i].title(_l10n)), findsOneWidget,
+            reason: '${steps[i].id} said nothing');
+      }
 
       await stop(tester);
     });
@@ -558,11 +558,11 @@ void main() {
         find.byKey(kTutorialDemoNextRowKey).evaluate().isNotEmpty;
 
     for (final scale in [1.0, 2.0]) {
-      testWidgets('the session chapter survives $scale× text on a 360 dp phone',
+      testWidgets('every drawn step survives $scale× text on a 360 dp phone',
           (tester) async {
-        // The mock is a whole screen now, so it is swept like one — the screen
-        // sweep in feature 15 cannot see it, because it is drawn by an overlay
-        // over whatever route happens to be up.
+        // The mocks are whole screens now, so they are swept like ones — the
+        // screen sweep in feature 15 cannot see them, because they are drawn by
+        // an overlay over whatever route happens to be up.
         tester.view.physicalSize = const Size(360, 780);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
@@ -750,6 +750,42 @@ void main() {
       for (final action in ['DONE', 'MISSED']) {
         expect(find.text(action), findsOneWidget);
       }
+
+      await stop(tester);
+    });
+
+    testWidgets('the drawn builder takes no taps and creates nothing',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      final before =
+          (await tester.runAsync(() => db.watchRoutines().first))!.length;
+      final steps = kTutorialTracks[TutorialTrack.builder]!;
+      final index =
+          steps.indexWhere((s) => s.focus == TutorialDemoFocus.name);
+      expect(index, greaterThanOrEqualTo(0));
+      container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
+      for (var i = 0; i < index; i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.byType(TutorialBuilderDemo), findsOneWidget);
+      // The drawn name field never takes focus, so no keyboard rises over a
+      // tour and nothing anybody types goes anywhere.
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.enabled, isFalse);
+
+      await tester.tap(find.byType(TextField), warnIfMissed: false);
+      await tester.pump();
+
+      expect(container.read(tutorialProvider).step, index + 1,
+          reason: 'a tap on the picture is a tap on the tour');
+      expect((await tester.runAsync(() => db.watchRoutines().first))!.length,
+          before,
+          reason: 'no routine was created by looking at one');
 
       await stop(tester);
     });

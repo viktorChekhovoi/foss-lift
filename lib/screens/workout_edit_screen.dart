@@ -8,7 +8,6 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
-import '../widgets/tutorial.dart';
 import '../widgets/workout_items_editor.dart';
 
 /// Edits one saved workout: its name and the ordered exercises it contains.
@@ -155,8 +154,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                           decoration: builderInput(l10n.workoutEditNameHint),
                         ),
                         WorkoutItemsEditor(
-                          // Anchor for the builder tour's "its exercises" step.
-                          key: tutorialWorkoutItemsKey,
                           defaultBarKg: ref.watch(plateSettingsProvider).barKg,
                           items: _items,
                           unit: unit,
@@ -171,8 +168,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                       border: Border(top: BorderSide(color: AppColors.line)),
                     ),
                     child: SizedBox(
-                      // Anchor for the builder tour's "save it" step.
-                      key: tutorialWorkoutSaveKey,
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _saving ? null : _save,

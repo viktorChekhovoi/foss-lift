@@ -691,7 +691,14 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   if (!d.toFailure) ...[
                     builderGrid([
                       BuilderField(
-                        label: l10n.itemEditorUpTo,
+                        label: l10n.itemEditorRepRange,
+                        // The range it currently produces, so the caption says
+                        // what the number does rather than where it goes. The
+                        // Reps field it extends is in the basic half above, out
+                        // of sight of this one.
+                        note: d.repsMax == null
+                            ? null
+                            : l10n.itemEditorRepRangeSpan(d.repsMin, d.repsMax!),
                         child: NumberStepper(
                           // Stepping down past the lower bound drops the upper
                           // one entirely — no stray clear button to knock the

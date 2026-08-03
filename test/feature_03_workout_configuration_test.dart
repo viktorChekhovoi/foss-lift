@@ -877,14 +877,14 @@ void main() {
         expect(fieldLabel(label), findsOneWidget,
             reason: 'the three numbers every slot has an answer for');
       }
-      expect(fieldLabel(l10n.itemEditorUpTo), findsNothing);
+      expect(fieldLabel(l10n.itemEditorRepRange), findsNothing);
       expect(find.text(l10n.itemEditorToFailure), findsNothing);
       expect(find.byKey(kSchemePickerKey), findsNothing);
 
       await tester.tap(find.byKey(kAdvancedToggleKey));
       await tester.pumpAndSettle();
 
-      expect(fieldLabel(l10n.itemEditorUpTo), findsOneWidget);
+      expect(fieldLabel(l10n.itemEditorRepRange), findsOneWidget);
       expect(find.text(l10n.itemEditorToFailure), findsOneWidget);
       expect(find.byKey(kSchemePickerKey), findsOneWidget);
     });
@@ -904,7 +904,7 @@ void main() {
       addTearDown(container.dispose);
       await openBench(tester, container, configure: (d) => d..repsMax = 10);
 
-      expect(fieldLabel(l10nFor().itemEditorUpTo), findsOneWidget);
+      expect(fieldLabel(l10nFor().itemEditorRepRange), findsOneWidget);
     });
 
     testWidgets('picking back-off offers a percentage and reads the ladder back',

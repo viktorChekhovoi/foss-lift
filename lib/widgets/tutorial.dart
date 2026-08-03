@@ -14,15 +14,15 @@ import 'tutorial_demo.dart';
 // Anchors
 // ---------------------------------------------------------------------------
 //
-// The coach marks point at real widgets, so those widgets carry a GlobalKey the
-// overlay can measure. The keys live here (not on the screens) so the step list
-// and the screens agree on exactly one key each, and a screen only has to hang
-// the right key on the right widget.
+// The anchored coach marks point at real widgets, so those widgets carry a
+// GlobalKey the overlay can measure. The keys live here (not on the screens) so
+// the step list and the screens agree on exactly one key each, and a screen only
+// has to hang the right key on the right widget.
 //
-// Two screens may hold *equivalent* controls — the exercise list of a training
-// day is edited both inside the routine builder and on the workout builder's own
-// route — and a GlobalKey may only be mounted once. So those get one key each
-// and the step names both; see [TutorialStep.anchors].
+// What is left is Today and the nav bar: the screens the tour can rely on being
+// in front of you, because it opens on them. Everything that would have needed
+// navigating to is drawn instead — see [TutorialSessionDemo] and
+// [TutorialBuilderDemo].
 
 /// The whole bottom navigation bar. Individual tabs are highlighted by slicing
 /// this rect into equal slots — see [TutorialStep.navSlot].
@@ -37,24 +37,10 @@ final tutorialTodayWorkoutKey = GlobalKey();
 /// The lifetime-totals card on the Today screen.
 final tutorialLifetimeKey = GlobalKey();
 
-/// "New routine", at the bottom of the Routines tab.
-final tutorialNewRoutineKey = GlobalKey();
-
-/// The routine builder's name field, its list of training days, and its Save.
-final tutorialRoutineNameKey = GlobalKey();
-final tutorialRoutineDaysKey = GlobalKey();
-final tutorialRoutineSaveKey = GlobalKey();
-
-/// A training day's exercise list and its Save, on the workout builder's own
-/// route (`/workout/:id/edit`).
-final tutorialWorkoutItemsKey = GlobalKey();
-final tutorialWorkoutSaveKey = GlobalKey();
-
-/// The same two, on the draft screen the routine builder pushes for a day that
-/// has not been saved yet. Separate keys because that screen is stacked *over*
-/// the routine builder, so both are mounted at once.
-final tutorialWorkoutDraftItemsKey = GlobalKey();
-final tutorialWorkoutDraftSaveKey = GlobalKey();
+// The builder used to be anchored too — New routine, the name field, the day
+// list, both Saves. It is drawn now (see [TutorialBuilderDemo]), so those keys
+// are gone along with the four screens the tour had to walk you through to
+// reach them.
 
 // ---------------------------------------------------------------------------
 // Steps
@@ -64,10 +50,26 @@ final tutorialWorkoutDraftSaveKey = GlobalKey();
 ///
 /// [screen] is the whole session screen at full size — [TutorialSessionDemo] —
 /// and every step of the live-workout chapter draws it, differing only in what
-/// each one focuses. [shade] is the odd one out: it is about a notification
-/// rather than about the screen, so it keeps a notification-sized picture in the
-/// middle of a dimmed display.
-enum TutorialDemo { screen, shade }
+/// each one focuses. [builder] is the same arrangement for the three screens a
+/// routine is built on — [TutorialBuilderDemo]. [shade] is the odd one out: it
+/// is about a notification rather than about a screen, so it keeps a
+/// notification-sized picture on a plain backdrop.
+enum TutorialDemo { screen, builder, shade }
+
+/// One drawn step: the screen it draws, and what on it the callout is about.
+TutorialStep _drawn(
+  String id,
+  TutorialDemoFocus focus,
+  String Function(AppLocalizations) title,
+  String Function(AppLocalizations) body,
+) =>
+    TutorialStep(
+      id: id,
+      demo: TutorialDemo.builder,
+      focus: focus,
+      title: title,
+      body: body,
+    );
 
 /// One coach mark: a target to spotlight and the text to show beside it.
 class TutorialStep {
@@ -263,40 +265,19 @@ final List<TutorialStep> _kSessionSteps = [
 /// their own descriptions of the same screens, so a reworded callout cannot say
 /// one thing on the full tour and another on the quick one.
 final List<TutorialStep> _kBuilderSteps = [
-  _kBuildOpenStep,
   _kBuildNewStep,
-  TutorialStep(
-    id: 'build-name',
-    anchors: [tutorialRoutineNameKey],
-    tapThrough: true,
-    title: (l) => l.tutorialBuildNameTitle,
-    body: (l) => l.tutorialBuildNameBody,
-  ),
-  TutorialStep(
-    id: 'build-days',
-    anchors: [tutorialRoutineDaysKey],
-    tapThrough: true,
-    title: (l) => l.tutorialBuildDaysTitle,
-    body: (l) => l.tutorialBuildDaysBody,
-  ),
-  TutorialStep(
-    id: 'build-exercises',
-    // The draft screen first: it is pushed over the routine builder, so when
-    // both are mounted it is the one in front of you.
-    anchors: [tutorialWorkoutDraftItemsKey, tutorialWorkoutItemsKey],
-    tapThrough: true,
-    title: (l) => l.tutorialBuildExercisesTitle,
-    body: (l) => l.tutorialBuildExercisesBody,
-  ),
-  // The per-slot settings live in a modal sheet the tour does not follow you
-  // into — a coach mark over a sheet that is still animating up points at a
-  // moving target. So this step says what each of them means and lets you
-  // read it with the sheet open behind, or before you open it.
-  TutorialStep(
-    id: 'build-slot',
-    title: (l) => l.tutorialBuildSlotTitle,
-    body: (l) => l.tutorialBuildSlotBody,
-  ),
+  _drawn('build-name', TutorialDemoFocus.name, (l) => l.tutorialBuildNameTitle,
+      (l) => l.tutorialBuildNameBody),
+  _drawn('build-days', TutorialDemoFocus.days, (l) => l.tutorialBuildDaysTitle,
+      (l) => l.tutorialBuildDaysBody),
+  _drawn('build-exercises', TutorialDemoFocus.exercises,
+      (l) => l.tutorialBuildExercisesTitle,
+      (l) => l.tutorialBuildExercisesBody),
+  // The per-slot settings live in a modal sheet, which is the one thing in the
+  // chapter with nothing to draw until you open it. So this step rings the row
+  // that opens it and says what is inside.
+  _drawn('build-slot', TutorialDemoFocus.slot, (l) => l.tutorialBuildSlotTitle,
+      (l) => l.tutorialBuildSlotBody),
   _kBuildSaveStep,
 ];
 
@@ -307,41 +288,23 @@ final List<TutorialStep> _kBuilderSteps = [
 /// filling it with exercises collapse into one callout, and the per-slot
 /// settings go entirely — they are the part the full tour is long for.
 final List<TutorialStep> _kQuickBuilderSteps = [
-  _kBuildOpenStep,
   _kBuildNewStep,
-  TutorialStep(
-    id: 'build-quick',
-    anchors: [tutorialRoutineNameKey],
-    tapThrough: true,
-    title: (l) => l.tutorialBuildQuickTitle,
-    body: (l) => l.tutorialBuildQuickBody,
-  ),
+  _drawn('build-quick', TutorialDemoFocus.days,
+      (l) => l.tutorialBuildQuickTitle, (l) => l.tutorialBuildQuickBody),
   _kBuildSaveStep,
 ];
 
-/// The three steps both versions of the chapter share verbatim.
-final TutorialStep _kBuildOpenStep = _tab('build-open', 1,
-    (l) => l.tutorialBuildOpenTitle, (l) => l.tutorialBuildOpenBody);
+/// The two steps both versions of the chapter share verbatim: where a routine
+/// starts, and how it ends.
+final TutorialStep _kBuildNewStep = _drawn(
+    'build-new',
+    TutorialDemoFocus.newRoutine,
+    (l) => l.tutorialBuildNewTitle,
+    (l) => l.tutorialBuildNewBody);
 
-final TutorialStep _kBuildNewStep = TutorialStep(
-  id: 'build-new',
-  anchors: [tutorialNewRoutineKey],
-  tapThrough: true,
-  title: (l) => l.tutorialBuildNewTitle,
-  body: (l) => l.tutorialBuildNewBody,
-);
-
-final TutorialStep _kBuildSaveStep = TutorialStep(
-  id: 'build-save',
-  anchors: [
-    tutorialWorkoutDraftSaveKey,
-    tutorialWorkoutSaveKey,
-    tutorialRoutineSaveKey,
-  ],
-  tapThrough: true,
-  title: (l) => l.tutorialBuildSaveTitle,
-  body: (l) => l.tutorialBuildSaveBody,
-);
+final TutorialStep _kBuildSaveStep = _drawn('build-save',
+    TutorialDemoFocus.save, (l) => l.tutorialBuildSaveTitle,
+    (l) => l.tutorialBuildSaveBody);
 
 /// The three tours, each an ordered list of steps.
 ///
@@ -670,11 +633,19 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
                         hint: l10n.tutorialTrackQuickHint,
                         onTap: () => _choose(TutorialTrack.quick),
                       ),
+                      const SizedBox(height: 4),
+                      // Quieter than the two tours, because it is the third
+                      // answer rather than one of the two — but not *faint*. At
+                      // that colour it read as a disabled control, and "there is
+                      // no way out of this" is the one thing a card that opens
+                      // by itself must not look like.
                       TextButton(
                         onPressed: _dismiss,
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.faint,
-                          minimumSize: const Size(0, 36),
+                          foregroundColor: AppColors.text,
+                          minimumSize: const Size(0, 44),
+                          textStyle: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                         child: Text(l10n.tutorialNotNow),
                       ),
@@ -840,11 +811,17 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
           child: mock,
         );
 
-    if (step.demo == TutorialDemo.screen) {
-      // The rest bar is docked at the bottom, so its step reads from the top;
-      // everything else on the board is near the top, so those read from the
-      // bottom. Either way the callout never sits on what it is describing.
-      final atTop = step.focus == TutorialDemoFocus.rest;
+    if (step.demo != TutorialDemo.shade) {
+      // The callout goes at whichever end the step's subject is not. The rest
+      // bar and the docked Save are at the foot of their screens, and the New
+      // routine button is under a short list — those read from the top;
+      // everything else is near the top of its screen and reads from the
+      // bottom.
+      final atTop = const {
+        TutorialDemoFocus.rest,
+        TutorialDemoFocus.save,
+        TutorialDemoFocus.newRoutine,
+      }.contains(step.focus);
       return Positioned.fill(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -853,7 +830,9 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
             children: [
               Positioned.fill(
                 child: IgnorePointer(
-                  child: dressed(TutorialSessionDemo(focus: step.focus)),
+                  child: dressed(step.demo == TutorialDemo.screen
+                      ? TutorialSessionDemo(focus: step.focus)
+                      : TutorialBuilderDemo(focus: step.focus)),
                 ),
               ),
               Align(
@@ -886,25 +865,33 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _advance,
-        child: SafeArea(
-          child: Center(
-            // Scrolls rather than overflows: at the top of the text scale the
-            // mock and the callout together are taller than a short phone.
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IgnorePointer(
-                    child: SizedBox(
-                      width: width,
-                      child: dressed(const TutorialShadeDemo()),
+        // Opaque, not a scrim over whatever route is behind. The shade is a
+        // notification you see with the app *not* in front of you, so Today
+        // showing faintly through it is both wrong and two layouts read as one.
+        // A plain ground is the phone, elsewhere.
+        child: ColoredBox(
+          color: AppColors.ground,
+          child: SafeArea(
+            child: Center(
+              // Scrolls rather than overflows: at the top of the text scale the
+              // mock and the callout together are taller than a short phone.
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IgnorePointer(
+                      child: SizedBox(
+                        width: width,
+                        child: dressed(const TutorialShadeDemo()),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                      width: width, child: _calloutCard(step, index, tut)),
-                ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                        width: width, child: _calloutCard(step, index, tut)),
+                  ],
+                ),
               ),
             ),
           ),

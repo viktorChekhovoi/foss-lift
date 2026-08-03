@@ -8,7 +8,6 @@ import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
 import '../widgets/share_widgets.dart';
-import '../widgets/tutorial.dart';
 
 class RoutinesScreen extends ConsumerWidget {
   const RoutinesScreen({super.key});
@@ -97,8 +96,6 @@ class _NewRoutineButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      // Anchor for the builder tour's "tap New routine" step.
-      key: tutorialNewRoutineKey,
       width: double.infinity,
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(

@@ -1088,9 +1088,14 @@
   "@itemEditorReps": {
     "description": "Field caption over the lower bound of the rep target."
   },
-  "itemEditorUpTo": "Up to",
-  "@itemEditorUpTo": {
-    "description": "Field caption over the upper bound of the rep target, making a range out of the Reps field beside it."
+  "itemEditorRepRange": "Rep range",
+  "@itemEditorRepRange": {
+    "description": "Field caption over the stepper that turns the slot's Reps into a range by giving it an upper bound. It sits in the Target card's advanced half, on its own — the Reps field it extends is in the basic half above — so the caption has to say what the number is for without that field beside it."
+  },
+  "itemEditorRepRangeSpan": "{min}–{max}",
+  "@itemEditorRepRangeSpan": {
+    "description": "The range the rep-range stepper currently produces, shown as a note beside its caption so the pair reads \"REP RANGE · 8-12\". The character between the numbers is an en dash. The app upper-cases it.",
+    "placeholders": {"min": {"type": "int"}, "max": {"type": "int"}}
   },
   "itemEditorNoUpper": "none",
   "@itemEditorNoUpper": {
@@ -3186,19 +3191,11 @@
   "@tutorialDoneQuickBody": {
     "description": "Body of the last step of the quick tour, in place of tutorialDoneBody. Same naming rules: 'Profile' is a tab, 'Help & tour' is an entry on it. Two or three lines."
   },
-  "tutorialBuildOpenTitle": "Start at Routines",
-  "@tutorialBuildOpenTitle": {
-    "description": "Title of the first step of the routine-builder tour. 'Routines' names a tab. One line."
-  },
-  "tutorialBuildOpenBody": "A program is built here. Tap Routines.",
-  "@tutorialBuildOpenBody": {
-    "description": "Body of the first step of the builder tour, which asks for the tap that opens the Routines tab. 'Routines' names a tab. Two lines — the callout sits above the bottom navigation bar."
-  },
   "tutorialBuildNewTitle": "A new routine",
   "@tutorialBuildNewTitle": {
     "description": "Title of the builder-tour step spotlighting the New routine button. One line."
   },
-  "tutorialBuildNewBody": "A routine is a training program: the days you rotate through. Tap New routine.",
+  "tutorialBuildNewBody": "A routine is a training program: the days you rotate through. Yours start on the Routines tab, under New routine.",
   "@tutorialBuildNewBody": {
     "description": "Body of the step about starting a routine. 'New routine' names the button it points at — see routinesNewRoutine — so use the same words you translated that with. Three lines."
   },
@@ -3214,7 +3211,7 @@
   "@tutorialBuildDaysTitle": {
     "description": "Title of the builder-tour step spotlighting the routine's list of training days. It matches the label on that list — see routineEditWorkouts. One line."
   },
-  "tutorialBuildDaysBody": "A training day is one session: the exercises you do in one visit. Most programs have three to five and rotate through them. Add one.",
+  "tutorialBuildDaysBody": "A training day is one session: the exercises you do in one visit. Most programs have three to five and rotate through them.",
   "@tutorialBuildDaysBody": {
     "description": "Body of the step about training days. This is where the builder tour defines 'training day', so keep the definition. It ends by asking for the tap on the add button. Four lines."
   },

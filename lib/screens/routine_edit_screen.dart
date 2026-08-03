@@ -10,7 +10,6 @@ import '../util/schedule_labels.dart';
 import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/common.dart';
-import '../widgets/tutorial.dart';
 import '../widgets/workout_items_editor.dart';
 
 /// Swatches offered for a routine's accent colour.
@@ -350,12 +349,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                       children: [
                         builderLabel(l10n.commonName),
-                        // KeyedSubtree, not a key on the field: a GlobalKey on
-                        // a TextField is its element identity, and the tour has
-                        // no business owning that.
-                        KeyedSubtree(
-                          key: tutorialRoutineNameKey,
-                          child: TextField(
+                        TextField(
                           controller: _name,
                           // Naming it is the first thing you do on a new
                           // routine — but never grab focus when editing one
@@ -366,7 +360,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration: builderInput(l10n.routineEditNameHint),
-                          ),
                         ),
                         const SizedBox(height: 20),
                         builderLabel(l10n.routineEditAccentColor),
@@ -410,8 +403,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         // The same list the exercises inside a day get, so a
                         // day is dragged into place exactly the way a slot is.
                         BuilderReorderList<_WorkoutDraft>(
-                          // Anchor for the builder tour's "training days" step.
-                          key: tutorialRoutineDaysKey,
                           caption: l10n.routineEditWorkouts,
                           items: _workouts,
                           emptyText: l10n.routineEditNoWorkouts,
@@ -436,8 +427,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                       border: Border(top: BorderSide(color: AppColors.line)),
                     ),
                     child: SizedBox(
-                      // Anchor for the builder tour's "save it" step.
-                      key: tutorialRoutineSaveKey,
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _saving ? null : _save,
@@ -517,9 +506,6 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                       onChanged: (_) => _commitName(),
                     ),
                     WorkoutItemsEditor(
-                      // Anchor for the builder tour's "its exercises" step, on
-                      // the draft screen rather than the saved-workout route.
-                      key: tutorialWorkoutDraftItemsKey,
                       defaultBarKg: ref.watch(plateSettingsProvider).barKg,
                       items: items,
                       unit: unit,
@@ -535,7 +521,6 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
                   border: Border(top: BorderSide(color: AppColors.line)),
                 ),
                 child: SizedBox(
-                  key: tutorialWorkoutDraftSaveKey,
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () {

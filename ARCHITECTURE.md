@@ -92,7 +92,8 @@ lib/
 │   ├── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
 │   ├── resume_workout_bar.dart   Docked resume bar for a collapsed session
 │   ├── start_workout.dart        The one way into /session: switch + layoff asks
-│   └── tutorial.dart             First-run coach-mark tour (overlay + anchors)
+│   ├── tutorial.dart             First-run tours: overlay, tracks, tab anchors
+│   └── tutorial_demo.dart        The screens the tours draw rather than point at
 └── screens/                      One file per screen (see table below)
 
 web/                              The browser build's shell: page, icons, and the
