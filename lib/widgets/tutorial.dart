@@ -265,6 +265,7 @@ final List<TutorialStep> _kSessionSteps = [
 /// their own descriptions of the same screens, so a reworded callout cannot say
 /// one thing on the full tour and another on the quick one.
 final List<TutorialStep> _kBuilderSteps = [
+  _kBuildOpenStep,
   _kBuildNewStep,
   _drawn('build-name', TutorialDemoFocus.name, (l) => l.tutorialBuildNameTitle,
       (l) => l.tutorialBuildNameBody),
@@ -278,6 +279,10 @@ final List<TutorialStep> _kBuilderSteps = [
   // that opens it and says what is inside.
   _drawn('build-slot', TutorialDemoFocus.slot, (l) => l.tutorialBuildSlotTitle,
       (l) => l.tutorialBuildSlotBody),
+  // Saving the day is what puts the routine screen back in front of you, so it
+  // is a step of its own rather than a jump the last picture makes silently.
+  _drawn('build-save-day', TutorialDemoFocus.saveDay,
+      (l) => l.tutorialBuildSaveDayTitle, (l) => l.tutorialBuildSaveDayBody),
   _kBuildSaveStep,
 ];
 
@@ -288,14 +293,21 @@ final List<TutorialStep> _kBuilderSteps = [
 /// filling it with exercises collapse into one callout, and the per-slot
 /// settings go entirely — they are the part the full tour is long for.
 final List<TutorialStep> _kQuickBuilderSteps = [
+  _kBuildOpenStep,
   _kBuildNewStep,
   _drawn('build-quick', TutorialDemoFocus.days,
       (l) => l.tutorialBuildQuickTitle, (l) => l.tutorialBuildQuickBody),
   _kBuildSaveStep,
 ];
 
-/// The two steps both versions of the chapter share verbatim: where a routine
-/// starts, and how it ends.
+/// The three steps both versions of the chapter share verbatim: where routines
+/// live, where one starts, and how it ends.
+final TutorialStep _kBuildOpenStep = _drawn(
+    'build-open',
+    TutorialDemoFocus.routinesTab,
+    (l) => l.tutorialBuildOpenTitle,
+    (l) => l.tutorialBuildOpenBody);
+
 final TutorialStep _kBuildNewStep = _drawn(
     'build-new',
     TutorialDemoFocus.newRoutine,
@@ -812,48 +824,60 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
         );
 
     if (step.demo != TutorialDemo.shade) {
-      // The callout goes at whichever end the step's subject is not. The rest
-      // bar and the docked Save are at the foot of their screens, and the New
-      // routine button is under a short list — those read from the top;
-      // everything else is near the top of its screen and reads from the
-      // bottom.
+      // Which end the callout docks to: the end the step's subject is not on.
+      // The rest bar and the two Save buttons are at the foot of their screens,
+      // so those read from the top; everything else sits near the top of its
+      // screen and reads from the bottom.
       final atTop = const {
         TutorialDemoFocus.rest,
         TutorialDemoFocus.save,
-        TutorialDemoFocus.newRoutine,
+        TutorialDemoFocus.saveDay,
       }.contains(step.focus);
+
+      // **Docked, not floating.** The picture takes the room the callout
+      // leaves, so nothing on it is ever underneath the words describing it —
+      // a card hidden behind the callout is the one thing a picture of a screen
+      // cannot afford. Floating was survivable over a board with an empty
+      // middle and wrong everywhere else.
+      final callout = ConstrainedBox(
+        // Capped, and *not* flexible. A non-flex child of a column is handed
+        // unbounded height, so without this the card takes whatever it wants
+        // and the picture beside it overflows the screen; making it flexible
+        // instead would divide the column evenly and put a two-line callout in
+        // the middle of the display. Half the screen, and it scrolls inside
+        // that — at the top of the text scale a five-line callout with three
+        // buttons under it is taller than the phone, and a card that runs off
+        // the screen takes its Next button with it.
+        constraints: BoxConstraints(maxHeight: size.height * 0.5),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: width,
+              child: SingleChildScrollView(
+                child: _calloutCard(step, index, tut),
+              ),
+            ),
+          ),
+        ),
+      );
+      final mock = Expanded(
+        child: IgnorePointer(
+          child: dressed(step.demo == TutorialDemo.screen
+              ? TutorialSessionDemo(focus: step.focus)
+              : TutorialBuilderDemo(focus: step.focus)),
+        ),
+      );
+
       return Positioned.fill(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _advance,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: dressed(step.demo == TutorialDemo.screen
-                      ? TutorialSessionDemo(focus: step.focus)
-                      : TutorialBuilderDemo(focus: step.focus)),
-                ),
-              ),
-              Align(
-                alignment: atTop ? Alignment.topCenter : Alignment.bottomCenter,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SizedBox(
-                      width: width,
-                      // Scrolls only when it has to: at the top of the text
-                      // scale a five-line callout with three buttons under it
-                      // is taller than the phone, and a card that runs off the
-                      // screen takes its Next button with it.
-                      child: SingleChildScrollView(
-                        child: _calloutCard(step, index, tut),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          child: ColoredBox(
+            color: AppColors.ground,
+            child: Column(
+              children: atTop ? [callout, mock] : [mock, callout],
+            ),
           ),
         ),
       );

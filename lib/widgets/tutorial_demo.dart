@@ -35,11 +35,13 @@ enum TutorialDemoFocus {
   rest,
   note,
   camera,
+  routinesTab,
   newRoutine,
   name,
   days,
   exercises,
   slot,
+  saveDay,
   save,
 }
 
@@ -53,7 +55,9 @@ _BuilderScreen _screenFor(TutorialDemoFocus focus) => switch (focus) {
       TutorialDemoFocus.days ||
       TutorialDemoFocus.save =>
         _BuilderScreen.routine,
-      TutorialDemoFocus.exercises || TutorialDemoFocus.slot =>
+      TutorialDemoFocus.exercises ||
+      TutorialDemoFocus.slot ||
+      TutorialDemoFocus.saveDay =>
         _BuilderScreen.day,
       _ => _BuilderScreen.routines,
     };
@@ -484,7 +488,56 @@ class TutorialBuilderDemo extends StatelessWidget {
               ],
             ),
           ),
+          // The only one of the three screens that has a navigation bar — the
+          // other two are pushed over it — and the reason it is drawn at all:
+          // the chapter arrives from the Today steps with nothing on the phone
+          // having moved, so the picture has to say which tab it is.
+          _navBar(l10n),
         ],
+      );
+
+  /// The bottom navigation bar, with the Routines tab lit.
+  Widget _navBar(AppLocalizations l10n) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.line)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            for (final (icon, label, on) in [
+              (Icons.today_outlined, l10n.navToday, false),
+              (Icons.list_alt, l10n.navRoutines, true),
+              (Icons.history, l10n.navHistory, false),
+              (Icons.person_outline, l10n.navProfile, false),
+            ])
+              Expanded(
+                child: _ringed(
+                  on: on && focus == TutorialDemoFocus.routinesTab,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon,
+                          size: 20,
+                          color: on ? AppColors.accent : AppColors.faint),
+                      const SizedBox(height: 3),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: on ? AppColors.accent : AppColors.faint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       );
 
   /// The routine builder: its name field, its training days, and Save.
@@ -559,7 +612,10 @@ class TutorialBuilderDemo extends StatelessWidget {
               ],
             ),
           ),
-          _dock(_filled(l10n.workoutEditSave)),
+          _dock(_ringed(
+            on: focus == TutorialDemoFocus.saveDay,
+            child: _filled(l10n.workoutEditSave),
+          )),
         ],
       );
 

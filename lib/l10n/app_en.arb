@@ -3042,7 +3042,7 @@
   "@tutorialChooseTitle": {
     "description": "Title of the card the app opens on the first time it is launched, which asks which of two tours to take. Foss Lift is the app's name and stays as it is. One line on a card about 320 logical pixels wide."
   },
-  "tutorialChooseBody": "Two tours to pick from. Neither takes long.",
+  "tutorialChooseBody": "Choose a tutorial option, or find them later in Profile.",
   "@tutorialChooseBody": {
     "description": "Body of the first-run card, above the two tour buttons. It must not rank the two — somebody who knows their way around a gym is not taking the lesser option. Two lines."
   },
@@ -3050,7 +3050,7 @@
   "@tutorialTrackFull": {
     "description": "Button starting the long tour: the four tabs, the Today screen and the live workout, with the gym vocabulary explained. Full width on its own line — keep it under about 20 characters."
   },
-  "tutorialTrackFullHint": "Every screen, and the gym words explained",
+  "tutorialTrackFullHint": "Explain everything, including gym terms",
   "@tutorialTrackFullHint": {
     "description": "The one line under the Full tour button saying what is in it. Not a recommendation — a description. One line, about 40 characters."
   },
@@ -3058,7 +3058,7 @@
   "@tutorialTrackQuick": {
     "description": "Button starting the short tour, which shows the four tabs and stops. Full width on its own line — keep it under about 20 characters."
   },
-  "tutorialTrackQuickHint": "Where things are, then build a routine",
+  "tutorialTrackQuickHint": "A brief tour for an experienced gym-goer",
   "@tutorialTrackQuickHint": {
     "description": "The one line under the Quick tour button saying what is in it. One line, about 40 characters."
   },
@@ -3194,7 +3194,7 @@
   "@tutorialDoneTitle": {
     "description": "Title of the last step of the full tour. Three or four words on one line."
   },
-  "tutorialDoneBody": "Replay it from Profile → Help & tour, where the routine builder also has a tour of its own.",
+  "tutorialDoneBody": "Replay it from Profile → Help & tour.",
   "@tutorialDoneBody": {
     "description": "Body of the last step of the full tour. 'Profile' names a tab and 'Help & tour' names an entry on it, so both must match how those are translated. The arrow is a separator between them and stays as it is. Three lines."
   },
@@ -3204,19 +3204,19 @@
   },
   "tutorialBuildNewTitle": "A new routine",
   "@tutorialBuildNewTitle": {
-    "description": "Title of the builder-tour step spotlighting the New routine button. One line."
+    "description": "Title of the tour step ringing the New routine button on a drawn Routines screen. Two or three words."
   },
-  "tutorialBuildNewBody": "A routine is a training program: the days you rotate through. Yours start on the Routines tab, under New routine.",
+  "tutorialBuildNewBody": "A routine is a training program — the set of workouts you rotate through. New routine opens an empty one.",
   "@tutorialBuildNewBody": {
-    "description": "Body of the step about starting a routine. 'New routine' names the button it points at — see routinesNewRoutine — so use the same words you translated that with. Three lines."
+    "description": "Body of the step ringing New routine. This is where the tour defines the word 'routine' for somebody who has never trained, so keep the definition. It also has to say what the button opens, because the next step's picture is that screen."
   },
   "tutorialBuildNameTitle": "Name it",
   "@tutorialBuildNameTitle": {
     "description": "Title of the builder-tour step spotlighting the routine's name field. Two words."
   },
-  "tutorialBuildNameBody": "Whatever you will recognise on Today — “Push Pull Legs”, “Mondays and Thursdays”.",
+  "tutorialBuildNameBody": "New routine opens this. Name it whatever you will recognise on Today — “Push Pull Legs”, “Mondays and Thursdays”.",
   "@tutorialBuildNameBody": {
-    "description": "Body of the step about naming a routine. 'Today' names a tab. The two quoted examples are illustrations, not fixed strings: translate them into names somebody would actually give a program in your language, keeping the curly quotation marks. Three lines."
+    "description": "Body of the step ringing the routine builder's name field. It opens by naming what got you here, because the picture has just changed with nothing on the phone having moved. The two examples are routine names a user might write; translate them as plausible names rather than word for word."
   },
   "tutorialBuildDaysTitle": "Training days",
   "@tutorialBuildDaysTitle": {
@@ -3224,15 +3224,15 @@
   },
   "tutorialBuildDaysBody": "A training day is one session: the exercises you do in one visit. Most programs have three to five and rotate through them.",
   "@tutorialBuildDaysBody": {
-    "description": "Body of the step about training days. This is where the builder tour defines 'training day', so keep the definition. It ends by asking for the tap on the add button. Four lines."
+    "description": "Body of the step ringing the list of training days. This is where the tour defines 'training day', so keep the definition. Budget three lines."
   },
   "tutorialBuildExercisesTitle": "Its exercises",
   "@tutorialBuildExercisesTitle": {
     "description": "Title of the builder-tour step spotlighting the exercise list inside a training day. Two or three words."
   },
-  "tutorialBuildExercisesBody": "Add the movements this day is made of, in the order you will do them. Drag the grip on the left to reorder.",
+  "tutorialBuildExercisesBody": "Tapping a training day opens it. Add the movements it is made of, in the order you will do them, and drag the grip on the left to reorder.",
   "@tutorialBuildExercisesBody": {
-    "description": "Body of the step about a training day's exercises. 'Grip' is the drag handle on the left of each row. Three lines."
+    "description": "Body of the step ringing a training day's exercise list. It opens by naming what got you here — the picture has changed to a different screen. 'Grip' is the drag handle at the left of each row."
   },
   "tutorialBuildSlotTitle": "What each exercise is set to",
   "@tutorialBuildSlotTitle": {
@@ -3240,7 +3240,7 @@
   },
   "tutorialBuildSlotBody": "Tap an exercise to configure it. Sets is how many times you repeat it, the rep target is what each set aims at, and rest is the pause between them. Step up by is how much is added after a clean session; back off by is how much comes off after missing one.",
   "@tutorialBuildSlotBody": {
-    "description": "Body of the step explaining every setting in the exercise config sheet. Each named setting is a label in that sheet — use the same words you translated itemEditorSets, itemEditorReps, itemEditorRest, itemEditorStepUp and itemEditorBackOff with. The longest body in any tour: it stands alone on a dimmed screen that scrolls, so six lines is fine."
+    "description": "Body of the step ringing one exercise row. It says what the settings sheet behind that row contains, in the words that sheet uses — the sheet itself is a modal the tour does not draw. Five lines is survivable."
   },
   "tutorialBuildQuickTitle": "Name it and fill it",
   "@tutorialBuildQuickTitle": {
@@ -3254,9 +3254,9 @@
   "@tutorialBuildSaveTitle": {
     "description": "Title of the builder-tour step spotlighting the Save button. Two words."
   },
-  "tutorialBuildSaveBody": "The routine appears under Routines, and on Today once you make it the current one.",
+  "tutorialBuildSaveBody": "With every day added, save the routine. It appears under Routines, and on Today once you make it the current one.",
   "@tutorialBuildSaveBody": {
-    "description": "Body of the step about saving. 'Routines' and 'Today' name tabs. Three lines."
+    "description": "Body of the step ringing the routine builder's Save — the last step of the chapter. It says where the finished routine turns up."
   },
   "tutorialBuildDoneTitle": "That is a routine",
   "@tutorialBuildDoneTitle": {
@@ -3453,5 +3453,21 @@
   "reminderBody": "Training day — time to lift.",
   "@reminderBody": {
     "description": "The body of a scheduled reminder; the bold line above it is the routine's own name. Fires on a day the routine is scheduled for. One short line — a notification on a lock screen. The dash is an em dash."
+  },
+  "tutorialBuildSaveDayTitle": "Save the day",
+  "@tutorialBuildSaveDayTitle": {
+    "description": "Title of the step ringing the Save button at the foot of a training day. 'Day' is a training day, not a date. Two or three words."
+  },
+  "tutorialBuildSaveDayBody": "That is one training day done. Saving it puts you back on the routine, where you add the next one.",
+  "@tutorialBuildSaveDayBody": {
+    "description": "Body of the step ringing a training day's Save. It has to say that saving returns you to the routine, because the next step's picture is that screen again."
+  },
+  "tutorialBuildOpenTitle": "Where routines live",
+  "@tutorialBuildOpenTitle": {
+    "description": "Title of the step that opens the builder chapter, on a drawn Routines screen with that tab lit in the navigation bar. Two or three words."
+  },
+  "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and this is where you make one of your own.",
+  "@tutorialBuildOpenBody": {
+    "description": "Body of the first step of the builder chapter. The full tour arrives here from the Today steps, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines."
   }
 }

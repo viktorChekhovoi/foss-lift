@@ -140,15 +140,16 @@ void main() {
       }
     });
 
-    test('the quick tour is the four tabs and a routine in three steps', () {
+    test('the quick tour is the four tabs and a routine in four steps', () {
       final steps = kTutorialTracks[TutorialTrack.quick]!;
       expect(steps.where((s) => s.demo == TutorialDemo.screen), isEmpty,
           reason: 'the quick tour skips the live workout');
       expect(steps.where((s) => s.demo == TutorialDemo.shade), isEmpty);
 
       final builder = steps.where((s) => s.id.startsWith('build-')).toList();
-      expect(builder, hasLength(3),
-          reason: 'condensed: New routine, name and days, Save');
+      expect(builder, hasLength(4),
+          reason: 'condensed: where routines live, New routine, name and days, '
+              'Save');
       expect(steps.length, lessThanOrEqualTo(10));
       // And it is genuinely shorter than the full tour's version of the same
       // chapter, which is the whole claim the word "quick" makes.
@@ -213,13 +214,16 @@ void main() {
       final steps = kTutorialTracks[TutorialTrack.builder]!;
       final drawn = steps.where((s) => s.demo == TutorialDemo.builder);
       expect(drawn.map((s) => s.focus).toSet(), {
+        TutorialDemoFocus.routinesTab,
         TutorialDemoFocus.newRoutine,
         TutorialDemoFocus.name,
         TutorialDemoFocus.days,
         TutorialDemoFocus.exercises,
         TutorialDemoFocus.slot,
+        TutorialDemoFocus.saveDay,
         TutorialDemoFocus.save,
-      }, reason: 'each control the chapter is about gets its own picture');
+      }, reason: 'each control the chapter is about gets its own picture, and '
+          'the whole path from the Routines tab to a saved routine is walked');
 
       // Nothing in it anchors, navigates or waits on a screen to mount — that
       // is the whole point of drawing it.
@@ -234,6 +238,30 @@ void main() {
         expect(said, contains(setting),
             reason: 'the builder tour never explains "$setting"');
       }
+    });
+
+    test('the chapter opens on the Routines tab, placed in the app', () {
+      // A drawn chapter changes the picture with nothing on the phone having
+      // moved, so it has to say where the picture is.
+      final first = kTutorialTracks[TutorialTrack.builder]!.first;
+      expect(first.focus, TutorialDemoFocus.routinesTab);
+      expect(first.body(_l10n).toLowerCase(), contains('today'),
+          reason: 'the full tour arrives here from Today and has to bridge it');
+    });
+
+    test('every change of screen in it is accounted for in words', () {
+      // Each step that lands on a screen the one before it was not on names
+      // what opened it — otherwise the picture just changes.
+      final said = {
+        for (final s in kTutorialTracks[TutorialTrack.builder]!)
+          s.id: '${s.title(_l10n)} ${s.body(_l10n)}'.toLowerCase(),
+      };
+      expect(said['build-name'], contains('new routine'));
+      expect(said['build-exercises'], contains('training day'));
+      expect(said['build-slot'], contains('tap'));
+      expect(said['build-save-day'], isNotNull);
+      expect(said['build-save-day']!, contains('routine'),
+          reason: 'saving the day is what puts you back on the routine');
     });
 
     test('and is still a tour of its own, for coming back to', () {
@@ -628,13 +656,17 @@ void main() {
       await walkTo(tester, stepWith(TutorialDemo.screen));
 
       final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-      final mock = tester.getSize(find.byType(TutorialSessionDemo));
+      final mock = tester.getRect(find.byType(TutorialSessionDemo));
       expect(mock.width, closeTo(screen.width, 1),
           reason: 'a thumbnail of a screen teaches the thumbnail');
-      expect(mock.height, closeTo(screen.height, 1));
-      // Two exercises, so the mock reads as a training day rather than as one
-      // lift somebody was shown in isolation.
-      expect(find.byType(TutorialBoardDemo), findsNWidgets(2));
+      expect(mock.height, greaterThan(screen.height / 2),
+          reason: 'the callout docks and the picture takes the rest');
+      // And the callout is beside it, never on top of it: a control hidden
+      // under the words describing it is the one thing this cannot afford.
+      final callout = tester.getRect(find.byType(FilledButton).first);
+      expect(mock.overlaps(callout), isFalse,
+          reason: 'the callout is covering the screen it is describing');
+      expect(find.byType(TutorialBoardDemo), findsWidgets);
 
       await stop(tester);
     });
@@ -682,8 +714,6 @@ void main() {
               of: find.byKey(kTutorialDemoRingKey),
               matching: find.byKey(kTutorialDemoNoteKey)),
           findsOneWidget);
-      expect(find.byKey(kTutorialDemoNoteKey), findsNWidgets(2),
-          reason: 'the second lift has a note icon too, just not a ring');
       expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
           AppColors.accent);
       for (final camera in boardIcons(tester, kTutorialDemoCameraKey)) {

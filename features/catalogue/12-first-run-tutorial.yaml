@@ -164,7 +164,7 @@ groups:
     t: The quick tour is the four tabs and a routine built in four steps
     d: >-
       for somebody who has used a tracker before: where the four destinations
-      are, then New routine → name it and add its days → Save. It skips what the
+      are, then Routines → New routine → name it and add its days → Save. It skips what the
       full tour spends steps on — the live workout, and the per-slot settings —
       and folds naming a routine, adding a training day and filling it with
       exercises into one callout, because somebody who has used a tracker knows
@@ -184,9 +184,10 @@ groups:
   - id: track-choice-is-not-a-judgement
     t: Neither track is presented as the lesser one
     d: >-
-      the two are offered side by side with one line each saying what is in them —
-      "every screen, with the gym words explained" and "where things are, then
-      build a routine" — and no wording that ranks the reader.
+      the two are offered side by side with one line each saying who it is for —
+      "explain everything, including gym terms" and "a brief tour for an
+      experienced gym-goer". Neither ranks the reader: one names what it covers,
+      the other who already knows it.
     uses:
     - ui.tutorial-track
 - name: The builder tour
@@ -195,14 +196,15 @@ groups:
     t: The builder chapter is drawn, not driven
     d: >-
       Routines → New routine → name it → add a training day → add its exercises →
-      Save, each step against a full-size picture of the screen it is about, with
-      the control in question ringed. It is the same treatment the live workout
-      gets, and for the same reason: the tour would otherwise have to march you
-      through four screens it does not own, waiting on each to mount before it
-      could point at anything, and every callout would be one badly-timed frame
-      away from spotlighting a rectangle that has moved. The mocks are built from
-      the builders' own field, list and row widgets rather than copies of them,
-      so a change to the real screen shows up here.
+      configure one → save the day → save the routine, each step against a
+      full-size picture of the screen it is about, with the control in question
+      ringed. It is the same treatment the live workout gets, and for the same
+      reason: the tour would otherwise have to march you through four screens it
+      does not own, waiting on each to mount before it could point at anything,
+      and every callout would be one badly-timed frame away from spotlighting a
+      rectangle that has moved. The mocks are built from the builders' own field,
+      list and row widgets rather than copies of them, so a change to the real
+      screen shows up here.
     points:
     - routines
     - routine-edit
@@ -213,6 +215,40 @@ groups:
     - template.routine
     - template.workout
     - template.item
+  - id: builder-chapter-starts-from-today
+    t: It starts where you are standing, and names every screen it moves to
+    d: >-
+      the full tour reaches the builder from the Today steps, so the chapter
+      opens on the Routines tab — drawn with the navigation bar under it and that
+      tab lit, so the picture is placed in the app rather than appearing from
+      nowhere. Every step after it says what opened the screen it is on: New
+      routine opens the builder, tapping a training day opens the day, tapping an
+      exercise opens its settings, and saving the day comes back. A drawn chapter
+      changes the picture with nothing on the phone having moved, so each change
+      of picture is accounted for in words.
+    points:
+    - today
+    - routines
+    - routine-edit
+    - workout-edit
+    uses:
+    - ui.tutorial
+    - ui.navigation
+    - template.routine
+    - template.workout
+    - template.item
+  - id: callout-never-covers-the-screen-it-describes
+    t: A callout never covers the screen it is describing
+    d: >-
+      on a drawn step the callout is docked to the top or the bottom and the
+      picture takes the room that is left, rather than floating over it. Floating
+      was fine over a board with an empty middle and wrong everywhere else: on
+      the Routines step the card above New routine disappeared under the callout,
+      which is the one thing a picture of a screen cannot afford. Which end it
+      docks to follows the step's subject — the rest bar and the two Save buttons
+      are at the foot of their screens, so those steps read from the top.
+    uses:
+    - ui.tutorial
   - id: builder-tour-explains-each-slot-setting
     t: It says what each per-exercise setting does
     d: >-
@@ -234,7 +270,7 @@ groups:
     d: >-
       an empty app is the state every first run is in, so neither tour ends
       without showing the way out of it — the full one walks the whole builder,
-      the quick one a condensed three steps. The same chapter is still offered by
+      the quick one a condensed four steps. The same chapter is still offered by
       itself from Profile, for somebody coming back on day ten who wants the
       builder and not the tour around it. The steps are one list used by all
       three tracks rather than three descriptions of the same screen. Because it
