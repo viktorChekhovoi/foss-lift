@@ -83,6 +83,28 @@ double snapToUnitStep(double kg, String unit) {
   return (kg / step).roundToDouble() * step;
 }
 
+/// The grid a weight that arrived from somewhere else is put back onto: a
+/// quarter of a kilogram, or half a pound.
+///
+/// Not the same fraction in both units, because the smallest rate each gym
+/// actually uses is not the same: 1.25 kg is the pair of 1.25s a metric gym
+/// steps by and has to survive, while no pounds gym counts below the half.
+const double kTidyGridLb = 0.5;
+const double kTidyGridKg = 0.25;
+
+/// [kg] rounded to the nearest [kTidyGridKg] or [kTidyGridLb] of [unit].
+///
+/// This is a repair, not a preference. A wire format that carries kilograms to
+/// two decimals (`ByteWriter.fixed2`) cannot hold a pounds figure exactly: 2.5 lb
+/// is 1.1339809 kg, arrives as 1.13, and reads back as 2.49 lb. The error is at
+/// most a hundredth of a kilogram, so either grid is coarse enough to put the
+/// number back where it started. Only a value that has travelled is put through
+/// this — nothing already on the phone is rounded.
+double snapToTidyGrid(double kg, String unit) {
+  final grid = unit == 'lb' ? kTidyGridLb : kTidyGridKg;
+  return toKg((toDisplayWeight(kg, unit) / grid).roundToDouble() * grid, unit);
+}
+
 /// Whether [kg] is (near enough) the default [mode] steps by in [unit].
 ///
 /// The epsilon is what makes the swap on a unit switch safe: 5 lb stored as

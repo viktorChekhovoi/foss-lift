@@ -222,11 +222,11 @@ extension RoutineSharing on AppDatabase {
                   increment: Value(isDefaultIncrement(
                           it.increment, it.progression, 'kg')
                       ? defaultIncrementFor(it.progression, unit)
-                      : it.increment),
+                      : _landedRate(it.increment, it.progression, unit)),
                   deload: Value(
                       isDefaultDeload(it.deload, it.progression, 'kg')
                           ? defaultDeloadFor(it.progression, unit)
-                          : it.deload),
+                          : _landedRate(it.deload, it.progression, unit)),
                   successThreshold: Value(it.successThreshold),
                   failureThreshold: Value(it.failureThreshold),
                   scheme: Value(it.scheme),
@@ -269,6 +269,14 @@ String? _canonicalVideo(String? url) {
   final id = youTubeVideoId(url);
   return id == null ? null : youTubeUrl(id);
 }
+
+/// A rate the sender actually spent bytes on, as it lands here.
+///
+/// A weight is put back on the receiving phone's grid — see [snapToTidyGrid]
+/// for the format's rounding this undoes. Reps and seconds carry no unit and
+/// pass straight through.
+double _landedRate(double value, ProgressionMode mode, String unit) =>
+    mode == ProgressionMode.weight ? snapToTidyGrid(value, unit) : value;
 
 /// The incoming definition as a row patch.
 ///

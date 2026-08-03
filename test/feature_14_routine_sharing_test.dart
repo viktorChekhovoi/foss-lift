@@ -761,6 +761,94 @@ void main() {
       expect(bench.deload, closeTo(toKg(10, 'lb'), 1e-6));
     });
 
+    group('a rate that travelled lands on a tidy number', () {
+      /// The sender's routine through the code and back, as a receiving phone
+      /// on [unit] would land it: only the string round trip puts a rate
+      /// through the format's hundredths-of-a-kilogram quantisation.
+      Future<WorkoutItem> landed({
+        required double increment,
+        required double deload,
+        required String unit,
+        ProgressionMode mode = ProgressionMode.weight,
+      }) async {
+        final sender = memoryDb();
+        addTearDown(sender.close);
+        final exerciseId = await sender.createExercise(
+          name: 'Zercher Squat',
+          muscle: 'Legs',
+          equipment: 'Barbell',
+          measure: ExerciseMeasure.reps,
+          weightType: WeightType.bar,
+        );
+        final routineId = await sender.createRoutine(
+          name: 'Elbow Day',
+          color: '3ED598',
+          restSeconds: 210,
+        );
+        await sender.replaceRoutineWorkouts(routineId, [
+          (
+            id: null,
+            name: 'Zerchers',
+            items: [
+              WorkoutItemsCompanion.insert(
+                workoutId: 0,
+                exerciseId: exerciseId,
+                position: const Value(0),
+                targetSets: const Value(3),
+                repsMin: const Value(5),
+                progression: Value(mode),
+                increment: Value(increment),
+                deload: Value(deload),
+              ),
+            ],
+          ),
+        ]);
+
+        final code = RoutineCode.encode(await sender.sharedRoutine(routineId));
+        await db.setWeightUnit(unit);
+        final id = await db
+            .importSharedRoutine((RoutineCode.decode(code) as RoutineCodeOk).routine);
+        final day = (await db.workoutsForRoutine(id)).single;
+        return (await db.itemsForWorkout(day.id)).single.item;
+      }
+
+      test('a 2.5 lb step arrives as 2.5 lb, not 2.49', () async {
+        final item = await landed(
+          increment: toKg(2.5, 'lb'),
+          deload: toKg(7.5, 'lb'),
+          unit: 'lb',
+        );
+        expect(toDisplayWeight(item.increment, 'lb'), closeTo(2.5, 1e-9),
+            reason: '1.13 kg off the wire is 2.49 lb until it is rounded');
+        expect(toDisplayWeight(item.deload, 'lb'), closeTo(7.5, 1e-9));
+      });
+
+      test('a metric rate is rounded in the metric gym that receives it',
+          () async {
+        final item = await landed(increment: 7.5, deload: 12.5, unit: 'kg');
+        expect(item.increment, closeTo(7.5, 1e-9));
+        expect(item.deload, closeTo(12.5, 1e-9));
+      });
+
+      test('the quarter-kilo grid leaves a 1.25 kg step alone', () async {
+        final item = await landed(increment: 1.25, deload: 2.5, unit: 'kg');
+        expect(item.increment, closeTo(1.25, 1e-9),
+            reason: 'the pair of 1.25s a metric gym steps by');
+        expect(item.deload, closeTo(2.5, 1e-9));
+      });
+
+      test('a rep rate carries no unit and is left alone', () async {
+        final item = await landed(
+          increment: 3,
+          deload: 7,
+          unit: 'lb',
+          mode: ProgressionMode.reps,
+        );
+        expect(item.increment, 3);
+        expect(item.deload, 7);
+      });
+    });
+
     test('the importing phone supplies the weights out of its own history',
         () async {
       final shared =
