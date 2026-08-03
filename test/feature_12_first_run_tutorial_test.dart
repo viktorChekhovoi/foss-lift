@@ -139,11 +139,54 @@ void main() {
       }
     });
 
-    test('the quick tour is the four tabs and little else', () {
+    test('the quick tour is the four tabs and a routine in four steps', () {
       final steps = kTutorialTracks[TutorialTrack.quick]!;
-      expect(steps.length, lessThanOrEqualTo(6));
       expect(steps.where((s) => s.demo != null), isEmpty,
           reason: 'the quick tour shows no mock workout');
+
+      final builder = steps.where((s) => s.id.startsWith('build-')).toList();
+      expect(builder, hasLength(4),
+          reason: 'condensed: New routine, name and days, Save, plus the tab '
+              'step that gets you there');
+      expect(steps.length, lessThanOrEqualTo(10));
+      // And it is genuinely shorter than the full tour's version of the same
+      // chapter, which is the whole claim the word "quick" makes.
+      final full = kTutorialTracks[TutorialTrack.full]!
+          .where((s) => s.id.startsWith('build-'));
+      expect(builder.length, lessThan(full.length));
+    });
+
+    test('both first-run tours end by building a routine', () {
+      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
+        final steps = kTutorialTracks[track]!;
+        final anchors = steps.expand((s) => s.anchors).toSet();
+        expect(anchors, contains(tutorialNewRoutineKey),
+            reason: '$track never shows the way out of an empty app');
+        // Last, after everything else the track covers.
+        final lastBuild =
+            steps.lastIndexWhere((s) => s.id.startsWith('build-'));
+        final other = steps.lastIndexWhere(
+            (s) => !s.id.startsWith('build-') && !s.id.startsWith('done'));
+        expect(lastBuild, greaterThan(other),
+            reason: 'the builder chapter is the tail of $track, not a detour '
+                'in the middle of it');
+      }
+    });
+
+    test('the three tracks share one builder chapter, not three', () {
+      // The same step *objects*, so a reworded callout cannot say one thing on
+      // the full tour and another on the quick one. `build-quick` is the one
+      // step the quick tour has of its own — it stands in for three of the full
+      // chapter's — and `build-done` closes the standalone tour only.
+      final builder = kTutorialTracks[TutorialTrack.builder]!;
+      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
+        for (final step in kTutorialTracks[track]!
+            .where((s) => s.id.startsWith('build-') && s.id != 'build-quick')) {
+          expect(builder, contains(step),
+              reason: '${step.id} on $track is a second copy of a builder step');
+        }
+      }
+      expect(builder.map((s) => s.id), isNot(contains('build-quick')));
     });
 
     test('the full tour covers Today and the live workout', () {
@@ -153,8 +196,9 @@ void main() {
             reason: 'the full tour never mentions $subject');
       }
       expect(kTutorialTracks[TutorialTrack.full]!.length,
-          lessThanOrEqualTo(16),
-          reason: 'still one sitting, not a manual');
+          lessThanOrEqualTo(24),
+          reason: 'still one sitting, not a manual — the full tour now ends by '
+              'building a routine, which is seven of these');
     });
 
     test('the full tour explains the gym words it uses', () {
@@ -190,15 +234,14 @@ void main() {
       }
     });
 
-    test('the builder tour is not chained onto the first-run one', () {
-      final builderAnchors =
-          kTutorialTracks[TutorialTrack.builder]!.expand((s) => s.anchors);
-      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
-        final anchors = kTutorialTracks[track]!.expand((s) => s.anchors);
-        expect(anchors, isNot(contains(tutorialNewRoutineKey)),
-            reason: '$track should end without walking into the builder');
-      }
-      expect(builderAnchors, contains(tutorialNewRoutineKey));
+    test('and is still a tour of its own, for coming back to', () {
+      // Startable from Profile without the tour around it — the day-ten case.
+      final builder = kTutorialTracks[TutorialTrack.builder]!;
+      expect(builder.first.anchors, contains(tutorialNavBarKey));
+      expect(builder.first.navSlot, 1);
+      expect(builder.expand((s) => s.anchors), contains(tutorialNewRoutineKey));
+      expect(builder.where((s) => s.demo != null), isEmpty,
+          reason: 'the builder tour is not about the live workout');
     });
 
     test('the live-workout steps carry a mock rather than an anchor', () {

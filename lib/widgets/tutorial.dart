@@ -132,9 +132,12 @@ class TutorialStep {
 ///
 /// Two are offered on first launch, because "show me everything" and "just show
 /// me where things are" are different requests and guessing which one somebody
-/// wants is how a tour gets skipped. The third is not about the app in general
-/// at all — it walks you through building a routine — so it is never chained
-/// onto the other two and is started from Profile when you want it.
+/// wants is how a tour gets skipped. Both end in the builder, at different
+/// lengths: a first run is an app with nothing in it, and a tour that stops
+/// before making a routine stops one step short of anything you can do.
+///
+/// The third is that chapter on its own, started from Profile — for coming back
+/// on day ten wanting the builder and not the tour around it.
 enum TutorialTrack { full, quick, builder }
 
 /// One step of the nav bar: the tab named by [slot], which you really do tap.
@@ -253,7 +256,100 @@ final List<TutorialStep> _kSessionSteps = [
   ),
 ];
 
+/// Building a routine, in full.
+///
+/// **Shared, not copied.** All three tracks end here — the two first-run tours
+/// and the standalone one — and they use these very step objects rather than
+/// their own descriptions of the same screens, so a reworded callout cannot say
+/// one thing on the full tour and another on the quick one.
+final List<TutorialStep> _kBuilderSteps = [
+  _kBuildOpenStep,
+  _kBuildNewStep,
+  TutorialStep(
+    id: 'build-name',
+    anchors: [tutorialRoutineNameKey],
+    tapThrough: true,
+    title: (l) => l.tutorialBuildNameTitle,
+    body: (l) => l.tutorialBuildNameBody,
+  ),
+  TutorialStep(
+    id: 'build-days',
+    anchors: [tutorialRoutineDaysKey],
+    tapThrough: true,
+    title: (l) => l.tutorialBuildDaysTitle,
+    body: (l) => l.tutorialBuildDaysBody,
+  ),
+  TutorialStep(
+    id: 'build-exercises',
+    // The draft screen first: it is pushed over the routine builder, so when
+    // both are mounted it is the one in front of you.
+    anchors: [tutorialWorkoutDraftItemsKey, tutorialWorkoutItemsKey],
+    tapThrough: true,
+    title: (l) => l.tutorialBuildExercisesTitle,
+    body: (l) => l.tutorialBuildExercisesBody,
+  ),
+  // The per-slot settings live in a modal sheet the tour does not follow you
+  // into — a coach mark over a sheet that is still animating up points at a
+  // moving target. So this step says what each of them means and lets you
+  // read it with the sheet open behind, or before you open it.
+  TutorialStep(
+    id: 'build-slot',
+    title: (l) => l.tutorialBuildSlotTitle,
+    body: (l) => l.tutorialBuildSlotBody,
+  ),
+  _kBuildSaveStep,
+];
+
+/// The same chapter for somebody who has used a tracker before: where the
+/// controls are, and nothing about what a routine or a training day *is*.
+///
+/// Four steps against the full seven. Naming the routine, adding a day and
+/// filling it with exercises collapse into one callout, and the per-slot
+/// settings go entirely — they are the part the full tour is long for.
+final List<TutorialStep> _kQuickBuilderSteps = [
+  _kBuildOpenStep,
+  _kBuildNewStep,
+  TutorialStep(
+    id: 'build-quick',
+    anchors: [tutorialRoutineNameKey],
+    tapThrough: true,
+    title: (l) => l.tutorialBuildQuickTitle,
+    body: (l) => l.tutorialBuildQuickBody,
+  ),
+  _kBuildSaveStep,
+];
+
+/// The three steps both versions of the chapter share verbatim.
+final TutorialStep _kBuildOpenStep = _tab('build-open', 1,
+    (l) => l.tutorialBuildOpenTitle, (l) => l.tutorialBuildOpenBody);
+
+final TutorialStep _kBuildNewStep = TutorialStep(
+  id: 'build-new',
+  anchors: [tutorialNewRoutineKey],
+  tapThrough: true,
+  title: (l) => l.tutorialBuildNewTitle,
+  body: (l) => l.tutorialBuildNewBody,
+);
+
+final TutorialStep _kBuildSaveStep = TutorialStep(
+  id: 'build-save',
+  anchors: [
+    tutorialWorkoutDraftSaveKey,
+    tutorialWorkoutSaveKey,
+    tutorialRoutineSaveKey,
+  ],
+  tapThrough: true,
+  title: (l) => l.tutorialBuildSaveTitle,
+  body: (l) => l.tutorialBuildSaveBody,
+);
+
 /// The three tours, each an ordered list of steps.
+///
+/// **Every one of them ends in the builder.** An empty app is the state every
+/// first run is in, so neither first-run tour finishes without showing the way
+/// out of it; the difference between them is how much of the builder they spend
+/// steps on. The third is the same chapter offered by itself, for coming back on
+/// day ten wanting the builder and not the tour around it.
 ///
 /// Not `const`: the anchors are runtime [GlobalKey] instances.
 final Map<TutorialTrack, List<TutorialStep>> kTutorialTracks = {
@@ -266,6 +362,7 @@ final Map<TutorialTrack, List<TutorialStep>> kTutorialTracks = {
     ..._kTodaySteps,
     ..._kSessionSteps,
     _kLifetimeStep,
+    ..._kBuilderSteps,
     TutorialStep(
       id: 'done',
       title: (l) => l.tutorialDoneTitle,
@@ -274,6 +371,7 @@ final Map<TutorialTrack, List<TutorialStep>> kTutorialTracks = {
   ],
   TutorialTrack.quick: [
     ..._kTabSteps,
+    ..._kQuickBuilderSteps,
     TutorialStep(
       id: 'done-quick',
       title: (l) => l.tutorialDoneTitle,
@@ -281,58 +379,7 @@ final Map<TutorialTrack, List<TutorialStep>> kTutorialTracks = {
     ),
   ],
   TutorialTrack.builder: [
-    _tab('build-open', 1, (l) => l.tutorialBuildOpenTitle,
-        (l) => l.tutorialBuildOpenBody),
-    TutorialStep(
-      id: 'build-new',
-      anchors: [tutorialNewRoutineKey],
-      tapThrough: true,
-      title: (l) => l.tutorialBuildNewTitle,
-      body: (l) => l.tutorialBuildNewBody,
-    ),
-    TutorialStep(
-      id: 'build-name',
-      anchors: [tutorialRoutineNameKey],
-      tapThrough: true,
-      title: (l) => l.tutorialBuildNameTitle,
-      body: (l) => l.tutorialBuildNameBody,
-    ),
-    TutorialStep(
-      id: 'build-days',
-      anchors: [tutorialRoutineDaysKey],
-      tapThrough: true,
-      title: (l) => l.tutorialBuildDaysTitle,
-      body: (l) => l.tutorialBuildDaysBody,
-    ),
-    TutorialStep(
-      id: 'build-exercises',
-      // The draft screen first: it is pushed over the routine builder, so when
-      // both are mounted it is the one in front of you.
-      anchors: [tutorialWorkoutDraftItemsKey, tutorialWorkoutItemsKey],
-      tapThrough: true,
-      title: (l) => l.tutorialBuildExercisesTitle,
-      body: (l) => l.tutorialBuildExercisesBody,
-    ),
-    // The per-slot settings live in a modal sheet the tour does not follow you
-    // into — a coach mark over a sheet that is still animating up points at a
-    // moving target. So this step says what each of them means and lets you
-    // read it with the sheet open behind, or before you open it.
-    TutorialStep(
-      id: 'build-slot',
-      title: (l) => l.tutorialBuildSlotTitle,
-      body: (l) => l.tutorialBuildSlotBody,
-    ),
-    TutorialStep(
-      id: 'build-save',
-      anchors: [
-        tutorialWorkoutDraftSaveKey,
-        tutorialWorkoutSaveKey,
-        tutorialRoutineSaveKey,
-      ],
-      tapThrough: true,
-      title: (l) => l.tutorialBuildSaveTitle,
-      body: (l) => l.tutorialBuildSaveBody,
-    ),
+    ..._kBuilderSteps,
     TutorialStep(
       id: 'build-done',
       title: (l) => l.tutorialBuildDoneTitle,

@@ -143,9 +143,9 @@ groups:
     d: >-
       the four tabs, then the routine you are following and the training day you
       are due next, then straight into the session that day opens — the board,
-      the rest timer, the note, the clip and the notification — and out again to
-      the lifetime totals. It assumes no gym vocabulary and defines each word
-      once.
+      the rest timer, the note, the clip and the notification — out again to the
+      lifetime totals, and finally into the builder to make a routine of your
+      own. It assumes no gym vocabulary and defines each word once.
     points:
     - today
     - session
@@ -158,26 +158,32 @@ groups:
     - session.set-logging
     - session.shade
   - id: quick-tour-is-the-four-tabs
-    t: The quick tour is the four tabs and nothing else
+    t: The quick tour is the four tabs and a routine built in four steps
     d: >-
-      for somebody who has used a tracker before: where the four destinations are,
-      then out. It ends on Profile, next to where both tours are replayed from.
+      for somebody who has used a tracker before: where the four destinations
+      are, then New routine → name it and add its days → Save. It skips what the
+      full tour spends steps on — the live workout, and the per-slot settings —
+      and folds naming a routine, adding a training day and filling it with
+      exercises into one callout, because somebody who has used a tracker knows
+      what those are and only needs to be shown where.
     points:
     - today
     - routines
     - history
     - profile
+    - routine-edit
     uses:
     - ui.tutorial-track
     - ui.navigation
     - template.routine
+    - template.workout
     - history.session-record
   - id: track-choice-is-not-a-judgement
     t: Neither track is presented as the lesser one
     d: >-
       the two are offered side by side with one line each saying what is in them —
-      "every screen, with the gym words explained" and "just the four tabs" — and
-      no wording that ranks the reader.
+      "every screen, with the gym words explained" and "where things are, then
+      build a routine" — and no wording that ranks the reader.
     uses:
     - ui.tutorial-track
 - name: The builder tour
@@ -211,13 +217,22 @@ groups:
     - progression.rates
     - progression.axis
   - id: builder-tour-starts-on-its-own
-    t: It is a tour of its own, not the tail of the first-run one
+    t: Both first-run tours end by building a routine, and it is also a tour on its own
     d: >-
-      it is never chained onto the first-run tour and is started directly from
-      Profile, so somebody who took the quick tour on day one can build a routine
-      with help on day ten.
+      an empty app is the state every first run is in, so neither tour ends
+      without showing the way out of it — the full one walks the whole builder,
+      the quick one a condensed four steps. The same chapter is still offered by
+      itself from Profile, for somebody coming back on day ten who wants the
+      builder and not the tour around it. The steps are one list used by all
+      three tracks rather than three descriptions of the same screen.
+    points:
+    - routines
+    - routine-edit
+    - workout-edit
     uses:
     - ui.tutorial-track
+    - template.routine
+    - template.item
 - name: How to use it
   items:
   - id: replay-any-time

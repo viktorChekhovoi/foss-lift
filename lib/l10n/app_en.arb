@@ -3042,7 +3042,7 @@
   "@tutorialTrackQuick": {
     "description": "Button starting the short tour, which shows the four tabs and stops. Full width on its own line — keep it under about 20 characters."
   },
-  "tutorialTrackQuickHint": "Just the four tabs",
+  "tutorialTrackQuickHint": "Where things are, then build a routine",
   "@tutorialTrackQuickHint": {
     "description": "The one line under the Quick tour button saying what is in it. One line, about 40 characters."
   },
@@ -3178,7 +3178,7 @@
   "@tutorialDoneTitle": {
     "description": "Title of the last step of the full tour. Three or four words on one line."
   },
-  "tutorialDoneBody": "Replay it from Profile → Help & tour, where there is also a walk-through of building a routine.",
+  "tutorialDoneBody": "Replay it from Profile → Help & tour, where the routine builder also has a tour of its own.",
   "@tutorialDoneBody": {
     "description": "Body of the last step of the full tour. 'Profile' names a tab and 'Help & tour' names an entry on it, so both must match how those are translated. The arrow is a separator between them and stays as it is. Three lines."
   },
@@ -3233,6 +3233,14 @@
   "tutorialBuildSlotBody": "Tap an exercise to configure it. Sets is how many times you repeat it, the rep target is what each set aims at, and rest is the pause between them. Step up by is how much is added after a clean session; back off by is how much comes off after missing one.",
   "@tutorialBuildSlotBody": {
     "description": "Body of the step explaining every setting in the exercise config sheet. Each named setting is a label in that sheet — use the same words you translated itemEditorSets, itemEditorReps, itemEditorRest, itemEditorStepUp and itemEditorBackOff with. The longest body in any tour: it stands alone on a dimmed screen that scrolls, so six lines is fine."
+  },
+  "tutorialBuildQuickTitle": "Name it and fill it",
+  "@tutorialBuildQuickTitle": {
+    "description": "Title of the quick tour's one builder step, which stands in for the full tour's separate steps for naming a routine, adding its training days and adding exercises to a day. Three or four words on one line."
+  },
+  "tutorialBuildQuickBody": "Name the routine, then add its training days. Tap a day to fill it with exercises.",
+  "@tutorialBuildQuickBody": {
+    "description": "Body of that step. The quick tour is for somebody who has used a tracker before, so it says where the controls are and does not define 'training day' — the full tour does that on a step of its own. Two lines at most."
   },
   "tutorialBuildSaveTitle": "Save it",
   "@tutorialBuildSaveTitle": {
