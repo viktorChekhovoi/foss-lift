@@ -416,6 +416,45 @@ void main() {
       container!.read(activeWorkoutProvider.notifier).discard();
     });
 
+    test('a back-off slot comes back a back-off, not flattened', () async {
+      // Push reduced to one bench slot whose sets step down 10% each.
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          targetSets: const Value(3),
+          repsMin: const Value(8),
+          suggestedWeight: const Value(100),
+          scheme: const Value(SetScheme.backOff),
+          schemePercent: const Value(10),
+          progression: const Value(ProgressionMode.weight),
+        ),
+      ]);
+      await startPush();
+      expect(session().exercises.single.sets.map((s) => s.weight).toList(),
+          [100.0, 90.0, 80.0]);
+      await snapshot();
+
+      final back = (await relaunch())!;
+      expect(back.exercises.single.sets.map((s) => s.weight).toList(),
+          [100.0, 90.0, 80.0], reason: 'the ladder is not a flat 100');
+
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      ctl.setWorkingWeight(0, 110);
+      expect(session().exercises.single.sets.map((s) => s.weight).toList(),
+          [110.0, 100.0, 87.5], reason: 'moving the top moves the rungs');
+
+      // And the bar is still the floor under the ladder: every rung of a 20 kg
+      // bench sits on the bar rather than under it.
+      ctl.setWorkingWeight(0, 20);
+      expect(session().exercises.single.sets.map((s) => s.weight).toList(),
+          [20.0, 20.0, 20.0]);
+
+      ctl.discard();
+    });
+
     test('and so does a rest, minus the time the app was dead', () async {
       final ctl = await startPush();
       ctl.startRest(120, (

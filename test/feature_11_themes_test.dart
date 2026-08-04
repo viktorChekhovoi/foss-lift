@@ -624,38 +624,61 @@ void main() {
     });
   });
 
-  group("the app's own headings read in every palette", () {
-    // `faint` is the one role no palette is asked to keep legible — it exists
-    // for a column heading nobody reads twice. Headings and eyebrows are read,
-    // so they take the two roles that are held to 4.5:1.
-    test('the dimmest role is the one no palette keeps readable', () {
-      // Not a requirement on the palettes — a statement of why the widgets may
-      // not use it. If this ever stops being true the rule can be revisited.
-      expect(
-        kThemePresets.where((p) => contrastRatio(p.faint, p.ground) < 4.5),
-        isNotEmpty,
-        reason: 'faint is legible everywhere; the heading rule has no basis',
-      );
-    });
-
-    test('the heading roles clear 4.5:1 against the ground, in every preset',
+  group("the app's own type reads in every palette", () {
+    // A palette owns three text tones, and all three are read: the dimmest one
+    // paints the hint under a field, the date over a list of sets and the app's
+    // own instruction for how to log one. So all three answer to the body-text
+    // floor, on every background they are painted over — the page, a card, the
+    // nested surface inside a card, and the raised one the resume bar and the
+    // untouched set cells use.
+    test('every text tone clears 4.5:1 on every background, in every preset',
         () {
       for (final p in kThemePresets) {
-        expect(contrastRatio(p.muted, p.ground), greaterThanOrEqualTo(4.5),
-            reason: '${p.id}: a section heading on the ground');
-        expect(contrastRatio(p.text, p.ground), greaterThanOrEqualTo(4.5),
-            reason: '${p.id}: an eyebrow on the ground');
+        for (final (what, colour) in [
+          ('body text', p.text),
+          ('the secondary tone', p.muted),
+          ('the dimmest tone', p.faint),
+        ]) {
+          for (final (where, bg) in [
+            ('the ground', p.ground),
+            ('a card', p.surface),
+            ('a nested surface', p.surface2),
+            ('a raised surface', p.surface3),
+          ]) {
+            expect(contrastRatio(colour, bg), greaterThanOrEqualTo(4.5),
+                reason: '${p.id}: $what on $where');
+          }
+        }
       }
     });
 
-    testWidgets('a section heading is not painted in the dimmest role',
+    test('the three tones stay in rank, with a visible gap between them', () {
+      // Legible is not the same as level: the dimmest tone still has to read
+      // quieter than the secondary one, or the palette has three body colours
+      // and no hierarchy.
+      for (final p in kThemePresets) {
+        final text = contrastRatio(p.text, p.ground);
+        final muted = contrastRatio(p.muted, p.ground);
+        final faint = contrastRatio(p.faint, p.ground);
+        expect(text, greaterThan(muted),
+            reason: '${p.id}: body text must read loudest');
+        expect(muted, greaterThan(faint),
+            reason: '${p.id}: the dimmest tone must read quietest');
+        // Far enough apart to be seen rather than measured: a step of roughly
+        // ten points of CIELAB lightness between each pair.
+        expect(colourDistance(p.muted, p.faint), greaterThanOrEqualTo(9.0),
+            reason: '${p.id}: the two quiet tones are the same colour');
+        expect(colourDistance(p.text, p.muted), greaterThanOrEqualTo(9.0),
+            reason: '${p.id}: body text and the secondary tone are the same');
+      }
+    });
+
+    testWidgets('a section heading is painted in the secondary tone',
         (tester) async {
       await tester.pumpWidget(
           appUnder(container, const SectionLabel('your routines')));
       await tester.pump();
       final style = tester.widget<Text>(find.text('YOUR ROUTINES')).style!;
-      expect(style.color, isNot(AppColors.faint),
-          reason: 'a heading you are meant to read cannot take the dim role');
       expect(style.color, AppColors.muted);
       await stop(tester);
     });
@@ -665,7 +688,6 @@ void main() {
           container, const ScreenHeader(eyebrow: 'today', title: 'Push')));
       await tester.pump();
       final style = tester.widget<Text>(find.text('TODAY')).style!;
-      expect(style.color, isNot(AppColors.faint));
       expect(style.color, AppColors.text);
       await stop(tester);
     });

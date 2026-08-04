@@ -68,26 +68,15 @@ class PlateLine extends StatelessWidget {
       );
 }
 
-/// The lightest weight an exercise can be set to: a bar cannot be loaded below
-/// its own weight, and nothing else has a floor.
-///
-/// The other half of [PlateSolution.belowBar]. That flag is what the line
-/// *says* when a weight is under the bar; this is what stops one being typed in
-/// the first place. Both exist because a weight can still arrive from
-/// elsewhere — a template built before the movement's bar was set — and a line
-/// that reads "lighter than the bar" is the only honest thing to do about it.
-double loadFloorKg({
-  required WeightType type,
-  required double defaultBarKg,
-  double? barKg,
-}) =>
-    type.loadedPerSide ? (barKg ?? defaultBarKg) : 0.0;
-
 /// The plate breakdown as one line of text: what goes on each side, what the
 /// bar weighs, and — when the plates cannot make the weight asked for — what
 /// they can make instead.
+/// The line shouts its labels — they are written that way in the string
+/// catalogue — but a unit is a symbol and is not a label, so it is passed
+/// through as [unitSuffix] spells it. "KG" mid-line over a rest bar reading
+/// "kg" is one number written two ways.
 String plateSummary(AppLocalizations l10n, PlateSolution s, String unit) {
-  final u = unitSuffix(l10n, unit).toUpperCase();
+  final u = unitSuffix(l10n, unit);
   String w(double kg) => fmtWeight(toDisplayWeight(kg, unit));
 
   if (s.belowBar) return l10n.plateLineBelowBar(w(s.barKg), u);
@@ -101,7 +90,11 @@ String plateSummary(AppLocalizations l10n, PlateSolution s, String unit) {
   } else {
     parts.add(l10n.plateLinePerSide(w(s.perSideKg), u));
     parts.add(plateStackLabel(s.plates, unit));
-    parts.add(l10n.plateLineBar(w(s.barKg)));
+    // The bar is a weight like the others on the line, so it carries its unit
+    // like the others. Its key takes one placeholder rather than the pair the
+    // sibling keys take, so the pair is joined before it goes in — through the
+    // same [weightWithUnit] every other weight in the app goes through.
+    parts.add(l10n.plateLineBar(weightWithUnit(l10n, s.barKg, unit)));
   }
   return parts.join(' · ');
 }
@@ -114,7 +107,8 @@ String plateStackLabel(List<PlateStack> plates, String unit) => plates.map((p) {
 
 /// The short form for a list row: "31.25/side", with a "≈" when the plates
 /// cannot quite make the weight the template is asking for. Null when there is
-/// nothing to say — anything that is not loaded on a bar.
+/// nothing to say — anything that is not loaded on a bar, and the empty bar
+/// itself, which has nothing on either side to name.
 String? perSideLabel({
   required AppLocalizations l10n,
   required double weightKg,
@@ -130,6 +124,7 @@ String? perSideLabel({
     inventory: settings.plates,
   );
   if (s.belowBar) return l10n.plateLineUnderBar;
+  if (s.plates.isEmpty) return null;
   final per = fmtWeight(toDisplayWeight(s.perSideKg, unit));
   return '${s.exact ? '' : '≈'}${l10n.plateLinePerSideShort(per)}';
 }

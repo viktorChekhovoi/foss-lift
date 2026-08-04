@@ -416,6 +416,14 @@ final layoffSettingsProvider = StreamProvider<LayoffSettings>((ref) {
   return ref.watch(databaseProvider).watchLayoffSettings();
 });
 
+/// How many warm-up rungs a ramp opens with. A live session does not read this
+/// — it is seeded once at the start and steered by its own stepper from then on
+/// (see `ActiveWorkoutController.start`); the screens that read it are Exercise
+/// settings and the duration estimate.
+final defaultWarmupSetsProvider = StreamProvider<int>((ref) {
+  return ref.watch(databaseProvider).watchDefaultWarmupSets();
+});
+
 /// The user's chosen weight unit ('kg' or 'lb'). Kilograms until they say
 /// otherwise, including while the first-run question is still on screen.
 final weightUnitProvider = StreamProvider<String>((ref) {

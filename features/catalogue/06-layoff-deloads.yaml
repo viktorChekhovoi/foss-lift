@@ -41,11 +41,15 @@ groups:
   - id: cut-lands-somewhere-trainable
     t: The cut lands somewhere trainable
     d: >-
-      down to the half kilo, never below the mode's floor — and the session says
-      why it's lighter.
+      down to the half kilo, never below the mode's floor, and never below the bar
+      the movement stands on — cutting a barbell lift to less than its empty bar
+      does not describe a session anybody can train. The session says why it's
+      lighter.
     uses:
     - load.loadable-grid
     - load.units
+    - load.bar-weight
+    - exercise.weight-type
 - name: How to use it
   items:
   - id: set-rules

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +29,12 @@ import '../widgets/plate_line.dart';
 /// will move, and where it is is not.
 const kNextSetKey = ValueKey('next-set');
 const kNextWarmupKey = ValueKey('next-warmup');
+
+/// Cache extent enough to build a whole session's rows at once — far more than
+/// the tallest board any workout produces. What the screen hands the list for
+/// the one frame it opens on, so that the row it is opening on exists to be
+/// measured and scrolled to.
+const _wholeBoard = ScrollCacheExtent.pixels(100000);
 
 /// The one place an exercise's goal is stated — beside the weight you can edit.
 /// One per exercise on the board, and nowhere on a set row.
@@ -64,6 +71,24 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     workoutScreenVisibleProvider.notifier,
   );
 
+  /// The row the board is opening on. A [GlobalKey] rather than the [ValueKey]
+  /// the mark carries: `ensureVisible` measures an element, and a value key has
+  /// none to offer.
+  ///
+  /// It is hung on the marked row only while [_opening] — see [_openOnRow]. A
+  /// key that stayed would travel from row to row as the mark moved, which is a
+  /// subtree reparented for nothing.
+  final _openOn = GlobalKey();
+
+  /// Whether the board is still opening. While it is, the list builds every row
+  /// instead of only the ones in view: it is a lazy list, and a row that has
+  /// not been built cannot be scrolled to — which is every row worth opening on.
+  bool _opening = true;
+
+  /// Set when this screen ends a rest that makes no sound, and consumed by the
+  /// listener that buzzes — see [_dropRest] and [build].
+  bool _restEndsQuietly = false;
+
   @override
   void initState() {
     super.initState();
@@ -71,8 +96,47 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     // off the build frame: flipping the provider synchronously here would mark
     // the overlay (an ancestor, already built this frame) dirty mid-build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _visibility.set(true);
+      if (!mounted) return;
+      _visibility.set(true);
+      _openWhereYouAre();
     });
+  }
+
+  /// Hangs [_openOn] on the row the board is opening on, and only while it is
+  /// opening — see [_openWhereYouAre].
+  Widget _openOnRow(Widget row, {required bool marked}) =>
+      _opening && marked ? KeyedSubtree(key: _openOn, child: row) : row;
+
+  /// Puts the board where you are as it appears.
+  ///
+  /// Coming back to a session five movements in, the whole top of the list is
+  /// work already done. So the rows open scrolled to the marked set — without
+  /// an animation, because the board is meant to be already there rather than
+  /// to be watched travelling — and a set already on screen is left where it
+  /// is, which is what keeps a fresh session at the top.
+  ///
+  /// **Once, as the screen opens, and never again.** The mark moves every time
+  /// a set is logged, and a list that chased it would take the rows out from
+  /// under the thumb doing the logging.
+  void _openWhereYouAre() {
+    final ctx = _openOn.currentContext;
+    // No mark at all: a finished session, or one already gone.
+    if (ctx != null && !_onScreen(ctx)) {
+      // A little above centre: the set to do next, with the exercise it belongs
+      // to still above it.
+      Scrollable.ensureVisible(ctx, alignment: 0.35);
+    }
+    setState(() => _opening = false);
+  }
+
+  /// Whether the row at [ctx] is wholly inside the board's viewport already.
+  bool _onScreen(BuildContext ctx) {
+    final row = ctx.findRenderObject() as RenderBox?;
+    final viewport =
+        Scrollable.of(ctx).context.findRenderObject() as RenderBox?;
+    if (row == null || viewport == null) return true;
+    final top = row.localToGlobal(Offset.zero, ancestor: viewport).dy;
+    return top >= 0 && top + row.size.height <= viewport.size.height;
   }
 
   @override
@@ -92,8 +156,57 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   void _startRest(int seconds, RestPrompt? prompt) =>
       ref.read(activeWorkoutProvider.notifier).startRest(seconds, prompt);
 
-  void _stopRest({bool tone = true}) =>
-      ref.read(activeWorkoutProvider.notifier).stopRest(tone: tone);
+  /// Ends the rest the way the Skip button does: it sounds, and so it buzzes.
+  void _skipRest() => ref.read(activeWorkoutProvider.notifier).stopRest();
+
+  /// Ends the rest without a sound — a hold starting, or a set taken back to
+  /// untouched. Neither is a rest you have finished, so neither announces one.
+  ///
+  /// The flag is what tells the buzz apart from a rest that ran out, because by
+  /// the time the session says the rest is over there is nothing left on it to
+  /// say why. It is only set when a rest is actually running: set with nothing
+  /// to consume it, it would swallow the buzz of the next rest that ends on its
+  /// own.
+  void _dropRest() {
+    if ((ref.read(activeWorkoutProvider)?.restLeft ?? 0) > 0) {
+      _restEndsQuietly = true;
+    }
+    ref.read(activeWorkoutProvider.notifier).stopRest(tone: false);
+  }
+
+  /// The rest that belongs to a set just tapped, started or taken back.
+  ///
+  /// Logging a set for the first time starts its rest. Taking that same set
+  /// back to untouched stops it: a rest is only running because a set was
+  /// logged, and a countdown left to ring for a set that no longer happened
+  /// rings for nothing. Correcting the number on a set that stays logged
+  /// leaves the clock alone — you are still resting on it.
+  ///
+  /// One rest runs at a time and it carries no record of which set began it, so
+  /// un-logging any set ends whichever rest is on the clock. Somebody clearing
+  /// a row is not resting.
+  void _restForSet(
+    int ei,
+    int index, {
+    required bool warmup,
+    required bool wasDone,
+  }) {
+    final session = ref.read(activeWorkoutProvider);
+    if (session == null) return;
+    final e = session.exercises[ei];
+    final nowDone = (warmup ? e.warmups[index] : e.sets[index]).done;
+    if (nowDone == wasDone) return;
+    if (!nowDone) {
+      _dropRest();
+      return;
+    }
+    _startRest(
+      warmup ? e.restAfterWarmup(index) : e.restSeconds,
+      warmup
+          ? session.restAfterWarmup(ei, index)
+          : session.restAfterSet(ei, index),
+    );
+  }
 
   /// The tone that ends a hold. Always the tone rather than the notification:
   /// this screen being built is what "the app is on screen" means.
@@ -114,6 +227,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (entry.done) {
       ref.read(activeWorkoutProvider.notifier).setLogged(ei, si, null);
       HapticFeedback.selectionClick();
+      _restForSet(ei, si, warmup: false, wasDone: true);
       return;
     }
     _startHold(ei, si);
@@ -127,7 +241,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// here and sounding it as you begin would say the opposite.
   void _startHold(int ei, int si) {
     if (_holding != null) _stopHold();
-    _stopRest(tone: false);
+    _dropRest();
     HapticFeedback.selectionClick();
     setState(() {
       _holding = (exercise: ei, set: si);
@@ -166,7 +280,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   /// The escape hatch for high rep counts, where tapping down from a goal of 20
   /// is absurd, and for timed sets, where the tap cycle only claims the whole
-  /// hold. Returns the set to untouched if the field is cleared.
+  /// hold. Returns the set to untouched if the field is cleared, taking that
+  /// set's rest with it — see [_restForSet].
   Future<void> _editResult(int ei, int si, SetEntry entry) async {
     final result = await showDialog<({int? value})>(
       context: context,
@@ -175,20 +290,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (result == null || !mounted) return;
     final wasDone = entry.done;
     ref.read(activeWorkoutProvider.notifier).setLogged(ei, si, result.value);
-    if (!wasDone && result.value != null) {
-      final session = ref.read(activeWorkoutProvider);
-      if (session != null) {
-        _startRest(
-          session.exercises[ei].restSeconds,
-          session.restAfterSet(ei, si),
-        );
-      }
-    }
+    _restForSet(ei, si, warmup: false, wasDone: wasDone);
   }
 
-  /// The same escape hatch for a warm-up row: types a result in, and starts the
-  /// rest for that rung if the set was not already logged — see
-  /// [ExerciseEntry.restAfterWarmup].
+  /// The same escape hatch for a warm-up row, on the warm-up list and with the
+  /// ramp's own rest — see [ExerciseEntry.restAfterWarmup].
   Future<void> _editWarmupResult(int ei, int wi, SetEntry entry) async {
     final result = await showDialog<({int? value})>(
       context: context,
@@ -199,15 +305,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref
         .read(activeWorkoutProvider.notifier)
         .setWarmupLogged(ei, wi, result.value);
-    if (!wasDone && result.value != null) {
-      final session = ref.read(activeWorkoutProvider);
-      if (session != null) {
-        _startRest(
-          session.exercises[ei].restAfterWarmup(wi),
-          session.restAfterWarmup(ei, wi),
-        );
-      }
-    }
+    _restForSet(ei, wi, warmup: true, wasDone: wasDone);
   }
 
   /// Asks for a weight in the display unit and hands back kilograms, or null if
@@ -407,8 +505,44 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (mounted) context.go('/today');
   }
 
+  /// Buzzes at the end of a rest, once per rest.
+  ///
+  /// **The buzz is the screen's and the tone is the session's**, which is why
+  /// they are made in different places: [ActiveWorkoutController] routes every
+  /// noise it makes through audio and deliberately knows nothing about
+  /// `flutter/services`, so what is left is for the board to watch the clock it
+  /// is already drawing. A rest going from some seconds to none is the event —
+  /// the countdown running out, Skip, or −15s taking the last of it — and each
+  /// of those is one state change, so this fires once and a rebuild does not
+  /// repeat it.
+  ///
+  /// Silent endings stay silent: a hold starting, and a set taken back to
+  /// untouched, are flagged by [_dropRest]; finishing or abandoning the session
+  /// leaves no session at all, which is not a rest that ended. Off the board
+  /// there is nothing here to buzz — that is the notification's job.
+  ///
+  /// A heavy impact rather than the tick a tap gets: this has to be felt
+  /// through a pocket by somebody who is not looking at the phone.
+  void _buzzWhenTheRestEnds() {
+    ref.listen(
+      activeWorkoutProvider.select(
+        (s) => (live: s != null, restLeft: s?.restLeft ?? 0),
+      ),
+      (was, now) {
+        if (was == null || was.restLeft == 0 || now.restLeft > 0) return;
+        if (!now.live) return;
+        if (_restEndsQuietly) {
+          _restEndsQuietly = false;
+          return;
+        }
+        HapticFeedback.heavyImpact();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    _buzzWhenTheRestEnds();
     final session = ref.watch(activeWorkoutProvider);
     if (session == null) {
       return const Scaffold(body: SizedBox.shrink());
@@ -455,6 +589,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        // Every row for the one frame the board opens on, so
+                        // the exercise being scrolled to exists to be scrolled
+                        // to — see [_openWhereYouAre]. Lazy again from the
+                        // frame after.
+                        scrollCacheExtent: _opening ? _wholeBoard : null,
                         children: [
                           if (session.notice case final notice?)
                             _SessionNotice(notice: notice),
@@ -476,90 +615,113 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                               onEditWorkingWeight: () => _editWorkingWeight(ei),
                               warmupRowBuilder: (wi) {
                                 final entry = session.exercises[ei].warmups[wi];
-                                return _SetRow(
-                                  key: ValueKey(
-                                    'w$ei-$wi-${session.exercises[ei].name}',
-                                  ),
-                                  number: wi + 1,
-                                  entry: entry,
-                                  unit: unit,
-                                  isNext:
-                                      next != null &&
-                                      next.warmup &&
-                                      next.exerciseIndex == ei &&
-                                      next.setIndex == wi,
-                                  onEditWeight: () => _editWarmupWeight(ei, wi),
-                                  onTap: () {
-                                    final wasDone = entry.done;
-                                    controller.cycleWarmup(ei, wi);
-                                    HapticFeedback.selectionClick();
-                                    if (!wasDone) {
-                                      _startRest(
-                                        session.exercises[ei].restAfterWarmup(
-                                          wi,
-                                        ),
-                                        session.restAfterWarmup(ei, wi),
+                                final marked =
+                                    next != null &&
+                                    next.warmup &&
+                                    next.exerciseIndex == ei &&
+                                    next.setIndex == wi;
+                                return _openOnRow(
+                                  marked: marked,
+                                  _SetRow(
+                                    key: ValueKey(
+                                      'w$ei-$wi-${session.exercises[ei].name}',
+                                    ),
+                                    number: wi + 1,
+                                    entry: entry,
+                                    unit: unit,
+                                    isNext: marked,
+                                    // The ramp changes load every rung, so the
+                                    // bar it describes is named on the row —
+                                    // the working sets share one load and get
+                                    // one PlateLine for all of them instead.
+                                    perSide: perSideLabel(
+                                      l10n: l10n,
+                                      weightKg: entry.weight,
+                                      type: session
+                                          .exercises[ei]
+                                          .weightType,
+                                      settings: plates,
+                                      unit: unit,
+                                      barKg: session.exercises[ei].barKg,
+                                    ),
+                                    onEditWeight: () =>
+                                        _editWarmupWeight(ei, wi),
+                                    onTap: () {
+                                      final wasDone = entry.done;
+                                      controller.cycleWarmup(ei, wi);
+                                      HapticFeedback.selectionClick();
+                                      _restForSet(
+                                        ei,
+                                        wi,
+                                        warmup: true,
+                                        wasDone: wasDone,
                                       );
-                                    }
-                                  },
-                                  onTypeResult: () =>
-                                      _editWarmupResult(ei, wi, entry),
+                                    },
+                                    onTypeResult: () =>
+                                        _editWarmupResult(ei, wi, entry),
+                                  ),
                                 );
                               },
                               rowBuilder: (si) {
                                 final entry = session.exercises[ei].sets[si];
-                                return _SetRow(
-                                  key: ValueKey(
-                                    '$ei-$si-${session.exercises[ei].name}',
-                                  ),
-                                  number: si + 1,
-                                  entry: entry,
-                                  unit: unit,
-                                  isNext:
-                                      next != null &&
-                                      !next.warmup &&
-                                      next.exerciseIndex == ei &&
-                                      next.setIndex == si,
-                                  onEditWeight: () => _editSetWeight(ei, si),
-                                  showWeight: _showsWeight(
-                                    session.exercises[ei],
-                                  ),
-                                  // A held set is timed, not counted — see
-                                  // _tapTimed. It owns its own rest, because the
-                                  // rest only starts when the hold stops.
-                                  holdingSeconds:
-                                      _holding?.exercise == ei &&
-                                          _holding?.set == si
-                                      ? _held
-                                      : null,
-                                  onTap: () {
-                                    if (entry.timed) {
-                                      _tapTimed(ei, si, entry);
-                                      return;
-                                    }
-                                    final wasDone = entry.done;
-                                    controller.cycleSet(ei, si);
-                                    HapticFeedback.selectionClick();
-                                    // Rest starts when the set is first logged;
-                                    // correcting the count afterwards must not
-                                    // restart the clock you are already resting on.
-                                    if (!wasDone) {
-                                      _startRest(
-                                        session.exercises[ei].restSeconds,
-                                        session.restAfterSet(ei, si),
+                                final marked =
+                                    next != null &&
+                                    !next.warmup &&
+                                    next.exerciseIndex == ei &&
+                                    next.setIndex == si;
+                                return _openOnRow(
+                                  marked: marked,
+                                  _SetRow(
+                                    key: ValueKey(
+                                      '$ei-$si-${session.exercises[ei].name}',
+                                    ),
+                                    number: si + 1,
+                                    entry: entry,
+                                    unit: unit,
+                                    isNext: marked,
+                                    onEditWeight: () => _editSetWeight(ei, si),
+                                    showWeight: _showsWeight(
+                                      session.exercises[ei],
+                                    ),
+                                    // A held set is timed, not counted — see
+                                    // _tapTimed. It owns its own rest, because the
+                                    // rest only starts when the hold stops.
+                                    holdingSeconds:
+                                        _holding?.exercise == ei &&
+                                            _holding?.set == si
+                                        ? _held
+                                        : null,
+                                    onTap: () {
+                                      if (entry.timed) {
+                                        _tapTimed(ei, si, entry);
+                                        return;
+                                      }
+                                      final wasDone = entry.done;
+                                      controller.cycleSet(ei, si);
+                                      HapticFeedback.selectionClick();
+                                      // The rest starts when the set is first
+                                      // logged and ends when it is taken back;
+                                      // correcting the count in between leaves
+                                      // the clock you are resting on alone.
+                                      _restForSet(
+                                        ei,
+                                        si,
+                                        warmup: false,
+                                        wasDone: wasDone,
                                       );
-                                    }
-                                  },
-                                  onTypeResult: () =>
-                                      _editResult(ei, si, entry),
-                                  // Null takes the whole trailing column away
-                                  // — a build that cannot film has no camera
-                                  // to grey out.
-                                  onVideo: ref
-                                          .watch(capabilitiesProvider)
-                                          .setVideos
-                                      ? () => _video(ei, si, entry)
-                                      : null,
+                                    },
+                                    onTypeResult: () =>
+                                        _editResult(ei, si, entry),
+                                    // Null takes the whole trailing column away
+                                    // — a build that cannot film has no camera
+                                    // to grey out.
+                                    onVideo:
+                                        ref
+                                            .watch(capabilitiesProvider)
+                                            .setVideos
+                                        ? () => _video(ei, si, entry)
+                                        : null,
+                                  ),
                                 );
                               },
                             ),
@@ -592,7 +754,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                           onAdd: () => ref
                               .read(activeWorkoutProvider.notifier)
                               .nudgeRest(15),
-                          onSkip: _stopRest,
+                          onSkip: _skipRest,
                         ),
                       ),
                   ],
@@ -977,13 +1139,50 @@ class _WorkingWeight extends StatelessWidget {
   final String unit;
   final VoidCallback onTap;
 
+  /// The weight and its unit, with the unit set quieter than the number it
+  /// belongs to — the number is the value, the symbol is a footnote on it.
+  ///
+  /// The string is built whole, by the same [weightWithUnit] every other weight
+  /// goes through, and only then split on the symbol. So the *order* is the
+  /// language's — a pattern that puts the symbol first is drawn that way — and
+  /// what is decided here is type and spacing, which are not things a
+  /// translation has an opinion about. The join is a fixed 3 px rather than the
+  /// pattern's own space, because a space set at the weight's size is 19 px of
+  /// this line at twice the text scale, and the line has a control on it.
+  ///
+  /// An unset weight is a bare dash with no symbol in it, and is drawn as one
+  /// run.
+  Widget _label(AppLocalizations l10n) {
+    final text = weightWithUnit(l10n, weightKg, unit);
+    final number = kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w700);
+    final symbol = unitSuffix(l10n, unit);
+    final at = text.indexOf(symbol);
+    if (at < 0) return Text(text, style: number);
+    final before = text.substring(0, at).trim();
+    final after = text.substring(at + symbol.length).trim();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      textBaseline: TextBaseline.alphabetic,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      children: [
+        if (before.isNotEmpty) ...[
+          Text(before, style: number),
+          const SizedBox(width: 3),
+        ],
+        Text(
+          symbol,
+          style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
+        ),
+        if (after.isNotEmpty) ...[
+          const SizedBox(width: 3),
+          Text(after, style: number),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final w = weightKg;
-    // Nothing suggested and nothing chosen: the load is yours to name.
-    final value = w == null || w == 0
-        ? '—'
-        : fmtWeight(toDisplayWeight(w, unit));
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -997,15 +1196,7 @@ class _WorkingWeight extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              value,
-              style: kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 3),
-            Text(
-              unitSuffix(AppLocalizations.of(context), unit),
-              style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
-            ),
+            _label(AppLocalizations.of(context)),
             const SizedBox(width: 7),
             Icon(Icons.edit_outlined, size: 13, color: AppColors.faint),
           ],
@@ -1161,8 +1352,19 @@ class _WarmupGroupState extends State<_WarmupGroup> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final exercise = widget.exercise;
+    // What was asked for, and what the ladder could build from it. They part
+    // company on a light lift — see [computeWarmups] — and it is the second one
+    // that is on screen: the stepper counts rows, so it counts the rows that
+    // exist. The request is still what the session keeps, because it is the
+    // input the ramp is rebuilt from: a ramp the ladder cannot build at 25 kg
+    // is built in full the moment the working weight goes up.
     final count = exercise.warmupCount;
-    final summary = l10n.sessionWarmupSummary(count);
+    final built = exercise.warmups.length;
+    // A ramp that came back short comes back shorter still if you ask for more,
+    // so there is nothing left to add. Demonstrated rather than predicted —
+    // this is the last request measured against what it produced.
+    final ranOut = built < count;
+    final summary = l10n.sessionWarmupSummary(built);
     // Only a shut group carries the mark: open, the rung inside it does.
     final marked = widget.isNext && !_open;
     return Container(
@@ -1235,10 +1437,20 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                     ),
                   ),
                   _CountStepper(
-                    count: count,
-                    onSub: count > 0 ? () => widget.onCount(count - 1) : null,
-                    onAdd: count < kMaxWarmupSets
-                        ? () => widget.onCount(count + 1)
+                    key: ValueKey('warmup-count-${widget.index}'),
+                    count: built,
+                    // Both sides step from the number on screen: from an
+                    // achieved 2, − asks for 1, which is what pressing it under
+                    // a box reading 2 means. That it also brings a stale
+                    // request down to something the ladder can serve is the
+                    // point — the two numbers stop disagreeing. With nothing
+                    // built at all the one press left settles the request at
+                    // none, which is how the "too light" line is dismissed.
+                    onSub: built > 0 || count > 0
+                        ? () => widget.onCount(built > 0 ? built - 1 : 0)
+                        : null,
+                    onAdd: !ranOut && built < kMaxWarmupSets
+                        ? () => widget.onCount(built + 1)
                         : null,
                   ),
                 ],
@@ -1246,10 +1458,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
             ),
             // A ramp asked for but not built: the working weight is too light
             // for anything to sit between the bar and it. Said as the reason it
-            // is, because the count above is not the thing to change — and a
-            // count of zero needs no line at all, since the stepper beside it
-            // already reads 0.
-            if (exercise.warmups.isEmpty && count > 0)
+            // is, because the count above is not the thing to change. It is
+            // also what tells the two zeroes apart — the stepper reads 0 both
+            // when you asked for none and when none can be built.
+            if (built == 0 && count > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
@@ -1257,11 +1469,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                   style: kMono.copyWith(fontSize: 12, color: AppColors.faint),
                 ),
               ),
-            if (exercise.warmups.isNotEmpty) ...[
+            if (built > 0) ...[
               const SizedBox(height: 4),
               BoardColumnHeaders(unit: widget.unit, timed: false),
-              for (var wi = 0; wi < exercise.warmups.length; wi++)
-                widget.rowBuilder(wi),
+              for (var wi = 0; wi < built; wi++) widget.rowBuilder(wi),
             ],
             const SizedBox(height: 8),
             Text(
@@ -1280,9 +1491,11 @@ class _WarmupGroupState extends State<_WarmupGroup> {
 }
 
 /// The compact −/+ that dials the warm-up count. A disabled side (null handler)
-/// greys out at the ends of the 0..[kMaxWarmupSets] range.
+/// greys out: at the ends of the 0..[kMaxWarmupSets] range, and where the load
+/// ladder has nothing left to add.
 class _CountStepper extends StatelessWidget {
   const _CountStepper({
+    super.key,
     required this.count,
     required this.onSub,
     required this.onAdd,
@@ -1355,10 +1568,18 @@ class _SetRow extends StatelessWidget {
     this.showWeight = true,
     this.onVideo,
     this.holdingSeconds,
+    this.perSide,
   });
   final int number;
   final SetEntry entry;
   final String unit;
+
+  /// What goes on each side of the bar for this row — "30/side" — under the
+  /// weight itself. Only a warm-up rung carries one: the working sets share a
+  /// load, so one [PlateLine] under the block says it once for all of them,
+  /// while the ramp is a different load every rung. Null off a bar, and on the
+  /// empty bar, where there is nothing on either side to name.
+  final String? perSide;
 
   /// Whether this row carries a weight cell — see [_showsWeight]. A movement
   /// done under no load has none, rather than an empty box under an empty
@@ -1502,13 +1723,28 @@ class _SetRow extends StatelessWidget {
             done: done,
             tone: _tone,
           ),
-          child: Text(
-            fmtWeight(toDisplayWeight(_entry.weight, unit)),
-            style: boardCellTextStyle(
-              primary: false,
-              done: done,
-              tone: _tone,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Bare, deliberately: the column heading names the unit once for
+              // every cell under it, and repeating it on every row is a word
+              // per set for one fact.
+              Text(
+                fmtWeightValue(_entry.weight, unit),
+                style: boardCellTextStyle(
+                  primary: false,
+                  done: done,
+                  tone: _tone,
+                ),
+              ),
+              if (perSide case final label?)
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: kMono.copyWith(fontSize: 9.5, color: AppColors.faint),
+                ),
+            ],
           ),
         ),
       ),
@@ -1626,6 +1862,11 @@ class _WeightDialog extends StatefulWidget {
 }
 
 class _WeightDialogState extends State<_WeightDialog> {
+  /// The number alone, and never the dash an empty weight reads as elsewhere:
+  /// this is what is about to be edited, and a field prefilled with something
+  /// unparseable is a field you have to clear before you can type. The unit is
+  /// the field's own suffix, as it is the board's column heading — named once
+  /// beside the value rather than inside it.
   late final TextEditingController _c = TextEditingController(
     text: fmtWeight(toDisplayWeight(widget.weightKg, widget.unit)),
   );
@@ -1635,9 +1876,8 @@ class _WeightDialogState extends State<_WeightDialog> {
   /// subtitle nor a floor — an empty line under the field is still a line.
   String? _said(AppLocalizations l10n) {
     if (widget.minKg <= 0) return widget.subtitle;
-    final floor = fmtWeight(toDisplayWeight(widget.minKg, widget.unit));
     final said = l10n.sessionWeightFloor(
-      l10n.unitWeightShort(floor, unitSuffix(l10n, widget.unit)),
+      weightWithUnit(l10n, widget.minKg, widget.unit),
     );
     return widget.subtitle == null ? said : '${widget.subtitle} · $said';
   }
@@ -1835,13 +2075,7 @@ class _RestBanner extends StatelessWidget {
   String _caption(AppLocalizations l10n) {
     final p = prompt;
     if (p == null) return l10n.sessionRestPlain;
-    String weight() {
-      final w = p.weightKg;
-      return w == null
-          ? ''
-          : l10n.unitWeightShort(
-              fmtWeight(toDisplayWeight(w, unit)), unitSuffix(l10n, unit));
-    }
+    String weight() => weightWithUnit(l10n, p.weightKg, unit);
 
     return switch (p.purpose) {
       RestPurpose.anotherWarmup =>

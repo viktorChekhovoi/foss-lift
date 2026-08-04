@@ -33,6 +33,8 @@ groups:
       time and its weekly schedule.
     defines:
     - template.routine
+    uses:
+    - template.rest
   - id: workout-one-training-day-inside
     t: A workout is one training day inside a routine
     d: >-
@@ -75,13 +77,16 @@ groups:
     - template.rest
     - progression.rates
     - exercise.seed
+    - template.item
+    - template.rep-target
   - id: workout-carries-estimated-duration
     t: A workout says how long it will take
     d: >-
       an estimate read off the template alone — the working sets, the warm-up
-      rungs before them, the rest after every set but the last, and time under
-      the bar scaled by the reps or the hold. Shown as a single rounded figure
-      next to the exercise count, on the training day and on its Today card.
+      rungs before them at the count Settings asks for, the rest after every set
+      but the last, and time under the bar scaled by the reps or the hold. Shown
+      as a single rounded figure next to the exercise count, on the training day
+      and on its Today card.
     screen: workout-detail
     defines:
     - template.duration-estimate
@@ -90,6 +95,7 @@ groups:
     - template.rest
     - template.rep-target
     - session.warmup-ramp
+    - session.warmup-count
 - name: How to use it
   items:
   - id: see-current-routine-s-days
@@ -101,6 +107,7 @@ groups:
     screen: today
     uses:
     - template.active-routine
+    - ui.text-scale
   - id: pick-change-current-routine
     t: Pick / change the current routine
     d: >-
@@ -129,12 +136,19 @@ groups:
       and the list of training days: add, delete, and drag by the handle on the
       left of each row into the order you train them.
     screen: routine-edit
+    uses:
+    - template.routine
+    - template.workout
+    - template.rest
   - id: build-edit-day-s-exercises
     t: Build / edit a day's exercises
     d: >-
       open a workout → edit → add exercises from the picker, drag them by the
       handle into order, configure each slot. The same control at both levels.
     screen: workout-edit
+    uses:
+    - template.workout
+    - template.item
 - name: Behaviour & edge cases
   items:
   - id: estimate-rounded-not-precise

@@ -10,10 +10,10 @@ import '../screens/exercise_detail_screen.dart'
 import '../screens/exercise_form_screen.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
+import '../util/target_label.dart';
 import '../util/units.dart';
 import 'builder_widgets.dart';
 import 'common.dart' show sectionLabelStyle;
-import 'plate_line.dart' show loadFloorKg;
 
 /// Finds the two progression-amount fields in a test.
 const kStepUpFieldKey = ValueKey('amount-step-up');
@@ -351,14 +351,15 @@ String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
 /// Compact target/weight/progression summary for a draft item, e.g.
 /// "4 × 6–8 · 80 kg · +2.5 kg".
 String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
-  final target = switch (d.progression) {
-    ProgressionMode.time => '${d.holdSeconds}${l10n.itemEditorSecondsSuffix}',
-    _ => d.toFailure
-        ? l10n.itemEditorToFailureShort
-        : (d.repsMax == null || d.repsMax == d.repsMin
-            ? '${d.repsMin}'
-            : '${d.repsMin}–${d.repsMax}'),
-  };
+  final target = setsTargetLabel(
+    l10n,
+    sets: d.sets,
+    progression: d.progression,
+    toFailure: d.toFailure,
+    holdSeconds: d.holdSeconds,
+    repsMin: d.repsMin,
+    repsMax: d.repsMax,
+  );
   final w = d.weightKg == null
       ? null
       : l10n.unitWeightShort(
@@ -370,7 +371,7 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
   final scheme = d.scheme == SetScheme.flat
       ? null
       : _SchemePicker._label(l10n, d.scheme).toLowerCase();
-  return ['${d.sets} × $target', ?w, ?scheme, step].join(' · ');
+  return [target, ?w, ?scheme, step].join(' · ');
 }
 
 /// The ordered exercise list of one workout: add, reorder, configure, remove.

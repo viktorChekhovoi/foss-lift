@@ -183,10 +183,20 @@ concepts:
     what: The tone at the end of a rest, on screen and off it.
     code: [lib/services/rest_tone.dart, lib/services/rest_alarm.dart, tool/make_rest_tone.dart]
 
+  - id: session.rest-buzz
+    area: session
+    what: The vibration the board makes as a rest ends, beside the tone.
+    code: [lib/screens/workout_screen.dart]
+
   - id: session.warmup-ramp
     area: session
     what: The suggested ascending warm-up, never persisted.
     code: [lib/data/warmup.dart]
+
+  - id: session.warmup-count
+    area: session
+    what: How many rungs a ramp is asked for — the app-wide default and the live stepper on top of it.
+    code: [lib/data/warmup.dart, lib/data/database.dart, lib/screens/exercise_settings_screen.dart]
 
   - id: session.abort
     area: session
@@ -488,6 +498,11 @@ concepts:
   - id: storage.schema
     area: platform
     what: The drift tables themselves.
+    code: [lib/data/database.dart]
+
+  - id: storage.migration
+    area: platform
+    what: The version ladder an installed database climbs on open, one rung per schema change.
     code: [lib/data/database.dart]
 
   - id: privacy.offline

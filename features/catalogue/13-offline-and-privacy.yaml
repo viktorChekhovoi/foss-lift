@@ -33,14 +33,14 @@ groups:
     defines:
     - storage.schema
     uses:
-    - storage.schema
     - storage.database-location
     - privacy.offline
   - id: preferences-live-one-row
     t: Every app-wide preference lives in one row
     d: >-
       the unit, the current routine, the theme, the text-size nudge, the layoff
-      rules, the plate rack, the clip caps and whether the tour has run. A write
+      rules, the plate rack, the clip caps, the warm-up rung count and whether
+      the tour has run. A write
       patches only the columns it names and creates the row if it is missing, so
       two screens saving different preferences at once cannot overwrite each
       other's.
@@ -49,6 +49,20 @@ groups:
     - storage.settings
     uses:
     - storage.schema
+  - id: update-keeps-what-is-already-stored
+    t: Installing an update keeps what is already stored
+    d: >-
+      the database climbs a numbered ladder as it opens — one rung per schema
+      change, each taking the shape before it to the shape after — so a phone
+      coming from an older build finds its history, its routines and its
+      settings where it left them, and a preference that build never had arrives
+      at its default rather than empty.
+    screen: none
+    defines:
+    - storage.migration
+    uses:
+    - storage.schema
+    - storage.settings
   - id: only-notification-local-one
     t: The only "notification" is a local one
     d: scheduled on-device; it never leaves the phone.
@@ -61,6 +75,8 @@ groups:
     d: >-
       Profile → About Foss Lift: what the app does with your data, the licence, and
       an address to report a bug to.
+    uses:
+    - privacy.offline
 - name: How to use it
   items:
   - id: report-bug
@@ -118,6 +134,7 @@ groups:
     uses:
     - privacy.offline
     - platform.permissions
+    - platform.android
   - id: there-no-upload-path-no
     t: There is no upload path and no share sheet for a clip
     d: >-

@@ -6,10 +6,11 @@ import '../theme/app_theme.dart';
 /// The style a small-caps section heading is drawn in, for the handful of
 /// places that need the words without [SectionLabel]'s row and padding.
 ///
-/// The colour is [AppColors.muted], never [AppColors.faint]. `faint` is the one
-/// role no palette is asked to keep legible — it exists for a column heading
-/// nobody reads twice, and across the shipped palettes it sits nearer 3:1 than
-/// 4.5:1 on the ground. A heading naming what a list is has to be read.
+/// The colour is [AppColors.muted] — the middle of a palette's three text
+/// tones. All three clear 4.5:1 on every background the app paints, so the
+/// choice is about rank rather than legibility: a heading naming what a list is
+/// reads under the words in the list, and above the hints and dates that take
+/// [AppColors.faint].
 TextStyle sectionLabelStyle() => kMono.copyWith(
       fontSize: AppType.sectionLabel,
       letterSpacing: 1.4,

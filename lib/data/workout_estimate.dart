@@ -12,9 +12,10 @@
 ///   [kSecondsPerRep] per planned rep (a range is planned at its top end, the
 ///   same goal a live set is given) plus [kSetSetupSeconds] of getting into
 ///   position. A held slot costs its [WorkoutItem.holdSeconds] instead.
-/// - **Warm-up rungs** — a weight slot with a load gets [kDefaultWarmupSets]
-///   rungs in front of its working sets, priced through [warmupReps] at the
-///   fractions the ramp aims for. See "the rungs are assumed" below.
+/// - **Warm-up rungs** — a weight slot with a load gets the setting's worth of
+///   rungs in front of its working sets ([kDefaultWarmupSets] until it is
+///   changed), priced through [warmupReps] at the fractions the ramp aims for.
+///   See "the rungs are assumed" below.
 /// - **Rest** — the slot's own [WorkoutItem.restSeconds], or the routine's
 ///   default where it has none; [kWarmupRestSeconds] between warm-up rungs, and
 ///   the full rest after the last rung because the working set is next
@@ -33,9 +34,9 @@
 /// **The rungs are assumed, not solved.** The real ramp depends on the plate
 /// rack and the bar (see [computeWarmups]), and can come back shorter than
 /// asked for when the ladder is coarse. Resolving that here would drag the gym's
-/// inventory into a figure printed on a card, so the estimate prices the default
-/// count at the fractions the ramp aims for. It errs high on a coarse ladder,
-/// by well under one rounding step.
+/// inventory into a figure printed on a card, so the estimate prices the count
+/// that was asked for at the fractions the ramp aims for. It errs high on a
+/// coarse ladder, by well under one rounding step.
 ///
 /// **It is not read from history.** [Sessions.durationSeconds] is wall-clock
 /// from Start to Finish with no pause anywhere in the app, so a session left
@@ -67,10 +68,13 @@ int setSeconds({int reps = 0, int holdSeconds = 0}) =>
     kSetSetupSeconds + (holdSeconds > 0 ? holdSeconds : reps * kSecondsPerRep);
 
 /// How long [items] will take, resting [routineRestSeconds] where a slot has no
-/// rest of its own. [Duration.zero] when there is nothing to do.
+/// rest of its own and opening each ramp with [warmupSets] rungs — the setting a
+/// session seeds from, so the card and the session agree. [Duration.zero] when
+/// there is nothing to do.
 Duration estimateWorkoutDuration({
   required List<WorkoutItem> items,
   required int routineRestSeconds,
+  int warmupSets = kDefaultWarmupSets,
 }) {
   // The day flattened into what it actually is: an effort, then the rest that
   // follows it. Built in order so the trailing rest — the one you never take —
@@ -79,7 +83,7 @@ Duration estimateWorkoutDuration({
 
   for (final item in items) {
     final rest = item.restSeconds ?? routineRestSeconds;
-    final rungs = warmupRungsFor(item);
+    final rungs = warmupRungsFor(item, sets: warmupSets);
     for (var i = 0; i < rungs; i++) {
       segments.add((
         work: setSeconds(reps: warmupReps(_rungFraction(i, rungs))),
@@ -99,12 +103,11 @@ Duration estimateWorkoutDuration({
   return Duration(seconds: total - segments.last.rest);
 }
 
-/// How many warm-up rungs a slot is priced for — the same test the live session
-/// makes (`ExerciseEntry.hasWarmups`): a counted slot carrying a load.
-int warmupRungsFor(WorkoutItem item) =>
-    !item.progression.timed && (item.suggestedWeight ?? 0) > 0
-        ? kDefaultWarmupSets
-        : 0;
+/// How many warm-up rungs a slot is priced for — [sets] of them, on the same
+/// test the live session makes (`ExerciseEntry.hasWarmups`): a counted slot
+/// carrying a load.
+int warmupRungsFor(WorkoutItem item, {int sets = kDefaultWarmupSets}) =>
+    !item.progression.timed && (item.suggestedWeight ?? 0) > 0 ? sets : 0;
 
 /// The fraction of the working weight rung [i] of [count] aims for — evenly
 /// from [kWarmupStartFraction] to [kWarmupTopFraction], and mid-range when

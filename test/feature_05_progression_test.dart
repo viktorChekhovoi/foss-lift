@@ -133,6 +133,21 @@ void main() {
     test('time never falls below five seconds', () {
       expect(advanceTarget(6, -5, ProgressionMode.time), 5);
     });
+
+    test('a bar-loaded target stops at the bar, not at nothing', () {
+      // The empty bar is the lightest thing a barbell lift can be set to, so a
+      // back-off lands on it and stays there.
+      expect(advanceTarget(22.5, -5, ProgressionMode.weight, floorKg: 20), 20);
+      expect(advanceTarget(20, -5, ProgressionMode.weight, floorKg: 20), 20);
+    });
+
+    test('a target already under its bar is brought back up to it', () {
+      expect(advanceTarget(0, 2.5, ProgressionMode.weight, floorKg: 20), 20);
+    });
+
+    test('no bar means no floor above zero', () {
+      expect(advanceTarget(2.5, -5, ProgressionMode.weight, floorKg: 0), 0);
+    });
   });
 
   group('the weight axis, applied through the database', () {
@@ -215,6 +230,136 @@ void main() {
       final slot = await db.workoutItemById(id);
       expect(slot!.successStreak, 0);
       expect(slot.failStreak, 1);
+    });
+  });
+
+  group('a target is never stored below its own bar', () {
+    // A single Bench Press slot at [kg], so the whole Push day is one barbell
+    // lift standing on the gym's default 20 kg bar.
+    Future<int> benchAt(double? kg, {int failureThreshold = 2}) async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          targetSets: const Value(3),
+          repsMin: const Value(8),
+          suggestedWeight: Value(kg),
+          progression: const Value(ProgressionMode.weight),
+          failureThreshold: Value(failureThreshold),
+        ),
+      ]);
+      return (await db.itemsForWorkout(push.id)).single.item.id;
+    }
+
+    test('repeated back-offs land on the empty bar and stay there', () async {
+      final id = await benchAt(22.5, failureThreshold: 1);
+
+      final first = await db.advanceProgression(id, success: false);
+      expect(first, closeTo(-2.5, 1e-9)); // 22.5 → 17.5, held at the 20 kg bar
+      expect((await db.workoutItemById(id))!.suggestedWeight, 20);
+
+      final second = await db.advanceProgression(id, success: false);
+      expect(second, 0); // there is nowhere lighter to go
+      expect((await db.workoutItemById(id))!.suggestedWeight, 20);
+    });
+
+    test('a target left under its bar is floored as progression touches it',
+        () async {
+      // What an older build could store: a slot backed off to nothing under a
+      // 20 kg bar. Trained at the bar and stepped up, it reports the step it
+      // took — not the whole climb back to the bar as a step up.
+      final id = await benchAt(0);
+      final moved =
+          await db.advanceProgression(id, success: true, performedWeight: 20);
+      expect(moved, closeTo(2.5, 1e-9));
+      expect((await db.workoutItemById(id))!.suggestedWeight, 22.5);
+    });
+
+    test('a movement with no bar under it may still fall to nothing', () async {
+      // A belt on a bodyweight movement: zero load is a real place to end up.
+      final ex = await exerciseNamed(db, 'Push-Up');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          suggestedWeight: const Value(2.5),
+          progression: const Value(ProgressionMode.weight),
+          failureThreshold: const Value(1),
+        ),
+      ]);
+      final id = (await db.itemsForWorkout(push.id)).single.item.id;
+      await db.advanceProgression(id, success: false);
+      expect((await db.workoutItemById(id))!.suggestedWeight, 0);
+    });
+  });
+
+  group('a slot with no stored target takes one from the session', () {
+    /// A single weight-axis slot for [exercise] with no suggested weight at all.
+    Future<int> untargetedSlot(String exercise) async {
+      final ex = await exerciseNamed(db, exercise);
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          targetSets: const Value(3),
+          repsMin: const Value(8),
+          progression: const Value(ProgressionMode.weight),
+          // suggestedWeight left absent — the builder was never given one.
+        ),
+      ]);
+      return (await db.itemsForWorkout(push.id)).single.item.id;
+    }
+
+    test('a weight worked on the board becomes the target, and steps on',
+        () async {
+      final id = await untargetedSlot('Bench Press');
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+      ctrl.setWorkingWeight(0, 60);
+      final live = container.read(activeWorkoutProvider)!;
+      for (var si = 0; si < live.exercises[0].sets.length; si++) {
+        ctrl.setLogged(0, si, 8);
+      }
+      await ctrl.finish();
+
+      expect((await db.workoutItemById(id))!.suggestedWeight, 62.5);
+      final report = container.read(lastProgressionProvider)!;
+      expect(report.outcomes, hasLength(1));
+      expect(report.outcomes.single.target, 62.5);
+      expect(report.outcomes.single.moved, closeTo(2.5, 1e-9));
+    });
+
+    test('a weight set but never lifted still establishes the target',
+        () async {
+      final id = await untargetedSlot('Bench Press');
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+      ctrl.setWorkingWeight(0, 60); // set up, then the session ended
+      await ctrl.finish();
+
+      expect((await db.workoutItemById(id))!.suggestedWeight, 60);
+      final report = container.read(lastProgressionProvider)!;
+      expect(report.outcomes.single.target, 60);
+      expect(report.outcomes.single.moved, 0);
+    });
+
+    test('no target and no weight is the one case with nothing to move',
+        () async {
+      final id = await untargetedSlot('Push-Up');
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+      final live = container.read(activeWorkoutProvider)!;
+      for (var si = 0; si < live.exercises[0].sets.length; si++) {
+        ctrl.setLogged(0, si, 8);
+      }
+      await ctrl.finish();
+
+      expect((await db.workoutItemById(id))!.suggestedWeight, isNull);
+      expect(container.read(lastProgressionProvider), isNull);
     });
   });
 

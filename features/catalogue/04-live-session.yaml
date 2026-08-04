@@ -97,11 +97,21 @@ groups:
     d: >-
       logging a set starts it, using that slot's configured rest, with shorter /
       longer / skip controls, captioned with what to do with the rest, and sounding
-      when it ends.
+      when it ends. Un-logging a set takes its rest back, silently: a rest is only
+      running because a set was logged, and one left counting down for a set that
+      no longer happened rings for nothing. That holds on every route back to
+      untouched — tapping the cycle round, clearing the type-in dialog, clearing a
+      logged hold — and on a warm-up rung as on a working set. Correcting the
+      number on a set that stays logged leaves the clock alone.
     defines:
     - session.rest-timer
     uses:
     - template.rest
+    - session.rest-cue
+    - session.rest-sound
+    - session.set-logging
+    - session.warmup-ramp
+    - session.hold-timer
   - id: suggests-warm-up-sets
     t: Suggests warm-up sets
     d: >-
@@ -115,6 +125,8 @@ groups:
     - session.warmup-ramp
     uses:
     - load.loadable-grid
+    - exercise.weight-type
+    - session.warmup-count
   - id: survives-being-collapsed
     t: Survives being collapsed
     d: >-
@@ -122,8 +134,6 @@ groups:
       at the bottom of every other screen, one tap from getting back to it.
     screen: resume-bar
     defines:
-    - session.resume-bar
-    uses:
     - session.resume-bar
   - id: lives-notification-shade
     t: Lives in the notification shade
@@ -137,6 +147,8 @@ groups:
     - session.shade
     uses:
     - session.progress-mark
+    - session.warmup-ramp
+    - session.rest-timer
     - load.units
   - id: can-aborted
     t: Can be aborted
@@ -254,8 +266,6 @@ groups:
     d: >-
       where there is no navigation bar — every screen pushed over a tab — it is
       the last row of the app, which is the same slot with nothing under it.
-    defines:
-    - session.resume-bar
     uses:
     - ui.navigation
   - id: docks-does-not-float
@@ -284,6 +294,7 @@ groups:
       what is outstanding rather than trusting the notification it came from.
     uses:
     - session.set-logging
+    - session.rest-timer
   - id: missed-logs-one-short-goal
     t: Missed logs one short of the goal
     d: >-
@@ -291,6 +302,7 @@ groups:
       Done, and leaves the board in front of you so the count can be corrected.
     uses:
     - session.set-logging
+    - session.rest-timer
     - progression.verdict
   - id: buttons-route-they-do-not-raise
     t: A button sends you to the board; it cannot raise the phone
@@ -402,8 +414,6 @@ groups:
     screen: none
     defines:
     - platform.android
-    uses:
-    - platform.android
   - id: asks-post-notifications-or-invisible
     t: It asks to post notifications, or it is invisible
     d: >-
@@ -412,8 +422,6 @@ groups:
       is first needed rather than on launch.
     screen: system
     defines:
-    - platform.permissions
-    uses:
     - platform.permissions
   - id: refusal-not-error
     t: Refusal is not an error
@@ -448,7 +456,6 @@ groups:
     defines:
     - session.rest-cue
     uses:
-    - session.rest-cue
     - session.warmup-ramp
   - id: rest-bar-docks-takes-room
     t: The rest bar docks at the bottom and takes real room
@@ -488,9 +495,24 @@ groups:
       rather than a thing you act on.
     defines:
     - session.rest-sound
-    uses:
-    - session.rest-sound
     manual: true
+  - id: rest-end-is-felt-as-well-as-heard
+    t: The end of a rest is felt as well as heard
+    d: >-
+      the board buzzes as a rest runs out, and as you end one yourself with Skip or
+      by taking the last fifteen seconds off — a firm impact rather than the tick
+      that acknowledges a tap, because the phone this has to reach is on a bench or
+      in a pocket. A rest that ends without a sound ends without a buzz: starting a
+      hold takes the running rest with it silently, and so does finishing or
+      abandoning the session. Off the board there is nothing to buzz, and the
+      notification that lands instead carries the phone's own. There is no setting
+      for it — the phone's haptics switch is the setting.
+    defines:
+    - session.rest-buzz
+    uses:
+    - session.rest-timer
+    - session.rest-sound
+    - session.hold-timer
   - id: tone-synthesised-shipped-asset
     t: The tone is synthesised and shipped as an asset
     d: >-
@@ -555,7 +577,8 @@ groups:
     screen: shade
     uses:
     - session.rest-sound
-    - platform.reminders
+    - session.shade
+    - platform.android
     manual: true
   - id: ding-posted-when-rest-ends
     t: The off-screen ding is posted when the rest ends, by the app
@@ -623,11 +646,20 @@ groups:
     t: The board marks the set you are on
     d: >-
       so coming back to the phone does not mean scanning for the last row that went
-      green. The set the shade would name is marked in the accent on the board too,
-      from the same arithmetic. Exactly one thing is ever marked, and nothing is once
-      every set is logged.
+      green. The mark follows the movement you are working rather than the order the
+      template lists: it sits in the last exercise you logged anything in that still
+      has working sets outstanding, so starting on the third exercise marks the third
+      exercise instead of pinning the mark to the untouched first. With nothing logged
+      yet — and once the exercise you were on is complete — it falls back to template
+      order, taking the first outstanding set of the first unfinished exercise, warm-up
+      rungs before the working sets they prime. The shade names the same set from the
+      same arithmetic, so its Done button logs the set the board has marked. Exactly
+      one thing is ever marked, and nothing is once every set is logged.
     defines:
     - session.progress-mark
+    uses:
+    - session.warmup-ramp
+    - session.shade
   - id: warm-ups-count-toward-mark
     t: Warm-ups count toward the mark
     d: >-
@@ -639,6 +671,19 @@ groups:
     uses:
     - session.progress-mark
     - session.warmup-ramp
+  - id: board-opens-where-you-are
+    t: The board opens on the exercise you are on
+    d: >-
+      coming back to a session in progress scrolls the rows straight to the marked
+      exercise as the screen appears, with no animation to sit through: a workout
+      six movements long opens on the sixth rather than at the top, where the only
+      way on is to scroll past everything already done. It happens once, as the
+      screen opens, and never again — the list may not move under a thumb that is
+      logging sets, so finishing an exercise leaves the scroll exactly where you
+      put it. A session with nothing logged yet is already at the top and is left
+      there.
+    uses:
+    - session.progress-mark
   - id: tap-log-hint-pinned
     t: The tap-to-log hint is pinned
     d: >-
@@ -667,8 +712,8 @@ groups:
     defines:
     - session.hold-timer
     uses:
-    - session.hold-timer
     - session.rest-sound
+    - session.rest-timer
     - exercise.measure
   - id: only-one-hold-runs-time
     t: Only one hold runs at a time
@@ -698,6 +743,7 @@ groups:
     uses:
     - history.aggregates
     - session.finish
+    - progression.verdict
   - id: moving-weight-rebuilds-warm-up
     t: Moving the weight rebuilds the warm-up
     d: >-
@@ -705,6 +751,22 @@ groups:
       you are redrawn. Changing the count follows the same rule.
     uses:
     - session.exercise-weight
+    - session.warmup-count
+  - id: default-warm-up-count-is-a-setting
+    t: How many rungs a ramp opens with is a setting
+    d: >-
+      Profile → Exercise settings → Warm-ups, one to six, three until it is
+      changed. Every exercise in a session starts its stepper there, and the
+      duration estimate on a training day prices the same number. A session
+      already running keeps the count it started with, and a stepper moved
+      during it stays moved.
+    screen: settings
+    defines:
+    - session.warmup-count
+    uses:
+    - storage.settings
+    - template.duration-estimate
+    - session.start
   - id: warm-up-rest-shorter-between
     t: Warm-up rest is shorter between rungs, full before the work
     d: >-
@@ -723,18 +785,17 @@ groups:
     - load.loadable-grid
     uses:
     - load.bar-weight
-    - load.loadable-grid
+    - load.plate-solver
     - exercise.weight-type
   - id: dumbbell-rungs-use-increments-gym
     t: Off the bar, a rung snaps to the increments a gym stocks
     d: >-
       dumbbells in multiples of 5 lb, or 2.5 kg in a metric gym; machine and cable
       rungs in multiples of 5 in either unit, which is how a stack is labelled.
-    defines:
-    - load.loadable-grid
     uses:
     - load.loadable-grid
     - load.units
+    - exercise.weight-type
   - id: non-barbell-ramps-start-40
     t: Non-barbell ramps start at ~40% of the work
     d: a dumbbell has no empty bar to stand on.
@@ -761,12 +822,20 @@ groups:
     uses:
     - load.plate-solver
   - id: duplicates-dropped
-    t: Duplicates are dropped
+    t: Duplicates are dropped, and the stepper says so
     d: >-
       where a coarse grid puts two steps on the same load, a light lift gets a
       shorter ramp than asked for rather than one that stalls or steps backward.
+      The stepper then reads the number of rungs actually built, never the
+      number asked for, and + greys out — a ramp that came back short comes back
+      shorter still if you ask for more. − steps down from what is on screen,
+      and where nothing could be built at all it settles the request at none in
+      one press. The number you asked for is what the session keeps, so a ramp
+      the ladder could not build at 25 kg is built in full the moment the
+      working weight goes up.
     uses:
     - load.loadable-grid
+    - session.warmup-count
   - id: one-warm-up-set-middle
     t: One warm-up set is a middle-of-the-road set, not the empty bar
     d: >-
@@ -779,9 +848,9 @@ groups:
     t: A light lift still collapses to the bar on its own
     d: >-
       at any set count — a 25 kg lift over a 20 kg bar warms up with the empty
-      bar and nothing else. At the bar itself there is no ramp to build, and the
-      group says why in one line rather than telling you to add rungs above, which
-      is not something you could do.
+      bar and nothing else, and its stepper reads 1. At the bar itself there is
+      no ramp to build, and the group says why in one line rather than telling
+      you to add rungs above, which is not something you could do.
     uses:
     - load.bar-weight
   - id: ramp-s-shape-follows-published

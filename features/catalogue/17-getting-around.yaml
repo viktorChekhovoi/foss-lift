@@ -30,7 +30,7 @@ groups:
       a routine, a workout, an exercise, the settings pages and the live session
       open above the whole shell rather than inside one tab, so none of them
       carries a navigation bar and all of them come back to the tab you left.
-    defines:
+    uses:
     - ui.navigation
   - id: one-type-scale-shared-widgets
     t: One type scale, and it lives in the shared widgets
@@ -80,6 +80,7 @@ groups:
     uses:
     - ui.navigation
     - session.resume-bar
+    - ui.system-insets
   - id: system-bars-never-cover-a-control
     t: The phone's own bars never cover a control
     d: >-

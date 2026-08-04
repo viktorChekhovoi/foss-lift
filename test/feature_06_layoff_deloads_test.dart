@@ -120,8 +120,15 @@ void main() {
     test('a cut never drops a target below its mode floor', () {
       expect(deloadedTarget(1, 90, ProgressionMode.reps), 1);
       expect(deloadedTarget(5, 90, ProgressionMode.time), 5);
-      // Weight may legitimately reach zero.
+      // Weight may legitimately reach zero where there is no bar under it.
       expect(deloadedTarget(1, 90, ProgressionMode.weight), 0);
+    });
+
+    test('a cut never drops a bar-loaded target below its own bar', () {
+      // 25 kg less half is 12.5, which is less than the empty bar it is on.
+      expect(deloadedTarget(25, 50, ProgressionMode.weight, floorKg: 20), 20);
+      // A cut that still clears the bar is untouched by the floor.
+      expect(deloadedTarget(100, 10, ProgressionMode.weight, floorKg: 20), 90);
     });
   });
 
@@ -222,6 +229,28 @@ void main() {
         ),
       ]);
       expect(await db.applyLayoffDeload(push.id, 10), 0);
+    });
+
+    test('a barbell slot is never cut below its own bar', () async {
+      // A light bench: half off 25 kg is 12.5, which is less than the 20 kg bar
+      // the movement is done on. The cut lands on the bar instead.
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          suggestedWeight: const Value(25),
+          progression: const Value(ProgressionMode.weight),
+        ),
+      ]);
+      final id = (await db.itemsForWorkout(push.id)).single.item.id;
+
+      expect(await db.applyLayoffDeload(push.id, 50), 1);
+      expect((await db.workoutItemById(id))!.suggestedWeight, 20);
+      // Already on the bar, a second layoff has nothing left to take.
+      expect(await db.applyLayoffDeload(push.id, 50), 0);
+      expect((await db.workoutItemById(id))!.suggestedWeight, 20);
     });
 
     test('a reps slot is cut along its own axis, keeping the range width',

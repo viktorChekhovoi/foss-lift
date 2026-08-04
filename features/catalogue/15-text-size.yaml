@@ -23,9 +23,8 @@ groups:
     d: >-
       Android's own setting is system-wide and already discoverable; the app renders
       at whatever it says, and Default here means "whatever the phone says".
-    defines:
-    - ui.text-scale
     uses:
+    - ui.text-scale
     - storage.settings
   - id: offers-nudge-own
     t: Offers a nudge of its own
@@ -44,7 +43,7 @@ groups:
       control beside it. Largest is the largest text the app will render, and
       Smaller is the smallest; pinching to either end lands on a chip rather than
       somewhere past the last one.
-    defines:
+    uses:
     - ui.text-scale
   - id: pinching-onto-a-chip-selects-it
     t: A pinch that lands on a chip's percentage selects that chip
@@ -65,7 +64,7 @@ groups:
       is what keeps a one-finger scroll from ever being read as a pinch. While it
       runs, the scale it is on is shown as a percentage over the screen, and the
       value is written once the fingers come off.
-    defines:
+    uses:
     - ui.text-scale
 - name: Behaviour & edge cases
   items:

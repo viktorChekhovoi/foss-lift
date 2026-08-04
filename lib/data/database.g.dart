@@ -4429,6 +4429,18 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _warmupSetsMeta = const VerificationMeta(
+    'warmupSets',
+  );
+  @override
+  late final GeneratedColumn<int> warmupSets = GeneratedColumn<int>(
+    'warmup_sets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultWarmupSets),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4445,6 +4457,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     videoHeight,
     videoMaxSeconds,
     localeTag,
+    warmupSets,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4563,6 +4576,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         localeTag.isAcceptableOrUnknown(data['locale_tag']!, _localeTagMeta),
       );
     }
+    if (data.containsKey('warmup_sets')) {
+      context.handle(
+        _warmupSetsMeta,
+        warmupSets.isAcceptableOrUnknown(data['warmup_sets']!, _warmupSetsMeta),
+      );
+    }
     return context;
   }
 
@@ -4628,6 +4647,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}locale_tag'],
       ),
+      warmupSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}warmup_sets'],
+      )!,
     );
   }
 
@@ -4732,6 +4755,19 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// exists for the gap that leaves — a phone kept in one language by an
   /// employer or a habit, and an app you would rather read in another.
   final String? localeTag;
+
+  /// How many warm-up rungs every exercise in a session opens with, before the
+  /// live stepper touches it — see `warmup.dart`.
+  ///
+  /// The settings stepper holds it between 1 and [kMaxWarmupSets]. Zero is not
+  /// on offer there: skipping the ramp is a decision about the movement you are
+  /// on, which the session's own stepper already makes.
+  ///
+  /// **Declared last on purpose.** `ALTER TABLE … ADD COLUMN` appends, so a
+  /// database that climbed the v2 rung carries this column at the end. Adding it
+  /// here rather than beside the other counts keeps a fresh install and an
+  /// upgraded one on exactly the same table, right down to the column order.
+  final int warmupSets;
   const Setting({
     required this.id,
     this.weightUnit,
@@ -4747,6 +4783,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     required this.videoHeight,
     required this.videoMaxSeconds,
     this.localeTag,
+    required this.warmupSets,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4779,6 +4816,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     if (!nullToAbsent || localeTag != null) {
       map['locale_tag'] = Variable<String>(localeTag);
     }
+    map['warmup_sets'] = Variable<int>(warmupSets);
     return map;
   }
 
@@ -4812,6 +4850,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       localeTag: localeTag == null && nullToAbsent
           ? const Value.absent()
           : Value(localeTag),
+      warmupSets: Value(warmupSets),
     );
   }
 
@@ -4835,6 +4874,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       videoHeight: serializer.fromJson<int>(json['videoHeight']),
       videoMaxSeconds: serializer.fromJson<int>(json['videoMaxSeconds']),
       localeTag: serializer.fromJson<String?>(json['localeTag']),
+      warmupSets: serializer.fromJson<int>(json['warmupSets']),
     );
   }
   @override
@@ -4855,6 +4895,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'videoHeight': serializer.toJson<int>(videoHeight),
       'videoMaxSeconds': serializer.toJson<int>(videoMaxSeconds),
       'localeTag': serializer.toJson<String?>(localeTag),
+      'warmupSets': serializer.toJson<int>(warmupSets),
     };
   }
 
@@ -4873,6 +4914,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     int? videoHeight,
     int? videoMaxSeconds,
     Value<String?> localeTag = const Value.absent(),
+    int? warmupSets,
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit.present ? weightUnit.value : this.weightUnit,
@@ -4896,6 +4938,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     videoHeight: videoHeight ?? this.videoHeight,
     videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
     localeTag: localeTag.present ? localeTag.value : this.localeTag,
+    warmupSets: warmupSets ?? this.warmupSets,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -4933,6 +4976,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.videoMaxSeconds.value
           : this.videoMaxSeconds,
       localeTag: data.localeTag.present ? data.localeTag.value : this.localeTag,
+      warmupSets: data.warmupSets.present
+          ? data.warmupSets.value
+          : this.warmupSets,
     );
   }
 
@@ -4952,7 +4998,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('themePresetId: $themePresetId, ')
           ..write('videoHeight: $videoHeight, ')
           ..write('videoMaxSeconds: $videoMaxSeconds, ')
-          ..write('localeTag: $localeTag')
+          ..write('localeTag: $localeTag, ')
+          ..write('warmupSets: $warmupSets')
           ..write(')'))
         .toString();
   }
@@ -4973,6 +5020,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     videoHeight,
     videoMaxSeconds,
     localeTag,
+    warmupSets,
   );
   @override
   bool operator ==(Object other) =>
@@ -4991,7 +5039,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.themePresetId == this.themePresetId &&
           other.videoHeight == this.videoHeight &&
           other.videoMaxSeconds == this.videoMaxSeconds &&
-          other.localeTag == this.localeTag);
+          other.localeTag == this.localeTag &&
+          other.warmupSets == this.warmupSets);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -5009,6 +5058,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> videoHeight;
   final Value<int> videoMaxSeconds;
   final Value<String?> localeTag;
+  final Value<int> warmupSets;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -5024,6 +5074,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.videoHeight = const Value.absent(),
     this.videoMaxSeconds = const Value.absent(),
     this.localeTag = const Value.absent(),
+    this.warmupSets = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -5040,6 +5091,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.videoHeight = const Value.absent(),
     this.videoMaxSeconds = const Value.absent(),
     this.localeTag = const Value.absent(),
+    this.warmupSets = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -5056,6 +5108,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<int>? videoHeight,
     Expression<int>? videoMaxSeconds,
     Expression<String>? localeTag,
+    Expression<int>? warmupSets,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5072,6 +5125,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (videoHeight != null) 'video_height': videoHeight,
       if (videoMaxSeconds != null) 'video_max_seconds': videoMaxSeconds,
       if (localeTag != null) 'locale_tag': localeTag,
+      if (warmupSets != null) 'warmup_sets': warmupSets,
     });
   }
 
@@ -5090,6 +5144,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<int>? videoHeight,
     Value<int>? videoMaxSeconds,
     Value<String?>? localeTag,
+    Value<int>? warmupSets,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -5106,6 +5161,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       videoHeight: videoHeight ?? this.videoHeight,
       videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
       localeTag: localeTag ?? this.localeTag,
+      warmupSets: warmupSets ?? this.warmupSets,
     );
   }
 
@@ -5154,6 +5210,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (localeTag.present) {
       map['locale_tag'] = Variable<String>(localeTag.value);
     }
+    if (warmupSets.present) {
+      map['warmup_sets'] = Variable<int>(warmupSets.value);
+    }
     return map;
   }
 
@@ -5173,7 +5232,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('themePresetId: $themePresetId, ')
           ..write('videoHeight: $videoHeight, ')
           ..write('videoMaxSeconds: $videoMaxSeconds, ')
-          ..write('localeTag: $localeTag')
+          ..write('localeTag: $localeTag, ')
+          ..write('warmupSets: $warmupSets')
           ..write(')'))
         .toString();
   }
@@ -8899,6 +8959,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<int> videoHeight,
       Value<int> videoMaxSeconds,
       Value<String?> localeTag,
+      Value<int> warmupSets,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -8916,6 +8977,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<int> videoHeight,
       Value<int> videoMaxSeconds,
       Value<String?> localeTag,
+      Value<int> warmupSets,
     });
 
 class $$SettingsTableFilterComposer
@@ -8994,6 +9056,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get localeTag => $composableBuilder(
     column: $table.localeTag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9076,6 +9143,11 @@ class $$SettingsTableOrderingComposer
     column: $table.localeTag,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -9148,6 +9220,11 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<String> get localeTag =>
       $composableBuilder(column: $table.localeTag, builder: (column) => column);
+
+  GeneratedColumn<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
+    builder: (column) => column,
+  );
 }
 
 class $$SettingsTableTableManager
@@ -9192,6 +9269,7 @@ class $$SettingsTableTableManager
                 Value<int> videoHeight = const Value.absent(),
                 Value<int> videoMaxSeconds = const Value.absent(),
                 Value<String?> localeTag = const Value.absent(),
+                Value<int> warmupSets = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -9207,6 +9285,7 @@ class $$SettingsTableTableManager
                 videoHeight: videoHeight,
                 videoMaxSeconds: videoMaxSeconds,
                 localeTag: localeTag,
+                warmupSets: warmupSets,
               ),
           createCompanionCallback:
               ({
@@ -9224,6 +9303,7 @@ class $$SettingsTableTableManager
                 Value<int> videoHeight = const Value.absent(),
                 Value<int> videoMaxSeconds = const Value.absent(),
                 Value<String?> localeTag = const Value.absent(),
+                Value<int> warmupSets = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -9239,6 +9319,7 @@ class $$SettingsTableTableManager
                 videoHeight: videoHeight,
                 videoMaxSeconds: videoMaxSeconds,
                 localeTag: localeTag,
+                warmupSets: warmupSets,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

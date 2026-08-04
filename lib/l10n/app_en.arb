@@ -193,6 +193,14 @@
   "@settingsLanguage": {
     "description": "Row label on the settings screen leading to the language picker."
   },
+  "settingsWarmups": "Warm-ups",
+  "@settingsWarmups": {
+    "description": "Card title over the default warm-up rung count on the exercise settings screen."
+  },
+  "settingsWarmupSets": "Sets",
+  "@settingsWarmupSets": {
+    "description": "Field label over the stepper that sets how many warm-up rungs every exercise opens with. Rendered in small capitals; keep it short."
+  },
   "settingsDeload": "Deload after time off",
   "@settingsDeload": {
     "description": "Card title over the layoff rules. A deload is a deliberate reduction in training load."
@@ -1032,9 +1040,9 @@
   "@sessionRestSkip": {
     "description": "Button on the rest bar ending the rest now. One short word — it is the third of three buttons that have to fit across a phone."
   },
-  "builderNoteHint": "Seat 4, pin 7, stop at mid-shin",
+  "builderNoteHint": "What to remember next time",
   "@builderNoteHint": {
-    "description": "Placeholder in the personal-note field on a movement, shown as an example of the kind of machine setting worth writing down. Translate it as a plausible note in the target language rather than word for word."
+    "description": "Placeholder in the personal-note field on a movement. It says what the field is for; it is not an example note, so do not translate it as one and do not replace it with one. A few words — it sits inside the field."
   },
   "builderClear": "Clear",
   "@builderClear": {
@@ -1172,10 +1180,6 @@
   "itemEditorToFailure": "To failure",
   "@itemEditorToFailure": {
     "description": "Checkbox label: take every set as far as it goes rather than stopping at a rep target."
-  },
-  "itemEditorToFailureShort": "to failure",
-  "@itemEditorToFailureShort": {
-    "description": "Stands in for the rep target in the one-line summary of a slot, e.g. \"4 × to failure · 80 kg\". Lower case because it sits mid-line."
   },
   "itemEditorWeight": "Weight",
   "@itemEditorWeight": {
@@ -2848,9 +2852,9 @@
   "@routineImportFootnote": {
     "description": "Small print under the Add and Cancel buttons: accepting the routine is additive, whatever else is already in the app."
   },
-  "routineImportTarget": "{sets} × {reps}",
-  "@routineImportTarget": {
-    "description": "What one exercise line in the incoming routine is aiming at: four sets of six to eight reads \"4 × 6–8\". Rendered in a monospaced font at the right edge of the row. `reps` is already formatted — a number, a range like 6–8, a hold like 45s, or routineImportTargetFailure.",
+  "targetSetsReps": "{sets} × {reps}",
+  "@targetSetsReps": {
+    "description": "What one exercise slot is aiming at: four sets of six to eight reads \"4 × 6–8\". Used wherever a slot is summarised — the workout detail screen, the exercise editor's summary line, the incoming routine on the import confirmation — usually in a monospaced font at the right edge of a row. `reps` is already formatted: a number, a range like 6–8, a hold like 45s, or targetFailure.",
     "placeholders": {
       "sets": {
         "type": "int",
@@ -2862,9 +2866,9 @@
       }
     }
   },
-  "routineImportTargetFailure": "Failure",
-  "@routineImportTargetFailure": {
-    "description": "Stands in for a rep count on an exercise line that asks for as many reps as can be done — \"3 × Failure\". A term of art in weight training: the point where another rep is not possible, not a fault."
+  "targetFailure": "Failure",
+  "@targetFailure": {
+    "description": "Stands in for a rep count on a slot that asks for as many reps as can be done — \"3 × Failure\". A term of art in weight training: the point where another rep is not possible, not a fault."
   },
   "scanRoutineTitle": "Scan a routine",
   "@scanRoutineTitle": {
@@ -3157,6 +3161,14 @@
   "tutorialBoardBody": "A rep is one repetition of a movement, and a set is a run of reps done back to back. Each row here is one set, and the outlined row is the one you are on. Tap its number to log the goal, tap again for each rep you fell short, or hold to type a number.",
   "@tutorialBoardBody": {
     "description": "Body of the step about logging a set: what the two words mean, then the three gestures a set row takes. This is where the tour defines 'set' and 'rep', so keep both definitions. The card sits over a mock board, so five lines is survivable."
+  },
+  "tutorialWeightTitle": "Changing a weight",
+  "@tutorialWeightTitle": {
+    "description": "Title of the tour step about editing weight mid-workout, shown over a drawn mock of the session screen. Two or three words on one line."
+  },
+  "tutorialWeightBody": "Tap the weight beside an exercise to change it, and every set you have not logged yet follows. Tap a set's own weight to change that set only.",
+  "@tutorialWeightBody": {
+    "description": "Body of the step about the two weights a tap can move: the exercise's weight on its goal line, which carries every set still to come, and one set's weight, which moves nothing else. The closing phrase names one set the way the dialog does — translate it with the words you used for sessionSetOnly, and keep it distinct from sessionWarmupOnly, which is the same control on a warm-up rung. Do not explain what a set is. Budget three lines."
   },
   "tutorialRestTitle": "The rest timer",
   "@tutorialRestTitle": {

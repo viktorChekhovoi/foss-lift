@@ -31,6 +31,8 @@ groups:
     - session.recap
     uses:
     - session.finish
+    - history.session-record
+    - progression.rates
   - id: session-history
     t: Session history
     d: >-
@@ -53,6 +55,8 @@ groups:
     screen: exercise-progress
     defines:
     - history.exercise-chart
+    uses:
+    - exercise.measure
 - name: Behaviour & edge cases
   items:
   - id: progression-banner-belongs-session-just

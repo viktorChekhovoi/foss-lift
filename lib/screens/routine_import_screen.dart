@@ -8,6 +8,8 @@ import '../data/routine_import.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../util/seed_names.dart';
+import '../util/target_label.dart';
 import '../widgets/common.dart';
 import '../widgets/share_widgets.dart';
 
@@ -111,7 +113,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
         for (final (_, a) in fresh)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text('· ${a.incoming.name}',
+            child: Text('· ${_shownName(l10n, a.incoming)}',
                 style: TextStyle(color: AppColors.text, fontSize: 14)),
           ),
       ],
@@ -129,7 +131,7 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
             padding: const EdgeInsets.only(bottom: 8),
             child: _ClashRow(
               l10n: l10n,
-              name: a.incoming.name,
+              name: _shownName(l10n, a.incoming),
               replace: _replace.contains(i),
               onChanged: (on) => setState(
                   () => on ? _replace.add(i) : _replace.remove(i)),
@@ -182,6 +184,16 @@ class _RoutineImportScreenState extends ConsumerState<RoutineImportScreen> {
       leaveShareScreen(context, () => GoRouter.maybeOf(context)?.go('/routines'));
 }
 
+/// An incoming exercise's name as this phone says it.
+///
+/// A code carries the canonical English name and no key, so the key is derived
+/// back from the name here — the same one the import will store. Without it
+/// this would be the only screen in the app naming a starter movement in
+/// English: "Bench Press" on the confirmation, "Жим лежачи" the moment it
+/// lands. A name the sender invented has no key and is shown as they wrote it.
+String _shownName(AppLocalizations l10n, SharedExercise e) =>
+    seededName(l10n, seedKeyForName(e.name), e.name);
+
 /// One training day as it would arrive: its name and every slot in it.
 class _DayCard extends StatelessWidget {
   const _DayCard({
@@ -231,7 +243,8 @@ class _DayCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(routine.exercises[item.exercise].name,
+                    child: Text(
+                        _shownName(l10n, routine.exercises[item.exercise]),
                         style:
                             TextStyle(color: AppColors.text, fontSize: 13.5)),
                   ),
@@ -246,18 +259,18 @@ class _DayCard extends StatelessWidget {
     );
   }
 
-  /// "4 × 6–8", "3 × 45s", "3 × Failure" — the same shape the workout detail
-  /// screen uses, built from the shared slot rather than a database row.
-  static String _target(AppLocalizations l10n, SharedItem it) {
-    final reps = it.progression.timed
-        ? l10n.unitSecondsShort('${it.holdSeconds}')
-        : it.toFailure
-            ? l10n.routineImportTargetFailure
-            : it.repsMax == null || it.repsMax == it.repsMin
-                ? '${it.repsMin}'
-                : '${it.repsMin}–${it.repsMax}';
-    return l10n.routineImportTarget(it.targetSets, reps);
-  }
+  /// "4 × 6–8", "3 × 45s", "3 × Failure" — the same phrase the training day
+  /// itself shows, built from the shared slot rather than a database row.
+  static String _target(AppLocalizations l10n, SharedItem it) =>
+      setsTargetLabel(
+        l10n,
+        sets: it.targetSets,
+        progression: it.progression,
+        toFailure: it.toFailure,
+        holdSeconds: it.holdSeconds,
+        repsMin: it.repsMin,
+        repsMax: it.repsMax,
+      );
 }
 
 /// One name clash: whose definition wins.

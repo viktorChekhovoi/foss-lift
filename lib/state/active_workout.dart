@@ -282,6 +282,24 @@ class ExerciseEntry {
     }
     return lightest;
   }
+
+  /// The load this session actually carried, or null if it carried none.
+  ///
+  /// What a slot that arrived with no target at all takes as one — see
+  /// `AppDatabase.advanceProgression`. It is [performedWeight] when sets were
+  /// logged, on the same argument that makes the lightest set the load
+  /// everywhere else, and otherwise [workingKg]: a weight set up on the board
+  /// and then not lifted is still the decision that this exercise is loaded now.
+  ///
+  /// Zero is no load rather than a load of nothing. Every set of a push-up
+  /// reports a weight of zero, and "the session carried 0 kg" must not
+  /// establish a target on a movement nobody put a number on.
+  double? get sessionLoadKg {
+    final lifted = performedWeight;
+    if (lifted != null && lifted > 0) return lifted;
+    final chosen = workingKg;
+    return chosen != null && chosen > 0 ? chosen : null;
+  }
 }
 
 /// What a rest is *for* — what has to be set up before the next thing.
@@ -733,6 +751,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     // unit to know what increments its dumbbells and stacks come in.
     final unit = await _db.watchWeightUnit().first;
     final stored = await _db.watchPlateSetup().first;
+    // How deep every ramp opens. Read once, like the rack: changing the setting
+    // mid-session must not grow a ramp somebody is halfway up, and a stepper
+    // moved during the session is a decision about today.
+    final warmupSets = await _db.defaultWarmupSets();
     final setup = resolvePlateSettings(
       unit: unit,
       kgRack: stored.kgRack,
@@ -787,8 +809,15 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           weightType: v.exercise.weightType,
           barKg: v.exercise.barWeight,
           restSeconds: v.item.restSeconds ?? routine.restSeconds,
-          workingKg: w,
+          // The same grid the set rows above landed on: the working weight and
+          // the sets under it are one load, not two readings of it.
+          workingKg: resolveTopWeight(
+            topWeightKg: w,
+            unit: unit,
+            floorKg: warmupBar,
+          ),
           warmupBarKg: warmupBar,
+          warmupCount: warmupSets,
           scheme: v.item.scheme,
           schemePercent: v.item.schemePercent,
           customSets: decodeCustomSets(v.item.customSets),
@@ -890,11 +919,21 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   ///
   /// Sets already logged keep the weight they were done at. What is in the log
   /// is what happened, not what you decided afterwards.
+  ///
+  /// The number is put on the step the gym counts by before anything follows
+  /// it, through the same resolver the set weights go through — see
+  /// [resolveTopWeight]. A single set may still be moved to anything at all
+  /// ([setWeight]); it is the *exercise's* weight that has to agree with the
+  /// rows it produced.
   void setWorkingWeight(int ei, double value) {
     final s = state;
     if (s == null) return;
     final e = s.exercises[ei];
-    e.workingKg = value < 0 ? 0 : value;
+    e.workingKg = resolveTopWeight(
+      topWeightKg: value < 0 ? 0 : value,
+      unit: s.unit,
+      floorKg: e.floorKg,
+    );
     // Through the scheme, not straight onto every row: on a back-off or a ramp
     // the sets are a ladder, and moving its top has to move the rungs with it
     // rather than flatten them all onto the new number.
@@ -1117,6 +1156,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         itemId,
         success: e.succeeded,
         performedWeight: e.performedWeight,
+        // What this session carried, for a slot that arrived with no target at
+        // all. Typing a weight onto a slot the builder never gave one is how a
+        // target gets established, and it must not leave the exercise off the
+        // recap.
+        sessionWeight: e.sessionLoadKg,
       );
       // Read the slot back after advancing to see where progression left it —
       // the resulting target and the streaks — so the summary can explain it.

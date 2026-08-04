@@ -34,6 +34,7 @@ import 'package:foss_lift/services/deep_links.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/theme/theme_code.dart';
 import 'package:foss_lift/util/qr_capacity.dart';
+import 'package:foss_lift/util/seed_names.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/util/video_links.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
@@ -1100,6 +1101,159 @@ void main() {
           shared.exercises, await db.watchExercises().first);
       expect(arrivals.where((a) => a.clashes), isEmpty);
       expect(arrivals.where((a) => a.isNew), isEmpty);
+    });
+  });
+
+  group('what arrives reads in the app language', () {
+    /// A routine mixing the three cases a name can be in: a starter movement
+    /// the recipient has (Bench Press, re-measured so it also clashes), a
+    /// starter movement they happen not to have (Pallof Press), and one the
+    /// sender invented.
+    Future<SharedRoutine> theirMixedRoutine() async {
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final bench = (await _exerciseNamed(sender, 'Bench Press'))!;
+      await sender.setExerciseBarWeight(bench.id, 15);
+      final pallof = (await _exerciseNamed(sender, 'Pallof Press'))!;
+      final zercher = await sender.createExercise(
+        name: 'Zercher Squat',
+        muscle: 'Legs',
+        equipment: 'Barbell',
+        measure: ExerciseMeasure.reps,
+        weightType: WeightType.bar,
+      );
+      final routineId = await sender.createRoutine(
+          name: 'Elbow Day', color: '3ED598', restSeconds: 90);
+      await sender.replaceRoutineWorkouts(routineId, [
+        (
+          id: null,
+          name: 'Zerchers',
+          items: [
+            for (final id in [bench.id, pallof.id, zercher])
+              WorkoutItemsCompanion.insert(workoutId: 0, exerciseId: id),
+          ],
+        ),
+      ]);
+      return sender.sharedRoutine(routineId);
+    }
+
+    /// This phone has never had [name] — the case a starter movement added in a
+    /// later release than the recipient is running lands in.
+    Future<void> forget(String name) =>
+        db.customStatement('DELETE FROM exercises WHERE name = ?', [name]);
+
+    testWidgets('the confirmation screen names a starter movement in the app '
+        'language, wherever it lists it', (tester) async {
+      tester.view.physicalSize = const Size(400, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final code = (await tester.runAsync(() async {
+        await forget('Pallof Press');
+        return RoutineCode.encode(await theirMixedRoutine());
+      }))!;
+      final uk = l10nFor(const Locale('uk'));
+
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(appUnder(
+          container, RoutineImportScreen(code: code),
+          locale: const Locale('uk')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(seededName(uk, 'bench_press', 'Bench Press')),
+          findsWidgets,
+          reason: 'the day card, and the clash row asking about the bar');
+      expect(find.textContaining('Bench Press'), findsNothing);
+      expect(
+          find.textContaining(seededName(uk, 'pallof_press', 'Pallof Press')),
+          findsWidgets,
+          reason: 'the day card, and the list of what will be added');
+      expect(find.textContaining('Pallof Press'), findsNothing);
+      expect(find.textContaining('Zercher Squat'), findsWidgets,
+          reason: 'a name the sender invented has no translation to find');
+
+      await stop(tester);
+    });
+
+    test('a starter movement the recipient lacks arrives as a starter movement',
+        () async {
+      await forget('Pallof Press');
+      final shared = await theirMixedRoutine();
+
+      await db.importSharedRoutine(shared);
+
+      final landed = (await _exerciseNamed(db, 'Pallof Press'))!;
+      expect(landed.seedKey, 'pallof_press',
+          reason: 'the key is re-derived from the canonical English name');
+      expect(landed.isCustom, isFalse,
+          reason: 'it is the movement the app ships, arriving late');
+
+      final zercher = (await _exerciseNamed(db, 'Zercher Squat'))!;
+      expect(zercher.seedKey, isNull);
+      expect(zercher.isCustom, isTrue,
+          reason: "a movement the sender invented is one of the user's own");
+    });
+
+    test('a starter movement is matched on its key before its name', () async {
+      // The canonical English name of a starter movement can change between
+      // releases; its key cannot. A code written against the old name still
+      // has to find the row rather than plant a second copy of the movement.
+      await db.customStatement(
+          "UPDATE exercises SET name = 'Barbell Bench Press' "
+          "WHERE seed_key = 'bench_press'");
+      final before = (await db.watchExercises().first).length;
+      final shared = await theirMixedRoutine();
+
+      final id = await db.importSharedRoutine(shared);
+
+      expect((await db.watchExercises().first).length, before + 1,
+          reason: "only the sender's own movement is new here");
+      expect(
+          (await db.watchExercises().first)
+              .where((e) => e.seedKey == 'bench_press'),
+          hasLength(1));
+      final day = (await db.workoutsForRoutine(id)).single;
+      final items = await db.itemsForWorkout(day.id);
+      expect(items.map((v) => v.exercise.seedKey), contains('bench_press'),
+          reason: 'the slot points at the row that was already here');
+    });
+
+    test('Replace rewrites how a starter movement loads, never what it is '
+        'called', () async {
+      final shared = SharedRoutine(
+        name: 'Theirs',
+        colorHex: 'FF6A3D',
+        restSeconds: 90,
+        scheduleDays: 0,
+        exercises: const [
+          SharedExercise(
+            name: 'bench press',
+            muscleGroup: 'Chest',
+            equipment: 'Machine',
+            isCustom: true,
+            measure: ExerciseMeasure.reps,
+            weightType: WeightType.machine,
+          ),
+        ],
+        workouts: [
+          SharedWorkout(name: 'Day', items: [SharedItem(exercise: 0)]),
+        ],
+      );
+
+      await db.importSharedRoutine(shared, replace: {0});
+
+      final mine = (await _exerciseNamed(db, 'Bench Press'))!;
+      expect(mine.name, 'Bench Press',
+          reason: 'the name is the vocabulary every routine code is written in');
+      expect(mine.seedKey, 'bench_press',
+          reason: 'so it keeps reading in the app language');
+      expect(mine.equipment, 'Machine',
+          reason: 'how it loads is the sender\'s to describe');
+      expect(
+          (await db.watchExercises().first)
+              .where((e) => e.seedKey == 'bench_press'),
+          hasLength(1));
     });
   });
 

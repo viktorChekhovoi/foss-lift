@@ -13,6 +13,22 @@ import '../util/units.dart';
 import '../util/video_links.dart';
 import 'database.dart';
 import 'routine_code.dart';
+import 'seed_keys.dart';
+
+/// The seed key [name] names, or null when it is nobody's starter movement.
+///
+/// A routine code carries the canonical English name and no key — see
+/// `routine_code.dart` — so the receiving phone derives it back. That is what
+/// lets a starter movement the recipient happens not to have arrive as one
+/// rather than as a row named in English forever. Matched the way the library
+/// is, case- and whitespace-insensitively.
+String? seedKeyForName(String name) =>
+    _seedKeysByName[name.trim().toLowerCase()];
+
+final Map<String, String> _seedKeysByName = {
+  for (final e in kSeedExerciseKeys.entries)
+    e.key.trim().toLowerCase(): e.value,
+};
 
 /// One incoming exercise, resolved against the library it is landing in.
 ///
@@ -40,8 +56,13 @@ class ExerciseArrival {
   bool get isNew => existing == null;
 }
 
-/// Matches each of [incoming] against [library] by name, case-insensitively,
-/// and says which ones the user has to rule on.
+/// Matches each of [incoming] against [library] — on seed key first, then on
+/// the name, case-insensitively — and says which ones the user has to rule on.
+///
+/// The key comes first because it is the identity that survives a release: the
+/// canonical English name of a starter movement can be corrected, its key
+/// cannot, so a code written against the old name still lands on the row it
+/// means rather than planting a second copy of the same movement.
 ///
 /// Only the fields a code actually carries are compared. Coaching cues do not
 /// travel at all, and a video link only travels when it resolves to a video —
@@ -54,11 +75,17 @@ List<ExerciseArrival> planExerciseArrivals(
   final byName = {
     for (final e in library) e.name.trim().toLowerCase(): e,
   };
+  final bySeedKey = {
+    for (final e in library)
+      if (e.seedKey != null) e.seedKey!: e,
+  };
 
   return [
     for (final e in incoming)
       () {
-        final existing = byName[e.name.trim().toLowerCase()];
+        final key = seedKeyForName(e.name);
+        final existing = (key == null ? null : bySeedKey[key]) ??
+            byName[e.name.trim().toLowerCase()];
         return ExerciseArrival(
           incoming: e,
           existing: existing,
@@ -162,16 +189,28 @@ extension RoutineSharing on AppDatabase {
         final arrival = arrivals[i];
         final existing = arrival.existing;
         if (existing == null) {
-          // Anything this phone has never had arrives as one of the user's own
-          // exercises, whatever it was on the sender's.
+          // Anything this phone has never had is added. A name the starter
+          // library knows arrives keyed and not custom — it is the movement
+          // the app ships, arriving late, and it has to read in the app's
+          // language and stay unrenameable like every other one. Anything else
+          // is one of the user's own, whatever it was on the sender's phone.
+          final key = seedKeyForName(arrival.incoming.name);
           ids.add(await into(exercises).insert(
-            _companion(arrival.incoming).copyWith(isCustom: const Value(true)),
+            _companion(arrival.incoming).copyWith(
+              seedKey: Value(key),
+              isCustom: Value(key == null),
+            ),
           ));
           continue;
         }
         if (arrival.clashes && replace.contains(i)) {
+          // A starter movement keeps its name and its key through a Replace:
+          // the name is the vocabulary every routine code is written in, and
+          // is not editable by hand for the same reason. How it loads is the
+          // sender's to describe, and is written.
           await (update(exercises)..where((e) => e.id.equals(existing.id)))
-              .write(_companion(arrival.incoming));
+              .write(_companion(arrival.incoming,
+                  keepName: existing.seedKey != null));
         }
         ids.add(existing.id);
       }
@@ -284,9 +323,12 @@ double _landedRate(double value, ProgressionMode mode, String unit) =>
 /// a cue does not travel, so replacing an exercise leaves whatever description
 /// the recipient had — including, on a starter movement, the one the app
 /// shipped. The video link is written only when one arrived, for the same
-/// reason.
-ExercisesCompanion _companion(SharedExercise e) => ExercisesCompanion(
-      name: Value(e.name),
+/// reason. [keepName] leaves the name column alone, which is what a starter
+/// movement's row gets: its name is the vocabulary a routine code is written
+/// in rather than the sender's to redefine.
+ExercisesCompanion _companion(SharedExercise e, {bool keepName = false}) =>
+    ExercisesCompanion(
+      name: keepName ? const Value.absent() : Value(e.name),
       muscleGroup: Value(e.muscleGroup),
       equipment: Value(e.equipment),
       measure: Value(e.measure),

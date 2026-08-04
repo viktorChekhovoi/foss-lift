@@ -22,12 +22,14 @@ groups:
 - name: What it does
   items:
   - id: ships-85-starter-exercises
-    t: Ships ~85 starter exercises
+    t: Ships 87 starter exercises
     d: >-
       each with a demo-video link, in the canonical https://youtu.be/&lt;id&gt;
       short form.
     defines:
     - exercise.seed
+    uses:
+    - exercise.video-url
   - id: searchable-name
     t: Searchable by name, in your language and in English
     d: >-
@@ -50,8 +52,6 @@ groups:
       dimensions narrow each other and the search box, and barbell and legs is
       the pair of facts that finds a squat. A dimension nobody has touched
       excludes nothing.
-    defines:
-    - exercise.filter
     uses:
     - exercise.filter
     - exercise.taxonomy
@@ -59,6 +59,9 @@ groups:
     t: Each exercise opens a detail page
     d: with its facts and its demo link.
     screen: exercise-detail
+    uses:
+    - exercise.identity
+    - exercise.video-url
   - id: add-your-own-custom-exercises
     t: Add your own custom exercises
     d: >-
@@ -67,6 +70,11 @@ groups:
     screen: exercise-form
     defines:
     - exercise.identity
+    uses:
+    - exercise.taxonomy
+    - exercise.measure
+    - exercise.weight-type
+    - exercise.video-url
   - id: edit-them-afterwards
     t: Edit your own afterwards
     d: >-
@@ -85,6 +93,8 @@ groups:
     screen: exercise-form
     defines:
     - exercise.measure
+    uses:
+    - exercise.seed
   - id: weight-type-barbell-machine-or
     t: Weight type — barbell, machine, dumbbell, or nothing at all
     d: >-
@@ -95,6 +105,9 @@ groups:
     screen: exercise-form
     defines:
     - exercise.weight-type
+    uses:
+    - load.plate-solver
+    - session.warmup-ramp
   - id: bar-optional-bar-own
     t: Bar — an optional bar of its own
     d: >-
@@ -102,8 +115,6 @@ groups:
       of the bars you keep, add one there and then, or hand it back to the default.
       The same list is what Exercise settings → Default bar shows.
     screen: exercise-detail
-    defines:
-    - load.bar-weight
     uses:
     - load.bar-weight
   - id: your-own-note-movement
@@ -132,6 +143,7 @@ groups:
     screen: workout-edit
     uses:
     - exercise.identity
+    - template.item
   - id: write-note
     t: Write a note
     d: >-
@@ -155,7 +167,6 @@ groups:
     defines:
     - exercise.video-url
     uses:
-    - exercise.video-url
     - exercise.seed
   - id: form-asks-how-movement-measured
     t: The form asks how a movement is measured before how it is loaded
@@ -195,6 +206,8 @@ groups:
     screen: exercise-form
     uses:
     - load.bar-weight
+    - load.units
+    - share.routine-code
   - id: youtube-demo-link-tidied-way
     t: A YouTube demo link is tidied on the way in
     d: >-
@@ -206,6 +219,7 @@ groups:
     screen: exercise-form
     uses:
     - exercise.video-url
+    - share.routine-code
   - id: seven-groups-and-no-finer
     t: There are seven muscle groups, and no finer
     d: >-
@@ -240,6 +254,7 @@ groups:
     uses:
     - exercise.identity
     - exercise.seed
+    - share.routine-code
   - id: name-stops-80-characters-where
     t: A name stops at 80 characters where it is typed
     d: >-
@@ -248,6 +263,7 @@ groups:
     screen: exercise-form
     uses:
     - exercise.identity
+    - storage.schema
   - id: weight-type-seeded-equipment
     t: Weight type is seeded from equipment
     d: >-
@@ -273,3 +289,5 @@ groups:
     uses:
     - exercise.weight-type
     - exercise.taxonomy
+    - exercise.seed
+    - load.bar-weight

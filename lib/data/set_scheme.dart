@@ -128,18 +128,12 @@ List<SetTarget> resolveSetTargets({
   List<CustomSet> custom = const [],
   double floorKg = 0,
 }) {
-  // The floor is there to stop a *percentage* landing under the bar. It is not
-  // a veto on the top weight: dropping a barbell lift to nothing mid-session is
-  // how the app says "bodyweight today", and a ladder off that must not be
-  // silently loaded back up to an empty bar.
-  final floor = (topWeightKg ?? 0) >= floorKg ? floorKg : 0.0;
+  final floor = _effectiveFloor(topWeightKg, floorKg);
 
   double? weightAt(int wholePercent) {
     final top = topWeightKg;
     if (top == null) return null;
-    final raw = top * wholePercent / 100;
-    final snapped = snapToUnitStep(raw, unit);
-    return snapped < floor ? floor : snapped;
+    return _land(top * wholePercent / 100, unit, floor);
   }
 
   return [
@@ -173,3 +167,39 @@ List<SetTarget> resolveSetTargets({
 }
 
 int _atLeastNothing(int percent) => percent < 0 ? 0 : percent;
+
+/// The floor a ladder off [topWeightKg] actually gets.
+///
+/// The floor is there to stop a *percentage* landing under the bar. It is not a
+/// veto on the top weight: dropping a barbell lift to nothing mid-session is how
+/// the app says "bodyweight today", and a ladder off that must not be silently
+/// loaded back up to an empty bar.
+double _effectiveFloor(double? topWeightKg, double floorKg) =>
+    (topWeightKg ?? 0) >= floorKg ? floorKg : 0.0;
+
+/// One weight put where every weight this file produces goes: on the step
+/// [unit] counts by, and at or above [floor].
+double _land(double raw, String unit, double floor) {
+  final snapped = snapToUnitStep(raw, unit);
+  return snapped < floor ? floor : snapped;
+}
+
+/// The top of the ladder itself, put on the same grid as the rungs below it.
+///
+/// The weight an exercise is worked at and the weights of its sets have to
+/// describe one bar: a header reading 101 kg over rows reading 100 is two
+/// answers to the same question. So the working weight goes through this and
+/// the set weights through [resolveSetTargets], and both apply the same two
+/// rules — because this *is* what [resolveSetTargets] computes for a set at
+/// 100% of the slot's weight.
+///
+/// Null in, null out: a movement carrying no load has no top to land.
+double? resolveTopWeight({
+  required double? topWeightKg,
+  required String unit,
+  double floorKg = 0,
+}) {
+  final top = topWeightKg;
+  if (top == null) return null;
+  return _land(top, unit, _effectiveFloor(top, floorKg));
+}

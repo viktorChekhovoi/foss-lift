@@ -122,8 +122,24 @@ ProgressionStep stepProgression({
   return (successes: 0, failures: n, delta: 0);
 }
 
-/// Moves a target by [delta], never below the mode's [ProgressionMode.floor].
-double advanceTarget(double current, double delta, ProgressionMode mode) {
+/// Moves a target by [delta], never below the floor that applies to it.
+///
+/// The floor is the mode's own [ProgressionMode.floor], or [floorKg] where that
+/// is higher — the empty bar of a barbell lift, which is the lightest thing it
+/// can be loaded to. A bar-loaded target driven under its own bar by repeated
+/// back-offs describes a session nobody can train, so the ladder stops on the
+/// bar instead.
+///
+/// [floorKg] also applies on the way *up*, which is what corrects a target that
+/// is already under its bar: whatever it says now, where it lands is a weight
+/// that can be put on the bar.
+double advanceTarget(
+  double current,
+  double delta,
+  ProgressionMode mode, {
+  double floorKg = 0,
+}) {
+  final floor = floorKg > mode.floor ? floorKg : mode.floor;
   final next = current + delta;
-  return next < mode.floor ? mode.floor : next;
+  return next < floor ? floor : next;
 }

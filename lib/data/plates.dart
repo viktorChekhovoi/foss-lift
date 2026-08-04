@@ -50,6 +50,24 @@ enum WeightType {
   bool get loadedPerSide => this == WeightType.bar;
 }
 
+/// The lightest a movement of this [type] can be loaded to: a bar cannot be
+/// loaded below its own weight, and nothing else has a floor.
+///
+/// The other half of [PlateSolution.belowBar]. That flag is what a plate line
+/// *says* when a weight is under the bar; this is what stops one getting there
+/// in the first place — on the board while a session runs, in the builder on
+/// the way to the database, and in progression, where repeated back-offs and a
+/// layoff cut both stop here rather than at zero. Both exist because a weight
+/// can still arrive from elsewhere — a template built before the movement's bar
+/// was set — and a line that reads "lighter than the bar" is the only honest
+/// thing to do about it.
+double loadFloorKg({
+  required WeightType type,
+  required double defaultBarKg,
+  double? barKg,
+}) =>
+    type.loadedPerSide ? (barKg ?? defaultBarKg) : 0.0;
+
 /// The weight type an exercise should start on, given its equipment.
 ///
 /// Only a starting point: the user can change it afterwards, and needs to for

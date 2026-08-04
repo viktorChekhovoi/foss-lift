@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
+import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -12,7 +13,7 @@ import '../widgets/builder_widgets.dart';
 import '../util/format.dart';
 
 /// The settings that are about training: the weight unit, the bar and plates,
-/// the set-video caps and the layoff rules.
+/// the set-video caps, the warm-up rung count and the layoff rules.
 ///
 /// How the app *looks* — theme, text size, language — is the other half, and
 /// lives on `appearance_screen.dart`. The split is by what a setting is about,
@@ -26,6 +27,8 @@ class ExerciseSettingsScreen extends ConsumerWidget {
     final plates = ref.watch(plateSettingsProvider);
     final layoff = ref.watch(layoffSettingsProvider).value ??
         (days: kDefaultLayoffDays, percent: kDefaultLayoffPercent);
+    final warmupSets =
+        ref.watch(defaultWarmupSetsProvider).value ?? kDefaultWarmupSets;
     final db = ref.read(databaseProvider);
     final l10n = AppLocalizations.of(context);
 
@@ -87,6 +90,23 @@ class ExerciseSettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/settings/videos'),
               ),
             ],
+            const SizedBox(height: 28),
+            builderCard(l10n.settingsWarmups, [
+              builderGrid([
+                BuilderField(
+                  label: l10n.settingsWarmupSets,
+                  child: NumberStepper(
+                    value: warmupSets,
+                    // One is the floor: skipping the ramp altogether belongs to
+                    // the session's own stepper, where you know which movement
+                    // you are already warm for.
+                    min: 1,
+                    max: kMaxWarmupSets,
+                    onChanged: db.setDefaultWarmupSets,
+                  ),
+                ),
+              ]),
+            ]),
             const SizedBox(height: 28),
             builderCard(l10n.settingsDeload, [
               builderGrid([

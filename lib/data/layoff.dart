@@ -79,11 +79,22 @@ LayoffDeload? layoffDeload({
 /// the cut it just announced is not the back-off the user agreed to. Weight
 /// lands on half kilos, because 2.5 kg is the smallest plate pair most gyms
 /// own and 78.3 kg is not a weight anybody can load.
-double deloadedTarget(double current, int percent, ProgressionMode mode) {
+///
+/// [floorKg] is the empty bar of a barbell lift — see [advanceTarget], which
+/// holds the same line on the other axis of the same question. A layoff cut
+/// that lands under the bar is not a lighter session, it is a weight that
+/// cannot be set up.
+double deloadedTarget(
+  double current,
+  int percent,
+  ProgressionMode mode, {
+  double floorKg = 0,
+}) {
   final cut = current * (100 - percent) / 100;
   final landed = switch (mode) {
     ProgressionMode.weight => (cut * 2).floorToDouble() / 2,
     ProgressionMode.reps || ProgressionMode.time => cut.floorToDouble(),
   };
-  return landed < mode.floor ? mode.floor : landed;
+  final floor = floorKg > mode.floor ? floorKg : mode.floor;
+  return landed < floor ? floor : landed;
 }

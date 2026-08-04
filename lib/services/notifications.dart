@@ -13,6 +13,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 /// Nothing else calls `plugin.initialize`. Calling this repeatedly is the
 /// expected thing and costs a platform call.
 ///
+/// The icon it registers is the app-wide default for every notification this
+/// plugin posts: `AndroidNotificationDetails.icon` is left null in
+/// `reminders.dart` and `rest_alarm.dart`, and null falls back to what was set
+/// here. It has to be a *stencil* — Android discards a small icon's colour and
+/// fills its alpha channel with a flat tint — which is why it is not the
+/// launcher icon: that art is an opaque rounded plate, so its alpha is the
+/// plate and the wordmark on it never appears. See
+/// `res/drawable/ic_stat_fosslift.xml`.
+///
 /// The live workout is not here: it is a foreground service with a notification
 /// of its own, posted by `flutter_foreground_task` rather than by this plugin.
 /// See `workout_shade.dart`.
@@ -28,6 +37,6 @@ typedef NotificationChannelCopy = ({String name, String description});
 Future<void> initNotifications(FlutterLocalNotificationsPlugin plugin) =>
     plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('@drawable/ic_stat_fosslift'),
       ),
     );

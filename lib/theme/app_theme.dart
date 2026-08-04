@@ -319,8 +319,8 @@ const AppPalette _ignition = AppPalette(
   surface3: Color(0xFF272E3B),
   line: Color(0xFF2A313D),
   text: Color(0xFFEAEEF5),
-  muted: Color(0xFF8B95A7),
-  faint: Color(0xFF5A6474),
+  muted: Color(0xFFB0B7C2),
+  faint: Color(0xFF8D97A7),
   accent: Color(0xFFFF6A3D),
   accentPress: Color(0xFFE0521F),
   good: Color(0xFF3ED598),
@@ -337,8 +337,8 @@ const AppPalette _graphite = AppPalette(
   surface3: Color(0xFF2C3036),
   line: Color(0xFF33373E),
   text: Color(0xFFECEEF1),
-  muted: Color(0xFF9AA0A9),
-  faint: Color(0xFF646A73),
+  muted: Color(0xFFB5B9C0),
+  faint: Color(0xFF9499A1),
   accent: Color(0xFF4C9AFF),
   accentPress: Color(0xFF2F7BE0),
   good: Color(0xFF3ED598),
@@ -351,23 +351,38 @@ const AppPalette _graphite = AppPalette(
 // wants *that* Solarized, so the hues are used as specified rather than
 // re-tuned to taste.
 //
-// Two deliberate departures, both about legibility. The body text uses the
-// palette's *emphasized* tier (base1 on dark, base02 on light) rather than its
-// designated body tier — Solarized's own body tones land at roughly 4.1:1 on
-// their backgrounds, under the 4.5:1 floor every preset here has to clear, and
-// a workout log read at arm's length mid-set is not prose on a laptop. The
-// intermediate surfaces are blends between base03 and base02, since the
-// palette defines only two background tones and the app paints four.
+// The departures are all about legibility, and the largest is the text ramp.
+// Solarized's four foreground tiers span a narrow band of luminance — on the
+// dark theme, base01 through base1 sit between 1.7:1 and 5.6:1 over the
+// palette's own backgrounds — so no three of them can carry the app's three
+// text roles at the 4.5:1 floor every preset is held to. A workout log read at
+// arm's length mid-set is not prose on a laptop.
+//
+// So the dark theme's ramp is lifted a tier: body text takes base2, and the
+// secondary and dimmest tones are blends along the base1 → base2 line, with the
+// dimmest landing just above base1 itself. The light theme keeps base02 for
+// body text and darkens base01 and base00 along their own lightness ramp, where
+// there is room to spare. The intermediate surfaces are blends past base02,
+// since the palette defines only two background tones and the app paints four —
+// and they are held dark enough that the dimmest text still clears the floor on
+// them.
 
 const Color _solBase03 = Color(0xFF002B36);
 const Color _solBase02 = Color(0xFF073642);
-const Color _solBase01 = Color(0xFF586E75);
-const Color _solBase00 = Color(0xFF657B83);
-const Color _solBase0 = Color(0xFF839496);
-const Color _solBase1 = Color(0xFF93A1A1);
 const Color _solBase2 = Color(0xFFEEE8D5);
 const Color _solBase3 = Color(0xFFFDF6E3);
+const Color _solBase1 = Color(0xFF93A1A1);
 const Color _solBlue = Color(0xFF268BD2);
+
+// The dark theme's secondary and dimmest tones: base1 carried toward base2, far
+// enough that each clears 4.5:1 on all four backgrounds and the three tiers stay
+// a visible step apart.
+const Color _solMutedDark = Color(0xFFC8CBBF);
+const Color _solFaintDark = Color(0xFFA3ADAA);
+
+// The light theme's, taken down the base01 → base02 ramp for the same reason.
+const Color _solMutedLight = Color(0xFF344145);
+const Color _solFaintLight = Color(0xFF4D5D64);
 
 // The done/short markers are the third departure, and the largest. Solarized's
 // green (#859900) and yellow (#B58900) sit at the *same* luminance — their
@@ -389,12 +404,12 @@ const AppPalette _solarizedDark = AppPalette(
   name: 'Solarized dark',
   ground: _solBase03,
   surface: _solBase02,
-  surface2: Color(0xFF0D4250),
-  surface3: Color(0xFF124E5E),
+  surface2: Color(0xFF0C3D4B),
+  surface3: Color(0xFF0F4350),
   line: Color(0xFF14505F),
-  text: _solBase1,
-  muted: _solBase0,
-  faint: _solBase01,
+  text: _solBase2,
+  muted: _solMutedDark,
+  faint: _solFaintDark,
   accent: _solBlue,
   accentPress: Color(0xFF1B6FA8),
   good: _solGreenDark,
@@ -411,8 +426,8 @@ const AppPalette _solarizedLight = AppPalette(
   surface3: Color(0xFFDCD4BA),
   line: _solBase1,
   text: _solBase02,
-  muted: _solBase01,
-  faint: _solBase00,
+  muted: _solMutedLight,
+  faint: _solFaintLight,
   accent: _solBlue,
   accentPress: Color(0xFF1F6FA8),
   good: _solGreenLight,
@@ -435,8 +450,8 @@ const AppPalette _daylight = AppPalette(
   surface3: Color(0xFFE2E8F0),
   line: Color(0xFFD5DCE6),
   text: Color(0xFF1B2430),
-  muted: Color(0xFF5B6472),
-  faint: Color(0xFF949CAC),
+  muted: Color(0xFF434A54),
+  faint: Color(0xFF5E6679),
   accent: Color(0xFFD9531A),
   accentPress: Color(0xFFB5410F),
   good: Color(0xFF0E7A47),
@@ -453,8 +468,8 @@ const AppPalette _paper = AppPalette(
   surface3: Color(0xFFE8E1D5),
   line: Color(0xFFDBD3C6),
   text: Color(0xFF25201A),
-  muted: Color(0xFF6E655A),
-  faint: Color(0xFF9E9384),
+  muted: Color(0xFF4B453D),
+  faint: Color(0xFF6C6154),
   accent: Color(0xFF2A5CD6),
   accentPress: Color(0xFF1E46AB),
   good: Color(0xFF0E7A47),
@@ -467,6 +482,10 @@ const AppPalette _paper = AppPalette(
 // body text and AA (4.5:1) for the muted text and every coloured marker, on
 // both the ground and a card; borders clear the 3:1 non-text floor so structure
 // is never lost. The feature tests assert all of that.
+//
+// What these two do *not* have to themselves any more is legible dim text:
+// every preset's three text tones clear 4.5:1 on all four backgrounds. These
+// two go further, and they are the pair whose margins are checked to AAA.
 
 /// Maximum contrast, dark: pure black ground, pure white text, a
 /// high-visibility yellow accent and vivid green/amber markers.

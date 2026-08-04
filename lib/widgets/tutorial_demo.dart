@@ -39,6 +39,7 @@ import 'builder_widgets.dart'
 enum TutorialDemoFocus {
   none,
   nextSet,
+  weight,
   rest,
   note,
   camera,
@@ -74,8 +75,15 @@ const kTutorialDemoNoteKey = ValueKey('tutorial-demo-note');
 /// A camera cell on a mock set row. One per row, so this matches several.
 const kTutorialDemoCameraKey = ValueKey('tutorial-demo-camera');
 
-/// The accent ring the tour draws around the icon a step is about. At most one
-/// is on screen at a time.
+/// The weight the mock exercise is being worked at, on its goal line.
+const kTutorialDemoWeightKey = ValueKey('tutorial-demo-weight');
+
+/// The weight cell of a mock set row. One per row, so this matches several.
+const kTutorialDemoSetWeightKey = ValueKey('tutorial-demo-set-weight');
+
+/// The accent ring the tour draws around what a step is about. One at a time,
+/// except on the weight step: it is about the difference between the exercise's
+/// weight and one set's, so it rings both.
 const kTutorialDemoRingKey = ValueKey('tutorial-demo-ring');
 
 /// The set row behind you, and the one you are on. Both are drawn only by the
@@ -271,6 +279,10 @@ class TutorialBoardDemo extends ConsumerWidget {
               // One ring, on the first row: three rings for one icon would
               // point at the column rather than at the thing.
               ringCamera: focus == TutorialDemoFocus.camera && i == 1,
+              // Likewise for the weight column — and the step that rings it
+              // rings the goal line's weight too, because what it is about is
+              // the difference between the two.
+              ringWeight: focus == TutorialDemoFocus.weight && i == 1,
             ),
         ],
       ),
@@ -330,29 +342,38 @@ class TutorialBoardDemo extends ConsumerWidget {
             '@',
             style: kMono.copyWith(fontSize: 13, color: AppColors.faint),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
-            decoration: BoxDecoration(
-              color: AppColors.surface2,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: AppColors.line),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  weight,
-                  style:
-                      kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  unitSuffix(l10n, unit),
-                  style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
-                ),
-                const SizedBox(width: 7),
-                Icon(Icons.edit_outlined, size: 13, color: AppColors.faint),
-              ],
+          // A hand-drawn copy of the session screen's own weight box, which is
+          // private to that screen. The rest of the board is borrowed rather
+          // than copied — see BoardColumnHeaders and boardCellDecoration — so
+          // this one is the piece a change to the real screen has to be
+          // repeated in.
+          _ring(
+            on: focus == TutorialDemoFocus.weight,
+            child: Container(
+              key: kTutorialDemoWeightKey,
+              padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
+              decoration: BoxDecoration(
+                color: AppColors.surface2,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    weight,
+                    style: kMono.copyWith(
+                        fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    unitSuffix(l10n, unit),
+                    style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
+                  ),
+                  const SizedBox(width: 7),
+                  Icon(Icons.edit_outlined, size: 13, color: AppColors.faint),
+                ],
+              ),
             ),
           ),
         ],
@@ -964,6 +985,7 @@ class _SetRowDemo extends StatelessWidget {
     required this.goal,
     required this.highlightNext,
     required this.ringCamera,
+    required this.ringWeight,
   });
 
   final int number;
@@ -972,6 +994,7 @@ class _SetRowDemo extends StatelessWidget {
   final int goal;
   final bool highlightNext;
   final bool ringCamera;
+  final bool ringWeight;
 
   bool get _done => state == _RowState.done;
   bool get _isNext => state == _RowState.next;
@@ -1008,7 +1031,13 @@ class _SetRowDemo extends StatelessWidget {
             ),
             Expanded(
               flex: kWeightColumnFlex,
-              child: _cell(weight, tone, primary: false),
+              child: _ring(
+                on: ringWeight,
+                child: KeyedSubtree(
+                  key: kTutorialDemoSetWeightKey,
+                  child: _cell(weight, tone, primary: false),
+                ),
+              ),
             ),
             Expanded(
               flex: kResultColumnFlex,
@@ -1098,7 +1127,7 @@ class _SetRowDemo extends StatelessWidget {
 }
 
 /// Rings [child] in the accent when the current step is about it. Nothing is
-/// drawn when it is not, so the ring is only ever on one thing at a time.
+/// drawn when it is not, so only what a step names is ever ringed.
 Widget _ring({required bool on, required Widget child}) => Container(
       key: on ? kTutorialDemoRingKey : null,
       decoration: on

@@ -18,6 +18,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,7 @@ import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/widgets/board_cells.dart';
+import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
@@ -158,10 +160,11 @@ void main() {
 
   ActiveWorkout session() => container!.read(activeWorkoutProvider)!;
 
-  /// Ticks off Bench's whole warm-up ramp, so the work is what is next.
-  void clearRamp(ActiveWorkoutController ctl) {
-    for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
-      ctl.cycleWarmup(0, wi);
+  /// Ticks off the whole warm-up ramp of exercise [ei] — Bench unless told
+  /// otherwise — so that exercise's work is what is outstanding.
+  void clearRamp(ActiveWorkoutController ctl, [int ei = 0]) {
+    for (var wi = 0; wi < session().exercises[ei].warmups.length; wi++) {
+      ctl.cycleWarmup(ei, wi);
     }
     ctl.stopRest(tone: false);
   }
@@ -200,13 +203,58 @@ void main() {
   }
 
   // Starts the Push day and mounts WorkoutScreen, ready to pump.
-  Future<void> pumpPushScreen(WidgetTester tester) async {
+  //
+  // [before] runs on the live session *between* starting it and mounting the
+  // screen: what the board does as it opens is a different question from what
+  // it does while it is up, and only a session that was already in progress can
+  // ask the first one.
+  Future<void> pumpPushScreen(
+    WidgetTester tester, {
+    void Function(ActiveWorkoutController ctl)? before,
+  }) async {
     await tester.runAsync(() async {
       final wid = await workoutIdNamed(db, 'Push');
       container = containerFor(db);
       await container!
           .read(activeWorkoutProvider.notifier)
           .start(workoutId: wid, name: 'Push');
+    });
+    before?.call(container!.read(activeWorkoutProvider.notifier));
+    await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+    await tester.pump();
+  }
+
+  /// The same, with a real router over it — for the taps that navigate.
+  ///
+  /// [alsoRoutes] adds destinations the screen can leave for, as
+  /// [routedAppUnder] describes.
+  Future<void> pumpPushRouted(
+    WidgetTester tester, {
+    List<String> alsoRoutes = const [],
+  }) async {
+    await tester.runAsync(() async {
+      final wid = await workoutIdNamed(db, 'Push');
+      container = containerFor(db);
+      await container!
+          .read(activeWorkoutProvider.notifier)
+          .start(workoutId: wid, name: 'Push');
+    });
+    await tester.pumpWidget(routedAppUnder(
+      container!,
+      const WorkoutScreen(),
+      alsoRoutes: alsoRoutes,
+    ));
+    await tester.pump();
+  }
+
+  /// The Plank day, mounted and ready to tap. Two sets of a 45-second hold.
+  Future<void> pumpPlank(WidgetTester tester) async {
+    await tester.runAsync(() async {
+      final wid = await buildPlankWorkout(db);
+      container = containerFor(db);
+      await container!
+          .read(activeWorkoutProvider.notifier)
+          .start(workoutId: wid, name: 'Plank Day');
     });
     await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
     await tester.pump();
@@ -355,22 +403,272 @@ void main() {
 
       await stopAll(tester);
     });
+
+    // Un-logging a set takes its rest back. A rest is only running because a
+    // set was logged, and one left counting down for a set that no longer
+    // happened rings for nothing — so every route back to untouched ends it,
+    // and none of them makes a sound doing it.
+
+    /// Taps [cell] until the set it logs has come round to untouched.
+    ///
+    /// The cycle runs goal → one fewer → … → 0 → untouched, so how many taps
+    /// that takes is the goal's business rather than the test's.
+    Future<void> tapRoundToUntouched(
+      WidgetTester tester,
+      Finder cell,
+      bool Function() logged,
+    ) async {
+      await tester.ensureVisible(cell);
+      await tester.pump();
+      for (var i = 0; i < 60 && logged(); i++) {
+        await tester.tap(cell);
+        await tester.pump();
+      }
+      expect(logged(), isFalse,
+          reason: 'the cycle never came back round to untouched');
+    }
+
+    testWidgets('tapping a logged set round to untouched ends its rest',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tapRoundToUntouched(tester, repsCell('0-0-Bench Press'),
+          () => session().exercises[0].sets[0].done);
+
+      expect(session().restLeft, 0,
+          reason: 'the set that started the rest did not happen');
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('correcting a count leaves the rest exactly where it was',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump(const Duration(seconds: 10));
+      final left = session().restLeft;
+
+      // One more tap: 8 reps → 7, still a set that happened.
+      await tester.tap(repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      expect(session().exercises[0].sets[0].done, isTrue);
+      expect(session().restLeft, left,
+          reason: 'the clock you are already resting on is not restarted, '
+              'and not stopped either');
+      await stopAll(tester);
+    });
+
+    testWidgets('the type-in dialog\'s Clear ends it too', (tester) async {
+      await pumpPushScreen(tester);
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+
+      await tester.longPress(repsCell('0-0-Bench Press'));
+      await frames(tester);
+      await tester.tap(find.text('Clear'));
+      await frames(tester);
+
+      expect(session().exercises[0].sets[0].done, isFalse);
+      expect(session().restLeft, 0);
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('and so does clearing a logged hold', (tester) async {
+      await pumpPlank(tester);
+      final cell = repsCell('0-0-Plank');
+
+      await tester.tap(cell);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(cell); // stops the hold, which starts the rest
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tester.tap(cell); // and clears it again
+      await tester.pump();
+
+      expect(session().exercises[0].sets[0].done, isFalse);
+      expect(session().restLeft, 0);
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('a warm-up rung tapped back to untouched ends its rest too',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await tapCell(tester, repsCell('w0-0-Bench Press'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tapRoundToUntouched(tester, repsCell('w0-0-Bench Press'),
+          () => session().exercises[0].warmups[0].done);
+
+      expect(session().restLeft, 0);
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      await stopAll(tester);
+    });
+
+    testWidgets('and clearing one from the dialog does the same',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await tapCell(tester, repsCell('w0-0-Bench Press'));
+      await tester.pump();
+
+      await tester.longPress(repsCell('w0-0-Bench Press'));
+      await frames(tester);
+      await tester.tap(find.text('Clear'));
+      await frames(tester);
+
+      expect(session().exercises[0].warmups[0].done, isFalse);
+      expect(session().restLeft, 0);
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      await stopAll(tester);
+    });
+  });
+
+  group('The end of a rest is felt as well as heard', () {
+    // The phone this has to reach is on a bench or in a pocket, so the board
+    // buzzes as the rest ends. A firm impact, not the tick that acknowledges a
+    // tap — which is why every assertion here counts impacts specifically.
+
+    /// Collects the haptics the board asks the platform for, until the test
+    /// ends.
+    List<String> watchHaptics(WidgetTester tester) {
+      final asked = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            asked.add('${call.arguments}');
+          }
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      return asked;
+    }
+
+    int impacts(List<String> asked) =>
+        asked.where((a) => a == 'HapticFeedbackType.heavyImpact').length;
+
+    testWidgets('a rest that runs out buzzes, once', (tester) async {
+      await pumpPushScreen(tester);
+      final asked = watchHaptics(tester);
+
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(impacts(asked), 0,
+          reason: 'logging a set is a tick; the buzz is for the end of a rest');
+
+      await tester.pump(const Duration(seconds: 120));
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(impacts(asked), 1);
+
+      // A rebuild is not a second end of a rest.
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(impacts(asked), 1);
+      await stopAll(tester);
+    });
+
+    testWidgets('Skip buzzes, because you ended the rest', (tester) async {
+      await pumpPushScreen(tester);
+      final asked = watchHaptics(tester);
+
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(impacts(asked), 1);
+      await stopAll(tester);
+    });
+
+    testWidgets('and so does −15s when it takes the last seconds off',
+        (tester) async {
+      await pumpPushScreen(tester);
+      final asked = watchHaptics(tester);
+
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 112));
+      await tester.tap(find.text('−15s'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsNothing,
+          reason: 'below fifteen the button can only mean skip');
+      expect(impacts(asked), 1);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('a rest a hold takes with it ends without one', (tester) async {
+      // Starting a hold ends the rest silently — the buzz would say "stop"
+      // exactly as you begin.
+      await pumpPlank(tester);
+      final asked = watchHaptics(tester);
+
+      await tester.tap(repsCell('0-0-Plank'));
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(repsCell('0-0-Plank')); // logs it, and the rest starts
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tapCell(tester, repsCell('0-1-Plank')); // the next hold begins
+      await tester.pump();
+
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(impacts(asked), 0);
+      await stopAll(tester);
+    });
+
+    testWidgets('and neither does abandoning the session mid-rest',
+        (tester) async {
+      await pumpPushRouted(tester);
+      final asked = watchHaptics(tester);
+
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Abort workout'));
+      await frames(tester);
+      await tester.tap(find.text('Abort'));
+      await frames(tester);
+
+      expect(container!.read(activeWorkoutProvider), isNull);
+      expect(impacts(asked), 0,
+          reason: 'the rest went with the workout; nothing ended');
+      await stop(tester);
+    });
+
+    testWidgets('nor finishing it', (tester) async {
+      await pumpPushRouted(tester, alsoRoutes: const ['summary/:id']);
+      final asked = watchHaptics(tester);
+
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tester.tap(find.text('Finish'));
+      await frames(tester);
+      await tester.tap(find.text('Finish anyway'));
+      await frames(tester);
+
+      expect(container!.read(activeWorkoutProvider), isNull);
+      expect(impacts(asked), 0);
+      await stop(tester);
+    });
   });
 
   group('A workout can be abandoned outright', () {
     // Aborting leaves for Today, so this one needs a router over it.
-    Future<void> pumpRouted(WidgetTester tester) async {
-      await tester.runAsync(() async {
-        final wid = await workoutIdNamed(db, 'Push');
-        container = containerFor(db);
-        await container!
-            .read(activeWorkoutProvider.notifier)
-            .start(workoutId: wid, name: 'Push');
-      });
-      await tester
-          .pumpWidget(routedAppUnder(container!, const WorkoutScreen()));
-      await tester.pump();
-    }
+    Future<void> pumpRouted(WidgetTester tester) => pumpPushRouted(tester);
 
     testWidgets('abort asks first, and a refusal keeps the session',
         (tester) async {
@@ -685,6 +983,147 @@ void main() {
     });
   });
 
+  group('How many rungs a ramp opens with is a setting', () {
+    // Three is where the stepper starts, not where it is stuck: a lifter who
+    // warms up five deep on every movement sets it once in Settings rather than
+    // stepping every exercise up twice at the start of every session.
+
+    /// The warm-up field on the Exercise settings screen — the label the app
+    /// prints, upper-cased and rich like every [BuilderField] caption, and the
+    /// stepper under it.
+    Finder warmupField() => find.ancestor(
+          of: find.textContaining(
+            l10nFor().settingsWarmupSets.toUpperCase(),
+            findRichText: true,
+          ),
+          matching: find.byType(BuilderField),
+        );
+
+    Finder warmupStepper(IconData icon) => find.descendant(
+          of: warmupField(),
+          matching: find.byIcon(icon),
+        );
+
+    Finder warmupReads(String n) => find.descendant(
+          of: warmupField(),
+          matching: find.text(n),
+        );
+
+    /// Mounts Exercise settings with [sets] already stored.
+    Future<void> pumpSettings(WidgetTester tester, int sets) async {
+      await tester.runAsync(() async {
+        await db.setDefaultWarmupSets(sets);
+        // The clip tally is the one thing on this screen that goes to the
+        // filesystem, and there is no plugin behind it in a test. Stubbing it
+        // keeps the screen's own providers running on the real event loop,
+        // which is what a tap on the stepper needs.
+        container = containerFor(db, overrides: [
+          videoUsageProvider.overrideWith((ref) async => 0),
+        ]);
+      });
+      await tester.pumpWidget(
+          appUnder(container!, const ExerciseSettingsScreen()));
+      await pumpThroughDatabase(tester);
+    }
+
+    /// What the database holds now, read on the real event loop.
+    Future<int> stored(WidgetTester tester) async =>
+        (await tester.runAsync(db.defaultWarmupSets))!;
+
+    test('until it is changed, every ramp opens at the default', () async {
+      expect(await db.defaultWarmupSets(), kDefaultWarmupSets);
+      await startPush();
+      expect(
+        session().exercises.every((e) => e.warmupCount == kDefaultWarmupSets),
+        isTrue,
+      );
+    });
+
+    test('a session started after it changes seeds every exercise there',
+        () async {
+      await db.setDefaultWarmupSets(5);
+      await startPush();
+
+      expect(session().exercises, hasLength(kPushSize));
+      expect(session().exercises.every((e) => e.warmupCount == 5), isTrue);
+    });
+
+    test('set to one, the bench ramp asks for exactly one rung', () async {
+      await db.setDefaultWarmupSets(1);
+      await startPush();
+
+      final bench = session().exercises[0];
+      expect(bench.warmupCount, 1);
+      expect(bench.warmups, hasLength(1));
+    });
+
+    test('a session already running keeps the count it started with', () async {
+      final ctl = await startPush();
+      expect(session().exercises[0].warmupCount, kDefaultWarmupSets);
+
+      await db.setDefaultWarmupSets(6);
+      // Give the settings stream every chance to reach the live session.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(
+        session().exercises.every((e) => e.warmupCount == kDefaultWarmupSets),
+        isTrue,
+        reason: 'the ramp you are halfway up does not grow under you',
+      );
+
+      // And a stepper moved during the session is the lifter's own decision,
+      // which a later settings change does not overrule either.
+      ctl.setWarmupCount(1, 2);
+      await db.setDefaultWarmupSets(4);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(session().exercises[1].warmupCount, 2);
+    });
+
+    testWidgets('the setting is a stepper showing what is stored',
+        (tester) async {
+      await pumpSettings(tester, 2);
+      // The card caption, printed the way every builder card prints one.
+      expect(
+          find.text(l10nFor().settingsWarmups.toUpperCase()), findsOneWidget);
+      expect(warmupReads('2'), findsOneWidget);
+
+      await tester.tap(warmupStepper(Icons.add));
+      await pumpThroughDatabase(tester);
+
+      expect(warmupReads('3'), findsOneWidget);
+      expect(await stored(tester), 3);
+
+      await stop(tester);
+    });
+
+    testWidgets('and it goes no further than the stepper in a session does',
+        (tester) async {
+      await pumpSettings(tester, kMaxWarmupSets);
+      await tester.tap(warmupStepper(Icons.add));
+      await pumpThroughDatabase(tester);
+
+      expect(warmupReads('$kMaxWarmupSets'), findsOneWidget);
+      expect(await stored(tester), kMaxWarmupSets);
+
+      await stop(tester);
+    });
+
+    testWidgets('nor below a single rung — off is a per-exercise decision',
+        (tester) async {
+      // Zero belongs to the session's own stepper, where a movement you are
+      // already warm for can be skipped. A default of none is a setting that
+      // turns the feature off from a screen that never mentions it.
+      await pumpSettings(tester, 1);
+      await tester.tap(warmupStepper(Icons.remove));
+      await pumpThroughDatabase(tester);
+
+      expect(warmupReads('1'), findsOneWidget);
+      expect(await stored(tester), 1);
+
+      await stop(tester);
+    });
+  });
+
   group('One working weight for the exercise, not one box per set', () {
     test('setting it moves every set that has not been logged yet', () async {
       final ctl = await startPush();
@@ -823,6 +1262,101 @@ void main() {
 
       expect(session().exercises[0].warmupCount, 4);
       expectRampOnScreen();
+
+      await stopAll(tester);
+    });
+  });
+
+  group('The stepper counts the rungs that exist', () {
+    // A ramp that cannot be built comes back shorter than it was asked for
+    // (duplicates-dropped). The control has to say so: a box reading 3 over a
+    // group holding one row is the app disagreeing with itself, and the plus
+    // button that cannot add a rung has to look like it.
+
+    /// Puts a single barbell lift at [weightKg] on screen.
+    Future<void> pumpLift(WidgetTester tester, double weightKg) async {
+      await tester.runAsync(() async {
+        final wid = await buildBarbellWorkout(db, weightKg: weightKg);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Squat Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+    }
+
+    /// The number in the warm-up stepper of the first exercise.
+    Finder stepperReads(String n) => find.descendant(
+          of: find.byKey(const ValueKey('warmup-count-0')),
+          matching: find.text(n),
+        );
+
+    testWidgets('it shows what was built, not what was asked for',
+        (tester) async {
+      // 25 kg over a 20 kg bar: the bar is the only rung under the ceiling, so
+      // the default request of three comes back as one.
+      await pumpLift(tester, 25);
+      expect(session().exercises[0].warmupCount, 3);
+      expect(session().exercises[0].warmups, hasLength(1));
+
+      expect(stepperReads('1'), findsOneWidget);
+      expect(stepperReads('3'), findsNothing);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('+ is greyed out and dead once the ladder has run out',
+        (tester) async {
+      await pumpLift(tester, 25);
+      final plus = tester.widget<Text>(find.text('+'));
+      expect(plus.style?.color, AppColors.faint);
+
+      await tester.tap(find.text('+'));
+      await tester.pump();
+
+      expect(session().exercises[0].warmups, hasLength(1));
+      expect(stepperReads('1'), findsOneWidget);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('− steps down from the number on screen', (tester) async {
+      await pumpLift(tester, 25);
+      await tester.tap(find.text('−'));
+      await tester.pump();
+
+      // Down from the one rung that exists, not from the three asked for.
+      expect(session().exercises[0].warmupCount, 0);
+      expect(session().exercises[0].warmups, isEmpty);
+      expect(stepperReads('0'), findsOneWidget);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('a ramp that came back whole still steps up', (tester) async {
+      await pumpLift(tester, 227.5);
+      expect(session().exercises[0].warmups, hasLength(3));
+      final plus = tester.widget<Text>(find.text('+'));
+      expect(plus.style?.color, isNot(AppColors.faint));
+
+      await tester.tap(find.text('+'));
+      await tester.pump();
+
+      expect(session().exercises[0].warmups, hasLength(4));
+      expect(stepperReads('4'), findsOneWidget);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and the shut group summarises the rungs it has',
+        (tester) async {
+      await pumpLift(tester, 25);
+      await tester.tap(find.text('WARM-UP'));
+      await tester.pump();
+
+      expect(find.textContaining('1 set'), findsOneWidget);
+      expect(find.textContaining('3 sets'), findsNothing);
 
       await stopAll(tester);
     });
@@ -1013,8 +1547,9 @@ void main() {
       tester,
     ) async {
       await pumpPushScreen(tester);
-      // Bench 80 kg over a 20 kg bar → 30/side (25 + 5).
-      expect(find.text('30 KG/SIDE · 25 + 5 · BAR 20'), findsOneWidget);
+      // Bench 80 kg over a 20 kg bar → 30/side (25 + 5). The unit is a symbol
+      // and is never re-cased, and the bar carries it like every other weight.
+      expect(find.text('30 kg/SIDE · 25 + 5 · BAR 20 kg'), findsOneWidget);
       await stopAll(tester);
     });
   });
@@ -1107,7 +1642,7 @@ void main() {
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
 
-      expect(find.text('KG'), findsNothing,
+      expect(find.text('kg'), findsNothing,
           reason: 'a column heading over nothing');
       expect(find.byKey(const ValueKey('set-weight')), findsNothing);
       expect(find.byKey(const ValueKey('working-weight-0')), findsNothing);
@@ -1124,7 +1659,7 @@ void main() {
 
     testWidgets('and a loaded lift still has one', (tester) async {
       await pumpPushScreen(tester);
-      expect(find.text('KG'), findsWidgets);
+      expect(find.text('kg'), findsWidgets);
       expect(find.byKey(const ValueKey('set-weight')), findsWidgets);
       await stopAll(tester);
     });
@@ -1179,7 +1714,7 @@ void main() {
       void headingsOver(int header, String row) {
         final pairs = <String, Rect>{
           'REPS DONE': tester.getRect(repsCell(row)),
-          'KG': tester.getRect(weightCell(row)),
+          'kg': tester.getRect(weightCell(row)),
         };
         for (final MapEntry(key: label, value: cell) in pairs.entries) {
           final heading = find.descendant(
@@ -1341,14 +1876,14 @@ void main() {
     testWidgets('and asking for none says nothing at all', (tester) async {
       await pumpEmptyBarSquat(tester);
 
-      for (var i = 0; i < kDefaultWarmupSets; i++) {
-        await tester.tap(find.text('−'));
-        await tester.pump();
-      }
+      // One press, not three: the box already reads the nothing that was built,
+      // and − settles the request on it.
+      await tester.tap(find.text('−'));
+      await tester.pump();
 
       expect(session().exercises[0].warmupCount, 0);
       expect(find.text(l10nFor().sessionWarmupTooLight), findsNothing,
-          reason: 'the stepper beside it already reads 0');
+          reason: 'nothing was asked for, so there is nothing to explain');
 
       await stopAll(tester);
     });
@@ -1445,21 +1980,8 @@ void main() {
 
     /// The Push day on screen, with a `/summary/:id` to land on when it does
     /// finish.
-    Future<void> pumpRouted(WidgetTester tester) async {
-      await tester.runAsync(() async {
-        final wid = await workoutIdNamed(db, 'Push');
-        container = containerFor(db);
-        await container!
-            .read(activeWorkoutProvider.notifier)
-            .start(workoutId: wid, name: 'Push');
-      });
-      await tester.pumpWidget(routedAppUnder(
-        container!,
-        const WorkoutScreen(),
-        alsoRoutes: const ['summary/:id'],
-      ));
-      await tester.pump();
-    }
+    Future<void> pumpRouted(WidgetTester tester) =>
+        pumpPushRouted(tester, alsoRoutes: const ['summary/:id']);
 
     /// Logs every working set of the running session.
     void logEverything() {
@@ -1796,6 +2318,48 @@ void main() {
       await stopAll(tester);
     });
 
+    testWidgets('starting on a later movement marks that one, not the first',
+        (tester) async {
+      // The mark follows what you are working, not what the template lists
+      // first: warming up on the third exercise and leaving the first for
+      // later must not pin the mark to the untouched first.
+      //
+      // The session is put in that state before the board is mounted, which is
+      // how it is arrived at on a phone — you come back to the screen — and
+      // what puts the marked row on screen to be found.
+      late String third;
+      await pumpPushScreen(tester, before: (ctl) {
+        third = session().exercises[2].name;
+        clearRamp(ctl, 2);
+        ctl.cycleSet(2, 0);
+        ctl.stopRest(tone: false);
+      });
+
+      expect(markOn('2-1-$third'), findsOneWidget);
+      expect(find.byKey(kNextSetKey), findsOneWidget,
+          reason: 'exactly one thing on the board is ever marked');
+      expect(markOn('w0-0-Bench Press'), findsNothing,
+          reason: 'the untouched first exercise is not where you are');
+      await stopAll(tester);
+    });
+
+    testWidgets('and once that movement is done the mark goes back up the list',
+        (tester) async {
+      await pumpPushScreen(tester);
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      clearRamp(ctl, 2);
+      for (var si = 0; si < session().exercises[2].sets.length; si++) {
+        ctl.cycleSet(2, si);
+      }
+      ctl.stopRest(tone: false);
+      await tester.pump();
+
+      expect(markOn('w0-0-Bench Press'), findsOneWidget,
+          reason: 'nothing is in progress, so template order takes over');
+      expect(find.byKey(kNextSetKey), findsOneWidget);
+      await stopAll(tester);
+    });
+
     testWidgets('and a finished session marks nothing at all', (tester) async {
       await pumpPushScreen(tester);
       final ctl = container!.read(activeWorkoutProvider.notifier);
@@ -1812,6 +2376,75 @@ void main() {
 
       expect(find.byKey(kNextSetKey), findsNothing);
       expect(find.byKey(kNextWarmupKey), findsNothing);
+      await stopAll(tester);
+    });
+  });
+
+  group('The board opens on the exercise you are on', () {
+    // A workout five movements long is taller than any phone, so coming back
+    // to one in progress at the top means scrolling past everything already
+    // done before you can log anything.
+
+    /// The board's scroll position.
+    ScrollableState board(WidgetTester tester) =>
+        tester.state<ScrollableState>(find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        ));
+
+    /// Puts the marked set in the last exercise, before the screen is mounted.
+    void onTheLast(ActiveWorkoutController ctl) {
+      final last = session().exercises.length - 1;
+      clearRamp(ctl, last);
+      ctl.cycleSet(last, 0);
+      ctl.stopRest(tone: false);
+    }
+
+    testWidgets('a session in progress opens with the marked set on screen',
+        (tester) async {
+      await pumpPushScreen(tester, before: onTheLast);
+
+      expect(board(tester).position.pixels, greaterThan(0),
+          reason: 'the board opened at the top of a workout you are '
+              'five movements into');
+      final marked = find.byKey(kNextSetKey);
+      expect(marked, findsOneWidget,
+          reason: 'the marked set was never laid out, so it is off screen');
+      final row = tester.getRect(marked);
+      final view = tester.getRect(find.byType(ListView));
+      expect(row.top, greaterThanOrEqualTo(view.top));
+      expect(row.bottom, lessThanOrEqualTo(view.bottom));
+
+      await stopAll(tester);
+    });
+
+    testWidgets('a session with nothing logged is left at the top',
+        (tester) async {
+      await pumpPushScreen(tester);
+      expect(board(tester).position.pixels, 0);
+      await stopAll(tester);
+    });
+
+    testWidgets('and the list never moves under you afterwards',
+        (tester) async {
+      await pumpPushScreen(tester, before: onTheLast);
+      final opened = board(tester).position.pixels;
+
+      // Finishing that exercise sends the mark back up to the first one still
+      // outstanding. The board stays where the thumb left it.
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      final last = session().exercises.length - 1;
+      for (var si = 1; si < session().exercises[last].sets.length; si++) {
+        ctl.cycleSet(last, si);
+      }
+      ctl.stopRest(tone: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Within a pixel or two: the mark's own border leaves the row it was on,
+      // so the content above the bottom of the list is that much shorter.
+      expect(board(tester).position.pixels, closeTo(opened, 4),
+          reason: 'the rows may not move under a thumb that is logging sets');
       await stopAll(tester);
     });
   });
@@ -1939,6 +2572,56 @@ void main() {
       final cue = nextUp(session())!;
       expect(cue.exercise, session().exercises[1].name,
           reason: 'the ramp of a finished exercise is behind you');
+    });
+
+    test('what you owe is in the movement you are working, not the first one',
+        () async {
+      final ctl = await startPush();
+      expect(nextUp(session())!.exerciseIndex, 0,
+          reason: 'with nothing logged it is template order');
+
+      // Started on the third movement and left the first two for later.
+      clearRamp(ctl, 2);
+      ctl.cycleSet(2, 0);
+
+      final cue = nextUp(session())!;
+      expect(cue.exerciseIndex, 2);
+      expect(cue.warmup, isFalse);
+      expect(cue.setIndex, 1, reason: 'the next set of the one you are on');
+    });
+
+    test('its ramp still comes before its working sets', () async {
+      final ctl = await startPush();
+      ctl.cycleSet(2, 0); // in progress, ramp untouched
+
+      final cue = nextUp(session())!;
+      expect(cue.exerciseIndex, 2);
+      expect(cue.warmup, isTrue,
+          reason: 'a ramp primes the movement it belongs to');
+    });
+
+    test('and the later movement wins over an earlier one also in progress',
+        () async {
+      final ctl = await startPush();
+      clearRamp(ctl, 1);
+      ctl.cycleSet(1, 0);
+      clearRamp(ctl, 3);
+      ctl.cycleSet(3, 0);
+
+      expect(nextUp(session())!.exerciseIndex, 3);
+    });
+
+    test('once it is finished, template order takes over again', () async {
+      final ctl = await startPush();
+      clearRamp(ctl, 2);
+      for (var si = 0; si < session().exercises[2].sets.length; si++) {
+        ctl.cycleSet(2, si);
+      }
+
+      final cue = nextUp(session())!;
+      expect(cue.exerciseIndex, 0,
+          reason: 'the first exercise with anything outstanding');
+      expect(cue.warmup, isTrue, reason: 'and its ramp is where that starts');
     });
 
     test('a warm-up rung of a later exercise is not what you owe now',
@@ -2075,6 +2758,21 @@ void main() {
           reason: 'at the goal is a hit');
       expect(session().restLeft, greaterThan(0),
           reason: 'the rest starts without the app being touched');
+    });
+
+    test('Done logs the set the board marks, not the first one left', () async {
+      // The shade and the board read the same arithmetic, so a session started
+      // on the fourth movement must not have its Done land on the first.
+      final ctl = await startPush();
+      clearRamp(ctl, 3);
+      ctl.cycleSet(3, 0);
+      ctl.stopRest(tone: false);
+
+      ctl.logNextAtGoal();
+
+      expect(session().exercises[3].sets[1].done, isTrue);
+      expect(session().exercises[1].sets.every((s) => !s.done), isTrue,
+          reason: 'the untouched second movement is not where you are');
     });
 
     test('Done walks the warm-up rungs first', () async {
@@ -2638,19 +3336,6 @@ void main() {
   });
 
   group('A held set times itself', () {
-    /// The Plank day, mounted and ready to tap. Two sets of a 45-second hold.
-    Future<void> pumpPlank(WidgetTester tester) async {
-      await tester.runAsync(() async {
-        final wid = await buildPlankWorkout(db);
-        container = containerFor(db);
-        await container!
-            .read(activeWorkoutProvider.notifier)
-            .start(workoutId: wid, name: 'Plank Day');
-      });
-      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
-      await tester.pump();
-    }
-
     testWidgets('tap starts a count-up; tap again logs what it read',
         (tester) async {
       // A hold is a duration you measure, not a count you claim — so the cell

@@ -9,12 +9,15 @@
 // spec does not state.
 import 'dart:io';
 
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/screens/about_screen.dart';
 import 'package:foss_lift/services/reminders.dart';
 
 import 'support/harness.dart';
+import 'support/schema_v1.dart';
 
 void main() {
   group('nothing in the app reaches the network', () {
@@ -68,6 +71,106 @@ void main() {
       final routines = await db.watchRoutines().first;
       expect(routines, isNotEmpty,
           reason: 'seeded on first open with no network');
+    });
+  });
+
+  group('an update finds everything the last build stored', () {
+    // A phone on the shipped build holds a v1 database. Opening it under the
+    // current build has to climb the ladder rung by rung and leave the training
+    // log, the routines and the settings where they were — and hand a
+    // preference v1 never had its default rather than nothing.
+
+    /// A v1 database with a settings row, a finished session and one logged set
+    /// in it, opened by the current [AppDatabase] so the ladder runs.
+    ///
+    /// Nothing about the shape is inferred from today's schema: the DDL is the
+    /// frozen [kSchemaV1] and the rows are written as SQL, so the upgrade is
+    /// handed the same bytes a phone would hand it.
+    AppDatabase v1Database() => AppDatabase.forTesting(
+          NativeDatabase.memory(setup: (raw) {
+            for (final stmt in kSchemaV1) {
+              raw.execute(stmt);
+            }
+            raw.execute(
+              'INSERT INTO settings (id, weight_unit, layoff_days, '
+              'layoff_percent, theme_preset_id, text_scale) '
+              "VALUES (1, 'lb', 21, 15, 'carbon', 1.2)",
+            );
+            raw.execute(
+              'INSERT INTO sessions (id, name, started_at, ended_at, '
+              'duration_seconds, total_volume, sets_completed) '
+              "VALUES (1, 'Push', 1700000000, 1700003600, 3600, 2400.0, 4)",
+            );
+            raw.execute(
+              'INSERT INTO session_sets (session_id, exercise_name, '
+              'set_number, weight, reps, done, goal_reps) '
+              "VALUES (1, 'Bench Press', 1, 80.0, 8, 1, 8)",
+            );
+            raw.execute('PRAGMA user_version = 1');
+          }),
+        );
+
+    test('the settings a v1 phone chose survive the climb', () async {
+      final db = v1Database();
+      addTearDown(db.close);
+
+      expect(await db.watchWeightUnit().first, 'lb');
+      expect(await db.layoffSettings(), (days: 21, percent: 15));
+      expect(await db.watchThemePresetId().first, 'carbon');
+    });
+
+    test('so does the training log', () async {
+      final db = v1Database();
+      addTearDown(db.close);
+
+      final history = await db.watchHistory().first;
+      expect(history, hasLength(1));
+      expect(history.single.name, 'Push');
+      expect(history.single.setsCompleted, 4);
+
+      final sets = await db.setsForSession(history.single.id);
+      expect(sets, hasLength(1));
+      expect(sets.single.exerciseName, 'Bench Press');
+      expect(sets.single.weight, 80.0);
+      expect(sets.single.reps, 8);
+    });
+
+    test('a preference v1 never had arrives at its default', () async {
+      final db = v1Database();
+      addTearDown(db.close);
+
+      expect(await db.defaultWarmupSets(), kDefaultWarmupSets);
+    });
+
+    test('and the database is left standing on the current rung', () async {
+      final db = v1Database();
+      addTearDown(db.close);
+
+      final row = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(row.data.values.first, 2);
+    });
+
+    test('and on the same shape a fresh install gets', () async {
+      // Two routes to one schema: `onCreate` builds the table outright, the
+      // ladder alters it. If they disagree — a column of a different type, a
+      // different default, even a different order — the app is quietly running
+      // against two schemas and only one of them was tested.
+      final upgraded = v1Database();
+      final fresh = memoryDb();
+      addTearDown(upgraded.close);
+      addTearDown(fresh.close);
+
+      Future<Map<String, String>> shape(AppDatabase db) async {
+        final rows = await db
+            .customSelect('SELECT name, sql FROM sqlite_master '
+                'WHERE sql IS NOT NULL ORDER BY name')
+            .get();
+        return {
+          for (final r in rows) r.data['name'] as String: r.data['sql'] as String,
+        };
+      }
+
+      expect(await shape(upgraded), await shape(fresh));
     });
   });
 

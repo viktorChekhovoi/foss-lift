@@ -79,8 +79,34 @@ groups:
     uses:
     - storage.schema
   - id: weight-mode-slot-no-suggested
-    t: A weight-mode slot with no suggested weight has no target to move
-    d: nothing happens, rather than inventing "load 2.5 kg onto a push-up".
+    t: A weight-mode slot with no suggested weight takes one from the session
+    d: >-
+      no load is invented for a slot nobody ever put a number on — that would be
+      telling you to load 2.5 kg onto a push-up. A weight set on the board is a
+      number, though: a slot with no stored target that was worked at a weight
+      today takes that weight as its target, steps on from it, and is listed on the
+      recap like every other exercise. The weight the session carried is the
+      lightest set logged, or the working weight when nothing was logged at all.
+      Only a slot that had no target and was given no weight is left alone, and it
+      is the one case with genuinely nothing to move.
     uses:
     - progression.axis
     - template.item
+    - session.exercise-weight
+    - session.recap
+  - id: target-never-stored-below-its-bar
+    t: A target is never stored below its own bar
+    d: >-
+      for a movement with a bar under it, repeated back-offs stop at the empty bar
+      rather than running down to nothing — a target lighter than the bar it is
+      loaded on is not a lighter session. The floor is applied as the target is
+      read as well as written, so a slot that drifted under its bar on an older
+      build is brought back to it the next time progression touches it, and the
+      recap counts that session's step from the bar rather than reporting the whole
+      climb back as a step up.
+    uses:
+    - progression.axis
+    - progression.rates
+    - load.bar-weight
+    - exercise.weight-type
+    - session.recap

@@ -40,6 +40,10 @@ typedef WarmupSet = ({double weightKg, int reps});
 /// How many warm-up sets an exercise gets before the user touches the count.
 /// Three is the common ramp — light, medium, near — and covers most working
 /// weights without turning the screen into a spreadsheet.
+///
+/// It is where the app starts, not where it stays: `Settings.warmupSets` holds
+/// the count a session seeds every exercise with, and this is that column's
+/// default.
 const kDefaultWarmupSets = 3;
 
 /// The most warm-up sets the live session will let you dial up to. Past this a

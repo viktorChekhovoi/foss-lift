@@ -59,41 +59,27 @@ typedef WorkoutCue = ({
 
 /// The next set of [session] that has not been logged, warm-ups first.
 ///
+/// **The exercise you are working comes before the one the template lists
+/// first.** Somebody who starts on the third movement because the bench is busy
+/// is on the third movement, and a cue pinned to the untouched first one is
+/// wrong for as long as they stay there — so [_inProgress] is asked before
+/// template order is. Template order is what answers when nothing is in
+/// progress: at the start of a session, and again each time the exercise you
+/// were on runs out of work.
+///
 /// Returns null when the session is done. **Warm-ups come before the working
 /// sets of the same exercise** and never across exercises: a ramp primes the
 /// movement it belongs to, so an unlogged rung on exercise three is not what
 /// you owe while you are still on exercise one.
 WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
+  final working = _inProgress(session);
+  if (working != null) {
+    final here = _outstandingIn(session, working, restLeft);
+    if (here != null) return here;
+  }
   for (var ei = 0; ei < session.exercises.length; ei++) {
-    final e = session.exercises[ei];
-
-    // The ramp for this exercise, but only while its working sets are still
-    // outstanding — a rung left unticked after the work is done is a rung
-    // nobody is going back for.
-    final workLeft = e.sets.any((s) => !s.done);
-    if (workLeft) {
-      for (var wi = 0; wi < e.warmups.length; wi++) {
-        final w = e.warmups[wi];
-        if (!w.done) {
-          return _cue(session, e, ei, wi,
-              warmup: true,
-              entry: w,
-              count: e.warmups.length,
-              restLeft: restLeft);
-        }
-      }
-    }
-
-    for (var si = 0; si < e.sets.length; si++) {
-      final s = e.sets[si];
-      if (!s.done) {
-        return _cue(session, e, ei, si,
-            warmup: false,
-            entry: s,
-            count: e.sets.length,
-            restLeft: restLeft);
-      }
-    }
+    final cue = _outstandingIn(session, ei, restLeft);
+    if (cue != null) return cue;
   }
   return (
     kind: CueKind.finished,
@@ -108,6 +94,56 @@ WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
     seconds: null,
     restLeft: null,
   );
+}
+
+/// The exercise being worked right now: the last one carrying a logged set —
+/// a rung of its ramp counts, since ramping is working the movement — that
+/// still has working sets outstanding. Null when nothing is under way.
+///
+/// **The last, not the most recent.** A [SetEntry] records what was done and
+/// not when, so position in the list is the only ordering there is to read.
+/// The two agree every time somebody works down the board, and part company
+/// only when they go back up it to a movement they had skipped past — which
+/// leaves the mark on the later one until that later one is finished.
+int? _inProgress(ActiveWorkout session) {
+  for (var ei = session.exercises.length - 1; ei >= 0; ei--) {
+    final e = session.exercises[ei];
+    if (!e.sets.any((s) => !s.done)) continue;
+    if (e.sets.any((s) => s.done) || e.warmups.any((w) => w.done)) return ei;
+  }
+  return null;
+}
+
+/// The first thing exercise [ei] still owes: a rung of its ramp, then its
+/// working sets. Null when it owes nothing.
+///
+/// The ramp counts only while the working sets are still outstanding — a rung
+/// left unticked after the work is done is a rung nobody is going back for.
+WorkoutCue? _outstandingIn(ActiveWorkout session, int ei, int restLeft) {
+  final e = session.exercises[ei];
+  if (e.sets.any((s) => !s.done)) {
+    for (var wi = 0; wi < e.warmups.length; wi++) {
+      final w = e.warmups[wi];
+      if (!w.done) {
+        return _cue(session, e, ei, wi,
+            warmup: true,
+            entry: w,
+            count: e.warmups.length,
+            restLeft: restLeft);
+      }
+    }
+  }
+  for (var si = 0; si < e.sets.length; si++) {
+    final s = e.sets[si];
+    if (!s.done) {
+      return _cue(session, e, ei, si,
+          warmup: false,
+          entry: s,
+          count: e.sets.length,
+          restLeft: restLeft);
+    }
+  }
+  return null;
 }
 
 WorkoutCue _cue(

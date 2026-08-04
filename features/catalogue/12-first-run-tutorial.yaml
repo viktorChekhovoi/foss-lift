@@ -21,8 +21,9 @@ groups:
       the full walk-through, the quick one, or neither. The card has no anchor at
       all, a plain dimmed screen with a card in the middle of it.
     defines:
-    - ui.tutorial
     - ui.tutorial-track
+    uses:
+    - ui.tutorial
   - id: overlays-guided-coach-mark-tour
     t: Overlays a coach-mark tour anchored to real widgets
     d: >-
@@ -43,9 +44,8 @@ groups:
       The split is not arbitrary — a tab is one button that is always mounted in
       the same place, and everything else the tour has to say lives on a screen
       the tour would first have to get you to.
-    defines:
-    - ui.tutorial
     uses:
+    - ui.tutorial
     - ui.navigation
   - id: starts-with-the-four-tabs
     t: Starts at the four tabs
@@ -81,16 +81,17 @@ groups:
       is about resting. It is a whole screen rather than a card in the middle of
       one because that is what somebody is about to be looking at, and a
       thumbnail of a screen teaches the thumbnail. The callout sits over it, at
-      whichever end leaves the thing being described uncovered. The mock is built
-      from the real board's columns and cells rather than a second copy of them,
-      down to the pulse on the cell that logs the set — change how the board
-      looks and the tour follows, which is the only way a picture of a screen
-      stays a picture of that screen.
+      whichever end leaves the thing being described uncovered. The board's
+      column headers, its cells and the pulse on the cell that logs the set are
+      the real board's own widgets rather than a second copy of them — change how
+      the board looks and the tour follows, which is the only way a picture of a
+      screen stays a picture of that screen. The goal line's weight box is the
+      exception: the session screen keeps that widget private, so the mock draws
+      its own, and a change to the real one has to be repeated here.
     points:
     - session
-    defines:
-    - ui.tutorial
     uses:
+    - ui.tutorial
     - session.set-logging
     - session.progress-mark
     - session.rest-timer
@@ -99,7 +100,8 @@ groups:
     d: >-
       the step pointing at the next training day is followed by the one that
       says what tapping it leads to, and then by the whole live-workout chapter —
-      the board, the rest timer, the note, the clip and the notification. The
+      the board, the weight, the rest timer, the note, the clip and the
+      notification. The
       lifetime totals come after all of it. That is the order somebody actually
       moves in: a card you tap, a screen it opens, the thing you do there. The
       chapter opens by naming the transition, because nothing on screen has
@@ -111,6 +113,7 @@ groups:
     - ui.tutorial
     - ui.tutorial-track
     - session.live-state
+    - session.exercise-weight
   - id: shade-step-keeps-its-own-picture
     t: The notification step keeps a notification-sized picture
     d: >-
@@ -133,6 +136,20 @@ groups:
     uses:
     - exercise.notes
     - video.capture
+  - id: explains-which-weight-a-tap-moves
+    t: Says which weight a tap moves
+    d: >-
+      one step between the set rows and the rest timer: tapping the weight on an
+      exercise's goal line changes every set still to be logged, and tapping a
+      set's own weight changes that set only — in the words the weight dialog
+      itself uses. The two differ in what they move, and that difference is the
+      whole of the step.
+    points:
+    - session
+    uses:
+    - ui.tutorial
+    - session.exercise-weight
+    - session.set-logging
   - id: runs-once
     t: Runs once
     d: Settings.tutorialSeen records that it has run, so it never reappears on its own.
@@ -146,7 +163,7 @@ groups:
     d: >-
       the four tabs, then the routine you are following and the training day you
       are due next, then straight into the session that day opens — the board,
-      the rest timer, the note, the clip and the notification — out again to the
+      the weight, the rest timer, the note, the clip and the notification — out again to the
       lifetime totals, and finally into the builder to make a routine of your
       own. It assumes no gym vocabulary and defines each word once.
     points:
@@ -159,7 +176,11 @@ groups:
     - template.active-routine
     - history.aggregates
     - session.set-logging
+    - session.exercise-weight
     - session.shade
+    - session.rest-timer
+    - exercise.notes
+    - video.capture
   - id: quick-tour-is-the-four-tabs
     t: The quick tour is the four tabs and a routine built in four steps
     d: >-
@@ -322,12 +343,16 @@ groups:
     uses:
     - ui.tutorial
     - session.live-state
+    - session.rest-timer
+    - session.shade
   - id: mock-shows-only-what-the-step-is-about
     t: The mock highlights one thing at a time
     d: >-
       each board step rings its own subject and leaves the rest of the board in
       its default state: the note step rings the note, the clip step rings one
-      camera, and neither shows a logged set or an outlined next set. Only the
+      camera, and neither shows a logged set or an outlined next set. The weight
+      step is the one that rings two things — the exercise's weight and one set's
+      own — because what it is describing is the difference between them. Only the
       step about the set rows puts the board mid-session — one set behind you,
       the next one outlined — because that is what it is describing. A camera is
       drawn in the accent only while it is the ringed thing, so it never competes
@@ -338,6 +363,7 @@ groups:
     - ui.tutorial
     - exercise.notes
     - video.capture
+    - session.exercise-weight
   - id: mock-is-a-picture-not-the-board
     t: A mock is a picture, not the screen
     d: >-
@@ -415,3 +441,4 @@ groups:
       been seen.
     uses:
     - ui.tutorial
+    - storage.settings

@@ -18,6 +18,7 @@ import 'package:foss_lift/screens/exercise_settings_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/util/format.dart';
 import 'package:foss_lift/util/units.dart';
+import 'package:foss_lift/widgets/board_cells.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
@@ -310,6 +311,141 @@ void main() {
     });
   });
 
+  group('an exercise\'s weight and its set rows are one load', () {
+    test('a suggestion off the unit\'s step opens snapped in both places',
+        () async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      await db.setWeightUnit('lb');
+      // Set after the switch, so the slot really is holding a weight that does
+      // not sit on the step a pounds gym counts by.
+      final wid = await _slotAt(db, weightKg: 100);
+      await container
+          .read(activeWorkoutProvider.notifier)
+          .start(workoutId: wid, name: 'Day');
+
+      final e = container.read(activeWorkoutProvider)!.exercises.single;
+      expect(toDisplayWeight(e.workingKg!, 'lb'), closeTo(220, 1e-6));
+      for (final s in e.sets) {
+        expect(s.weight, e.workingKg,
+            reason: 'the header and the rows describe one bar');
+      }
+    });
+
+    test('a weight set on the board lands on the step its sets use', () async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      final wid = await _slotAt(db, weightKg: 100);
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(workoutId: wid, name: 'Day');
+      ctrl.setWorkingWeight(0, 101); // a metric gym counts by 2.5
+
+      final e = container.read(activeWorkoutProvider)!.exercises.single;
+      expect(e.workingKg, 100);
+      for (final s in e.sets) {
+        expect(s.weight, 100);
+      }
+    });
+  });
+
+  group('a weight and its unit are joined one way', () {
+    // Every screen formats the number the same; what used to differ was the
+    // decoration around it — an upper-cased symbol in one place, a hand-spaced
+    // one in another, "0" where the header said "—".
+
+    /// A live board at [weightKg] (null for a slot nobody has loaded), mounted.
+    Future<ProviderContainer> board(
+      WidgetTester tester, {
+      required double? weightKg,
+      String exercise = 'Back Squat',
+    }) async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.read(activeWorkoutProvider.notifier).discard();
+        container.dispose();
+        await db.close();
+      });
+      await tester.runAsync(() async {
+        final wid = await _slotAt(db, weightKg: weightKg, exercise: exercise);
+        await container
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Day');
+      });
+      await tester.pumpWidget(appUnder(container, const WorkoutScreen()));
+      await tester.pump();
+      return container;
+    }
+
+    testWidgets('the symbol is never re-cased, heading or plate line',
+        (tester) async {
+      await board(tester, weightKg: 100);
+      expect(find.textContaining('KG'), findsNothing);
+      // The column over the weight cells names the unit, once.
+      expect(
+        find.descendant(
+          of: find.byType(BoardColumnHeaders),
+          matching: find.text('kg'),
+        ),
+        findsWidgets,
+      );
+      await stop(tester);
+    });
+
+    testWidgets('the working weight carries its unit through the catalogue',
+        (tester) async {
+      await board(tester, weightKg: 100);
+      final l10n = l10nFor();
+      // The control sets the symbol quieter than the number, so the two are
+      // separate runs with a fixed gap between them — but they are the pieces
+      // of the catalogue's own pattern, in the order it puts them.
+      final runs = tester
+          .widgetList<Text>(find.descendant(
+            of: find.byKey(const ValueKey('working-weight-0')),
+            matching: find.byType(Text),
+          ))
+          .map((t) => t.data)
+          .toList();
+      expect(
+        runs.join(' '),
+        l10n.unitWeightShort('100', l10n.unitKgSuffix),
+      );
+      await stop(tester);
+    });
+
+    testWidgets('a weight nobody has chosen reads "—", header and rows alike',
+        (tester) async {
+      // A machine slot with no suggested weight: the load is yours to name.
+      await board(tester, weightKg: null, exercise: 'Triceps Pushdown');
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('working-weight-0')),
+          matching: find.text('—'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('0-0-Triceps Pushdown')),
+          matching: find.text('—'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('0'), findsNothing);
+      await stop(tester);
+    });
+  });
+
   group('a converted weight still fits the board', () {
     testWidgets('a six-character weight does not overflow a set row',
         (tester) async {
@@ -323,12 +459,14 @@ void main() {
       late int wid;
       await tester.runAsync(() async {
         await db.setWeightUnit('lb');
-        // Set after the switch, so the snap cannot round the awkward number
-        // this test is about away.
         wid = await _slotAt(db, weightKg: 100);
-        await container
-            .read(activeWorkoutProvider.notifier)
-            .start(workoutId: wid, name: 'Day');
+        final ctrl = container.read(activeWorkoutProvider.notifier);
+        await ctrl.start(workoutId: wid, name: 'Day');
+        // One set dropped to an awkward load. The exercise's own weight and the
+        // sets that follow it are snapped, but a single set is the deload that
+        // finishes a set and is taken at face value — so this is where six
+        // characters still reach a row.
+        ctrl.setWeight(0, 0, 100);
       });
 
       final overflows = await overflowsDuring(() async {

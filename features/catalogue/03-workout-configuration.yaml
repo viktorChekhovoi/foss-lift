@@ -24,9 +24,9 @@ groups:
       how many working sets, the weight to start from, and a rest time that
       overrides the routine's default.
     defines:
-    - template.item
     - template.rest
     uses:
+    - template.item
     - load.units
   - id: fixed-rep-count
     t: A slot's goal is reps, a rep range, failure, or a hold in seconds
@@ -43,7 +43,7 @@ groups:
       those are the three numbers every slot has an answer for, and the three
       most people ever change. Everything else about the target sits behind an
       Advanced toggle in the same card, shut by default.
-    defines:
+    uses:
     - template.item
   - id: advanced-holds-the-rest-of-the-target
     t: Advanced holds the rep range, to failure, and the set scheme
@@ -52,9 +52,8 @@ groups:
       and the way the sets differ from one another. It opens already expanded on
       a slot that is using any of them, so nothing a slot actually does is hidden
       behind a toggle somebody has to think to press.
-    defines:
-    - template.set-scheme
     uses:
+    - template.set-scheme
     - template.rep-target
   - id: sets-can-back-off-ramp-or-be-written-out
     t: The sets of a slot can back off, ramp up, or be written out one by one
@@ -83,6 +82,7 @@ groups:
     uses:
     - template.set-scheme
     - load.units
+    - load.unit-defaults
     - load.bar-weight
   - id: scheme-reaches-the-live-board
     t: The scheme is what the board hydrates from
@@ -99,6 +99,7 @@ groups:
     - template.set-scheme
     - session.set-logging
     - session.live-state
+    - session.exercise-weight
   - id: progression-rates
     t: A slot carries its own progression rates
     d: >-
@@ -143,6 +144,8 @@ groups:
   - id: open-config-sheet
     t: Open the config sheet
     d: open a workout → edit → tap an exercise slot.
+    uses:
+    - template.item
   - id: progression-axis-comes-first-sheet
     t: The progression axis comes first in the sheet
     d: >-
@@ -154,6 +157,8 @@ groups:
     d: >-
       the sheet scrolls the box you are typing in into view above the keyboard, and
       does it for every text field in it — the weight and both progression amounts.
+    uses:
+    - ui.system-insets
   - id: reorder-slots-up-down
     t: Drag slots into order by the handle
     d: and add more from the exercise picker.
@@ -173,6 +178,7 @@ groups:
       still to come.
     uses:
     - exercise.measure
+    - exercise.weight-type
     - progression.axis
     - template.rep-target
   - id: rep-range-keeps-width-progression

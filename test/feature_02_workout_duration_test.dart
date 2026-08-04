@@ -167,6 +167,79 @@ void main() {
       // What is left is the rungs themselves: a handful of reps each.
       expect(added - rests, lessThan(kDefaultWarmupSets * setSeconds(reps: 10)));
     });
+
+    test('the day is priced for the number of rungs Settings asks for',
+        () async {
+      // How many rungs a ramp opens with is a setting, so the figure on the
+      // card has to count that many rather than the constant.
+      final id = (await exerciseNamed(db, 'Bench Press')).id;
+      final w = await workoutIdNamed(db, 'Push');
+      await db.replaceWorkoutItems(w, [
+        _slot(workoutId: w, exerciseId: id, sets: 3, rest: 90, weight: 80),
+      ]);
+      final items = (await db.itemsForWorkout(w)).map((v) => v.item).toList();
+
+      Duration at(int sets) => estimateWorkoutDuration(
+            items: items,
+            routineRestSeconds: 90,
+            warmupSets: sets,
+          );
+
+      expect(at(5), greaterThan(at(kDefaultWarmupSets)));
+      expect(at(1), lessThan(at(kDefaultWarmupSets)));
+      // The default is what an unasked estimate prices.
+      expect(
+        estimateWorkoutDuration(items: items, routineRestSeconds: 90),
+        at(kDefaultWarmupSets),
+      );
+
+      // At nothing there is no ramp in the figure at all — the same day as one
+      // with no load to warm up to.
+      await db.replaceWorkoutItems(w, [
+        _slot(workoutId: w, exerciseId: id, sets: 3, rest: 90),
+      ]);
+      final bare = (await db.itemsForWorkout(w)).map((v) => v.item).toList();
+      expect(
+        at(0),
+        estimateWorkoutDuration(items: bare, routineRestSeconds: 90),
+      );
+    });
+
+    test('a rung is counted for a loaded counted slot and nothing else',
+        () async {
+      final bench = (await exerciseNamed(db, 'Bench Press')).id;
+      final plank = (await exerciseNamed(db, 'Plank')).id;
+      final w = await workoutIdNamed(db, 'Push');
+
+      Future<WorkoutItem> only(WorkoutItemsCompanion slot) async {
+        await db.replaceWorkoutItems(w, [slot]);
+        return (await db.itemsForWorkout(w)).single.item;
+      }
+
+      final loaded = await only(
+        _slot(workoutId: w, exerciseId: bench, sets: 3, weight: 80),
+      );
+      expect(warmupRungsFor(loaded, sets: 5), 5);
+      expect(warmupRungsFor(loaded, sets: 0), 0);
+      expect(warmupRungsFor(loaded), kDefaultWarmupSets);
+
+      // Nothing on the bar: there is no ramp to climb.
+      final unloaded = await only(_slot(workoutId: w, exerciseId: bench));
+      expect(warmupRungsFor(unloaded, sets: 5), 0);
+
+      // A held exercise is not warmed up by holding it lighter.
+      final held = await only(
+        WorkoutItemsCompanion.insert(
+          workoutId: w,
+          exerciseId: plank,
+          targetSets: const Value(2),
+          progression: const Value(ProgressionMode.time),
+          holdSeconds: const Value(45),
+          suggestedWeight: const Value(10),
+        ),
+      );
+      expect(warmupRungsFor(held, sets: 5), 0);
+    });
   });
 
   group('the figure on screen', () {

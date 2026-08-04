@@ -73,6 +73,7 @@ groups:
       permission prompt on both platforms.
     uses:
     - privacy.offline
+    - platform.permissions
   - id: camera-opened-only-while-filming
     t: The camera is opened only while filming
     d: >-
@@ -182,6 +183,8 @@ groups:
       a flat list, newest first, each clip labelled with the set it came from — Mar 12 · set 3 · 100 kg × 5, with the date written the way the language writes dates. Your squat over months, in one place. Reach it from Library → the exercise → N clips, or from History → a session → an exercise marked with a play symbol.
     uses:
     - load.units
+    - history.session-record
+    - ui.language
   - id: row-shows-frame-from-its-clip
     t: Each row shows a frame from its own clip
     d: >-
@@ -259,8 +262,6 @@ groups:
       time. The iOS container path carries a UUID that changes on reinstall and
       restore.
     defines:
-    - platform.portability
-    uses:
     - platform.portability
   - id: filename-generated-id
     t: The filename is a generated id

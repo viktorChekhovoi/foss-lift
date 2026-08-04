@@ -16,6 +16,7 @@ import 'dart:convert';
 
 import '../data/plates.dart';
 import '../data/progression.dart' show ProgressionMode;
+import '../data/set_scheme.dart';
 import 'active_workout.dart';
 
 /// The live session as one line of JSON.
@@ -51,6 +52,14 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'barKg': e.barKg,
             'restSeconds': e.restSeconds,
             'workingKg': e.workingKg,
+            // The scheme, whole. A back-off that came back as a flat slot would
+            // put every rung on the top weight the next time the working weight
+            // moved — and quietly inflate what progression made of the session.
+            'scheme': e.scheme.name,
+            'schemePercent': e.schemePercent,
+            'customSets': encodeCustomSets(e.customSets),
+            'goalReps': e.goalReps,
+            'floorKg': e.floorKg,
             'warmupCount': e.warmupCount,
             'warmupBarKg': e.warmupBarKg,
             'warmupRestSeconds': e.warmupRestSeconds,
@@ -146,6 +155,13 @@ LayoffNotice? _readNotice(Object? raw) {
   return (percent: raw['percent'] as int, days: raw['days'] as int);
 }
 
+SetScheme _readScheme(Object? raw) {
+  for (final scheme in SetScheme.values) {
+    if (scheme.name == raw) return scheme;
+  }
+  return SetScheme.flat;
+}
+
 ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
       exerciseId: m['exerciseId'] as int?,
       itemId: m['itemId'] as int?,
@@ -157,6 +173,14 @@ ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
       barKg: (m['barKg'] as num?)?.toDouble(),
       restSeconds: m['restSeconds'] as int,
       workingKg: (m['workingKg'] as num?)?.toDouble(),
+      // A snapshot written by an older build carries none of the five. Absent
+      // reads as the default it had then — a flat slot — rather than failing the
+      // whole session back to nothing.
+      scheme: _readScheme(m['scheme']),
+      schemePercent: m['schemePercent'] as int? ?? kDefaultSchemePercent,
+      customSets: decodeCustomSets(m['customSets'] as String?),
+      goalReps: m['goalReps'] as int? ?? 0,
+      floorKg: (m['floorKg'] as num?)?.toDouble() ?? 0,
       warmupCount: m['warmupCount'] as int,
       warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
       warmupRestSeconds: m['warmupRestSeconds'] as int,

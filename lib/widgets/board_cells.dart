@@ -179,9 +179,13 @@ class BoardColumnHeaders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    Widget h(String t, {double? width, int flex = 1}) {
+    // [shout] is off for the unit: the headings are set in capitals, but a unit
+    // is a symbol rather than a word, and "KG" is not one anybody writes. It is
+    // also what the plate line and the rest bar say, so re-casing it here would
+    // be the same number written two ways one above the other.
+    Widget h(String t, {double? width, int flex = 1, bool shout = true}) {
       final child = Text(
-        t.toUpperCase(),
+        shout ? t.toUpperCase() : t,
         textAlign: TextAlign.center,
         style: kMono.copyWith(
           fontSize: 10,
@@ -203,7 +207,7 @@ class BoardColumnHeaders extends StatelessWidget {
         children: [
           h(l10n.sessionColSet, width: kSetNumberColumnWidth),
           if (showWeight)
-            h(unitSuffix(l10n, unit), flex: kWeightColumnFlex),
+            h(unitSuffix(l10n, unit), flex: kWeightColumnFlex, shout: false),
           h(
             timed ? l10n.sessionColSecHeld : l10n.sessionColRepsDone,
             flex: kResultColumnFlex,

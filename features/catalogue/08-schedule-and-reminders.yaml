@@ -31,7 +31,7 @@ groups:
     t: Optionally fires one local notification per routine
     d: at a chosen time on those days.
     screen: shade
-    defines:
+    uses:
     - platform.reminders
 - name: Behaviour & edge cases
   items:
@@ -63,6 +63,20 @@ groups:
     uses:
     - platform.reminders
     - platform.android
+  - id: notifications-carry-own-status-bar-icon
+    t: Notifications carry the app's own status-bar icon
+    d: >-
+      a white silhouette of the barbell from the app mark, drawn on transparency.
+      Android renders a status-bar icon as an alpha-only stencil, so falling back
+      to the launcher icon flattens it to a featureless blob — the colour and the
+      detail that make the mark recognisable are exactly what is thrown away. The
+      silhouette is drawn for that treatment instead, so what appears beside the
+      clock is still the barbell.
+    screen: system
+    uses:
+    - platform.android
+    - platform.reminders
+    - session.shade
   - id: android-only
     t: Android-only
     d: >-
@@ -70,8 +84,6 @@ groups:
       Android needs RECEIVE_BOOT_COMPLETED, the plugin's receivers, and core-library
       desugaring.
     screen: none
-    defines:
-    - platform.android
     uses:
     - platform.android
     - platform.portability

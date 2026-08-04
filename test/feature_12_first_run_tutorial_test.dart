@@ -351,6 +351,29 @@ void main() {
           reason: 'the lifetime totals come out the other side of it');
     });
 
+    test('the tour says which weight a tap moves', () {
+      // Between the set rows and the rest timer: the weight column is the next
+      // sentence after the reps cell, and rest only happens once a set is
+      // logged.
+      final ids = kTutorialTracks[TutorialTrack.full]!.map((s) => s.id).toList();
+      expect(ids.indexOf('session-weight'), ids.indexOf('session-board') + 1);
+      expect(ids.indexOf('session-rest'), ids.indexOf('session-weight') + 1);
+
+      final step = kTutorialTracks[TutorialTrack.full]!
+          .firstWhere((s) => s.id == 'session-weight');
+      expect(step.demo, TutorialDemo.screen);
+      expect(step.focus, TutorialDemoFocus.weight);
+
+      // Both blast radii, in the dialog's own words: the exercise's weight
+      // carries every set still to come, one set's weight carries that set.
+      final said = '${step.title(_l10n)} ${step.body(_l10n)}'.toLowerCase();
+      expect(said, contains('weight'));
+      expect(said, contains('exercise'));
+      expect(said, contains('set only'),
+          reason: 'the step should name one set the way the dialog does — see '
+              'sessionSetOnly, "${_l10n.sessionSetOnly}"');
+    });
+
     test('the chapter opens by naming the transition', () {
       final open = kTutorialTracks[TutorialTrack.full]!
           .firstWhere((s) => s.id == 'session-open');
@@ -771,6 +794,38 @@ void main() {
       expect(cameras.where((i) => i.color == AppColors.accent), hasLength(1));
       expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
           isNot(AppColors.accent));
+      expect(showsProgress(tester), isFalse);
+
+      await stop(tester);
+    });
+
+    testWidgets('the weight step rings both weights a tap can move',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.weight));
+
+      // The exercise's own weight, on the goal line, and one set's weight in
+      // the column under it — the step is about the difference between them, so
+      // it points at both.
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoWeightKey)),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoSetWeightKey)),
+          findsOneWidget,
+          reason: 'one set row, not the whole column');
+      // And nothing else on the board is asking to be looked at.
+      expect(boardIcons(tester, kTutorialDemoNoteKey).single.color,
+          isNot(AppColors.accent));
+      for (final camera in boardIcons(tester, kTutorialDemoCameraKey)) {
+        expect(camera.color, isNot(AppColors.accent));
+      }
       expect(showsProgress(tester), isFalse);
 
       await stop(tester);

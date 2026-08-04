@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
+import '../util/target_label.dart';
 import '../widgets/plate_line.dart';
 import '../widgets/start_workout.dart';
 import '../widgets/workout_estimate.dart';
@@ -221,7 +222,15 @@ class _ExerciseRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${view.item.targetSets} × ${repsLabel(view.item)}',
+            setsTargetLabel(
+              l10n,
+              sets: view.item.targetSets,
+              progression: view.item.progression,
+              toFailure: view.item.toFailure,
+              holdSeconds: view.item.holdSeconds,
+              repsMin: view.item.repsMin,
+              repsMax: view.item.repsMax,
+            ),
             style: kMono.copyWith(
               fontSize: 13,
               color: AppColors.accent,

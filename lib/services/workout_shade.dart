@@ -113,6 +113,23 @@ class WorkoutShade {
   /// it again would abandon a channel somebody has since tuned.
   static const _channelId = 'live_workout_ongoing';
 
+  /// The shade's small icon, named the long way round.
+  ///
+  /// This service does not go through the notification plugin, so it does not
+  /// inherit the default set in `notifications.dart` — and it cannot be handed a
+  /// resource name either. `flutter_foreground_task` resolves the icon by
+  /// reading an `<application>` meta-data entry out of the merged manifest and
+  /// taking the resource id it holds, so the drawable is named *there* and this
+  /// is only the key that points at it. Without it the service falls back to the
+  /// launcher icon, whose alpha channel is a solid rounded plate — see
+  /// `res/drawable/ic_stat_fosslift.xml`.
+  static const _iconMetaData = 'com.fosslift.foss_lift.NOTIFICATION_ICON';
+
+  /// Passed on both start and update: an update that omits it keeps whatever the
+  /// service already had, which on a phone whose shade was started by an older
+  /// build is the launcher icon.
+  static const _icon = NotificationIcon(metaDataName: _iconMetaData);
+
   /// The button ids, which are also what crosses the isolate boundary.
   static const doneAction = 'set_done';
   static const missedAction = 'set_missed';
@@ -249,6 +266,7 @@ class WorkoutShade {
         await FlutterForegroundTask.updateService(
           notificationTitle: title,
           notificationText: text,
+          notificationIcon: _icon,
           notificationButtons: buttons,
         );
         _running = true;
@@ -262,6 +280,7 @@ class WorkoutShade {
         serviceTypes: const [ForegroundServiceTypes.specialUse],
         notificationTitle: title,
         notificationText: text,
+        notificationIcon: _icon,
         notificationButtons: buttons,
         // Tapping the notification itself goes to the session, not to Today.
         notificationInitialRoute: '/session',

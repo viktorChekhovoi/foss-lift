@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/warmup.dart';
 import '../data/workout_estimate.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
@@ -48,6 +49,10 @@ class WorkoutEstimate extends ConsumerWidget {
       estimateWorkoutDuration(
         items: [for (final v in items) v.item],
         routineRestSeconds: routine.restSeconds,
+        // The same count a session would open every ramp with, so the figure on
+        // the card is the day the lifter will actually train.
+        warmupSets:
+            ref.watch(defaultWarmupSetsProvider).value ?? kDefaultWarmupSets,
       ),
     );
     if (minutes <= 0) return const SizedBox.shrink();

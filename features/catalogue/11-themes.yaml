@@ -54,9 +54,9 @@ groups:
       preview at the top follows every change.
     screen: theme-custom
     defines:
-    - theme.palette-source
     - theme.colour-role
     uses:
+    - theme.palette-source
     - theme.picker
     - theme.preview
   - id: editing-preset-saves-copy
@@ -68,9 +68,8 @@ groups:
       still there, unchanged, in the list above. A copy of a high-contrast preset
       arrives without the AAA badge, like any theme you can recolour.
     screen: theme-custom
-    defines:
-    - theme.palette-source
     uses:
+    - theme.palette-source
     - theme.picker
     - theme.preview
     - theme.contrast-check
@@ -120,8 +119,6 @@ groups:
       — and one when the two markers are too close to each other. Guidance, never
       a running number.
     defines:
-    - theme.contrast-check
-    uses:
     - theme.contrast-check
   - id: done-short-must-unmistakable-each
     t: Completed and Missed goal must be unmistakable from each other
@@ -217,21 +214,27 @@ groups:
     d: >-
       and AA (4.5:1) for secondary text, the accent, the completed marker and
       the record marker — over both the ground and a card — with borders above
-      the 3:1 non-text floor. Every other preset clears 4.5:1 for body text.
+      the 3:1 non-text floor. Every other preset clears 4.5:1 for all three of
+      its text tones.
     uses:
     - theme.contrast-check
     - theme.palette-source
     manual: true
   - id: solarized-ships-published-two-documented
-    t: Solarized ships as published, with two documented departures
+    t: Solarized ships as published, with its text tones lifted to clear AA
     d: >-
-      body text takes the palette's emphasized tier rather than its body tier
-      (Solarized's own body tones sit near 4.1:1), and the two intermediate surfaces
-      are blends, since the palette defines two background tones and the app paints
-      four.
+      the grounds, the cards and the accent are Schoonover's own. The three text
+      tones are not: Solarized's own mid-tones land between 1.7:1 and 4.9:1 on the
+      palette's backgrounds, too low to carry three text roles at the 4.5:1 floor.
+      So the dark theme's body text takes base2 and its two quieter tones are base1
+      carried toward it, while the light theme keeps base02 for body text and darkens
+      base01 and base00 down their own ramp. The two intermediate surfaces are blends
+      — the palette defines two background tones and the app paints four — held dark
+      enough that the dimmest text still clears the floor on them.
     uses:
     - theme.palette-source
     - theme.colour-role
+    - theme.contrast-check
   - id: custom-theme-never-badged-accessible
     t: A custom theme is never badged accessible
     d: >-
@@ -260,10 +263,11 @@ groups:
       it closes that screen rather than leaving you looking at the offer you just
       took. A code that will not decode offers nothing to apply.
     screen: theme-import
-    defines:
-    - share.import-review
     uses:
     - share.import-review
+    - share.qr
+    - share.deep-link
+    - share.theme-code
     - theme.preview
   - id: arriving-theme-added-your-own
     t: An arriving theme is added to your own, never substituted
@@ -300,15 +304,27 @@ groups:
 - name: Legibility of the app's own type
   screen: today
   items:
-  - id: headings-readable-every-palette
-    t: Section headings and eyebrows are readable in every palette
+  - id: every-text-tone-readable-every-palette
+    t: Every text tone is readable in every palette
     d: >-
-      the small-caps heading over a list takes the secondary text role, and the
-      eyebrow over a screen title takes the body one. Neither is drawn in the
-      dimmest colour a palette owns — that role is for a column heading nobody
-      is meant to read twice, and it is the one role no palette keeps legible.
-      Every shipped palette clears 4.5:1 for both against the ground they are
-      painted on, the light ones and the two Solarized ones included.
+      a palette owns three: body text, a secondary tone and a dimmest one. All
+      three clear 4.5:1 in every shipped preset, over all four backgrounds the app
+      paints — the ground, a card, the nested surface inside it and the raised one
+      under the resume bar — so a hint under a field, a column heading or a date
+      over a list is held to the same floor as the words beside it. The dimmest
+      tone is the quietest of the three, never the illegible one.
+    uses:
+    - theme.colour-role
+    - theme.type-scale
+    - theme.contrast-check
+  - id: headings-readable-every-palette
+    t: The three tones stay in rank, and headings take the middle one
+    d: >-
+      body text reads loudest, the secondary tone next, the dimmest one last, and
+      the gap between each pair is wide enough to see. The small-caps heading over
+      a list takes the secondary tone and the eyebrow over a screen title takes the
+      body one — a rank chosen for how loudly each should read, now that none of the
+      three is held back by its contrast.
     uses:
     - theme.colour-role
     - theme.type-scale
@@ -330,8 +346,6 @@ groups:
   - id: role-order-wire-format
     t: The role order is a wire format
     d: reordering it silently changes the meaning of every code already shared.
-    defines:
-    - theme.colour-role
     uses:
     - theme.colour-role
   - id: crc-16-catches-damage-codes
@@ -351,8 +365,6 @@ groups:
       a custom scheme rather than an https App Link, so it needs no domain, no
       hosting and no network. Chat apps will not linkify it, which is why nothing
       sends one any more — but anything that hands the app one is still read.
-    defines:
-    - share.deep-link
     uses:
     - share.deep-link
   - id: qr-codes-hold-full-link

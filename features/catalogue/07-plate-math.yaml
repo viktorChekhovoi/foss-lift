@@ -29,9 +29,10 @@ groups:
   - id: shows-line-under-exercise
     t: Shows it as a line under an exercise
     d: >-
-      30 kg/side · 25 + 5 · bar 20 — re-solving the moment you type a different
+      30 kg/side · 25 + 5 · bar 20 kg — re-solving the moment you type a different
       weight. It appears by itself on the live session for barbell lifts, describing
-      the next set's weight.
+      the next set's weight. Every weight on the line carries its unit, the bar
+      included.
     uses:
     - load.plate-solver
     - load.units
@@ -53,8 +54,8 @@ groups:
     defines:
     - load.bar-weight
     uses:
-    - load.bar-weight
     - load.units
+    - share.routine-code
   - id: uses-bar-exercise-rack-you
     t: Uses the bar for the exercise and the rack you own
     d: >-
@@ -85,14 +86,17 @@ groups:
       a weight the plates can't build is still yours to type; the line goes gold
       with the nearest buildable load, and green is the weight you asked for. What
       you cannot type is less than the bar itself — asking for 10 kg over a 20 kg
-      bar is not a load. Both places that set a weight hold it at the bar: the
-      board while a session runs, and the builder on the way to the database, where
-      an empty field reads "20 kg or more". The belowBar state remains for the
-      weight that got in before a bar was named.
+      bar is not a load. Every place that sets a weight holds it at the bar: the
+      board while a session runs, the builder on the way to the database, where an
+      empty field reads "20 kg or more", and progression — a back-off and a layoff
+      cut both stop at the empty bar rather than at zero. The belowBar state
+      remains for the weight that got in before a bar was named.
     uses:
     - load.plate-solver
     - load.bar-weight
     - session.exercise-weight
+    - progression.rates
+    - progression.layoff-rules
   - id: ties-break-way-lifter-loads
     t: Ties break the way a lifter loads a bar
     d: >-
@@ -118,6 +122,19 @@ groups:
     uses:
     - load.plate-rack
     - load.units
+  - id: warmup-rungs-say-per-side
+    t: A warm-up rung on a bar says what goes on each side
+    d: >-
+      the ramp is a different load every rung, so there is no single line to draw
+      under it the way the working sets get one: each rung carries "30/side"
+      under its own weight instead. The empty bar carries no label — there is
+      nothing on it — and a rung the plates cannot make exactly is prefixed "≈",
+      the same reading a routine's per-side figure gets. Off a bar there is no
+      label at all.
+    uses:
+    - session.warmup-ramp
+    - load.plate-solver
+    - exercise.weight-type
   - id: only-bar-gets-line
     t: Only a bar gets a line
     d: >-

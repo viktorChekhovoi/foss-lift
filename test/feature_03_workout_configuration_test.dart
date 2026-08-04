@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/util/target_label.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart' show kLoadingChoiceKey;
 import 'package:foss_lift/widgets/builder_widgets.dart';
@@ -398,20 +399,33 @@ void main() {
   });
 
   group('target types', () {
+    /// A saved slot's target as the screens write it — the label the training
+    /// day, the editor and the import confirmation all read from. English here
+    /// because the assertion is about the shape of the phrase; feature 18 is
+    /// where it is checked in the other four languages.
+    String label(WorkoutItem it) => repsTargetLabel(
+          l10nFor(),
+          progression: it.progression,
+          toFailure: it.toFailure,
+          holdSeconds: it.holdSeconds,
+          repsMin: it.repsMin,
+          repsMax: it.repsMax,
+        );
+
     test('a fixed rep count reads as a single number', () async {
       final push = await workoutIdNamed(db, 'Push');
       final ohp = (await itemNamed(db, push, 'Overhead Press')).item;
       expect(ohp.repsMax, isNull); // fixed count of repsMin
-      expect(repsLabel(ohp), '8');
+      expect(label(ohp), '8');
     });
 
     test('a rep range reads as low–high', () async {
       final push = await workoutIdNamed(db, 'Push');
       final bench = (await itemNamed(db, push, 'Bench Press')).item;
-      expect(repsLabel(bench), '6–8');
+      expect(label(bench), '6–8');
     });
 
-    test('a to-failure slot drops its range and reads as "Failure"', () async {
+    test('a to-failure slot drops its range and says so', () async {
       final push = await workoutIdNamed(db, 'Push');
       final bench = await exerciseNamed(db, 'Bench Press');
 
@@ -426,7 +440,7 @@ void main() {
       final saved = (await itemNamed(db, push, 'Bench Press')).item;
       expect(saved.toFailure, isTrue);
       expect(saved.repsMax, isNull); // a range has no meaning at failure
-      expect(repsLabel(saved), 'Failure');
+      expect(label(saved), l10nFor().targetFailure);
     });
 
     test('a timed hold reads in seconds', () async {
@@ -441,7 +455,7 @@ void main() {
 
       final saved = (await itemNamed(db, push, 'Plank')).item;
       expect(saved.progression, ProgressionMode.time);
-      expect(repsLabel(saved), '45s');
+      expect(label(saved), l10nFor().unitSecondsShort('45'));
     });
   });
 

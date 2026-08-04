@@ -8,8 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/bar_settings_screen.dart';
+import 'package:foss_lift/screens/workout_screen.dart';
+import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/util/format.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/widgets/plate_line.dart';
 
@@ -256,9 +260,16 @@ void main() {
 
     testWidgets('green and per-side text for an exact weight', (tester) async {
       await tester.pumpWidget(lineFor(60, WeightType.bar));
-      expect(find.textContaining('KG/SIDE'), findsOneWidget);
+      expect(find.textContaining('kg/SIDE'), findsOneWidget);
       final text = tester.widget<Text>(find.byType(Text));
       expect(text.style?.color, AppColors.good);
+      await stop(tester);
+    });
+
+    testWidgets('every weight on the line carries its unit, the bar included',
+        (tester) async {
+      await tester.pumpWidget(lineFor(60, WeightType.bar));
+      expect(find.text('20 kg/SIDE · 20 · BAR 20 kg'), findsOneWidget);
       await stop(tester);
     });
 
@@ -291,6 +302,97 @@ void main() {
       await tester.pumpWidget(lineFor(30, WeightType.dumbbell));
       expect(find.byType(Text), findsNothing);
       await stop(tester);
+    });
+  });
+
+  group('a warm-up rung on a bar says what goes on each side', () {
+    // The working sets share one load and get one line under them; the ramp is
+    // a different load every rung, so the per-side figure has to ride on the
+    // row. Bench Press is 80 kg over the 20 kg default bar, and its three rungs
+    // are the empty bar, 40 and 60.
+    late AppDatabase db;
+    ProviderContainer? container;
+
+    setUp(() => db = memoryDb());
+    tearDown(() async {
+      container?.dispose();
+      container = null;
+      await db.close();
+    });
+
+    ActiveWorkout session() => container!.read(activeWorkoutProvider)!;
+
+    Future<void> pumpPush(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        final wid = await workoutIdNamed(db, 'Push');
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Push');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+    }
+
+    Future<void> stopAll(WidgetTester tester) async {
+      container?.read(activeWorkoutProvider.notifier).discard();
+      await stop(tester);
+    }
+
+    /// What row [wi] of the ramp on exercise [ei] says.
+    Finder rung(int ei, int wi, String exercise, String text) =>
+        find.descendant(
+          of: find.byKey(ValueKey('w$ei-$wi-$exercise')),
+          matching: find.text(text),
+        );
+
+    testWidgets('each loaded rung carries its own per-side figure',
+        (tester) async {
+      await pumpPush(tester);
+      final ramp = session().exercises[0].warmups;
+      expect(ramp, hasLength(3));
+
+      for (var wi = 1; wi < ramp.length; wi++) {
+        final perSide = (ramp[wi].weight - 20) / 2;
+        expect(
+          rung(0, wi, 'Bench Press', '${fmtWeight(perSide)}/side'),
+          findsOneWidget,
+          reason: 'rung $wi is ${ramp[wi].weight} kg over a 20 kg bar',
+        );
+      }
+
+      await stopAll(tester);
+    });
+
+    testWidgets('the empty bar carries nothing, because nothing is on it',
+        (tester) async {
+      await pumpPush(tester);
+      expect(session().exercises[0].warmups.first.weight, 20);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('w0-0-Bench Press')),
+          matching: find.textContaining('/side'),
+        ),
+        findsNothing,
+      );
+      await stopAll(tester);
+    });
+
+    testWidgets('a dumbbell ramp has no side to load', (tester) async {
+      await pumpPush(tester);
+      // Incline DB Press, the third slot of the day.
+      final ramp = session().exercises[2].warmups;
+      expect(ramp, isNotEmpty);
+      for (var wi = 0; wi < ramp.length; wi++) {
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey('w2-$wi-Incline DB Press')),
+            matching: find.textContaining('/side'),
+          ),
+          findsNothing,
+        );
+      }
+      await stopAll(tester);
     });
   });
 

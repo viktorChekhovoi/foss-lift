@@ -46,10 +46,11 @@ groups:
     t: A fresh browser gets the starter library and the demo routines
     d: >-
       the first-run seed is a property of an empty database, not of a phone, so
-      opening the page for the first time lands on the same 87 movements, two
+      opening the page for the first time lands on the same 87 movements, five
       demo programs and racked bars an install does.
     uses:
     - storage.schema
+    - exercise.seed
   - id: web-build-serves-itself
     t: The page serves everything it needs from its own origin
     d: >-
@@ -68,9 +69,8 @@ groups:
       every control that needs a phone is hidden on the web rather than left to
       fail when tapped. One place answers what this build can do, and the
       screens ask it — the same shape the Android-only services already use.
-    defines:
-    - platform.web
     uses:
+    - platform.web
     - platform.portability
   - id: no-reminders-on-web
     t: A routine cannot ask to be reminded on the web
@@ -93,6 +93,8 @@ groups:
     screen: session
     uses:
     - video.capture
+    - video.storage
+    - video.playback
     - platform.web
   - id: no-scanning-on-web
     t: A code is pasted on the web, not scanned
@@ -114,6 +116,9 @@ groups:
     screen: session
     uses:
     - platform.web
+    - session.shade
+    - session.rest-sound
+    - session.rest-timer
   - id: share-codes-work-everywhere
     t: A routine code made in a browser opens on a phone
     d: >-
@@ -133,3 +138,4 @@ groups:
     uses:
     - storage.database-location
     - privacy.offline
+    - history.session-record

@@ -12,6 +12,7 @@ import 'package:flutter/widgets.dart' show Locale;
 
 import '../data/progression.dart';
 import '../l10n/app_localizations.dart';
+import 'format.dart';
 
 const double kKgPerLb = 0.45359237;
 
@@ -24,8 +25,38 @@ double toKg(double display, String unit) =>
     unit == 'lb' ? display * kKgPerLb : display;
 
 /// The suffix shown next to weights and volumes, in the app's language.
+///
+/// A symbol rather than a word, and it is never re-cased: "kg" is kg in a
+/// shouted column heading as much as in a sentence, and "KG" is not a unit
+/// anybody writes.
 String unitSuffix(AppLocalizations l10n, String unit) =>
     unit == 'lb' ? l10n.unitLbSuffix : l10n.unitKgSuffix;
+
+/// What a weight nobody has chosen yet reads as: a slot waiting for a number,
+/// not a lift done under no load.
+const String kUnsetWeight = '—';
+
+/// The number alone, for somewhere that already names the unit — a column with
+/// a unit heading over it, or a field with the unit in its suffix.
+///
+/// Null or zero is a weight nobody has picked, and reads [kUnsetWeight].
+String fmtWeightValue(double? kg, String unit) => kg == null || kg == 0
+    ? kUnsetWeight
+    : fmtWeight(toDisplayWeight(kg, unit));
+
+/// A weight and its unit as one string — "100 kg".
+///
+/// **The only place the two are joined.** The join is the language's own
+/// `unitWeightShort` pattern rather than a space typed in Dart, so a language
+/// that spaces or orders them differently is obeyed everywhere rather than on
+/// most screens. An unset weight comes back as the bare [kUnsetWeight]: a dash
+/// with a unit after it is a unit belonging to nothing.
+String weightWithUnit(AppLocalizations l10n, double? kg, String unit) {
+  final value = fmtWeightValue(kg, unit);
+  return kg == null || kg == 0
+      ? value
+      : l10n.unitWeightShort(value, unitSuffix(l10n, unit));
+}
 
 /// The three countries that weigh a barbell in pounds. Everywhere else is
 /// metric, so the list is short enough to write down.

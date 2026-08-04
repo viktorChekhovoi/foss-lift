@@ -40,9 +40,8 @@ groups:
       from then on, not a standing deference: the phone is consulted once, and
       changing the phone's language afterwards leaves the app where it is.
       Nothing asks on first run, because the phone has already answered.
-    defines:
-    - ui.language
     uses:
+    - ui.language
     - storage.settings
   - id: language-picker-in-settings
     t: The language can be set in the app, independently of the phone
@@ -51,7 +50,7 @@ groups:
       selected — there is no <i>follow the phone</i> row to fall back to. Each
       language names itself in its own language, so the row you want is legible
       from whatever the app is currently rendering in.
-    defines:
+    uses:
     - ui.language
   - id: change-applies-immediately
     t: Changing the language repaints the app at once
@@ -75,7 +74,7 @@ groups:
     d: >-
       Every movement the app ships with carries a <code>seedKey</code>, and the
       name on screen is looked up from it rather than read out of the row. So
-      switching from Spanish to Ukrainian renames all 85 of them, and switching
+      switching from Spanish to Ukrainian renames all 87 of them, and switching
       back renames them again. A movement you added yourself has no key and
       keeps the name you gave it.
     defines:

@@ -69,6 +69,22 @@ groups:
     - load.unit-defaults
     - template.item
     - history.session-record
+  - id: exercise-weight-and-its-sets-are-one-load
+    t: An exercise's weight and its set rows are the same load
+    d: >-
+      both sit on the step the unit counts by, so a header reading 101 kg over rows
+      reading 100 is not a state the board can be in. The weight an exercise is
+      worked at is put on that step exactly as the weights of its sets are — when
+      the session hydrates and again every time the weight is changed — so the
+      rows, the working weight and the plate line under them all describe one bar.
+      In pounds that means a 100 kg suggestion opens at 220 lb everywhere rather
+      than at 220.46 in one place and 220 in another.
+    screen: session
+    uses:
+    - load.units
+    - load.unit-defaults
+    - session.exercise-weight
+    - template.set-scheme
   - id: each-unit-has-its-own-default-step
     t: Step up and back off have a default in each unit
     d: >-
@@ -83,6 +99,22 @@ groups:
     uses:
     - load.units
     - progression.rates
+  - id: weight-and-unit-read-one-way
+    t: A weight and its unit are joined one way, everywhere
+    d: >-
+      one helper puts the two together through the language's own "{amount}
+      {unit}" pattern, so a language that spaces or orders them differently is
+      obeyed on every screen rather than on most of them. The symbol is never
+      re-cased: "kg" reads kg in a column heading and in a shouted plate line
+      alike. A weight nobody has chosen yet reads "—" rather than 0, on the
+      working weight and on the set rows both. Inside the session's set board the
+      unit is named once, in the column heading, and the cells under it are bare
+      numbers.
+    screen: session
+    uses:
+    - load.units
+    - session.exercise-weight
+    - load.plate-solver
   - id: weights-read-to-two-decimals
     t: A weight reads to two decimals, with trailing zeros dropped
     d: >-

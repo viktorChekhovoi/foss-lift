@@ -12,6 +12,7 @@ import 'progression.dart';
 import 'schedule.dart';
 import 'set_scheme.dart';
 import 'seed_keys.dart';
+import 'warmup.dart';
 
 export 'exercise_stats.dart';
 export 'exercise_taxonomy.dart';
@@ -408,6 +409,20 @@ class Settings extends Table {
   /// exists for the gap that leaves — a phone kept in one language by an
   /// employer or a habit, and an app you would rather read in another.
   TextColumn get localeTag => text().nullable()();
+
+  /// How many warm-up rungs every exercise in a session opens with, before the
+  /// live stepper touches it — see `warmup.dart`.
+  ///
+  /// The settings stepper holds it between 1 and [kMaxWarmupSets]. Zero is not
+  /// on offer there: skipping the ramp is a decision about the movement you are
+  /// on, which the session's own stepper already makes.
+  ///
+  /// **Declared last on purpose.** `ALTER TABLE … ADD COLUMN` appends, so a
+  /// database that climbed the v2 rung carries this column at the end. Adding it
+  /// here rather than beside the other counts keeps a fresh install and an
+  /// upgraded one on exactly the same table, right down to the column order.
+  IntColumn get warmupSets =>
+      integer().withDefault(const Constant(kDefaultWarmupSets))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -979,13 +994,9 @@ bool setMissedGoal(SessionSet s) {
   return short || (s.goalWeight != null && s.weight < s.goalWeight! - 1e-9);
 }
 
-/// Human-readable set target, e.g. "10", "6–8", "45s", or "To failure".
-String repsLabel(WorkoutItem it) {
-  if (it.progression.timed) return '${it.holdSeconds}s';
-  if (it.toFailure) return 'Failure';
-  if (it.repsMax == null || it.repsMax == it.repsMin) return '${it.repsMin}';
-  return '${it.repsMin}–${it.repsMax}';
-}
+// A slot's target in words — "4 × 6–8", "3 × Failure" — is formatted by
+// `util/target_label.dart`, not here: it is words, and this layer cannot see
+// the string catalogue.
 
 // ---------------------------------------------------------------------------
 // Database
@@ -1011,25 +1022,44 @@ class AppDatabase extends _$AppDatabase {
   /// For unit tests: pass an in-memory `NativeDatabase.memory()`.
   AppDatabase.forTesting(super.e);
 
-  /// The shipped schema version, and the bottom of the migration ladder.
+  /// The current schema version, and the top of the migration ladder.
   ///
-  /// **v1 is the shipped shape, and it is real now.** Installed databases exist,
-  /// so every schema change from here is an `onUpgrade` rung that takes the
-  /// version before it to the version after. A rung that has shipped is never
-  /// edited and never renumbered: its input is a database on somebody's phone,
-  /// and rewriting the ladder makes that phone climb the wrong steps.
+  /// **v1 is the shipped shape, and it is real.** Installed databases exist, so
+  /// every schema change from here is an `onUpgrade` rung that takes the version
+  /// before it to the version after. A rung that has shipped is never edited and
+  /// never renumbered: its input is a database on somebody's phone, and
+  /// rewriting the ladder makes that phone climb the wrong steps.
   ///
   /// Everything at v1 was settled before the first release, when the schema was
-  /// still edited in place — which is why there is no ladder below this line and
-  /// why nothing here needs one.
+  /// still edited in place — which is why the ladder starts at v1 rather than
+  /// below it.
+  ///
+  /// - **v2** — `Settings.warmup_sets`, the default warm-up rung count.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await _seed();
+    },
+    onUpgrade: (m, from, to) async {
+      // One `if` per rung, climbed in order: a phone two releases behind runs
+      // every rung between where it is and here.
+      //
+      // **The DDL is written out rather than derived.** `m.addColumn` builds
+      // its statement from the column as the *current* code declares it, so a
+      // later edit to `Settings.warmupSets` — a different default, a different
+      // type — would silently rewrite this rung, and a phone upgrading from v1
+      // after that edit would land on a different shape than one that upgraded
+      // before it. The literal below is the v2 shape and stays the v2 shape.
+      if (from < 2) {
+        await m.database.customStatement(
+          'ALTER TABLE "settings" ADD COLUMN "warmup_sets" '
+          'INTEGER NOT NULL DEFAULT 3',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -1460,6 +1490,28 @@ class AppDatabase extends _$AppDatabase {
   Future<WorkoutItem?> workoutItemById(int id) =>
       (select(workoutItems)..where((i) => i.id.equals(id))).getSingleOrNull();
 
+  /// The lightest weight the slot's movement can be loaded to — its own bar, the
+  /// gym's default bar, or nothing at all where there is no bar under it.
+  ///
+  /// Resolved exactly as the board and the builder resolve it (see
+  /// [loadFloorKg]), because a target stored below a movement's own bar is a
+  /// target nobody can train to, whichever of the three wrote it.
+  Future<double> _loadFloorFor(WorkoutItem it) async {
+    // Tolerant of a movement that is no longer there: a slot with nothing to
+    // name its bar has no bar, which is the same answer as a machine.
+    final exercise = await (select(
+      exercises,
+    )..where((e) => e.id.equals(it.exerciseId))).getSingleOrNull();
+    if (exercise == null || !exercise.weightType.loadedPerSide) return 0;
+    final row =
+        await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    return loadFloorKg(
+      type: exercise.weightType,
+      defaultBarKg: row?.barWeight ?? defaultBarKg(row?.weightUnit ?? 'kg'),
+      barKg: exercise.barWeight,
+    );
+  }
+
   /// Advances one exercise slot after a session, per its own progression rules.
   ///
   /// [success] is the whole exercise's verdict for the session, not one set's —
@@ -1468,12 +1520,19 @@ class AppDatabase extends _$AppDatabase {
   /// raise the target on its own — see below. Returns how far the target
   /// moved, in the mode's own unit, counted from where it was before.
   ///
+  /// [sessionWeight] is the load the session carried for a slot that has **no**
+  /// stored target — the weight typed onto the board, or the sets logged at one.
+  /// It establishes the target rather than moving it, which is why it is a
+  /// separate argument from [performedWeight]: a slot that already has a target
+  /// is only ever raised by weight that was actually lifted.
+  ///
   /// The slot may be gone (the workout was edited while the session was in
   /// progress), in which case there is nothing to advance and nothing to say.
   Future<double> advanceProgression(
     int itemId, {
     required bool success,
     double? performedWeight,
+    double? sessionWeight,
   }) async {
     final it = await workoutItemById(itemId);
     if (it == null) return 0;
@@ -1497,11 +1556,20 @@ class AppDatabase extends _$AppDatabase {
     final mode = it.progression;
     switch (mode) {
       case ProgressionMode.weight:
-        final stored = it.suggestedWeight;
-        // A slot with no suggested weight is a bodyweight movement the user
-        // never put a number on. Inventing one out of a step up would tell
-        // them to load 2.5 kg onto a push-up.
-        if (stored != null) {
+        final floorKg = await _loadFloorFor(it);
+        // A slot with no suggested weight and no weight worked today is a
+        // bodyweight movement nobody ever put a number on. Inventing one out of
+        // a step up would tell them to load 2.5 kg onto a push-up. A weight the
+        // session did carry is a number, though, and it becomes the target the
+        // step is taken from.
+        final from = it.suggestedWeight ?? sessionWeight;
+        if (from != null) {
+          // Held at the bar as it is read, not only as it is written: a target
+          // that drifted under its own bar on an older build is corrected here
+          // rather than being stepped on from where it wrongly sat — which is
+          // also what stops the climb back to the bar being reported as a step
+          // up that never happened.
+          final stored = from < floorKg ? floorKg : from;
           // Loading the bar past the suggestion *is* the progression: the step
           // is applied to what you actually carried, not to a number the
           // template has been left behind by. Only upwards — coming down
@@ -1509,8 +1577,10 @@ class AppDatabase extends _$AppDatabase {
           final base = performedWeight != null && performedWeight > stored
               ? performedWeight
               : stored;
-          final to = advanceTarget(base, step.delta, mode);
-          if (to != stored) patch = patch.copyWith(suggestedWeight: Value(to));
+          final to = advanceTarget(base, step.delta, mode, floorKg: floorKg);
+          if (to != it.suggestedWeight) {
+            patch = patch.copyWith(suggestedWeight: Value(to));
+          }
           moved = to - stored;
         }
       case ProgressionMode.reps:
@@ -1587,7 +1657,12 @@ class AppDatabase extends _$AppDatabase {
             // No suggested weight is a movement nobody put a number on. There
             // is nothing to take ten percent of.
             if (from != null) {
-              final to = deloadedTarget(from, percent, mode);
+              final to = deloadedTarget(
+                from,
+                percent,
+                mode,
+                floorKg: await _loadFloorFor(it),
+              );
               if (to != from) {
                 patch = patch.copyWith(suggestedWeight: Value(to));
                 moved++;
@@ -2042,6 +2117,26 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setLayoffPercent(int percent) =>
       _writeSettings(SettingsCompanion(layoffPercent: Value(percent)));
+
+  /// How many warm-up rungs a session opens each exercise with.
+  Stream<int> watchDefaultWarmupSets() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map(_warmupSetsOf);
+  }
+
+  /// The same, read once — what [ActiveWorkoutController.start] seeds from.
+  Future<int> defaultWarmupSets() async {
+    final row = await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
+    return _warmupSetsOf(row);
+  }
+
+  int _warmupSetsOf(Setting? s) => s?.warmupSets ?? kDefaultWarmupSets;
+
+  Future<void> setDefaultWarmupSets(int sets) =>
+      _writeSettings(SettingsCompanion(warmupSets: Value(sets)));
 
   /// The bar and plate setup as stored — nulls and all. Resolve it against the
   /// current unit with [resolvePlateSettings] before using it; see

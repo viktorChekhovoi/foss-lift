@@ -47,6 +47,7 @@ import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/locales.dart';
 import 'package:foss_lift/util/seed_names.dart';
 import 'package:foss_lift/widgets/exercise_filters.dart';
+import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
 import 'support/screens.dart';
@@ -837,6 +838,81 @@ void main() {
       expect(bench!.name, 'Bench Press',
           reason: 'the canonical name is what a shared routine code carries');
       expect(bench.seedKey, 'bench_press');
+
+      await stop(tester);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+
+  group('what a slot is aiming at', () {
+    /// Puts a single slot in the Push day, built from [draft], and returns the
+    /// day's id — the workout detail screen renders one row per slot, so one
+    /// slot makes the assertion unambiguous.
+    Future<int> onlySlot(ItemDraft Function(Exercise) draft,
+        {String exercise = 'Bench Press'}) async {
+      final push = await workoutIdNamed(db, 'Push');
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft(await exerciseNamed(db, exercise))],
+            workoutId: push),
+      );
+      return push;
+    }
+
+    testWidgets('a to-failure slot says so in the chosen language',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      late int push;
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        push = await onlySlot((e) => ItemDraft.forExercise(e)
+          ..sets = 3
+          ..toFailure = true);
+      });
+
+      final uk = await _stringsFor(const Locale('uk'));
+      await tester
+          .pumpWidget(_liveApp(container!, WorkoutDetailScreen(workoutId: push)));
+      await tester.pump();
+      await _switchTo(tester, db, container!, 'uk');
+
+      expect(find.text(uk.targetSetsReps(3, uk.targetFailure)), findsOneWidget,
+          reason: 'the target is words, so it follows the language');
+      expect(find.textContaining('Failure'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('and a held slot counts its seconds in the chosen language',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      late int push;
+      await tester.runAsync(() async {
+        container = containerFor(db);
+        push = await onlySlot(
+            (e) => ItemDraft.forExercise(e)
+              ..sets = 3
+              ..holdSeconds = 45,
+            exercise: 'Plank');
+      });
+
+      final uk = await _stringsFor(const Locale('uk'));
+      await tester
+          .pumpWidget(_liveApp(container!, WorkoutDetailScreen(workoutId: push)));
+      await tester.pump();
+      await _switchTo(tester, db, container!, 'uk');
+
+      expect(
+          find.text(uk.targetSetsReps(3, uk.unitSecondsShort('45'))),
+          findsOneWidget,
+          reason: 'the seconds abbreviation is a word in every language');
 
       await stop(tester);
     });

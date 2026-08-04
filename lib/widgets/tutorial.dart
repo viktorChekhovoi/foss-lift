@@ -229,6 +229,16 @@ final List<TutorialStep> _kSessionSteps = [
     title: (l) => l.tutorialBoardTitle,
     body: (l) => l.tutorialBoardBody,
   ),
+  // Straight off the set rows: the reps cell has just been explained, and the
+  // weight beside it is the next column across. It comes before the rest timer
+  // because a rest only starts once a set is logged.
+  TutorialStep(
+    id: 'session-weight',
+    demo: TutorialDemo.screen,
+    focus: TutorialDemoFocus.weight,
+    title: (l) => l.tutorialWeightTitle,
+    body: (l) => l.tutorialWeightBody,
+  ),
   TutorialStep(
     id: 'session-rest',
     demo: TutorialDemo.screen,

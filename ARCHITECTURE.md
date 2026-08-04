@@ -77,6 +77,8 @@ lib/
 ├── util/text_scale.dart          System text size × the user's nudge, clamped
 ├── util/locales.dart             The five languages, and which one to render in
 ├── util/seed_names.dart          Stored English → the words on screen
+├── util/target_label.dart        "4 × 6–8", "3 × Failure" — a slot's target,
+│                                 in the app's language
 ├── util/schedule_labels.dart     Weekday names, from the calendar not the catalogue
 ├── l10n/app_en.arb               Every user-facing string, keyed  ← the source
 ├── l10n/app_{uk,es,pt,pt_BR}.arb The four translations
@@ -134,7 +136,7 @@ has "Upper 1" and "Upper 2".
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, `seedKey` (nullable — denormalised beside the name, so a logged day still reads in the current language), times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, and `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`) |
-| `Settings`     | Single-row (id=1) app prefs. `weightUnit` (**nullable — null is "not stored yet", which the first launch answers from the phone's region via `seedWeightUnit`**; everything that only displays a weight reads null as kg), `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, `barWeight` (the default bar, named by its weight — see `Bars`), a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null), and the chosen language (`localeTag` — `uk`, `pt_BR`; null only until first run resolves the phone's language and writes it) |
+| `Settings`     | Single-row (id=1) app prefs. `weightUnit` (**nullable — null is "not stored yet", which the first launch answers from the phone's region via `seedWeightUnit`**; everything that only displays a weight reads null as kg), `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, `barWeight` (the default bar, named by its weight — see `Bars`), a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), `warmupSets` (how many warm-up rungs a session opens each exercise with, 1–`kMaxWarmupSets`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null), and the chosen language (`localeTag` — `uk`, `pt_BR`; null only until first run resolves the phone's language and writes it) |
 | `CustomThemes` | One row per theme the user built or imported: just the palette as JSON, name included (`AppPalette.toJson`). Presets are code, not rows |
 | `Bars`         | The bars the gym racks: `unit` (which unit's list — one per unit, like the plate rack), `name`, `seedKey` (nullable — which shipped bar this is, rendered through it so the name follows the language), `weightKg`. Seeded with the common bars on first run and the user's to rename, re-weigh, delete and add to |
 | `LiveSessions` | Single-row (id=1) **crash snapshot** of the live workout: `payload` (the session as JSON — see `state/session_snapshot.dart`) and `savedAt`, which is what the clocks are rebuilt against. Rewritten on every mutation, read once on launch, deleted on finish or discard. It does **not** make the live session database-backed: nothing reads it while the app runs, and history is still written only on Finish. See `state/session_mirror.dart` |
@@ -186,7 +188,15 @@ the starter library only the Plank is held.
 - `progression.dart` is the pure arithmetic — `stepProgression` folds one
   session's verdict into the consecutive-success/failure counters and says how
   far the target should move; `advanceTarget` applies it without crossing the
-  mode's floor. No drift, no Flutter.
+  mode's floor, or the `floorKg` handed to it. No drift, no Flutter.
+- **The bar is a floor on storage, not only on the board.** `advanceTarget` and
+  `deloadedTarget` both take the movement's `loadFloorKg` — resolved by
+  `AppDatabase._loadFloorFor` from the exercise's own bar, the app default, or
+  the standard bar for the unit — so repeated back-offs and a layoff cut stop on
+  the empty bar rather than running down to zero. It is applied to the stored
+  target as it is *read* as well as written, which is what corrects a target
+  that drifted under its bar on an older build; there is no migration for those,
+  they are floored the next time progression touches the slot.
 - `AppDatabase.advanceProgression(itemId, success:, performedWeight:)` writes
   the result: it moves `suggestedWeight`, `repsMin`/`repsMax` (a range keeps its
   width), or `holdSeconds` depending on the mode, and stores the new streaks.
@@ -207,8 +217,13 @@ the starter library only the Plank is held.
   reconstructing every intervening template edit. `ItemDraft` carries the
   streaks through the builder untouched so editing a workout cannot forgive a
   pending back-off.
-- A weight-mode slot with no `suggestedWeight` has no target to move — nothing
-  happens, rather than inventing "load 2.5 kg onto a push-up".
+- A weight-mode slot with no `suggestedWeight` takes one from the session if the
+  session carried a weight: `ExerciseEntry.sessionLoadKg` (the lightest logged
+  set, or the working weight when nothing was logged) is passed as
+  `sessionWeight` and *establishes* the target rather than moving it, so a slot
+  the builder never gave a number appears on the recap like any other. With no
+  target and no weight there is genuinely nothing to move, and nothing is
+  invented — "load 2.5 kg onto a push-up".
 `_seed()` populates the starter library (~85 exercises, from the
 `_starterLibrary` table above it) plus five starter programs on first launch:
 two hypertrophy splits (PPL, Upper/Lower) and three beginner strength routines
@@ -409,6 +424,13 @@ reminded on them.
   either. The unit and plate rack a rebuild needs are read once at `start()` and
   carried on `ActiveWorkout` (`unit`/`plates`), so the board never awaits the
   database mid-set.
+  **The working weight and its set rows are one load.** Both go through
+  `set_scheme.dart`: the rows through `resolveSetTargets`, `workingKg` through
+  `resolveTopWeight`, which is the same snap-to-unit-step and bar floor applied
+  to the top of the ladder. So a header reading 101 kg over rows reading 100 is
+  not a state the board can be in — at `start()` or after any edit. A *single*
+  set is still taken at face value (`setWeight`), because dropping one set to
+  finish it is the exception the invariant is not about.
 - **Warm-ups ride alongside the working sets, never among them.** A weight-based
   slot with a working load (`ExerciseEntry.hasWarmups`) gets a ramp computed at
   `start()` from `data/warmup.dart` — an ascending ramp toward the working
@@ -693,6 +715,12 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
+  The ladder currently runs **v1 → v2** (`Settings.warmup_sets`). Its rung spells
+  its `ALTER TABLE` out rather than calling `m.addColumn`, because `addColumn`
+  reads the column as *today's* code declares it: a later edit to that column
+  would silently rewrite a rung that has already shipped. `test/support/schema_v1.dart`
+  holds the frozen v1 DDL, and `test/feature_13_offline_and_privacy_test.dart`
+  builds a real v1 database from it and climbs.
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,
   and a control in `exercise_settings_screen.dart` (or `appearance_screen.dart`,
   if it is about how the app looks).

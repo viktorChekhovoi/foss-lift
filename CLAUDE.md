@@ -20,7 +20,13 @@ Do not deviate from these rules. They describe important approaches to writing c
     5. Regenerate the pages (`dart run tool/features.dart`) and tick the issue's acceptance criteria. The HTML is gitignored — do not commit it.
 6. Do NOT write duplicate code. DO NOT NEVER EVER
 7. For every change, assume this app has users on the shipped build. Their data has to survive the update, and formats already in the wild have to keep being readable — see "The app has shipped" below. If a change cannot be made without breaking that, say so and wait rather than deciding for me.
-8. When a change alters behaviour that is already catalogued, **edit that entry in place**. Never add a second entry describing the new behaviour beside the old one — the catalogue is what the app does now, not a changelog. 
+8. When a change alters behaviour that is already catalogued, **edit that entry in place**. Never add a second entry describing the new behaviour beside the old one — the catalogue is what the app does now, not a changelog.
+9. **Keep the concept graph honest.** `defines`/`uses` in `features/catalogue/*.yaml` are load-bearing, not decoration: they are how anyone answers "if I change this, what else has to move?", and a missing link is a silent answer of "nothing". So whenever you touch an entry or add one:
+    - Tag every concept the described behaviour actually depends on, not just the obvious one. If the prose leans on bar weight, plate math, units or the progression step, those belong in `uses` even when the entry is filed under another section.
+    - `defines` means the concept lives here — one entry per concept, and defining subsumes using it. Never list a concept in both columns of the same entry.
+    - A concept that does not exist yet gets added to `concepts.yaml` in the same change. Do not reach for an approximate existing concept because it is already there.
+    - When behaviour moves or grows, re-check the links you did not touch. An entry whose `uses` list stopped matching its own prose is worse than an untagged one, because the graph now asserts something false.
+    - `dart run tool/features.dart --check` catches an unknown concept and an unused one. It cannot catch a link you failed to write — that check is yours, and it is the one that matters.
 
 ## Key writing style guide
 Use clear, natural, moderately formal English. Assume the reader is a competent developer who is unfamiliar with this project.
@@ -66,20 +72,28 @@ no telemetry. Read `ARCHITECTURE.md` before touching code; it is the map.
 `RUNNING.md` covers building and running on a phone or emulator.
 `design/mockup.html` is the visual spec.
 
-## Feature tracking — GitHub Issues
+## Feature tracking
 
-**The backlog lives in GitHub Issues, not in a file.** `features.txt` is a stub
-pointing here; do not add features to it.
+**You never file issues.** The GitHub backlog is mine to write. Do not run `gh
+issue create`, do not edit an issue body, do not close an issue. If something
+worth doing surfaces mid-task, tell me about it in your reply and let me decide
+whether it becomes an issue — the only exception is when I explicitly ask you to
+open one.
 
-`features/` is the other half: the catalogue of what the app does, as YAML.
-Issues are the deltas; the catalogue is the result. It is written **before** the
-code — see rule 5 above.
+Work comes from what I tell you, and from issues I point you at. `features.txt`
+is a stub; do not add features to it.
+
+`features/` is the catalogue of what the app does, as YAML. Issues and my
+instructions are the deltas; the catalogue is the result. It is written
+**before** the code — see rule 5 above.
 
 The source is `features/catalogue/*.yaml`, `concepts.yaml` and `screens.yaml`.
 **The HTML there is generated and gitignored — never edit it, never commit it.**
 A fresh clone has none until you run `dart run tool/features.dart`; `--check`
 validates the source without writing. `features/README.md` has the entry format
 and the `defines`/`uses` concept graph.
+
+Reading the backlog is fine and often useful:
 
 ```bash
 gh issue list --label p1              # what's next
@@ -93,41 +107,29 @@ the blocker is named in the body.
 
 ### Before implementing
 
-1. `gh issue view <n>` — the body has the behaviour spec and acceptance
-   criteria. Work to those criteria, not to a paraphrase of the title.
+1. If I named an issue, `gh issue view <n>` — the body has the behaviour spec
+   and acceptance criteria. Work to those criteria, not to a paraphrase of the
+   title.
 2. Check the `blocked` label and any "Depends on #n" line. If the dependency is
    still open, say so rather than working around it.
-3. If the spec is ambiguous, ask — then record the answer as an issue comment so
-   the next session inherits it.
+3. If the spec is ambiguous, ask me. Record the answer in the catalogue entry you
+   write in step 5.1, which is where the next session will look for it.
 
 ### While implementing
 
-- Comment on the issue when a non-obvious decision gets made ("kept text entry
-  for >12 reps; tap-cycling is too slow"). These comments are the work log; a
-  fresh session has no other way to learn what was already tried and rejected.
-- If you discover the issue is wrong or incomplete, edit the body. A stale spec
-  is worse than no spec.
+Keep a note of non-obvious decisions ("kept text entry for >12 reps;
+tap-cycling is too slow") and put them in your reply to me. Do not write them to
+the issue.
 
 ### After implementing
 
-**Never close an issue.** The user reviews the work and closes it themselves.
-Post a completion comment and stop there.
-
-1. Tick the acceptance criteria you actually satisfied. Leave the rest unticked.
-2. Post a comment on the issue saying it is ready for review:
-
-   ```bash
-   gh issue comment <n> --body "..."
-   ```
-
-   The comment covers: what was built, the commit(s) that did it, which
-   acceptance criteria are unmet and why, anything the user should check by hand
-   on a device, and any decision they might want to overrule.
-3. Use a `Refs #<n>` trailer in the commit message — **not** `Closes`/`Fixes`,
-   which GitHub auto-closes on a push to `main` and would skip the review.
-4. Tell the user the issue is ready for review. Do not close it, and do not ask
-   to close it.
-5. **Say how to see it in the app.** End with the taps: where to start, what to
+1. Use a `Refs #<n>` trailer in the commit message when the work traces to an
+   issue — **not** `Closes`/`Fixes`, which GitHub auto-closes on a push to
+   `main` and would skip my review.
+2. Report to me: what was built, the commit(s) that did it, which acceptance
+   criteria are unmet and why, anything I should check by hand on a device, and
+   any decision I might want to overrule.
+3. **Say how to see it in the app.** End with the taps: where to start, what to
    tap in order, and what should be on screen at the end. Include how to reach
    any state the feature needs (a barbell exercise with a weight set, a workout
    left untrained for a fortnight) — a feature nobody can find is a feature
