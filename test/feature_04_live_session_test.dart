@@ -444,6 +444,27 @@ void main() {
       await stopAll(tester);
     });
 
+    testWidgets('but clearing an older set leaves the rest you are taking',
+        (tester) async {
+      // The rest running is the one the *second* set started. Going back to
+      // tidy up the first is not you deciding to stop resting.
+      await pumpPushScreen(tester);
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tapCell(tester, repsCell('0-1-Bench Press'));
+      await tester.pump(const Duration(seconds: 5));
+      expect(session().restLeft, greaterThan(0));
+
+      await tapRoundToUntouched(tester, repsCell('0-0-Bench Press'),
+          () => session().exercises[0].sets[0].done);
+
+      expect(session().exercises[0].sets[1].done, isTrue);
+      expect(session().restLeft, greaterThan(0),
+          reason: 'the rest belongs to the set still logged');
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+      await stopAll(tester);
+    });
+
     testWidgets('correcting a count leaves the rest exactly where it was',
         (tester) async {
       await pumpPushScreen(tester);
@@ -604,6 +625,34 @@ void main() {
           reason: 'below fifteen the button can only mean skip');
       expect(impacts(asked), 1);
 
+      await stopAll(tester);
+    });
+
+    testWidgets('a rest an older set was cleared under still buzzes at the end',
+        (tester) async {
+      // The clear stopped no rest, so it consumed no silence either — the rest
+      // that was left running rings for itself when its time is up.
+      await pumpPushScreen(tester);
+      final asked = watchHaptics(tester);
+
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tapCell(tester, repsCell('0-1-Bench Press'));
+      await tester.pump();
+
+      await tester.ensureVisible(repsCell('0-0-Bench Press'));
+      await tester.pump();
+      await tester.longPress(repsCell('0-0-Bench Press'));
+      await frames(tester);
+      await tester.tap(find.text('Clear'));
+      await frames(tester);
+      expect(session().exercises[0].sets[0].done, isFalse);
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+      expect(impacts(asked), 0);
+
+      await tester.pump(const Duration(seconds: 120));
+      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(impacts(asked), 1);
       await stopAll(tester);
     });
 
@@ -2600,14 +2649,57 @@ void main() {
           reason: 'a ramp primes the movement it belongs to');
     });
 
-    test('and the later movement wins over an earlier one also in progress',
-        () async {
+    test('and the one you logged in most recently wins', () async {
       final ctl = await startPush();
       clearRamp(ctl, 1);
       ctl.cycleSet(1, 0);
       clearRamp(ctl, 3);
       ctl.cycleSet(3, 0);
 
+      expect(nextUp(session())!.exerciseIndex, 3);
+    });
+
+    test('including when the most recent one is further up the board',
+        () async {
+      // Working back up to a movement skipped past: the bench was busy, it is
+      // free now. Template order still lists it first, and it is where you are.
+      final ctl = await startPush();
+      clearRamp(ctl, 3);
+      ctl.cycleSet(3, 0);
+      clearRamp(ctl, 1);
+      ctl.cycleSet(1, 0);
+
+      final cue = nextUp(session())!;
+      expect(cue.exerciseIndex, 1);
+      expect(cue.setIndex, 1, reason: 'the next set of the one you came back to');
+    });
+
+    test('and it stays there until that movement runs out of work', () async {
+      final ctl = await startPush();
+      clearRamp(ctl, 3);
+      ctl.cycleSet(3, 0);
+      clearRamp(ctl, 1);
+      for (var si = 0; si < session().exercises[1].sets.length; si++) {
+        ctl.cycleSet(1, si);
+        if (si < session().exercises[1].sets.length - 1) {
+          expect(nextUp(session())!.exerciseIndex, 1);
+        }
+      }
+      // Finished. The mark falls to the movement you were on before it, which
+      // is still half done.
+      expect(nextUp(session())!.exerciseIndex, 3);
+    });
+
+    test('un-logging the set you came back for hands the mark back', () async {
+      final ctl = await startPush();
+      clearRamp(ctl, 3);
+      ctl.cycleSet(3, 0);
+      ctl.cycleSet(1, 0);
+      expect(nextUp(session())!.exerciseIndex, 1);
+
+      // Tapped round to untouched again: that set never happened, so neither
+      // did being there.
+      ctl.setLogged(1, 0, null);
       expect(nextUp(session())!.exerciseIndex, 3);
     });
 

@@ -39,6 +39,12 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
           'exercise': p.exercise,
           'exerciseSeedKey': p.exerciseSeedKey,
         },
+      if (s.restFor case final r?)
+        'restFor': {
+          'exercise': r.exercise,
+          'set': r.set,
+          'warmup': r.warmup,
+        },
       'exercises': [
         for (final e in s.exercises)
           {
@@ -86,6 +92,11 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
     final gone = dead.inSeconds < 0 ? 0 : dead.inSeconds;
     final restLeft = (m['restLeft'] as int) - gone;
     final resting = restLeft > 0;
+    final exercises = [
+      for (final e in m['exercises'] as List)
+        _readExercise(e as Map<String, dynamic>),
+    ];
+    _backfillLogOrder(exercises);
     return ActiveWorkout(
       routineId: m['routineId'] as int?,
       workoutId: m['workoutId'] as int?,
@@ -100,10 +111,8 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       ],
       restLeft: resting ? restLeft : 0,
       restPrompt: resting ? _readPrompt(m['restPrompt']) : null,
-      exercises: [
-        for (final e in m['exercises'] as List)
-          _readExercise(e as Map<String, dynamic>),
-      ],
+      restFor: resting ? _readRestFor(m['restFor']) : null,
+      exercises: exercises,
     );
   } catch (_) {
     return null;
@@ -124,6 +133,7 @@ Map<String, dynamic> _set(SetEntry s) => {
       'goalWeight': s.goalWeight,
       'weight': s.weight,
       'logged': s.logged,
+      'loggedOrder': s.loggedOrder,
       'videoPath': s.videoPath,
     };
 
@@ -133,8 +143,38 @@ SetEntry _readSet(Map<String, dynamic> m) => SetEntry(
       goalWeight: (m['goalWeight'] as num?)?.toDouble(),
       weight: (m['weight'] as num).toDouble(),
       logged: m['logged'] as int?,
+      loggedOrder: m['loggedOrder'] as int?,
       videoPath: m['videoPath'] as String?,
     );
+
+RestSetRef? _readRestFor(Object? raw) {
+  if (raw is! Map<String, dynamic>) return null;
+  return (
+    exercise: raw['exercise'] as int,
+    set: raw['set'] as int,
+    warmup: raw['warmup'] as bool,
+  );
+}
+
+/// Fills in the order of logging for a snapshot written before there was one.
+///
+/// The shipped build recorded what was logged and not when, and read the last
+/// logged set *in list order* as the one you were on. That is what absent means
+/// here, so the stamps are handed out in list order and the restored session
+/// carries on marking the same row it would have. A snapshot that has them
+/// keeps them: this runs only when the whole session is without.
+void _backfillLogOrder(List<ExerciseEntry> exercises) {
+  // Exercise by exercise, so a stamp rises with position in the list and the
+  // highest one lands in the last exercise that had anything logged in it.
+  final rows = [
+    for (final e in exercises) ...[...e.warmups, ...e.sets],
+  ];
+  if (rows.any((s) => s.loggedOrder != null)) return;
+  var next = 1;
+  for (final s in rows) {
+    if (s.done) s.loggedOrder = next++;
+  }
+}
 
 RestPrompt? _readPrompt(Object? raw) {
   if (raw is! Map<String, dynamic>) return null;

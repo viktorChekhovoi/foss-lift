@@ -153,8 +153,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   /// The rest clock lives on the session — see [ActiveWorkoutController]. These
   /// are the screen's three buttons, forwarded.
-  void _startRest(int seconds, RestPrompt? prompt) =>
-      ref.read(activeWorkoutProvider.notifier).startRest(seconds, prompt);
+  void _startRest(int seconds, RestPrompt? prompt, RestSetRef forSet) => ref
+      .read(activeWorkoutProvider.notifier)
+      .startRest(seconds, prompt, forSet: forSet);
 
   /// Ends the rest the way the Skip button does: it sounds, and so it buzzes.
   void _skipRest() => ref.read(activeWorkoutProvider.notifier).stopRest();
@@ -182,9 +183,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// rings for nothing. Correcting the number on a set that stays logged
   /// leaves the clock alone — you are still resting on it.
   ///
-  /// One rest runs at a time and it carries no record of which set began it, so
-  /// un-logging any set ends whichever rest is on the clock. Somebody clearing
-  /// a row is not resting.
+  /// **Its own rest, not whichever one is running.** One rest runs at a time,
+  /// and it records the set that started it — so going back to clear a set you
+  /// had already moved on from leaves the rest you are actually taking to run
+  /// out on its own.
   void _restForSet(
     int ei,
     int index, {
@@ -194,10 +196,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final session = ref.read(activeWorkoutProvider);
     if (session == null) return;
     final e = session.exercises[ei];
+    final at = (exercise: ei, set: index, warmup: warmup);
     final nowDone = (warmup ? e.warmups[index] : e.sets[index]).done;
     if (nowDone == wasDone) return;
     if (!nowDone) {
-      _dropRest();
+      if (session.restFor == at) _dropRest();
       return;
     }
     _startRest(
@@ -205,6 +208,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       warmup
           ? session.restAfterWarmup(ei, index)
           : session.restAfterSet(ei, index),
+      at,
     );
   }
 
@@ -274,6 +278,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       _startRest(
         session.exercises[h.exercise].restSeconds,
         session.restAfterSet(h.exercise, h.set),
+        (exercise: h.exercise, set: h.set, warmup: false),
       );
     }
   }
@@ -1087,7 +1092,7 @@ class _ExerciseBlock extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _WorkingWeight(
+                  WorkingWeight(
                     key: ValueKey('working-weight-$index'),
                     weightKg: exercise.workingKg,
                     unit: unit,
@@ -1116,91 +1121,6 @@ class _ExerciseBlock extends StatelessWidget {
           ),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
-      ),
-    );
-  }
-}
-
-/// The one weight this exercise is being worked at today.
-///
-/// Drawn as a control, in the same bordered box the set rows use for a weight:
-/// on the goal line it sits beside plain text, and a number with only a
-/// hairline under it read as part of the label rather than as the thing you
-/// tap. It is still not a text field sitting open — the box holds a value, and
-/// touching it opens the editor.
-class _WorkingWeight extends StatelessWidget {
-  const _WorkingWeight({
-    super.key,
-    required this.weightKg,
-    required this.unit,
-    required this.onTap,
-  });
-  final double? weightKg;
-  final String unit;
-  final VoidCallback onTap;
-
-  /// The weight and its unit, with the unit set quieter than the number it
-  /// belongs to — the number is the value, the symbol is a footnote on it.
-  ///
-  /// The string is built whole, by the same [weightWithUnit] every other weight
-  /// goes through, and only then split on the symbol. So the *order* is the
-  /// language's — a pattern that puts the symbol first is drawn that way — and
-  /// what is decided here is type and spacing, which are not things a
-  /// translation has an opinion about. The join is a fixed 3 px rather than the
-  /// pattern's own space, because a space set at the weight's size is 19 px of
-  /// this line at twice the text scale, and the line has a control on it.
-  ///
-  /// An unset weight is a bare dash with no symbol in it, and is drawn as one
-  /// run.
-  Widget _label(AppLocalizations l10n) {
-    final text = weightWithUnit(l10n, weightKg, unit);
-    final number = kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w700);
-    final symbol = unitSuffix(l10n, unit);
-    final at = text.indexOf(symbol);
-    if (at < 0) return Text(text, style: number);
-    final before = text.substring(0, at).trim();
-    final after = text.substring(at + symbol.length).trim();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      textBaseline: TextBaseline.alphabetic,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      children: [
-        if (before.isNotEmpty) ...[
-          Text(before, style: number),
-          const SizedBox(width: 3),
-        ],
-        Text(
-          symbol,
-          style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
-        ),
-        if (after.isNotEmpty) ...[
-          const SizedBox(width: 3),
-          Text(after, style: number),
-        ],
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
-        decoration: BoxDecoration(
-          color: AppColors.surface2,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _label(AppLocalizations.of(context)),
-            const SizedBox(width: 7),
-            Icon(Icons.edit_outlined, size: 13, color: AppColors.faint),
-          ],
-        ),
       ),
     );
   }

@@ -39,6 +39,7 @@ class SetEntry {
     this.timed = false,
     double? weight,
     this.logged,
+    this.loggedOrder,
     this.videoPath,
   }) : weight = weight ?? goalWeight ?? 0;
 
@@ -58,6 +59,18 @@ class SetEntry {
   /// Null means the set has not been logged yet; 0 is a logged set where
   /// nothing was managed at all.
   int? logged;
+
+  /// Where this set falls in the order the session's sets were logged in —
+  /// higher is more recent. Null whenever [logged] is.
+  ///
+  /// **A counter, not a clock.** All anything asks of it is which of two sets
+  /// was logged later, and a wall clock answers that at the cost of making
+  /// every test that logs two sets depend on how fast the machine ran them —
+  /// and of being wrong on a phone whose time moved under the session. The
+  /// numbers themselves mean nothing outside the session that handed them out.
+  ///
+  /// See [ActiveWorkout.restamp], which is the only thing that writes it.
+  int? loggedOrder;
 
   /// The clip filmed of this set, relative to the app support directory, or
   /// null if nobody filmed it.
@@ -337,6 +350,14 @@ typedef RestPrompt = ({
   String? exerciseSeedKey,
 });
 
+/// Which row of the board a rest belongs to: the set whose logging started it.
+///
+/// A rest with no identity can only be stopped wholesale, which is right for
+/// the case that matters — clearing the row you have just logged — and wrong
+/// for the rarer one, where clearing some earlier set you had already moved on
+/// from would take a countdown you were still taking.
+typedef RestSetRef = ({int exercise, int set, bool warmup});
+
 /// The one thing a session has to say for itself: its targets were cut on the
 /// way in after a layoff, by [percent], after [days] away.
 ///
@@ -362,6 +383,7 @@ class ActiveWorkout {
     this.plates = const [],
     this.restLeft = 0,
     this.restPrompt,
+    this.restFor,
     this.notice,
     this.rev = 0,
   });
@@ -406,6 +428,10 @@ class ActiveWorkout {
   final int restLeft;
   final RestPrompt? restPrompt;
 
+  /// The set this rest is for — see [RestSetRef]. Null for a rest nobody
+  /// attributed, which is stopped by anything that stops a rest.
+  final RestSetRef? restFor;
+
   final int rev;
 
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
@@ -424,6 +450,34 @@ class ActiveWorkout {
             .where((s) => s.done)
             .fold(0.0, (b, s) => b + (s.timed ? 0 : s.weight * s.logged!)),
   );
+
+  /// Records where [entry] falls in the order this session's sets were logged
+  /// in — see [SetEntry.loggedOrder]. A no-op unless the edit changed whether
+  /// the set is logged at all: correcting the count on a set you are already
+  /// resting on is not you moving to it again.
+  ///
+  /// **Derived from the sets rather than from a counter beside them.** The
+  /// stamps travel in the crash snapshot with the sets that carry them, so a
+  /// session rebuilt after the process died hands out the next number from
+  /// where it left off without a cursor having to be written down as well.
+  void restamp(SetEntry entry, {required bool wasDone}) {
+    if (entry.done == wasDone) return;
+    entry.loggedOrder = entry.done ? _nextLogOrder : null;
+  }
+
+  /// One past the highest stamp handed out so far.
+  int get _nextLogOrder {
+    var top = 0;
+    for (final e in exercises) {
+      for (final s in e.sets) {
+        if ((s.loggedOrder ?? 0) > top) top = s.loggedOrder!;
+      }
+      for (final s in e.warmups) {
+        if ((s.loggedOrder ?? 0) > top) top = s.loggedOrder!;
+      }
+    }
+    return top + 1;
+  }
 
   /// What the rest that starts after warm-up rung [wi] of exercise [ei] is for.
   ///
@@ -498,6 +552,7 @@ class ActiveWorkout {
     int? elapsed,
     int? restLeft,
     RestPrompt? restPrompt,
+    RestSetRef? restFor,
     bool clearRest = false,
   }) => ActiveWorkout(
     routineId: routineId,
@@ -511,6 +566,7 @@ class ActiveWorkout {
     plates: plates,
     restLeft: clearRest ? 0 : (restLeft ?? this.restLeft),
     restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
+    restFor: clearRest ? null : (restFor ?? this.restFor),
     notice: notice,
     rev: rev + 1,
   );
@@ -553,11 +609,20 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   // widget dies with the widget.
 
   /// Starts the rest after a set, replacing whatever was running.
-  void startRest(int seconds, RestPrompt? prompt) {
+  ///
+  /// [forSet] is the row that started it — see [RestSetRef]. It is what lets
+  /// un-logging *that* set take the rest with it while un-logging some other
+  /// one leaves it alone.
+  void startRest(int seconds, RestPrompt? prompt, {RestSetRef? forSet}) {
     final s = state;
     if (s == null) return;
     _restTimer?.cancel();
-    _commit(s.copyWith(restLeft: seconds, restPrompt: prompt));
+    // Through a cleared rest rather than straight onto the running one: the
+    // prompt and the set are the old rest's, and a new rest that inherited
+    // either would describe the set before it.
+    _commit(s
+        .copyWith(clearRest: true)
+        .copyWith(restLeft: seconds, restPrompt: prompt, restFor: forSet));
     // Anything left over from the last rest — the ding for a rest this one
     // replaces is a ding for a rest that is over.
     ref.read(restAlarmProvider).clear();
@@ -718,7 +783,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     // A rest with time left on it goes back on the clock. One that ran out while
     // the app was dead is simply over — and its alarm has already sounded, which
     // is why nothing is cleared here.
-    if (was.restLeft > 0) startRest(was.restLeft, was.restPrompt);
+    if (was.restLeft > 0) {
+      startRest(was.restLeft, was.restPrompt, forSet: was.restFor);
+    }
   }
 
   /// The session's own clock, which runs for as long as the session does.
@@ -855,13 +922,31 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _startClock();
   }
 
-  /// One tap on a set: see [SetEntry.cycle].
-  void cycleSet(int ei, int si) {
+  /// One edit to one row of the board — a working set, or a warm-up rung when
+  /// [warmup].
+  ///
+  /// Everything that can change whether a set is logged goes through here, so
+  /// the order of logging is recorded once rather than at each of the four
+  /// places a row can be touched from.
+  void _editEntry(
+    int ei,
+    int index, {
+    required bool warmup,
+    required void Function(SetEntry entry) edit,
+  }) {
     final s = state;
     if (s == null) return;
-    s.exercises[ei].sets[si].cycle();
+    final e = s.exercises[ei];
+    final entry = warmup ? e.warmups[index] : e.sets[index];
+    final wasDone = entry.done;
+    edit(entry);
+    s.restamp(entry, wasDone: wasDone);
     _commit(s.copyWith());
   }
+
+  /// One tap on a set: see [SetEntry.cycle].
+  void cycleSet(int ei, int si) =>
+      _editEntry(ei, si, warmup: false, edit: (e) => e.cycle());
 
   /// Hangs a freshly recorded clip on a set, replacing any clip it already had
   /// — one clip per set, so re-filming a set means the old take goes.
@@ -906,12 +991,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// One set's own weight — the exception, for the set you have to drop to
   /// finish. The exercise's [ExerciseEntry.workingKg] is left alone: coming down
   /// for one set is not a decision about the rest of them.
-  void setWeight(int ei, int si, double value) {
-    final s = state;
-    if (s == null) return;
-    s.exercises[ei].sets[si].weight = value;
-    _commit(s.copyWith());
-  }
+  void setWeight(int ei, int si, double value) =>
+      _editEntry(ei, si, warmup: false, edit: (e) => e.weight = value);
 
   /// The load this exercise is being worked at today. Every set still to come
   /// moves with it and the warm-up ramp is rebuilt to climb toward it — a ramp
@@ -977,6 +1058,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final logged = short ? missedSeed(cue) : entry.goal;
     if (logged == null) return;
     entry.logged = logged;
+    s.restamp(entry, wasDone: false);
 
     // The sets are edited in place, so starting the rest publishes the logged set
     // with it — one new state, one snapshot.
@@ -985,20 +1067,23 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       cue.warmup
           ? s.restAfterWarmup(cue.exerciseIndex, cue.setIndex)
           : s.restAfterSet(cue.exerciseIndex, cue.setIndex),
+      forSet: (
+        exercise: cue.exerciseIndex,
+        set: cue.setIndex,
+        warmup: cue.warmup,
+      ),
     );
   }
 
   /// Types a result in directly — reps done, or seconds held on a timed set
   /// (the long-press escape hatch). A null [value] unlogs the set; anything
   /// else is clamped to zero or more.
-  void setLogged(int ei, int si, int? value) {
-    final s = state;
-    if (s == null) return;
-    s.exercises[ei].sets[si].logged = value == null
-        ? null
-        : (value < 0 ? 0 : value);
-    _commit(s.copyWith());
-  }
+  void setLogged(int ei, int si, int? value) =>
+      _editEntry(ei, si, warmup: false, edit: (e) => e.logged = _clamp(value));
+
+  /// A typed-in result: null unlogs the set, anything else is zero or more.
+  static int? _clamp(int? value) =>
+      value == null ? null : (value < 0 ? 0 : value);
 
   /// Dials the warm-up ramp for one exercise up or down and rebuilds it. The
   /// count is clamped to 0..[kMaxWarmupSets].
@@ -1053,30 +1138,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
 
   /// One tap on a warm-up set — the same cycle as a working set, but on the
   /// warm-up list and answering to nothing that counts.
-  void cycleWarmup(int ei, int wi) {
-    final s = state;
-    if (s == null) return;
-    s.exercises[ei].warmups[wi].cycle();
-    _commit(s.copyWith());
-  }
+  void cycleWarmup(int ei, int wi) =>
+      _editEntry(ei, wi, warmup: true, edit: (e) => e.cycle());
 
-  void setWarmupWeight(int ei, int wi, double value) {
-    final s = state;
-    if (s == null) return;
-    s.exercises[ei].warmups[wi].weight = value;
-    _commit(s.copyWith());
-  }
+  void setWarmupWeight(int ei, int wi, double value) =>
+      _editEntry(ei, wi, warmup: true, edit: (e) => e.weight = value);
 
   /// Types a warm-up result in directly — the long-press escape hatch, mirroring
   /// [setLogged] for the warm-up list.
-  void setWarmupLogged(int ei, int wi, int? value) {
-    final s = state;
-    if (s == null) return;
-    s.exercises[ei].warmups[wi].logged = value == null
-        ? null
-        : (value < 0 ? 0 : value);
-    _commit(s.copyWith());
-  }
+  void setWarmupLogged(int ei, int wi, int? value) =>
+      _editEntry(ei, wi, warmup: true, edit: (e) => e.logged = _clamp(value));
 
   /// Persists the session with only its completed sets, then advances each
   /// exercise's progression. Returns the new session id, or null if there was

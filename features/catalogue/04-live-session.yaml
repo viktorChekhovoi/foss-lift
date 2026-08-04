@@ -97,12 +97,14 @@ groups:
     d: >-
       logging a set starts it, using that slot's configured rest, with shorter /
       longer / skip controls, captioned with what to do with the rest, and sounding
-      when it ends. Un-logging a set takes its rest back, silently: a rest is only
-      running because a set was logged, and one left counting down for a set that
-      no longer happened rings for nothing. That holds on every route back to
-      untouched — tapping the cycle round, clearing the type-in dialog, clearing a
-      logged hold — and on a warm-up rung as on a working set. Correcting the
-      number on a set that stays logged leaves the clock alone.
+      when it ends. Un-logging a set takes *its own* rest back, silently: the rest
+      knows which set started it, so clearing that set stops the clock — a rest is
+      only running because a set was logged — while clearing some earlier set you
+      had already moved on from leaves the rest you are actually taking to run out
+      on its own. That holds on every route back to untouched — tapping the cycle
+      round, clearing the type-in dialog, clearing a logged hold — and on a warm-up
+      rung as on a working set. Correcting the number on a set that stays logged
+      leaves the clock alone.
     defines:
     - session.rest-timer
     uses:
@@ -188,11 +190,17 @@ groups:
       thrown away on Finish or Abort. Reopening after Android has reclaimed the
       app — or after a force-stop — brings back the logged sets and their weights,
       the elapsed clock advanced by however long you were gone, and the rest either
-      still counting down or gone if its time passed while you were away. It is not
-      history until you finish: nothing about it reaches the tables a session writes.
+      still counting down or gone if its time passed while you were away. The order
+      you logged those sets in comes back with them, so the mark is still on the
+      exercise you were working; so does the set the running rest belongs to. It is
+      not history until you finish: nothing about it reaches the tables a session
+      writes. A snapshot written by an older build is still read — what it does not
+      carry is taken as absent, not as a reason to lose the session.
     screen: none
     uses:
     - session.live-state
+    - session.progress-mark
+    - session.rest-timer
     - storage.schema
   - id: note-one-exception-goes-both
     t: The note is the one exception, and it goes both ways
@@ -647,14 +655,19 @@ groups:
     d: >-
       so coming back to the phone does not mean scanning for the last row that went
       green. The mark follows the movement you are working rather than the order the
-      template lists: it sits in the last exercise you logged anything in that still
+      template lists: it sits in the exercise you logged in *most recently* that still
       has working sets outstanding, so starting on the third exercise marks the third
-      exercise instead of pinning the mark to the untouched first. With nothing logged
-      yet — and once the exercise you were on is complete — it falls back to template
-      order, taking the first outstanding set of the first unfinished exercise, warm-up
-      rungs before the working sets they prime. The shade names the same set from the
-      same arithmetic, so its Done button logs the set the board has marked. Exactly
-      one thing is ever marked, and nothing is once every set is logged.
+      exercise instead of pinning the mark to the untouched first — and going back up
+      the board to a movement you skipped past moves the mark to it on the first set
+      you log there, rather than leaving it on the later exercise. Recency is the
+      session's own order of logging, not the clock, so it is the same on a phone
+      whose time changed and it survives the session being restored after the process
+      is killed. With nothing logged yet — and once the exercise you were on is
+      complete — it falls back to template order, taking the first outstanding set of
+      the first unfinished exercise, warm-up rungs before the working sets they prime.
+      The shade names the same set from the same arithmetic, so its Done button logs
+      the set the board has marked. Exactly one thing is ever marked, and nothing is
+      once every set is logged.
     defines:
     - session.progress-mark
     uses:

@@ -83,11 +83,10 @@ groups:
       thumbnail of a screen teaches the thumbnail. The callout sits over it, at
       whichever end leaves the thing being described uncovered. The board's
       column headers, its cells and the pulse on the cell that logs the set are
-      the real board's own widgets rather than a second copy of them — change how
-      the board looks and the tour follows, which is the only way a picture of a
-      screen stays a picture of that screen. The goal line's weight box is the
-      exception: the session screen keeps that widget private, so the mock draws
-      its own, and a change to the real one has to be repeated here.
+      the real board's own widgets rather than a second copy of them — the goal
+      line's weight box included. Change how the board looks and the tour
+      follows, which is the only way a picture of a screen stays a picture of
+      that screen.
     points:
     - session
     uses:

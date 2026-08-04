@@ -96,22 +96,31 @@ WorkoutCue? nextUp(ActiveWorkout session, {int restLeft = 0}) {
   );
 }
 
-/// The exercise being worked right now: the last one carrying a logged set —
-/// a rung of its ramp counts, since ramping is working the movement — that
-/// still has working sets outstanding. Null when nothing is under way.
+/// The exercise being worked right now: the one whose most recently logged set
+/// is the most recent in the session — a rung of its ramp counts, since ramping
+/// is working the movement — and which still has working sets outstanding. Null
+/// when nothing is under way.
 ///
-/// **The last, not the most recent.** A [SetEntry] records what was done and
-/// not when, so position in the list is the only ordering there is to read.
-/// The two agree every time somebody works down the board, and part company
-/// only when they go back up it to a movement they had skipped past — which
-/// leaves the mark on the later one until that later one is finished.
+/// **Recency, not position.** The two agree every time somebody works down the
+/// board and part company when they go back up it to a movement they had
+/// skipped past: that movement is where they are now, and the one they left is
+/// not. What orders them is [SetEntry.loggedOrder], the session's own count of
+/// which set was logged after which.
 int? _inProgress(ActiveWorkout session) {
-  for (var ei = session.exercises.length - 1; ei >= 0; ei--) {
+  int? at;
+  var latest = 0;
+  for (var ei = 0; ei < session.exercises.length; ei++) {
     final e = session.exercises[ei];
     if (!e.sets.any((s) => !s.done)) continue;
-    if (e.sets.any((s) => s.done) || e.warmups.any((w) => w.done)) return ei;
+    for (final s in [...e.sets, ...e.warmups]) {
+      final when = s.loggedOrder;
+      if (when != null && when > latest) {
+        latest = when;
+        at = ei;
+      }
+    }
   }
-  return null;
+  return at;
 }
 
 /// The first thing exercise [ei] still owes: a rung of its ramp, then its

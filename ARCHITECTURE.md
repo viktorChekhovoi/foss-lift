@@ -87,6 +87,11 @@ lib/
 │   ├── common.dart               SectionLabel, ScreenHeader, the type scale, hexColor()
 │   ├── pinch_text_scale.dart     Two-finger pinch → the app's text scale, app-wide
 │   ├── builder_widgets.dart      Shared builder chrome (stepper, picker, input)
+│   ├── board_cells.dart          The set board's shared pieces: a cell's fill
+│   │                             and type, the pulse on the one to tap, the
+│   │                             column headers, and the working-weight box.
+│   │                             Read by the live board and by the tour's still
+│   │                             life of it, so the picture cannot drift
 │   ├── exercise_filters.dart     The muscle/equipment chip rows, library+picker
 │   ├── workout_items_editor.dart ItemDraft + the exercise-list editor
 │   ├── routine_card.dart         The routine list-row card
@@ -391,7 +396,10 @@ reminded on them.
   behaviour: goal → one fewer → … → 0 → untouched, or goal ⇄ untouched for a
   timed set, since nobody taps a plank down a second at a time. `missedGoal` is
   a logged set that fell short on reps/seconds *or* weight (deloading to finish
-  counts as a miss).
+  counts as a miss). A logged set also carries `loggedOrder` — a counter, not a
+  clock, handed out by `ActiveWorkout.restamp` and travelling in the snapshot —
+  which is how `workout_cue.dart` knows which movement was worked *most
+  recently* rather than which sits last in the list.
 - `ActiveWorkoutController extends Notifier<ActiveWorkout?>` — null when idle.
   `start(workoutId:)` hydrates from a workout template (deriving its routine for
   the rest default), a 1s timer ticks `elapsed`, edits mutate in place (with a

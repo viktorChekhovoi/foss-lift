@@ -19,6 +19,7 @@ import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/profile_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
+import 'package:foss_lift/widgets/board_cells.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
 import 'package:foss_lift/util/locales.dart';
 import 'package:foss_lift/widgets/tutorial_demo.dart';
@@ -828,6 +829,25 @@ void main() {
       }
       expect(showsProgress(tester), isFalse);
 
+      await stop(tester);
+    });
+
+    testWidgets('and the box it rings is the board\'s own control, not a copy',
+        (tester) async {
+      // The rest of the mock board is the real board's widgets — its column
+      // headers, its cells, the pulse on the cell that logs the set. The goal
+      // line's weight box used to be the one hand-drawn piece, which is how a
+      // picture of a screen stops being a picture of that screen.
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.weight));
+
+      expect(
+          find.descendant(
+              of: find.byType(TutorialBoardDemo).first,
+              matching: find.byType(WorkingWeight)),
+          findsOneWidget);
       await stop(tester);
     });
 

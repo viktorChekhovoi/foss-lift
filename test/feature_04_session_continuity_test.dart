@@ -14,6 +14,8 @@
 // wrapped in `tester.runAsync`, which makes the session's own 1-second timer a
 // *real* one. The rest countdown is created in the test body and so runs on the
 // fake clock, which is what `pump(Duration(...))` advances.
+import 'dart:convert';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -41,6 +43,20 @@ import 'support/seeded.dart';
 /// and so is every snapshot write.
 Future<void> _settle() =>
     Future<void>.delayed(const Duration(milliseconds: 50));
+
+/// The same snapshot as a build that never recorded the order of logging wrote
+/// it: every set stripped of its stamp, nothing else touched.
+String _withoutLogOrder(String payload) {
+  final m = jsonDecode(payload) as Map<String, dynamic>;
+  for (final e in m['exercises'] as List) {
+    for (final key in ['sets', 'warmups']) {
+      for (final s in (e as Map<String, dynamic>)[key] as List) {
+        (s as Map<String, dynamic>).remove('loggedOrder');
+      }
+    }
+  }
+  return jsonEncode(m);
+}
 
 /// Waits out a two-second rest, and the tick that ends it.
 Future<void> _restRunsOut() =>
@@ -455,6 +471,42 @@ void main() {
       ctl.discard();
     });
 
+    test('and the mark is still on the movement you were working', () async {
+      // Logged on the fourth exercise, then went back up to the second. The
+      // order those two happened in is what says where you are, and template
+      // order disagrees with it — so a snapshot that dropped it would put the
+      // mark back on the fourth.
+      final ctl = await startPush();
+      ctl.cycleSet(3, 0);
+      ctl.cycleSet(1, 0);
+      expect(nextUp(session())!.exerciseIndex, 1);
+      await snapshot();
+
+      final back = (await relaunch())!;
+      expect(nextUp(back)!.exerciseIndex, 1);
+
+      container!.read(activeWorkoutProvider.notifier).discard();
+    });
+
+    test('a snapshot from a build that never wrote that order still reads',
+        () async {
+      // What the shipped build left behind: logged sets and no record of the
+      // order. Absent is taken as list order — the behaviour that build had —
+      // rather than as a session that will not load.
+      final ctl = await startPush();
+      ctl.cycleSet(3, 0);
+      ctl.cycleSet(1, 0);
+      await snapshot();
+      await _settle();
+      await db.saveLiveSession(_withoutLogOrder((await snapshot()).payload));
+
+      final back = (await relaunch())!;
+      expect(nextUp(back)!.exerciseIndex, 3,
+          reason: 'the last logged in list order, as it was before');
+
+      container!.read(activeWorkoutProvider.notifier).discard();
+    });
+
     test('and so does a rest, minus the time the app was dead', () async {
       final ctl = await startPush();
       ctl.startRest(120, (
@@ -471,6 +523,19 @@ void main() {
 
       expect(back.restLeft, closeTo(30, 2));
       expect(back.restPrompt?.purpose, RestPurpose.anotherSet);
+
+      container!.read(activeWorkoutProvider.notifier).discard();
+    });
+
+    test('and the rest still knows which set it belongs to', () async {
+      final ctl = await startPush();
+      ctl.cycleSet(0, 1);
+      ctl.startRest(120, session().restAfterSet(0, 1),
+          forSet: (exercise: 0, set: 1, warmup: false));
+      await snapshot();
+
+      final back = (await relaunch())!;
+      expect(back.restFor, (exercise: 0, set: 1, warmup: false));
 
       container!.read(activeWorkoutProvider.notifier).discard();
     });

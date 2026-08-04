@@ -253,7 +253,7 @@ class TutorialBoardDemo extends ConsumerWidget {
         children: [
           _heading(l10n),
           const SizedBox(height: 12),
-          _goalLine(l10n, weight, unit),
+          _goalLine(l10n, unit),
           const SizedBox(height: 8),
           // The board's own headers, not a copy of them: the tour is a still
           // life of the real thing, and a second implementation is how it came
@@ -328,7 +328,7 @@ class TutorialBoardDemo extends ConsumerWidget {
   /// A [Wrap] rather than a [Row]: at the top of the text scale the goal, the
   /// "@" and the weight together are wider than a phone, and the weight is the
   /// part that has to stay whole.
-  Widget _goalLine(AppLocalizations l10n, String weight, String unit) => Wrap(
+  Widget _goalLine(AppLocalizations l10n, String unit) => Wrap(
         alignment: WrapAlignment.end,
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 6,
@@ -342,38 +342,14 @@ class TutorialBoardDemo extends ConsumerWidget {
             '@',
             style: kMono.copyWith(fontSize: 13, color: AppColors.faint),
           ),
-          // A hand-drawn copy of the session screen's own weight box, which is
-          // private to that screen. The rest of the board is borrowed rather
-          // than copied — see BoardColumnHeaders and boardCellDecoration — so
-          // this one is the piece a change to the real screen has to be
-          // repeated in.
+          // The board's own weight control, like everything else on this mock
+          // — with no tap behind it, since a still life takes none.
           _ring(
             on: focus == TutorialDemoFocus.weight,
-            child: Container(
+            child: WorkingWeight(
               key: kTutorialDemoWeightKey,
-              padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
-              decoration: BoxDecoration(
-                color: AppColors.surface2,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: AppColors.line),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    weight,
-                    style: kMono.copyWith(
-                        fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    unitSuffix(l10n, unit),
-                    style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
-                  ),
-                  const SizedBox(width: 7),
-                  Icon(Icons.edit_outlined, size: 13, color: AppColors.faint),
-                ],
-              ),
+              weightKg: weightKg,
+              unit: unit,
             ),
           ),
         ],
