@@ -1040,7 +1040,7 @@
   "@sessionRestSkip": {
     "description": "Button on the rest bar ending the rest now. One short word — it is the third of three buttons that have to fit across a phone."
   },
-  "builderNoteHint": "What to remember next time",
+  "builderNoteHint": "Note for the exercise",
   "@builderNoteHint": {
     "description": "Placeholder in the personal-note field on a movement. It says what the field is for; it is not an example note, so do not translate it as one and do not replace it with one. A few words — it sits inside the field."
   },
@@ -3110,7 +3110,7 @@
   "@tutorialProfileTitle": {
     "description": "Title of the tour step spotlighting the Profile tab. It names that tab, so use the same word the tab is labeled with."
   },
-  "tutorialProfileBody": "Settings, your exercise library, and the tutorial tour.",
+  "tutorialProfileBody": "Find the settings, your exercise library, and the tutorial tour here.",
   "@tutorialProfileBody": {
     "description": "Body of the step about the Profile tab. Two lines — the callout sits above the bottom navigation bar with little room."
   },
@@ -3166,7 +3166,7 @@
   "@tutorialWeightTitle": {
     "description": "Title of the tour step about editing weight mid-workout, shown over a drawn mock of the session screen. Two or three words on one line."
   },
-  "tutorialWeightBody": "Tap the weight beside an exercise to change it, and every set you have not logged yet follows. Tap a set's own weight to change that set only.",
+  "tutorialWeightBody": "Tap the weight beside an exercise to change it for all unlogged sets of that exercise. Tap a set's own weight to change that set only.",
   "@tutorialWeightBody": {
     "description": "Body of the step about the two weights a tap can move: the exercise's weight on its goal line, which carries every set still to come, and one set's weight, which moves nothing else. The closing phrase names one set the way the dialog does — translate it with the words you used for sessionSetOnly, and keep it distinct from sessionWarmupOnly, which is the same control on a warm-up rung. Do not explain what a set is. Budget three lines."
   },

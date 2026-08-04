@@ -77,8 +77,9 @@ groups:
     d: >-
       the steps about a running session fill the screen with a stand-in for it —
       the session's own header, two exercises, their set rows with a note icon
-      and a camera on each, and the rest bar docked at the bottom when the step
-      is about resting. It is a whole screen rather than a card in the middle of
+      and a camera on each, and the rest bar docked across the foot of it when
+      the step is about resting — edge to edge, as the real bar is, while the
+      board above it keeps its own inset. It is a whole screen rather than a card in the middle of
       one because that is what somebody is about to be looking at, and a
       thumbnail of a screen teaches the thumbnail. The callout sits over it, at
       whichever end leaves the thing being described uncovered. The board's
@@ -379,10 +380,13 @@ groups:
     d: >-
       the current theme's colours and the chosen weight unit, so what the tour
       shows is what the app will look like — a tour in pounds does not demonstrate
-      a board in kilos.
+      a board in kilos. Its example weights are snapped to the step the gym counts
+      by, the same landing a real target gets, so a pounds gym is shown a bar it
+      could load rather than a kilogram figure converted to two decimals.
     uses:
     - theme.colour-role
     - load.units
+    - load.unit-defaults
   - id: shade-step-named-for-the-shade
     t: The shade step is named for the shade
     d: >-

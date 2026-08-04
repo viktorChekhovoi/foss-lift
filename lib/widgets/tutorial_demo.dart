@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/set_scheme.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -102,6 +103,18 @@ const _kDemoSecondWeightKg = 45.0;
 const _kDemoGoal = 8;
 const _kDemoSets = 3;
 
+/// One of those weights as the gym counting in [unit] would have it.
+///
+/// The constants are kilograms, and a kilogram pushed straight through
+/// [toDisplayWeight] reads 176.37 lb — a bar nobody sets, and one the real
+/// board could not produce: every target it draws has been landed on the step
+/// the unit counts by. So the mock goes through the board's own
+/// [resolveTopWeight] rather than carrying a second set of pounds constants.
+/// One number, landed the way the board lands it, and it stays right if the
+/// step a unit counts by ever changes.
+double _demoWeight(double kg, String unit) =>
+    resolveTopWeight(topWeightKg: kg, unit: unit)!;
+
 /// The whole session screen, as the tour draws it: the day's header, its
 /// exercises, and the rest bar when the step is about resting.
 ///
@@ -159,6 +172,8 @@ class TutorialSessionDemo extends ConsumerWidget {
                       ),
                     ),
                     if (focus == TutorialDemoFocus.rest)
+                      // No padding around it: the bar is docked to the screen
+                      // edge, while the board above keeps the list's own inset.
                       ConstrainedBox(
                         // Docked furniture may not grow without limit: at the
                         // top of the text scale the caption, the clock and the
@@ -167,12 +182,7 @@ class TutorialSessionDemo extends ConsumerWidget {
                         // scrolls inside whatever it gets, so nothing is cut.
                         constraints:
                             BoxConstraints(maxHeight: box.maxHeight * 0.45),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: SingleChildScrollView(
-                            child: TutorialRestDemo(ringed: true),
-                          ),
-                        ),
+                        child: const TutorialRestDemo(ringed: true),
                       ),
                   ],
                 ),
@@ -239,7 +249,8 @@ class TutorialBoardDemo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
-    final weight = fmtWeight(toDisplayWeight(weightKg, unit));
+    final landed = _demoWeight(weightKg, unit);
+    final weight = fmtWeight(toDisplayWeight(landed, unit));
 
     return Container(
       decoration: BoxDecoration(
@@ -253,7 +264,7 @@ class TutorialBoardDemo extends ConsumerWidget {
         children: [
           _heading(l10n),
           const SizedBox(height: 12),
-          _goalLine(l10n, unit),
+          _goalLine(l10n, unit, landed),
           const SizedBox(height: 8),
           // The board's own headers, not a copy of them: the tour is a still
           // life of the real thing, and a second implementation is how it came
@@ -328,7 +339,7 @@ class TutorialBoardDemo extends ConsumerWidget {
   /// A [Wrap] rather than a [Row]: at the top of the text scale the goal, the
   /// "@" and the weight together are wider than a phone, and the weight is the
   /// part that has to stay whole.
-  Widget _goalLine(AppLocalizations l10n, String unit) => Wrap(
+  Widget _goalLine(AppLocalizations l10n, String unit, double landed) => Wrap(
         alignment: WrapAlignment.end,
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 6,
@@ -348,7 +359,7 @@ class TutorialBoardDemo extends ConsumerWidget {
             on: focus == TutorialDemoFocus.weight,
             child: WorkingWeight(
               key: kTutorialDemoWeightKey,
-              weightKg: weightKg,
+              weightKg: landed,
               unit: unit,
             ),
           ),
@@ -371,54 +382,68 @@ class TutorialRestDemo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
-    final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
+    final weight = weightWithUnit(l10n, _demoWeight(_kDemoWeightKg, unit), unit);
 
     return Container(
       key: ringed ? kTutorialDemoRingKey : null,
+      // Edge to edge and square-cornered, because that is how the real bar is
+      // docked: it is the last row of the screen rather than a card floating
+      // above it, so it has a hairline along its top and no side of its own.
+      width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.surface3,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: ringed ? AppColors.accent : AppColors.line,
-          width: ringed ? 2 : 1,
-        ),
+        border: ringed
+            ? Border.all(color: AppColors.accent, width: 2)
+            : Border(top: BorderSide(color: AppColors.line)),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.sessionRestSetUpThenRest(
-                l10n.unitWeightShort(weight, unitSuffix(l10n, unit))),
-            style:
-                kMono.copyWith(fontSize: 11, height: 1.3, color: AppColors.muted),
-          ),
-          const SizedBox(height: 4),
-          // Stacked rather than measured-and-maybe-stacked like the real bar:
-          // the mock is narrower than the screen it sits on, and one layout is
-          // one layout to keep honest.
-          Text(
-            l10n.tutorialDemoRestSeconds,
-            style: kMono.copyWith(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppColors.good,
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      // Inside the bar rather than around it, as the real one has it: what
+      // scrolls when the contents outgrow the cap is the contents, and the
+      // background and padding stay put behind them.
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.sessionRestSetUpThenRest(weight),
+              style: kMono.copyWith(
+                  fontSize: 11, height: 1.3, color: AppColors.muted),
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final label in [
-                l10n.sessionRestMinus,
-                l10n.sessionRestPlus,
-                l10n.sessionRestSkip,
-              ])
-                _pill(label),
-            ],
-          ),
-        ],
+            const SizedBox(height: 4),
+            // The clock at one end and the buttons at the other, dropping to
+            // two lines when they no longer fit across. The real bar measures
+            // its labels to decide; a picture cannot reach that measurement,
+            // and a [Wrap] arrives at the same two layouts without one.
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 10,
+              children: [
+                Text(
+                  l10n.tutorialDemoRestSeconds,
+                  style: kMono.copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.good,
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final label in [
+                      l10n.sessionRestMinus,
+                      l10n.sessionRestPlus,
+                      l10n.sessionRestSkip,
+                    ])
+                      _pill(label),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -451,21 +476,22 @@ class TutorialRestDemo extends ConsumerWidget {
 /// It is a *picture*, not a screenshot: the fields, lists and rows are the
 /// builders' own widgets under the app's own theme, so a change to the real
 /// screen shows up here rather than drifting away from it.
-class TutorialBuilderDemo extends StatelessWidget {
+class TutorialBuilderDemo extends ConsumerWidget {
   const TutorialBuilderDemo({super.key, required this.focus});
 
   final TutorialDemoFocus focus;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     return ColoredBox(
       color: AppColors.ground,
       child: SafeArea(
         child: switch (_screenFor(focus)) {
           _BuilderScreen.routines => _routines(l10n),
           _BuilderScreen.routine => _routine(l10n),
-          _BuilderScreen.day => _day(l10n),
+          _BuilderScreen.day => _day(l10n, unit),
           _BuilderScreen.slot => _slot(l10n),
         },
       ),
@@ -591,7 +617,7 @@ class TutorialBuilderDemo extends StatelessWidget {
       );
 
   /// One training day: the exercises in it, and the day's own Save.
-  Widget _day(AppLocalizations l10n) => Column(
+  Widget _day(AppLocalizations l10n, String unit) => Column(
         children: [
           _bar(l10n.seedDayPush),
           Expanded(
@@ -608,8 +634,14 @@ class TutorialBuilderDemo extends StatelessWidget {
                     // about what opens when you tap one.
                     ringRow: focus == TutorialDemoFocus.slot ? 0 : null,
                     rows: [
-                      (l10n.exerciseBenchPress, '3 × 8 · 80'),
-                      (l10n.exerciseOverheadPress, '3 × 8 · 45'),
+                      (
+                        l10n.exerciseBenchPress,
+                        _slotSummary(l10n, _kDemoWeightKg, unit)
+                      ),
+                      (
+                        l10n.exerciseOverheadPress,
+                        _slotSummary(l10n, _kDemoSecondWeightKg, unit)
+                      ),
                     ],
                   ),
                 ),
@@ -622,6 +654,14 @@ class TutorialBuilderDemo extends StatelessWidget {
           )),
         ],
       );
+
+  /// What one row of the day's list says under the movement's name: the target
+  /// and the weight, in the shape and the separator `draftSummary` uses. The
+  /// weight carries its unit and is landed like every other one the tour draws
+  /// — a bare "80" is a kilogram figure shown to a gym counting in pounds.
+  String _slotSummary(AppLocalizations l10n, double kg, String unit) =>
+      '$_kDemoSets × $_kDemoGoal · '
+      '${weightWithUnit(l10n, _demoWeight(kg, unit), unit)}';
 
   /// One exercise's settings, as the sheet that opens on tapping its row.
   ///
@@ -886,7 +926,7 @@ class TutorialShadeDemo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
-    final weight = fmtWeight(toDisplayWeight(_kDemoWeightKg, unit));
+    final weight = weightWithUnit(l10n, _demoWeight(_kDemoWeightKg, unit), unit);
 
     return Container(
       decoration: BoxDecoration(
@@ -918,9 +958,7 @@ class TutorialShadeDemo extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            l10n.shadeSetWeightReps(
-                l10n.unitWeightShort(weight, unitSuffix(l10n, unit)),
-                _kDemoGoal),
+            l10n.shadeSetWeightReps(weight, _kDemoGoal),
             style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 10),

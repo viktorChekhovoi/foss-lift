@@ -22,6 +22,7 @@ import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/board_cells.dart';
 import 'package:foss_lift/widgets/tutorial.dart';
 import 'package:foss_lift/util/locales.dart';
+import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/widgets/tutorial_demo.dart';
 
 import 'support/harness.dart';
@@ -889,6 +890,122 @@ void main() {
             ),
             findsOneWidget,
             reason: 'the mock bar should offer $control');
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('the rest bar is drawn edge to edge, as the real one is',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.rest));
+
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final bar = tester.getRect(find.byType(TutorialRestDemo));
+      expect(bar.width, closeTo(screen.width, 1),
+          reason: 'the real bar is docked to the screen edge');
+      // And the board above it is not: the two are inset differently on the
+      // real screen, and a fix that unindents everything is the wrong one.
+      final board = tester.getRect(find.byType(TutorialBoardDemo).first);
+      expect(board.left, greaterThan(bar.left),
+          reason: 'the board keeps its own inset');
+
+      await stop(tester);
+    });
+
+    /// Every number in one drawn string.
+    List<double> numbersIn(String? text) => [
+          for (final match in RegExp(r'\d+(?:\.\d+)?').allMatches(text ?? ''))
+            double.parse(match[0]!),
+        ];
+
+    /// Every number written anywhere under [of], as the mock draws it.
+    List<double> numbersUnder(WidgetTester tester, Finder of) => [
+          for (final text in tester.widgetList<Text>(
+              find.descendant(of: of, matching: find.byType(Text))))
+            ...numbersIn(text.data),
+        ];
+
+    /// A weight a gym counting in pounds can actually put on a bar: the 5 lb
+    /// pair, which is what every target in the app is snapped to.
+    final isLoadableInPounds = predicate<double>(
+        (v) => ((v / 5).roundToDouble() * 5 - v).abs() < 0.001,
+        'a weight a pounds gym could load');
+
+    testWidgets('the weights it draws are ones a pounds gym could load',
+        (tester) async {
+      // 80 kg converted is 176.37 lb, which is not a bar anybody sets — and a
+      // picture of the board may not show a number the board could not produce.
+      await db.setWeightUnit('lb');
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.weight));
+
+      final goals = tester
+          .widgetList<WorkingWeight>(find.byType(WorkingWeight))
+          .map((w) => toDisplayWeight(w.weightKg!, 'lb'))
+          .toList();
+      expect(goals, isNotEmpty);
+      for (final weight in goals) {
+        expect(weight, isLoadableInPounds);
+      }
+      // The set rows say the same thing in their own column.
+      final rows =
+          numbersUnder(tester, find.byKey(kTutorialDemoSetWeightKey).first);
+      expect(rows, isNotEmpty);
+      for (final weight in rows) {
+        expect(weight, isLoadableInPounds);
+      }
+
+      // The builder chapter lists the day's two lifts with their weights on
+      // them, which is where both are visible at once: landed like the board's,
+      // and the second still the lighter of the pair.
+      final builder = kTutorialTracks[TutorialTrack.builder]!;
+      await walkTo(
+          tester,
+          builder.indexWhere((s) => s.focus == TutorialDemoFocus.exercises),
+          track: TutorialTrack.builder);
+      final listed = numbersUnder(tester, find.byType(TutorialBuilderDemo))
+        ..removeWhere((v) => v < 20);
+      expect(listed, hasLength(2));
+      for (final weight in listed) {
+        expect(weight, isLoadableInPounds);
+      }
+      expect(listed.first, greaterThan(listed.last),
+          reason: 'the second lift is the lighter one');
+
+      await stop(tester);
+    });
+
+    testWidgets('the rest bar and the notification name a loadable weight too',
+        (tester) async {
+      await db.setWeightUnit('lb');
+      await db.setTutorialSeen(true);
+      await tester
+          .pumpWidget(appUnder(container, TutorialOverlay(child: _anchoredHost())));
+
+      await walkTo(tester, boardStepFocused(TutorialDemoFocus.rest));
+      // The caption is the bar's first line — the clock under it is a time, not
+      // a weight, so it is not what this is asking about.
+      final caption = numbersIn(tester
+          .widgetList<Text>(find.descendant(
+              of: find.byType(TutorialRestDemo), matching: find.byType(Text)))
+          .first
+          .data);
+      expect(caption, isNotEmpty);
+      for (final weight in caption) {
+        expect(weight, isLoadableInPounds);
+      }
+
+      await walkTo(tester, stepWith(TutorialDemo.shade));
+      final shade = numbersUnder(tester, find.byType(TutorialShadeDemo))
+        ..removeWhere((v) => v < 20);
+      expect(shade, isNotEmpty);
+      for (final weight in shade) {
+        expect(weight, isLoadableInPounds);
       }
 
       await stop(tester);
