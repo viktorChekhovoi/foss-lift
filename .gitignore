@@ -86,3 +86,4 @@ lib/l10n/untranslated.json
 
 
 .vscode
+.wrangler
