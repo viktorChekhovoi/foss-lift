@@ -46,10 +46,10 @@ const String kBackupVideoFolder = 'set_videos';
 /// Past this, a backup is worth warning about before it is made.
 ///
 /// Not a limit — nothing refuses to write one. It is the size at which mail
-/// bounces it and chat apps decline it, and somebody who is about to sit
-/// through a two-minute zip deserves to hear that first. 200 MB is comfortably
-/// above a log with a few dozen clips and comfortably below what a phone will
-/// actually send.
+/// bounces it and chat apps decline it, so the warning that goes with it names
+/// the way that does work rather than only stating the problem. 200 MB is
+/// comfortably above a log with a few dozen clips and comfortably below what a
+/// phone will actually send.
 const int kBackupLargeBytes = 200 * 1024 * 1024;
 
 /// What a backup says about itself.

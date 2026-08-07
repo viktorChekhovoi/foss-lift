@@ -2487,9 +2487,9 @@
   "@backupVideosLeftOut": {
     "description": "Shown under the checkbox while it is unticked, so the omission is known before the file is made rather than after it is restored. One sentence."
   },
-  "backupTooBig": "Larger than many apps will send.",
+  "backupTooBig": "Too big to email or message — save it to a drive.",
   "@backupTooBig": {
-    "description": "Warning shown when the backup would be over about 200 MB — mail and chat apps refuse a file that size. One sentence; it is a caution, not a refusal, and the file can still be made."
+    "description": "Warning shown when the backup would be over about 200 MB, which mail and chat apps refuse to attach. It names the way that does work — a cloud drive, or the phone's own storage picked out of the share sheet. One line; it is a caution rather than a refusal, and the file can still be made."
   },
   "backupSave": "Save",
   "@backupSave": {
