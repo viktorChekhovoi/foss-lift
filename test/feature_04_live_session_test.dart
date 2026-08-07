@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
@@ -33,6 +34,7 @@ import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/rest_alarm.dart';
+import 'package:foss_lift/services/rest_buzz.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/widgets/board_cells.dart';
@@ -211,10 +213,11 @@ void main() {
   Future<void> pumpPushScreen(
     WidgetTester tester, {
     void Function(ActiveWorkoutController ctl)? before,
+    List<Override> overrides = const [],
   }) async {
     await tester.runAsync(() async {
       final wid = await workoutIdNamed(db, 'Push');
-      container = containerFor(db);
+      container = containerFor(db, overrides: overrides);
       await container!
           .read(activeWorkoutProvider.notifier)
           .start(workoutId: wid, name: 'Push');
@@ -231,10 +234,11 @@ void main() {
   Future<void> pumpPushRouted(
     WidgetTester tester, {
     List<String> alsoRoutes = const [],
+    List<Override> overrides = const [],
   }) async {
     await tester.runAsync(() async {
       final wid = await workoutIdNamed(db, 'Push');
-      container = containerFor(db);
+      container = containerFor(db, overrides: overrides);
       await container!
           .read(activeWorkoutProvider.notifier)
           .start(workoutId: wid, name: 'Push');
@@ -248,10 +252,13 @@ void main() {
   }
 
   /// The Plank day, mounted and ready to tap. Two sets of a 45-second hold.
-  Future<void> pumpPlank(WidgetTester tester) async {
+  Future<void> pumpPlank(
+    WidgetTester tester, {
+    List<Override> overrides = const [],
+  }) async {
     await tester.runAsync(() async {
       final wid = await buildPlankWorkout(db);
-      container = containerFor(db);
+      container = containerFor(db, overrides: overrides);
       await container!
           .read(activeWorkoutProvider.notifier)
           .start(workoutId: wid, name: 'Plank Day');
@@ -552,54 +559,40 @@ void main() {
   });
 
   group('The end of a rest is felt as well as heard', () {
-    // The phone this has to reach is on a bench or in a pocket, so the board
-    // buzzes as the rest ends. A firm impact, not the tick that acknowledges a
-    // tap — which is why every assertion here counts impacts specifically.
+    // The phone this has to reach is on a bench or in a bag, so the session
+    // vibrates as the rest ends — the vibrator itself, driven as an alarm, and
+    // not the touch feedback a tap gets. What the phone is asked for is in
+    // `feature_04_rest_buzz_test.dart`; what is counted here is how many rests
+    // asked for it.
+    late _RecordingBuzz buzz;
 
-    /// Collects the haptics the board asks the platform for, until the test
-    /// ends.
-    List<String> watchHaptics(WidgetTester tester) {
-      final asked = <String>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'HapticFeedback.vibrate') {
-            asked.add('${call.arguments}');
-          }
-          return null;
-        },
-      );
-      addTearDown(() => tester.binding.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, null));
-      return asked;
+    /// The buzz, in front of the real one, for a session about to be started.
+    List<Override> withBuzz() {
+      buzz = _RecordingBuzz();
+      return [restBuzzProvider.overrideWithValue(buzz)];
     }
 
-    int impacts(List<String> asked) =>
-        asked.where((a) => a == 'HapticFeedbackType.heavyImpact').length;
-
     testWidgets('a rest that runs out buzzes, once', (tester) async {
-      await pumpPushScreen(tester);
-      final asked = watchHaptics(tester);
+      await pumpPushScreen(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
-      expect(impacts(asked), 0,
+      expect(buzz.buzzes, 0,
           reason: 'logging a set is a tick; the buzz is for the end of a rest');
 
       await tester.pump(const Duration(seconds: 120));
       expect(find.byKey(kRestBannerKey), findsNothing);
-      expect(impacts(asked), 1);
+      expect(buzz.buzzes, 1);
 
       // A rebuild is not a second end of a rest.
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
-      expect(impacts(asked), 1);
+      expect(buzz.buzzes, 1);
       await stopAll(tester);
     });
 
     testWidgets('Skip buzzes, because you ended the rest', (tester) async {
-      await pumpPushScreen(tester);
-      final asked = watchHaptics(tester);
+      await pumpPushScreen(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -607,14 +600,13 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(kRestBannerKey), findsNothing);
-      expect(impacts(asked), 1);
+      expect(buzz.buzzes, 1);
       await stopAll(tester);
     });
 
     testWidgets('and so does −15s when it takes the last seconds off',
         (tester) async {
-      await pumpPushScreen(tester);
-      final asked = watchHaptics(tester);
+      await pumpPushScreen(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -623,7 +615,7 @@ void main() {
       await tester.pump();
       expect(find.byKey(kRestBannerKey), findsNothing,
           reason: 'below fifteen the button can only mean skip');
-      expect(impacts(asked), 1);
+      expect(buzz.buzzes, 1);
 
       await stopAll(tester);
     });
@@ -632,8 +624,7 @@ void main() {
         (tester) async {
       // The clear stopped no rest, so it consumed no silence either — the rest
       // that was left running rings for itself when its time is up.
-      await pumpPushScreen(tester);
-      final asked = watchHaptics(tester);
+      await pumpPushScreen(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -648,19 +639,18 @@ void main() {
       await frames(tester);
       expect(session().exercises[0].sets[0].done, isFalse);
       expect(find.byKey(kRestBannerKey), findsOneWidget);
-      expect(impacts(asked), 0);
+      expect(buzz.buzzes, 0);
 
       await tester.pump(const Duration(seconds: 120));
       expect(find.byKey(kRestBannerKey), findsNothing);
-      expect(impacts(asked), 1);
+      expect(buzz.buzzes, 1);
       await stopAll(tester);
     });
 
     testWidgets('a rest a hold takes with it ends without one', (tester) async {
       // Starting a hold ends the rest silently — the buzz would say "stop"
       // exactly as you begin.
-      await pumpPlank(tester);
-      final asked = watchHaptics(tester);
+      await pumpPlank(tester, overrides: withBuzz());
 
       await tester.tap(repsCell('0-0-Plank'));
       await tester.pump(const Duration(seconds: 4));
@@ -672,14 +662,13 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(kRestBannerKey), findsNothing);
-      expect(impacts(asked), 0);
+      expect(buzz.buzzes, 0);
       await stopAll(tester);
     });
 
     testWidgets('and neither does abandoning the session mid-rest',
         (tester) async {
-      await pumpPushRouted(tester);
-      final asked = watchHaptics(tester);
+      await pumpPushRouted(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -691,14 +680,14 @@ void main() {
       await frames(tester);
 
       expect(container!.read(activeWorkoutProvider), isNull);
-      expect(impacts(asked), 0,
+      expect(buzz.buzzes, 0,
           reason: 'the rest went with the workout; nothing ended');
       await stop(tester);
     });
 
     testWidgets('nor finishing it', (tester) async {
-      await pumpPushRouted(tester, alsoRoutes: const ['summary/:id']);
-      final asked = watchHaptics(tester);
+      await pumpPushRouted(tester,
+          alsoRoutes: const ['summary/:id'], overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -710,8 +699,26 @@ void main() {
       await frames(tester);
 
       expect(container!.read(activeWorkoutProvider), isNull);
-      expect(impacts(asked), 0);
+      expect(buzz.buzzes, 0);
       await stop(tester);
+    });
+
+    testWidgets('and the board is not what makes it happen', (tester) async {
+      // The buzz used to be the screen's, which is why it never reached a phone
+      // that was face down in a bag: the one case a rest timer exists for. It
+      // is the session's now, so a rest that ends with the board unmounted
+      // buzzes exactly as one that ends in front of you.
+      await pumpPushScreen(tester, overrides: withBuzz());
+      await tapCell(tester, repsCell('0-0-Bench Press'));
+      await tester.pump();
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 120));
+
+      expect(buzz.buzzes, 1);
+      container!.read(activeWorkoutProvider.notifier).discard();
+      await tester.pump();
     });
   });
 
@@ -3225,14 +3232,17 @@ void main() {
     // What the pocket adds is a notification to look at, not a second noise.
     late _RecordingAlarm alarm;
     late _RecordingTone tone;
+    late _RecordingBuzz buzz;
 
     Future<ActiveWorkoutController> startPushWithPhone(
         {required bool onScreen}) async {
       alarm = _RecordingAlarm();
       tone = _RecordingTone();
+      buzz = _RecordingBuzz();
       container = containerFor(db, overrides: [
         restAlarmProvider.overrideWithValue(alarm),
         restToneProvider.overrideWithValue(tone),
+        restBuzzProvider.overrideWithValue(buzz),
         appOnScreenProvider.overrideWithValue(() => onScreen),
       ]);
       final wid = await workoutIdNamed(db, 'Push');
@@ -3253,6 +3263,19 @@ void main() {
           reason: '"rest over" makes you open the app to find out what for');
       expect(tone.played, 1,
           reason: 'the notification joins the tone; it does not replace it');
+      expect(buzz.buzzes, 1,
+          reason: 'a bag is where a rest ending has to be felt rather than '
+              'heard, and the notification cannot be relied on to do it');
+    });
+
+    test('and it buzzes on screen and off it alike', () async {
+      final ctl = await startPushWithPhone(onScreen: true);
+      ctl.startRest(90, null);
+
+      ctl.stopRest();
+
+      expect(buzz.buzzes, 1,
+          reason: 'the vibration is the rest ending, not the notification');
     });
 
     test('with the app on screen there is no notification — you are looking '
@@ -4265,6 +4288,17 @@ class _RecordingAlarm extends RestAlarm {
 
   @override
   Future<void> clear() async => cleared++;
+}
+
+/// A [RestBuzz] that counts rather than vibrating. Not-supported, so nothing
+/// inherited can reach a vibrator the test runner does not have.
+class _RecordingBuzz extends RestBuzz {
+  _RecordingBuzz() : super(platformSupported: false);
+
+  int buzzes = 0;
+
+  @override
+  Future<void> buzz() async => buzzes++;
 }
 
 /// An [AudioPlayer] that would throw if the tone ever reached it. Standing in

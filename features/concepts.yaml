@@ -185,8 +185,8 @@ concepts:
 
   - id: session.rest-buzz
     area: session
-    what: The vibration the board makes as a rest ends, beside the tone.
-    code: [lib/screens/workout_screen.dart]
+    what: The vibration the session makes as a rest ends, beside the tone.
+    code: [lib/services/rest_buzz.dart, lib/state/active_workout.dart]
 
   - id: session.warmup-ramp
     area: session

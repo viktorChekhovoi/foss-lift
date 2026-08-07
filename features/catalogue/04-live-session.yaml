@@ -507,20 +507,29 @@ groups:
   - id: rest-end-is-felt-as-well-as-heard
     t: The end of a rest is felt as well as heard
     d: >-
-      the board buzzes as a rest runs out, and as you end one yourself with Skip or
-      by taking the last fifteen seconds off — a firm impact rather than the tick
-      that acknowledges a tap, because the phone this has to reach is on a bench or
-      in a pocket. A rest that ends without a sound ends without a buzz: starting a
-      hold takes the running rest with it silently, and so does finishing or
-      abandoning the session. Off the board there is nothing to buzz, and the
-      notification that lands instead carries the phone's own. There is no setting
-      for it — the phone's haptics switch is the setting.
+      the phone buzzes as a rest runs out, and as you end one yourself with Skip or by
+      taking the last fifteen seconds off — the same buzz whether the board is in front
+      of you or the phone is in a bag, because the bag is the case a rest timer exists
+      for. It is the vibrator, driven as an alarm: a pulse-gap-pulse pattern at full
+      strength rather than the tick that acknowledges a tap, and it fires with the
+      ringer on silent, since an alarm is what a silenced phone still wakes you for.
+      Touch-feedback haptics are the wrong instrument and were the old one — that
+      switch governs buttons, it is off on plenty of phones, and Android renders the
+      strongest feedback constant as one of its faintest ticks. The buzz belongs to the
+      session rather than to the board, so it needs neither the screen nor the
+      notification to happen: it is made where the tone is made, at the instant the
+      clock reaches zero. A rest that ends without a sound ends without a buzz: starting
+      a hold takes the running rest with it silently, and so does finishing or abandoning
+      the session. Android only, and silent under a Do-Not-Disturb that silences alarms —
+      there is no in-app setting beyond the phone's own.
     defines:
     - session.rest-buzz
     uses:
     - session.rest-timer
     - session.rest-sound
     - session.hold-timer
+    - platform.android
+    - platform.portability
   - id: tone-synthesised-shipped-asset
     t: The tone is synthesised and shipped as an asset
     d: >-

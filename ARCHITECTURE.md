@@ -55,6 +55,7 @@ lib/
 │   ├── reminders.dart            Local notification scheduling (Android)
 │   ├── rest_tone.dart            The rest-end ding — the only route with a volume
 │   ├── rest_alarm.dart           The silent notification beside it, off screen
+│   ├── rest_buzz.dart            The vibration beside both, wherever the phone is
 │   ├── workout_shade.dart        The live workout as an Android foreground service
 │   ├── notifications.dart        The notification plugin's one initialize
 │   ├── deep_links.dart           fosslift:// links → in-app routes
@@ -483,6 +484,14 @@ reminded on them.
     alarm slider and nothing of the app's; there is no in-app volume.
     `RestAlarm` is the silent visual beside it (`rest_end`, no sound, still
     buzzes), posted only when the app is not on screen.
+  - **The buzz is `RestBuzz`, and it is the vibrator rather than haptics.**
+    `MainActivity` answers `com.fosslift.foss_lift/buzz` with a full-amplitude
+    waveform played at alarm usage, so it carries through a bag and past a
+    silenced ringer. Touch-feedback haptics — what this replaced — are routed
+    through the view, so the phone's touch-feedback switch turned the rest
+    alert off entirely, and Flutter's heaviest constant is one of Android's
+    faintest. Made in `ActiveWorkoutController` beside the tone, on screen or
+    off, so it needs neither the board nor a notification.
   - **The shade's channel is DEFAULT importance and silent.** The buttons live
     in a notification's expanded form, and Android auto-expands only the
     top-ranked notification — a LOW channel is ranked into the silent section at

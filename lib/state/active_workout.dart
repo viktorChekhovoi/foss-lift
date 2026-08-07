@@ -12,6 +12,7 @@ import '../providers/db_provider.dart';
 import '../providers/providers.dart'
     show appLocalizationsProvider;
 import '../services/rest_alarm.dart';
+import '../services/rest_buzz.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
 import '../services/workout_shade.dart'
@@ -686,6 +687,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// an app with one running may play audio while it is in the background, and
   /// so the same player sounds the same asset at the same gain either way.
   ///
+  /// **The buzz goes with it, wherever the phone is.** It used to belong to the
+  /// board, which meant it happened only while the board was mounted and, being
+  /// touch feedback, often not even then — see [RestBuzz]. It is made here for
+  /// the same reason the tone is: a phone in a bag is what a rest timer is for,
+  /// and neither the screen nor the notification can be relied on to reach it.
+  ///
   /// **What the pocket adds is the notification, not the noise** — something to
   /// look at when the phone comes out, silent because the sound has already been
   /// made. On screen it is left off entirely: the countdown is already in front
@@ -703,6 +710,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   void _sayTheRestIsOver() {
     final alarm = ref.read(restAlarmProvider);
     ref.read(restToneProvider).play();
+    ref.read(restBuzzProvider).buzz();
     if (ref.read(appOnScreenProvider)()) {
       alarm.clear();
       return;
@@ -1380,6 +1388,10 @@ final restToneProvider = Provider<RestTone>((ref) {
 /// [RestAlarm]. Here rather than in `providers.dart` for the same reason the
 /// tone is: the rest clock is on the controller above.
 final restAlarmProvider = Provider<RestAlarm>((ref) => RestAlarm());
+
+/// The rest ending as a vibration, wherever the phone is — see [RestBuzz].
+/// Beside the tone and the alarm, since all three are the same event.
+final restBuzzProvider = Provider<RestBuzz>((ref) => RestBuzz());
 
 /// Whether the app is the thing on screen right now.
 ///

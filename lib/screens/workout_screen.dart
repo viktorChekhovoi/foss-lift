@@ -85,10 +85,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// not been built cannot be scrolled to — which is every row worth opening on.
   bool _opening = true;
 
-  /// Set when this screen ends a rest that makes no sound, and consumed by the
-  /// listener that buzzes — see [_dropRest] and [build].
-  bool _restEndsQuietly = false;
-
   @override
   void initState() {
     super.initState();
@@ -160,20 +156,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// Ends the rest the way the Skip button does: it sounds, and so it buzzes.
   void _skipRest() => ref.read(activeWorkoutProvider.notifier).stopRest();
 
-  /// Ends the rest without a sound — a hold starting, or a set taken back to
-  /// untouched. Neither is a rest you have finished, so neither announces one.
-  ///
-  /// The flag is what tells the buzz apart from a rest that ran out, because by
-  /// the time the session says the rest is over there is nothing left on it to
-  /// say why. It is only set when a rest is actually running: set with nothing
-  /// to consume it, it would swallow the buzz of the next rest that ends on its
-  /// own.
-  void _dropRest() {
-    if ((ref.read(activeWorkoutProvider)?.restLeft ?? 0) > 0) {
-      _restEndsQuietly = true;
-    }
-    ref.read(activeWorkoutProvider.notifier).stopRest(tone: false);
-  }
+  /// Ends the rest without announcing it — a hold starting, or a set taken back
+  /// to untouched. Neither is a rest you have finished, so neither sounds and
+  /// neither buzzes.
+  void _dropRest() =>
+      ref.read(activeWorkoutProvider.notifier).stopRest(tone: false);
 
   /// The rest that belongs to a set just tapped, started or taken back.
   ///
@@ -510,44 +497,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (mounted) context.go('/today');
   }
 
-  /// Buzzes at the end of a rest, once per rest.
-  ///
-  /// **The buzz is the screen's and the tone is the session's**, which is why
-  /// they are made in different places: [ActiveWorkoutController] routes every
-  /// noise it makes through audio and deliberately knows nothing about
-  /// `flutter/services`, so what is left is for the board to watch the clock it
-  /// is already drawing. A rest going from some seconds to none is the event —
-  /// the countdown running out, Skip, or −15s taking the last of it — and each
-  /// of those is one state change, so this fires once and a rebuild does not
-  /// repeat it.
-  ///
-  /// Silent endings stay silent: a hold starting, and a set taken back to
-  /// untouched, are flagged by [_dropRest]; finishing or abandoning the session
-  /// leaves no session at all, which is not a rest that ended. Off the board
-  /// there is nothing here to buzz — that is the notification's job.
-  ///
-  /// A heavy impact rather than the tick a tap gets: this has to be felt
-  /// through a pocket by somebody who is not looking at the phone.
-  void _buzzWhenTheRestEnds() {
-    ref.listen(
-      activeWorkoutProvider.select(
-        (s) => (live: s != null, restLeft: s?.restLeft ?? 0),
-      ),
-      (was, now) {
-        if (was == null || was.restLeft == 0 || now.restLeft > 0) return;
-        if (!now.live) return;
-        if (_restEndsQuietly) {
-          _restEndsQuietly = false;
-          return;
-        }
-        HapticFeedback.heavyImpact();
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    _buzzWhenTheRestEnds();
     final session = ref.watch(activeWorkoutProvider);
     if (session == null) {
       return const Scaffold(body: SizedBox.shrink());
