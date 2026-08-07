@@ -1,0 +1,142 @@
+id: "20"
+title: Backup and restore
+tagline: >-
+  The whole phone's training data as one file you keep somewhere else — so an
+  uninstall, a lost phone or a sideloaded build is a nuisance rather than the end
+  of the log.
+screen: backup
+code:
+- lib/data/backup_archive.dart
+- lib/services/backup_service.dart
+- lib/screens/backup_screen.dart
+test:
+- test/feature_20_backup_and_restore_test.dart
+where: >-
+  <b>The format</b> lib/data/backup_archive.dart (FLB1, no dart:io in it) ·
+  <b>Reading and writing the disk</b> lib/services/backup_service.dart ·
+  <b>Screen</b> lib/screens/backup_screen.dart
+groups:
+- name: What it does
+  items:
+  - id: backup-is-one-file
+    t: A backup is one file, holding everything the app knows
+    d: >-
+      the database itself — every session and set you have logged, every routine,
+      workout and slot, your exercises and their notes and bars, the settings, the
+      custom themes. It is a zip carrying the database file beside a small
+      manifest that says which format and which schema version wrote it. A zip
+      rather than something with the app's own name on the end because it has to
+      survive being mailed, dropped in Drive and handed back by a file picker, and
+      every one of those handles a zip.
+    defines:
+    - share.backup-file
+    uses:
+    - storage.schema
+  - id: backup-goes-where-you-say
+    t: It goes wherever you send it, and the app keeps no copy
+    d: >-
+      Save hands the file to the phone's own share sheet — Drive, a cable, a
+      message to yourself. Nothing is uploaded and nothing is kept: a backup left
+      in app storage is a backup that goes with the uninstall it exists for. The
+      file is named for the day it was made, so a folder of them sorts.
+    screen: system
+    uses:
+    - share.backup-file
+  - id: videos-left-out-by-default
+    t: Set videos are left out unless you ask for them
+    d: >-
+      a training log is kilobytes and a reel of clips is hundreds of megabytes, so
+      the useful backup is the one that fits in a message. The row says so rather
+      than leaving you to find out from the file size.
+    uses:
+    - share.backup-file
+    - video.storage
+  - id: videos-optional-and-sized
+    t: They can be included, and the size is stated before you commit
+    d: >-
+      the tick adds every clip to the file, and the size beside it is what is
+      going in — the database plus the clips, measured off the disk rather than
+      guessed at, with the file itself coming out somewhat smaller because it is
+      compressed. Past a couple of hundred megabytes it also says plainly that a
+      file that size is one many apps will refuse to send.
+    uses:
+    - share.backup-file
+    - video.storage
+  - id: restore-replaces-everything
+    t: Restore replaces everything on the phone
+    d: >-
+      not a merge — there is no answer to "which of these two versions of last
+      Tuesday is right" that is better than picking one. It asks first, in those
+      words, and what it says it will do is what it does: after it, the phone holds
+      what the backup holds.
+    defines:
+    - share.restore
+    uses:
+    - share.backup-file
+  - id: restore-brings-clips-back-if-they-are-in-it
+    t: Clips come back only if they were put in
+    d: >-
+      restoring a backup made with clips writes them beside the sets that point at
+      them. Restoring one made without them onto the phone that filmed them still
+      finds them, because a clip is stored as a path relative to app storage rather
+      than an absolute one — and onto a phone that never had them, the sets simply
+      have no clip, which is a state the app already draws (no play button for a
+      file that is not there).
+    uses:
+    - share.restore
+    - video.storage
+    - platform.portability
+- name: What it refuses
+  items:
+  - id: restore-refuses-a-newer-backup
+    t: A backup from a newer version is refused, not half-read
+    d: >-
+      the manifest carries the schema version that wrote it. A file from a build
+      newer than this one describes tables this one has never heard of, and the
+      migration ladder only climbs — so it is turned down with a sentence saying
+      why, rather than opened and found to be wrong later. An older backup is fine:
+      it is opened by the same ladder that upgrades a database in place, so a file
+      made two versions ago restores onto today's build.
+    uses:
+    - share.restore
+    - storage.schema
+  - id: restore-refuses-anything-that-is-not-a-backup
+    t: A file that is not a backup is refused by what is in it
+    d: >-
+      the check is the manifest, not the file's name: a renamed zip, a photo, a
+      routine code saved as a file are all turned down the same way. Nothing is
+      touched until the file has been read and found to be a backup, so a refusal
+      leaves the phone exactly as it was.
+    uses:
+    - share.restore
+  - id: restore-refuses-during-a-workout
+    t: It will not restore over a running workout
+    d: >-
+      the live session is in memory and is not history until Finish, so replacing
+      the database under it would throw the session away as a side effect of a
+      button that says nothing about sessions. Finish or abandon it first; the
+      screen says which.
+    uses:
+    - share.restore
+    - session.live-state
+- name: Behaviour &amp; edge cases
+  items:
+  - id: backup-only-on-a-build-with-files
+    t: The section is absent where there is no filesystem to put a file on
+    d: >-
+      the web build has no app storage to read a database out of, so it does not
+      offer a backup it could not make. Profile simply has one row fewer.
+    screen: profile
+    uses:
+    - share.backup-file
+    - platform.web
+  - id: backup-is-offline-like-everything-else
+    t: Nothing about it touches the network
+    d: >-
+      the file is built on the phone and handed to whatever you pick out of the
+      share sheet. If that is a cloud drive, it is your cloud drive and your
+      choice; the app has no account and no server to send it to.
+    screen: none
+    uses:
+    - share.backup-file
+    - privacy.offline

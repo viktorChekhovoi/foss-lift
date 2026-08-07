@@ -2329,6 +2329,22 @@ class AppDatabase extends _$AppDatabase {
   Future<void> clearLiveSession() =>
       customStatement('DELETE FROM live_sessions');
 
+  /// Writes a consistent copy of the whole database to [path], for a backup.
+  ///
+  /// **`VACUUM INTO`, not a file copy.** The database is open and being written
+  /// to while this runs, and SQLite keeps recent writes in a journal beside the
+  /// main file until they are checkpointed — so copying the file on its own can
+  /// produce a database that is missing the last thing you logged, or one that
+  /// is torn between the two. `VACUUM INTO` is SQLite's own answer: it walks the
+  /// live database under a read transaction and writes a compact, complete copy
+  /// of it, with nothing to reassemble afterwards.
+  ///
+  /// The path is bound rather than pasted into the statement — a temporary
+  /// directory on iOS has a container UUID in it, and a path is not something to
+  /// be quoting by hand.
+  Future<void> snapshotTo(String path) =>
+      customStatement('VACUUM INTO ?', [path]);
+
   /// Selects a shipped preset, or `custom:<n>` for one of the user's own, as
   /// the active theme. Passing null falls back to the system default. Nothing
   /// stored in [CustomThemes] is touched, so switching away and back is

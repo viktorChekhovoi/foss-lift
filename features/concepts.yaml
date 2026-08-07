@@ -448,6 +448,20 @@ concepts:
     what: A fosslift:// link the OS hands the app.
     code: [lib/services/deep_links.dart]
 
+  - id: share.backup-file
+    area: share
+    what: >-
+      The FLB1 backup file — what goes in it, the manifest that says which
+      schema wrote it, and how it is built.
+    code: [lib/data/backup_archive.dart, lib/services/backup_service.dart]
+
+  - id: share.restore
+    area: share
+    what: >-
+      Reading a backup back onto the phone: what it refuses, and the swap that
+      replaces the live database with the one in the file.
+    code: [lib/services/backup_service.dart, lib/screens/backup_screen.dart]
+
   - id: share.import-review
     area: share
     what: The screen that shows what a code contains before anything is added.

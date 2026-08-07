@@ -2457,6 +2457,88 @@
   "@profileAppearance": {
     "description": "Row on the profile screen leading to the color theme settings."
   },
+  "profileBackup": "Backup & restore",
+  "@profileBackup": {
+    "description": "Row on the profile screen leading to the backup screen, where the app's data is saved to a file or read back from one."
+  },
+  "backupTitle": "Backup & restore",
+  "@backupTitle": {
+    "description": "Title of the backup screen. Same words as profileBackup, which is the row that opens it."
+  },
+  "backupSaveHeading": "Save a backup",
+  "@backupSaveHeading": {
+    "description": "Small heading over the half of the backup screen that writes a file. Three words at most."
+  },
+  "backupSize": "About {size}",
+  "@backupSize": {
+    "description": "The size the backup will come to, shown before it is made. {size} arrives already formatted with its unit — '1.4 MB' — and the unit symbols are not translated. 'About' because compression makes the file somewhat smaller.",
+    "placeholders": {
+      "size": {
+        "type": "String",
+        "example": "1.4 MB"
+      }
+    }
+  },
+  "backupIncludeVideos": "Include set videos",
+  "@backupIncludeVideos": {
+    "description": "Label of the checkbox that adds filmed sets to the backup. 'Set videos' is the same thing videoSettingsTitle configures."
+  },
+  "backupVideosLeftOut": "Set videos are not included.",
+  "@backupVideosLeftOut": {
+    "description": "Shown under the checkbox while it is unticked, so the omission is known before the file is made rather than after it is restored. One sentence."
+  },
+  "backupTooBig": "Larger than many apps will send.",
+  "@backupTooBig": {
+    "description": "Warning shown when the backup would be over about 200 MB — mail and chat apps refuse a file that size. One sentence; it is a caution, not a refusal, and the file can still be made."
+  },
+  "backupSave": "Save",
+  "@backupSave": {
+    "description": "Button that builds the backup and hands it to the phone's share sheet. One word."
+  },
+  "backupSaveFailed": "Could not write the backup.",
+  "@backupSaveFailed": {
+    "description": "Shown when building the backup file fails — no room on the phone, or a directory that cannot be written to. One sentence."
+  },
+  "backupRestoreHeading": "Restore from a backup",
+  "@backupRestoreHeading": {
+    "description": "Small heading over the half of the backup screen that reads a file back."
+  },
+  "backupRestoreReplaces": "Replaces everything on this phone.",
+  "@backupRestoreReplaces": {
+    "description": "The one line under the restore heading. Restoring is not a merge: what the backup holds is what the phone holds afterwards."
+  },
+  "backupChooseFile": "Choose a file",
+  "@backupChooseFile": {
+    "description": "Button that opens the phone's file picker to choose a backup to restore. Two or three words."
+  },
+  "backupReplaceTitle": "Replace everything?",
+  "@backupReplaceTitle": {
+    "description": "Title of the dialog that confirms a restore, asked before anything is written."
+  },
+  "backupReplaceBody": "Your log, routines and settings are replaced by the backup. This cannot be undone.",
+  "@backupReplaceBody": {
+    "description": "Body of the restore confirmation. 'Log' is the training history. Two short sentences."
+  },
+  "backupReplaceConfirm": "Restore",
+  "@backupReplaceConfirm": {
+    "description": "The button that goes ahead with the restore, in the confirmation dialog. One word."
+  },
+  "backupRestored": "Restored.",
+  "@backupRestored": {
+    "description": "Confirmation shown briefly once a backup has been read back. One word."
+  },
+  "backupNotABackup": "That file is not a Foss Lift backup.",
+  "@backupNotABackup": {
+    "description": "Shown when the chosen file has nothing in it saying it is a backup — a photo, a renamed zip. 'Foss Lift' is the app's name and is not translated."
+  },
+  "backupFromNewerVersion": "That backup was made by a newer version of Foss Lift.",
+  "@backupFromNewerVersion": {
+    "description": "Shown when the chosen backup came from a newer build of the app, which this one cannot read. 'Foss Lift' is the app's name and is not translated."
+  },
+  "backupFinishWorkoutFirst": "Finish or abandon the workout first.",
+  "@backupFinishWorkoutFirst": {
+    "description": "Shown when a restore is asked for while a workout is running. The live workout is only written to history when it is finished, so replacing the database under it would throw it away. 'Finish' and 'abandon' are the two words the session screen uses — sessionFinish and sessionAbort."
+  },
   "aboutTitle": "About Foss Lift",
   "@aboutTitle": {
     "description": "Title of the about screen, and the profile row that opens it. 'Foss Lift' is the app's name and stays as it is; translate only 'About'."

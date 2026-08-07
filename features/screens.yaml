@@ -124,6 +124,11 @@ screens:
     route: /settings
     reach: Profile → Exercise settings.
 
+  - id: backup
+    title: Backup & restore
+    route: /backup
+    reach: Profile → Backup & restore.
+
   - id: bar-settings
     title: Bar & plates
     route: /settings/bar

@@ -42,6 +42,7 @@ lib/
 │   ├── routine_code.dart         FLR1 — a whole routine as one line of text
 │   │                             (the prescription only: no weights travel)
 │   ├── routine_import.dart       Routine ⇄ database, and what to do about clashes
+│   ├── backup_archive.dart       FLB1 — what a backup file is, without the disk
 │   ├── progression.dart          Progression modes + the step/deload rules
 │   ├── layoff.dart               Gap → back-off: the rules for coming back
 │   ├── plates.dart               Weight types + what goes on each side of a bar
@@ -57,6 +58,7 @@ lib/
 │   ├── rest_alarm.dart           The silent notification beside it, off screen
 │   ├── rest_buzz.dart            The vibration beside both, wherever the phone is
 │   ├── workout_shade.dart        The live workout as an Android foreground service
+│   ├── backup_service.dart       Writing a backup file, and reading one back
 │   ├── notifications.dart        The notification plugin's one initialize
 │   ├── deep_links.dart           fosslift:// links → in-app routes
 │   ├── qr_decoder.dart           Camera frame → the string in a QR code
@@ -556,6 +558,7 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | `/history` | history_screen | Past sessions |
 | `/profile` | profile_screen | Stats + settings entry points |
 | `/about` | about_screen | What the app does with your data, licence, bug report |
+| `/backup` | backup_screen | Save everything to a file, or replace everything from one |
 | `/settings` | exercise_settings_screen | The training settings: kg/lb toggle, bar & plates, set videos, layoff deload rules |
 | `/settings/bar` | bar_settings_screen | The gym's bars, and which is the default |
 | `/settings/plates` | plate_inventory_screen | The plates the gym owns, per unit |

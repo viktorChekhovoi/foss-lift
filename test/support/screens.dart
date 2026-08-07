@@ -6,6 +6,7 @@
 // list lives here and both read it. A screen added to the app is added once.
 import 'package:flutter/material.dart';
 import 'package:foss_lift/screens/about_screen.dart';
+import 'package:foss_lift/screens/backup_screen.dart';
 import 'package:foss_lift/screens/bar_settings_screen.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/exercise_form_screen.dart';
@@ -39,6 +40,9 @@ final Map<String, Widget Function()> kSweepScreens = {
   'theme': () => const AppearanceScreen(),
   'language': () => const LanguageScreen(),
   'about': () => const AboutScreen(),
+  // The size it would report needs a filesystem, which a test runner has no
+  // plugin for; the screen renders '…' in its place and the words are the point.
+  'backup': () => const BackupScreen(),
   'exercise form': () => const ExerciseFormScreen(),
   // A fresh database has never been asked which unit it trains in, so the gate
   // renders the question rather than its child — which is the thing to sweep.

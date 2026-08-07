@@ -32,6 +32,15 @@ a short code; that code can be shown on screen, copied to your clipboard, or han
 - **A code does not contain personal data.** It includes workout routine details or color theme configuration. No workout history or recorded video clips are shared.
 
 
+## Backups you make yourself
+
+Profile → Backup & restore writes everything the app holds — your training history, your routines and exercises, your settings and themes — into a single file, and optionally the clips you have filmed as well. This is the one feature that can carry your log off the phone, so it works only when you ask it to.
+
+- **The file is built on your phone and handed straight to the share sheet.** Where it goes from there is your choice: a cable, a message to yourself, a cloud drive. Foss Lift has no account and no server, and it cannot upload anything.
+- **The app keeps no copy.** The file is written to temporary storage on the way to the share sheet and is not retained.
+- **A backup does contain personal data** — it is your whole training log — so treat it the way you would treat any file with your data in it. It is not encrypted.
+- **Restoring replaces what is on the phone**, and the app asks before it does.
+
 ## Network access
 
 Foss Lift is built **without the Android `INTERNET` permission**, so it is incapable of making a network connection.

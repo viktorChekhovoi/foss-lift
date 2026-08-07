@@ -94,6 +94,14 @@ class ProfileScreen extends ConsumerWidget {
             label: l10n.profileAppearance,
             onTap: () => context.push('/settings/appearance'),
           ),
+          // Absent where there is no filesystem to write a file to: the browser
+          // build has no database file to copy and nowhere to put one.
+          if (ref.watch(capabilitiesProvider).localFiles)
+            _SettingsTile(
+              icon: Icons.save_alt_rounded,
+              label: l10n.profileBackup,
+              onTap: () => context.push('/backup'),
+            ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             label: l10n.aboutTitle,
