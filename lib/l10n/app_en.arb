@@ -2487,9 +2487,15 @@
   "@backupVideosLeftOut": {
     "description": "Shown under the checkbox while it is unticked, so the omission is known before the file is made rather than after it is restored. One sentence."
   },
-  "backupTooBig": "Too big to email or message — save it to a drive.",
+  "backupTooBig": "Warning: backup exceeds {limit}. Consider excluding set videos.",
   "@backupTooBig": {
-    "description": "Warning shown when the backup would be over about 200 MB, which mail and chat apps refuse to attach. It names the way that does work — a cloud drive, or the phone's own storage picked out of the share sheet. One line; it is a caution rather than a refusal, and the file can still be made."
+    "description": "Warning shown when the backup would be over the size mail and chat apps stop accepting, which is what {limit} is — already formatted with its unit, '200 MB'. It only appears when set videos are ticked in, so leaving them out is the fix it names. A caution rather than a refusal: the file can still be made.",
+    "placeholders": {
+      "limit": {
+        "type": "String",
+        "example": "200 MB"
+      }
+    }
   },
   "backupSave": "Save",
   "@backupSave": {

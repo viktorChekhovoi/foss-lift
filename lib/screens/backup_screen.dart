@@ -82,7 +82,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             // when a restore has no clips in it.
             if (!_clips) _Note(l10n.backupVideosLeftOut),
             if (_clips && (bytes ?? 0) > kBackupLargeBytes)
-              _Note(l10n.backupTooBig, warn: true),
+              _Note(
+                l10n.backupTooBig(fmtBytes(kBackupLargeBytes)),
+                warn: true,
+              ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _busy ? null : () => _save(l10n),

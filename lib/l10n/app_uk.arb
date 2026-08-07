@@ -509,7 +509,7 @@
   "backupSize": "Близько {size}",
   "backupIncludeVideos": "Додати відео підходів",
   "backupVideosLeftOut": "Відео підходів не додаються.",
-  "backupTooBig": "Завеликий для пошти чи повідомлення — збережіть на диск.",
+  "backupTooBig": "Увага: копія перевищує {limit}. Радимо не додавати відео підходів.",
   "backupSave": "Зберегти",
   "backupSaveFailed": "Не вдалося записати копію.",
   "backupRestoreHeading": "Відновити з копії",

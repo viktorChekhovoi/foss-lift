@@ -365,7 +365,10 @@ void main() {
       await tester.tap(find.text(l10n.backupIncludeVideos));
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.backupTooBig), findsOneWidget);
+      expect(
+        find.text(l10n.backupTooBig(fmtBytes(kBackupLargeBytes))),
+        findsOneWidget,
+      );
     });
 
     testWidgets('and it will not restore over a running workout', (

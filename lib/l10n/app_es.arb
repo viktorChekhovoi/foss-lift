@@ -509,7 +509,7 @@
   "backupSize": "Unos {size}",
   "backupIncludeVideos": "Incluir vídeos de series",
   "backupVideosLeftOut": "Los vídeos de series no se incluyen.",
-  "backupTooBig": "Demasiado grande para correo o mensajería: guárdalo en una unidad.",
+  "backupTooBig": "Aviso: la copia supera {limit}. Considera excluir los vídeos de series.",
   "backupSave": "Guardar",
   "backupSaveFailed": "No se pudo escribir la copia.",
   "backupRestoreHeading": "Restaurar desde una copia",

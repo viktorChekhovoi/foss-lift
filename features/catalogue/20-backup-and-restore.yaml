@@ -57,9 +57,9 @@ groups:
       the tick adds every clip to the file, and the size beside it is what is
       going in — the database plus the clips, measured off the disk rather than
       guessed at, with the file itself coming out somewhat smaller because it is
-      compressed. Past a couple of hundred megabytes it says what a file that
-      size means for getting it off the phone: mail and chat will not take it, so
-      it wants a drive.
+      compressed. Past the size mail and chat stop accepting, it warns — naming
+      that size, and naming the one thing that would bring the file back under
+      it, which is the clips that were just ticked in.
     uses:
     - share.backup-file
     - video.storage
