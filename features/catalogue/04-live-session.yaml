@@ -19,6 +19,7 @@ code:
 - lib/screens/exercise_settings_screen.dart
 test:
 - test/feature_04_live_session_test.dart
+- test/feature_04_clocks_test.dart
 - test/feature_04_shade_permission_test.dart
 - test/feature_04_rest_alarm_test.dart
 where: >-
@@ -88,10 +89,12 @@ groups:
   - id: tracks-duration-set-count-live
     t: Tracks duration and set count live
     d: >-
-      a 1-second timer ticks the elapsed time; the set counter updates as you
-      log.
+      the elapsed time is refreshed every second off the clock, so it says how
+      long you have been training rather than how long the app has been
+      counting; the set counter updates as you log.
     uses:
     - session.live-state
+    - session.rest-timer
   - id: runs-rest-timer
     t: Runs a rest timer
     d: >-
@@ -183,6 +186,16 @@ groups:
       and a mid-session crash can't leave half-saved rows.
     defines:
     - session.live-state
+  - id: recorded-duration-is-real-time
+    t: The duration a workout is filed under is the time it really took
+    d: >-
+      what Finish writes down is the session's own clock, and that clock follows
+      the time of day rather than a count of the seconds the app was awake for.
+      So a workout you left the app during is recorded at its true length, not
+      at the shorter one a stalled counter would have reached.
+    uses:
+    - session.live-state
+    - history.session-record
   - id: session-survives-being-killed
     t: A workout survives the app being killed
     d: >-
@@ -476,6 +489,30 @@ groups:
       by a widget dies with the widget.
     uses:
     - session.live-state
+  - id: clocks-read-the-time-rather-than-count
+    t: Both clocks read the time rather than counting their own ticks
+    d: >-
+      a rest knows the moment it is due to end, and the session knows when it
+      began, so each works out where it stands from the clock on every tick
+      instead of taking a second off a number. A minute the app did not get to
+      run — a machine asleep, a phone busy, a browser tab put in the background
+      and slowed down — is a minute that still passed, and both come back
+      reading what they should rather than however far they happened to get.
+      This is the same rule the crash snapshot has always followed on the way
+      back in; it now holds while the app is running too.
+    uses:
+    - session.rest-timer
+    - session.live-state
+  - id: a-rest-that-ends-unwatched-ends-once
+    t: A rest that ends while nothing is watching still ends, once
+    d: >-
+      if the tick that should have noticed arrives late, the rest is over as of
+      the moment it was due, not the moment anyone looked — and it announces
+      itself a single time however long the gap was, rather than once for each
+      second nobody counted.
+    uses:
+    - session.rest-timer
+    - session.rest-sound
   - id: rest-says-what-between-warm
     t: A rest says what it is for
     d: >-

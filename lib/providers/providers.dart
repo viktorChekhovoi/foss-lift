@@ -13,6 +13,8 @@ import '../l10n/app_localizations.dart';
 import '../services/reminders.dart';
 import '../services/set_video_store.dart';
 import '../services/set_video_thumbnails.dart';
+import '../services/storage_health.dart';
+import '../services/tab_awake.dart';
 import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
@@ -26,12 +28,17 @@ import 'db_provider.dart';
 export 'db_provider.dart' show databaseProvider;
 // The rest clock lives on the session controller, so the two providers it needs
 // live beside it — see the note on db_provider.dart for why that shape exists.
-export '../state/active_workout.dart' show restToneProvider;
+export '../state/active_workout.dart' show restToneProvider, clockProvider;
 // The live session's crash snapshot, for the same reason: it is the session's
 // own, and the controller above is what drives it.
 export '../state/session_mirror.dart';
 export '../services/set_video_store.dart';
 export '../services/set_video_thumbnails.dart';
+// The durability model travels with the provider that answers it — a caller
+// reading storageHealthProvider needs the enum to switch on.
+export '../services/storage_health.dart';
+// The keepalive's own type, for a caller that asks whether this build has one.
+export '../services/tab_awake.dart';
 
 /// All routines with their workout counts (Today + Routines tabs).
 final routinesProvider = StreamProvider<List<RoutineWithCount>>((ref) {
@@ -161,6 +168,20 @@ final currentRoutineProvider = Provider<RoutineWithCount?>((ref) {
   return null;
 });
 
+/// Whether the storage under the database can be relied on, asked once.
+///
+/// A `FutureProvider` because the browser half of the answer is a round trip:
+/// `navigator.storage.persist()` is a promise, and on Firefox it can be a
+/// permission prompt the user has to answer. Off the web it resolves
+/// immediately with a constant — see `services/storage_health.dart`.
+///
+/// Asked once per launch and cached by Riverpod, which is what keeps the
+/// request from being repeated at every rebuild of the screen that shows the
+/// warning.
+final storageHealthProvider = FutureProvider<StorageHealth>(
+  (ref) => probeStorageHealth(),
+);
+
 /// What this build can do — see `util/capabilities.dart`.
 ///
 /// A provider rather than a bare constant so a test can mount a screen as the
@@ -219,6 +240,32 @@ final workoutShadeProvider = Provider<WorkoutShade>((ref) => WorkoutShade());
 /// nothing, so nothing in the provider layer has to know a router exists and a
 /// screen pumped on its own in a test is never navigated out from under.
 final openSessionProvider = Provider<void Function()>((ref) => () {});
+
+/// The thing that stops a browser slowing this session's clocks down — see
+/// [TabAwake]. One per scope, released with it.
+final tabAwakeProvider = Provider<TabAwake>((ref) {
+  final keeper = TabAwake();
+  ref.onDispose(keeper.dispose);
+  return keeper;
+});
+
+/// Holds the tab awake for exactly as long as there is a session.
+///
+/// Watch it somewhere permanent; see `main.dart`. Nothing reads its value — the
+/// same shape as [workoutShadeSyncProvider], and for the same reason: what
+/// starts and ends a session is scattered, and one watcher is cheaper than
+/// remembering to release in the fifth place a session can end.
+/// No `TabAwake.supported` check: the phone implementation is a no-op by
+/// construction, so asking it to hold costs nothing and the branch would only
+/// be a second place for the two to disagree.
+final tabAwakeSyncProvider = Provider<void>((ref) {
+  final keeper = ref.watch(tabAwakeProvider);
+  if (ref.watch(activeWorkoutProvider) == null) {
+    keeper.release();
+  } else {
+    keeper.hold();
+  }
+});
 
 /// Keeps the shade in step with the session, and routes its two buttons back.
 ///

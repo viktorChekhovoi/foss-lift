@@ -19,10 +19,16 @@ groups:
     t: Makes no network connections and collects nothing
     d: >-
       no account, no server, no analytics — nothing to sign in to and nothing to
-      configure, and the app works fully offline.
+      configure, and the app works fully offline. Nothing in the app is allowed
+      to so much as import a way of making a request; the two files that reach
+      the browser's own APIs for the web build are named one by one and held to
+      a stricter rule instead, so an exemption is a decision somebody made
+      rather than a gap that opened.
     screen: none
     defines:
     - privacy.offline
+    uses:
+    - platform.web
   - id: stores-all-data-device
     t: Stores all data on the machine you are using
     d: >-

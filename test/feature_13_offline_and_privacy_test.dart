@@ -41,11 +41,40 @@ void main() {
         'WebSocket',
       ];
 
+      // The web build has to reach the browser directly for two things, and
+      // `package:web` is the only way to do it: the `beforeunload` listener
+      // behind the leave guard, and `navigator.storage` behind the durability
+      // check. Neither is networking, but the package that carries them also
+      // carries `fetch` — so these files are exempted from the blanket ban by
+      // name and held to the stricter check below instead.
+      //
+      // Adding a file here is a decision, not a formality: it is the one place
+      // that records which parts of the app can see the network API at all.
+      const browserApiFiles = <String>{
+        'lib/util/leave_guard_web.dart',
+        'lib/services/storage_probe_web.dart',
+        'lib/services/tab_awake_web.dart',
+      };
+
+      // What those files must still never touch. Narrower than the list above
+      // and aimed at the actual verbs — anything here would be an outbound
+      // request, whatever it was imported for.
+      const forbiddenBrowserApis = <String>[
+        'fetch(',
+        'XMLHttpRequest',
+        'WebSocket',
+        'EventSource',
+        'sendBeacon',
+        'importScripts',
+        'navigator.connection',
+      ];
+
       final offenders = <String>[];
       for (final entity in lib.listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final source = entity.readAsStringSync();
-        for (final marker in forbidden) {
+        final exempt = browserApiFiles.contains(entity.path);
+        for (final marker in exempt ? forbiddenBrowserApis : forbidden) {
           if (source.contains(marker)) {
             offenders.add('${entity.path} contains "$marker"');
           }
@@ -55,6 +84,20 @@ void main() {
       expect(offenders, isEmpty,
           reason: 'the app must make no network connections:\n'
               '${offenders.join('\n')}');
+    });
+
+    test('the browser-API exemption names files that exist', () {
+      // A path that stops existing would silently exempt nothing and look
+      // clean, which is the failure mode that matters for an allowlist.
+      for (final path in const [
+        'lib/util/leave_guard_web.dart',
+        'lib/services/storage_probe_web.dart',
+        'lib/services/tab_awake_web.dart',
+      ]) {
+        expect(File(path).existsSync(), isTrue,
+            reason: '$path is exempted from the networking-import ban but is '
+                'not there — remove the exemption or fix the path');
+      }
     });
   });
 

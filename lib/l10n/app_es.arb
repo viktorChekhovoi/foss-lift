@@ -702,5 +702,8 @@
   "tutorialBuildOpenTitle": "Dónde viven las rutinas",
   "tutorialBuildOpenBody": "Desde Hoy, toca Rutinas. Aquí están todos tus programas, y aquí es donde creas el tuyo.",
   "tutorialBuildSaveDayTitle": "Guarda el día",
-  "tutorialBuildSaveDayBody": "Ya tienes un día de entrenamiento. Al guardarlo vuelves a la rutina, donde añades el siguiente."
+  "tutorialBuildSaveDayBody": "Ya tienes un día de entrenamiento. Al guardarlo vuelves a la rutina, donde añades el siguiente.",
+  "commonDismiss": "Descartar",
+  "storageEphemeralWarning": "Este navegador no tiene dónde guardar tu entrenamiento. Todo lo que registres se perderá al cerrar la pestaña.",
+  "storageEvictableNotice": "Este navegador no ha prometido conservar tu entrenamiento. Debería sobrevivir, pero borrar los datos del sitio o quedarte sin espacio se lo llevaría."
 }

@@ -12,6 +12,7 @@ import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
+import '../widgets/storage_warning.dart';
 import '../widgets/tutorial.dart';
 import '../widgets/workout_estimate.dart';
 
@@ -34,6 +35,10 @@ class TodayScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           ScreenHeader(eyebrow: eyebrow, title: l10n.todayTitle),
+          // Above everything a session could be started from, because that is
+          // the point of it: a browser that cannot keep the log has to say so
+          // before somebody trains into it. Nothing off the web.
+          const StorageWarning(),
           if (current != null)
             _CurrentRoutineSection(current: current)
           else

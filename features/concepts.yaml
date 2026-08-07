@@ -497,12 +497,35 @@ concepts:
       app cannot get there is left absent rather than broken.
     code: [lib/util/capabilities.dart, lib/data/db_open_web.dart]
 
+  - id: platform.tab-awake
+    area: platform
+    what: >-
+      Keeping a browser from slowing the app's clocks down while a workout is
+      running, and what that costs.
+    code: [lib/services/tab_awake.dart]
+
+  - id: platform.leave-guard
+    area: platform
+    what: >-
+      Work the app would lose if the page went away, and the browser's own
+      warning raised over it. A register of what counts, and the one listener
+      armed while the register is not empty.
+    code: [lib/state/unsaved_work.dart, lib/util/leave_guard.dart]
+
   - id: storage.database-location
     area: platform
     what: >-
       Where the SQLite file actually lives, and the per-platform opener that
       decides it.
     code: [lib/data/db_open.dart, lib/data/db_open_native.dart, lib/data/db_open_web.dart]
+
+  - id: storage.durability
+    area: platform
+    what: >-
+      Whether what is stored will still be there next time — the browser's
+      promise not to evict it, asked for once, and what the app says when the
+      answer is no.
+    code: [lib/services/storage_health.dart, lib/data/db_open_web.dart]
 
   - id: storage.settings
     area: platform

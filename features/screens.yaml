@@ -195,7 +195,7 @@ screens:
   - id: system
     title: Outside the app
     route: null
-    reach: The phone's own surfaces — permission dialogs, share sheet, volume and Do Not Disturb.
+    reach: The phone's own surfaces — permission dialogs, share sheet, volume and Do Not Disturb. In the browser build, the browser's own — the dialog it raises before leaving a page.
 
   # A pure rule with no surface of its own. Items tagged `none` stay in the
   # catalogue and out of the walkthrough: a solver's tie-breaking is real and

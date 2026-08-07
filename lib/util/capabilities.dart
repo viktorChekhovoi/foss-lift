@@ -28,6 +28,7 @@ class Capabilities {
     required this.shade,
     required this.backgroundAlerts,
     required this.localFiles,
+    required this.leaveGuard,
   });
 
   /// A phone: everything the app was written for.
@@ -38,6 +39,8 @@ class Capabilities {
     shade: true,
     backgroundAlerts: true,
     localFiles: true,
+    // The one that runs the other way — see [leaveGuard].
+    leaveGuard: false,
   );
 
   /// A browser tab. See `docs/web-build.md` for why each of these is false and
@@ -49,6 +52,7 @@ class Capabilities {
     shade: false,
     backgroundAlerts: false,
     localFiles: false,
+    leaveGuard: true,
   );
 
   /// A routine may ask to be reminded on its training days.
@@ -72,6 +76,16 @@ class Capabilities {
 
   /// The app has a private directory it can write files into.
   final bool localFiles;
+
+  /// Leaving the app can be objected to before it happens.
+  ///
+  /// **This is the one that is true on the web and false on a phone**, which is
+  /// why it reads oddly beside the others. A browser tab can be reloaded or
+  /// closed out from under a live session, and `beforeunload` is a real hook to
+  /// intercept that with. Android has no equivalent worth having: switching
+  /// away does not end the app, the session survives in memory, and a swipe out
+  /// of the recents list is not something an app is consulted about.
+  final bool leaveGuard;
 }
 
 /// The capabilities of the build that is running.

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../state/unsaved_work.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
@@ -20,7 +21,8 @@ class WorkoutEditScreen extends ConsumerStatefulWidget {
   ConsumerState<WorkoutEditScreen> createState() => _WorkoutEditScreenState();
 }
 
-class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
+class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
+    with TracksUnsavedEdits {
   final _name = TextEditingController();
   final List<ItemDraft> _items = [];
   int _routineId = 0;
@@ -37,6 +39,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
   @override
   void initState() {
     super.initState();
+    _name.addListener(markEdited);
     _load();
   }
 
@@ -57,6 +60,9 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
         ..addAll(items.map(ItemDraft.fromView));
       _loaded = true;
     });
+    // Filling the field moved the controller, which is not an edit — see the
+    // same note in exercise_form_screen.dart.
+    markSaved();
   }
 
   @override
@@ -84,6 +90,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
         defaultBarKg: ref.read(plateSettingsProvider).barKg,
       ),
     );
+    markSaved();
     if (mounted) context.pop();
   }
 
@@ -158,6 +165,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
                           items: _items,
                           unit: unit,
                           routineRest: _routineRest,
+                          onChanged: markEdited,
                         ),
                       ],
                     ),

@@ -18,7 +18,7 @@ The flag is not optional — see [The engine has to be local](#the-engine-has-to
 
 ## What works
 
-Everything except the four things in [What a web user loses](#what-a-web-user-loses).
+Everything except the five things in [What a web user loses](#what-a-web-user-loses).
 The routine builder, the live board, the plate maths, progression, layoff
 deloads, warm-up ramps, history and charts, themes, text scaling and all five
 languages are the same widgets compiled for a different target.
@@ -60,9 +60,28 @@ migrates up when OPFS becomes reachable.
 
 Both OPFS and IndexedDB live in the origin's storage bucket. **Clearing site
 data deletes the training log**, and eviction under storage pressure takes the
-whole bucket at once. A private window starts empty every time. drift's docs do
-not address eviction; `navigator.storage.persist()` is the standard mitigation
-and nothing here calls it yet.
+whole bucket at once. A private window starts empty every time.
+
+`lib/services/storage_probe_web.dart` asks for the eviction exemption on first
+run: `persisted()` first, then `persist()` only if the origin does not already
+hold it — the request is not free, and Firefox turns it into a permission
+prompt. The answer is not guaranteed and a refusal is ordinary: Chrome decides
+from its own engagement heuristics and usually says no to a site you have just
+opened, Safari grants it on recent use, Firefox asks.
+
+Whatever comes back is classified into three states by
+`lib/services/storage_health.dart`, and the top of the Today screen says so when
+it is not the first:
+
+| State | What happened | What the app shows |
+|---|---|---|
+| `durable` | a phone, or a browser that granted the exemption | nothing |
+| `evictable` | real storage, exemption refused | a note you can dismiss for the session |
+| `ephemeral` | drift landed on `inMemory` — nothing is written down | a warning that stays |
+
+The dismissal is held in memory for the run, not in the database. Persisting it
+would mean a settings column and a migration rung, for a preference about a
+warning that lives in the very storage the warning is about.
 
 This is the honest cost of having no server, and it is why the Android build is
 the one to actually train off. The browser build is for trying the app, and for
@@ -70,7 +89,7 @@ a desktop machine at a laptop.
 
 ## What a web user loses
 
-Four things, each because the browser cannot do it — not because the port is
+Five things, each because the browser cannot do it — not because the port is
 incomplete. `lib/util/capabilities.dart` states them once; the screens ask it,
 so every affected control is *absent* rather than present and broken.
 
@@ -78,13 +97,81 @@ so every affected control is *absent* rather than present and broken.
 |---|---|---|
 | **Reminders** | a reminder is a scheduled local notification | the weekday schedule still edits and still travels in a share code |
 | **Set videos** | filming writes a file into app storage; `path_provider` has no web implementation | history and progression never needed a clip |
-| **QR scanning** | the scanner reads camera frames one at a time (`startImageStream`), unsupported on web | pasting a code, and *showing* a QR, both work |
-| **The workout shade** | a foreground service, and the rest ding that depends on it | the session is in memory and survives being collapsed, exactly as on a phone |
+| **QR scanning** | `camera_web` throws `UnimplementedError` from `startImageStream`, and the decoder needs the frames | pasting a code, and *showing* a QR, both work |
+| **The workout shade** | a foreground service — nothing can drive the session from outside the tab | the session is in memory and survives being collapsed, exactly as on a phone |
+| **A prompt ding off-screen** | a hidden tab's timers are throttled, and iOS Safari suspends its audio outright | the clocks stay correct regardless, and Chrome is kept at full speed while a workout runs — see [Clocks and background tabs](#clocks-and-background-tabs) |
 
-The rest tone is also silent: `RestTone.supported` was already false off
-Android and iOS, so a rest on the web is a timer you watch. `audioplayers` does
-support the web, so this is a decision that could be revisited rather than a
-wall.
+**Scanning is a plugin gap, not a browser limit.** A browser opens a camera
+perfectly well over HTTPS; what `camera_web` (0.3.5+4) will not do is hand over
+frames one at a time — `startImageStream` throws outright. Two ways out if this
+is ever worth building: the browser's own `BarcodeDetector`, which does the
+decoding but is absent on Safari/iOS, or drawing the video element onto a canvas
+and feeding the pixels to `zxing2` by hand, which works everywhere and means a
+web-only path beside the native scanner.
+
+**The rest tone does play.** `audioplayers` has a web implementation and the
+asset sounds in a browser like it does on a phone. Audio needs the page to have
+been interacted with first, and starting a workout is that interaction, so
+nothing has to be arranged. The predicate is `restToneSupportedOn` in
+`lib/services/rest_tone.dart`, taking `isWeb` and the platform as arguments so
+the decision is testable off the platform it describes.
+
+`Capabilities.backgroundAlerts` stays **false** on the web all the same — see
+[Clocks and background tabs](#clocks-and-background-tabs) for why that is a
+statement about the clock rather than about the speaker.
+
+## Clocks and background tabs
+
+A browser slows a hidden tab down in two stages. Timers are clamped to one a
+second as soon as the tab is hidden — harmless here, since both of the session's
+clocks tick at exactly that rate. Then, once the tab has been hidden for **more
+than five minutes and silent for at least thirty seconds**, Chrome drops to
+roughly one tick a *minute*.
+
+Two separate things follow from that, and they were fixed separately.
+
+### The clocks no longer lose the gap
+
+`ActiveWorkoutController` used to decrement `restLeft` and increment `elapsed`
+by one on each tick. Under a throttled tab that is not merely late, it is
+*lossy*: ticks that never fired are seconds that never get counted, so the
+countdown comes back minutes wrong and — because `elapsed` is what Finish files
+as `durationSeconds` — the workout is written into history shorter than it was.
+
+Both now derive from a wall-clock anchor: the controller holds `_restEndsAt` and
+an `_elapsedAnchor`, and each tick works out where things stand from the current
+time. A tick that arrives a minute late produces the right answer, and the rest
+ends exactly once however many ticks were missed. This is the same rule
+`session_snapshot.dart` has always applied when restoring a session across a
+process death; it now holds while the app is running too.
+
+The time is read through `clockProvider`, which defaults to `clock.now()` from
+`package:clock` rather than `DateTime.now()`. That matters: `package:clock`
+follows the fake clock a widget test installs, so the existing rest-timer widget
+tests that pump a countdown forward still work. A direct `DateTime.now()` would
+have left every one of them pumping a timer that never moved.
+
+### The keepalive
+
+That fixes correctness but not promptness — a ding a minute late is still a ding
+a minute late. The way out is the "silent for thirty seconds" clause: a tab
+producing audio is exempt from intensive throttling. So `lib/services/tab_awake.dart`
+holds a tone at gain 0.001 for the length of a live session, and only then.
+
+Three things about it:
+
+- **It cannot be true silence.** The exemption is for *audible* output, judged
+  by level, so a gain of zero buys nothing.
+- **The tab shows the speaker mark** for the whole workout. That is the
+  mechanism, not a side effect — and muting the tab there silences the rest tone
+  too, since it is the same output.
+- **It does nothing on iOS Safari**, which suspends a page's audio the moment
+  the page is not what is on screen. There is no known workaround.
+
+That last point is why `backgroundAlerts` stays false: the capability is a
+promise the app makes to its own screens, and it would be a false one on iPhone
+and on any browser that suspends the tab outright. The keepalive is a
+best-effort improvement on Chrome, not a supported feature.
 
 Deep links (`fosslift://`) do not apply in a browser. `app_links` delivers only
 an initial link on web and a custom scheme is not something a browser routes,
@@ -242,6 +329,31 @@ flutter run -d chrome \
   --web-header=Cross-Origin-Embedder-Policy=require-corp
 ```
 
+## Leaving the page
+
+A reload is one keystroke and the live session is in memory until Finish, so
+`lib/util/leave_guard_web.dart` puts a `beforeunload` listener on the window
+while there is anything to lose. `lib/state/unsaved_work.dart` is what decides
+there is: a running session, plus any of the three editors — the routine
+builder, the workout builder, the exercise form — holding changes Save has not
+taken.
+
+Three things about `beforeunload` worth knowing before changing it:
+
+- **The wording is not ours.** Every current browser ignores the string a page
+  supplies and shows its own generic "Leave site?". Anything the user needs to
+  understand has to be said before that point.
+- **The listener is added and removed, never left inert.** A registered
+  `beforeunload` listener disqualifies the page from the back/forward cache in
+  Chrome and Safari even when it never calls `preventDefault`.
+- **A page nobody has touched cannot object.** Browsers require prior
+  interaction before honouring the dialog. Everything that arms the guard is
+  itself that interaction, so this never bites in practice.
+
+The register is kept on every platform; only `Capabilities.leaveGuard` — true on
+the web, false on a phone — decides whether anything is raised over it. That is
+the one capability that runs the opposite way to all the others.
+
 ## Not done
 
 - **`flutter build web --wasm`.** The dry run passes, so it is probably a flag
@@ -251,8 +363,9 @@ flutter run -d chrome \
   by default. The app is offline-capable in the sense that it makes no network
   calls once loaded; it is not installable-and-works-on-a-plane without a
   service worker written by hand.
-- **`navigator.storage.persist()`.** Worth calling on first run to ask the
-  browser not to evict the database.
-- **Warning on `inMemory`.** `lastWebStorage` records the choice but no screen
-  reads it. A browser that lands there loses everything on reload and should be
-  told so.
+- **QR scanning.** See the note under [What a web user loses](#what-a-web-user-loses)
+  — two routes exist, neither is built.
+- **Nothing warns before an editor's changes are lost to in-app navigation.**
+  The leave guard covers the page going away; backing out of a dirty editor with
+  the app's own back button still discards silently, on every platform. That was
+  true before this change and still is.

@@ -57,6 +57,20 @@ dependencies:
   flutter_foreground_task: ^10.0.0
   fc_native_video_thumbnail: ^3.0.1
 
+  # The time, injectably. `clock.now()` is `DateTime.now()` in a running app and
+  # the fake clock a widget test pumps when there is one, which is what lets the
+  # live session's two clocks read the time rather than count their own ticks
+  # without breaking every test that drives a countdown — see
+  # lib/state/active_workout.dart.
+  clock: ^1.1.2
+
+  # The browser's own APIs, for the two things the web build has to reach for
+  # directly: the `beforeunload` listener behind the leave guard, and
+  # `navigator.storage` behind the durability check. Both are behind conditional
+  # imports, so this is compiled into the web build only — see
+  # lib/util/leave_guard.dart and lib/services/storage_health.dart.
+  web: ^1.1.1
+
   # Pure-Dart deflate for the routine share code. dart:io's ZLibCodec cannot be
   # used: it compiles for the web and then throws from every call, and the code
   # has to mean the same thing in a browser as on a phone. See

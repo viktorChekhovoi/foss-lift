@@ -48,6 +48,33 @@ import 'package:flutter/foundation.dart';
 /// Android in advance to cover that; see [RestAlarm].
 ///
 /// Nothing here needs a network permission, and `audioplayers` is MIT.
+/// Whether [RestTone] has anything to play through, given where it is running.
+///
+/// A free function taking both inputs, rather than a getter reading the two
+/// globals, so the decision is testable off the platform it describes — the VM
+/// test runner is not a browser and `kIsWeb` cannot be moved.
+///
+/// **The web counts.** `audioplayers` has a web implementation and a browser
+/// plays this asset perfectly well; what a browser will not do is play it once
+/// the tab is in the background, where it throttles the timer that would ask.
+/// That is a different promise, and it is `Capabilities.backgroundAlerts` —
+/// which stays false on the web. A rest that ends while you are looking at the
+/// page sounds; a rest that ends while you are reading something else does not.
+///
+/// Audio in a browser also needs the page to have been interacted with before
+/// it will play at all. Nothing here has to arrange that: starting a workout is
+/// a tap, and it unlocks the page's audio for good.
+///
+/// Desktop is excluded because nothing ships there — `audioplayers` supports
+/// Linux and Windows, so this is a scope decision rather than a limit.
+bool restToneSupportedOn({
+  required bool isWeb,
+  required TargetPlatform platform,
+}) =>
+    isWeb ||
+    platform == TargetPlatform.android ||
+    platform == TargetPlatform.iOS;
+
 class RestTone {
   RestTone({AudioPlayer? player}) : _player = player ?? AudioPlayer();
 
@@ -61,9 +88,7 @@ class RestTone {
   /// harmlessly against a channel that is not registered. That is why [play]
   /// swallows rather than relying on this to stay out of trouble.
   static bool get supported =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      restToneSupportedOn(isWeb: kIsWeb, platform: defaultTargetPlatform);
 
   /// Plays the tone once, at whatever the phone's alarm stream is set to.
   ///

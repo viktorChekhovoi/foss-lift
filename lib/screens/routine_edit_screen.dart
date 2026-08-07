@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../state/unsaved_work.dart';
 import '../theme/app_theme.dart';
 import '../util/schedule_labels.dart';
 import '../util/seed_names.dart';
@@ -73,7 +74,8 @@ class RoutineEditScreen extends ConsumerStatefulWidget {
   ConsumerState<RoutineEditScreen> createState() => _RoutineEditScreenState();
 }
 
-class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
+class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
+    with TracksUnsavedEdits {
   final _name = TextEditingController();
   String _color = _palette.first;
   int _restSeconds = 90;
@@ -97,6 +99,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   @override
   void initState() {
     super.initState();
+    _name.addListener(markEdited);
     if (_isEdit) {
       _load();
     } else {
@@ -134,6 +137,9 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
             )));
       _loaded = true;
     });
+    // Filling the field moved the controller, which is not an edit — see the
+    // same note in exercise_form_screen.dart.
+    markSaved();
   }
 
   @override
@@ -142,8 +148,17 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     super.dispose();
   }
 
+  /// Applies a change the user made, and records that there is now something to
+  /// lose if the page goes away. Every control on this screen is one, so the
+  /// mark is taken here rather than repeated at each of them — and `_load`
+  /// deliberately does not go through it.
+  void _edit(VoidCallback change) {
+    markEdited();
+    setState(change);
+  }
+
   void _reorder(int from, int to) {
-    setState(() => _workouts.insert(to, _workouts.removeAt(from)));
+    _edit(() => _workouts.insert(to, _workouts.removeAt(from)));
   }
 
   Future<void> _addWorkout() async {
@@ -152,7 +167,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
     if (name == null) return;
     // Yours from the first keystroke: a day you named has no seed key to lose.
     final draft = _WorkoutDraft(name: name, shown: name, items: []);
-    setState(() => _workouts.add(draft));
+    _edit(() => _workouts.add(draft));
     // Go straight into it — naming a day and then adding its exercises is one
     // continuous thought.
     await _editWorkout(draft);
@@ -184,7 +199,10 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       ),
     );
     FocusManager.instance.primaryFocus?.unfocus();
-    if (mounted) setState(() {});
+    // The day editor writes straight into the draft this screen holds, so
+    // coming back from it is an edit of this screen even though nothing here
+    // moved.
+    if (mounted) _edit(() {});
   }
 
   /// A single-field dialog; returns null if cancelled or left blank.
@@ -258,6 +276,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
           ),
       ],
     );
+    markSaved();
     if (mounted) context.pop();
   }
 
@@ -297,7 +316,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
   /// for it still on screen, rather than on first launch out of nowhere.
   Future<void> _toggleReminder(bool on) async {
     if (!on) {
-      setState(() => _reminderMinutes = null);
+      _edit(() => _reminderMinutes = null);
       return;
     }
     final reminders = ref.read(reminderServiceProvider);
@@ -309,7 +328,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       _toast(AppLocalizations.of(context).routineEditNotifyDenied);
       return;
     }
-    setState(() => _reminderMinutes ??= 18 * 60);
+    _edit(() => _reminderMinutes ??= 18 * 60);
   }
 
   Future<void> _pickReminderTime() async {
@@ -319,7 +338,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
       initialTime: TimeOfDay(hour: now ~/ 60, minute: now % 60),
     );
     if (picked == null || !mounted) return;
-    setState(() => _reminderMinutes = picked.hour * 60 + picked.minute);
+    _edit(() => _reminderMinutes = picked.hour * 60 + picked.minute);
   }
 
   @override
@@ -365,7 +384,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                         builderLabel(l10n.routineEditAccentColor),
                         _ColorRow(
                           selected: _color,
-                          onSelect: (c) => setState(() => _color = c),
+                          onSelect: (c) => _edit(() => _color = c),
                         ),
                         const SizedBox(height: 20),
                         builderLabel(l10n.routineEditDefaultRest),
@@ -377,13 +396,13 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                           step: 15,
                           min: 0,
                           max: 300,
-                          onChanged: (v) => setState(() => _restSeconds = v),
+                          onChanged: (v) => _edit(() => _restSeconds = v),
                         ),
                         const SizedBox(height: 22),
                         builderLabel(l10n.routineEditTrainingDays),
                         _DayToggles(
                           mask: _scheduleDays,
-                          onToggle: (d) => setState(
+                          onToggle: (d) => _edit(
                               () => _scheduleDays = toggleDay(_scheduleDays, d)),
                         ),
                         // The days stay on every build — they are part of the
@@ -415,7 +434,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen> {
                             subtitle: _exerciseCountLabel(l10n, draft),
                             onTap: () => _editWorkout(draft),
                             onRemove: () =>
-                                setState(() => _workouts.removeAt(i)),
+                                _edit(() => _workouts.removeAt(i)),
                           ),
                         ),
                       ],

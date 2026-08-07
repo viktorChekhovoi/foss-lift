@@ -3591,5 +3591,17 @@
   "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and this is where you make one of your own.",
   "@tutorialBuildOpenBody": {
     "description": "Body of the first step of the builder chapter. The full tour arrives here from the Today steps, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines."
+  },
+  "commonDismiss": "Dismiss",
+  "@commonDismiss": {
+    "description": "Button that puts away a notice the app has shown once. One word."
+  },
+  "storageEphemeralWarning": "This browser has nowhere to save your training. Anything you log will be gone when you close the tab.",
+  "@storageEphemeralWarning": {
+    "description": "A permanent warning shown on the Today screen of the browser build when the database could not be given real storage and is being held in memory. It must say plainly that the data will not survive, because the user would otherwise train a whole session into nothing. Two short sentences."
+  },
+  "storageEvictableNotice": "This browser has not promised to keep your training. It should survive, but clearing site data or running low on space would take it.",
+  "@storageEvictableNotice": {
+    "description": "A dismissible note shown on the Today screen of the browser build when storage is real but the browser refused to exempt it from eviction. Milder than storageEphemeralWarning: the data is probably fine. Two short sentences."
   }
 }

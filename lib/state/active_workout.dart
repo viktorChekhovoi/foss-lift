@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/widgets.dart'
     show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
@@ -578,7 +579,30 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   Timer? _timer;
   Timer? _restTimer;
 
+  /// The moment the running rest is due to end, or null when nothing is
+  /// resting.
+  ///
+  /// **This, not `restLeft`, is what a rest actually is.** `restLeft` is the
+  /// number the board and the shade read, recomputed from here on every tick;
+  /// it stays on the state (and so in the crash snapshot) because that is what
+  /// everything downstream already consumes and what an installed build's
+  /// snapshot already carries. Deriving it rather than decrementing it is the
+  /// difference between a rest that survives a gap and one that loses it.
+  DateTime? _restEndsAt;
+
+  /// Where the session clock was, and when — [ActiveWorkout.elapsed] is the
+  /// first plus the time since the second.
+  ///
+  /// An offset rather than simply `now - startedAt`, because a session restored
+  /// from a snapshot arrives with an `elapsed` the decoder has already aged and
+  /// that is the number to carry on from.
+  DateTime? _elapsedAnchor;
+  int _elapsedBase = 0;
+
   AppDatabase get _db => ref.read(databaseProvider);
+
+  /// The clock both of the above are read against — see [clockProvider].
+  DateTime get _now => ref.read(clockProvider)();
 
   @override
   ActiveWorkout? build() {
@@ -621,23 +645,43 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     // Through a cleared rest rather than straight onto the running one: the
     // prompt and the set are the old rest's, and a new rest that inherited
     // either would describe the set before it.
+    _restEndsAt = _now.add(Duration(seconds: seconds));
     _commit(s
         .copyWith(clearRest: true)
         .copyWith(restLeft: seconds, restPrompt: prompt, restFor: forSet));
     // Anything left over from the last rest — the ding for a rest this one
     // replaces is a ding for a rest that is over.
     ref.read(restAlarmProvider).clear();
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final now = state;
-      if (now == null) return;
-      if (now.restLeft <= 1) {
-        _endRest();
-      } else {
-        // Not committed: the snapshot ages its own clock on the way back in, so
-        // a write a second would buy nothing. See [_commit].
-        state = now.copyWith(restLeft: now.restLeft - 1);
-      }
-    });
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) => _syncRest());
+  }
+
+  /// Puts [ActiveWorkout.restLeft] where the clock says it should be, and ends
+  /// the rest if its moment has been and gone.
+  ///
+  /// Called from a 1-second timer, but nothing here assumes it was called on
+  /// time or at all. A browser slows a hidden tab's timers to one a minute, a
+  /// laptop lid loses however long it was shut, and a busy phone simply skips
+  /// ticks — in every case the next call arrives late and this works out where
+  /// the rest really stands rather than taking one second off.
+  ///
+  /// The rest ends **once**, on the first call after its moment, however many
+  /// seconds were missed: [_endRest] cancels this timer, so there is no second
+  /// pass to ring again.
+  void _syncRest() {
+    final s = state;
+    final endsAt = _restEndsAt;
+    if (s == null || endsAt == null) return;
+    // Rounded up, so a rest with a fraction of a second on it still reads as
+    // one rather than as zero-but-not-finished.
+    final left = (endsAt.difference(_now).inMilliseconds / 1000).ceil();
+    if (left <= 0) {
+      _endRest();
+      return;
+    }
+    if (left == s.restLeft) return;
+    // Not committed: the snapshot ages its own clock on the way back in, so a
+    // write a second would buy nothing. See [_commit].
+    state = s.copyWith(restLeft: left);
   }
 
   /// Adds [seconds] to a running rest, or takes them off. Going to or below
@@ -649,6 +693,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (left <= 0) {
       _endRest();
     } else {
+      // The deadline is the rest; moving only the number would put the two out
+      // of step and the next tick would undo the nudge.
+      _restEndsAt = _now.add(Duration(seconds: left));
       _commit(s.copyWith(restLeft: left));
     }
   }
@@ -664,6 +711,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   void _endRest({bool announce = true}) {
     _restTimer?.cancel();
     _restTimer = null;
+    _restEndsAt = null;
     final s = state;
     if (s == null) return;
     final wasResting = s.restLeft > 0;
@@ -797,12 +845,29 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   }
 
   /// The session's own clock, which runs for as long as the session does.
+  ///
+  /// Anchored where the session currently stands rather than started from zero,
+  /// so a restored session carries on from the elapsed the snapshot decoder
+  /// already aged instead of losing it.
   void _startClock() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final s = state;
-      if (s != null) state = s.copyWith(elapsed: s.elapsed + 1);
-    });
+    _elapsedBase = state?.elapsed ?? 0;
+    _elapsedAnchor = _now;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _syncElapsed());
+  }
+
+  /// Puts [ActiveWorkout.elapsed] where the clock says it should be.
+  ///
+  /// The same rule as [_syncRest], and it matters for more than the number on
+  /// screen: this is what Finish files the workout's length under, so a clock
+  /// that lost a gap would write a workout down as shorter than it was and
+  /// leave the history wrong for good.
+  void _syncElapsed() {
+    final s = state;
+    final anchor = _elapsedAnchor;
+    if (s == null || anchor == null) return;
+    final elapsed = _elapsedBase + _now.difference(anchor).inSeconds;
+    if (elapsed != s.elapsed) state = s.copyWith(elapsed: elapsed);
   }
 
   /// Begins a live session from a workout template. Passing a null [workoutId]
@@ -1161,11 +1226,19 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// exercise's progression. Returns the new session id, or null if there was
   /// nothing to save.
   Future<int?> finish() async {
+    if (state == null) return null;
+    // Before the clock is stopped and before the length is read off it: the
+    // last tick may be up to a second old, and on a build whose ticks were
+    // being throttled it can be a great deal older than that. What gets filed
+    // is the time the workout took, not the time of the most recent tick.
+    _syncElapsed();
     final s = state;
     if (s == null) return null;
     _timer?.cancel();
+    _elapsedAnchor = null;
     _restTimer?.cancel();
     _restTimer = null;
+    _restEndsAt = null;
     ref.read(restAlarmProvider).clear();
 
     final rows = <SessionSetsCompanion>[];
@@ -1291,8 +1364,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// quietly hoarding video of somebody for a session they chose to bin.
   Future<void> discard() async {
     _timer?.cancel();
+    _elapsedAnchor = null;
     _restTimer?.cancel();
     _restTimer = null;
+    _restEndsAt = null;
     ref.read(restAlarmProvider).clear();
     _forget();
     final clips = _clipPaths.toList();
@@ -1374,6 +1449,23 @@ class ProgressionReport {
   final int sessionId;
   final List<ProgressionOutcome> outcomes;
 }
+
+/// What time it is.
+///
+/// Both of the session's clocks read this rather than counting their own ticks
+/// — see [ActiveWorkoutController._syncRest] for why that distinction is the
+/// whole point.
+///
+/// **`clock.now()`, not `DateTime.now()`.** `package:clock` is `DateTime.now`
+/// in a running app, and in a widget test it is the *fake* clock the test
+/// binding installs — the one `tester.pump(Duration(...))` moves. A clock that
+/// read the wall directly would leave every existing rest-timer widget test
+/// pumping a countdown that never came down, which is precisely the trap this
+/// change would otherwise have walked into.
+///
+/// It is still a provider on top of that, because a plain `test()` has no fake
+/// binding to pump and needs to move time by hand.
+final clockProvider = Provider<DateTime Function()>((ref) => () => clock.now());
 
 /// The one player for the rest tone, disposed with the scope that made it. One
 /// instance rather than one per rest: an `AudioPlayer` holds a platform

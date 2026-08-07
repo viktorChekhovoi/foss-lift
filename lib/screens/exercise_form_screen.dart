@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../state/unsaved_work.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../util/video_links.dart';
@@ -24,7 +25,8 @@ class ExerciseFormScreen extends ConsumerStatefulWidget {
   ConsumerState<ExerciseFormScreen> createState() => _ExerciseFormScreenState();
 }
 
-class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
+class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
+    with TracksUnsavedEdits {
   final _name = TextEditingController();
   final _video = TextEditingController();
   String _muscle = 'Chest';
@@ -42,6 +44,11 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   @override
   void initState() {
     super.initState();
+    // Typing is the commonest edit and the one worth warning about, and both
+    // fields are plain controllers — so the listener is the whole of it, rather
+    // than an `onChanged` threaded through the two shared field widgets.
+    _name.addListener(markEdited);
+    _video.addListener(markEdited);
     if (_isEdit) _load();
   }
 
@@ -61,6 +68,10 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
       _weightType = ex.weightType;
       _loaded = true;
     });
+    // Filling the fields moved the controllers, which told the listener above
+    // that something was edited. Nothing was — this is the saved state arriving
+    // on screen — so the mark is taken straight back off.
+    markSaved();
   }
 
   /// The demo link as it should be stored: a YouTube URL reduced to its
@@ -81,10 +92,19 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   /// so it sets the weight type as it goes. Overwriting a choice made earlier
   /// is safe here because the two controls sit in that order on the screen —
   /// and the exceptions (an EZ-bar, a Smith machine) are a tap away below.
-  void _setEquipment(String v) => setState(() {
+  void _setEquipment(String v) => _edit(() {
     _equip = v;
     _weightType = weightTypeForEquipment(v);
   });
+
+  /// Applies a change the user made, and records that there is now something to
+  /// lose. Every control on this form is one, so the mark is taken here rather
+  /// than repeated at each of them — and `_load` deliberately does not go
+  /// through it.
+  void _edit(VoidCallback change) {
+    markEdited();
+    setState(change);
+  }
 
   /// Switching the measure answers the loading question below it too, the same
   /// way picking the equipment does.
@@ -96,7 +116,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
   /// because a counted barbell movement with no load type is the same mistake
   /// pointing the other way. Either exception — a weighted plank, a bodyweight
   /// chin-up — is the tap below.
-  void _setMeasure(ExerciseMeasure v) => setState(() {
+  void _setMeasure(ExerciseMeasure v) => _edit(() {
     _measure = v;
     _weightType = v == ExerciseMeasure.reps
         ? weightTypeForEquipment(_equip)
@@ -150,6 +170,10 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
     // instead of sending the user back to hunt for what they just made.
     // Callers that only wanted the form closed ignore it.
     final saved = await db.exerciseById(id);
+    // In the database now, so there is nothing left to warn about — taken here
+    // rather than left to `dispose`, because the form is briefly still mounted
+    // behind the pop.
+    markSaved();
     if (mounted) Navigator.pop(context, saved);
   }
 
@@ -196,7 +220,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           options: kMuscleGroups,
           label: (v) => muscleGroupLabel(l10n, v),
           selected: _muscle,
-          onSelect: (v) => setState(() => _muscle = v),
+          onSelect: (v) => _edit(() => _muscle = v),
         ),
         const SizedBox(height: 18),
         _Label(l10n.exerciseFormEquipment),
@@ -246,7 +270,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen> {
           // Nothing is selected for a movement that carries nothing, and
           // tapping the selected chip is how you get back there.
           selected: _weightType,
-          onSelect: (v) => setState(() {
+          onSelect: (v) => _edit(() {
             _weightType = v == _weightType ? WeightType.none : v;
           }),
         ),

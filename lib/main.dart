@@ -8,6 +8,7 @@ import 'l10n/app_localizations.dart';
 import 'providers/providers.dart';
 import 'router.dart';
 import 'services/deep_links.dart';
+import 'state/unsaved_work.dart';
 import 'theme/app_theme.dart';
 import 'util/locales.dart';
 import 'widgets/pinch_text_scale.dart';
@@ -50,6 +51,12 @@ class FossLiftApp extends ConsumerWidget {
     ref.watch(liveSessionRestoreProvider);
     // Collects any clip file a crash stranded. Once, on launch.
     ref.watch(orphanSweepProvider);
+    // Keeps the browser's "are you sure you want to leave" in step with whether
+    // there is anything to lose. Does nothing at all off the web.
+    ref.watch(leaveGuardSyncProvider);
+    // Holds a browser tab's timers at full speed for the length of a workout,
+    // so a rest ends when it ends. Also nothing off the web.
+    ref.watch(tabAwakeSyncProvider);
     final palette = ref.watch(activePaletteProvider);
     final locale = ref.watch(activeLocaleProvider);
     // `intl` formats dates and numbers off a global rather than off the widget
