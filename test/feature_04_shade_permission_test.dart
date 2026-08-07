@@ -104,7 +104,7 @@ void main() {
     await ctl.start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
     final session = container!.read(activeWorkoutProvider)!;
     return shadeCopy(
-        l10nFor(), nextUp(session, restLeft: session.restLeft)!, 'kg')!;
+        l10nFor(), nextUp(session, restLeft: session.restLeft)!, 'kg');
   }
 
   group('It asks to post notifications, or it is invisible', () {

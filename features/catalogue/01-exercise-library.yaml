@@ -154,6 +154,16 @@ groups:
     - exercise.notes
 - name: Behaviour & edge cases
   items:
+  - id: note-box-keeps-its-width
+    t: The note box keeps its width as you type
+    d: >-
+      a dialog sizes itself to what is in it, so a field left to its own devices
+      grew with the longest line and the box stepped wider mid-word. The note field
+      takes the full width of the dialog the moment it opens and stays there, on the
+      library screen and on the board alike.
+    screen: exercise-detail
+    uses:
+    - exercise.notes
   - id: starter-s-demo-video-not
     t: A starter's demo is a video, not a search
     d: >-

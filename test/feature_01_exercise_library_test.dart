@@ -806,6 +806,41 @@ void main() {
 
       await stop(tester);
     });
+
+    testWidgets('the note box keeps its width as the note grows', (
+      tester,
+    ) async {
+      // A dialog sizes itself to what is in it, so a field left to its own
+      // devices stepped wider mid-word.
+      final press = (await tester.runAsync(
+        () => exerciseNamed(db, 'Leg Press'),
+      ))!;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: press.id)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nothing noted yet'));
+      await tester.pumpAndSettle();
+
+      final field = find.byType(TextField).first;
+      final empty = tester.getSize(field).width;
+
+      await tester.enterText(field, 'a');
+      await tester.pumpAndSettle();
+      expect(tester.getSize(field).width, empty);
+
+      await tester.enterText(
+        field,
+        'Seat 4, pin 7, back pad on 2, and the left handle is bent',
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(field).width, empty);
+
+      await stop(tester);
+    });
   });
 
   group('finding a movement by what it is, not what it is called', () {

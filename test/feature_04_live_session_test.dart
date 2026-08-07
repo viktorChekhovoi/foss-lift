@@ -2995,23 +2995,49 @@ void main() {
     });
 
     test('a set to do is described, and nothing is called next', () {
-      expect(shadeText(l10n, cue(weightKg: 80, reps: 8), 'kg'),
-          l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8));
-    });
-
-    test('and the bold line says which set of how many', () {
-      // Four identical sets of bench read identically from a pocket without
-      // it — see issue #65.
       expect(
-        shadeTitle(l10n, cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5)),
-        l10n.shadeWhereExerciseSet('Bench Press', 4, 5),
+        shadeText(l10n, cue(weightKg: 80, reps: 8, setCount: 0), 'kg'),
+        l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8),
       );
     });
 
-    test('a warm-up rung counts the rungs, not the working sets', () {
+    test('the bold line is the movement and nothing else', () {
+      // The counter used to share it, spending on "Set 4/5" the room the name
+      // needed to be recognisable at a glance.
+      expect(
+        shadeTitle(l10n, cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5)),
+        l10n.shadeWhereExercise('Bench Press'),
+      );
+    });
+
+    test('and the line under it says which set of how many', () {
+      // Four identical sets of bench read identically from a pocket without
+      // it — see issue #65.
+      expect(
+        shadeText(l10n, cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5),
+            'kg'),
+        l10n.shadeSetLine(
+            4, 5, l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8)),
+      );
+    });
+
+    test('a warm-up rung says so on the bold line, and counts the rungs below',
+        () {
       expect(
         shadeTitle(l10n, cue(warmup: true, setIndex: 1, setCount: 3)),
-        l10n.shadeWhereWarmupSet('Bench Press', 2, 3),
+        l10n.shadeWhereWarmup('Bench Press'),
+      );
+      expect(
+        shadeText(
+            l10n, cue(warmup: true, reps: 5, setIndex: 1, setCount: 3), 'kg'),
+        l10n.shadeSetLine(2, 3, l10n.shadeSetBodyweightReps(5)),
+      );
+    });
+
+    test('a hold names the movement the same way', () {
+      expect(
+        shadeTitle(l10n, cue(kind: CueKind.hold, seconds: 45, setCount: 1)),
+        l10n.shadeWhereExercise('Bench Press'),
       );
     });
 
@@ -3066,10 +3092,12 @@ void main() {
       expect(
         shadeButtons(l10n, cue(kind: CueKind.resting, restLeft: 40))
             .map((b) => b.id),
+        // Skip first: Android lays the row out from the left and squeezes it
+        // from the right, and Skip is the one control a rest is reached for.
         [
+          WorkoutShade.restSkipAction,
           WorkoutShade.restSubAction,
           WorkoutShade.restAddAction,
-          WorkoutShade.restSkipAction,
         ],
       );
     });
@@ -3092,6 +3120,20 @@ void main() {
 
     test('and a finished session offers nothing', () {
       expect(shadeButtons(l10n, cue(kind: CueKind.finished)), isEmpty);
+    });
+
+    test('with the last set logged it asks to be finished', () {
+      // It used to vanish, which reads as the session having ended when nothing
+      // has been written yet.
+      final done = cue(kind: CueKind.finished);
+      expect(shadeTitle(l10n, done), l10n.shadeFinishedTitle);
+      expect(shadeText(l10n, done, 'kg'), l10n.shadeFinishedBody);
+
+      final copy = shadeCopy(l10n, done, 'kg');
+      expect(copy.title, l10n.shadeFinishedTitle);
+      expect(copy.text, l10n.shadeFinishedBody);
+      expect(copy.buttons, isEmpty,
+          reason: 'Finish weighs up unlogged sets and opens the recap');
     });
 
     group('the name gives way so the counter stays on the line', () {

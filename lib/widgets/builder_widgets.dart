@@ -437,15 +437,22 @@ class _NoteDialogState extends State<_NoteDialog> {
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(widget.title),
-      content: TextField(
-        controller: _c,
-        autofocus: true,
-        maxLines: 4,
-        minLines: 2,
-        maxLength: kNoteMaxLength,
-        textCapitalization: TextCapitalization.sentences,
-        style: const TextStyle(fontSize: 15, height: 1.4),
-        decoration: builderInput(l10n.builderNoteHint),
+      // A dialog sizes itself to its content, and a bare field's own idea of how
+      // wide it wants to be is the width of the longest line in it — so the box
+      // stepped wider mid-word as the note grew. Claiming the room up front
+      // makes it the dialog's width from the first character to the last.
+      content: SizedBox(
+        width: double.maxFinite,
+        child: TextField(
+          controller: _c,
+          autofocus: true,
+          maxLines: 4,
+          minLines: 2,
+          maxLength: kNoteMaxLength,
+          textCapitalization: TextCapitalization.sentences,
+          style: const TextStyle(fontSize: 15, height: 1.4),
+          decoration: builderInput(l10n.builderNoteHint),
+        ),
       ),
       actions: [
         // Only offered when there is something to clear, so the common case —

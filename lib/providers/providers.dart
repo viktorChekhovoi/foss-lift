@@ -240,16 +240,15 @@ final workoutShadeSyncProvider = Provider<void>((ref) {
   final session = ref.watch(activeWorkoutProvider);
   final cue =
       session == null ? null : nextUp(session, restLeft: session.restLeft);
-  // The one place that pushes state into the shade, so the one place that has
-  // to know what language it is in — the service takes finished text.
-  final copy = cue == null
-      ? null
-      : shadeCopy(ref.watch(appLocalizationsProvider), cue, unit);
-  if (copy == null) {
+  // No session, so no shade. A session with every set logged still has one: it
+  // is not history until Finish, and the notification is where it says so.
+  if (cue == null) {
     shade.hide();
     return;
   }
-  shade.show(copy);
+  // The one place that pushes state into the shade, so the one place that has
+  // to know what language it is in — the service takes finished text.
+  shade.show(shadeCopy(ref.watch(appLocalizationsProvider), cue, unit));
 });
 
 /// Raising the board, as the shade's set buttons ask for.

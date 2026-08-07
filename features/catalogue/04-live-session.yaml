@@ -140,10 +140,10 @@ groups:
   - id: lives-notification-shade
     t: Lives in the notification shade
     d: >-
-      for as long as it is running: the exercise, the weight in your unit and the
-      reps, with Done and Missed — or how long is left of the rest, with −15s, +15s
-      and Skip. It walks an exercise's warm-up rungs before its working sets, and
-      counts the rest down live.
+      for as long as it is running: the exercise on the bold line, the set counter
+      and the load under it, with Done and Missed — or how long is left of the rest,
+      with Skip, −15s and +15s. It walks an exercise's warm-up rungs before its
+      working sets, and counts the rest down live.
     screen: shade
     defines:
     - session.shade
@@ -341,32 +341,43 @@ groups:
     - session.set-logging
     - session.live-state
   - id: rest-offers-30s-skip
-    t: A rest in the shade offers −15s, +15s and Skip
+    t: A rest in the shade offers Skip, −15s and +15s
     d: >-
       the same three controls as the banner on the board, so the shade is never a
       reduced version of the screen. Nothing can be logged during a rest. Skip was
       left off at first and that was wrong in the gym: unlocking the phone to press
-      Skip costs more, every time, than an accidental press costs once.
+      Skip costs more, every time, than an accidental press costs once. It sits
+      first, where the board puts its own Skip last, because Android lays the row
+      out from the left and squeezes it from the right: the one control somebody
+      reaches for mid-rest is the one that must not be the one that gets clipped.
     uses:
     - session.rest-timer
   - id: says-which-set-how-many
-    t: It says which set of how many
+    t: It says which set of how many, on the line under the movement
     d: >-
-      Bench Press · Set 4/5, and a warm-up rung counts its own ramp: Warm-up ·
-      Bench Press · Set 2/3.
+      the bold line is the movement and nothing else — "Bulgarian Split Squat",
+      or "Warm-up · Bulgarian Split Squat" for a rung — and the line beneath it
+      carries the counter and the set: "Set 4/5 · 80 kg × 8". They shared the bold
+      line at first, which spent on a counter the room the name needed to be
+      recognisable at a glance; the second line had space going spare. An exercise
+      with a single set counts nothing and reads "80 kg × 8".
     uses:
     - session.progress-mark
     - session.warmup-ramp
+    - load.units
   - id: name-gives-so-counter-stays
-    t: The exercise name gives way so the set counter stays on its line
+    t: On the rest line the exercise name gives way so the set counter stays
     d: >-
-      "Bulgarian Split Squat · Set 4/5" is longer than a notification line, and
-      what wrapped off the end was the counter — the half that tells four
-      identical sets apart. So the line is held to a budget and the name is what
-      is cut, ending in an ellipsis: "Bulgarian Split S… · Set 4/5". The counter
-      is never shortened and never wraps away from the movement it counts.
+      a rest puts the countdown on the bold line, so the movement, its counter and
+      the coming set are all on the one line under it — and "Next: Bulgarian Split
+      Squat · Set 4/5 · 80 kg × 8" is longer than a notification shows collapsed.
+      What ran off the end was the counter, the half that tells four identical sets
+      apart, so the movement is held to a budget and cut with an ellipsis instead:
+      "Next: Bulgarian Split S… · Set 4/5 · 80 kg × 8". The counter is never
+      shortened and never wraps away from the movement it counts.
     uses:
     - session.progress-mark
+    - session.rest-cue
   - id: shade-ranked-to-open-expanded
     t: It is ranked so the shade opens it expanded, as far as Android allows
     d: >-
@@ -390,6 +401,19 @@ groups:
     uses:
     - session.rest-cue
     - load.units
+  - id: shade-asks-to-finish-when-done
+    t: With the last set logged it asks you to finish
+    d: >-
+      the shade used to go the moment nothing was outstanding, which reads as the
+      session having ended when nothing has been written yet — and the one tap left
+      is the one that turns it into history. So it stays, saying the workout is
+      complete and that a tap finishes it, and it carries no buttons: Finish weighs
+      up unlogged sets and opens the recap, neither of which fits in a pocket.
+      Tapping the notification opens the board, where Finish is. It goes when the
+      session does, finished or abandoned.
+    uses:
+    - session.shade
+    - session.finish
   - id: hold-gets-one-button-open
     t: A hold gets one button, "Start", and it logs nothing
     d: >-

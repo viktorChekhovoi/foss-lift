@@ -3290,9 +3290,13 @@
   "@shadeChannelDescription": {
     "description": "Description of the live-workout notification channel, shown under its name in the phone's notification settings. One sentence."
   },
-  "shadeWorkoutTitle": "Workout",
-  "@shadeWorkoutTitle": {
-    "description": "The bold line of the live-workout notification once every set is logged and there is nothing left to name. One word."
+  "shadeFinishedTitle": "Workout complete",
+  "@shadeFinishedTitle": {
+    "description": "The bold line of the live-workout notification once every set is logged. Two or three words."
+  },
+  "shadeFinishedBody": "Every set logged — tap to finish",
+  "@shadeFinishedBody": {
+    "description": "The second line of the live-workout notification once every set is logged. Tapping the notification opens the session board, where the Finish button is; nothing is written to history until it is pressed. 'Finish' is the same word as sessionFinish, the button it points at."
   },
   "shadeRestTitle": "Rest · {left}",
   "@shadeRestTitle": {
@@ -3367,6 +3371,24 @@
       "where": {
         "type": "String",
         "example": "Bench Press · Set 2/3"
+      },
+      "what": {
+        "type": "String",
+        "example": "80 kg × 8"
+      }
+    }
+  },
+  "shadeSetLine": "Set {index}/{count} · {what}",
+  "@shadeSetLine": {
+    "description": "The second line of the live-workout notification when a set is waiting to be done: which set of how many, then the set itself. The bold line above carries the movement, so the counter sits here. 'Set' is the same word as the session board's Set column (sessionColSet); {what} is one of the shadeSet* strings and the separator is a middle dot with a space either side.",
+    "placeholders": {
+      "index": {
+        "type": "int",
+        "example": "4"
+      },
+      "count": {
+        "type": "int",
+        "example": "5"
       },
       "what": {
         "type": "String",

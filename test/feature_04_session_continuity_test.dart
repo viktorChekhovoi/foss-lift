@@ -261,21 +261,23 @@ void main() {
   });
 
   group('The shade drives the rest and the log', () {
-    test('a running rest offers −15s, +15s and Skip', () async {
+    test('a running rest offers Skip, −15s and +15s', () async {
       final ctl = await startPush();
       ctl.startRest(90, null);
 
       final buttons = shadeButtons(_l10n, cue());
 
+      // Skip leads: Android fills the row from the left and clips it from the
+      // right, and Skip is the one a rest is reached for.
       expect(buttons.map((b) => b.text), [
+        _l10n.sessionRestSkip,
         _l10n.sessionRestMinus,
         _l10n.sessionRestPlus,
-        _l10n.sessionRestSkip,
       ]);
       expect(buttons.map((b) => b.id), [
+        WorkoutShade.restSkipAction,
         WorkoutShade.restSubAction,
         WorkoutShade.restAddAction,
-        WorkoutShade.restSkipAction,
       ]);
 
       ctl.discard();

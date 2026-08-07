@@ -431,11 +431,13 @@ typedef ShadeCopy = ({
   List<NotificationButton> buttons,
 });
 
-/// What the shade should say for [cue], or **null when there is nothing left to
-/// say** — every set is logged, and the caller should take the notification
-/// down rather than post an empty one.
-ShadeCopy? shadeCopy(AppLocalizations l10n, WorkoutCue cue, String unit) {
-  if (cue.kind == CueKind.finished) return null;
+/// What the shade should say for [cue].
+///
+/// Every cue has something to say, the finished one included: a session with
+/// every set logged is a session that has not been written yet, and the shade
+/// is where it asks to be. What takes the notification down is the session
+/// ending, not the last set going in.
+ShadeCopy shadeCopy(AppLocalizations l10n, WorkoutCue cue, String unit) {
   return (
     channel: (
       name: l10n.shadeChannelName,
@@ -448,11 +450,27 @@ ShadeCopy? shadeCopy(AppLocalizations l10n, WorkoutCue cue, String unit) {
 }
 
 /// The bold line: what you are doing, or how long is left.
+///
+/// **The movement alone, and never the counter.** The two shared this line at
+/// first, which spent on "Set 4/5" the room the name needed to be recognisable
+/// through a coat pocket — while the line beneath it, which says a weight and a
+/// rep count and nothing else, had space going spare. So the counter moved down
+/// there; see [shadeText].
 String shadeTitle(AppLocalizations l10n, WorkoutCue cue) => switch (cue.kind) {
   CueKind.resting => l10n.shadeRestTitle(fmtDuration(cue.restLeft ?? 0)),
-  CueKind.hold || CueKind.lift => shadeWhere(l10n, cue),
-  CueKind.finished => l10n.shadeWorkoutTitle,
+  CueKind.hold || CueKind.lift => shadeMovement(l10n, cue),
+  CueKind.finished => l10n.shadeFinishedTitle,
 };
+
+/// The movement, and whether this is its ramp — no counter, and nothing cut.
+///
+/// A whole sentence per case rather than a prefix glued to a name: a language
+/// that puts the ramp's name after the movement, or that declines it, cannot be
+/// built out of the two halves.
+String shadeMovement(AppLocalizations l10n, WorkoutCue cue) {
+  final name = seededName(l10n, cue.exerciseSeedKey, cue.exercise);
+  return cue.warmup ? l10n.shadeWhereWarmup(name) : l10n.shadeWhereExercise(name);
+}
 
 /// The longest the "where you are" line may run before the exercise name gives
 /// way.
@@ -463,8 +481,13 @@ String shadeTitle(AppLocalizations l10n, WorkoutCue cue) => switch (cue.kind) {
 /// a line with room to spare costs nothing, a line that wraps costs the counter.
 const int kShadeWhereChars = 32;
 
-/// Where in the session you are: the movement, whether this is its ramp, and
-/// which set of how many.
+/// Where in the session you are, on one line: the movement, whether this is its
+/// ramp, and which set of how many.
+///
+/// **For the lines that have to carry all three at once** — the "Next:" line of
+/// a running rest, where the bold line above is the countdown, and the rest
+/// alarm's body. A set waiting to be done splits the same three across two
+/// lines instead: [shadeTitle] and [shadeText].
 ///
 /// The count is the part four identical sets of bench need — without it every
 /// one of them reads the same from a pocket, and the only way to tell the first
@@ -506,20 +529,35 @@ String shadeWhere(AppLocalizations l10n, WorkoutCue cue) {
   return compose('${name.substring(0, keep).trimRight()}…');
 }
 
-/// The second line: the set itself, in enough detail to load a bar from.
+/// The second line: which set of how many, and the set itself in enough detail
+/// to load a bar from.
 String shadeText(AppLocalizations l10n, WorkoutCue cue, String unit) {
+  // Nothing is outstanding, so there is nothing to describe — only the one tap
+  // left, which is Finish, and which is not on this notification. See
+  // [shadeButtons].
+  if (cue.kind == CueKind.finished) return l10n.shadeFinishedBody;
   final what = describeCue(l10n, cue, unit);
-  if (cue.kind != CueKind.resting) return what;
-  // While resting the bold line is the countdown, so this is the only line the
-  // exercise can be named on — and "Next: 80 kg × 8" is a weight and a rep
-  // count belonging to nothing. "Next" itself is the difference between a
-  // countdown and an instruction, so it stays.
-  return l10n.shadeNextLine(shadeWhere(l10n, cue), what);
+  if (cue.kind == CueKind.resting) {
+    // While resting the bold line is the countdown, so this is the only line the
+    // exercise can be named on — and "Next: 80 kg × 8" is a weight and a rep
+    // count belonging to nothing. "Next" itself is the difference between a
+    // countdown and an instruction, so it stays.
+    return l10n.shadeNextLine(shadeWhere(l10n, cue), what);
+  }
+  // The counter lives here rather than beside the movement — see [shadeTitle].
+  // An exercise with a single set counts nothing worth printing.
+  return cue.setCount > 0
+      ? l10n.shadeSetLine(cue.setIndex + 1, cue.setCount, what)
+      : what;
 }
 
 /// The buttons: two to log a set with, or three to run the rest with.
 List<NotificationButton> shadeButtons(AppLocalizations l10n, WorkoutCue cue) =>
     switch (cue.kind) {
+      // Nothing is outstanding: what is left is Finish, which weighs up unlogged
+      // sets and opens the recap, and neither of those belongs on a control you
+      // brush past through a coat. The notification says so and its body opens
+      // the board, where Finish is.
       CueKind.finished => const [],
       // Nothing to log during a rest — but the rest itself is the thing you are
       // least likely to have the phone in your hand for. See issue #62.
@@ -527,7 +565,16 @@ List<NotificationButton> shadeButtons(AppLocalizations l10n, WorkoutCue cue) =>
       // The same three words the rest bar uses, from the same three keys: the
       // two places a rest can be nudged from must not disagree about what the
       // nudge is called any more than about what it does.
+      //
+      // **Skip first, where the board puts it last.** Android lays the row out
+      // from the left and takes the room out of the right-hand end, so the order
+      // decides which label survives a narrow phone, a long translation or a
+      // large text size. Skip is the one somebody reaches into a pocket for.
       CueKind.resting => [
+        NotificationButton(
+          id: WorkoutShade.restSkipAction,
+          text: l10n.sessionRestSkip,
+        ),
         NotificationButton(
           id: WorkoutShade.restSubAction,
           text: l10n.sessionRestMinus,
@@ -535,10 +582,6 @@ List<NotificationButton> shadeButtons(AppLocalizations l10n, WorkoutCue cue) =>
         NotificationButton(
           id: WorkoutShade.restAddAction,
           text: l10n.sessionRestPlus,
-        ),
-        NotificationButton(
-          id: WorkoutShade.restSkipAction,
-          text: l10n.sessionRestSkip,
         ),
       ],
       // A hold cannot be "done at the goal" from a pocket — how long you held
