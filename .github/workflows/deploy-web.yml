@@ -75,7 +75,15 @@ jobs:
         if: >-
           github.event_name != 'pull_request' ||
           github.event.pull_request.head.repo.full_name == github.repository
-        uses: cloudflare/wrangler-action@v3
+        # v4 is the first release to target the node24 runtime. v3 still works,
+        # but GitHub has deprecated node20 and is already force-upgrading it,
+        # which is a warning now and a failure later.
+        #
+        # Unlike Flutter above, wrangler is deliberately left on its default
+        # (v4, latest). It is a client for a live API rather than a compiler:
+        # pinning it freezes our end of a protocol whose other end keeps
+        # moving, which is the opposite of what pinning buys.
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
