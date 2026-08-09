@@ -1,0 +1,88 @@
+# Builds the browser app and publishes it to Cloudflare Pages.
+#
+# Every push and pull request is analysed, tested and built. Only a build that
+# got through all three is published, and only when the secrets are present —
+# a pull request from a fork has none, so it builds and stops there.
+#
+# Secrets: CLOUDFLARE_API_TOKEN (a "Cloudflare Pages: Edit" scoped token, not a
+# global key) and CLOUDFLARE_ACCOUNT_ID.
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One deploy at a time per branch. A second push while the first is still
+# building cancels it rather than racing it to the same Pages project.
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # Pinned rather than `stable`: a Flutter release lands whenever it
+          # lands, and a deploy is not where you want to find out it broke the
+          # build. Bump it deliberately.
+          flutter-version: 3.44.8
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # The .arb catalogues are the source and the Dart is gitignored, so a
+      # fresh clone has no AppLocalizations until this runs. `flutter build`
+      # would do it too; doing it here means a codegen failure reads as one.
+      - run: flutter gen-l10n
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Check the feature catalogue
+        run: dart run tool/features.dart --check
+
+      # --no-web-resources-cdn keeps CanvasKit on our own origin. Without it
+      # the page fetches the engine from gstatic.com, which breaks the "no
+      # network" promise and is blocked outright by the COEP header in
+      # web/_headers — with the headers on and the engine remote, the page does
+      # not load at all. The flag is not optional.
+      - name: Build
+        run: flutter build web --no-web-resources-cdn
+
+      # web/_headers is what gives the browser cross-origin isolation, and
+      # without it drift never reaches OPFS. It is copied by the build, so its
+      # absence here means the build changed, not that the file is missing.
+      - name: Check the headers file survived the build
+        run: test -f build/web/_headers
+
+      - name: Publish to Cloudflare Pages
+        # Forks cannot read secrets. Their pull requests still get everything
+        # above; they just do not deploy.
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # A deploy on the project's production branch goes to the live site;
+          # any other branch gets its own preview URL, which is what makes a
+          # pull request reviewable in a real browser.
+          command: >-
+            pages deploy build/web
+            --project-name=foss-lift
+            --branch=${{ github.head_ref || github.ref_name }}

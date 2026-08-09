@@ -1,0 +1,147 @@
+# Builds a signed App Bundle and uploads it to Google Play.
+#
+# This one is never automatic on a push. It runs from a `v*` tag or from the
+# Actions tab, because it puts a build in front of real users and that should
+# be something you did on purpose. The default track is `internal`, so a tag
+# alone does not reach production — promote it in the Play Console.
+#
+# Secrets: PLAY_UPLOAD_KEYSTORE_BASE64 (the upload keystore, `base64 -w0` — the
+# -w0 matters, since a wrapped blob decodes to a corrupt file), the three
+# passwords/alias that go with it, and PLAY_SERVICE_ACCOUNT_JSON.
+#
+# The service account needs no Google Cloud IAM role. Its authority comes from
+# a Play Console invitation — "View app information (read-only)" and "Release
+# apps to testing tracks" are enough for everything below except the manual
+# production track, which also wants "Release to production, exclude devices,
+# and use Play App Signing".
+#
+# Play refuses an API upload to an app that has never had one through the
+# console, so the very first bundle has to be uploaded by hand.
+name: Deploy to Google Play
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Play track to upload to
+        type: choice
+        default: internal
+        options: [internal, alpha, beta, production]
+      status:
+        description: Release status on that track
+        type: choice
+        default: completed
+        options: [completed, draft, inProgress]
+      build_number:
+        description: >-
+          versionCode override. Leave empty to use the build number in
+          pubspec.yaml. Play rejects a versionCode it has already seen, so
+          this is the way to re-upload without editing pubspec.
+        type: string
+        required: false
+
+concurrency:
+  group: play-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # AGP 9 and Gradle 9.1 want a JDK 17 toolchain, and android/app's
+      # compileOptions target 17 as well.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - run: flutter gen-l10n
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Check the feature catalogue
+        run: dart run tool/features.dart --check
+
+      # android/app/build.gradle.kts reads android/key.properties and falls
+      # back to the *debug* key when it is absent. That fallback is there so a
+      # fresh clone can still `flutter run --release`; a debug-signed bundle is
+      # not something Play will take, so fail here rather than at the upload.
+      - name: Restore the upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.PLAY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo "PLAY_UPLOAD_KEYSTORE_BASE64 is not set"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
+          # storeFile is resolved with rootProject.file(), and the Gradle root
+          # project is android/ — so this path is relative to that directory.
+          cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Build the App Bundle
+        # The override goes through the environment rather than being pasted
+        # into the script: `${{ }}` interpolates before the shell ever sees the
+        # line, so a value with a semicolon in it would be a command, not an
+        # argument.
+        env:
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BUILD_NUMBER:-}" ]; then
+            flutter build appbundle --release --build-number="$BUILD_NUMBER"
+          else
+            flutter build appbundle --release
+          fi
+
+      # Keep the bundle and the symbol files whatever happens next: if Play
+      # rejects the upload, the artifact is what you retry with rather than
+      # rebuilding and hoping you get the same bytes.
+      - name: Keep the bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: appbundle
+          path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Upload to Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.fosslift.foss_lift
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          # A tag push is the conservative path: internal track, so nothing
+          # reaches users until you promote it in the console.
+          track: ${{ inputs.track || 'internal' }}
+          status: ${{ inputs.status || 'completed' }}
+
+      - name: Remove the keystore
+        # Belt and braces — the runner is destroyed anyway, but a failed job
+        # that leaves a decoded key on disk is a habit worth not having.
+        if: always()
+        run: rm -f android/upload-keystore.jks android/key.properties
