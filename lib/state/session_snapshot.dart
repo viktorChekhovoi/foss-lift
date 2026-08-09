@@ -17,6 +17,7 @@ import 'dart:convert';
 import '../data/plates.dart';
 import '../data/progression.dart' show ProgressionMode;
 import '../data/set_scheme.dart';
+import '../data/warmup.dart' show kDefaultWarmupSets;
 import 'active_workout.dart';
 
 /// The live session as one line of JSON.
@@ -31,7 +32,10 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
       if (s.notice case final n?)
         'notice': {'percent': n.percent, 'days': n.days},
       'plates': [for (final p in s.plates) _stack(p)],
+      'barKg': s.barKg,
+      'warmupSets': s.warmupSets,
       'restLeft': s.restLeft,
+      'restDone': s.restDone,
       if (s.restPrompt case final p?)
         'restPrompt': {
           'purpose': p.purpose.name,
@@ -92,6 +96,10 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
     final gone = dead.inSeconds < 0 ? 0 : dead.inSeconds;
     final restLeft = (m['restLeft'] as int) - gone;
     final resting = restLeft > 0;
+    // A rest that ran out while the process was dead has already sounded and has
+    // nothing left to announce; one that had already ended when the snapshot was
+    // taken comes back still saying what it was for.
+    final done = !resting && (m['restDone'] as bool? ?? false);
     final exercises = [
       for (final e in m['exercises'] as List)
         _readExercise(e as Map<String, dynamic>),
@@ -109,9 +117,12 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       plates: [
         for (final p in m['plates'] as List) _readStack(p as Map<String, dynamic>),
       ],
+      barKg: (m['barKg'] as num?)?.toDouble() ?? kDefaultBarKg,
+      warmupSets: m['warmupSets'] as int? ?? kDefaultWarmupSets,
       restLeft: resting ? restLeft : 0,
-      restPrompt: resting ? _readPrompt(m['restPrompt']) : null,
-      restFor: resting ? _readRestFor(m['restFor']) : null,
+      restPrompt: resting || done ? _readPrompt(m['restPrompt']) : null,
+      restFor: resting || done ? _readRestFor(m['restFor']) : null,
+      restDone: done,
       exercises: exercises,
     );
   } catch (_) {

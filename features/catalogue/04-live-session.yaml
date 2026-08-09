@@ -1,8 +1,8 @@
 id: "04"
 title: Live workout session
 tagline: >-
-  Start a day, log each set, run the rest timer, and finish — all in memory until
-  you're done.
+  Start a workout, log each set, run the rest timer, and finish — all in memory
+  until you're done.
 screen: session
 code:
 - lib/state/active_workout.dart
@@ -22,6 +22,10 @@ test:
 - test/feature_04_clocks_test.dart
 - test/feature_04_shade_permission_test.dart
 - test/feature_04_rest_alarm_test.dart
+- test/feature_04_rest_buzz_test.dart
+- test/feature_04_session_continuity_test.dart
+- test/feature_04_rest_done_test.dart
+- test/feature_04_template_drift_test.dart
 where: >-
   <b>State</b> lib/state/active_workout.dart · <b>Warm-up ramp</b> lib/data/warmup.dart,
   loadLadder in lib/data/plates.dart · <b>Screens</b> lib/screens/workout_screen.dart,
@@ -186,6 +190,42 @@ groups:
       and a mid-session crash can't leave half-saved rows.
     defines:
     - session.live-state
+  - id: exercise-added-mid-session-joins-the-end
+    t: An exercise added to the workout while it is running joins the end of the session
+    d: >-
+      edit the workout you are training and add a movement, and the live session
+      picks it up on the end of the board rather than making you finish, edit and
+      start again — with its warm-up ramp built from the weights and plates the
+      session started with, not from whatever the settings say now, so a ramp
+      nobody is halfway up is the only kind that appears. It joins at the tail
+      and only at the tail: the sets you have already logged are held by their
+      position in the list, so a movement arriving in the middle would quietly
+      re-file this exercise's logged sets under that one. That is a corrupted
+      training log rather than a wrong screen, and it is why the tail is the only
+      place a session takes.
+    screen: session
+    defines:
+    - session.template-drift
+    uses:
+    - session.live-state
+    - template.item
+    - session.warmup-ramp
+  - id: other-edits-wait-for-the-next-session
+    t: Every other edit to a running workout waits for the next session
+    d: >-
+      removing an exercise, reordering the list, renaming a movement or changing
+      a slot's sets, target or rest leaves the running session alone, and takes
+      effect the next time you start it. The session is a snapshot on purpose —
+      it is what lets the board be edited instantly and a crash mid-workout leave
+      no half-written rows — and a snapshot that silently re-arranged itself
+      under somebody mid-set would be worse than one that is honestly out of
+      date. Finishing writes what you actually did, including the sets of an
+      exercise that has since been deleted from the template.
+    screen: none
+    uses:
+    - session.template-drift
+    - session.live-state
+    - session.finish
   - id: recorded-duration-is-real-time
     t: The duration a workout is filed under is the time it really took
     d: >-
@@ -526,6 +566,37 @@ groups:
     - session.rest-cue
     uses:
     - session.warmup-ramp
+  - id: rest-that-ended-says-so-and-waits
+    t: A rest that has ended says the next set is up, and waits
+    d: >-
+      the banner does not vanish on the stroke of zero. It stays, saying what the
+      rest was for all along — "Bench Press is up", "Set up 100 kg, then lift" —
+      until the thing it is waiting for happens: you log the set it was leading
+      to, a fresh rest replaces it, or you un-log the set that started it. It
+      has no dismiss button of its own, because every way out of it is something
+      you were going to do anyway.
+      A timer that disappears at the moment it matters answers the one question
+      you had, which is whether it went off, by removing the evidence: the tone
+      and the buzz are for the phone in a bag, and the phone in your hand is
+      precisely where neither of them helps. It is the same sentence the shade
+      shows when the app is not in front of you, on the screen, where until now
+      that sentence was suppressed for being redundant.
+    defines:
+    - session.rest-done
+    uses:
+    - session.rest-cue
+    - session.rest-timer
+    - session.progress-mark
+  - id: ending-a-rest-yourself-lands-the-same-way
+    t: Skipping a rest lands in the same place as letting it run out
+    d: >-
+      Skip and taking the last fifteen seconds off both leave the finished
+      banner, because both mean the same thing — the rest is over and the next
+      set is up. Starting a fresh rest clears it outright rather than layering
+      over it: a banner may say one thing at a time.
+    uses:
+    - session.rest-done
+    - session.rest-timer
   - id: rest-bar-docks-takes-room
     t: The rest bar docks at the bottom and takes real room
     d: >-

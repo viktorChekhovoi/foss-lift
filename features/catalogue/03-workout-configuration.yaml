@@ -146,6 +146,21 @@ groups:
     d: open a workout → edit → tap an exercise slot.
     uses:
     - template.item
+  - id: adding-exercise-opens-its-config
+    t: Adding an exercise opens its config straight away
+    d: >-
+      picking a movement out of the library closes the picker and opens that
+      slot's own sheet on top of the list, because an exercise nobody has set the
+      sets, reps and weight on is not finished being added — landing back on the
+      list makes every add two taps and leaves the defaults standing on the slots
+      where somebody forgot the second one. Backing out of the sheet keeps the
+      exercise, at its defaults: it is already in the workout, and the sheet is
+      for tuning it rather than for confirming it.
+    screen: workout-edit
+    uses:
+    - template.item
+    - template.rep-target
+    - progression.axis
   - id: progression-axis-comes-first-sheet
     t: The progression axis comes first in the sheet
     d: >-

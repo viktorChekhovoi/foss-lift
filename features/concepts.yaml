@@ -100,7 +100,7 @@ concepts:
 
   - id: template.workout
     area: template
-    what: One training day inside a routine — the thing you actually start.
+    what: One workout inside a routine — the thing you actually start.
     code: [lib/data/database.dart, lib/screens/workout_edit_screen.dart]
 
   - id: template.item
@@ -128,7 +128,7 @@ concepts:
   - id: template.duration-estimate
     area: template
     what: >-
-      How long a training day will take, derived from the template — sets,
+      How long a workout will take, derived from the template — sets,
       targets, warm-up rungs and rest. Never read from logged sessions.
     code: [lib/data/workout_estimate.dart, lib/widgets/workout_estimate.dart]
 
@@ -143,9 +143,17 @@ concepts:
     what: The in-memory session. Nothing reaches the database before Finish.
     code: [lib/state/active_workout.dart]
 
+  - id: session.template-drift
+    area: session
+    what: >-
+      What a running session does when the workout behind it is edited — which
+      changes it takes and which it refuses, and why taking them at the tail is
+      the only safe place.
+    code: [lib/state/active_workout.dart]
+
   - id: session.start
     area: session
-    what: Starting a day, including the check for one already running.
+    what: Starting a workout, including the check for one already running.
     code: [lib/widgets/start_workout.dart]
 
   - id: session.set-logging
@@ -177,6 +185,14 @@ concepts:
     area: session
     what: What a rest is for — the caption naming what to set up next.
     code: [lib/state/workout_cue.dart]
+
+  - id: session.rest-done
+    area: session
+    what: >-
+      What a finished rest leaves on screen — the banner does not simply vanish
+      the moment the clock reaches zero, it says the next set is up and waits to
+      be dismissed.
+    code: [lib/state/active_workout.dart, lib/screens/workout_screen.dart]
 
   - id: session.rest-sound
     area: session
@@ -369,6 +385,14 @@ concepts:
     what: The tab shell and the routes between screens.
     code: [lib/router.dart, lib/screens/home_shell.dart]
 
+  - id: ui.dialog
+    area: ui
+    what: >-
+      The app's dialogs as one thing rather than seven copies — how the field
+      inside takes focus, and how the box makes room for the keyboard that
+      focus raises.
+    code: [lib/widgets/common.dart]
+
   - id: ui.system-insets
     area: ui
     what: >-
@@ -395,8 +419,9 @@ concepts:
     area: ui
     what: >-
       The plain-language definitions of the words the app assumes — routine,
-      training day, set, rep, rest. The tour is the only place they are spelled
-      out; screens label their controls and leave the teaching to it.
+      workout, set, rep, rest. The tour is the only place they are spelled
+      out; screens label their controls and leave the teaching to it. One noun
+      per thing: the tour never teaches a word a screen does not itself use.
     code: [lib/widgets/tutorial.dart]
 
   - id: ui.empty-state

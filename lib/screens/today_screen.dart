@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/seed_names.dart';
@@ -112,7 +113,8 @@ class _CurrentRoutineSection extends ConsumerWidget {
                         data: w,
                         accent: hexColor(routine.colorHex),
                         isNext: w.workout.id == nextId,
-                        onTap: () => context.push('/workout/${w.workout.id}'),
+                        onTap: () => context.push(
+                            '${branchRoot(context)}/workout/${w.workout.id}'),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -161,7 +163,8 @@ class _RoutineChooserSection extends ConsumerWidget {
                       onSetCurrent: () => ref
                           .read(databaseProvider)
                           .setActiveRoutineId(r.routine.id),
-                      onTap: () => context.push('/routine/${r.routine.id}'),
+                      onTap: () => context.push(
+                          '${branchRoot(context)}/routine/${r.routine.id}'),
                     ),
                     const SizedBox(height: 12),
                   ],

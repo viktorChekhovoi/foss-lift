@@ -11,6 +11,7 @@ import '../data/plates.dart';
 import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../services/workout_shade.dart' show restIsOverLine;
 import '../state/active_workout.dart';
 import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
@@ -19,6 +20,7 @@ import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/board_cells.dart';
 import '../widgets/builder_widgets.dart';
+import '../widgets/common.dart';
 import '../widgets/plate_line.dart';
 
 /// Marks the set to do now, and the collapsed warm-up group standing in for a
@@ -275,8 +277,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// hold. Returns the set to untouched if the field is cleared, taking that
   /// set's rest with it — see [_restForSet].
   Future<void> _editResult(int ei, int si, SetEntry entry) async {
-    final result = await showDialog<({int? value})>(
-      context: context,
+    final result = await showAppDialog<({int? value})>(
+      context,
+      keyboard: TextInputType.number,
       builder: (_) => _ResultDialog(entry: entry),
     );
     if (result == null || !mounted) return;
@@ -288,8 +291,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   /// The same escape hatch for a warm-up row, on the warm-up list and with the
   /// ramp's own rest — see [ExerciseEntry.restAfterWarmup].
   Future<void> _editWarmupResult(int ei, int wi, SetEntry entry) async {
-    final result = await showDialog<({int? value})>(
-      context: context,
+    final result = await showAppDialog<({int? value})>(
+      context,
+      keyboard: TextInputType.number,
       builder: (_) => _ResultDialog(entry: entry),
     );
     if (result == null || !mounted) return;
@@ -307,8 +311,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     required double weightKg,
     required double minKg,
     String? subtitle,
-  }) => showDialog<double>(
-    context: context,
+  }) => showAppDialog<double>(
+    context,
+    keyboard: const TextInputType.numberWithOptions(decimal: true),
     builder: (_) => _WeightDialog(
       title: title,
       subtitle: subtitle,
@@ -684,7 +689,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                         ],
                       ),
                     ),
-                    if (session.restLeft > 0)
+                    if (session.restLeft > 0 || session.restDone)
                       // Capped, not flexed. A Flexible here claimed an equal
                       // share of the column beside the board's Expanded, and a
                       // bar three lines tall used none of the rest of that
@@ -701,6 +706,13 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                         child: _RestBanner(
                           secondsLeft: session.restLeft,
                           prompt: session.restPrompt,
+                          // The rest is over: the same line the shade posts
+                          // when the app is not in front of you, on the screen
+                          // where it used to be suppressed for being redundant
+                          // — see [restIsOverLine].
+                          done: session.restDone
+                              ? restIsOverLine(l10n, cue, unit)
+                              : null,
                           unit: unit,
                           // −15s ends a rest with less than that left: below fifteen the
                           // button's only honest readings are "skip" and "do nothing".
@@ -1769,9 +1781,8 @@ class _WeightDialogState extends State<_WeightDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1856,11 +1867,10 @@ class _ResultDialogState extends State<_ResultDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(
-        _timed ? l10n.sessionResultSecondsTitle : l10n.sessionResultRepsTitle,
-      ),
+    return AppDialog(
+      title: _timed
+          ? l10n.sessionResultSecondsTitle
+          : l10n.sessionResultRepsTitle,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1925,6 +1935,7 @@ class _RestBanner extends StatelessWidget {
   const _RestBanner({
     required this.secondsLeft,
     required this.prompt,
+    this.done,
     required this.unit,
     required this.onSub,
     required this.onAdd,
@@ -1935,6 +1946,16 @@ class _RestBanner extends StatelessWidget {
   /// What this rest is for — see [RestPrompt]. Null while a session has not
   /// said, which the banner reads as the plain case.
   final RestPrompt? prompt;
+
+  /// What the rest that has just ended was for, or null while one is running.
+  ///
+  /// The bar does not vanish on the stroke of zero: a timer that disappears at
+  /// the moment it matters answers "did it go off?" by removing the evidence.
+  /// It stays, saying what is up, with no countdown to show and nothing left to
+  /// nudge — and no dismiss button, because every way out of it (logging the
+  /// set, starting the next rest, taking the set back) is something you were
+  /// going to do anyway.
+  final String? done;
   final String unit;
   final VoidCallback onSub;
   final VoidCallback onAdd;
@@ -1944,6 +1965,7 @@ class _RestBanner extends StatelessWidget {
   /// already says that. Names the weight about to be lifted, because "set up"
   /// is only useful if it says what to set up to.
   String _caption(AppLocalizations l10n) {
+    if (done case final line?) return line;
     final p = prompt;
     if (p == null) return l10n.sessionRestPlain;
     String weight() => weightWithUnit(l10n, p.weightKg, unit);
@@ -1988,8 +2010,13 @@ class _RestBanner extends StatelessWidget {
       child: SingleChildScrollView(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            // A rest that is over has nothing to count and nothing to nudge, so
+            // the line is the whole bar — see [done].
+            final over = done != null;
             final pills = [
-              for (final (label, onTap) in _controls(l10n)) _pill(label, onTap),
+              if (!over)
+                for (final (label, onTap) in _controls(l10n))
+                  _pill(label, onTap),
             ];
             // The caption takes the whole width, on its own line above the clock
             // and the controls. Sharing a row with them left it about eighty
@@ -2006,38 +2033,43 @@ class _RestBanner extends StatelessWidget {
                 // nothing is hidden by it.
                 Text(
                   _caption(l10n),
+                  // Once the rest is over the line is not a caption under a
+                  // clock any more, it is the thing the bar is there to say.
                   style: kMono.copyWith(
-                    fontSize: 11,
+                    fontSize: over ? 13 : 11,
                     height: 1.3,
-                    color: AppColors.muted,
+                    fontWeight: over ? FontWeight.w700 : null,
+                    color: over ? AppColors.good : AppColors.muted,
                   ),
                 ),
-                const SizedBox(height: 4),
-                // Side by side while the clock still has room to be read; stacked
-                // once the controls have eaten it. At the largest text the app
-                // renders, three buttons and a countdown do not fit across a phone
-                // — and a squeezed button is worse than a taller bar, because the
-                // button is the part you have to hit.
-                if (_controlsWidth(context, l10n) <=
-                    constraints.maxWidth - _kClockRoom)
-                  Row(
-                    children: [
-                      _clock(),
-                      const Spacer(),
-                      for (final pill in pills) ...[
-                        const SizedBox(width: 8),
-                        pill,
+                if (!over) ...[
+                  const SizedBox(height: 4),
+                  // Side by side while the clock still has room to be read;
+                  // stacked once the controls have eaten it. At the largest text
+                  // the app renders, three buttons and a countdown do not fit
+                  // across a phone — and a squeezed button is worse than a taller
+                  // bar, because the button is the part you have to hit.
+                  if (_controlsWidth(context, l10n) <=
+                      constraints.maxWidth - _kClockRoom)
+                    Row(
+                      children: [
+                        _clock(),
+                        const Spacer(),
+                        for (final pill in pills) ...[
+                          const SizedBox(width: 8),
+                          pill,
+                        ],
                       ],
-                    ],
-                  )
-                else ...[
-                  _clock(),
-                  const SizedBox(height: 10),
-                  // Wrapped rather than a row: at the top of the scale three
-                  // buttons do not fit across a narrow phone even with the whole
-                  // width to themselves, and one that runs off the edge cannot be
-                  // pressed at all.
-                  Wrap(spacing: 8, runSpacing: 8, children: pills),
+                    )
+                  else ...[
+                    _clock(),
+                    const SizedBox(height: 10),
+                    // Wrapped rather than a row: at the top of the scale three
+                    // buttons do not fit across a narrow phone even with the
+                    // whole width to themselves, and one that runs off the edge
+                    // cannot be pressed at all.
+                    Wrap(spacing: 8, runSpacing: 8, children: pills),
+                  ],
                 ],
               ],
             );

@@ -18,12 +18,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/data/routine_code.dart';
 import 'package:foss_lift/data/routine_import.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/routine_edit_screen.dart';
+import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/util/capabilities.dart';
 
 import 'support/harness.dart';
@@ -180,6 +182,119 @@ void main() {
                 'origin: a CDN fetch breaks the "no network" claim and is '
                 'blocked outright under COEP');
       }
+    });
+  });
+
+  group('a dialog with a field in it, in a browser', () {
+    late AppDatabase db;
+    ProviderContainer? container;
+
+    setUp(() => db = memoryDb());
+    tearDown(() async {
+      container?.dispose();
+      container = null;
+      await db.close();
+    });
+
+    // A browser window is shorter than a phone screen — the page has the
+    // browser's own chrome above it — and the keyboard takes a third of what
+    // is left.
+    const screen = Size(390, 640);
+    const keyboard = 340.0;
+
+    /// The live board, mounted as the web build sees it, with the weight box of
+    /// Bench Press's fourth set tapped open. That dialog is the one the entry
+    /// names: a title, a field and two buttons.
+    Future<void> openWeightDialog(WidgetTester tester) async {
+      tester.view.physicalSize = screen;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.runAsync(() async {
+        final wid = await workoutIdNamed(db, 'Push');
+        container = containerFor(db, overrides: [
+          capabilitiesProvider.overrideWithValue(Capabilities.web),
+        ]);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Push');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+      final cell = find.descendant(
+        of: find.byKey(const ValueKey('0-3-Bench Press')),
+        matching: find.byKey(const ValueKey('set-weight')),
+      );
+      await tester.ensureVisible(cell);
+      await tester.pump();
+      await tester.tap(cell);
+    }
+
+    /// The box inside whichever dialog is up.
+    final dialogField = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(EditableText),
+    );
+
+    Future<void> stopAll(WidgetTester tester) async {
+      container?.read(activeWorkoutProvider.notifier).discard();
+      await stop(tester);
+    }
+
+    testWidgets('it is ready to type in within the tap that opened it',
+        (tester) async {
+      await openWeightDialog(tester);
+
+      // Not pumped first, deliberately. A browser opens the keyboard only
+      // while it is still handling the tap that asked for it; a field that
+      // asks once the dialog has been built and animated is asking too late,
+      // and the symptom is a dialog you have to tap a second time to type in.
+      expect(tester.testTextInput.hasAnyClients, isTrue,
+          reason: 'nothing had asked for the keyboard by the end of the tap');
+
+      // And what it is typing into is the dialog's own box.
+      await frames(tester);
+      expect(tester.widget<EditableText>(dialogField).focusNode.hasFocus,
+          isTrue);
+      await tester.enterText(find.byType(TextField).first, '85');
+      await tester.pump();
+      expect(find.text('85'), findsOneWidget);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('it makes its own room for the keyboard', (tester) async {
+      await openWeightDialog(tester);
+      await frames(tester);
+
+      final title = find.text(l10nFor().sessionSetTitle(4));
+      expect(title, findsOneWidget, reason: 'the weight dialog did not open');
+      final wasTall = tester.getRect(dialogField).height;
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: keyboard);
+      final overflows = await overflowsDuring(() async {
+        for (var i = 0; i < 12; i++) {
+          await tester.pump(const Duration(milliseconds: 40));
+        }
+      });
+
+      expect(overflows, isEmpty,
+          reason: 'the box was squeezed into what was left rather than '
+              'shrinking and scrolling inside itself: '
+              '${overflows.join(" | ")}');
+      expect(tester.getRect(dialogField).height, closeTo(wasTall, 1.0),
+          reason: 'the field is what has to stay readable');
+      for (final part in <String, Finder>{
+        'the title': title,
+        'the field': dialogField,
+      }.entries) {
+        final rect = tester.getRect(part.value);
+        expect(rect.top, greaterThanOrEqualTo(0.0),
+            reason: '${part.key} was shoved off the top of the page');
+        expect(rect.bottom, lessThanOrEqualTo(screen.height - keyboard),
+            reason: '${part.key} is behind the keyboard');
+      }
+
+      await stopAll(tester);
     });
   });
 }

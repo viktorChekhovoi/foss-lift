@@ -36,10 +36,13 @@ groups:
     uses:
     - template.rest
   - id: workout-one-training-day-inside
-    t: A workout is one training day inside a routine
+    t: A workout is one session's worth of exercises inside a routine
     d: >-
-      this is the thing you actually Start. Names need not be unique inside a
-      routine — Upper/Lower legitimately has "Upper 1" and "Upper 2".
+      this is the thing you actually Start. It is called a workout everywhere —
+      on the screens, in the tour and in here — because a routine is a set of
+      them and picking a second noun for the same thing only ever costs a reader.
+      Names need not be unique inside a routine — Upper/Lower legitimately has
+      "Upper 1" and "Upper 2".
     defines:
     - template.workout
   - id: exercise-slot-one-exercise-inside
@@ -85,7 +88,7 @@ groups:
       an estimate read off the template alone — the working sets, the warm-up
       rungs before them at the count Settings asks for, the rest after every set
       but the last, and time under the bar scaled by the reps or the hold. Shown
-      as a single rounded figure next to the exercise count, on the training day
+      as a single rounded figure next to the exercise count, on the workout
       and on its Today card.
     screen: workout-detail
     defines:
@@ -99,11 +102,11 @@ groups:
 - name: How to use it
   items:
   - id: see-current-routine-s-days
-    t: See the current routine's days
+    t: See the current routine's workouts
     d: >-
       the Today tab lists them directly, under the routine's name in full — it
       wraps rather than truncating, at any text size. Starting a workout is two
-      taps: tap a day → Start.
+      taps: tap a workout → Start.
     screen: today
     uses:
     - template.active-routine
@@ -119,11 +122,11 @@ groups:
     - template.active-routine
     - storage.settings
   - id: open-routine-see-its-days
-    t: A routine's page lists its training days
+    t: A routine's page lists its workouts
     d: >-
       numbered, in the order you train them, each with the exercises it holds
-      and the one you are due next badged. Tapping a day opens it; the app bar
-      carries share and edit. You start a workout from a day, never from the
+      and the one you are due next badged. Tapping a workout opens it; the app bar
+      carries share and edit. You start a workout from its own page, never from the
       routine.
     screen: routine-detail
     uses:
@@ -133,7 +136,7 @@ groups:
     t: Build / edit a routine
     d: >-
       Routines → open a routine → edit → name, colour, default rest, schedule,
-      and the list of training days: add, delete, and drag by the handle on the
+      and the list of workouts: add, delete, and drag by the handle on the
       left of each row into the order you train them.
     screen: routine-edit
     uses:
@@ -141,7 +144,7 @@ groups:
     - template.workout
     - template.rest
   - id: build-edit-day-s-exercises
-    t: Build / edit a day's exercises
+    t: Build / edit a workout's exercises
     d: >-
       open a workout → edit → add exercises from the picker, drag them by the
       handle into order, configure each slot. The same control at both levels.
@@ -155,7 +158,7 @@ groups:
     t: The estimate is rounded to five minutes and marked as approximate
     d: >-
       a workout that comes out at 47 minutes reads <b>~45 min</b>. Anything above
-      zero rounds up to at least five, and a day with no exercises shows no
+      zero rounds up to at least five, and a workout with no exercises shows no
       estimate at all rather than zero.
     screen: workout-detail
     uses:
@@ -164,7 +167,7 @@ groups:
     t: The estimate moves when the template does
     d: >-
       add a set, widen the rep range, lengthen the rest or override it on one
-      slot, and the figure on the training day and on the Today card follows.
+      slot, and the figure on the workout and on the Today card follows.
       A slot's own rest override is used where it is set; every other slot falls
       back to the routine's default rest.
     screen: workout-detail
@@ -177,7 +180,7 @@ groups:
       logged durations are wall-clock from Start to Finish with no pause, so a
       session left running while you walk home records an hour that was never
       trained and nothing stored distinguishes it. The estimate is derived from
-      the template alone, which is also what lets a day that has never been
+      the template alone, which is also what lets a workout that has never been
       trained carry one.
     screen: none
     uses:
@@ -187,7 +190,7 @@ groups:
     t: Editing is split to match the hierarchy
     d: >-
       the routine editor changes routine meta and its list of workouts; the workout
-      editor changes the exercises inside one day. Renaming or reordering workouts
+      editor changes the exercises inside one workout. Renaming or reordering workouts
       never disturbs the exercises inside them, and only workouts you actually
       removed are deleted.
     screen: routine-edit

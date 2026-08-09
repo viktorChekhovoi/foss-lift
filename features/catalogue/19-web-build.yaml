@@ -14,6 +14,7 @@ code:
 - lib/services/storage_health.dart
 - lib/services/tab_awake.dart
 - lib/widgets/storage_warning.dart
+- lib/widgets/common.dart
 - web/index.html
 test:
 - test/feature_19_web_build_test.dart
@@ -25,7 +26,8 @@ where: >-
   over it</b> lib/state/unsaved_work.dart and lib/util/leave_guard.dart ·
   <b>Whether the browser will keep the database</b>
   lib/services/storage_health.dart · <b>Keeping the tab's clocks running</b>
-  lib/services/tab_awake.dart · <b>Page and assets</b> web/ ·
+  lib/services/tab_awake.dart · <b>Dialogs, and the keyboard they raise</b>
+  lib/widgets/common.dart · <b>Page and assets</b> web/ ·
   <b>How to build and where to host it</b> docs/web-build.md
 groups:
 - name: What it does
@@ -272,3 +274,31 @@ groups:
     uses:
     - storage.durability
     - platform.portability
+  - id: dialog-in-a-browser-raises-its-keyboard
+    t: A dialog with a field in it raises the keyboard in a browser too
+    d: >-
+      the weight box, the workout name, the note and every other dialog that
+      asks for typing open ready to type in, on the web as on a phone. A browser
+      only lets a page open the keyboard while it is still handling the tap that
+      asked for it, and a field that takes focus after the dialog has finished
+      animating is asking too late — so the dialog claims focus within the tap
+      rather than leaving it to the field to ask for afterwards. The symptom
+      when it is wrong is a dialog you have to tap a second time to type in.
+    screen: session
+    defines:
+    - ui.dialog
+    uses:
+    - platform.web
+  - id: dialog-makes-its-own-room-for-the-keyboard
+    t: A dialog makes its own room for the keyboard
+    d: >-
+      the box stays put and stays whole when the keyboard comes up: it shrinks
+      and scrolls inside itself rather than being shoved up the page until its
+      title is off the top. Sheets have always done this and dialogs did not,
+      which is why a browser was left to do the scrolling and overshot — the
+      field is what has to be visible, and it is what the dialog keeps visible.
+    screen: session
+    uses:
+    - ui.dialog
+    - ui.system-insets
+    - platform.web

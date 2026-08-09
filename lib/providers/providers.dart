@@ -652,9 +652,18 @@ final videoPathsProvider = StreamProvider<List<String>>((ref) {
 /// moves the number without a reload. It measures the *folder*, not the rows —
 /// a stranded file is space the user has lost, and a storage screen that did
 /// not count it would be lying about the thing it exists to report.
+///
+/// A host that cannot answer at all — no app-directory plugin, so no folder to
+/// measure — reports nothing rather than an error. There is nothing to retry
+/// there, and an erroring provider would sit in a retry loop for as long as the
+/// screen is open.
 final videoUsageProvider = FutureProvider<int>((ref) async {
   ref.watch(videoPathsProvider);
-  return ref.watch(setVideoStoreProvider).bytesUsed();
+  try {
+    return await ref.watch(setVideoStoreProvider).bytesUsed();
+  } catch (_) {
+    return 0;
+  }
 });
 
 /// Sweeps clip files that nothing points at, once per launch.

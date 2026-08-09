@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../util/units.dart';
@@ -122,7 +123,8 @@ class _Body extends ConsumerWidget {
             ),
             icon: Icon(Icons.show_chart, color: AppColors.accent),
             label: Text(l10n.commonProgress),
-            onPressed: () => context.push('/exercise/${exercise.id}/progress'),
+            onPressed: () => context.push(
+                '${branchRoot(context)}/exercise/${exercise.id}/progress'),
           ),
         ),
         // Only once there is something to watch. An empty reel is a button
@@ -142,7 +144,8 @@ class _Body extends ConsumerWidget {
               ),
               icon: Icon(Icons.videocam_rounded, color: AppColors.accent),
               label: Text(l10n.commonClipCount(clipCount)),
-              onPressed: () => context.push('/exercise/${exercise.id}/clips'),
+              onPressed: () => context.push(
+                  '${branchRoot(context)}/exercise/${exercise.id}/clips'),
             ),
           ),
         ],
@@ -251,7 +254,7 @@ class ExerciseLoadingSection extends ConsumerWidget {
           ExerciseBarRow(exercise: exercise),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () => context.push('/settings/plates'),
+            onTap: () => context.push('${branchRoot(context)}/settings/plates'),
             child: Text(
               l10n.exerciseDetailAvailablePlates,
               style: kMono.copyWith(

@@ -192,8 +192,9 @@ Future<String?> promptForCode(
   required String title,
   required String hint,
 }) async {
-  final pasted = await showDialog<String>(
-    context: context,
+  final pasted = await showAppDialog<String>(
+    context,
+    keyboard: TextInputType.multiline,
     builder: (_) => _PasteDialog(title: title, hint: hint),
   );
   final text = pasted?.trim() ?? '';
@@ -231,9 +232,8 @@ class _PasteDialogState extends State<_PasteDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       content: TextField(
         controller: _controller,
         maxLines: 4,

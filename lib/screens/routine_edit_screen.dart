@@ -210,8 +210,9 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     // Same story as _editWorkout: the dialog's own field takes focus, and
     // cancelling it must not hand focus back to the routine name.
     FocusManager.instance.primaryFocus?.unfocus();
-    final result = await showDialog<String>(
-      context: context,
+    final result = await showAppDialog<String>(
+      context,
+      keyboard: TextInputType.text,
       builder: (_) => _NameDialog(title: title),
     );
     FocusManager.instance.primaryFocus?.unfocus();
@@ -581,9 +582,8 @@ class _NameDialogState extends State<_NameDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       content: TextField(
         controller: _controller,
         autofocus: true,

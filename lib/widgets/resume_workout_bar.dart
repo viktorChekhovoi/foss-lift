@@ -26,16 +26,6 @@ enum ResumeBarMount {
   app,
 }
 
-/// The tab roots — the routes that draw the bottom navigation bar.
-const _tabRoots = {'/today', '/routines', '/history', '/profile'};
-
-/// The location of the route on top of [go] right now. Empty before the first
-/// route resolves, which is nobody's tab root and so nobody's bar.
-String _topRoute(GoRouter go) {
-  final config = go.routerDelegate.currentConfiguration;
-  return config.matches.isEmpty ? '' : config.last.matchedLocation;
-}
-
 /// One mount point's claim on the bar, resolved against the current route.
 ///
 /// **Both mount points ask this same question, so they cannot both say yes.**
@@ -64,10 +54,17 @@ String _topRoute(GoRouter go) {
 ///   hears that the push it stood aside for is over — which is why the overlay
 ///   was still holding the claim it took on the way into Settings.
 ///
-/// `currentConfiguration.last.matchedLocation` is the location of the route
-/// actually on top, imperative pushes included, and the delegate notifies on both
-/// halves of a push and a pop. The provider is still listened to, for the
-/// platform-driven changes that arrive through it.
+/// The delegate's configuration says which route is actually on top, imperative
+/// pushes included, and the delegate notifies on both halves of a push and a
+/// pop. The provider is still listened to, for the platform-driven changes that
+/// arrive through it.
+///
+/// **The question is shell membership, not a list of paths.** Most of the app is
+/// inside the tab shell now — a routine, a workout, the library, the settings
+/// pages — so "is this one of the four tab roots" would answer no for a screen
+/// that plainly has a navigation bar under it, and both slots would stand aside.
+/// [insideTabShell] asks go_router whether the top-level match is the shell's,
+/// which stays right as screens move in and out of it.
 class ResumeWorkoutBarSlot extends StatelessWidget {
   const ResumeWorkoutBarSlot({super.key, required this.mount, this.router});
 
@@ -88,8 +85,7 @@ class ResumeWorkoutBarSlot extends StatelessWidget {
         go.routeInformationProvider,
       ]),
       builder: (context, _) {
-        final onTabRoot = _tabRoots.contains(_topRoute(go));
-        if (onTabRoot != (mount == ResumeBarMount.shell)) {
+        if (insideTabShell(go) != (mount == ResumeBarMount.shell)) {
           return const SizedBox.shrink();
         }
         // Only the app's last row has to clear the system gesture area; the
@@ -104,10 +100,10 @@ class ResumeWorkoutBarSlot extends StatelessWidget {
 /// screen minimises by popping itself; the session stays in memory, and the bar
 /// is how the user gets back to it from anywhere they wander.
 ///
-/// This is the [ResumeBarMount.app] slot: the last row of the app, used
-/// everywhere outside the tab roots. On a tab screen `HomeShell` holds the other
-/// slot, above the navigation bar. Two mount points, one bar; nothing is ever
-/// underneath it.
+/// This is the [ResumeBarMount.app] slot: the last row of the app, used by the
+/// screens that stack over the tab shell. Inside the shell `HomeShell` holds the
+/// other slot, above the navigation bar. Two mount points, one bar; nothing is
+/// ever underneath it.
 class ResumeWorkoutOverlay extends StatelessWidget {
   const ResumeWorkoutOverlay({super.key, required this.child, this.router});
   final Widget child;

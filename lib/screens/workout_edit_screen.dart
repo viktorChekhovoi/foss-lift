@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
 import '../state/unsaved_work.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
@@ -119,7 +120,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
     await ref.read(databaseProvider).deleteWorkout(widget.workoutId);
     if (!mounted) return;
     // Pop past the (now-deleted) workout detail screen to its routine.
-    context.go('/routine/$_routineId');
+    context.go('${branchRoot(context)}/routine/$_routineId');
   }
 
   void _toast(String m) =>

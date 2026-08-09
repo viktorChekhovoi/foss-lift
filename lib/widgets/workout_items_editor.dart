@@ -424,6 +424,13 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
     _bump(() => _items.add(ItemDraft.forExercise(picked, unit: widget.unit)));
+    // Straight into the new slot's settings: an exercise nobody has set the
+    // sets, reps and weight on is not finished being added, and landing back on
+    // the list makes every add two taps with the second one easy to forget.
+    // Backing out keeps it at its defaults — it is already in the workout, and
+    // the sheet is for tuning it rather than for confirming it.
+    if (!mounted) return;
+    await _configure(_items.length - 1);
   }
 
   Future<void> _configure(int i) async {

@@ -3,7 +3,14 @@
 // The spec:
 //   * the app is four tabs, and the bar that switches them belongs to the shell
 //     rather than to the screens inside it;
-//   * every other screen stacks over the shell, so it carries no navigation bar;
+//   * a screen you browse to — a routine, a workout, an exercise, the library,
+//     the settings pages — opens inside the shell and keeps the navigation bar,
+//     and the tab you left keeps its own stack;
+//   * two kinds of screen stack over the shell instead: the live session with
+//     its set-recording screen, and a screen that is a single task to finish or
+//     abandon (the scanner, an import awaiting review, sharing, clip playback);
+//   * a screen with its own bottom furniture sits above the tabs, and the
+//     resume-workout bar shows in exactly one place;
 //   * a screen with nothing on it yet says so in a line, and offers the next
 //     step only where there is one;
 //   * the phone's own bars never cover a control.
@@ -18,18 +25,28 @@
 // Database setup runs inside `runAsync`: drift's futures only complete on the
 // real event loop, which a `testWidgets` body does not turn on its own.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/router.dart';
+import 'package:foss_lift/screens/clip_player_screen.dart';
+import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/history_screen.dart';
+import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/screens/routine_detail_screen.dart';
+import 'package:foss_lift/screens/routine_import_screen.dart';
 import 'package:foss_lift/screens/appearance_screen.dart';
+import 'package:foss_lift/screens/scan_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
+import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_edit_screen.dart';
+import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/widgets/common.dart';
+import 'package:foss_lift/widgets/resume_workout_bar.dart';
 import 'package:foss_lift/util/locales.dart';
 
 import 'support/harness.dart';
@@ -37,13 +54,22 @@ import 'support/seeded.dart';
 import 'support/settle.dart';
 
 /// The real router under a real database, as the app root builds it.
-Widget wholeApp(ProviderContainer container) => UncontrolledProviderScope(
+///
+/// [withResumeBar] adds the app-level slot `main.dart` wraps every route in, so
+/// a test can count the bar across *both* of its mount points rather than only
+/// the shell's.
+Widget wholeApp(ProviderContainer container, {bool withResumeBar = false}) =>
+    UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
         theme: AppTheme.build(kDefaultPalette),
         supportedLocales: kSupportedLocales,
         localizationsDelegates: kTestDelegates,
         routerConfig: appRouter,
+        builder: withResumeBar
+            ? (context, child) =>
+                ResumeWorkoutOverlay(router: appRouter, child: child!)
+            : null,
       ),
     );
 
@@ -87,19 +113,6 @@ void main() {
       }
     });
 
-    testWidgets('a screen opened over the tabs carries no navigation bar',
-        (tester) async {
-      await tester.pumpWidget(wholeApp(container));
-      await pumpThroughDatabase(tester);
-      expect(find.byType(NavigationBar), findsOneWidget);
-
-      appRouter.push('/library');
-      await pumpThroughDatabase(tester);
-
-      expect(find.byType(NavigationBar), findsNothing,
-          reason: 'the library stacks over the shell, not inside a tab');
-    });
-
     testWidgets('the bar belongs to the shell, not to the tab screen',
         (tester) async {
       await tester.pumpWidget(wholeApp(container));
@@ -114,6 +127,235 @@ void main() {
         findsNothing,
         reason: 'the screen does not draw the bar or reserve room for it',
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Which screens keep the tabs and which stack over them.
+  //
+  // Every one of these drives the real `appRouter`: the question is not whether
+  // a screen *can* be drawn inside a shell but whether the route the app
+  // actually navigates to puts it there, and only the real route table answers
+  // that.
+
+  /// Pushes [location] on the app router and lets the screen behind it load.
+  Future<void> pushTo(WidgetTester tester, String location) async {
+    appRouter.push(location);
+    await pumpThroughDatabase(tester);
+  }
+
+  /// The app at `/today`, with [location] pushed on top of it.
+  Future<void> openOverToday(WidgetTester tester, String location,
+      {bool withResumeBar = false}) async {
+    await tester.pumpWidget(wholeApp(container, withResumeBar: withResumeBar));
+    await pumpThroughDatabase(tester);
+    expect(find.byType(NavigationBar), findsOneWidget,
+        reason: 'the tabs are there before the push');
+    await pushTo(tester, location);
+  }
+
+  /// The Push day of the seeded routine.
+  Future<int> pushDayId(WidgetTester tester) async {
+    late final int id;
+    await tester.runAsync(() async {
+      id = await workoutIdNamed(db, 'Push');
+    });
+    return id;
+  }
+
+  group('a screen you browse to keeps the tabs', () {
+    testWidgets('a workout, with its Start button', (tester) async {
+      final id = await pushDayId(tester);
+      await openOverToday(tester, '/workout/$id');
+
+      expect(find.byType(WorkoutDetailScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget,
+          reason: 'a workout opens inside the shell and keeps the tabs');
+      await stop(tester);
+    });
+
+    testWidgets('a routine', (tester) async {
+      late final int id;
+      await tester.runAsync(() async {
+        id = (await routineNamed(db)).id;
+      });
+      await openOverToday(tester, '/routine/$id');
+
+      expect(find.byType(RoutineDetailScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget,
+          reason: 'a routine opens inside the shell and keeps the tabs');
+      await stop(tester);
+    });
+
+    testWidgets('the library, and an exercise in it', (tester) async {
+      await openOverToday(tester, '/library');
+      expect(find.byType(LibraryScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget,
+          reason: 'the library is browsing, not a task to finish');
+
+      late final int id;
+      await tester.runAsync(() async {
+        id = (await exerciseNamed(db, 'Bench Press')).id;
+      });
+      await pushTo(tester, '/exercise/$id');
+
+      expect(find.byType(ExerciseDetailScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget,
+          reason: 'an exercise page keeps the tabs too');
+      await stop(tester);
+    });
+
+    testWidgets('the settings pages', (tester) async {
+      await openOverToday(tester, '/settings');
+      expect(find.byType(NavigationBar), findsOneWidget,
+          reason: 'settings is browsing');
+
+      await pushTo(tester, '/settings/appearance');
+      expect(find.byType(NavigationBar), findsOneWidget,
+          reason: 'and so is a settings page inside it');
+      await stop(tester);
+    });
+  });
+
+  group('a screen you are finishing does not', () {
+    testWidgets('the live session owns the whole screen', (tester) async {
+      await tester.runAsync(() async {
+        await container
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+      });
+
+      await openOverToday(tester, '/session');
+
+      expect(find.byType(WorkoutScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing,
+          reason: 'the session owns the screen; its rest bar docks where the '
+              'tabs would be');
+
+      container.read(activeWorkoutProvider.notifier).discard();
+      await stop(tester);
+    });
+
+    testWidgets('the scanner is a single task to finish or abandon',
+        (tester) async {
+      await openOverToday(tester, '/scan?for=routine');
+
+      expect(find.byType(ScanScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing,
+          reason: 'a stray tab tap would walk out of the scan');
+      await stop(tester);
+    });
+
+    testWidgets('an import waiting to be reviewed', (tester) async {
+      await openOverToday(tester, '/routine/import?code=nonsense');
+
+      expect(find.byType(RoutineImportScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing,
+          reason: 'the import is pending a decision, not a page to browse away '
+              'from');
+      await stop(tester);
+    });
+
+    testWidgets('clip playback', (tester) async {
+      // The player resolves the clip against the app support directory, which
+      // is a platform channel a widget test has none of. The file is missing
+      // either way — the screen under test is the "clip is gone" one, and it is
+      // still the full-screen player.
+      const pathProvider = MethodChannel('plugins.flutter.io/path_provider');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        pathProvider,
+        (call) async => '/tmp/foss-lift-test',
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(pathProvider, null));
+
+      await openOverToday(tester, '/clip?path=clips/missing.mp4');
+
+      expect(find.byType(ClipPlayerScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing,
+          reason: 'the player is full screen');
+      await stop(tester);
+    });
+
+    testWidgets('sharing a routine', (tester) async {
+      late final int id;
+      await tester.runAsync(() async {
+        id = (await routineNamed(db)).id;
+      });
+      await openOverToday(tester, '/routine/$id/share');
+
+      expect(find.byType(NavigationBar), findsNothing,
+          reason: 'sharing is a task to finish or abandon');
+      await stop(tester);
+    });
+  });
+
+  group('the bottom of a screen inside the shell', () {
+    testWidgets('the resume bar shows in exactly one place', (tester) async {
+      await tester.runAsync(() async {
+        await container
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
+      });
+
+      final id = await pushDayId(tester);
+      await openOverToday(tester, '/workout/$id', withResumeBar: true);
+
+      // Both mount points are in this tree — the shell's slot above the tabs
+      // and the app's last row. Exactly one of them may answer for a screen
+      // that is inside the shell, or the bar either doubles up or vanishes.
+      expect(find.byKey(resumeWorkoutBarKey), findsOneWidget,
+          reason: 'one bar: not two mount points both claiming it, and not '
+              'both standing aside');
+
+      final bar = tester.getRect(find.byKey(resumeWorkoutBarKey));
+      final nav = tester.getRect(find.byType(NavigationBar));
+      expect(bar.bottom, lessThanOrEqualTo(nav.top + 0.5),
+          reason: 'the resume bar rides above the tabs');
+
+      container.read(activeWorkoutProvider.notifier).discard();
+      await stop(tester);
+    });
+
+    testWidgets("a screen's own bottom furniture sits above the tabs",
+        (tester) async {
+      final id = await pushDayId(tester);
+      await openOverToday(tester, '/workout/$id');
+
+      final start =
+          find.widgetWithText(FilledButton, l10nFor().workoutDetailStart);
+      expect(start, findsOneWidget, reason: 'the Start button is on screen');
+      final nav = find.byType(NavigationBar);
+      expect(nav, findsOneWidget);
+
+      expect(tester.getRect(start).bottom,
+          lessThanOrEqualTo(tester.getRect(nav).top + 0.5),
+          reason: 'Start sits above the tabs rather than under them');
+      await stop(tester);
+    });
+  });
+
+  group('leaving a browsed screen for another tab', () {
+    testWidgets('is one tap, and the tab you left keeps its stack',
+        (tester) async {
+      final id = await pushDayId(tester);
+      await openOverToday(tester, '/workout/$id');
+      expect(find.byType(WorkoutDetailScreen), findsOneWidget);
+
+      await tester.tap(tabLabel(l10nFor().navHistory));
+      await pumpThroughDatabase(tester);
+
+      expect(find.byType(HistoryScreen), findsOneWidget,
+          reason: 'one tap to History, not a walk back up the stack');
+      expect(find.byType(WorkoutDetailScreen), findsNothing);
+
+      await tester.tap(tabLabel(l10nFor().navToday));
+      await pumpThroughDatabase(tester);
+
+      expect(find.byType(WorkoutDetailScreen), findsOneWidget,
+          reason: "Today is where it was left — on the workout, not back at "
+              'the tab root');
+      await stop(tester);
     });
   });
 

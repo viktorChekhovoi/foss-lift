@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/tutorial.dart';
 
@@ -74,12 +75,12 @@ class ProfileScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.tune_rounded,
             label: l10n.settingsTitle,
-            onTap: () => context.push('/settings'),
+            onTap: () => context.push('${branchRoot(context)}/settings'),
           ),
           _SettingsTile(
             icon: Icons.list_alt_rounded,
             label: l10n.profileExerciseLibrary,
-            onTap: () => context.push('/library'),
+            onTap: () => context.push('${branchRoot(context)}/library'),
           ),
           // Replays a tour on demand. It asks which one and then starts where
           // you are: every tour opens on the navigation bar, which is under
@@ -92,7 +93,7 @@ class ProfileScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.brightness_6_outlined,
             label: l10n.profileAppearance,
-            onTap: () => context.push('/settings/appearance'),
+            onTap: () => context.push('${branchRoot(context)}/settings/appearance'),
           ),
           // Absent where there is no filesystem to write a file to: the browser
           // build has no database file to copy and nowhere to put one.
@@ -100,12 +101,12 @@ class ProfileScreen extends ConsumerWidget {
             _SettingsTile(
               icon: Icons.save_alt_rounded,
               label: l10n.profileBackup,
-              onTap: () => context.push('/backup'),
+              onTap: () => context.push('${branchRoot(context)}/backup'),
             ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             label: l10n.aboutTitle,
-            onTap: () => context.push('/about'),
+            onTap: () => context.push('${branchRoot(context)}/about'),
             last: true,
           ),
         ],

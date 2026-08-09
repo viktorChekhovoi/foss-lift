@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../data/database.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/common.dart';
@@ -96,7 +97,8 @@ class RoutineDetailScreen extends ConsumerWidget {
                       data: list[i],
                       accent: routine?.colorHex,
                       isNext: list[i].workout.id == nextId,
-                      onTap: () => context.push('/workout/${list[i].workout.id}'),
+                      onTap: () => context.push(
+                          '${branchRoot(context)}/workout/${list[i].workout.id}'),
                     ),
                   ),
             ],

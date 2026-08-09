@@ -8,14 +8,17 @@ code:
 - lib/screens/exercise_form_screen.dart
 - lib/screens/exercise_detail_screen.dart
 - lib/data/exercise_filter.dart
+- lib/state/exercise_filter_state.dart
 - lib/widgets/exercise_filters.dart
 - lib/data/plates.dart
 - lib/data/database.dart
 test:
 - test/feature_01_exercise_library_test.dart
+- test/feature_01_exercise_filters_test.dart
 where: >-
   <b>Screens</b> lib/screens/library_screen.dart, exercise_form_screen.dart, exercise_detail_screen.dart
-  · <b>Filtering</b> lib/data/exercise_filter.dart, lib/widgets/exercise_filters.dart
+  · <b>Filtering</b> lib/data/exercise_filter.dart, lib/widgets/exercise_filters.dart,
+  lib/state/exercise_filter_state.dart
   · <b>Named bars</b> namedBars() in lib/data/plates.dart · <b>Data</b> Exercises
   table + first-run seed in lib/data/database.dart
 groups:
@@ -55,6 +58,27 @@ groups:
     uses:
     - exercise.filter
     - exercise.taxonomy
+  - id: filter-stays-set-while-you-use-it
+    t: A filter you set stays set
+    d: >-
+      narrowing to legs and back, opening a movement and coming back leaves the
+      list still narrowed to legs and back rather than showing all eighty-seven
+      again. The button says which choices are live without the sheet being
+      opened to check, so a list that is hiding things always says what it is
+      hiding them by — a filter you have forgotten about looks exactly like a
+      library that has lost your exercise. It outlives the screen rather than
+      the visit: leaving the library entirely and coming back finds it as you
+      left it, and the builder's picker — where adding three leg movements means
+      opening it three times — opens on legs again rather than on all
+      eighty-seven. The library and the picker keep <i>separate</i> choices,
+      because a picker that opened pre-narrowed by something done on another
+      screen reads as a bug. The search text is not kept: it has a box showing
+      it, and a query that outlived the box would narrow the list with nothing
+      on screen saying so. None of it is written down — the choice comes back
+      for as long as the app is running, and a cold launch opens on the whole
+      library.
+    uses:
+    - exercise.filter
   - id: each-exercise-opens-detail-page
     t: Each exercise opens a detail page
     d: with its facts and its demo link.

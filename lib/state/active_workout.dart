@@ -17,7 +17,7 @@ import '../services/rest_buzz.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
 import '../services/workout_shade.dart'
-    show describeCue, pendingShadeActionsProvider, shadeWhere;
+    show pendingShadeActionsProvider, restIsOverLine;
 import 'session_mirror.dart';
 import 'workout_cue.dart';
 
@@ -383,9 +383,12 @@ class ActiveWorkout {
     required this.elapsed,
     this.unit = 'kg',
     this.plates = const [],
+    this.barKg = kDefaultBarKg,
+    this.warmupSets = kDefaultWarmupSets,
     this.restLeft = 0,
     this.restPrompt,
     this.restFor,
+    this.restDone = false,
     this.notice,
     this.rev = 0,
   });
@@ -414,6 +417,17 @@ class ActiveWorkout {
   final String unit;
   final List<PlateStack> plates;
 
+  /// The bar every barbell lift in this session stands on, and how deep a
+  /// warm-up ramp opens — read once on the way in, beside [unit] and [plates].
+  ///
+  /// They are on the session for the same reason those two are, and for one
+  /// more: an exercise added to the template mid-session is built from these
+  /// rather than from the settings as they stand now, so a rack emptied or a
+  /// stepper moved halfway through cannot produce a ramp unlike the ones
+  /// already on the board.
+  final double barKg;
+  final int warmupSets;
+
   /// Something the session needs to say for itself — currently only that its
   /// targets were cut on the way in after a layoff.
   ///
@@ -433,6 +447,14 @@ class ActiveWorkout {
   /// The set this rest is for — see [RestSetRef]. Null for a rest nobody
   /// attributed, which is stopped by anything that stops a rest.
   final RestSetRef? restFor;
+
+  /// The rest reached its end and nothing has moved on from it yet.
+  ///
+  /// [restLeft] is 0 and [restPrompt]/[restFor] are still the finished rest's,
+  /// which is what lets the bar go on naming what the rest was for. It is not
+  /// a rest — nothing is counting — so everything that asks "am I resting?"
+  /// keeps asking [restLeft].
+  final bool restDone;
 
   final int rev;
 
@@ -555,6 +577,7 @@ class ActiveWorkout {
     int? restLeft,
     RestPrompt? restPrompt,
     RestSetRef? restFor,
+    bool? restDone,
     bool clearRest = false,
   }) => ActiveWorkout(
     routineId: routineId,
@@ -566,9 +589,12 @@ class ActiveWorkout {
     elapsed: elapsed ?? this.elapsed,
     unit: unit,
     plates: plates,
+    barKg: barKg,
+    warmupSets: warmupSets,
     restLeft: clearRest ? 0 : (restLeft ?? this.restLeft),
     restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
     restFor: clearRest ? null : (restFor ?? this.restFor),
+    restDone: clearRest ? false : (restDone ?? this.restDone),
     notice: notice,
     rev: rev + 1,
   );
@@ -612,6 +638,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       binding?.removeObserver(this);
       _timer?.cancel();
       _restTimer?.cancel();
+      _gone = true;
+      _stopWatchingTemplate();
     });
     return null;
   }
@@ -708,18 +736,29 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// button with no feedback at all on the one screen that is in a pocket.
   void stopRest({bool tone = true}) => _endRest(announce: tone);
 
+  /// Ends the rest.
+  ///
+  /// A rest that **finished** ([announce], which is every way of reaching zero
+  /// that means "that is the rest done") leaves the bar behind saying so — see
+  /// [ActiveWorkout.restDone]. A rest that was merely **abandoned** — a hold
+  /// starting under it, the set that started it taken back to untouched — is
+  /// cleared outright, because there is no finished rest to report. That is
+  /// also what takes a bar left over from a finished rest away: the second call
+  /// finds nothing running and clears.
   void _endRest({bool announce = true}) {
     _restTimer?.cancel();
     _restTimer = null;
     _restEndsAt = null;
     final s = state;
     if (s == null) return;
-    final wasResting = s.restLeft > 0;
-    _commit(s.copyWith(clearRest: true));
-    if (wasResting && announce) {
+    if (s.restLeft > 0 && announce) {
+      // The prompt and the set it was for stay: they are what the bar has left
+      // to say, and what an un-log of that set is matched against.
+      _commit(s.copyWith(restLeft: 0, restDone: true));
       _sayTheRestIsOver();
       return;
     }
+    _commit(s.copyWith(clearRest: true));
     ref.read(restAlarmProvider).clear();
   }
 
@@ -778,14 +817,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// makes you open the app to find out what for.
   String _whatComesNext(AppLocalizations l10n) {
     final s = state;
-    final cue = s == null ? null : nextUp(s);
-    if (cue == null || cue.kind == CueKind.finished) {
-      return l10n.restAlarmBackToIt;
-    }
-    return l10n.restAlarmBody(
-      shadeWhere(l10n, cue),
-      describeCue(l10n, cue, s!.unit),
-    );
+    return s == null
+        ? l10n.restAlarmBackToIt
+        : restIsOverLine(l10n, nextUp(s), s.unit);
   }
 
   // ---- The crash snapshot --------------------------------------------------
@@ -836,6 +870,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     }
     state = was;
     _startClock();
+    if (was.workoutId case final id?) _watchTemplate(id);
     // A rest with time left on it goes back on the clock. One that ran out while
     // the app was dead is simply over — and its alarm has already sounded, which
     // is why nothing is cleared here.
@@ -909,73 +944,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
       for (final v in items) {
-        final mode = v.item.progression;
-        // The goal is the hold for a timed exercise, and otherwise the top of
-        // the rep range or the fixed count. A to-failure set carries no upper
-        // bound, so its goal is `repsMin` — the number you have to beat for
-        // the set to count, which is exactly what "to failure" is asking.
-        final goal = mode.timed
-            ? v.item.holdSeconds
-            : (v.item.repsMax ?? v.item.repsMin);
-        final w = v.item.suggestedWeight;
-        // The bar this movement stands on, whatever it is loaded to today —
-        // resolved here because it cannot change mid-session, unlike the ramp
-        // above it.
-        final warmupBar = v.exercise.weightType == WeightType.bar
-            ? (v.exercise.barWeight ?? setup.barKg)
-            : 0.0;
-        // What each set actually opens at. Flat is every set at [w], which is
-        // what it was before there were schemes; a back-off or a ramp is a
-        // ladder off it — see `data/set_scheme.dart`.
-        final targets = resolveSetTargets(
-          scheme: v.item.scheme,
-          sets: v.item.targetSets,
-          // A to-failure set has no upper bound, so its goal is `repsMin` —
-          // the number you have to beat, which is what `goal` already is.
-          goalReps: goal,
-          topWeightKg: w,
-          unit: unit,
-          percent: v.item.schemePercent,
-          custom: decodeCustomSets(v.item.customSets),
-          floorKg: warmupBar,
-        );
-        final e = ExerciseEntry(
-          exerciseId: v.exercise.id,
-          itemId: v.item.id,
-          name: v.exercise.name,
-          seedKey: v.exercise.seedKey,
-          muscle: v.exercise.muscleGroup,
-          mode: mode,
-          weightType: v.exercise.weightType,
-          barKg: v.exercise.barWeight,
-          restSeconds: v.item.restSeconds ?? routine.restSeconds,
-          // The same grid the set rows above landed on: the working weight and
-          // the sets under it are one load, not two readings of it.
-          workingKg: resolveTopWeight(
-            topWeightKg: w,
+        exercises.add(
+          _entryFor(
+            v,
             unit: unit,
-            floorKg: warmupBar,
+            plates: setup.plates,
+            barKg: setup.barKg,
+            warmupSets: warmupSets,
+            defaultRestSeconds: routine.restSeconds,
           ),
-          warmupBarKg: warmupBar,
-          warmupCount: warmupSets,
-          scheme: v.item.scheme,
-          schemePercent: v.item.schemePercent,
-          customSets: decodeCustomSets(v.item.customSets),
-          goalReps: goal,
-          floorKg: warmupBar,
-          sets: [
-            for (final t in targets)
-              SetEntry(
-                // A hold is counted in seconds and no scheme touches that; the
-                // weight on it still ramps like anything else.
-                goal: mode.timed ? goal : t.reps,
-                goalWeight: t.weightKg,
-                timed: mode.timed,
-              ),
-          ],
         );
-        _rebuildRamp(e, unit: unit, inventory: setup.plates);
-        exercises.add(e);
       }
     }
     _commit(
@@ -989,10 +967,214 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         elapsed: 0,
         unit: unit,
         plates: setup.plates,
+        barKg: setup.barKg,
+        warmupSets: warmupSets,
         notice: notice,
       ),
     );
     _startClock();
+    if (workoutId != null) _watchTemplate(workoutId);
+  }
+
+  /// One template slot, turned into a live exercise with its sets and its ramp.
+  ///
+  /// The gym's numbers are passed in rather than read here, because the two
+  /// callers have different ideas of "now": [start] has just read them, and
+  /// [_takeTemplateAdditions] must use the ones the session froze on the way in
+  /// — see [ActiveWorkout.barKg].
+  ExerciseEntry _entryFor(
+    WorkoutItemView v, {
+    required String unit,
+    required List<PlateStack> plates,
+    required double barKg,
+    required int warmupSets,
+    required int defaultRestSeconds,
+  }) {
+    final mode = v.item.progression;
+    // The goal is the hold for a timed exercise, and otherwise the top of
+    // the rep range or the fixed count. A to-failure set carries no upper
+    // bound, so its goal is `repsMin` — the number you have to beat for
+    // the set to count, which is exactly what "to failure" is asking.
+    final goal = mode.timed ? v.item.holdSeconds : (v.item.repsMax ?? v.item.repsMin);
+    final w = v.item.suggestedWeight;
+    // The bar this movement stands on, whatever it is loaded to today —
+    // resolved here because it cannot change mid-session, unlike the ramp
+    // above it.
+    final warmupBar = v.exercise.weightType == WeightType.bar
+        ? (v.exercise.barWeight ?? barKg)
+        : 0.0;
+    // What each set actually opens at. Flat is every set at [w], which is
+    // what it was before there were schemes; a back-off or a ramp is a
+    // ladder off it — see `data/set_scheme.dart`.
+    final targets = resolveSetTargets(
+      scheme: v.item.scheme,
+      sets: v.item.targetSets,
+      // A to-failure set has no upper bound, so its goal is `repsMin` —
+      // the number you have to beat, which is what `goal` already is.
+      goalReps: goal,
+      topWeightKg: w,
+      unit: unit,
+      percent: v.item.schemePercent,
+      custom: decodeCustomSets(v.item.customSets),
+      floorKg: warmupBar,
+    );
+    final e = ExerciseEntry(
+      exerciseId: v.exercise.id,
+      itemId: v.item.id,
+      name: v.exercise.name,
+      seedKey: v.exercise.seedKey,
+      muscle: v.exercise.muscleGroup,
+      mode: mode,
+      weightType: v.exercise.weightType,
+      barKg: v.exercise.barWeight,
+      restSeconds: v.item.restSeconds ?? defaultRestSeconds,
+      // The same grid the set rows above landed on: the working weight and
+      // the sets under it are one load, not two readings of it.
+      workingKg: resolveTopWeight(topWeightKg: w, unit: unit, floorKg: warmupBar),
+      warmupBarKg: warmupBar,
+      warmupCount: warmupSets,
+      scheme: v.item.scheme,
+      schemePercent: v.item.schemePercent,
+      customSets: decodeCustomSets(v.item.customSets),
+      goalReps: goal,
+      floorKg: warmupBar,
+      sets: [
+        for (final t in targets)
+          SetEntry(
+            // A hold is counted in seconds and no scheme touches that; the
+            // weight on it still ramps like anything else.
+            goal: mode.timed ? goal : t.reps,
+            goalWeight: t.weightKg,
+            timed: mode.timed,
+          ),
+      ],
+    );
+    _rebuildRamp(e, unit: unit, inventory: plates);
+    return e;
+  }
+
+  // ---- Template drift ------------------------------------------------------
+  //
+  // The session is a snapshot on purpose: it is what lets the board be edited
+  // instantly and a crash mid-workout leave no half-written rows. The one edit
+  // it takes while it runs is a movement added to the day, and it takes it at
+  // the tail and nowhere else — every set the session holds is identified by its
+  // position in the list, so a movement arriving in the middle would silently
+  // re-file the sets already logged under the wrong exercise. Everything else —
+  // a removal, a reorder, a rename, a slot re-configured — waits for the next
+  // session.
+
+  /// Told when the slot table changes, for as long as the app runs — see
+  /// [_stopWatchingTemplate] for why it is not dropped sooner.
+  ///
+  /// **A bare update notification, not a query stream.** `watchItemsForWorkout`
+  /// would do the same job in one line, but drift shares one query stream
+  /// between every subscriber to the same query — so the session would be
+  /// sitting on the identical stream the workout screens read through
+  /// `workoutItemsProvider`, and whichever of the two subscribed first would
+  /// decide when the other saw its first row. This is the session's own
+  /// subscription to nothing but the news that something changed; the read that
+  /// follows is its own.
+  StreamSubscription<Set<TableUpdate>>? _templateWatch;
+
+  /// The provider has been disposed and [state] can no longer be touched.
+  bool _gone = false;
+
+  void _watchTemplate(int workoutId) {
+    _stopWatchingTemplate();
+    _templateWatch = _db
+        .tableUpdates(TableUpdateQuery.onTable(_db.workoutItems))
+        .listen((_) => unawaited(_rereadTemplate(workoutId)));
+  }
+
+  /// Reads the day back and hands it to [_takeTemplateAdditions].
+  ///
+  /// [_gone] is checked either side of the read: the notification arrives from a
+  /// stream that outlives the session, and the trip to the database gives the
+  /// provider itself time to be disposed underneath it.
+  Future<void> _rereadTemplate(int workoutId) async {
+    if (_gone || state?.workoutId != workoutId) return;
+    final items = await _db.itemsForWorkout(workoutId);
+    if (_gone) return;
+    await _takeTemplateAdditions(items);
+  }
+
+  /// Drops the subscription — on the way into the next session, and when the
+  /// provider itself goes.
+  ///
+  /// **Not when a session is abandoned.** Cancelling a drift stream schedules
+  /// work of its own, and Abort is a tap that has to be over by the next frame.
+  /// A subscription that outlives its session costs one callback that finds no
+  /// session and returns.
+  void _stopWatchingTemplate() {
+    unawaited(_templateWatch?.cancel());
+    _templateWatch = null;
+  }
+
+  /// Puts whatever [items] has that the session has not on the end of the board.
+  Future<void> _takeTemplateAdditions(List<WorkoutItemView> items) async {
+    final before = state;
+    final workoutId = before?.workoutId;
+    if (before == null || workoutId == null) return;
+    if (_additionsIn(before, items).isEmpty) return;
+    // The rest a slot falls back on when it names none of its own — read the
+    // same way [start] reads it.
+    final routine =
+        await _db.routineById((await _db.workoutById(workoutId)).routineId);
+    // That was a trip to the database, and the session may have been finished,
+    // thrown away or replaced while it ran — so what gets appended is worked out
+    // again against the session as it stands now.
+    if (_gone) return;
+    final s = state;
+    if (s == null || s.workoutId != before.workoutId) return;
+    final extra = _additionsIn(s, items);
+    if (extra.isEmpty) return;
+    for (final v in extra) {
+      s.exercises.add(
+        _entryFor(
+          v,
+          // The session's own numbers, not the settings as they stand now: a
+          // rack emptied or a stepper moved halfway through must not produce a
+          // ramp unlike the ones already on the board.
+          unit: s.unit,
+          plates: s.plates,
+          barKg: s.barKg,
+          warmupSets: s.warmupSets,
+          defaultRestSeconds: routine.restSeconds,
+        ),
+      );
+    }
+    _commit(s.copyWith());
+  }
+
+  /// The template rows the session has not got, in template order.
+  ///
+  /// **Movements counted off, not item ids compared.** Saving the workout editor
+  /// deletes and reinserts every row, so every item id changes on any save at
+  /// all — and an id diff would read a plain reorder as five additions and
+  /// append the whole day to itself. What a slot is, to a session, is which
+  /// movement it holds; so the template's movements are counted off against the
+  /// ones the session is already carrying and whatever is left over is what
+  /// somebody added. A removal leaves nothing over, and neither does a reorder,
+  /// a rename or a slot re-configured.
+  List<WorkoutItemView> _additionsIn(
+    ActiveWorkout s,
+    List<WorkoutItemView> items,
+  ) {
+    final held = <int, int>{};
+    for (final e in s.exercises) {
+      if (e.exerciseId case final id?) held[id] = (held[id] ?? 0) + 1;
+    }
+    final extra = <WorkoutItemView>[];
+    for (final v in items) {
+      final left = held[v.exercise.id] ?? 0;
+      if (left > 0) {
+        held[v.exercise.id] = left - 1;
+      } else {
+        extra.add(v);
+      }
+    }
+    return extra;
   }
 
   /// One edit to one row of the board — a working set, or a warm-up rung when
@@ -1240,6 +1422,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _restTimer = null;
     _restEndsAt = null;
     ref.read(restAlarmProvider).clear();
+    // Before a row is written: advancing progression edits the very slots this
+    // is watching, and a session on its way out has no use for the answer.
+    _stopWatchingTemplate();
 
     final rows = <SessionSetsCompanion>[];
     // Clips filmed against a set that was never logged. The set is not saved,

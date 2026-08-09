@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
-import '../data/exercise_filter.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
+import '../state/exercise_filter_state.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/exercise_filters.dart';
@@ -20,12 +21,15 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
-  ExerciseFilter _filter = const ExerciseFilter();
+  /// The search text, which lives and dies with the text field showing it. The
+  /// two dimensions outlive both — see [libraryFilterProvider].
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final library = ref.watch(exerciseLibraryProvider);
+    final filter = ref.watch(libraryFilterProvider).withQuery(_query);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.libraryTitle)),
@@ -44,7 +48,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           error: (e, _) =>
               Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
           data: (all) {
-            final list = _filter.apply(all, shown: (e) => shownWords(l10n, e));
+            final list = filter.apply(all, shown: (e) => shownWords(l10n, e));
 
             // Group by muscle, preserving the already-sorted order.
             final groups = <String, List<Exercise>>{};
@@ -57,8 +61,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   child: _SearchField(
-                      onChanged: (v) =>
-                          setState(() => _filter = _filter.withQuery(v))),
+                      onChanged: (v) => setState(() => _query = v)),
                 ),
                 // Pinned beside the search box rather than scrolled with the
                 // list. It used to ride at the head of the list because it was
@@ -67,8 +70,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 // a band can always find, and a filter you have to scroll back
                 // up to reach is a filter you use once.
                 ExerciseFilterChips(
-                  filter: _filter,
-                  onChanged: (f) => setState(() => _filter = f),
+                  filter: filter,
+                  onChanged: ref.read(libraryFilterProvider.notifier).keep,
                 ),
                 Expanded(
                   child: ListView(
@@ -119,7 +122,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     exercise: entry.value[i],
                                     last: i == entry.value.length - 1,
                                     onTap: () => context.push(
-                                        '/exercise/${entry.value[i].id}'),
+                                        '${branchRoot(context)}/exercise/${entry.value[i].id}'),
                                   ),
                               ],
                             ),

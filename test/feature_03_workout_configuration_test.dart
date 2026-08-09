@@ -17,6 +17,7 @@ import 'package:foss_lift/util/target_label.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart' show kLoadingChoiceKey;
 import 'package:foss_lift/widgets/builder_widgets.dart';
+import 'package:foss_lift/widgets/exercise_filters.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
 
 import 'support/harness.dart';
@@ -1042,6 +1043,112 @@ void main() {
           reason: 'a stack can read zero');
       expect((await itemNamed(db, push, 'Plank')).item.suggestedWeight, isNull,
           reason: 'a movement carrying nothing has no weight to suggest');
+    });
+  });
+
+  group('adding an exercise opens its config', () {
+    /// The item list with one slot on it — the Bench Press the Push day opens
+    /// with — mounted the way the workout builder mounts it. The list handed in
+    /// is the one the editor writes into, so a test can read what the taps did.
+    Future<List<ItemDraft>> pumpEditor(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      final drafts = [ItemDraft.forExercise(bench)];
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: drafts,
+                  unit: 'kg',
+                  routineRest: 90,
+                  defaultBarKg: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return drafts;
+    }
+
+    /// Takes Back Squat out of the picker, narrowing to Legs to find it the way
+    /// the picker's own control does.
+    Future<void> addBackSquat(WidgetTester tester) async {
+      await tester.tap(find.text(l10nFor().itemEditorAdd));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(filterButtonKey('muscle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(filterChipKey('muscle', 'Legs')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(kFilterSheetDoneKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Back Squat'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('picking a movement lands on its sheet, not back on the list',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final drafts = await pumpEditor(tester, container);
+
+      await addBackSquat(tester);
+
+      expect(drafts.map((d) => d.name), ['Bench Press', 'Back Squat'],
+          reason: 'the movement is in the workout either way');
+      expect(find.byType(ExercisePicker), findsNothing,
+          reason: 'the picker closes behind the sheet');
+      expect(find.byKey(kStepUpFieldKey), findsOneWidget,
+          reason: 'no configuration sheet opened: adding an exercise is two '
+              'taps, and the second one is the one people forget');
+      // And it is the new slot's sheet, not the one that was already there.
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('Back Squat'),
+        ),
+        findsOneWidget,
+        reason: 'the sheet that opened belongs to another slot',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('backing out of the sheet keeps the exercise at its defaults',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final drafts = await pumpEditor(tester, container);
+
+      await addBackSquat(tester);
+      // The sheet is for tuning the slot, not for confirming it, so leaving it
+      // untouched is not the same as changing your mind about the exercise.
+      await tester.tap(find.byTooltip(l10nFor().itemEditorClose));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(kStepUpFieldKey), findsNothing, reason: 'the sheet');
+      expect(drafts.length, 2);
+      final added = drafts.last;
+      expect(added.name, 'Back Squat');
+      expect(added.sets, 3);
+      expect(added.repsMin, 8);
+      expect(added.repsMax, isNull);
+      expect(added.restSeconds, isNull, reason: "the routine's rest stands");
+      expect(find.text('Back Squat'), findsOneWidget,
+          reason: 'the slot is on the list, where it was added');
+
+      await stop(tester);
     });
   });
 }

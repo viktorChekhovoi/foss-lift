@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
+import '../router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/routine_card.dart';
@@ -44,7 +45,8 @@ class RoutinesScreen extends ConsumerWidget {
                       onSetCurrent: () => ref
                           .read(databaseProvider)
                           .setActiveRoutineId(r.routine.id),
-                      onTap: () => context.push('/routine/${r.routine.id}'),
+                      onTap: () => context.push(
+                          '${branchRoot(context)}/routine/${r.routine.id}'),
                     ),
                     const SizedBox(height: 12),
                   ],

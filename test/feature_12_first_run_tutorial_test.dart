@@ -206,7 +206,7 @@ void main() {
 
     test('the full tour explains the gym words it uses', () {
       final said = saidBy(TutorialTrack.full);
-      for (final word in ['routine', 'training day', 'rep']) {
+      for (final word in ['routine', 'workout', 'rep']) {
         expect(said, contains(word),
             reason: 'somebody new to the gym is left guessing at "$word"');
       }
@@ -293,7 +293,7 @@ void main() {
           s.id: '${s.title(_l10n)} ${s.body(_l10n)}'.toLowerCase(),
       };
       expect(said['build-name'], contains('new routine'));
-      expect(said['build-exercises'], contains('training day'));
+      expect(said['build-exercises'], contains('workout'));
       expect(said['build-slot'], contains('tap'));
       expect(said['build-save-day'], isNotNull);
       expect(said['build-save-day']!, contains('routine'),
@@ -337,7 +337,7 @@ void main() {
       }
     });
 
-    test('the live workout follows the training day that starts one', () {
+    test('the live workout follows the workout that starts one', () {
       final ids = kTutorialTracks[TutorialTrack.full]!.map((s) => s.id).toList();
       final next = ids.indexOf('today-next');
       final session = ids.where((id) => id.startsWith('session-')).toList();

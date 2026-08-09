@@ -29,6 +29,7 @@ class Capabilities {
     required this.backgroundAlerts,
     required this.localFiles,
     required this.leaveGuard,
+    required this.eagerKeyboard,
   });
 
   /// A phone: everything the app was written for.
@@ -39,8 +40,9 @@ class Capabilities {
     shade: true,
     backgroundAlerts: true,
     localFiles: true,
-    // The one that runs the other way — see [leaveGuard].
+    // The two that run the other way — see [leaveGuard] and [eagerKeyboard].
     leaveGuard: false,
+    eagerKeyboard: false,
   );
 
   /// A browser tab. See `docs/web-build.md` for why each of these is false and
@@ -53,6 +55,7 @@ class Capabilities {
     backgroundAlerts: false,
     localFiles: false,
     leaveGuard: true,
+    eagerKeyboard: true,
   );
 
   /// A routine may ask to be reminded on its training days.
@@ -86,6 +89,17 @@ class Capabilities {
   /// away does not end the app, the session survives in memory, and a swipe out
   /// of the recents list is not something an app is consulted about.
   final bool leaveGuard;
+
+  /// The keyboard has to be asked for while the tap is still being handled.
+  ///
+  /// **The other one that is true on the web and false on a phone.** A browser
+  /// only opens the keyboard from inside the gesture that asked for it, so a
+  /// dialog's field taking focus once the dialog has been built and animated is
+  /// asking too late — see `showAppDialog`. Android raises the keyboard for a
+  /// field that takes focus whenever it takes it, and claiming it before the
+  /// dialog exists would only mean a keyboard for a dialog about to be
+  /// cancelled.
+  final bool eagerKeyboard;
 }
 
 /// The capabilities of the build that is running.

@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
@@ -236,6 +237,139 @@ void main() {
 
       expect(find.text('Back Squat'), findsOneWidget);
       expect(find.text('Barbell Curl'), findsNothing);
+
+      await stop(tester);
+    });
+  });
+
+  group('a filter you set stays set', () {
+    testWidgets('the library is still narrowed on the way back from a movement',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      // A router underneath, because opening a movement is a push: the row
+      // navigates, and the question is what the library is showing on the way
+      // back.
+      // Both spellings of the detail route: the library opens a movement in
+      // the tab it is being browsed from, and under a bare router that tab is
+      // Today.
+      Widget library() => routedAppUnder(
+            container,
+            const LibraryScreen(),
+            alsoRoutes: ['exercise/:id', 'today/exercise/:id'],
+          );
+      await tester.pumpWidget(library());
+      await tester.pumpAndSettle();
+
+      await narrowBy(tester, 'muscle', 'Legs');
+      await narrowBy(tester, 'muscle', 'Back');
+      expect(
+        find.widgetWithText(FilterFacetButton, 'Back, Legs'),
+        findsOneWidget,
+        reason: 'the button is what says the list is hiding things, and it '
+            'says so without the sheet being opened to check',
+      );
+
+      // Open a movement, and come back out of it. Back sorts above Legs, so
+      // the squat is scrolled to first — as it would be on a phone.
+      await tester.dragUntilVisible(
+        find.text('Back Squat'),
+        find.byType(ListView),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Back Squat'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryScreen), findsNothing,
+          reason: 'the row did not open anything');
+      GoRouter.of(tester.element(find.byType(Scaffold).last)).pop();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(FilterFacetButton, 'Back, Legs'),
+        findsOneWidget,
+        reason: 'the list came back showing all eighty-seven again',
+      );
+      expect(find.text('Barbell Curl'), findsNothing, reason: 'arms');
+
+      // And leaving the library itself is the same journey: what was narrowed
+      // is a choice about the library, not about the copy of the screen that
+      // was showing it when the choice was made.
+      await tester.pumpWidget(
+        routedAppUnder(container, const SizedBox.shrink()),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(library());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(FilterFacetButton, 'Back, Legs'),
+        findsOneWidget,
+        reason: 'the filter went with the screen that was showing it',
+      );
+      // A remounted list is back at the top, and Back sorts above Legs — so the
+      // squat is below the fold exactly as it was the first time round. Scroll
+      // to it the same way: what is being asserted is that it survived the
+      // filter, not that it happens to fit on screen.
+      await tester.dragUntilVisible(
+        find.text('Back Squat'),
+        find.byType(ListView),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Back Squat'), findsOneWidget);
+      expect(find.text('Barbell Curl'), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('the picker is still narrowed for the next exercise',
+        (tester) async {
+      // Picking a movement closes the picker — and with the config sheet now
+      // opening straight after it, adding three legs movements means opening
+      // the picker three times. Re-ticking Legs each time is the same filter
+      // set three times.
+      tester.view.physicalSize = const Size(390, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => pickExercise(context),
+                child: const Text('Add exercise'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Add exercise'));
+      await tester.pumpAndSettle();
+      await narrowBy(tester, 'muscle', 'Legs');
+      expect(find.text('Back Squat'), findsOneWidget);
+
+      // One movement taken, and back for the next.
+      await tester.tap(find.text('Back Squat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add exercise'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(FilterFacetButton, 'Legs'),
+        findsOneWidget,
+        reason: 'the picker opened on the whole library again',
+      );
+      expect(find.text('Barbell Curl'), findsNothing, reason: 'arms');
 
       await stop(tester);
     });

@@ -384,10 +384,14 @@ void main() {
       await tester.pump();
       expect(find.text('1:59'), findsOneWidget);
 
-      // Skip clears it entirely.
+      // Skip ends the rest: the clock and the controls go, and the bar stays to
+      // say what is up — see the finished-rest tests in
+      // `feature_04_rest_done_test.dart`.
       await tester.tap(find.text('Skip'));
       await tester.pump();
-      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(session().restLeft, 0);
+      expect(find.text('Skip'), findsNothing);
+      expect(find.text('1:59'), findsNothing);
 
       await stopAll(tester);
     });
@@ -406,7 +410,10 @@ void main() {
       // of the button here is "skip".
       await tester.tap(find.text('−15s'));
       await tester.pump();
-      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(session().restLeft, 0);
+      expect(find.text('0:08'), findsNothing);
+      expect(find.text('−15s'), findsNothing,
+          reason: 'a rest that is over has nothing left to nudge');
 
       await stopAll(tester);
     });
@@ -581,7 +588,7 @@ void main() {
           reason: 'logging a set is a tick; the buzz is for the end of a rest');
 
       await tester.pump(const Duration(seconds: 120));
-      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(session().restLeft, 0);
       expect(buzz.buzzes, 1);
 
       // A rebuild is not a second end of a rest.
@@ -599,7 +606,7 @@ void main() {
       await tester.tap(find.text('Skip'));
       await tester.pump();
 
-      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(session().restLeft, 0);
       expect(buzz.buzzes, 1);
       await stopAll(tester);
     });
@@ -613,7 +620,7 @@ void main() {
       await tester.pump(const Duration(seconds: 112));
       await tester.tap(find.text('−15s'));
       await tester.pump();
-      expect(find.byKey(kRestBannerKey), findsNothing,
+      expect(session().restLeft, 0,
           reason: 'below fifteen the button can only mean skip');
       expect(buzz.buzzes, 1);
 
@@ -642,7 +649,7 @@ void main() {
       expect(buzz.buzzes, 0);
 
       await tester.pump(const Duration(seconds: 120));
-      expect(find.byKey(kRestBannerKey), findsNothing);
+      expect(session().restLeft, 0);
       expect(buzz.buzzes, 1);
       await stopAll(tester);
     });

@@ -38,7 +38,7 @@
   },
   "commonName": "Name",
   "@commonName": {
-    "description": "Label or placeholder on the field naming the thing being edited — a routine, a training day, a movement, a bar, a theme. Rendered in small capitals by the app in some places; write it in ordinary case."
+    "description": "Label or placeholder on the field naming the thing being edited — a routine, a workout, a movement, a bar, a theme. Rendered in small capitals by the app in some places; write it in ordinary case."
   },
   "commonSaving": "Saving…",
   "@commonSaving": {
@@ -80,7 +80,7 @@
   },
   "commonExerciseCount": "{count, plural, =1{1 exercise} other{{count} exercises}}",
   "@commonExerciseCount": {
-    "description": "How many exercises a training day holds, under its name in the routine’s list and in the routine builder.",
+    "description": "How many exercises a workout holds, under its name in the routine’s list and in the routine builder.",
     "placeholders": {
       "count": {
         "type": "int",
@@ -90,7 +90,7 @@
   },
   "commonEstimatedMinutes": "~{minutes} min",
   "@commonEstimatedMinutes": {
-    "description": "How long a training day is estimated to take, in minutes, rounded to the nearest five. Shown beside the exercise count on the training day and on its Today card. The tilde marks it as approximate.",
+    "description": "How long a workout is estimated to take, in minutes, rounded to the nearest five. Shown beside the exercise count on the workout and on its Today card. The tilde marks it as approximate.",
     "placeholders": {
       "minutes": {
         "type": "int",
@@ -719,43 +719,43 @@
   },
   "seedDayWorkoutA": "Workout A",
   "@seedDayWorkoutA": {
-    "description": "Name of a training day in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
+    "description": "Name of a workout in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
   },
   "seedDayWorkoutB": "Workout B",
   "@seedDayWorkoutB": {
-    "description": "Name of a training day in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
+    "description": "Name of a workout in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
   },
   "seedDayWorkoutC": "Workout C",
   "@seedDayWorkoutC": {
-    "description": "Name of a training day in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
+    "description": "Name of a workout in a demo program. The barbell programs alternate lettered days rather than naming them after body parts."
   },
   "seedDayPush": "Push",
   "@seedDayPush": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedDayPull": "Pull",
   "@seedDayPull": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedDayLegs": "Legs",
   "@seedDayLegs": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedDayUpper1": "Upper 1",
   "@seedDayUpper1": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedDayLower1": "Lower 1",
   "@seedDayLower1": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedDayUpper2": "Upper 2",
   "@seedDayUpper2": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedDayLower2": "Lower 2",
   "@seedDayLower2": {
-    "description": "Name of a training day in a demo program."
+    "description": "Name of a workout in a demo program."
   },
   "seedBarOlympicBar": "Olympic bar",
   "@seedBarOlympicBar": {
@@ -1566,7 +1566,7 @@
   },
   "routineCardWorkoutCount": "{count, plural, =1{1 workout} other{{count} workouts}}",
   "@routineCardWorkoutCount": {
-    "description": "How many training days a routine holds, under its name on the routine card.",
+    "description": "How many workouts a routine holds, under its name on the routine card.",
     "placeholders": {
       "count": {
         "type": "int"
@@ -1660,11 +1660,11 @@
   },
   "routineEditWorkouts": "Workouts",
   "@routineEditWorkouts": {
-    "description": "Heading over the draggable list of training days in the routine builder."
+    "description": "Heading over the draggable list of workouts in the routine builder."
   },
   "routineEditNoWorkouts": "No workouts yet.",
   "@routineEditNoWorkouts": {
-    "description": "Shown in the routine builder when no training day has been added."
+    "description": "Shown in the routine builder when no workout has been added."
   },
   "routineEditAddWorkout": "Add workout",
   "@routineEditAddWorkout": {
@@ -1672,7 +1672,7 @@
   },
   "routineEditNewWorkout": "New workout",
   "@routineEditNewWorkout": {
-    "description": "Title of the dialog that asks what to call a training day being added."
+    "description": "Title of the dialog that asks what to call a workout being added."
   },
   "routineEditOk": "OK",
   "@routineEditOk": {
@@ -1680,7 +1680,7 @@
   },
   "routineEditNoExercises": "No exercises yet — tap to add",
   "@routineEditNoExercises": {
-    "description": "Under an empty training day in the routine builder, where the exercise count would be."
+    "description": "Under an empty workout in the routine builder, where the exercise count would be."
   },
   "routineEditNameRequired": "Give the routine a name first.",
   "@routineEditNameRequired": {
@@ -1688,7 +1688,7 @@
   },
   "routineEditWorkoutRequired": "Add at least one workout.",
   "@routineEditWorkoutRequired": {
-    "description": "Refuses to save a routine with no training days in it."
+    "description": "Refuses to save a routine with no workouts in it."
   },
   "routineEditDeleteTitle": "Delete routine?",
   "@routineEditDeleteTitle": {
@@ -1704,27 +1704,27 @@
   },
   "routineEditWorkoutTitle": "Workout",
   "@routineEditWorkoutTitle": {
-    "description": "Title of the screen that edits one training day inside the routine builder."
+    "description": "Title of the screen that edits one workout inside the routine builder."
   },
   "workoutEditTitle": "Edit workout",
   "@workoutEditTitle": {
-    "description": "Title of the screen that edits one saved training day."
+    "description": "Title of the screen that edits one saved workout."
   },
   "workoutEditNameHint": "e.g. Push",
   "@workoutEditNameHint": {
-    "description": "Placeholder in the training day's name field. Name a training day the way lifters in the target language do rather than translating this one word for word."
+    "description": "Placeholder in the workout's name field. Name a workout the way lifters in the target language do rather than translating this one word for word."
   },
   "workoutEditNameRequired": "Give the workout a name first.",
   "@workoutEditNameRequired": {
-    "description": "Refuses to save a training day whose name field is empty."
+    "description": "Refuses to save a workout whose name field is empty."
   },
   "workoutEditDeleteTitle": "Delete workout?",
   "@workoutEditDeleteTitle": {
-    "description": "Title of the confirmation asked before a training day is removed."
+    "description": "Title of the confirmation asked before a workout is removed."
   },
-  "workoutEditDeleteBody": "This removes the day from the routine. Logged history is kept.",
+  "workoutEditDeleteBody": "This removes the workout from the routine. Logged history is kept.",
   "@workoutEditDeleteBody": {
-    "description": "What deleting a training day costs, and what it does not: the sessions already logged against it stay."
+    "description": "What deleting a workout costs, and what it does not: the sessions already logged against it stay."
   },
   "workoutEditSave": "Save workout",
   "@workoutEditSave": {
@@ -1736,11 +1736,11 @@
   },
   "workoutDetailEmpty": "No exercises yet. Tap the edit icon to add some.",
   "@workoutDetailEmpty": {
-    "description": "Shown in place of the exercise list when a training day has none."
+    "description": "Shown in place of the exercise list when a workout has none."
   },
   "workoutDetailExerciseCount": "{count, plural, =1{exercise} other{exercises}}",
   "@workoutDetailExerciseCount": {
-    "description": "The noun alone, in the count chip at the top of a training day. The number is drawn beside it in a heavier weight, so it is not part of this string.",
+    "description": "The noun alone, in the count chip at the top of a workout. The number is drawn beside it in a heavier weight, so it is not part of this string.",
     "placeholders": {
       "count": {
         "type": "int"
@@ -1749,11 +1749,11 @@
   },
   "workoutDetailStart": "Start workout",
   "@workoutDetailStart": {
-    "description": "The button that begins a live session of this training day."
+    "description": "The button that begins a live session of this workout."
   },
   "startWorkoutSwitchTitle": "Switch to {name}?",
   "@startWorkoutSwitchTitle": {
-    "description": "Title of the confirmation asked when starting a training day while a different one is still running.",
+    "description": "Title of the confirmation asked when starting a workout while a different one is still running.",
     "placeholders": {
       "name": {
         "type": "String"
@@ -1798,7 +1798,7 @@
   },
   "startWorkoutLayoffTitle": "Been a while",
   "@startWorkoutLayoffTitle": {
-    "description": "Title of the offer made when a training day has been left alone long enough to earn a lighter start."
+    "description": "Title of the offer made when a workout has been left alone long enough to earn a lighter start."
   },
   "startWorkoutLayoffBody": "You last trained {name} {days, plural, =1{1 day} other{{days} days}} ago. Coming back at the same load is how people get hurt.\n\nFoss Lift can drop every target in this workout by {percent}% to ease you back in. Your logged history is not touched.",
   "@startWorkoutLayoffBody": {
@@ -1821,7 +1821,7 @@
   },
   "startWorkoutDeload": "Deload {percent}%",
   "@startWorkoutDeload": {
-    "description": "Accepts the layoff offer, cutting every target in the training day by that percentage.",
+    "description": "Accepts the layoff offer, cutting every target in the workout by that percentage.",
     "placeholders": {
       "percent": {
         "type": "int"
@@ -2355,11 +2355,11 @@
   },
   "todayNoWorkoutsTitle": "No workouts yet",
   "@todayNoWorkoutsTitle": {
-    "description": "Title of the empty card on the home screen when the current routine has no training days in it. A workout here is one training day of a routine, e.g. Push, not a logged session."
+    "description": "Title of the empty card on the home screen when the current routine has no workouts in it. A workout here is one workout of a routine, e.g. Push, not a logged session."
   },
-  "todayNoWorkoutsBody": "{routine} has no training days. Add some to start training it.",
+  "todayNoWorkoutsBody": "{routine} has no workouts. Add some to start training it.",
   "@todayNoWorkoutsBody": {
-    "description": "Body of the empty card on the home screen when the current routine contains no training days. A training day is one workout of a routine, such as Push or Legs.",
+    "description": "Body of the empty card on the home screen when the current routine contains no workouts. A workout is one session of a routine, such as Push or Legs.",
     "placeholders": {
       "routine": {
         "type": "String",
@@ -2369,11 +2369,11 @@
   },
   "todayEditRoutine": "Edit routine",
   "@todayEditRoutine": {
-    "description": "Button on the home screen's empty card; opens the routine editor so training days can be added. Fits a button, so keep it short."
+    "description": "Button on the home screen's empty card; opens the routine editor so workouts can be added. Fits a button, so keep it short."
   },
   "todayNoRoutinesTitle": "No routines yet",
   "@todayNoRoutinesTitle": {
-    "description": "Title of the empty card on the home screen when the user has no routines at all. A routine is a training program made of several training days."
+    "description": "Title of the empty card on the home screen when the user has no routines at all. A routine is a training program made of several workouts."
   },
   "todayNoRoutinesBody": "Build one from the exercise library to get started.",
   "@todayNoRoutinesBody": {
@@ -2411,7 +2411,7 @@
   },
   "routinesEyebrow": "Your programs",
   "@routinesEyebrow": {
-    "description": "Small line above the Routines screen title. Rendered in small capitals by the app. A program here is a routine: a named plan made of several training days."
+    "description": "Small line above the Routines screen title. Rendered in small capitals by the app. A program here is a routine: a named plan made of several workouts."
   },
   "routinesTitle": "Routines",
   "@routinesTitle": {
@@ -2866,7 +2866,7 @@
   },
   "routineShareSummary": "{workouts, plural, =1{1 workout} other{{workouts} workouts}} · {slots, plural, =1{1 exercise slot} other{{slots} exercise slots}} · {exercises, plural, =1{1 exercise} other{{exercises} exercises}}",
   "@routineShareSummary": {
-    "description": "One line under the routine's name saying how big the thing being shared is. A workout is one training day; a slot is one exercise line inside a day, so the same movement on two days is two slots but one exercise. Rendered in a monospaced font on a single line — keep the middle dots as the separators.",
+    "description": "One line under the routine's name saying how big the thing being shared is. A workout is one workout; a slot is one exercise line inside a day, so the same movement on two days is two slots but one exercise. Rendered in a monospaced font on a single line — keep the middle dots as the separators.",
     "placeholders": {
       "workouts": {
         "type": "int",
@@ -3218,13 +3218,13 @@
   "@tutorialTodayRoutineBody": {
     "description": "Body of the step about the current routine. 'Change' names the small text link beside the routine name — see todayChange — so use the same word you translated that with, and keep it quoted. Two or three lines."
   },
-  "tutorialTodayTitle": "Your next training day",
+  "tutorialTodayTitle": "Your next workout",
   "@tutorialTodayTitle": {
-    "description": "Title of the tour step spotlighting the current routine's next training day on the Today screen. One line."
+    "description": "Title of the tour step spotlighting the current routine's next workout on the Today screen. One line."
   },
-  "tutorialTodayBody": "Each card is one training day — a single session's worth of exercises. A push day trains what you push with: chest, shoulders and triceps. The highlighted one is next in line.",
+  "tutorialTodayBody": "Each card is one workout — a single session's worth of exercises. A push workout trains what you push with: chest, shoulders and triceps. The highlighted one is next in line.",
   "@tutorialTodayBody": {
-    "description": "Body of the step about the training-day cards. This is where the tour defines 'training day' and 'push day' for somebody new to the gym, so keep both definitions rather than shortening to the nouns. Budget four lines; this callout floats beside the card it points at."
+    "description": "Body of the step about the workout cards. This is where the tour defines 'workout' and 'push workout' for somebody new to the gym, so keep both definitions rather than shortening to the nouns. Budget four lines; this callout floats beside the card it points at."
   },
   "tutorialLifetimeTitle": "Lifetime totals",
   "@tutorialLifetimeTitle": {
@@ -3238,7 +3238,7 @@
   "@tutorialSessionOpenTitle": {
     "description": "Title of the tour step that explains where the live-workout screen comes from. It is the first step drawn over a full-size mock of that screen, and nothing behind the tour has actually moved. Two or three words on one line."
   },
-  "tutorialSessionOpenBody": "Tap a training day, then Start workout to see this screen. This is where you'll log your exercises.",
+  "tutorialSessionOpenBody": "Open a workout, then tap Start workout to see this screen. This is where you'll log your exercises.",
   "@tutorialSessionOpenBody": {
     "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it — see workoutDetailStart."
   },
@@ -3318,21 +3318,21 @@
   "@tutorialBuildNameBody": {
     "description": "Body of the step ringing the routine builder's name field. It opens by naming what got you here, because the picture has just changed with nothing on the phone having moved. The two examples are routine names a user might write; translate them as plausible names rather than word for word."
   },
-  "tutorialBuildDaysTitle": "Training days",
+  "tutorialBuildDaysTitle": "Workouts",
   "@tutorialBuildDaysTitle": {
-    "description": "Title of the builder-tour step spotlighting the routine's list of training days. It matches the label on that list — see routineEditWorkouts. One line."
+    "description": "Title of the builder-tour step spotlighting the routine's list of workouts. It matches the label on that list — see routineEditWorkouts. One line."
   },
-  "tutorialBuildDaysBody": "A training day is one session: the exercises you do in one visit. Most programs have three to five and rotate through them.",
+  "tutorialBuildDaysBody": "A workout is one session: the exercises you do in one visit. Most programs have three to five and rotate through them.",
   "@tutorialBuildDaysBody": {
-    "description": "Body of the step ringing the list of training days. This is where the tour defines 'training day', so keep the definition. Budget three lines."
+    "description": "Body of the step ringing the list of workouts. This is where the tour defines 'workout', so keep the definition. Budget three lines."
   },
   "tutorialBuildExercisesTitle": "Its exercises",
   "@tutorialBuildExercisesTitle": {
-    "description": "Title of the builder-tour step spotlighting the exercise list inside a training day. Two or three words."
+    "description": "Title of the builder-tour step spotlighting the exercise list inside a workout. Two or three words."
   },
-  "tutorialBuildExercisesBody": "Tapping a training day opens it. Add the movements it is made of, in the order you will do them, and drag the grip on the left to reorder.",
+  "tutorialBuildExercisesBody": "Tapping a workout opens it. Add the movements it is made of, in the order you will do them, and drag the grip on the left to reorder.",
   "@tutorialBuildExercisesBody": {
-    "description": "Body of the step ringing a training day's exercise list. It opens by naming what got you here — the picture has changed to a different screen. 'Grip' is the drag handle at the left of each row."
+    "description": "Body of the step ringing a workout's exercise list. It opens by naming what got you here — the picture has changed to a different screen. 'Grip' is the drag handle at the left of each row."
   },
   "tutorialBuildSlotTitle": "What each exercise is set to",
   "@tutorialBuildSlotTitle": {
@@ -3344,17 +3344,17 @@
   },
   "tutorialBuildQuickTitle": "Name it and fill it",
   "@tutorialBuildQuickTitle": {
-    "description": "Title of the quick tour's one builder step, which stands in for the full tour's separate steps for naming a routine, adding its training days and adding exercises to a day. Three or four words on one line."
+    "description": "Title of the quick tour's one builder step, which stands in for the full tour's separate steps for naming a routine, adding its workouts and adding exercises to a day. Three or four words on one line."
   },
-  "tutorialBuildQuickBody": "Name the routine, then add its training days. Tap a day to fill it with exercises.",
+  "tutorialBuildQuickBody": "Name the routine, then add its workouts. Tap one to fill it with exercises.",
   "@tutorialBuildQuickBody": {
-    "description": "Body of that step. The quick tour is for somebody who has used a tracker before, so it says where the controls are and does not define 'training day' — the full tour does that on a step of its own. Two lines at most."
+    "description": "Body of that step. The quick tour is for somebody who has used a tracker before, so it says where the controls are and does not define 'workout' — the full tour does that on a step of its own. Two lines at most."
   },
   "tutorialBuildSaveTitle": "Save it",
   "@tutorialBuildSaveTitle": {
     "description": "Title of the builder-tour step spotlighting the Save button. Two words."
   },
-  "tutorialBuildSaveBody": "With every day added, save the routine. It appears under Routines, and on Today once you make it the current one.",
+  "tutorialBuildSaveBody": "With every workout added, save the routine. It appears under Routines, and on Today once you make it the current one.",
   "@tutorialBuildSaveBody": {
     "description": "Body of the step ringing the routine builder's Save — the last step of the chapter. It says where the finished routine turns up."
   },
@@ -3576,13 +3576,13 @@
   "@reminderBody": {
     "description": "The body of a scheduled reminder; the bold line above it is the routine's own name. Fires on a day the routine is scheduled for. One short line — a notification on a lock screen. The dash is an em dash."
   },
-  "tutorialBuildSaveDayTitle": "Save the day",
+  "tutorialBuildSaveDayTitle": "Save the workout",
   "@tutorialBuildSaveDayTitle": {
-    "description": "Title of the step ringing the Save button at the foot of a training day. 'Day' is a training day, not a date. Two or three words."
+    "description": "Title of the step ringing the Save button at the foot of a workout. Two or three words."
   },
-  "tutorialBuildSaveDayBody": "That is one training day done. Saving it puts you back on the routine, where you add the next one.",
+  "tutorialBuildSaveDayBody": "That is one workout done. Saving it puts you back on the routine, where you add the next one.",
   "@tutorialBuildSaveDayBody": {
-    "description": "Body of the step ringing a training day's Save. It has to say that saving returns you to the routine, because the next step's picture is that screen again."
+    "description": "Body of the step ringing a workout's Save. It has to say that saving returns you to the routine, because the next step's picture is that screen again."
   },
   "tutorialBuildOpenTitle": "Where routines live",
   "@tutorialBuildOpenTitle": {

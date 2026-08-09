@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
-import '../data/exercise_filter.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../screens/exercise_form_screen.dart';
+import '../state/exercise_filter_state.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../util/units.dart';
@@ -62,8 +62,9 @@ Future<WeightChoice?> askWeight(
   double? initialKg,
   String? defaultLabel,
 }) {
-  return showDialog<WeightChoice>(
-    context: context,
+  return showAppDialog<WeightChoice>(
+    context,
+    keyboard: const TextInputType.numberWithOptions(decimal: true),
     builder: (_) => _WeightDialog(
       title: title,
       unit: unit,
@@ -115,9 +116,8 @@ class _WeightDialogState extends State<_WeightDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       content: TextField(
         controller: _c,
         autofocus: true,
@@ -185,8 +185,11 @@ Future<BarDraft?> askBarEdit(
   String? name,
   double? kg,
 }) {
-  return showDialog<BarDraft>(
-    context: context,
+  return showAppDialog<BarDraft>(
+    context,
+    // The name field is the one that takes focus on a new bar, and on an
+    // existing one nothing does — so the keyboard claimed is the name's.
+    keyboard: name == null ? TextInputType.text : null,
     builder: (_) =>
         _BarEditDialog(title: title, unit: unit, name: name, kg: kg),
   );
@@ -241,9 +244,8 @@ class _BarEditDialogState extends State<_BarEditDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -405,8 +407,9 @@ Future<String?> askNote(
   required String title,
   String? initial,
 }) {
-  return showDialog<String>(
-    context: context,
+  return showAppDialog<String>(
+    context,
+    keyboard: TextInputType.multiline,
     builder: (_) => _NoteDialog(title: title, initial: initial),
   );
 }
@@ -434,9 +437,8 @@ class _NoteDialogState extends State<_NoteDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.surface,
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       // A dialog sizes itself to its content, and a bare field's own idea of how
       // wide it wants to be is the width of the longest line in it — so the box
       // stepped wider mid-word as the note grew. Claiming the room up front
@@ -973,7 +975,11 @@ class ExercisePicker extends ConsumerStatefulWidget {
 }
 
 class _ExercisePickerState extends ConsumerState<ExercisePicker> {
-  ExerciseFilter _filter = const ExerciseFilter();
+  /// The search text, which lives and dies with this sheet. The two dimensions
+  /// outlive it — see [pickerFilterProvider]: adding three legs movements means
+  /// opening the picker three times, and re-ticking Legs each time is the same
+  /// filter set three times.
+  String _query = '';
 
   /// Builds a movement the library does not have, without losing your place.
   ///
@@ -994,6 +1000,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final library = ref.watch(exerciseLibraryProvider);
+    final filter = ref.watch(pickerFilterProvider).withQuery(_query);
     final height = MediaQuery.of(context).size.height * 0.8;
     return SizedBox(
       height: height,
@@ -1009,8 +1016,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
                 autofocus: false,
-                onChanged: (v) =>
-                    setState(() => _filter = _filter.withQuery(v)),
+                onChanged: (v) => setState(() => _query = v),
                 decoration: builderInput(l10n.commonSearchExercises).copyWith(
                   prefixIcon: Icon(Icons.search, color: AppColors.muted),
                 ),
@@ -1026,7 +1032,7 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                   child: Text('$e', style: TextStyle(color: AppColors.muted)),
                 ),
                 data: (all) {
-                  final list = _filter.apply(all, shown: (e) => shownWords(l10n, e));
+                  final list = filter.apply(all, shown: (e) => shownWords(l10n, e));
                   return ListView.separated(
                     // The chips ride at the head of the list rather than in a
                     // band above it: wrapped, they are as tall as the
@@ -1042,8 +1048,9 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                     itemBuilder: (_, i) {
                       if (i == 0) {
                         return ExerciseFilterChips(
-                          filter: _filter,
-                          onChanged: (f) => setState(() => _filter = f),
+                          filter: filter,
+                          onChanged:
+                              ref.read(pickerFilterProvider.notifier).keep,
                         );
                       }
                       // The new-exercise row rides above the movements, where

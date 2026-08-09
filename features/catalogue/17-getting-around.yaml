@@ -25,13 +25,21 @@ groups:
     defines:
     - ui.navigation
   - id: every-other-screen-stacks-over-tabs
-    t: Every other screen stacks over the tabs
+    t: A screen you browse to keeps the tabs; a screen you are finishing does not
     d: >-
-      a routine, a workout, an exercise, the settings pages and the live session
-      open above the whole shell rather than inside one tab, so none of them
-      carries a navigation bar and all of them come back to the tab you left.
+      a routine, a workout, an exercise, the library and the settings pages open
+      inside the shell and keep the navigation bar, so leaving for another tab is
+      one tap rather than walking back up the stack first — and the tab you left
+      is still where you left it. Two kinds of screen stack over the shell
+      instead. The live session is one: it owns the whole screen, and its rest
+      bar docks where the tabs would be. The other is a screen that is a single
+      task to finish or abandon — every editor, filming a set, the scanner, an
+      import waiting to be reviewed, sharing, clip playback, the recap — where a
+      stray tab tap would walk out of the task and leave it half done. Reading a
+      routine keeps the tabs; editing one does not.
     uses:
     - ui.navigation
+    - session.resume-bar
   - id: one-type-scale-shared-widgets
     t: One type scale, and it lives in the shared widgets
     d: >-
@@ -46,7 +54,7 @@ groups:
   - id: empty-screen-says-so-in-line
     t: A screen with nothing on it yet says so in a line
     d: >-
-      History before the first session, a routine with no days, an exercise with
+      History before the first session, a routine with no workouts, an exercise with
       nothing to chart, a filter that matches nothing — each says what is missing
       where the content would be, rather than showing an empty frame.
     screen: history
@@ -74,9 +82,13 @@ groups:
   - id: tab-bar-belongs-shell-not-screens
     t: The navigation bar belongs to the shell, and the resume-workout bar rides above it
     d: >-
-      the four tab screens draw neither and reserve room for neither — the shell
-      measures whatever sits in that bottom slot and insets them by it, which is
-      what lets the resume bar sit above the tabs during a live session.
+      a screen inside the shell draws neither and reserves room for neither — the
+      shell measures whatever sits in that bottom slot and insets it by that,
+      which is what lets the resume bar sit above the tabs during a live session.
+      A screen with its own bottom furniture, like a workout's Start button, sits
+      above the tabs rather than under them, and the resume bar shows in exactly
+      one place: the shell's slot for screens inside it, the app-level slot for
+      the ones that stack over.
     uses:
     - ui.navigation
     - session.resume-bar
