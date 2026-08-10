@@ -118,7 +118,7 @@ Future<int> buildTwoExerciseWorkout(
   final first = await exerciseNamed(db, 'Triceps Pushdown');
   final secondId = await db.createExercise(
     name: second,
-    muscle: 'Back',
+    muscles: MuscleMap.single('Back'),
     equipment: 'Machine',
   );
   final rid = await db.createRoutine(

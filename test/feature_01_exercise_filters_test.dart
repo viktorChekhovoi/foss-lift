@@ -14,11 +14,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/data/exercise_filter.dart';
 import 'package:foss_lift/screens/library_screen.dart';
+import 'package:foss_lift/util/seed_names.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/widgets/exercise_filters.dart';
 
 import 'support/harness.dart';
+import 'support/seeded.dart';
 
 void main() {
   late AppDatabase db;
@@ -370,6 +373,93 @@ void main() {
         reason: 'the picker opened on the whole library again',
       );
       expect(find.text('Barbell Curl'), findsNothing, reason: 'arms');
+
+      await stop(tester);
+    });
+  });
+
+  group('the muscle filter counts what a movement assists', () {
+    // "What have I got that hits this" is the question, and a list that
+    // answered with only the movements named after the group would leave out
+    // most of what does.
+
+    Future<List<Exercise>> filtered(ExerciseFilter f) async =>
+        f.apply(await db.watchExercises().first);
+
+    test('ticking a group returns what only assists it too', () async {
+      final shoulders = await filtered(
+        const ExerciseFilter(muscles: {'Shoulders'}),
+      );
+      final names = shoulders.map((e) => e.name);
+
+      expect(
+        names,
+        containsAll(['Overhead Press', 'Lateral Raise', 'Bench Press']),
+        reason: 'the bench press trains shoulders even though it files '
+            'under Chest',
+      );
+      expect(shoulders.every((e) => e.muscles.touches('Shoulders')), isTrue);
+    });
+
+    test('and leaves out what it does not touch at all', () async {
+      final shoulders = await filtered(
+        const ExerciseFilter(muscles: {'Shoulders'}),
+      );
+
+      expect(shoulders.map((e) => e.name), isNot(contains('Leg Curl')));
+      expect(shoulders.map((e) => e.name), isNot(contains('Calf Raise')));
+    });
+
+    test('a ticked group and a movement that only leads with it agree',
+        () async {
+      // The primary case still works: filing under Chest is still a Chest hit.
+      final chest = await filtered(const ExerciseFilter(muscles: {'Chest'}));
+      expect(chest.map((e) => e.name), contains('Bench Press'));
+    });
+
+    test('the free text matches a secondary group as well as a primary',
+        () async {
+      final typed = await filtered(const ExerciseFilter(query: 'shoulders'));
+
+      expect(typed.map((e) => e.name), contains('Bench Press'));
+      expect(typed.map((e) => e.name), contains('Lateral Raise'));
+    });
+
+    test('in the app language as well as in the stored English', () async {
+      final uk = l10nFor(const Locale('uk'));
+      final all = await db.watchExercises().first;
+
+      final typed = ExerciseFilter(query: muscleGroupLabel(uk, 'Shoulders'))
+          .apply(all, shown: (e) => shownWords(uk, e));
+
+      expect(typed.map((e) => e.name), contains('Bench Press'));
+    });
+
+    test("a row's words carry every group, primaries first", () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+
+      final words = shownWords(l10nFor(), bench);
+
+      expect(words.muscleGroups, ['Chest', 'Arms', 'Shoulders']);
+    });
+
+    testWidgets('ticking Shoulders in the sheet finds the bench press', (
+      tester,
+    ) async {
+      // Tall, and narrowed on both dimensions, so the whole answer is on
+      // screen at once — "listed once" is not a claim you can make about a
+      // list that is mostly scrolled off.
+      await pumpLibrary(tester, size: const Size(600, 2000));
+
+      await narrowBy(tester, 'muscle', 'Shoulders');
+      await narrowBy(tester, 'equipment', 'Barbell');
+
+      expect(find.text('Bench Press'), findsOneWidget);
+      expect(
+        find.textContaining('CHEST ·'),
+        findsOneWidget,
+        reason: 'it is still filed under the first of its primaries',
+      );
 
       await stop(tester);
     });

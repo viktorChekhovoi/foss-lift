@@ -190,7 +190,7 @@ void main() {
       addTearDown(db.close);
 
       final row = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(row.data.values.first, 2);
+      expect(row.data.values.first, 3);
     });
 
     test('and on the same shape a fresh install gets', () async {
@@ -210,6 +210,103 @@ void main() {
             .get();
         return {
           for (final r in rows) r.data['name'] as String: r.data['sql'] as String,
+        };
+      }
+
+      expect(await shape(upgraded), await shape(fresh));
+    });
+  });
+
+  group('an exercise from before the update keeps its group', () {
+    // The rung that gives every row a muscle map. A movement you made stays
+    // classified exactly as it was; a starter movement is re-mapped, because
+    // its classification is the app's to state rather than yours.
+
+    /// The v2 database a phone on the shipped build holds: the frozen v1 DDL
+    /// plus the one column v2 added, with a seeded exercise and one of the
+    /// user's own already in it.
+    ///
+    /// Written out rather than derived from today's schema, for the reason
+    /// [kSchemaV1] is: the upgrade has to be handed the bytes a phone would
+    /// hand it, not the shape this build would have made.
+    AppDatabase v2Database() => AppDatabase.forTesting(
+          NativeDatabase.memory(setup: (raw) {
+            for (final stmt in kSchemaV1) {
+              raw.execute(stmt);
+            }
+            raw.execute('ALTER TABLE "settings" ADD COLUMN "warmup_sets" '
+                'INTEGER NOT NULL DEFAULT 3');
+            raw.execute('INSERT INTO settings (id) VALUES (1)');
+            raw.execute(
+              'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+              'equipment, is_custom, measure, weight_type, notes, bar_weight) '
+              "VALUES (1, 'Bench Press', 'bench_press', 'Chest', 'Barbell', "
+              "0, 'reps', 'bar', 'Rack pin 7', 15.0)",
+            );
+            raw.execute(
+              'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+              'equipment, is_custom, measure, weight_type) '
+              "VALUES (2, 'Zercher Squat', NULL, 'Legs', 'Barbell', 1, "
+              "'reps', 'bar')",
+            );
+            raw.execute('PRAGMA user_version = 2');
+          }),
+        );
+
+    Future<Exercise> row(AppDatabase db, String name) async =>
+        (await db.watchExercises().first).firstWhere((e) => e.name == name);
+
+    test('a movement you made keeps it as its only primary', () async {
+      final db = v2Database();
+      addTearDown(db.close);
+
+      final mine = await row(db, 'Zercher Squat');
+      expect(mine.muscleGroup, 'Legs', reason: 'nothing filed under Legs moves');
+      expect(mine.muscles.primary, ['Legs']);
+      expect(mine.muscles.secondary, isEmpty);
+    });
+
+    test('a starter movement picks up the map this build states', () async {
+      final db = v2Database();
+      addTearDown(db.close);
+
+      final bench = await row(db, 'Bench Press');
+      expect(bench.muscles.primary, ['Chest', 'Arms']);
+      expect(bench.muscles.secondary, ['Shoulders']);
+    });
+
+    test('and what you set on that starter is untouched', () async {
+      final db = v2Database();
+      addTearDown(db.close);
+
+      final bench = await row(db, 'Bench Press');
+      expect(bench.barWeight, 15.0);
+      expect(bench.notes, 'Rack pin 7');
+      expect(bench.weightType, WeightType.bar);
+    });
+
+    test('the climb leaves the database on the current rung', () async {
+      final db = v2Database();
+      addTearDown(db.close);
+
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.data.values.first, 3);
+    });
+
+    test('and on the same shape a fresh install gets', () async {
+      final upgraded = v2Database();
+      final fresh = memoryDb();
+      addTearDown(upgraded.close);
+      addTearDown(fresh.close);
+
+      Future<Map<String, String>> shape(AppDatabase db) async {
+        final rows = await db
+            .customSelect('SELECT name, sql FROM sqlite_master '
+                'WHERE sql IS NOT NULL ORDER BY name')
+            .get();
+        return {
+          for (final r in rows)
+            r.data['name'] as String: r.data['sql'] as String,
         };
       }
 

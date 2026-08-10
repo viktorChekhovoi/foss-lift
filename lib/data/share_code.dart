@@ -62,8 +62,14 @@ class ShareCodeDamaged implements Exception {
 }
 
 /// A code that was read out of its envelope: either the body bytes or the
-/// reason there are none.
-typedef ShareCodeBody = ({Uint8List? body, ShareCodeProblem? problem});
+/// reason there are none, and — when there are bytes — which version tag they
+/// arrived under, because a family with more than one format has to read the
+/// body by the rules the sender wrote it under.
+typedef ShareCodeBody = ({
+  Uint8List? body,
+  ShareCodeProblem? problem,
+  String? version,
+});
 
 /// The envelope: `TAG.base64url(body + checksum)`, and the reverse.
 abstract final class ShareCodec {
@@ -86,18 +92,18 @@ abstract final class ShareCodec {
   /// Reads a code, a `fosslift://<host>/` link, or either with whitespace
   /// through it, and hands back the body [pack] was given.
   ///
-  /// Never throws. Any tag that is not exactly [version] — another family's, or
-  /// the same family at a number this build does not know — is
-  /// [ShareCodeProblem.notACode]. There is only one version of each family so
-  /// far; the day a second exists, this is where the older one has to keep being
-  /// accepted, because the codes written against it are in messages people can
-  /// still open.
+  /// Never throws. Any tag not in [versions] — another family's, or this
+  /// family at a number this build does not know — is
+  /// [ShareCodeProblem.notACode]. A family that has moved on lists both, newest
+  /// first, and reads the returned `version` to know which set of rules the body
+  /// is written by: the codes written against the older one are in messages
+  /// people can still open.
   ///
   /// [minBody] is the shortest body the caller's format can possibly have; a
   /// code below it is damaged rather than parsed into a half-read anything.
   static ShareCodeBody unpack(
     String source, {
-    required String version,
+    required Set<String> versions,
     required String host,
     int minBody = 1,
     int checksumBytes = 2,
@@ -109,12 +115,15 @@ abstract final class ShareCodec {
     final at = s.indexOf(prefix);
     if (at >= 0) s = s.substring(at + prefix.length);
 
-    const notACode = (body: null, problem: ShareCodeProblem.notACode);
-    const damaged = (body: null, problem: ShareCodeProblem.damaged);
+    const notACode =
+        (body: null, problem: ShareCodeProblem.notACode, version: null);
+    const damaged =
+        (body: null, problem: ShareCodeProblem.damaged, version: null);
 
     final dot = s.indexOf('.');
     if (dot <= 0) return notACode;
-    if (s.substring(0, dot) != version) return notACode;
+    final tag = s.substring(0, dot);
+    if (!versions.contains(tag)) return notACode;
 
     final payload = s.substring(dot + 1);
     Uint8List bytes;
@@ -135,7 +144,7 @@ abstract final class ShareCodec {
     final actual = checksumBytes == 4 ? _crc32(body) : _crc16(body);
     if (actual != expected) return damaged;
 
-    return (body: body, problem: null);
+    return (body: body, problem: null, version: tag);
   }
 
   /// The prefix a shared [host] travels under: `fosslift://theme/`, and so on.

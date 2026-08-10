@@ -6,6 +6,7 @@ import '../util/units.dart';
 import '../util/video_links.dart';
 import 'db_open.dart';
 import 'exercise_stats.dart';
+import 'exercise_taxonomy.dart';
 import 'layoff.dart';
 import 'plates.dart';
 import 'progression.dart';
@@ -55,7 +56,17 @@ class Exercises extends Table {
   /// cannot be renamed (see [isCustom]), so unlike a routine or a training day
   /// this key is never cleared. See `util/seed_names.dart`.
   TextColumn get seedKey => text().nullable()();
+
+  /// The lead muscle group — the first of the primaries, and the one the
+  /// library files the movement under. Read [ExerciseMuscles.muscles] rather
+  /// than this column wherever the question is "what does it work"; this is
+  /// where it goes, which is a narrower fact.
+  ///
+  /// It stays a column of its own rather than being the head of the list below
+  /// because it is what `watchExercises` orders by and what an FLR1 routine code
+  /// carries.
   TextColumn get muscleGroup => text().withDefault(const Constant('Other'))();
+
   TextColumn get equipment => text().withDefault(const Constant('Other'))();
   TextColumn get videoUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
@@ -101,7 +112,44 @@ class Exercises extends Table {
   /// something else again, and every one of them is a fact about the movement
   /// you do on it. Ignored unless [weightType] is [WeightType.bar].
   RealColumn get barWeight => real().nullable()();
+
+  /// The primaries after the lead, [kGroupSeparator]-joined, or empty for a
+  /// movement that trains one group.
+  TextColumn get extraPrimaryGroups =>
+      text().withDefault(const Constant(''))();
+
+  /// The groups the movement only assists, [kGroupSeparator]-joined.
+  TextColumn get secondaryGroups => text().withDefault(const Constant(''))();
+
+  // The two group columns sit at the end of the table rather than beside
+  // `muscleGroup`, where they read better, because `ALTER TABLE ADD COLUMN`
+  // can only append: putting them here is what makes an upgraded database the
+  // same shape as a fresh one.
 }
+
+/// The three group columns of an exercise row, read as the one fact they are.
+extension ExerciseMuscles on Exercise {
+  /// What this movement trains and what it assists — see [MuscleMap].
+  MuscleMap get muscles => MuscleMap(
+    primary: [muscleGroup, ..._splitGroups(extraPrimaryGroups)],
+    secondary: _splitGroups(secondaryGroups),
+  );
+}
+
+/// The columns a [MuscleMap] is written to. The lead is a column of its own; the
+/// rest are two joined lists — see [Exercises.muscleGroup].
+///
+/// Every writer of an exercise row goes through this, so how a map is spread
+/// over three columns is stated once and an importer cannot spell it
+/// differently from the form.
+ExercisesCompanion muscleColumns(MuscleMap muscles) => ExercisesCompanion(
+  muscleGroup: Value(muscles.lead),
+  extraPrimaryGroups: Value(muscles.extraPrimary.join(kGroupSeparator)),
+  secondaryGroups: Value(muscles.secondary.join(kGroupSeparator)),
+);
+
+List<String> _splitGroups(String stored) =>
+    stored.isEmpty ? const [] : stored.split(kGroupSeparator);
 
 /// A training program ("PPL", "Upper/Lower"). A routine is a container: the
 /// thing you actually train is one of its [Workouts].
@@ -654,19 +702,6 @@ class _SeedItem {
   final double? deload;
 }
 
-/// The curated starter library, as muscle group → movement → equipment.
-///
-/// The groups are the seven of [kMuscleGroups] and no finer: hip thrusts sit
-/// under Legs, wrist curls under Arms, and traps under Back, because a shrug is
-/// something you do on a back day and nobody goes looking for a Traps heading.
-/// The movements that answer to no single group — a swing, a clean, a get-up —
-/// are under Other.
-///
-/// Each group aims to cover the movement patterns that matter in it, at every
-/// kind of loading a gym offers, without turning the picker into a catalogue.
-/// How a movement is loaded follows from its equipment — see [_seedWeightType]
-/// for that rule and the handful of movements whose equipment does not settle
-/// it.
 /// The demo video for each starter movement, as a bare YouTube id.
 ///
 /// **Ids, not URLs.** Eleven characters is what identifies a video, and it is
@@ -827,112 +862,192 @@ const Map<String, String> _starterDemos = {
       '8OtwXwrJizk', // How To Do A Farmer's Walk (Farmer's Carry) — PureGym
 };
 
-const Map<String, Map<String, String>> _starterLibrary = {
+/// One starter movement: what it is loaded with, and the groups it works
+/// beyond the one it is filed under.
+///
+/// [also] are further primaries — groups the movement is genuinely for, listed
+/// after the lead. [assists] are secondaries: worked, but not what anyone puts
+/// the movement in a program for.
+typedef _Starter = ({String kit, List<String> also, List<String> assists});
+
+_Starter _s(
+  String kit, {
+  List<String> also = const [],
+  List<String> assists = const [],
+}) => (kit: kit, also: also, assists: assists);
+
+/// The curated starter library, as lead muscle group → movement → its map.
+///
+/// The outer key is the **lead**: the one group the movement files under, which
+/// is what the library lists it beneath and what a history rollup counts it
+/// towards. A movement trains whatever it trains, and says so in [_Starter.also]
+/// — a bench press is filed under Chest and is a Chest and Arms movement.
+///
+/// The groups are the seven of [kMuscleGroups] and no finer: hip thrusts sit
+/// under Legs, wrist curls under Arms, and traps under Back, because a shrug is
+/// something you do on a back day and nobody goes looking for a Traps heading.
+/// Nothing files under Other any more — the swing, the clean and the get-up were
+/// there because one group was a lie about them, and naming two or three is the
+/// truth. Other stays in the vocabulary for a movement you build that answers to
+/// nothing on the list.
+///
+/// Each group aims to cover the movement patterns that matter in it, at every
+/// kind of loading a gym offers, without turning the picker into a catalogue.
+/// How a movement is loaded follows from its equipment — see [_seedWeightType]
+/// for that rule and the handful of movements whose equipment does not settle
+/// it.
+final Map<String, Map<String, _Starter>> _starterLibrary = {
   'Chest': {
-    'Bench Press': 'Barbell',
-    'Incline Bench Press': 'Barbell',
-    'Decline Bench Press': 'Barbell',
-    'Dumbbell Bench Press': 'Dumbbell',
-    'Incline DB Press': 'Dumbbell',
-    'Dumbbell Fly': 'Dumbbell',
-    'Machine Chest Press': 'Machine',
-    'Pec Deck': 'Machine',
-    'Cable Fly': 'Cable',
-    'Push-Up': 'Bodyweight',
-    'Chest Dip': 'Bodyweight',
+    'Bench Press': _s('Barbell', also: ['Arms'], assists: ['Shoulders']),
+    'Incline Bench Press': _s(
+      'Barbell',
+      also: ['Shoulders'],
+      assists: ['Arms'],
+    ),
+    'Decline Bench Press': _s('Barbell', assists: ['Arms', 'Shoulders']),
+    'Dumbbell Bench Press': _s(
+      'Dumbbell',
+      also: ['Arms'],
+      assists: ['Shoulders'],
+    ),
+    'Incline DB Press': _s('Dumbbell', also: ['Shoulders'], assists: ['Arms']),
+    'Dumbbell Fly': _s('Dumbbell', assists: ['Shoulders']),
+    'Machine Chest Press': _s(
+      'Machine',
+      also: ['Arms'],
+      assists: ['Shoulders'],
+    ),
+    'Pec Deck': _s('Machine', assists: ['Shoulders']),
+    'Cable Fly': _s('Cable', assists: ['Shoulders']),
+    'Push-Up': _s('Bodyweight', also: ['Arms'], assists: ['Shoulders', 'Core']),
+    'Chest Dip': _s('Bodyweight', also: ['Arms'], assists: ['Shoulders']),
   },
   'Back': {
-    'Deadlift': 'Barbell',
-    'Barbell Row': 'Barbell',
-    'Barbell Shrug': 'Barbell',
-    'Dumbbell Row': 'Dumbbell',
-    'T-Bar Row': 'Machine',
-    'Chest-Supported Row': 'Machine',
-    'Lat Pulldown': 'Cable',
-    'Seated Cable Row': 'Cable',
-    'Straight-Arm Pulldown': 'Cable',
-    'Face Pull': 'Cable',
-    'Pull-Up': 'Bodyweight',
-    'Chin-Up': 'Bodyweight',
-    'Inverted Row': 'Bodyweight',
-    'Back Extension': 'Bodyweight',
+    'Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    'Barbell Row': _s('Barbell', also: ['Arms'], assists: ['Core']),
+    'Barbell Shrug': _s('Barbell', assists: ['Arms']),
+    'Dumbbell Row': _s('Dumbbell', also: ['Arms'], assists: ['Core']),
+    'T-Bar Row': _s('Machine', also: ['Arms'], assists: ['Core']),
+    'Chest-Supported Row': _s('Machine', also: ['Arms']),
+    'Lat Pulldown': _s('Cable', also: ['Arms']),
+    'Seated Cable Row': _s('Cable', also: ['Arms'], assists: ['Core']),
+    'Straight-Arm Pulldown': _s('Cable', assists: ['Arms', 'Core']),
+    'Face Pull': _s('Cable', also: ['Shoulders']),
+    'Pull-Up': _s('Bodyweight', also: ['Arms'], assists: ['Core']),
+    'Chin-Up': _s('Bodyweight', also: ['Arms'], assists: ['Core']),
+    'Inverted Row': _s('Bodyweight', also: ['Arms'], assists: ['Core']),
+    'Back Extension': _s('Bodyweight', also: ['Legs'], assists: ['Core']),
   },
   'Shoulders': {
-    'Overhead Press': 'Barbell',
-    'Push Press': 'Barbell',
-    'Upright Row': 'Barbell',
-    'Dumbbell Shoulder Press': 'Dumbbell',
-    'Arnold Press': 'Dumbbell',
-    'Lateral Raise': 'Dumbbell',
-    'Front Raise': 'Dumbbell',
-    'Rear Delt Fly': 'Dumbbell',
-    'Machine Shoulder Press': 'Machine',
-    'Reverse Pec Deck': 'Machine',
-    'Cable Lateral Raise': 'Cable',
+    'Overhead Press': _s('Barbell', also: ['Arms'], assists: ['Core']),
+    'Push Press': _s('Barbell', also: ['Arms'], assists: ['Legs', 'Core']),
+    'Upright Row': _s('Barbell', assists: ['Arms', 'Back']),
+    'Dumbbell Shoulder Press': _s(
+      'Dumbbell',
+      also: ['Arms'],
+      assists: ['Core'],
+    ),
+    'Arnold Press': _s('Dumbbell', also: ['Arms'], assists: ['Core']),
+    'Lateral Raise': _s('Dumbbell'),
+    'Front Raise': _s('Dumbbell', assists: ['Core']),
+    'Rear Delt Fly': _s('Dumbbell', assists: ['Back']),
+    'Machine Shoulder Press': _s('Machine', also: ['Arms']),
+    'Reverse Pec Deck': _s('Machine', assists: ['Back']),
+    'Cable Lateral Raise': _s('Cable'),
   },
   'Legs': {
-    'Back Squat': 'Barbell',
-    'Front Squat': 'Barbell',
-    'Sumo Deadlift': 'Barbell',
-    'Romanian Deadlift': 'Barbell',
-    'Good Morning': 'Barbell',
-    'Goblet Squat': 'Dumbbell',
-    'Bulgarian Split Squat': 'Dumbbell',
-    'Walking Lunge': 'Dumbbell',
-    'Step-Up': 'Dumbbell',
-    'Leg Press': 'Machine',
-    'Hack Squat': 'Machine',
-    'Leg Curl': 'Machine',
-    'Leg Extension': 'Machine',
-    'Calf Raise': 'Machine',
-    'Seated Calf Raise': 'Machine',
+    'Back Squat': _s('Barbell', assists: ['Core', 'Back']),
+    'Front Squat': _s('Barbell', assists: ['Core', 'Back']),
+    'Sumo Deadlift': _s('Barbell', also: ['Back'], assists: ['Core', 'Arms']),
+    'Romanian Deadlift': _s(
+      'Barbell',
+      also: ['Back'],
+      assists: ['Core', 'Arms'],
+    ),
+    'Good Morning': _s('Barbell', also: ['Back'], assists: ['Core']),
+    'Goblet Squat': _s('Dumbbell', assists: ['Core', 'Arms']),
+    'Bulgarian Split Squat': _s('Dumbbell', assists: ['Core']),
+    'Walking Lunge': _s('Dumbbell', assists: ['Core']),
+    'Step-Up': _s('Dumbbell', assists: ['Core']),
+    'Leg Press': _s('Machine'),
+    'Hack Squat': _s('Machine', assists: ['Core']),
+    'Leg Curl': _s('Machine'),
+    'Leg Extension': _s('Machine'),
+    'Calf Raise': _s('Machine'),
+    'Seated Calf Raise': _s('Machine'),
     // The glute movements, filed here rather than under a heading of their own.
-    'Hip Thrust': 'Barbell',
-    'Glute Bridge': 'Bodyweight',
-    'Hip Abduction': 'Machine',
-    'Cable Pull-Through': 'Cable',
-    'Glute Kickback': 'Cable',
+    'Hip Thrust': _s('Barbell', assists: ['Core']),
+    'Glute Bridge': _s('Bodyweight', assists: ['Core']),
+    'Hip Abduction': _s('Machine'),
+    'Cable Pull-Through': _s('Cable', also: ['Back'], assists: ['Core']),
+    'Glute Kickback': _s('Cable', assists: ['Core']),
+    // The whole-body lifts. Filed under the group that does most of the work,
+    // and naming the rest rather than hiding under Other as they used to.
+    'Power Clean': _s(
+      'Barbell',
+      also: ['Back', 'Shoulders'],
+      assists: ['Arms', 'Core'],
+    ),
+    'Kettlebell Swing': _s(
+      'Other',
+      also: ['Back'],
+      assists: ['Core', 'Arms'],
+    ),
   },
   'Arms': {
-    'Barbell Curl': 'Barbell',
-    'Preacher Curl': 'Barbell',
-    'Close-Grip Bench Press': 'Barbell',
-    'Skull Crusher': 'Barbell',
-    'Dumbbell Curl': 'Dumbbell',
-    'Hammer Curl': 'Dumbbell',
-    'Incline Dumbbell Curl': 'Dumbbell',
-    'Triceps Pushdown': 'Cable',
-    'Overhead Cable Extension': 'Cable',
-    'Cable Curl': 'Cable',
-    'Triceps Dip': 'Bodyweight',
+    'Barbell Curl': _s('Barbell'),
+    'Preacher Curl': _s('Barbell'),
+    'Close-Grip Bench Press': _s(
+      'Barbell',
+      also: ['Chest'],
+      assists: ['Shoulders'],
+    ),
+    'Skull Crusher': _s('Barbell'),
+    'Dumbbell Curl': _s('Dumbbell'),
+    'Hammer Curl': _s('Dumbbell'),
+    'Incline Dumbbell Curl': _s('Dumbbell'),
+    'Triceps Pushdown': _s('Cable'),
+    'Overhead Cable Extension': _s('Cable', assists: ['Core']),
+    'Cable Curl': _s('Cable'),
+    'Triceps Dip': _s('Bodyweight', also: ['Chest'], assists: ['Shoulders']),
     // The forearm and grip movements. Programd for the part that gives out
     // first, and still an arm day either way.
-    'Reverse Curl': 'Barbell',
-    'Wrist Curl': 'Dumbbell',
-    'Reverse Wrist Curl': 'Dumbbell',
-    "Farmer's Carry": 'Dumbbell',
-    'Dead Hang': 'Bodyweight',
+    'Reverse Curl': _s('Barbell'),
+    'Wrist Curl': _s('Dumbbell'),
+    'Reverse Wrist Curl': _s('Dumbbell'),
+    "Farmer's Carry": _s('Dumbbell', assists: ['Core', 'Back', 'Legs']),
+    'Dead Hang': _s('Bodyweight', assists: ['Back', 'Shoulders']),
   },
   'Core': {
-    'Cable Crunch': 'Cable',
-    'Pallof Press': 'Cable',
-    'Machine Crunch': 'Machine',
-    'Ab Wheel Rollout': 'Other',
-    'Plank': 'Bodyweight',
-    'Side Plank': 'Bodyweight',
-    'Hollow Hold': 'Bodyweight',
-    'Hanging Leg Raise': 'Bodyweight',
-    'Crunch': 'Bodyweight',
-    'Reverse Crunch': 'Bodyweight',
-    'Russian Twist': 'Bodyweight',
-    'Dead Bug': 'Bodyweight',
+    'Cable Crunch': _s('Cable'),
+    'Pallof Press': _s('Cable', assists: ['Shoulders']),
+    'Machine Crunch': _s('Machine'),
+    'Ab Wheel Rollout': _s('Other', assists: ['Shoulders', 'Back']),
+    'Plank': _s('Bodyweight'),
+    'Side Plank': _s('Bodyweight', assists: ['Shoulders']),
+    'Hollow Hold': _s('Bodyweight'),
+    'Hanging Leg Raise': _s('Bodyweight', assists: ['Arms']),
+    'Crunch': _s('Bodyweight'),
+    'Reverse Crunch': _s('Bodyweight'),
+    'Russian Twist': _s('Bodyweight'),
+    'Dead Bug': _s('Bodyweight'),
+    'Turkish Get-Up': _s(
+      'Other',
+      also: ['Shoulders'],
+      assists: ['Legs', 'Arms'],
+    ),
   },
-  // Whole-body movements that would be a lie in any single group.
-  'Other': {
-    'Power Clean': 'Barbell',
-    'Kettlebell Swing': 'Other',
-    'Turkish Get-Up': 'Other',
-  },
+};
+
+/// Every starter movement's map, by name — what the first-run seed writes and
+/// what the v3 migration rewrites an already-installed library to.
+Map<String, MuscleMap> get _starterMuscles => {
+  for (final group in _starterLibrary.entries)
+    for (final movement in group.value.entries)
+      movement.key: MuscleMap(
+        primary: [group.key, ...movement.value.also],
+        secondary: movement.value.assists,
+      ),
 };
 
 /// The starters with no rep to count, so the clock is the only thing that can
@@ -1035,8 +1150,10 @@ class AppDatabase extends _$AppDatabase {
   /// below it.
   ///
   /// - **v2** — `Settings.warmup_sets`, the default warm-up rung count.
+  /// - **v3** — `Exercises.extra_primary_groups` and `secondary_groups`, so a
+  ///   movement can name every muscle group it works instead of one.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1060,6 +1177,35 @@ class AppDatabase extends _$AppDatabase {
           'INTEGER NOT NULL DEFAULT 3',
         );
       }
+      // v3 — an exercise names every group it works, not just the one it files
+      // under. The two new columns default to empty, which is exactly right for
+      // a movement somebody built: it keeps the group it had, as its only
+      // primary, and nothing moves. The starters are a different matter — their
+      // classification is the app's to state rather than the user's, so they are
+      // rewritten from the shipped table. Only the group columns are touched:
+      // the loading, the bar and the note on a starter are the user's and are
+      // left where they are.
+      if (from < 3) {
+        for (final column in ['extra_primary_groups', 'secondary_groups']) {
+          await m.database.customStatement(
+            'ALTER TABLE "exercises" ADD COLUMN "$column" '
+            "TEXT NOT NULL DEFAULT ''",
+          );
+        }
+        for (final entry in _starterMuscles.entries) {
+          await m.database.customStatement(
+            'UPDATE "exercises" SET "muscle_group" = ?, '
+            '"extra_primary_groups" = ?, "secondary_groups" = ? '
+            'WHERE "seed_key" IS NOT NULL AND "name" = ?',
+            [
+              entry.value.lead,
+              entry.value.extraPrimary.join(kGroupSeparator),
+              entry.value.secondary.join(kGroupSeparator),
+              entry.key,
+            ],
+          );
+        }
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -1081,16 +1227,19 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> createExercise({
     required String name,
-    required String muscle,
+    required MuscleMap muscles,
     required String equipment,
     String? videoUrl,
     ExerciseMeasure measure = ExerciseMeasure.reps,
     WeightType weightType = WeightType.machine,
   }) {
+    final groups = muscleColumns(muscles);
     return into(exercises).insert(
       ExercisesCompanion.insert(
         name: name,
-        muscleGroup: Value(muscle),
+        muscleGroup: groups.muscleGroup,
+        extraPrimaryGroups: groups.extraPrimaryGroups,
+        secondaryGroups: groups.secondaryGroups,
         equipment: Value(equipment),
         videoUrl: Value(videoUrl),
         isCustom: const Value(true),
@@ -1113,18 +1262,21 @@ class AppDatabase extends _$AppDatabase {
   Future<void> updateCustomExercise(
     int id, {
     required String name,
-    required String muscle,
+    required MuscleMap muscles,
     required String equipment,
     required String? videoUrl,
     required ExerciseMeasure measure,
     required WeightType weightType,
   }) {
+    final groups = muscleColumns(muscles);
     return (update(
       exercises,
     )..where((e) => e.id.equals(id) & e.isCustom.equals(true))).write(
       ExercisesCompanion(
         name: Value(name),
-        muscleGroup: Value(muscle),
+        muscleGroup: groups.muscleGroup,
+        extraPrimaryGroups: groups.extraPrimaryGroups,
+        secondaryGroups: groups.secondaryGroups,
         equipment: Value(equipment),
         videoUrl: Value(videoUrl),
         measure: Value(measure),
@@ -2429,17 +2581,20 @@ class AppDatabase extends _$AppDatabase {
     final measures = <String, ExerciseMeasure>{};
     Future<int> ex(
       String name,
-      String muscle,
+      MuscleMap muscles,
       String equip, {
       ExerciseMeasure measure = ExerciseMeasure.reps,
     }) async {
       measures[name] = measure;
+      final groups = muscleColumns(muscles);
       return ids[name] ??= await into(exercises).insert(
         ExercisesCompanion.insert(
           name: name,
           // What the screens actually render from — see `seed_names.dart`.
           seedKey: Value(kSeedExerciseKeys[name]),
-          muscleGroup: Value(muscle),
+          muscleGroup: groups.muscleGroup,
+          extraPrimaryGroups: groups.extraPrimaryGroups,
+          secondaryGroups: groups.secondaryGroups,
           equipment: Value(equip),
           measure: Value(measure),
           weightType: Value(_seedWeightType(name, equip)),
@@ -2456,12 +2611,13 @@ class AppDatabase extends _$AppDatabase {
       );
     }
 
+    final muscles = _starterMuscles;
     for (final group in _starterLibrary.entries) {
       for (final movement in group.value.entries) {
         await ex(
           movement.key,
-          group.key,
-          movement.value,
+          muscles[movement.key]!,
+          movement.value.kit,
           measure: _heldStarters.contains(movement.key)
               ? ExerciseMeasure.time
               : ExerciseMeasure.reps,

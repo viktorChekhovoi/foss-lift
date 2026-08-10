@@ -146,7 +146,7 @@ abstract final class ThemeCode {
   static ThemeCodeResult decode(String source, {String? unnamed}) {
     // Long enough for the fixed header and an empty name.
     final read = ShareCodec.unpack(source,
-        version: version, host: host, minBody: _nameAt);
+        versions: const {version}, host: host, minBody: _nameAt);
     if (read.problem != null) return ThemeCodeFailure(read.problem!);
     final bytes = read.body!;
     final bodyEnd = bytes.length;

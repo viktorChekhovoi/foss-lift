@@ -2,7 +2,11 @@ import 'database.dart';
 
 /// One exercise's words as a screen is rendering them — translated where the
 /// row is one the app shipped. See `util/seed_names.dart`.
-typedef ExerciseWords = ({String name, String muscleGroup, String equipment});
+typedef ExerciseWords = ({
+  String name,
+  List<String> muscleGroups,
+  String equipment,
+});
 
 /// What is being asked of the exercise library: some text, and any number of
 /// equipment kinds and muscle groups.
@@ -34,6 +38,11 @@ class ExerciseFilter {
   final Set<String> equipment;
 
   /// The muscle groups to keep — see [kMuscleGroups]. Empty means all.
+  ///
+  /// A movement is kept when it works one of them at all, trained or assisted:
+  /// the question being asked of this control is "what have I got that hits
+  /// this", and answering with only the movements filed under the group would
+  /// leave out most of what does.
   final Set<String> muscles;
 
   /// Whether this asks anything at all.
@@ -78,10 +87,10 @@ class ExerciseFilter {
   /// display concern the screen has already resolved.
   ///
   /// The text is matched against **both** the words on screen and the English
-  /// underneath. [shown] carries the former — the translated name, muscle group
-  /// and equipment the screen is rendering — and defaults to the row's own
-  /// values, which is the right answer for an English install and for anything
-  /// with no translation.
+  /// underneath. [shown] carries the former — the translated name, every muscle
+  /// group and the equipment the screen is rendering — and defaults to the row's
+  /// own values, which is the right answer for an English install and for
+  /// anything with no translation.
   ///
   /// Both, rather than only what is on screen: the English is what a share code
   /// carries and what a training partner types into a message, so somebody
@@ -90,14 +99,15 @@ class ExerciseFilter {
   /// on their own phone.
   bool matches(Exercise e, {ExerciseWords? shown}) {
     if (equipment.isNotEmpty && !equipment.contains(e.equipment)) return false;
-    if (muscles.isNotEmpty && !muscles.contains(e.muscleGroup)) return false;
+    final worked = e.muscles.all;
+    if (muscles.isNotEmpty && !worked.any(muscles.contains)) return false;
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return true;
     for (final word in [
       e.name,
-      e.muscleGroup,
+      ...worked,
       e.equipment,
-      if (shown != null) ...[shown.name, shown.muscleGroup, shown.equipment],
+      if (shown != null) ...[shown.name, ...shown.muscleGroups, shown.equipment],
     ]) {
       if (word.toLowerCase().contains(q)) return true;
     }

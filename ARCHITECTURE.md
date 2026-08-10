@@ -39,7 +39,7 @@ lib/
 │   ├── exercise_taxonomy.dart    Muscle groups + equipment kinds (a wire format)
 │   ├── exercise_filter.dart      Search text + equipment/muscle chips → a list
 │   ├── share_code.dart           Share-code plumbing: varints, CRC, base64, tags
-│   ├── routine_code.dart         FLR1 — a whole routine as one line of text
+│   ├── routine_code.dart         FLR2 — a whole routine as one line of text
 │   │                             (the prescription only: no weights travel)
 │   ├── routine_import.dart       Routine ⇄ database, and what to do about clashes
 │   ├── backup_archive.dart       FLB1 — what a backup file is, without the disk
@@ -138,7 +138,7 @@ has "Upper 1" and "Upper 2".
 
 | Table          | Holds |
 |----------------|-------|
-| `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup, equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
+| `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup (the **lead** group — the one it files under and the one an FLR1 code carries), `extraPrimaryGroups` and `secondaryGroups` (the rest of what it trains and what it only assists, unit-separator-joined; read all three through `Exercise.muscles` as a `MuscleMap`), equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
 | `Routines`     | A program. name, `seedKey` (nullable — which demo program this is; **cleared on rename**, so a routine you have named stops following the language), colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
@@ -233,7 +233,8 @@ the starter library only the Plank is held.
   target and no weight there is genuinely nothing to move, and nothing is
   invented — "load 2.5 kg onto a push-up".
 `_seed()` populates the starter library (~85 exercises, from the
-`_starterLibrary` table above it) plus five starter programs on first launch:
+`_starterLibrary` table above it — keyed by the group each movement *files*
+under, with the rest of what it trains and assists beside it) plus five starter programs on first launch:
 two hypertrophy splits (PPL, Upper/Lower) and three beginner strength routines
 (Starting Strength, StrongLifts 5x5, Full Body 3x). Each slot is written from a
 `_SeedItem`, which carries the program's own step-up, back-off and failure
@@ -735,10 +736,14 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
-  The ladder currently runs **v1 → v2** (`Settings.warmup_sets`). Its rung spells
+  The ladder currently runs **v1 → v2 → v3** (`Settings.warmup_sets`, then
+  `Exercises.extra_primary_groups` and `secondary_groups`). Each rung spells
   its `ALTER TABLE` out rather than calling `m.addColumn`, because `addColumn`
   reads the column as *today's* code declares it: a later edit to that column
-  would silently rewrite a rung that has already shipped. `test/support/schema_v1.dart`
+  would silently rewrite a rung that has already shipped. A new column also goes
+  at the *end* of its table, because `ALTER TABLE ADD COLUMN` can only append and
+  an upgraded database has to end up the same shape as a fresh one.
+  `test/support/schema_v1.dart`
   holds the frozen v1 DDL, and `test/feature_13_offline_and_privacy_test.dart`
   builds a real v1 database from it and climbs.
 - **A new setting** → add a column to `Settings`, a watch/set method, a provider,

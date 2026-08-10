@@ -17,7 +17,7 @@ code:
 test:
 - test/feature_14_routine_sharing_test.dart
 where: >-
-  <b>Wire format</b> lib/data/routine_code.dart (FLR1) on lib/data/share_code.dart
+  <b>Wire format</b> lib/data/routine_code.dart (FLR2 out, FLR1 and FLR2 in) on lib/data/share_code.dart
   · <b>QR capacity</b> lib/util/qr_capacity.dart · <b>Landing an import</b> lib/data/routine_import.dart
   + AppDatabase.importSharedRoutine · <b>Screens</b> routine_share_screen.dart,
   routine_import_screen.dart, scan_screen.dart · <b>Links</b> lib/services/deep_links.dart
@@ -28,7 +28,7 @@ groups:
   - id: export-any-routine-becomes-routine
     t: Export — any routine becomes a routine code
     d: >-
-      a versioned, compressed, base64 line beginning FLR1. It carries the routine's
+      a versioned, compressed, base64 line beginning FLR2. It carries the routine's
       name, colour, default rest and training days; every workout in order; every
       exercise slot's prescription — sets, reps, rest, the set scheme and its
       percentages, progression axis, step and back-off rates, thresholds — and a
@@ -43,7 +43,7 @@ groups:
     t: Two ways out — a QR to scan, or the code itself
     d: >-
       Routines → open a routine → the share icon → Show QR or Send code. The share
-      sheet sends the bare FLR1 line, because a chat app will not make a
+      sheet sends the bare FLR2 line, because a chat app will not make a
       fosslift:// link tappable and an unclickable link is worse than a string
       nobody expected to click. The QR still holds the link, so a phone's own
       camera opens the import screen without knowing this app has a scanner.
@@ -65,15 +65,31 @@ groups:
   - id: custom-exercises-travel-routine
     t: Custom exercises travel with the routine
     d: >-
-      the name, muscle group, equipment, weight type and bar — plus a video link,
-      if there is a video behind it. The recipient does not need them beforehand.
+      the name, every muscle group it trains and every one it assists, equipment,
+      weight type and bar — plus a video link, if there is a video behind it. The
+      recipient does not need them beforehand.
     uses:
     - share.routine-code
     - exercise.identity
     - exercise.taxonomy
+    - exercise.muscle-map
     - exercise.weight-type
     - exercise.video-url
     - load.bar-weight
+  - id: flr2-carries-whole-muscle-map
+    t: FLR2 carries the whole muscle map, and FLR1 codes still open
+    d: >-
+      a movement's groups stopped being one byte the moment a movement could name
+      several, so the format that could only hold one is closed and a new one
+      written beside it. Codes go out as FLR2. Both are read: an FLR1 code — the
+      one in a chat message from last month, the one printed on a gym wall —
+      arrives with each exercise carrying the single group it was written with as
+      its only primary, which is exactly what it meant. What does not work is the
+      other direction: a phone still on the shipped build cannot open an FLR2
+      code, and says so plainly rather than importing a mangled routine.
+    uses:
+    - share.routine-code
+    - exercise.muscle-map
   - id: name-clash-your-call
     t: A name clash is your call
     d: >-
@@ -289,7 +305,7 @@ groups:
       starter movement is called is not part of that: its name and seed key are
       left alone, because the name is the shared vocabulary a routine code is
       written in — the same reason it cannot be edited by hand. How it is loaded
-      — the muscle group, the equipment, the weight type, the bar — is the
+      — the muscle groups, the equipment, the weight type, the bar — is the
       sender's to describe, and is written.
     screen: routine-import
     uses:

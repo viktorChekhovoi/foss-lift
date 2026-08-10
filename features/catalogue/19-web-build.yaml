@@ -186,7 +186,7 @@ groups:
   - id: share-codes-work-everywhere
     t: A routine code made in a browser opens on a phone
     d: >-
-      the compression under the code is the same on both, so `FLR1` means one
+      the compression under the code is the same on both, so `FLR2` means one
       thing everywhere and a code does not carry which build wrote it.
     screen: routine-share
     uses:

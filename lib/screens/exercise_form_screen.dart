@@ -29,7 +29,13 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
     with TracksUnsavedEdits {
   final _name = TextEditingController();
   final _video = TextEditingController();
-  String _muscle = 'Chest';
+  /// The groups the movement trains, in the order they were ticked — the first
+  /// is the lead it files under. Never emptied; see [_togglePrimary].
+  List<String> _primary = ['Chest'];
+
+  /// The groups it only assists. Shares nothing with [_primary].
+  List<String> _secondary = [];
+
   String _equip = 'Barbell';
   ExerciseMeasure _measure = ExerciseMeasure.reps;
   WeightType _weightType = weightTypeForEquipment('Barbell');
@@ -60,9 +66,13 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
     setState(() {
       _name.text = ex.name;
       _video.text = ex.videoUrl ?? '';
-      _muscle = kMuscleGroups.contains(ex.muscleGroup)
-          ? ex.muscleGroup
-          : 'Other';
+      // A group the form has no chip for — one that arrived in a routine code —
+      // is shown as Other rather than silently kept and invisibly editable.
+      final stored = ex.muscles;
+      // Other is last in the vocabulary — see [kMuscleGroups].
+      _primary = _known(stored.primary, fallback: kMuscleGroups.last);
+      _secondary = _known(stored.secondary)
+        ..removeWhere(_primary.contains);
       _equip = kEquipmentTypes.contains(ex.equipment) ? ex.equipment : 'Other';
       _measure = ex.measure;
       _weightType = ex.weightType;
@@ -73,6 +83,44 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
     // on screen — so the mark is taken straight back off.
     markSaved();
   }
+
+  /// The groups of [from] this form can actually show, keeping their order.
+  /// [fallback] is what an empty result becomes, for the row that cannot be
+  /// empty.
+  static List<String> _known(List<String> from, {String? fallback}) {
+    final kept = [for (final g in from) if (kMuscleGroups.contains(g)) g];
+    if (kept.isEmpty && fallback != null) kept.add(fallback);
+    return kept;
+  }
+
+  /// What the form is holding, normalised — see [MuscleMap].
+  MuscleMap get _muscles =>
+      MuscleMap(primary: _primary, secondary: _secondary);
+
+  /// Ticks or unticks [group] as a group the movement trains.
+  ///
+  /// The last primary stays: a movement that trains nothing is not a movement,
+  /// and the alternative — saving it and quietly filing it under Other — is a
+  /// classification nobody chose.
+  void _togglePrimary(String group) => _edit(() {
+    if (_primary.contains(group)) {
+      if (_primary.length > 1) _primary.remove(group);
+    } else {
+      _primary.add(group);
+      _secondary.remove(group);
+    }
+  });
+
+  /// The same for a group it only assists. Claiming one for this row gives up
+  /// the claim on the other, so no group is ticked twice.
+  void _toggleSecondary(String group) => _edit(() {
+    if (_secondary.contains(group)) {
+      _secondary.remove(group);
+    } else if (_primary.length > 1 || !_primary.contains(group)) {
+      _secondary.add(group);
+      _primary.remove(group);
+    }
+  });
 
   /// The demo link as it should be stored: a YouTube URL reduced to its
   /// canonical short form, anything else left exactly as typed.
@@ -149,7 +197,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
       await db.updateCustomExercise(
         id,
         name: name,
-        muscle: _muscle,
+        muscles: _muscles,
         equipment: _equip,
         videoUrl: video,
         measure: _measure,
@@ -158,7 +206,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
     } else {
       id = await db.createExercise(
         name: name,
-        muscle: _muscle,
+        muscles: _muscles,
         equipment: _equip,
         videoUrl: video,
         measure: _measure,
@@ -213,21 +261,29 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
           maxLength: kMaxNameLength,
         ),
         const SizedBox(height: 18),
-        _Label(l10n.exerciseFormMuscleGroup),
+        _Label(l10n.exerciseMusclesTrained),
         // The stored English is what is selected and saved; only the chip's
         // words are translated — the vocabulary is an index in a routine code.
         _Choices(
           options: kMuscleGroups,
           label: (v) => muscleGroupLabel(l10n, v),
-          selected: _muscle,
-          onSelect: (v) => _edit(() => _muscle = v),
+          selected: _primary.toSet(),
+          onSelect: _togglePrimary,
+        ),
+        const SizedBox(height: 18),
+        _Label(l10n.exerciseMusclesAssisted),
+        _Choices(
+          options: kMuscleGroups,
+          label: (v) => muscleGroupLabel(l10n, v),
+          selected: _secondary.toSet(),
+          onSelect: _toggleSecondary,
         ),
         const SizedBox(height: 18),
         _Label(l10n.exerciseFormEquipment),
         _Choices(
           options: kEquipmentTypes,
           label: (v) => equipmentLabel(l10n, v),
-          selected: _equip,
+          selected: {_equip},
           onSelect: _setEquipment,
         ),
         const SizedBox(height: 18),
@@ -238,7 +294,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
         _Choices(
           options: ExerciseMeasure.values,
           label: (v) => _measureLabel(l10n, v),
-          selected: _measure,
+          selected: {_measure},
           onSelect: _setMeasure,
         ),
         const SizedBox(height: 6),
@@ -269,7 +325,7 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
           label: (v) => weightTypeLabel(l10n, v),
           // Nothing is selected for a movement that carries nothing, and
           // tapping the selected chip is how you get back there.
-          selected: _weightType,
+          selected: {_weightType},
           onSelect: (v) => _edit(() {
             _weightType = v == _weightType ? WeightType.none : v;
           }),
@@ -373,6 +429,10 @@ class _Field extends StatelessWidget {
 /// Generic in the value so the chips carry what is stored — a muscle group as
 /// English, an enum — and [label] alone decides the words. Comparing the value
 /// rather than its words is what keeps the selection working in every language.
+///
+/// [selected] is a set rather than one value because the two muscle rows hold
+/// several at once. A row where only one answer makes sense passes the one it
+/// has, and the chips behave as they always did.
 class _Choices<T> extends StatelessWidget {
   const _Choices({
     required this.options,
@@ -382,7 +442,7 @@ class _Choices<T> extends StatelessWidget {
   });
   final List<T> options;
   final String Function(T) label;
-  final T selected;
+  final Set<T> selected;
   final ValueChanged<T> onSelect;
 
   @override
@@ -397,12 +457,13 @@ class _Choices<T> extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
               decoration: BoxDecoration(
-                color: o == selected
+                color: selected.contains(o)
                     ? AppColors.accent.withValues(alpha: 0.14)
                     : AppColors.surface,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: o == selected ? AppColors.accent : AppColors.line,
+                  color:
+                      selected.contains(o) ? AppColors.accent : AppColors.line,
                 ),
               ),
               child: Text(
@@ -410,7 +471,8 @@ class _Choices<T> extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
-                  color: o == selected ? AppColors.accent : AppColors.muted,
+                  color:
+                      selected.contains(o) ? AppColors.accent : AppColors.muted,
                 ),
               ),
             ),

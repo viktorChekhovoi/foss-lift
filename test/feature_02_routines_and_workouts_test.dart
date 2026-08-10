@@ -914,6 +914,13 @@ void main() {
       await tester.tap(find.byKey(kFilterSheetDoneKey));
       await tester.pumpAndSettle();
 
+      // Filtering to Legs leaves everything that works legs at all, which is
+      // more than one screenful — the squat is in the list, further down it.
+      await tester.scrollUntilVisible(
+        find.text('Back Squat'),
+        120,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('Back Squat'), findsOneWidget);
       expect(find.text('Barbell Curl'), findsNothing);
 

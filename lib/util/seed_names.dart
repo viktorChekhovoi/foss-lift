@@ -26,7 +26,9 @@ export '../data/seed_keys.dart';
 /// matches on top of the English. See `ExerciseFilter.matches`.
 ExerciseWords shownWords(AppLocalizations l10n, Exercise e) => (
       name: seededName(l10n, e.seedKey, e.name),
-      muscleGroup: muscleGroupLabel(l10n, e.muscleGroup),
+      muscleGroups: [
+        for (final group in e.muscles.all) muscleGroupLabel(l10n, group),
+      ],
       equipment: equipmentLabel(l10n, e.equipment),
     );
 

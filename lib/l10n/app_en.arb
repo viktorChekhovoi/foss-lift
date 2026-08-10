@@ -2147,9 +2147,13 @@
   "@exerciseFormNameHint": {
     "description": "Placeholder in the name field, giving an example of a movement. Use a movement name natural in your language — this one is a shoulder raise done on a cable machine."
   },
-  "exerciseFormMuscleGroup": "Muscle group",
-  "@exerciseFormMuscleGroup": {
-    "description": "Field label over the muscle-group chips. Rendered in small capitals by the app; write it in ordinary case."
+  "exerciseMusclesTrained": "Trains",
+  "@exerciseMusclesTrained": {
+    "description": "Field label over the chips for the muscle groups a movement trains. Rendered in small capitals by the app; write it in ordinary case."
+  },
+  "exerciseMusclesAssisted": "Also works",
+  "@exerciseMusclesAssisted": {
+    "description": "Field label over the chips for the muscle groups a movement only assists. Rendered in small capitals by the app; write it in ordinary case."
   },
   "exerciseFormEquipment": "Equipment",
   "@exerciseFormEquipment": {

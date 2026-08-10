@@ -808,7 +808,7 @@ void main() {
       await tester.runAsync(() async {
         container = containerFor(db);
         await db.createExercise(
-            name: 'Zercher Squat', muscle: 'Legs', equipment: 'Barbell');
+            name: 'Zercher Squat', muscles: MuscleMap.single('Legs'), equipment: 'Barbell');
       });
 
       await tester.pumpWidget(_liveApp(container!, const LibraryScreen()));

@@ -96,7 +96,7 @@ List<ExerciseArrival> planExerciseArrivals(
 }
 
 bool _differs(SharedExercise incoming, Exercise existing) {
-  if (incoming.muscleGroup != existing.muscleGroup) return true;
+  if (incoming.muscles != existing.muscles) return true;
   if (incoming.equipment != existing.equipment) return true;
   if (incoming.measure != existing.measure) return true;
   if (incoming.weightType != existing.weightType) return true;
@@ -290,7 +290,7 @@ extension RoutineSharing on AppDatabase {
 /// with the link that does travel.
 SharedExercise _share(Exercise e) => SharedExercise(
       name: e.name,
-      muscleGroup: e.muscleGroup,
+      muscles: e.muscles,
       equipment: e.equipment,
       isCustom: e.isCustom,
       measure: e.measure,
@@ -326,14 +326,17 @@ double _landedRate(double value, ProgressionMode mode, String unit) =>
 /// reason. [keepName] leaves the name column alone, which is what a starter
 /// movement's row gets: its name is the vocabulary a routine code is written
 /// in rather than the sender's to redefine.
-ExercisesCompanion _companion(SharedExercise e, {bool keepName = false}) =>
-    ExercisesCompanion(
-      name: keepName ? const Value.absent() : Value(e.name),
-      muscleGroup: Value(e.muscleGroup),
-      equipment: Value(e.equipment),
-      measure: Value(e.measure),
-      weightType: Value(e.weightType),
-      barWeight: Value(e.barWeight),
-      videoUrl:
-          e.videoUrl == null ? const Value.absent() : Value(e.videoUrl),
-    );
+ExercisesCompanion _companion(SharedExercise e, {bool keepName = false}) {
+  final groups = muscleColumns(e.muscles);
+  return ExercisesCompanion(
+    name: keepName ? const Value.absent() : Value(e.name),
+    muscleGroup: groups.muscleGroup,
+    extraPrimaryGroups: groups.extraPrimaryGroups,
+    secondaryGroups: groups.secondaryGroups,
+    equipment: Value(e.equipment),
+    measure: Value(e.measure),
+    weightType: Value(e.weightType),
+    barWeight: Value(e.barWeight),
+    videoUrl: e.videoUrl == null ? const Value.absent() : Value(e.videoUrl),
+  );
+}

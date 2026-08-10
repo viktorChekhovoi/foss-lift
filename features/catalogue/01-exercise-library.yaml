@@ -58,6 +58,19 @@ groups:
     uses:
     - exercise.filter
     - exercise.taxonomy
+  - id: muscle-filter-counts-secondaries
+    t: The muscle filter counts what a movement assists, not only what it trains
+    d: >-
+      ticking Shoulders returns the overhead press and the lateral raise, and also
+      the bench press and the dip, because those train shoulders too even though
+      they file under Chest. The question a lifter is asking of that filter is
+      "what have I got that hits this", and a list that answered with only the
+      movements named after the group would leave out most of what does. Search
+      is the same: the free text matches every group on a movement, primary or
+      secondary, in the chosen language and in English.
+    uses:
+    - exercise.filter
+    - exercise.muscle-map
   - id: filter-stays-set-while-you-use-it
     t: A filter you set stays set
     d: >-
@@ -79,26 +92,69 @@ groups:
       library.
     uses:
     - exercise.filter
+  - id: movement-names-every-group-trains
+    t: A movement names every group it trains, and every group it helps with
+    d: >-
+      a bench press is Chest and Arms, and it assists Shoulders. One group was
+      never the truth about a compound lift — it was the truth about where to
+      file it — so the two facts are now stored apart: <b>primary</b> groups are
+      what the movement is for, <b>secondary</b> groups are what it works on the
+      way. Every exercise has at least one primary; secondaries are optional and
+      may be none. A group is never both on the same movement.
+    screen: exercise-detail
+    defines:
+    - exercise.muscle-map
+    uses:
+    - exercise.taxonomy
+  - id: lead-primary-is-where-it-files
+    t: The first primary is where the movement files
+    d: >-
+      the library lists each movement once, under the first of its primaries, and
+      that same group is what a history rollup counts it under and what an old
+      routine code carries. The bench press sits under Chest and is not repeated
+      under Arms: a library that showed a compound once per group it trains would
+      be half again as long and would show the same row twice on the way to a
+      movement you can already see.
+    uses:
+    - exercise.muscle-map
+    - exercise.seed
   - id: each-exercise-opens-detail-page
     t: Each exercise opens a detail page
-    d: with its facts and its demo link.
+    d: >-
+      with its facts and its demo link. The groups read as two lines — what it
+      trains, and what it also works — with the second absent when a movement has
+      no secondaries rather than shown empty.
     screen: exercise-detail
     uses:
     - exercise.identity
     - exercise.video-url
+    - exercise.muscle-map
   - id: add-your-own-custom-exercises
     t: Add your own custom exercises
     d: >-
-      Library → ＋ → name, muscle group, equipment, how it is measured, how it is
+      Library → ＋ → name, muscle groups, equipment, how it is measured, how it is
       loaded, an optional demo link → Save. They sit alongside the starter set.
     screen: exercise-form
     defines:
     - exercise.identity
     uses:
     - exercise.taxonomy
+    - exercise.muscle-map
     - exercise.measure
     - exercise.weight-type
     - exercise.video-url
+  - id: form-ticks-primary-then-secondary
+    t: The form ticks the primaries first, then the secondaries
+    d: >-
+      two rows of the same seven chips, one labelled for what the movement trains
+      and one for what it also works. Ticking a group as primary unticks it as
+      secondary and the other way round, so the same group cannot be claimed
+      twice, and the last primary cannot be unticked — a movement that trains
+      nothing is not a movement. The order you tick the primaries in is the order
+      they are stored, so the first one you pick is the group it files under.
+    screen: exercise-form
+    uses:
+    - exercise.muscle-map
   - id: edit-them-afterwards
     t: Edit your own afterwards
     d: >-
@@ -261,11 +317,40 @@ groups:
       bridges are filed under Legs, wrist curls and carries under Arms, traps
       under Back — a shrug is something you do on a back day, and nobody goes
       looking for a Traps heading. Every movement is still in the library; what
-      is gone is a heading to scroll past on the way to the one you wanted.
-      Movements that answer to no single group — a kettlebell swing, a power
-      clean, a get-up — are under Other.
+      is gone is a heading to scroll past on the way to the one you wanted. A
+      movement that works several of the seven names several of them rather than
+      needing an eighth.
     defines:
     - exercise.taxonomy
+    uses:
+    - exercise.muscle-map
+  - id: no-starter-files-under-other
+    t: No starter movement files under Other any more
+    d: >-
+      the swing, the clean and the get-up were under Other because one group was
+      a lie about them; now they can name the two or three they actually train,
+      they do — the swing is Legs and Back, the clean is Legs, Back and
+      Shoulders, the get-up is Core and Shoulders. Other stays in the list and
+      stays legal: it is where a movement you built that answers to nothing on
+      the list goes, and removing it would break every routine code that names
+      it.
+    uses:
+    - exercise.muscle-map
+    - exercise.seed
+    - exercise.taxonomy
+  - id: existing-exercises-keep-their-group
+    t: An exercise from before the update keeps its group as its only primary
+    d: >-
+      installing over the shipped build leaves every custom movement classified
+      exactly as it was, as one primary and no secondaries, so nothing that was
+      filed under Legs moves. Starter movements are re-mapped in the same step,
+      because their classification is the app's to state rather than yours — what
+      you set on them, the loading, the bar and your note, is untouched.
+    screen: none
+    uses:
+    - exercise.muscle-map
+    - exercise.seed
+    - storage.migration
   - id: group-equipment-lists-wire-format
     t: The group and equipment lists are a wire format
     d: >-

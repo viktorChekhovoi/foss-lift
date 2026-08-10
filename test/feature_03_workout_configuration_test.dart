@@ -295,7 +295,7 @@ void main() {
       final mine = (await tester.runAsync(() async {
         final id = await db.createExercise(
           name: 'Landmine Press',
-          muscle: 'Shoulders',
+          muscles: MuscleMap.single('Shoulders'),
           equipment: 'Barbell',
         );
         return db.exerciseById(id);
@@ -316,7 +316,7 @@ void main() {
       final mine = (await tester.runAsync(() async {
         final id = await db.createExercise(
           name: 'Sled Push',
-          muscle: 'Legs',
+          muscles: MuscleMap.single('Legs'),
           equipment: 'Other',
         );
         return db.exerciseById(id);

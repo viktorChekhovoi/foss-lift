@@ -290,7 +290,7 @@ void main() {
         wid = await workoutIdNamed(db, 'Push');
         mine = await db.createExercise(
           name: 'Landmine Press',
-          muscle: 'Shoulders',
+          muscles: MuscleMap.single('Shoulders'),
           equipment: 'Barbell',
         );
         final views = await db.itemsForWorkout(wid);
@@ -313,7 +313,7 @@ void main() {
         await db.updateCustomExercise(
           mine,
           name: 'Landmine Press (left)',
-          muscle: ex.muscleGroup,
+          muscles: ex.muscles,
           equipment: ex.equipment,
           videoUrl: ex.videoUrl,
           measure: ex.measure,

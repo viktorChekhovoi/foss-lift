@@ -1,7 +1,7 @@
 /// A whole training program squeezed into one line of text.
 ///
 /// ```
-/// FLR1.AeNiYGBgZGRkYWBhZWBgY2BgYWJgYGZgYGVgYGdgYGFiYGBmYmBgZWJgYGdiYGBhYWBgZmFg…
+/// FLR2.AeNiYGBgZGRkYWBhZWBgY2BgYWJgYGZgYGVgYGdgYGFiYGBmYmBgZWJgYGdiYGBhYWBgZmFg…
 /// ```
 ///
 /// ## Why a format at all
@@ -38,11 +38,18 @@
 ///
 /// ## The wire format
 ///
-/// `FLR1` is a **format** version, not an app version: a future `FLR2` may
+/// `FLR2` is a **format** version, not an app version: a future `FLR3` may
 /// change everything below, and this reader declines anything not tagged `FLR1`
-/// rather than mangling it. The envelope — the tag, the base64, the CRC-32, the
-/// link unwrapping, the failure cases — is [ShareCodec], shared with the theme
-/// format.
+/// or `FLR2` rather than mangling it. The envelope — the tag, the base64, the
+/// CRC-32, the link unwrapping, the failure cases — is [ShareCodec], shared with
+/// the theme format.
+///
+/// **`FLR1` is read and never written.** Its body is what follows, minus the two
+/// muscle lists: it had one byte for one muscle group, and a movement can work
+/// several. The bit that introduces the lists was unused in `FLR1`, so the same
+/// reader handles both and an `FLR1` exercise arrives with its one group as its
+/// only primary. The tag still had to move: a phone on the shipped build would
+/// otherwise read those lists as the next exercise's flags.
 ///
 /// Inside the envelope: one flag byte (bit 0: the rest is deflated), then the
 /// body, raw or deflated:
@@ -55,8 +62,10 @@
 /// varint  exercise count, then that many exercises:
 ///   byte    flags — see the _ex* constants
 ///   string  name
-///   byte    muscle group: an index into kMuscleGroups + 1, or 0 + a string
+///   byte    lead muscle group: an index into kMuscleGroups + 1, or 0 + a string
 ///   byte    equipment: the same, over kEquipmentTypes
+///   varint  further primary groups, then that many words — only with _exMuscles
+///   varint  secondary groups, then that many words — only with _exMuscles
 ///   string  video id       — 11 chars, only when a link resolves to a video
 ///   byte    weight type    — only when it is not the default for the equipment
 ///   varint  bar weight ×100
@@ -100,7 +109,7 @@ import 'share_code.dart';
 class SharedExercise {
   const SharedExercise({
     required this.name,
-    required this.muscleGroup,
+    required this.muscles,
     required this.equipment,
     required this.isCustom,
     required this.measure,
@@ -110,7 +119,11 @@ class SharedExercise {
   });
 
   final String name;
-  final String muscleGroup;
+
+  /// Every group the movement works, trained and assisted — see [MuscleMap].
+  /// An `FLR1` code could only say one, and arrives as that one primary.
+  final MuscleMap muscles;
+
   final String equipment;
 
   /// Whether the sender built this one themselves. A starter-library movement
@@ -250,11 +263,16 @@ class SharedRoutine {
   final List<SharedWorkout> workouts;
 }
 
-/// Reads and writes the `FLR1` routine code. See the library docs above.
+/// Reads and writes the routine code. See the library docs above.
 abstract final class RoutineCode {
-  /// The current format tag. Bump only for a layout change this reader could
-  /// not otherwise survive — appended fields do not need it.
-  static const String version = 'FLR1';
+  /// The tag every code this build writes carries.
+  static const String version = 'FLR2';
+
+  /// The tags this build reads. `FLR1` is the shipped format: it could hold one
+  /// muscle group per exercise and nothing this build writes fits in it, but the
+  /// codes written under it are in messages people can still open, so it is read
+  /// and never written. See [_readMuscles].
+  static const Set<String> readableVersions = {version, 'FLR1'};
 
   /// The link host a routine lives under: `fosslift://routine/<code>`.
   static const String host = 'routine';
@@ -294,6 +312,12 @@ abstract final class RoutineCode {
   static const int _exTimed = 1 << 2;
   static const int _exWeightType = 1 << 3;
   static const int _exBarWeight = 1 << 4;
+
+  /// Set when the movement works more than the one group the lead byte carries.
+  /// Unused by anything that wrote `FLR1`, which is why an `FLR1` body reads
+  /// correctly through the same code — and why a single-group routine costs the
+  /// same in `FLR2` as it did before.
+  static const int _exMuscles = 1 << 5;
 
   // -- Slot field bits (read in ascending order) ----------------------------
   // **Frozen**, on the same terms as the exercise bits above: append only. Bit
@@ -343,14 +367,28 @@ abstract final class RoutineCode {
       // Only worth sending when it is not what this equipment implies anyway.
       final typed = e.weightType != weightTypeForEquipment(e.equipment);
 
+      // The lead group is all an FLR1 code could hold; everything past it costs
+      // the flag bit and the two lists below.
+      final beyondLead =
+          e.muscles.extraPrimary.isNotEmpty || e.muscles.secondary.isNotEmpty;
+
       body.byte((e.isCustom ? _exCustom : 0) |
           (videoId != null ? _exVideo : 0) |
           (e.measure == ExerciseMeasure.time ? _exTimed : 0) |
           (typed ? _exWeightType : 0) |
-          (e.barWeight != null ? _exBarWeight : 0));
+          (e.barWeight != null ? _exBarWeight : 0) |
+          (beyondLead ? _exMuscles : 0));
       body.string(_clampName(e.name));
-      _writeWord(body, e.muscleGroup, kMuscleGroups);
+      _writeWord(body, e.muscles.lead, kMuscleGroups);
       _writeWord(body, e.equipment, kEquipmentTypes);
+      if (beyondLead) {
+        for (final list in [e.muscles.extraPrimary, e.muscles.secondary]) {
+          body.varint(list.length);
+          for (final group in list) {
+            _writeWord(body, group, kMuscleGroups);
+          }
+        }
+      }
       if (videoId != null) body.string(videoId);
       if (typed) body.byte(e.weightType.index);
       if (e.barWeight != null) body.fixed2(e.barWeight!);
@@ -397,7 +435,7 @@ abstract final class RoutineCode {
   /// which of the three things went wrong.
   static RoutineCodeResult decode(String source) {
     final read = ShareCodec.unpack(source,
-        version: version, host: host, minBody: 2, checksumBytes: 4);
+        versions: readableVersions, host: host, minBody: 2, checksumBytes: 4);
     if (read.problem != null) return RoutineCodeFailure(read.problem!);
 
     final envelope = read.body!;
@@ -430,8 +468,9 @@ abstract final class RoutineCode {
     for (var i = 0; i < exerciseCount; i++) {
       final flags = r.byte();
       final exName = _clampName(r.string());
-      final muscle = _readWord(r, kMuscleGroups);
+      final lead = _readWord(r, kMuscleGroups);
       final equipment = _readWord(r, kEquipmentTypes);
+      final muscles = _readMuscles(r, lead, flags);
       // Read in wire order, into locals: the fields are positional in the byte
       // stream even though they are named in the constructor.
       final video = flags & _exVideo != 0 ? youTubeUrl(r.string()) : null;
@@ -442,7 +481,7 @@ abstract final class RoutineCode {
 
       exercises.add(SharedExercise(
         name: exName,
-        muscleGroup: muscle,
+        muscles: muscles,
         equipment: equipment,
         isCustom: flags & _exCustom != 0,
         measure: flags & _exTimed != 0
@@ -600,6 +639,21 @@ abstract final class RoutineCode {
     if (index == 0) return r.string();
     if (index > vocabulary.length) throw const ShareCodeDamaged();
     return vocabulary[index - 1];
+  }
+
+  /// The muscle map of the exercise being read: the lead group already off the
+  /// wire, plus the two lists that follow it when [_exMuscles] is set.
+  ///
+  /// An `FLR1` code never set that bit, so this is also how a code written
+  /// before a movement could work more than one group arrives — as the single
+  /// primary it always meant.
+  static MuscleMap _readMuscles(ByteReader r, String lead, int flags) {
+    if (flags & _exMuscles == 0) return MuscleMap.single(lead);
+    final lists = [
+      for (var list = 0; list < 2; list++)
+        [for (var i = r.varint(); i > 0; i--) _readWord(r, kMuscleGroups)],
+    ];
+    return MuscleMap(primary: [lead, ...lists[0]], secondary: lists[1]);
   }
 
   static List<int> _rgb(String hex) {

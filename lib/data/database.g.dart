@@ -134,6 +134,30 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _extraPrimaryGroupsMeta =
+      const VerificationMeta('extraPrimaryGroups');
+  @override
+  late final GeneratedColumn<String> extraPrimaryGroups =
+      GeneratedColumn<String>(
+        'extra_primary_groups',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
+  static const VerificationMeta _secondaryGroupsMeta = const VerificationMeta(
+    'secondaryGroups',
+  );
+  @override
+  late final GeneratedColumn<String> secondaryGroups = GeneratedColumn<String>(
+    'secondary_groups',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -147,6 +171,8 @@ class $ExercisesTable extends Exercises
     weightType,
     notes,
     barWeight,
+    extraPrimaryGroups,
+    secondaryGroups,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -216,6 +242,24 @@ class $ExercisesTable extends Exercises
         barWeight.isAcceptableOrUnknown(data['bar_weight']!, _barWeightMeta),
       );
     }
+    if (data.containsKey('extra_primary_groups')) {
+      context.handle(
+        _extraPrimaryGroupsMeta,
+        extraPrimaryGroups.isAcceptableOrUnknown(
+          data['extra_primary_groups']!,
+          _extraPrimaryGroupsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('secondary_groups')) {
+      context.handle(
+        _secondaryGroupsMeta,
+        secondaryGroups.isAcceptableOrUnknown(
+          data['secondary_groups']!,
+          _secondaryGroupsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -273,6 +317,14 @@ class $ExercisesTable extends Exercises
         DriftSqlType.double,
         data['${effectivePrefix}bar_weight'],
       ),
+      extraPrimaryGroups: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extra_primary_groups'],
+      )!,
+      secondaryGroups: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}secondary_groups'],
+      )!,
     );
   }
 
@@ -303,6 +355,15 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// cannot be renamed (see [isCustom]), so unlike a routine or a training day
   /// this key is never cleared. See `util/seed_names.dart`.
   final String? seedKey;
+
+  /// The lead muscle group — the first of the primaries, and the one the
+  /// library files the movement under. Read [ExerciseMuscles.muscles] rather
+  /// than this column wherever the question is "what does it work"; this is
+  /// where it goes, which is a narrower fact.
+  ///
+  /// It stays a column of its own rather than being the head of the list below
+  /// because it is what `watchExercises` orders by and what an FLR1 routine code
+  /// carries.
   final String muscleGroup;
   final String equipment;
   final String? videoUrl;
@@ -347,6 +408,13 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// something else again, and every one of them is a fact about the movement
   /// you do on it. Ignored unless [weightType] is [WeightType.bar].
   final double? barWeight;
+
+  /// The primaries after the lead, [kGroupSeparator]-joined, or empty for a
+  /// movement that trains one group.
+  final String extraPrimaryGroups;
+
+  /// The groups the movement only assists, [kGroupSeparator]-joined.
+  final String secondaryGroups;
   const Exercise({
     required this.id,
     required this.name,
@@ -359,6 +427,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.weightType,
     this.notes,
     this.barWeight,
+    required this.extraPrimaryGroups,
+    required this.secondaryGroups,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -390,6 +460,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     if (!nullToAbsent || barWeight != null) {
       map['bar_weight'] = Variable<double>(barWeight);
     }
+    map['extra_primary_groups'] = Variable<String>(extraPrimaryGroups);
+    map['secondary_groups'] = Variable<String>(secondaryGroups);
     return map;
   }
 
@@ -414,6 +486,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       barWeight: barWeight == null && nullToAbsent
           ? const Value.absent()
           : Value(barWeight),
+      extraPrimaryGroups: Value(extraPrimaryGroups),
+      secondaryGroups: Value(secondaryGroups),
     );
   }
 
@@ -438,6 +512,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       ),
       notes: serializer.fromJson<String?>(json['notes']),
       barWeight: serializer.fromJson<double?>(json['barWeight']),
+      extraPrimaryGroups: serializer.fromJson<String>(
+        json['extraPrimaryGroups'],
+      ),
+      secondaryGroups: serializer.fromJson<String>(json['secondaryGroups']),
     );
   }
   @override
@@ -459,6 +537,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       ),
       'notes': serializer.toJson<String?>(notes),
       'barWeight': serializer.toJson<double?>(barWeight),
+      'extraPrimaryGroups': serializer.toJson<String>(extraPrimaryGroups),
+      'secondaryGroups': serializer.toJson<String>(secondaryGroups),
     };
   }
 
@@ -474,6 +554,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     WeightType? weightType,
     Value<String?> notes = const Value.absent(),
     Value<double?> barWeight = const Value.absent(),
+    String? extraPrimaryGroups,
+    String? secondaryGroups,
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -486,6 +568,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     weightType: weightType ?? this.weightType,
     notes: notes.present ? notes.value : this.notes,
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
+    extraPrimaryGroups: extraPrimaryGroups ?? this.extraPrimaryGroups,
+    secondaryGroups: secondaryGroups ?? this.secondaryGroups,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -504,6 +588,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : this.weightType,
       notes: data.notes.present ? data.notes.value : this.notes,
       barWeight: data.barWeight.present ? data.barWeight.value : this.barWeight,
+      extraPrimaryGroups: data.extraPrimaryGroups.present
+          ? data.extraPrimaryGroups.value
+          : this.extraPrimaryGroups,
+      secondaryGroups: data.secondaryGroups.present
+          ? data.secondaryGroups.value
+          : this.secondaryGroups,
     );
   }
 
@@ -520,7 +610,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('measure: $measure, ')
           ..write('weightType: $weightType, ')
           ..write('notes: $notes, ')
-          ..write('barWeight: $barWeight')
+          ..write('barWeight: $barWeight, ')
+          ..write('extraPrimaryGroups: $extraPrimaryGroups, ')
+          ..write('secondaryGroups: $secondaryGroups')
           ..write(')'))
         .toString();
   }
@@ -538,6 +630,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     weightType,
     notes,
     barWeight,
+    extraPrimaryGroups,
+    secondaryGroups,
   );
   @override
   bool operator ==(Object other) =>
@@ -553,7 +647,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.measure == this.measure &&
           other.weightType == this.weightType &&
           other.notes == this.notes &&
-          other.barWeight == this.barWeight);
+          other.barWeight == this.barWeight &&
+          other.extraPrimaryGroups == this.extraPrimaryGroups &&
+          other.secondaryGroups == this.secondaryGroups);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -568,6 +664,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<WeightType> weightType;
   final Value<String?> notes;
   final Value<double?> barWeight;
+  final Value<String> extraPrimaryGroups;
+  final Value<String> secondaryGroups;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -580,6 +678,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.weightType = const Value.absent(),
     this.notes = const Value.absent(),
     this.barWeight = const Value.absent(),
+    this.extraPrimaryGroups = const Value.absent(),
+    this.secondaryGroups = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -593,6 +693,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.weightType = const Value.absent(),
     this.notes = const Value.absent(),
     this.barWeight = const Value.absent(),
+    this.extraPrimaryGroups = const Value.absent(),
+    this.secondaryGroups = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
     Expression<int>? id,
@@ -606,6 +708,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? weightType,
     Expression<String>? notes,
     Expression<double>? barWeight,
+    Expression<String>? extraPrimaryGroups,
+    Expression<String>? secondaryGroups,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -619,6 +723,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (weightType != null) 'weight_type': weightType,
       if (notes != null) 'notes': notes,
       if (barWeight != null) 'bar_weight': barWeight,
+      if (extraPrimaryGroups != null)
+        'extra_primary_groups': extraPrimaryGroups,
+      if (secondaryGroups != null) 'secondary_groups': secondaryGroups,
     });
   }
 
@@ -634,6 +741,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<WeightType>? weightType,
     Value<String?>? notes,
     Value<double?>? barWeight,
+    Value<String>? extraPrimaryGroups,
+    Value<String>? secondaryGroups,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -647,6 +756,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       weightType: weightType ?? this.weightType,
       notes: notes ?? this.notes,
       barWeight: barWeight ?? this.barWeight,
+      extraPrimaryGroups: extraPrimaryGroups ?? this.extraPrimaryGroups,
+      secondaryGroups: secondaryGroups ?? this.secondaryGroups,
     );
   }
 
@@ -690,6 +801,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (barWeight.present) {
       map['bar_weight'] = Variable<double>(barWeight.value);
     }
+    if (extraPrimaryGroups.present) {
+      map['extra_primary_groups'] = Variable<String>(extraPrimaryGroups.value);
+    }
+    if (secondaryGroups.present) {
+      map['secondary_groups'] = Variable<String>(secondaryGroups.value);
+    }
     return map;
   }
 
@@ -706,7 +823,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('measure: $measure, ')
           ..write('weightType: $weightType, ')
           ..write('notes: $notes, ')
-          ..write('barWeight: $barWeight')
+          ..write('barWeight: $barWeight, ')
+          ..write('extraPrimaryGroups: $extraPrimaryGroups, ')
+          ..write('secondaryGroups: $secondaryGroups')
           ..write(')'))
         .toString();
   }
@@ -6172,6 +6291,8 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<WeightType> weightType,
       Value<String?> notes,
       Value<double?> barWeight,
+      Value<String> extraPrimaryGroups,
+      Value<String> secondaryGroups,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -6186,6 +6307,8 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<WeightType> weightType,
       Value<String?> notes,
       Value<double?> barWeight,
+      Value<String> extraPrimaryGroups,
+      Value<String> secondaryGroups,
     });
 
 final class $$ExercisesTableReferences
@@ -6274,6 +6397,16 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<double> get barWeight => $composableBuilder(
     column: $table.barWeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extraPrimaryGroups => $composableBuilder(
+    column: $table.extraPrimaryGroups,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get secondaryGroups => $composableBuilder(
+    column: $table.secondaryGroups,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6366,6 +6499,16 @@ class $$ExercisesTableOrderingComposer
     column: $table.barWeight,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get extraPrimaryGroups => $composableBuilder(
+    column: $table.extraPrimaryGroups,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get secondaryGroups => $composableBuilder(
+    column: $table.secondaryGroups,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -6414,6 +6557,16 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<double> get barWeight =>
       $composableBuilder(column: $table.barWeight, builder: (column) => column);
+
+  GeneratedColumn<String> get extraPrimaryGroups => $composableBuilder(
+    column: $table.extraPrimaryGroups,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get secondaryGroups => $composableBuilder(
+    column: $table.secondaryGroups,
+    builder: (column) => column,
+  );
 
   Expression<T> workoutItemsRefs<T extends Object>(
     Expression<T> Function($$WorkoutItemsTableAnnotationComposer a) f,
@@ -6480,6 +6633,8 @@ class $$ExercisesTableTableManager
                 Value<WeightType> weightType = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
+                Value<String> extraPrimaryGroups = const Value.absent(),
+                Value<String> secondaryGroups = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -6492,6 +6647,8 @@ class $$ExercisesTableTableManager
                 weightType: weightType,
                 notes: notes,
                 barWeight: barWeight,
+                extraPrimaryGroups: extraPrimaryGroups,
+                secondaryGroups: secondaryGroups,
               ),
           createCompanionCallback:
               ({
@@ -6506,6 +6663,8 @@ class $$ExercisesTableTableManager
                 Value<WeightType> weightType = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<double?> barWeight = const Value.absent(),
+                Value<String> extraPrimaryGroups = const Value.absent(),
+                Value<String> secondaryGroups = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -6518,6 +6677,8 @@ class $$ExercisesTableTableManager
                 weightType: weightType,
                 notes: notes,
                 barWeight: barWeight,
+                extraPrimaryGroups: extraPrimaryGroups,
+                secondaryGroups: secondaryGroups,
               ),
           withReferenceMapper: (p0) => p0
               .map(

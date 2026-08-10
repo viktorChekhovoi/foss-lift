@@ -63,8 +63,9 @@ groups:
   - id: muscle-and-equipment-translated
     t: Muscle groups and equipment kinds read in the chosen language
     d: >-
-      The filter chips, the exercise form and an exercise's own header. The
-      stored value and the routine-code index stay English — see
+      The filter chips, both rows of chips on the exercise form, and the groups
+      on an exercise's own page. The stored value and the routine-code index stay
+      English — see
       <i>the vocabulary is still English underneath</i>.
     uses:
     - exercise.taxonomy

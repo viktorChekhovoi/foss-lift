@@ -124,7 +124,7 @@ groups:
     t: The exercise's own library properties are editable from the config sheet
     d: >-
       how it is loaded, which bar it is over, your note on it, and — for a movement
-      you made yourself — the form that holds its name, muscle group, equipment,
+      you made yourself — the form that holds its name, muscle groups, equipment,
       measure and demo link. They sit in an Exercise card below the per-slot
       settings, captioned to say that they belong to the exercise: an edit lands in
       every routine that uses it, and the sheet above takes the new name, measure and

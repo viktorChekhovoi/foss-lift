@@ -86,7 +86,7 @@ Future<Exercise?> _exerciseNamed(AppDatabase db, String name) async {
 Future<int> _seedCustomRoutine(AppDatabase db) async {
   final exerciseId = await db.createExercise(
     name: 'Zercher Squat',
-    muscle: 'Legs',
+    muscles: MuscleMap.single('Legs'),
     equipment: 'Barbell',
     videoUrl: 'https://www.youtube.com/watch?v=aBcD1234_-x&t=90s',
     measure: ExerciseMeasure.reps,
@@ -300,7 +300,8 @@ void main() {
 
       expect(theirs.name, 'Zercher Squat');
       expect(theirs.isCustom, isTrue);
-      expect(theirs.muscleGroup, 'Legs');
+      expect(theirs.muscles.primary, ['Legs']);
+      expect(theirs.muscles.secondary, isEmpty);
       expect(theirs.equipment, 'Barbell');
       expect(theirs.weightType, WeightType.bar);
       expect(theirs.barWeight, 15,
@@ -397,7 +398,7 @@ void main() {
       for (var i = 0; i < 60; i++) {
         final id = await db.createExercise(
           name: _noise(i, 80),
-          muscle: 'Other',
+          muscles: MuscleMap.single('Other'),
           equipment: 'Machine',
         );
         items.add(WorkoutItemsCompanion.insert(
@@ -558,6 +559,151 @@ void main() {
     });
   });
 
+  group('the whole muscle map travels, and an FLR1 code still opens', () {
+    /// A genuine FLR1 code, written by the shipped build for the routine
+    /// [_seedCustomRoutine] makes. This is the code in last month's chat
+    /// message: it is not regenerated, because the point of it is that it was
+    /// written by a build that is gone.
+    const shippedFlr1 = 'FLR1.AeN0zUnKL1dwSay0uzrjEiMXozBvVGpRckZqkUJwYWliCQ'
+        'sjd6JTsouhkbFJvG7FHW5GDqh0MSPDdH42ZtYPjF-YH3EyswAAtQBW9Q';
+
+    /// A routine of one movement carrying [map], as it arrives on the far end.
+    Future<SharedExercise> roundTrip(MuscleMap map) async {
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final id = await sender.createExercise(
+        name: 'Zercher Squat',
+        muscles: map,
+        equipment: 'Barbell',
+        weightType: WeightType.bar,
+      );
+      final routineId = await sender.createRoutine(
+          name: 'Elbow Day', color: '3ED598', restSeconds: 90);
+      await sender.replaceRoutineWorkouts(routineId, [
+        (
+          id: null,
+          name: 'Zerchers',
+          items: [
+            WorkoutItemsCompanion.insert(workoutId: 0, exerciseId: id),
+          ],
+        ),
+      ]);
+      final code = RoutineCode.encode(await sender.sharedRoutine(routineId));
+      return (RoutineCode.decode(code) as RoutineCodeOk)
+          .routine
+          .exercises
+          .single;
+    }
+
+    test('every group a movement trains and assists survives the trip',
+        () async {
+      final theirs = await roundTrip(
+        MuscleMap(primary: ['Legs', 'Core'], secondary: ['Back', 'Arms']),
+      );
+
+      expect(theirs.muscles.primary, ['Legs', 'Core']);
+      expect(theirs.muscles.secondary, ['Back', 'Arms']);
+      expect(theirs.muscles.lead, 'Legs');
+    });
+
+    test('including a group the recipient has never heard of', () async {
+      // An unknown word costs the code its own length rather than the whole
+      // exercise, exactly as the lead already did.
+      final theirs = await roundTrip(
+        MuscleMap(primary: ['Legs', 'Forearms'], secondary: ['Grip']),
+      );
+
+      expect(theirs.muscles.primary, ['Legs', 'Forearms']);
+      expect(theirs.muscles.secondary, ['Grip']);
+    });
+
+    test('and it lands on the recipient as the same map', () async {
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final id = await sender.createExercise(
+        name: 'Zercher Squat',
+        muscles: MuscleMap(primary: ['Legs', 'Core'], secondary: ['Back']),
+        equipment: 'Barbell',
+      );
+      final routineId = await sender.createRoutine(
+          name: 'Elbow Day', color: '3ED598', restSeconds: 90);
+      await sender.replaceRoutineWorkouts(routineId, [
+        (
+          id: null,
+          name: 'Zerchers',
+          items: [WorkoutItemsCompanion.insert(workoutId: 0, exerciseId: id)],
+        ),
+      ]);
+
+      await db.importSharedRoutine(await sender.sharedRoutine(routineId));
+
+      final landed = (await _exerciseNamed(db, 'Zercher Squat'))!;
+      expect(landed.muscles.primary, ['Legs', 'Core']);
+      expect(landed.muscles.secondary, ['Back']);
+      expect(landed.muscleGroup, 'Legs');
+    });
+
+    test('an FLR1 code arrives with one primary and no secondaries', () {
+      final result = RoutineCode.decode(shippedFlr1);
+
+      expect(result, isA<RoutineCodeOk>(),
+          reason: 'a code somebody is still holding has to keep opening');
+      final routine = (result as RoutineCodeOk).routine;
+      expect(routine.name, 'Elbow Day');
+      final theirs = routine.exercises.single;
+      expect(theirs.name, 'Zercher Squat');
+      expect(theirs.muscles.primary, ['Legs'],
+          reason: 'the single group it was written with, which is what it meant');
+      expect(theirs.muscles.secondary, isEmpty);
+    });
+
+    test('a phone that only reads FLR1 refuses an FLR2 code', () async {
+      // The other direction does not work, and says so plainly rather than
+      // importing a mangled routine.
+      final code =
+          RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+      final read = ShareCodec.unpack(code,
+          versions: {'FLR1'},
+          host: RoutineCode.host,
+          minBody: 2,
+          checksumBytes: 4);
+
+      expect(read.body, isNull);
+      expect(read.problem, ShareCodeProblem.notACode);
+      expect(read.version, isNull);
+    });
+
+    test('and this build reads both, saying which one it read', () async {
+      final flr2 =
+          RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+      for (final (code, version) in [(shippedFlr1, 'FLR1'), (flr2, 'FLR2')]) {
+        final read = ShareCodec.unpack(code,
+            versions: {'FLR1', 'FLR2'},
+            host: RoutineCode.host,
+            minBody: 2,
+            checksumBytes: 4);
+        expect(read.problem, isNull, reason: 'reading a $version code');
+        expect(read.version, version);
+        expect(read.body, isNotNull);
+      }
+    });
+
+    test('a single-group routine costs FLR2 nothing over FLR1', () async {
+      // The muscle bit is only written when there is something beyond the
+      // lead, so the body is the same bytes and only the tag differs.
+      final code =
+          RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+      expect(code.length, shippedFlr1.length);
+      expect(code.substring('FLR2.'.length),
+          shippedFlr1.substring('FLR1.'.length),
+          reason: 'byte-identical to what FLR1 wrote, apart from the tag');
+    });
+
+  });
+
   group('a code that will not read', () {
     /// Text a paste box will actually see: empty, junk, truncated, the wrong
     /// kind of code, and one carrying characters a URL treats as punctuation.
@@ -646,12 +792,12 @@ void main() {
     });
 
     test('is version-tagged so a later format can be told apart', () async {
-      expect(await aCode(), startsWith('FLR1.'));
+      expect(await aCode(), startsWith('FLR2.'));
     });
 
     test('a code tagged with another format version is simply not a code',
         () async {
-      final other = (await aCode()).replaceFirst('FLR1', 'FLR9');
+      final other = (await aCode()).replaceFirst('FLR2', 'FLR9');
       final result = RoutineCode.decode(other);
       expect(result, isA<RoutineCodeFailure>());
       expect(
@@ -691,7 +837,7 @@ void main() {
 
     test('a flipped character never decodes to a different routine', () async {
       final code = await aCode();
-      for (var i = 'FLR1.'.length; i < code.length; i++) {
+      for (var i = '${RoutineCode.version}.'.length; i < code.length; i++) {
         final ch = code[i] == 'A' ? 'B' : 'A';
         final result = RoutineCode.decode(code.replaceRange(i, i + 1, ch));
         if (result is! RoutineCodeFailure) {
@@ -776,7 +922,7 @@ void main() {
         addTearDown(sender.close);
         final exerciseId = await sender.createExercise(
           name: 'Zercher Squat',
-          muscle: 'Legs',
+          muscles: MuscleMap.single('Legs'),
           equipment: 'Barbell',
           measure: ExerciseMeasure.reps,
           weightType: WeightType.bar,
@@ -952,7 +1098,7 @@ void main() {
     Future<Exercise> myZercher() async {
       final id = await db.createExercise(
         name: 'Zercher Squat',
-        muscle: 'Other',
+        muscles: MuscleMap.single('Other'),
         equipment: 'Machine',
         weightType: WeightType.machine,
       );
@@ -1117,7 +1263,7 @@ void main() {
       final pallof = (await _exerciseNamed(sender, 'Pallof Press'))!;
       final zercher = await sender.createExercise(
         name: 'Zercher Squat',
-        muscle: 'Legs',
+        muscles: MuscleMap.single('Legs'),
         equipment: 'Barbell',
         measure: ExerciseMeasure.reps,
         weightType: WeightType.bar,
@@ -1226,10 +1372,10 @@ void main() {
         colorHex: 'FF6A3D',
         restSeconds: 90,
         scheduleDays: 0,
-        exercises: const [
+        exercises: [
           SharedExercise(
             name: 'bench press',
-            muscleGroup: 'Chest',
+            muscles: MuscleMap.single('Chest'),
             equipment: 'Machine',
             isCustom: true,
             measure: ExerciseMeasure.reps,
@@ -1477,7 +1623,7 @@ void main() {
       final code = (await tester.runAsync(() async {
         await db.createExercise(
           name: 'Zercher Squat',
-          muscle: 'Other',
+          muscles: MuscleMap.single('Other'),
           equipment: 'Machine',
         );
         final sender = memoryDb();

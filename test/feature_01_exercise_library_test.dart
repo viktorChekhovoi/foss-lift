@@ -46,10 +46,12 @@ void main() {
         final all = await db.watchExercises().first;
 
         // A group nobody can fill from the library is a group the picker offers
-        // for nothing.
-        for (final group in kMuscleGroups) {
+        // for nothing. Other is the exception and deliberately so: it is where
+        // a movement of your own that answers to nothing on the list goes, and
+        // no starter needs it now that a movement can name several groups.
+        for (final group in kMuscleGroups.where((g) => g != 'Other')) {
           expect(
-            all.where((e) => e.muscleGroup == group).length,
+            all.where((e) => e.muscles.trains(group)).length,
             greaterThanOrEqualTo(3),
             reason: '$group is thin in the starter library',
           );
@@ -142,7 +144,7 @@ void main() {
     test('a custom exercise sits alongside the starter set', () async {
       await db.createExercise(
         name: 'Zercher Squat',
-        muscle: 'Legs',
+        muscles: MuscleMap.single('Legs'),
         equipment: 'Barbell',
       );
 
@@ -157,6 +159,463 @@ void main() {
         all.map((e) => e.name),
         containsAll(['Zercher Squat', 'Bench Press']),
       );
+    });
+  });
+
+  group('a movement names every group it trains, and every one it helps', () {
+    test('the primaries keep the order they were given, the first the lead',
+        () {
+      final bench = MuscleMap(
+        primary: ['Chest', 'Arms'],
+        secondary: ['Shoulders'],
+      );
+
+      expect(bench.primary, ['Chest', 'Arms']);
+      expect(bench.secondary, ['Shoulders']);
+      expect(bench.lead, 'Chest', reason: 'the first primary is where it files');
+      expect(bench.all, ['Chest', 'Arms', 'Shoulders']);
+    });
+
+    test('a group is never both trained and assisted', () {
+      final map = MuscleMap(
+        primary: ['Back', 'Arms'],
+        secondary: ['Arms', 'Core'],
+      );
+
+      expect(map.primary, ['Back', 'Arms']);
+      expect(
+        map.secondary,
+        ['Core'],
+        reason: 'a group the movement is for is not also a group it helps with',
+      );
+    });
+
+    test('blanks and repeats are dropped, the first position kept', () {
+      final map = MuscleMap(
+        primary: ['Legs', '', 'Back', 'Legs'],
+        secondary: ['Core', 'Core', ''],
+      );
+
+      expect(map.primary, ['Legs', 'Back']);
+      expect(map.secondary, ['Core']);
+    });
+
+    test('a movement that trains nothing is filed under Other', () {
+      // Not a state any screen can reach — the form will not let the last
+      // primary go — but a routine code from anywhere can claim it.
+      final map = MuscleMap(primary: [], secondary: ['Core']);
+
+      expect(map.primary, ['Other']);
+      expect(map.lead, 'Other');
+      expect(map.secondary, ['Core']);
+    });
+
+    test('one group is the whole map an old row carries', () {
+      final map = MuscleMap.single('Legs');
+
+      expect(map.primary, ['Legs']);
+      expect(map.secondary, isEmpty);
+      expect(map.all, ['Legs']);
+    });
+
+    test('trains asks the primaries; touches asks either', () {
+      final bench = MuscleMap(
+        primary: ['Chest', 'Arms'],
+        secondary: ['Shoulders'],
+      );
+
+      expect(bench.trains('Chest'), isTrue);
+      expect(bench.trains('Shoulders'), isFalse);
+      expect(bench.touches('Shoulders'), isTrue);
+      expect(bench.touches('Legs'), isFalse);
+    });
+
+    /// What the shipped table says each of these movements is for, and what it
+    /// works on the way. The compounds are the point: one group was never the
+    /// truth about a bench press.
+    const expected = <String, (List<String>, List<String>)>{
+      'Bench Press': (['Chest', 'Arms'], ['Shoulders']),
+      'Back Squat': (['Legs'], ['Core', 'Back']),
+      'Deadlift': (['Back', 'Legs'], ['Arms', 'Core']),
+      'Pull-Up': (['Back', 'Arms'], ['Core']),
+      'Overhead Press': (['Shoulders', 'Arms'], ['Core']),
+      'Lateral Raise': (['Shoulders'], []),
+      'Plank': (['Core'], []),
+      'Power Clean': (['Legs', 'Back', 'Shoulders'], ['Arms', 'Core']),
+      'Kettlebell Swing': (['Legs', 'Back'], ['Core', 'Arms']),
+      'Turkish Get-Up': (['Core', 'Shoulders'], ['Legs', 'Arms']),
+    };
+
+    test('the starter set says what each movement actually trains', () async {
+      for (final entry in expected.entries) {
+        final e = await exerciseNamed(db, entry.key);
+        expect(e.muscles.primary, entry.value.$1, reason: entry.key);
+        expect(e.muscles.secondary, entry.value.$2, reason: entry.key);
+      }
+    });
+
+    test('the lead is the group the row is stored under', () async {
+      // Which is what keeps ordering, the history rollups and an FLR1 code
+      // reading exactly as they did.
+      for (final e in await db.watchExercises().first) {
+        expect(e.muscles.lead, e.muscleGroup, reason: e.name);
+      }
+    });
+
+    test('no starter files under Other any more', () async {
+      final all = await db.watchExercises().first;
+
+      expect(
+        all.where((e) => e.muscleGroup == 'Other').map((e) => e.name),
+        isEmpty,
+        reason: 'the swing, the clean and the get-up can name what they train',
+      );
+      // Other stays in the vocabulary, and stays legal: it is where a movement
+      // of your own that answers to nothing on the list goes.
+      expect(kMuscleGroups, contains('Other'));
+      final id = await db.createExercise(
+        name: 'Sandbag Carry',
+        muscles: MuscleMap.single('Other'),
+        equipment: 'Other',
+      );
+      expect((await db.exerciseById(id)).muscles.lead, 'Other');
+    });
+
+    test('and the maps invent no vocabulary outside the seven', () async {
+      for (final e in await db.watchExercises().first) {
+        for (final group in e.muscles.all) {
+          expect(kMuscleGroups, contains(group), reason: '${e.name} → $group');
+        }
+      }
+    });
+
+    test('a movement of your own stores every group it was made with',
+        () async {
+      final id = await db.createExercise(
+        name: 'Zercher Squat',
+        muscles: MuscleMap(
+          primary: ['Legs', 'Core'],
+          secondary: ['Back', 'Arms'],
+        ),
+        equipment: 'Barbell',
+      );
+
+      final made = await db.exerciseById(id);
+      expect(made.muscles.primary, ['Legs', 'Core']);
+      expect(made.muscles.secondary, ['Back', 'Arms']);
+      expect(
+        made.muscleGroup,
+        'Legs',
+        reason: 'the lead is the column the library files it under',
+      );
+    });
+
+    test('and an edit rewrites the whole map, lead included', () async {
+      final id = await db.createExercise(
+        name: 'Zercher Squat',
+        muscles: MuscleMap.single('Legs'),
+        equipment: 'Barbell',
+      );
+
+      await db.updateCustomExercise(
+        id,
+        name: 'Zercher Squat',
+        muscles: MuscleMap(primary: ['Back', 'Legs'], secondary: ['Arms']),
+        equipment: 'Barbell',
+        videoUrl: null,
+        measure: ExerciseMeasure.reps,
+        weightType: WeightType.bar,
+      );
+
+      final after = await db.exerciseById(id);
+      expect(after.muscles.primary, ['Back', 'Legs']);
+      expect(after.muscles.secondary, ['Arms']);
+      expect(after.muscleGroup, 'Back');
+    });
+
+    test('the separator is not a comma, so a shared group can be anything', () {
+      // A group that arrived in a routine code is any string the sender typed.
+      expect(kGroupSeparator, isNot(contains(',')));
+      final map = MuscleMap(
+        primary: ['Legs, Glutes and Hips'],
+        secondary: ['Core'],
+      );
+      expect(map.primary, ['Legs, Glutes and Hips']);
+    });
+
+    testWidgets('the library lists a compound once, under its lead', (
+      tester,
+    ) async {
+      // A library that showed a compound once per group it trains would be half
+      // again as long, and would show the same row twice on the way to a
+      // movement you can already see.
+      // Tall enough for the whole narrowed list: "listed once" is not a claim
+      // you can make about a list that is mostly scrolled off.
+      tester.view.physicalSize = const Size(600, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(routedAppUnder(container, const LibraryScreen()));
+      await tester.pumpAndSettle();
+
+      // Narrowed to Arms — which the bench press trains, as its second primary.
+      for (final (dimension, value) in [
+        ('muscle', 'Arms'),
+        ('equipment', 'Barbell'),
+      ]) {
+        await tester.tap(find.byKey(filterButtonKey(dimension)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(filterChipKey(dimension, value)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(kFilterSheetDoneKey));
+        await tester.pumpAndSettle();
+      }
+
+      expect(
+        find.text('Bench Press'),
+        findsOneWidget,
+        reason: 'once, not once per group it trains',
+      );
+      expect(
+        find.textContaining('CHEST ·'),
+        findsOneWidget,
+        reason: 'and under the first of its primaries',
+      );
+
+      await stop(tester);
+    });
+  });
+
+  group('the detail page reads the groups as two lines', () {
+    Future<void> openDetail(WidgetTester tester, int id) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: id)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('what it trains, then what it also works', (tester) async {
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      await openDetail(tester, bench.id);
+
+      for (final group in ['Chest', 'Arms', 'Shoulders']) {
+        expect(find.text(group), findsOneWidget, reason: group);
+      }
+      // Two lines, in that order: what it is for above what it works on the way.
+      final trains = tester.getTopLeft(find.text('Chest')).dy;
+      final assists = tester.getTopLeft(find.text('Shoulders')).dy;
+      expect(assists, greaterThan(trains));
+      expect(
+        tester.getTopLeft(find.text('Arms')).dy,
+        trains,
+        reason: 'both primaries are on the first line',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('and the second line is absent when there is nothing on it', (
+      tester,
+    ) async {
+      final raise = (await tester.runAsync(
+        () => exerciseNamed(db, 'Lateral Raise'),
+      ))!;
+      await openDetail(tester, raise.id);
+
+      expect(find.text('Shoulders'), findsOneWidget);
+      for (final group in ['Chest', 'Back', 'Legs', 'Arms', 'Core']) {
+        expect(
+          find.text(group),
+          findsNothing,
+          reason: 'a lateral raise has no secondaries to show',
+        );
+      }
+
+      await stop(tester);
+    });
+  });
+
+  group('the form ticks the primaries first, then the secondaries', () {
+    setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
+
+    /// A movement of your own with [map] on it, ready to reopen in the form.
+    Future<int> mine(WidgetTester tester, MuscleMap map) async =>
+        (await tester.runAsync(
+          () => db.createExercise(
+            name: 'Zercher Squat',
+            muscles: map,
+            equipment: 'Barbell',
+            weightType: WeightType.bar,
+          ),
+        ))!;
+
+    Future<void> openEditor(WidgetTester tester, int id) async {
+      // Tall enough for both chip rows and the Save button below them.
+      tester.view.physicalSize = const Size(1000, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseFormScreen(exerciseId: id)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// The [group] chip in the row that says what the movement trains (row 0)
+    /// or what it also works (row 1). The same seven chips twice, so the two
+    /// rows are told apart by where they are.
+    Finder chip(String group, int row) => find.text(group).at(row);
+
+    Future<void> tapChip(WidgetTester tester, String group, int row) async {
+      await tester.tap(chip(group, row));
+      await tester.pumpAndSettle();
+    }
+
+    Future<Exercise> save(WidgetTester tester, int id) async {
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+      return (await tester.runAsync(() => db.exerciseById(id)))!;
+    }
+
+    testWidgets('two rows offer the same seven groups', (tester) async {
+      await openEditor(tester, await mine(tester, MuscleMap.single('Legs')));
+
+      for (final group in kMuscleGroups.where((g) => g != 'Other')) {
+        expect(
+          find.text(group),
+          findsNWidgets(2),
+          reason: '$group is offered as a primary and as a secondary',
+        );
+      }
+      // "Other" is a muscle group and an equipment kind both, so it is on the
+      // form three times — which is the one collision in the vocabulary.
+      expect(find.text('Other'), findsNWidgets(3));
+
+      await stop(tester);
+    });
+
+    testWidgets('the order you tick them in is the order they are stored', (
+      tester,
+    ) async {
+      final id = await mine(tester, MuscleMap.single('Legs'));
+      await openEditor(tester, id);
+
+      await tapChip(tester, 'Back', 0);
+      await tapChip(tester, 'Core', 0);
+      final saved = await save(tester, id);
+
+      expect(saved.muscles.primary, ['Legs', 'Back', 'Core']);
+      expect(
+        saved.muscles.lead,
+        'Legs',
+        reason: 'the first one picked is the group it files under',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('ticking a group as secondary takes it off the primaries', (
+      tester,
+    ) async {
+      final id = await mine(
+        tester,
+        MuscleMap(primary: ['Legs', 'Back'], secondary: []),
+      );
+      await openEditor(tester, id);
+
+      await tapChip(tester, 'Back', 1);
+      final saved = await save(tester, id);
+
+      expect(saved.muscles.primary, ['Legs']);
+      expect(saved.muscles.secondary, ['Back']);
+
+      await stop(tester);
+    });
+
+    testWidgets('and the other way round', (tester) async {
+      final id = await mine(
+        tester,
+        MuscleMap(primary: ['Legs'], secondary: ['Core']),
+      );
+      await openEditor(tester, id);
+
+      await tapChip(tester, 'Core', 0);
+      final saved = await save(tester, id);
+
+      expect(saved.muscles.primary, ['Legs', 'Core']);
+      expect(saved.muscles.secondary, isEmpty);
+
+      await stop(tester);
+    });
+
+    testWidgets('the last primary cannot be unticked', (tester) async {
+      // A movement that trains nothing is not a movement.
+      final id = await mine(tester, MuscleMap.single('Legs'));
+      await openEditor(tester, id);
+
+      await tapChip(tester, 'Legs', 0);
+      final saved = await save(tester, id);
+
+      expect(saved.muscles.primary, ['Legs']);
+
+      await stop(tester);
+    });
+
+    testWidgets('a secondary can be let go entirely', (tester) async {
+      final id = await mine(
+        tester,
+        MuscleMap(primary: ['Legs'], secondary: ['Core']),
+      );
+      await openEditor(tester, id);
+
+      await tapChip(tester, 'Core', 1);
+      final saved = await save(tester, id);
+
+      expect(saved.muscles.secondary, isEmpty);
+      expect(saved.muscles.primary, ['Legs']);
+
+      await stop(tester);
+    });
+
+    testWidgets('a movement made from scratch carries the map it was ticked', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1000, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, const ExerciseFormScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Sandbag Clean');
+      await tapChip(tester, 'Core', 1);
+      await tester.tap(find.text('Save exercise'));
+      await tester.pumpAndSettle();
+
+      final made = (await tester.runAsync(
+        () => db.watchExercises().first,
+      ))!.firstWhere((e) => e.name == 'Sandbag Clean');
+      expect(
+        made.muscles.primary,
+        isNotEmpty,
+        reason: 'every exercise has at least one primary',
+      );
+      expect(made.muscles.secondary, ['Core']);
+      expect(made.muscles.trains('Core'), isFalse);
+
+      await stop(tester);
     });
   });
 
@@ -272,7 +731,7 @@ void main() {
       () async {
         final id = await db.createExercise(
           name: 'Sled Push',
-          muscle: 'Legs',
+          muscles: MuscleMap.single('Legs'),
           equipment: 'Sled',
         );
         final made = await db.exerciseById(id);
@@ -370,7 +829,7 @@ void main() {
     test('overrides apply to custom exercises too', () async {
       final id = await db.createExercise(
         name: 'EZ Curl',
-        muscle: 'Arms',
+        muscles: MuscleMap.single('Arms'),
         equipment: 'Barbell',
       );
       await db.setExerciseWeightType(id, WeightType.bar);
@@ -408,7 +867,7 @@ void main() {
     test('a custom exercise keeps the measure it was created with', () async {
       final id = await db.createExercise(
         name: 'Wall Sit',
-        muscle: 'Legs',
+        muscles: MuscleMap.single('Legs'),
         equipment: 'Bodyweight',
         measure: ExerciseMeasure.time,
       );
@@ -508,7 +967,7 @@ void main() {
       // deleting it is legal and only history could be harmed.
       final id = await db.createExercise(
         name: 'Landmine Press',
-        muscle: 'Shoulders',
+        muscles: MuscleMap.single('Shoulders'),
         equipment: 'Barbell',
       );
       final sessionId = await logOneSet(id, 'Landmine Press');
@@ -600,7 +1059,7 @@ void main() {
 
     Future<int> mine() => db.createExercise(
       name: 'Copenhagen Plank',
-      muscle: 'Core',
+      muscles: MuscleMap.single('Core'),
       equipment: 'Bodyweight',
       videoUrl: 'https://youtu.be/aBcD1234_-x',
       measure: ExerciseMeasure.time,
@@ -692,7 +1151,7 @@ void main() {
         await db.updateCustomExercise(
           starter.id,
           name: 'Not Bench Press',
-          muscle: 'Chest',
+          muscles: MuscleMap.single('Chest'),
           equipment: 'Barbell',
           videoUrl: null,
           measure: ExerciseMeasure.reps,
@@ -746,7 +1205,7 @@ void main() {
         final starter = await exerciseNamed(db, 'Bench Press');
         final custom = await db.createExercise(
           name: 'Zercher Squat',
-          muscle: 'Legs',
+          muscles: MuscleMap.single('Legs'),
           equipment: 'Barbell',
         );
 
@@ -862,7 +1321,7 @@ void main() {
 
       expect(legs, isNotEmpty);
       expect(legs.every((e) => e.equipment == 'Barbell'), isTrue);
-      expect(legs.every((e) => e.muscleGroup == 'Legs'), isTrue);
+      expect(legs.every((e) => e.muscles.touches('Legs')), isTrue);
       expect(legs.map((e) => e.name), contains('Back Squat'));
     });
 
@@ -875,9 +1334,14 @@ void main() {
           const ExerciseFilter(muscles: {'Arms', 'Core'}),
         );
 
-        expect(both.length, arms.length + core.length);
+        // A union, not a sum: a movement that works both is in all three
+        // lists and is still one row in the answer.
         expect(
-          both.every((e) => e.muscleGroup == 'Arms' || e.muscleGroup == 'Core'),
+          both.map((e) => e.id).toSet(),
+          {...arms.map((e) => e.id), ...core.map((e) => e.id)},
+        );
+        expect(
+          both.every((e) => e.muscles.touches('Arms') || e.muscles.touches('Core')),
           isTrue,
         );
       },
@@ -1156,7 +1620,7 @@ void main() {
       final id = (await tester.runAsync(
         () => db.createExercise(
           name: 'Zercher Squat',
-          muscle: 'Legs',
+          muscles: MuscleMap.single('Legs'),
           equipment: 'Barbell',
           weightType: WeightType.bar,
         ),

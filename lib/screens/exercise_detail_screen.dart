@@ -99,16 +99,36 @@ class _Body extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
+        // What it trains, with how it is loaded, on the line the eye lands on.
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            _Chip(muscleGroupLabel(l10n, exercise.muscleGroup)),
+            for (final group in exercise.muscles.primary)
+              _Chip(muscleGroupLabel(l10n, group)),
             _Chip(equipmentLabel(l10n, exercise.equipment)),
             if (exercise.isCustom)
               _Chip(l10n.exerciseDetailCustomChip, accent: true),
           ],
         ),
+        // And what it works on the way, below and said to be that — absent
+        // rather than empty for a movement that assists nothing.
+        if (exercise.muscles.secondary.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                l10n.exerciseMusclesAssisted,
+                style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
+              ),
+              for (final group in exercise.muscles.secondary)
+                _Chip(muscleGroupLabel(l10n, group)),
+            ],
+          ),
+        ],
         const SizedBox(height: 22),
         SizedBox(
           width: double.infinity,
