@@ -11,15 +11,51 @@ import 'common.dart';
 ///
 /// When [onSetCurrent] is given the row also offers a "make this the current
 /// routine" control, and marks itself when [isCurrent].
+///
+/// It takes the fields rather than the row so the routine library can draw a
+/// program it has not written yet — see [RoutineCard.program]. A program in the
+/// library and a routine in your list are the same thing to look at; what
+/// separates them is only that one of them is not yours yet.
 class RoutineCard extends StatelessWidget {
-  const RoutineCard({
+  RoutineCard({
     super.key,
-    required this.data,
+    required RoutineWithCount data,
     required this.onTap,
     this.isCurrent = false,
     this.onSetCurrent,
-  });
-  final RoutineWithCount data;
+  })  : name = data.routine.name,
+        seedKey = data.routine.seedKey,
+        colorHex = data.routine.colorHex,
+        workoutCount = data.workoutCount,
+        scheduleDays = data.routine.scheduleDays,
+        hasReminder = data.routine.reminderMinutes != null;
+
+  /// A program out of the routine library, which has no row and no reminder, is
+  /// nobody's current routine, and cannot be made one until it is added.
+  const RoutineCard.program({
+    super.key,
+    required this.name,
+    required this.seedKey,
+    required this.colorHex,
+    required this.workoutCount,
+    required this.scheduleDays,
+    required this.onTap,
+  })  : isCurrent = false,
+        onSetCurrent = null,
+        hasReminder = false;
+
+  /// The canonical English name, rendered through [seedKey] — see
+  /// `util/seed_names.dart`.
+  final String name;
+  final String? seedKey;
+  final String colorHex;
+  final int workoutCount;
+  final int scheduleDays;
+
+  /// Whether the schedule line should say a reminder is set rather than only
+  /// which days the routine is trained on.
+  final bool hasReminder;
+
   final VoidCallback onTap;
   final bool isCurrent;
   final VoidCallback? onSetCurrent;
@@ -27,7 +63,6 @@ class RoutineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final r = data.routine;
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(18),
@@ -38,7 +73,7 @@ class RoutineCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isCurrent ? hexColor(r.colorHex) : AppColors.line,
+              color: isCurrent ? hexColor(colorHex) : AppColors.line,
             ),
           ),
           padding: const EdgeInsets.fromLTRB(16, 15, 8, 15),
@@ -48,7 +83,7 @@ class RoutineCard extends StatelessWidget {
                 width: 6,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: hexColor(r.colorHex),
+                  color: hexColor(colorHex),
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -61,7 +96,7 @@ class RoutineCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            seededName(l10n, r.seedKey, r.name),
+                            seededName(l10n, seedKey, name),
                             // Wraps rather than being cut, for the same reason
                             // the headings do: a routine name is how you tell
                             // one program from another.
@@ -74,13 +109,13 @@ class RoutineCard extends StatelessWidget {
                         ),
                         if (isCurrent) ...[
                           const SizedBox(width: 8),
-                          _CurrentBadge(color: hexColor(r.colorHex)),
+                          _CurrentBadge(color: hexColor(colorHex)),
                         ],
                       ],
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      l10n.routineCardWorkoutCount(data.workoutCount),
+                      l10n.routineCardWorkoutCount(workoutCount),
                       style: kMono.copyWith(
                         fontSize: 12.5,
                         color: AppColors.muted,
@@ -89,21 +124,21 @@ class RoutineCard extends StatelessWidget {
                     // Only when there is one: a line reading "No fixed days" on
                     // every unscheduled routine is noise about a setting most
                     // of them will never use.
-                    if (r.scheduleDays != kNoScheduleMask) ...[
+                    if (scheduleDays != kNoScheduleMask) ...[
                       const SizedBox(height: 3),
                       Row(
                         children: [
                           Icon(
-                            r.reminderMinutes == null
-                                ? Icons.event_outlined
-                                : Icons.notifications_active_outlined,
+                            hasReminder
+                                ? Icons.notifications_active_outlined
+                                : Icons.event_outlined,
                             size: 12,
                             color: AppColors.faint,
                           ),
                           const SizedBox(width: 5),
                           Flexible(
                             child: Text(
-                              scheduleLabel(l10n, r.scheduleDays),
+                              scheduleLabel(l10n, scheduleDays),
                               overflow: TextOverflow.ellipsis,
                               style: kMono.copyWith(
                                   fontSize: 11.5, color: AppColors.faint),
@@ -127,7 +162,7 @@ class RoutineCard extends StatelessWidget {
                         ? Icons.radio_button_checked
                         : Icons.radio_button_unchecked,
                     size: 22,
-                    color: isCurrent ? hexColor(r.colorHex) : AppColors.muted,
+                    color: isCurrent ? hexColor(colorHex) : AppColors.muted,
                   ),
                 ),
               Icon(Icons.chevron_right, color: AppColors.faint),

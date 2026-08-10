@@ -29,7 +29,7 @@ groups:
     t: Export — any routine becomes a routine code
     d: >-
       a versioned, compressed, base64 line beginning FLR2. It carries the routine's
-      name, colour, default rest and training days; every workout in order; every
+      name, colour, default rest, training days and description; every workout in order; every
       exercise slot's prescription — sets, reps, rest, the set scheme and its
       percentages, progression axis, step and back-off rates, thresholds — and a
       definition of every exercise the routine references. Not the weights: see
@@ -86,10 +86,33 @@ groups:
       arrives with each exercise carrying the single group it was written with as
       its only primary, which is exactly what it meant. What does not work is the
       other direction: a phone still on the shipped build cannot open an FLR2
-      code, and says so plainly rather than importing a mangled routine.
+      code, and says so plainly rather than importing a mangled routine. That is
+      also what lets FLR2 still grow in the middle rather than only on the end —
+      a field added to the routine header breaks no code anybody is holding,
+      because no build in the wild reads this tag at all.
     uses:
     - share.routine-code
     - exercise.muscle-map
+  - id: supersets-travel-on-the-end-of-the-code
+    t: A shared routine carries its supersets, and older builds ignore them
+    d: >-
+      the joins ride in a section appended after the training days rather than
+      inside a slot, so the tag stays FLR2 and a build that has never heard of a
+      superset stops where it always stopped and skips what follows. Sent to the
+      shipped build, the routine arrives as the same exercises in the same order,
+      listed one after another; sent to this one, it arrives grouped. A code from a
+      routine with no supersets in it is not one byte longer than before.
+    uses:
+    - share.routine-code
+    - template.superset
+  - id: description-travels-with-the-routine
+    t: A routine's description travels with it
+    d: >-
+      it rides in the routine header, right behind the training days, so an imported program arrives explaining itself rather than as a name and a list of days. A routine nobody has described pays nothing for the field: a spare bit in the flag byte the envelope already carries says whether there is one, so such a code is the same bytes it was before descriptions existed. It lands as the sender's own words: an import is nobody's copy of a library program, so the paragraph is shown as it was written, the way a name somebody invented is. Capped at 700 bytes on the wire — well past the 300 characters the app enforces, so a legal description never loses its tail here first, and bounded all the same, so a hostile code cannot claim a megabyte of paragraph.
+    uses:
+    - share.routine-code
+    - template.description
+    - ui.seeded-name
   - id: name-clash-your-call
     t: A name clash is your call
     d: >-

@@ -104,18 +104,12 @@ class _CurrentRoutineSection extends ConsumerWidget {
                   )
                 else
                   for (final w in list) ...[
-                    KeyedSubtree(
-                      // The suggested day is the tour's "next workout" anchor.
-                      key: w.workout.id == nextId
-                          ? tutorialTodayWorkoutKey
-                          : null,
-                      child: _WorkoutCard(
-                        data: w,
-                        accent: hexColor(routine.colorHex),
-                        isNext: w.workout.id == nextId,
-                        onTap: () => context.push(
-                            '${branchRoot(context)}/workout/${w.workout.id}'),
-                      ),
+                    _WorkoutCard(
+                      data: w,
+                      accent: hexColor(routine.colorHex),
+                      isNext: w.workout.id == nextId,
+                      onTap: () => context.push(
+                          '${branchRoot(context)}/workout/${w.workout.id}'),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -150,11 +144,24 @@ class _RoutineChooserSection extends ConsumerWidget {
             child: Column(
               children: [
                 if (list.isEmpty)
-                  _EmptyCard(
-                    title: l10n.todayNoRoutinesTitle,
-                    body: l10n.todayNoRoutinesBody,
-                    action: l10n.todayBuildRoutine,
-                    onAction: () => context.push('/routine/new'),
+                  // The first screen of a fresh install: the routine list is
+                  // empty until somebody puts something in it, so this is where
+                  // both ways to do that are offered. The ready-made one leads,
+                  // because it is the one that has you training today.
+                  //
+                  // It is also the tour's Today anchor, for the same reason:
+                  // there is no routine and no workout card on a first run, and
+                  // this is the card that changes that.
+                  KeyedSubtree(
+                    key: tutorialTodayEmptyKey,
+                    child: _EmptyCard(
+                      title: l10n.todayNoRoutinesTitle,
+                      body: l10n.todayNoRoutinesBody,
+                      action: l10n.routineLibraryTitle,
+                      onAction: () => context.push('/routines/library'),
+                      secondAction: l10n.todayBuildRoutine,
+                      onSecondAction: () => context.push('/routine/new'),
+                    ),
                   )
                 else
                   for (final r in list) ...[
@@ -300,11 +307,20 @@ class _EmptyCard extends StatelessWidget {
     required this.body,
     required this.action,
     required this.onAction,
+    this.secondAction,
+    this.onSecondAction,
   });
   final String title;
   final String body;
   final String action;
   final VoidCallback onAction;
+
+  /// A second way out of the same empty state, offered plainly beneath the
+  /// first. The install with no routines at all has two — take a program the app
+  /// ships, or write your own — and naming only one of them would hide the other
+  /// on the one screen where the question is being asked.
+  final String? secondAction;
+  final VoidCallback? onSecondAction;
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +343,14 @@ class _EmptyCard extends StatelessWidget {
               style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 14),
           FilledButton(onPressed: onAction, child: Text(action)),
+          if (secondAction case final second?) ...[
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: onSecondAction,
+              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+              child: Text(second),
+            ),
+          ],
         ],
       ),
     );

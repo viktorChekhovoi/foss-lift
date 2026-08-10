@@ -67,11 +67,32 @@ groups:
   - id: explains-gym-words
     t: Explains the gym words where they first matter
     d: >-
-      routine, workout, push workout, set, rep and rest each get one plain
-      sentence, at the step where the word first appears, so the tour is followable
-      by somebody who has never trained before without reading as a glossary.
+      routine, workout, push workout, set, rep, rest and superset each get one
+      plain sentence, at the step where the word first appears, so the tour is
+      followable by somebody who has never trained before without reading as a
+      glossary.
     defines:
     - ui.gym-vocabulary
+    uses:
+    - template.superset
+  - id: today-step-points-at-getting-a-routine
+    t: On Today it points at the way to get a routine
+    d: >-
+      a fresh install opens with an empty routine list, so the only card Today has
+      is the one that fills it — a ready-made program, or one you build — and that
+      card is what the step spotlights. It is the step that used to point at the
+      routine you were following and the workout you were due next, neither of
+      which a new phone has. On a phone that does have a current routine — a replay
+      on day ten — the same step points at its name on Today instead, and the
+      callout reads the same way.
+    points:
+    - today
+    uses:
+    - ui.tutorial
+    - ui.empty-state
+    - template.routine
+    - template.active-routine
+    - template.starter-library
   - id: shows-mock-board-rest-bar
     t: Draws the live workout it cannot show you, at full size
     d: >-
@@ -95,17 +116,18 @@ groups:
     - session.set-logging
     - session.progress-mark
     - session.rest-timer
-  - id: session-chapter-follows-the-training-day
-    t: The live workout comes straight after the workout that starts one
+  - id: session-chapter-follows-the-today-step
+    t: The live workout comes straight after the Today step
     d: >-
-      the step pointing at the next workout is followed by the one that
-      says what tapping it leads to, and then by the whole live-workout chapter —
-      the board, the weight, the rest timer, the note, the clip and the
-      notification. The
-      lifetime totals come after all of it. That is the order somebody actually
-      moves in: a card you tap, a screen it opens, the thing you do there. The
-      chapter opens by naming the transition, because nothing on screen has
-      moved and the tour has to say why the picture changed.
+      the step about getting a routine is followed by the one that says what
+      training it looks like, and then by the whole live-workout chapter — the
+      board, the weight, the rest timer, the note, the clip and the notification.
+      The lifetime totals come after all of it. That is the order somebody moves
+      in: a routine, a workout in it, the thing you do there. The chapter opens by
+      naming the transition — Today lists the routine's workouts with the next one
+      due highlighted, and Start workout is what opens this screen — because a
+      fresh install has no workout card to have tapped and the tour has to say why
+      the picture changed.
     points:
     - today
     - session
@@ -161,11 +183,12 @@ groups:
   - id: full-tour-walks-the-app
     t: The full tour walks the whole app
     d: >-
-      the four tabs, then the routine you are following and the workout you
-      are due next, then straight into the session it opens — the board,
-      the weight, the rest timer, the note, the clip and the notification — out again to the
-      lifetime totals, and finally into the builder to make a routine of your
-      own. It assumes no gym vocabulary and defines each word once.
+      the four tabs, then the card on Today that gets you a routine, then what
+      training one looks like — the board, the weight, the rest timer, the note,
+      the clip and the notification — out again to the lifetime totals, and finally
+      into the chapter that gets a routine into the list for real: a ready-made
+      program, or one built from nothing. It assumes no gym vocabulary and defines
+      each word once.
     points:
     - today
     - session
@@ -173,6 +196,7 @@ groups:
     uses:
     - ui.tutorial-track
     - ui.gym-vocabulary
+    - template.starter-library
     - template.active-routine
     - history.aggregates
     - session.set-logging
@@ -182,14 +206,15 @@ groups:
     - exercise.notes
     - video.capture
   - id: quick-tour-is-the-four-tabs
-    t: The quick tour is the four tabs and a routine built in four steps
+    t: The quick tour is the four tabs and a routine in five steps
     d: >-
       for somebody who has used a tracker before: where the four destinations
-      are, then Routines → New routine → name it and add its workouts → Save. It skips what the
-      full tour spends steps on — the live workout, and the per-slot settings —
-      and folds naming a routine, adding a workout and filling it with
-      exercises into one callout, because somebody who has used a tracker knows
-      what those are and only needs to be shown where.
+      are, then Routines → the ready-made programs → New routine → name it and add
+      its workouts → Save. It skips what the full tour spends steps on — the live
+      workout, the per-slot settings and the superset checkbox among them — and
+      folds naming a routine, adding a workout and filling it with exercises into
+      one callout, because somebody who has used a tracker knows what those are and
+      only needs to be shown where.
     points:
     - today
     - routines
@@ -201,6 +226,7 @@ groups:
     - ui.navigation
     - template.routine
     - template.workout
+    - template.starter-library
     - history.session-record
   - id: track-choice-is-not-a-judgement
     t: Neither track is presented as the lesser one
@@ -214,12 +240,14 @@ groups:
 - name: The builder tour
   items:
   - id: builder-tour-covers-making-a-routine
-    t: The builder chapter is drawn, not driven
+    t: The routine chapter is drawn, not driven
     d: >-
-      Routines → New routine → name it → add a workout → add its exercises →
-      configure one → save the workout → save the routine, each step against a
+      Routines → a ready-made program → New routine → name it → add a workout →
+      add its exercises → configure one → join two of them → save the workout →
+      save the routine, each step against a
       full-size picture of the screen it is about, with the control in question
-      ringed. Four screens are drawn: the Routines tab, the routine builder, a
+      ringed. Four screens are drawn: the Routines tab as a fresh install has it,
+      the routine builder, a
       workout, and one exercise's settings sheet. It is the same treatment the live workout gets, and for the same
       reason: the tour would otherwise have to march you through four screens it
       does not own, waiting on each to mount before it could point at anything,
@@ -237,10 +265,49 @@ groups:
     - template.routine
     - template.workout
     - template.item
+    - template.starter-library
+    - template.superset
+  - id: builder-tour-offers-a-ready-made-program-first
+    t: It offers a program the app ships before it builds one
+    d: >-
+      the second step of the chapter rings Ready-made routines on the drawn
+      Routines tab: a program copied into your list, which is the shortest path from
+      a fresh install to training today. Everything after it builds one instead, so
+      whichever answer somebody wants they have seen it by the third callout. Both
+      buttons are on the picture, in the order the real screen has them, and the
+      list above them is empty — which is what the Routines tab is on the install
+      the tour is running on.
+    points:
+    - routines
+    uses:
+    - ui.tutorial-track
+    - template.starter-library
+    - template.routine
+    - ui.empty-state
+  - id: builder-tour-defines-a-superset
+    t: It defines a superset, against the checkbox that offers one
+    d: >-
+      one step after the per-slot settings, on the same drawn sheet — which grows
+      the checkbox at the foot of its Target card for this step, ringed, the way
+      the mock board grows a rest bar for the step about resting. Ticking it joins the exercise
+      to the one above, and the two are trained as a set of each back to back with
+      the rest at the end of the round. It is the training term the tour meets last
+      because it is the one somebody can switch a slot to without knowing what they
+      have asked for — the same reason the checkbox carries an icon that says it
+      again for people who never took a tour. The quick chapter skips it, along with
+      the rest of the sheet.
+    points:
+    - workout-edit
+    uses:
+    - ui.tutorial-track
+    - ui.gym-vocabulary
+    - template.superset
+    - template.rest
+    - session.superset-round
   - id: builder-chapter-starts-from-today
     t: It starts where you are standing, and names every screen it moves to
     d: >-
-      the full tour reaches the builder from the Today steps, so the chapter
+      the full tour reaches the chapter from the Today step, so it
       opens on the Routines tab — drawn with the navigation bar under it and that
       tab lit, so the picture is placed in the app rather than appearing from
       nowhere. Every step after it says what opened the screen it is on: New
@@ -279,7 +346,10 @@ groups:
       those fields on it. Naming five controls beside a picture of none of them
       was the previous arrangement, and it asked the reader to take the tour's
       word for a screen they had not seen. Nothing on this one is ringed: the
-      whole picture is what the words are about.
+      numbers are what the words are about, and the checkbox that belongs to the
+      step after it is not drawn yet — five named fields all have to be on the
+      picture, and the sheet with everything on it is taller than a short phone
+      with a callout docked under it.
     points:
     - workout-edit
     uses:
@@ -292,8 +362,8 @@ groups:
     t: Both first-run tours end by building a routine, and it is also a tour on its own
     d: >-
       an empty app is the state every first run is in, so neither tour ends
-      without showing the way out of it — the full one walks the whole builder,
-      the quick one a condensed four steps. The same chapter is still offered by
+      without showing the way out of it — the full one walks the whole chapter,
+      the quick one a condensed five steps. The same chapter is still offered by
       itself from Profile, for somebody coming back on day ten who wants the
       builder and not the tour around it. The steps are one list used by all
       three tracks rather than three descriptions of the same screen. Because it

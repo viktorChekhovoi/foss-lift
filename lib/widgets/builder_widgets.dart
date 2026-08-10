@@ -873,6 +873,8 @@ class BuilderReorderRow extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     required this.onRemove,
+    this.badge,
+    this.grouped = false,
   });
 
   /// Position in the list, which is what the drag handle moves.
@@ -881,6 +883,15 @@ class BuilderReorderRow extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final VoidCallback onRemove;
+
+  /// A short uppercase tag above the title — "SUPERSET" on the first row of a
+  /// group. Null on a row with nothing to announce, which is most of them.
+  final String? badge;
+
+  /// Whether this row is part of a group of rows performed together. Draws the
+  /// accent down its left edge, so a group reads as a block in the list rather
+  /// than as rows that happen to be adjacent.
+  final bool grouped;
 
   @override
   Widget build(BuildContext context) {
@@ -894,6 +905,15 @@ class BuilderReorderRow extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.line),
+            // The edge, not the whole border: a group is a run of ordinary rows
+            // with one thing said about it, and four accent boxes in a column
+            // would shout it four times.
+            gradient: grouped
+                ? LinearGradient(
+                    colors: [AppColors.accent, AppColors.surface],
+                    stops: const [0.008, 0.008],
+                  )
+                : null,
           ),
           padding: const EdgeInsets.fromLTRB(4, 10, 6, 10),
           child: Row(
@@ -917,6 +937,18 @@ class BuilderReorderRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (badge case final badge?) ...[
+                      Text(
+                        badge,
+                        style: kMono.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 1.0,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                    ],
                     Text(
                       title,
                       style: const TextStyle(

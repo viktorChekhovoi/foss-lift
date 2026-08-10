@@ -13,6 +13,7 @@ import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/util/format.dart';
 
 import 'support/harness.dart';
+import 'support/seeded.dart';
 
 void main() {
   // -------------------------------------------------------------------------
@@ -61,10 +62,12 @@ void main() {
         sets: sets,
       );
 
-  /// The seeded PPL workout ids, by day name ("Push", "Pull", "Legs").
+  /// The PPL workout ids, by day name ("Push", "Pull", "Legs").
+  ///
+  /// Through `routineNamed`, which adds the program from the routine library if
+  /// this database has not got it — the list starts empty.
   Future<Map<String, int>> pplWorkouts(AppDatabase db) async {
-    final routines = await db.watchRoutines().first;
-    final ppl = routines.first.routine; // position 0 = Push / Pull / Legs
+    final ppl = await routineNamed(db);
     final workouts = await db.workoutsForRoutine(ppl.id);
     return {for (final w in workouts) w.name: w.id};
   }
@@ -350,8 +353,7 @@ void main() {
 
     test('deleting the routine keeps its sessions, sets and lifetime totals',
         () async {
-      final routines = await db.watchRoutines().first;
-      final ppl = routines.first.routine;
+      final ppl = await routineNamed(db);
       final workouts = await db.workoutsForRoutine(ppl.id);
       final push = workouts.first;
 
@@ -372,8 +374,7 @@ void main() {
     });
 
     test('deleting just the workout keeps its sessions', () async {
-      final routines = await db.watchRoutines().first;
-      final ppl = routines.first.routine;
+      final ppl = await routineNamed(db);
       final workouts = await db.workoutsForRoutine(ppl.id);
       final push = workouts.first;
 

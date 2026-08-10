@@ -55,14 +55,16 @@ groups:
     - storage.schema
     - privacy.offline
   - id: first-run-seeds-in-browser
-    t: A fresh browser gets the starter library and the demo routines
+    t: A fresh browser gets the starter library
     d: >-
       the first-run seed is a property of an empty database, not of a phone, so
-      opening the page for the first time lands on the same 87 movements, five
-      demo programs and racked bars an install does.
+      opening the page for the first time lands on the same 123 movements and racked
+      bars an install does — and, like an install, on an empty routine list with
+      the same library of ready-made programs to add from.
     uses:
     - storage.schema
     - exercise.seed
+    - template.starter-library
   - id: web-build-serves-itself
     t: The page serves everything it needs from its own origin
     d: >-

@@ -18,6 +18,7 @@ import 'screens/profile_screen.dart';
 import 'screens/routine_detail_screen.dart';
 import 'screens/routine_edit_screen.dart';
 import 'screens/routine_import_screen.dart';
+import 'screens/routine_library_screen.dart';
 import 'screens/routine_share_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/set_video_screen.dart';
@@ -212,7 +213,25 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/routines',
               builder: (c, s) => const RoutinesScreen(),
-              routes: [_routineRoute(), _workoutRoute()],
+              routes: [
+                _routineRoute(),
+                _workoutRoute(),
+                // Inside the branch, so browsing what the app ships keeps the
+                // navigation bar under it: the library is somewhere you look
+                // around, not something you are in the middle of finishing.
+                GoRoute(
+                  path: 'library',
+                  builder: (c, s) => const RoutineLibraryScreen(),
+                  routes: [
+                    GoRoute(
+                      path: ':key',
+                      builder: (c, s) => StarterRoutinePreviewScreen(
+                        routineKey: s.pathParameters['key']!,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),

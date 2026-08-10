@@ -18,6 +18,7 @@ import 'package:foss_lift/services/notifications.dart';
 import 'package:foss_lift/services/reminders.dart';
 
 import 'support/harness.dart';
+import 'support/seeded.dart';
 
 // Week 1 of 2024 lines the day-of-month up with the weekday: the 1st is a
 // Monday, the 7th a Sunday, so `_on(3, ...)` is unambiguously Wednesday.
@@ -208,15 +209,20 @@ void main() {
   });
 
   group('the stored schedule is re-derived through watchRoutineReminders', () {
-    test('the seeded install carries a scheduled routine and an unscheduled one',
+    test('a program carries the schedule it was written for, or none',
         () async {
       final db = memoryDb();
       addTearDown(db.close);
+      // Straight out of the routine library, where the shipped programs live:
+      // PPL is written for Mon/Wed/Fri and Upper/Lower for no fixed days, which
+      // is what puts both states of the setting in front of anybody who adds one.
+      await routineNamed(db);
+      await routineNamed(db, 'Upper / Lower');
 
       final reminders = await db.watchRoutineReminders().first;
 
       final ppl = _byName(reminders, 'Push / Pull / Legs');
-      expect(ppl.scheduleDays, _mwf, reason: 'seeded Mon/Wed/Fri');
+      expect(ppl.scheduleDays, _mwf, reason: "the program's own Mon/Wed/Fri");
       expect(ppl.reminderMinutes, isNull, reason: 'no reminder asked for');
       expect(ppl.lastTrainedAt, isNull, reason: 'never trained yet');
 
@@ -230,6 +236,7 @@ void main() {
       final db = memoryDb();
       addTearDown(db.close);
 
+      await routineNamed(db);
       final before = _byName(
           await db.watchRoutineReminders().first, 'Push / Pull / Legs');
       final routine = await db.routineById(before.routineId);
@@ -254,6 +261,7 @@ void main() {
       final db = memoryDb();
       addTearDown(db.close);
 
+      await routineNamed(db);
       final ppl = _byName(
           await db.watchRoutineReminders().first, 'Push / Pull / Legs');
       expect(ppl.lastTrainedAt, isNull);
@@ -280,6 +288,11 @@ void main() {
     test('reminderSyncProvider hands the whole reminder list to the scheduler',
         () async {
       final db = memoryDb();
+      // Two programs to be reminded about. The list starts empty — the shipped
+      // programs live in the routine library until somebody adds one — and a
+      // funnel handing over nothing proves nothing.
+      await routineNamed(db);
+      await routineNamed(db, 'Upper / Lower');
       final recording = _RecordingReminderService();
       final container = containerFor(
         db,

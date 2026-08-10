@@ -70,6 +70,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'customSets': encodeCustomSets(e.customSets),
             'goalReps': e.goalReps,
             'floorKg': e.floorKg,
+            'supersetWithPrevious': e.supersetWithPrevious,
             'warmupCount': e.warmupCount,
             'warmupBarKg': e.warmupBarKg,
             'warmupRestSeconds': e.warmupRestSeconds,
@@ -232,6 +233,9 @@ ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
       customSets: decodeCustomSets(m['customSets'] as String?),
       goalReps: m['goalReps'] as int? ?? 0,
       floorKg: (m['floorKg'] as num?)?.toDouble() ?? 0,
+      // Absent in a snapshot from a build that had no supersets, which means
+      // exactly what it says: this exercise stood on its own.
+      supersetWithPrevious: m['supersetWithPrevious'] as bool? ?? false,
       warmupCount: m['warmupCount'] as int,
       warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
       warmupRestSeconds: m['warmupRestSeconds'] as int,

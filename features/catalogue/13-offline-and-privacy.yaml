@@ -69,6 +69,17 @@ groups:
     uses:
     - storage.schema
     - storage.settings
+  - id: existing-workouts-arrive-with-no-supersets
+    t: A workout from before the update has no supersets in it
+    d: >-
+      the join between two slots is a new column that defaults to off, so every
+      slot on an installed phone keeps standing on its own and no existing day
+      changes shape. Making a superset is something you then do, not something the
+      upgrade decides for you.
+    screen: none
+    uses:
+    - storage.migration
+    - template.superset
   - id: only-notification-local-one
     t: The only "notification" is a local one
     d: scheduled on-device; it never leaves the phone.

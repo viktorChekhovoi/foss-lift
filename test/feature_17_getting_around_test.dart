@@ -416,11 +416,7 @@ void main() {
         (tester) async {
       late final int id;
       await tester.runAsync(() async {
-        final routines = await db.watchRoutines().first;
-        id = routines
-            .firstWhere((r) => r.routine.name == 'Push / Pull / Legs')
-            .routine
-            .id;
+        id = (await routineNamed(db)).id;
       });
 
       await tester.pumpWidget(
@@ -543,9 +539,19 @@ void main() {
       );
       expect(list, findsOneWidget, reason: 'the picker did not open');
       // To the end of the library, where a row would otherwise come to rest
-      // under the strip.
-      await tester.fling(list, const Offset(0, -6000), 4000);
-      await tester.pumpAndSettle();
+      // under the strip. **Flung until the position stops moving**, not once: the
+      // library is well over a hundred movements and one fling leaves the list in
+      // the middle of itself, where the last row built is simply a row below the
+      // fold rather than the last row there is.
+      // The list's own Scrollable, not the picker's: the filter chips scroll too.
+      final scrollable =
+          find.descendant(of: list, matching: find.byType(Scrollable));
+      for (var fling = 0; fling < 30; fling++) {
+        final at = tester.state<ScrollableState>(scrollable).position;
+        if (at.pixels >= at.maxScrollExtent - 1) break;
+        await tester.fling(list, const Offset(0, -6000), 4000);
+        await tester.pumpAndSettle();
+      }
 
       expect(tester.getRect(find.byType(ListTile).last).bottom,
           lessThanOrEqualTo(screen.height - navBar),

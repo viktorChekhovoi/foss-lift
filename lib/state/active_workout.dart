@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/superset.dart';
 import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/db_provider.dart';
@@ -137,8 +138,14 @@ class ExerciseEntry {
     this.customSets = const [],
     this.goalReps = 0,
     this.floorKg = 0,
+    this.supersetWithPrevious = false,
   }) : warmups = warmups ?? <SetEntry>[];
   final int? exerciseId;
+
+  /// Whether this exercise is trained in the same round as the one above it —
+  /// carried straight from the slot. What makes a run of exercises a superset;
+  /// see `data/superset.dart` and [ActiveWorkout.supersetGroupOf].
+  final bool supersetWithPrevious;
 
   /// The template slot this came from, so finishing can advance its
   /// progression. Null for an ad-hoc session, which has no target to move.
@@ -503,6 +510,165 @@ class ActiveWorkout {
     return top + 1;
   }
 
+  // ---- Supersets -----------------------------------------------------------
+  //
+  // A superset is a run of consecutive exercises trained back to back: a set of
+  // each, then the rest, then round again. The template says so with a join
+  // between neighbours, and `data/superset.dart` turns those joins into groups.
+  // Everything here is that arithmetic applied to the live board.
+
+  /// One flag per exercise: joined to the one above it, or not. Normalised, so
+  /// the first exercise is never joined to a movement that is not there.
+  List<bool> get supersetJoins =>
+      normaliseJoins([for (final e in exercises) e.supersetWithPrevious]);
+
+  /// The exercises trained in the same round as [ei], in board order — `[ei]`
+  /// alone for an exercise that stands on its own, which is nearly all of them.
+  List<int> supersetGroupOf(int ei) => supersetGroupAt(supersetJoins, ei);
+
+  /// The board's exercises as the groups they are performed in.
+  List<List<int>> get supersetGroupList => supersetGroups(supersetJoins);
+
+  /// The rest that follows logging one row of the board — how long, and what it
+  /// is for.
+  ///
+  /// **Zero seconds means no rest at all**, which is what a superset is: you
+  /// have just finished a set of one movement and the next movement of the group
+  /// is what you do now, so there is no clock to start and nothing for a banner
+  /// to say. The rest arrives at the end of the round, once every movement in
+  /// the group has had its set, and it is the rest of the slot that closed the
+  /// round.
+  ///
+  /// An exercise standing on its own takes the answer it always took, by the
+  /// same arithmetic it always used — a group of one is not routed through the
+  /// round logic, so nothing about an ordinary day depends on any of this.
+  ({int seconds, RestPrompt? prompt}) restAfter(
+    int ei,
+    int index, {
+    required bool warmup,
+  }) {
+    final e = exercises[ei];
+    final group = supersetGroupOf(ei);
+    if (group.length == 1) {
+      return (
+        seconds: warmup ? e.restAfterWarmup(index) : e.restSeconds,
+        prompt: warmup ? restAfterWarmup(ei, index) : restAfterSet(ei, index),
+      );
+    }
+    final next = _afterInGroup(group, ei, index, warmup: warmup);
+    if (next == null) {
+      // The group has nothing left: what follows is whatever comes after it,
+      // which is the same question an ordinary exercise's last set asks.
+      return (seconds: e.restSeconds, prompt: _nextExerciseAfter(group.last));
+    }
+    // Still inside the round — another movement of the group owes this very set
+    // — so there is no rest and nothing for a banner to say.
+    if (!warmup && !next.warmup && next.index == index) {
+      return (seconds: 0, prompt: null);
+    }
+    return (
+      seconds: warmup
+          // Setting up the next rung is the same job whichever movement's rung
+          // it is, so the short rest holds across the join. The exercise's own
+          // rest is due once the ramps are behind you and the work is next.
+          ? (next.warmup ? e.warmupRestSeconds : e.restSeconds)
+          : e.restSeconds,
+      prompt: _groupPrompt(next, ei, index, fromWarmup: warmup),
+    );
+  }
+
+  /// The row of [group] that follows [ei]/[index] — **by the plan, not by what
+  /// is logged**.
+  ///
+  /// What a rest is for is decided by what comes next in the round, and a row
+  /// ticked out of order does not rewrite what follows the row you have just
+  /// done. Null when the group has nothing after this one.
+  ({int exercise, int index, bool warmup})? _afterInGroup(
+    List<int> group,
+    int ei,
+    int index, {
+    required bool warmup,
+  }) {
+    final rest = group.skip(group.indexOf(ei) + 1);
+    if (warmup) {
+      if (index < exercises[ei].warmups.length - 1) {
+        return (exercise: ei, index: index + 1, warmup: true);
+      }
+      // The ramps are walked movement by movement before the round opens.
+      for (final at in rest) {
+        if (exercises[at].warmups.isNotEmpty) {
+          return (exercise: at, index: 0, warmup: true);
+        }
+      }
+      for (final at in group) {
+        if (exercises[at].sets.isNotEmpty) {
+          return (exercise: at, index: 0, warmup: false);
+        }
+      }
+      return null;
+    }
+    // The round runs across the group before it comes back round.
+    for (final at in rest) {
+      if (index < exercises[at].sets.length) {
+        return (exercise: at, index: index, warmup: false);
+      }
+    }
+    for (final at in group) {
+      if (index + 1 < exercises[at].sets.length) {
+        return (exercise: at, index: index + 1, warmup: false);
+      }
+    }
+    return null;
+  }
+
+  /// What a group's rest is for, named from the row that follows it: a round
+  /// comes back to the movement at the top of the group, which is not "the next
+  /// exercise" in any sense position alone can express.
+  RestPrompt _groupPrompt(
+    ({int exercise, int index, bool warmup}) next,
+    int ei,
+    int index, {
+    required bool fromWarmup,
+  }) {
+    if (next.exercise != ei) {
+      final it = exercises[next.exercise];
+      return (
+        purpose: RestPurpose.nextExercise,
+        weightKg: null,
+        exercise: it.name,
+        exerciseSeedKey: it.seedKey,
+      );
+    }
+    final e = exercises[ei];
+    if (next.warmup) {
+      return (
+        purpose: RestPurpose.anotherWarmup,
+        weightKg: e.warmups[next.index].weight,
+        exercise: null,
+        exerciseSeedKey: null,
+      );
+    }
+    final coming = e.sets[next.index].weight;
+    if (fromWarmup) {
+      return (
+        purpose: RestPurpose.theWorkingSet,
+        weightKg: coming,
+        exercise: null,
+        exerciseSeedKey: null,
+      );
+    }
+    // Another set of the same movement. The weight is worth naming only when it
+    // moved — a back-off or a ramp — exactly as it is outside a group.
+    return (coming - e.sets[index].weight).abs() > 1e-9
+        ? (
+            purpose: RestPurpose.anotherSet,
+            weightKg: coming,
+            exercise: null,
+            exerciseSeedKey: null,
+          )
+        : _justRest;
+  }
+
   /// What the rest that starts after warm-up rung [wi] of exercise [ei] is for.
   ///
   /// Another rung means another load to put on; the last rung means the working
@@ -547,8 +713,13 @@ class ActiveWorkout {
             )
           : _justRest;
     }
-    // The next exercise is the next one with anything left to do — skipping
-    // past any that are already finished.
+    return _nextExerciseAfter(ei);
+  }
+
+  /// The movement that follows the exercise at [ei] on the board: the next one
+  /// with anything left to do, skipping past any already finished. [_justRest]
+  /// when there is nothing left anywhere — this was the last set of the session.
+  RestPrompt _nextExerciseAfter(int ei) {
     for (var i = ei + 1; i < exercises.length; i++) {
       if (exercises[i].sets.any((s) => !s.done)) {
         return (
@@ -559,7 +730,6 @@ class ActiveWorkout {
         );
       }
     }
-    // Nothing left anywhere: this was the last set of the session.
     return _justRest;
   }
 
@@ -1038,6 +1208,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       customSets: decodeCustomSets(v.item.customSets),
       goalReps: goal,
       floorKg: warmupBar,
+      supersetWithPrevious: v.item.supersetWithPrevious,
       sets: [
         for (final t in targets)
           SetEntry(
@@ -1315,13 +1486,18 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     entry.logged = logged;
     s.restamp(entry, wasDone: false);
 
+    final rest = s.restAfter(cue.exerciseIndex, cue.setIndex, warmup: cue.warmup);
+    if (rest.seconds == 0) {
+      // Mid-superset: no clock to start, so the logged set is published on its
+      // own. The next movement of the group is already the marked one.
+      _commit(s.copyWith());
+      return;
+    }
     // The sets are edited in place, so starting the rest publishes the logged set
     // with it — one new state, one snapshot.
     startRest(
-      cue.warmup ? e.restAfterWarmup(cue.setIndex) : e.restSeconds,
-      cue.warmup
-          ? s.restAfterWarmup(cue.exerciseIndex, cue.setIndex)
-          : s.restAfterSet(cue.exerciseIndex, cue.setIndex),
+      rest.seconds,
+      rest.prompt,
       forSet: (
         exercise: cue.exerciseIndex,
         set: cue.setIndex,

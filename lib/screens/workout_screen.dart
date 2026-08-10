@@ -192,13 +192,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       if (session.restFor == at) _dropRest();
       return;
     }
-    _startRest(
-      warmup ? e.restAfterWarmup(index) : e.restSeconds,
-      warmup
-          ? session.restAfterWarmup(ei, index)
-          : session.restAfterSet(ei, index),
-      at,
-    );
+    // Nothing at all inside a superset: the next movement of the group is what
+    // you do now, and it is already the marked row. See [ActiveWorkout.restAfter].
+    final rest = session.restAfter(ei, index, warmup: warmup);
+    if (rest.seconds == 0) return;
+    _startRest(rest.seconds, rest.prompt, at);
   }
 
   /// The tone that ends a hold. Always the tone rather than the notification:
@@ -264,11 +262,14 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _tone();
     final session = ref.read(activeWorkoutProvider);
     if (session != null) {
-      _startRest(
-        session.exercises[h.exercise].restSeconds,
-        session.restAfterSet(h.exercise, h.set),
-        (exercise: h.exercise, set: h.set, warmup: false),
-      );
+      final rest = session.restAfter(h.exercise, h.set, warmup: false);
+      if (rest.seconds > 0) {
+        _startRest(
+          rest.seconds,
+          rest.prompt,
+          (exercise: h.exercise, set: h.set, warmup: false),
+        );
+      }
     }
   }
 
@@ -558,133 +559,143 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                         children: [
                           if (session.notice case final notice?)
                             _SessionNotice(notice: notice),
-                          for (var ei = 0; ei < session.exercises.length; ei++)
-                            _ExerciseBlock(
-                              index: ei,
-                              exercise: session.exercises[ei],
-                              unit: unit,
-                              plates: plates,
-                              // Whether the ramp is where you are. Open — as
-                              // it starts — the rung carries the mark; shut,
-                              // the group does.
-                              warmupIsNext:
-                                  next != null &&
-                                  next.warmup &&
-                                  next.exerciseIndex == ei,
-                              onWarmupCount: (n) =>
-                                  controller.setWarmupCount(ei, n),
-                              onEditWorkingWeight: () => _editWorkingWeight(ei),
-                              warmupRowBuilder: (wi) {
-                                final entry = session.exercises[ei].warmups[wi];
-                                final marked =
-                                    next != null &&
-                                    next.warmup &&
-                                    next.exerciseIndex == ei &&
-                                    next.setIndex == wi;
-                                return _openOnRow(
-                                  marked: marked,
-                                  _SetRow(
-                                    key: ValueKey(
-                                      'w$ei-$wi-${session.exercises[ei].name}',
-                                    ),
-                                    number: wi + 1,
-                                    entry: entry,
+                          // By group, not by exercise: a superset is drawn as
+                          // one bracket round the movements it holds. A group of
+                          // one is an ordinary exercise and gets no bracket.
+                          for (final group in session.supersetGroupList)
+                            _SupersetBracket(
+                              first: group.first,
+                              on: group.length > 1,
+                              children: [
+                                for (final ei in group)
+                                  _ExerciseBlock(
+                                    index: ei,
+                                    exercise: session.exercises[ei],
                                     unit: unit,
-                                    isNext: marked,
-                                    // The ramp changes load every rung, so the
-                                    // bar it describes is named on the row —
-                                    // the working sets share one load and get
-                                    // one PlateLine for all of them instead.
-                                    perSide: perSideLabel(
-                                      l10n: l10n,
-                                      weightKg: entry.weight,
-                                      type: session
-                                          .exercises[ei]
-                                          .weightType,
-                                      settings: plates,
-                                      unit: unit,
-                                      barKg: session.exercises[ei].barKg,
-                                    ),
-                                    onEditWeight: () =>
-                                        _editWarmupWeight(ei, wi),
-                                    onTap: () {
-                                      final wasDone = entry.done;
-                                      controller.cycleWarmup(ei, wi);
-                                      HapticFeedback.selectionClick();
-                                      _restForSet(
-                                        ei,
-                                        wi,
-                                        warmup: true,
-                                        wasDone: wasDone,
+                                    plates: plates,
+                                    // Whether the ramp is where you are. Open — as
+                                    // it starts — the rung carries the mark; shut,
+                                    // the group does.
+                                    warmupIsNext:
+                                        next != null &&
+                                        next.warmup &&
+                                        next.exerciseIndex == ei,
+                                    onWarmupCount: (n) =>
+                                        controller.setWarmupCount(ei, n),
+                                    onEditWorkingWeight: () => _editWorkingWeight(ei),
+                                    warmupRowBuilder: (wi) {
+                                      final entry = session.exercises[ei].warmups[wi];
+                                      final marked =
+                                          next != null &&
+                                          next.warmup &&
+                                          next.exerciseIndex == ei &&
+                                          next.setIndex == wi;
+                                      return _openOnRow(
+                                        marked: marked,
+                                        _SetRow(
+                                          key: ValueKey(
+                                            'w$ei-$wi-${session.exercises[ei].name}',
+                                          ),
+                                          number: wi + 1,
+                                          entry: entry,
+                                          unit: unit,
+                                          isNext: marked,
+                                          // The ramp changes load every rung, so the
+                                          // bar it describes is named on the row —
+                                          // the working sets share one load and get
+                                          // one PlateLine for all of them instead.
+                                          perSide: perSideLabel(
+                                            l10n: l10n,
+                                            weightKg: entry.weight,
+                                            type: session
+                                                .exercises[ei]
+                                                .weightType,
+                                            settings: plates,
+                                            unit: unit,
+                                            barKg: session.exercises[ei].barKg,
+                                          ),
+                                          onEditWeight: () =>
+                                              _editWarmupWeight(ei, wi),
+                                          onTap: () {
+                                            final wasDone = entry.done;
+                                            controller.cycleWarmup(ei, wi);
+                                            HapticFeedback.selectionClick();
+                                            _restForSet(
+                                              ei,
+                                              wi,
+                                              warmup: true,
+                                              wasDone: wasDone,
+                                            );
+                                          },
+                                          onTypeResult: () =>
+                                              _editWarmupResult(ei, wi, entry),
+                                        ),
                                       );
                                     },
-                                    onTypeResult: () =>
-                                        _editWarmupResult(ei, wi, entry),
-                                  ),
-                                );
-                              },
-                              rowBuilder: (si) {
-                                final entry = session.exercises[ei].sets[si];
-                                final marked =
-                                    next != null &&
-                                    !next.warmup &&
-                                    next.exerciseIndex == ei &&
-                                    next.setIndex == si;
-                                return _openOnRow(
-                                  marked: marked,
-                                  _SetRow(
-                                    key: ValueKey(
-                                      '$ei-$si-${session.exercises[ei].name}',
-                                    ),
-                                    number: si + 1,
-                                    entry: entry,
-                                    unit: unit,
-                                    isNext: marked,
-                                    onEditWeight: () => _editSetWeight(ei, si),
-                                    showWeight: _showsWeight(
-                                      session.exercises[ei],
-                                    ),
-                                    // A held set is timed, not counted — see
-                                    // _tapTimed. It owns its own rest, because the
-                                    // rest only starts when the hold stops.
-                                    holdingSeconds:
-                                        _holding?.exercise == ei &&
-                                            _holding?.set == si
-                                        ? _held
-                                        : null,
-                                    onTap: () {
-                                      if (entry.timed) {
-                                        _tapTimed(ei, si, entry);
-                                        return;
-                                      }
-                                      final wasDone = entry.done;
-                                      controller.cycleSet(ei, si);
-                                      HapticFeedback.selectionClick();
-                                      // The rest starts when the set is first
-                                      // logged and ends when it is taken back;
-                                      // correcting the count in between leaves
-                                      // the clock you are resting on alone.
-                                      _restForSet(
-                                        ei,
-                                        si,
-                                        warmup: false,
-                                        wasDone: wasDone,
+                                    rowBuilder: (si) {
+                                      final entry = session.exercises[ei].sets[si];
+                                      final marked =
+                                          next != null &&
+                                          !next.warmup &&
+                                          next.exerciseIndex == ei &&
+                                          next.setIndex == si;
+                                      return _openOnRow(
+                                        marked: marked,
+                                        _SetRow(
+                                          key: ValueKey(
+                                            '$ei-$si-${session.exercises[ei].name}',
+                                          ),
+                                          number: si + 1,
+                                          entry: entry,
+                                          unit: unit,
+                                          isNext: marked,
+                                          onEditWeight: () => _editSetWeight(ei, si),
+                                          showWeight: _showsWeight(
+                                            session.exercises[ei],
+                                          ),
+                                          // A held set is timed, not counted — see
+                                          // _tapTimed. It owns its own rest, because the
+                                          // rest only starts when the hold stops.
+                                          holdingSeconds:
+                                              _holding?.exercise == ei &&
+                                                  _holding?.set == si
+                                              ? _held
+                                              : null,
+                                          onTap: () {
+                                            if (entry.timed) {
+                                              _tapTimed(ei, si, entry);
+                                              return;
+                                            }
+                                            final wasDone = entry.done;
+                                            controller.cycleSet(ei, si);
+                                            HapticFeedback.selectionClick();
+                                            // The rest starts when the set is first
+                                            // logged and ends when it is taken back;
+                                            // correcting the count in between leaves
+                                            // the clock you are resting on alone.
+                                            _restForSet(
+                                              ei,
+                                              si,
+                                              warmup: false,
+                                              wasDone: wasDone,
+                                            );
+                                          },
+                                          onTypeResult: () =>
+                                              _editResult(ei, si, entry),
+                                          // Null takes the whole trailing column away
+                                          // — a build that cannot film has no camera
+                                          // to grey out.
+                                          onVideo:
+                                              ref
+                                                  .watch(capabilitiesProvider)
+                                                  .setVideos
+                                              ? () => _video(ei, si, entry)
+                                              : null,
+                                        ),
                                       );
                                     },
-                                    onTypeResult: () =>
-                                        _editResult(ei, si, entry),
-                                    // Null takes the whole trailing column away
-                                    // — a build that cannot film has no camera
-                                    // to grey out.
-                                    onVideo:
-                                        ref
-                                            .watch(capabilitiesProvider)
-                                            .setVideos
-                                        ? () => _video(ei, si, entry)
-                                        : null,
                                   ),
-                                );
-                              },
+                              ],
                             ),
                         ],
                       ),
@@ -937,6 +948,66 @@ class _LoggingHint extends StatelessWidget {
           height: 1.45,
           color: AppColors.faint,
         ),
+      ),
+    );
+  }
+}
+
+/// The bracket round a superset: its movements, gathered under one label.
+///
+/// **Off for a group of one**, which is nearly every exercise — it then draws its
+/// children and nothing else, so an ordinary board is exactly the board it was.
+///
+/// What the bracket has to say is small: each movement keeps its own heading, its
+/// own weight, its own ramp and its own rows, and none of them changes inside a
+/// group. The one thing that changes is which row is marked next, and that is
+/// already marked. So the bracket is a label and a line down the left — enough to
+/// say "these are done together" and not enough to compete with the rows.
+class _SupersetBracket extends StatelessWidget {
+  const _SupersetBracket({
+    required this.first,
+    required this.on,
+    required this.children,
+  });
+
+  /// The board index of the group's first exercise, which keys the bracket.
+  final int first;
+  final bool on;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!on) return Column(children: children);
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      key: ValueKey('superset-group-$first'),
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.commonSuperset,
+            style: kMono.copyWith(
+              fontSize: 10,
+              letterSpacing: 1.0,
+              fontWeight: FontWeight.w700,
+              color: AppColors.accent,
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(left: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ),
+        ],
       ),
     );
   }

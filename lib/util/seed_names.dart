@@ -13,6 +13,11 @@
 /// at whatever the phone was set to on install day. A row you added yourself
 /// has no key and keeps the name you gave it — and renaming a seeded routine or
 /// training day clears the key, which is how "Chest & Tris" stays yours.
+///
+/// A shipped program has two such strings on one key: its name and the
+/// description under it. The name follows the rule above; the description cannot,
+/// because rewriting it must not cost the routine the key its name hangs on — see
+/// [seededDescription].
 library;
 
 import '../data/database.dart';
@@ -41,6 +46,27 @@ String seededName(AppLocalizations l10n, String? seedKey, String name) {
   return _seeded(l10n, seedKey) ?? name;
 }
 
+/// A routine's description as a screen shows it, or null when there is nothing
+/// to show.
+///
+/// [description] is the column: canonical English on a copy of a shipped
+/// program, and whatever was typed on anybody else's routine. Which of the two it
+/// is cannot be read off [seedKey], because rewriting the description of a
+/// shipped program does not — and should not — cost the routine the key its
+/// *name* hangs on. So the text is compared against the program's own: the
+/// shipped paragraph is translated, and one word of editing makes it yours, in
+/// every language.
+String? seededDescription(
+  AppLocalizations l10n,
+  String? seedKey,
+  String? description,
+) {
+  if (description == null || description.trim().isEmpty) return null;
+  if (seedKey == null) return description;
+  if (starterDescriptionForSeedKey(seedKey) != description) return description;
+  return _seededDescription(l10n, seedKey) ?? description;
+}
+
 /// A muscle group as stored (English, and an index in a routine code), in the
 /// app's language. An unrecognised value is the user's own word and is shown
 /// as it is — see the note on `kMuscleGroups`.
@@ -53,6 +79,7 @@ String muscleGroupLabel(AppLocalizations l10n, String stored) =>
       'Arms' => l10n.muscleArms,
       'Core' => l10n.muscleCore,
       'Other' => l10n.muscleOther,
+      'Cardio' => l10n.muscleCardio,
       _ => stored,
     };
 
@@ -186,11 +213,51 @@ String? _seeded(AppLocalizations l10n, String key) => switch (key) {
       'power_clean' => l10n.exercisePowerClean,
       'kettlebell_swing' => l10n.exerciseKettlebellSwing,
       'turkish_get_up' => l10n.exerciseTurkishGetUp,
+      'air_squat' => l10n.exerciseAirSquat,
+      'bodyweight_lunge' => l10n.exerciseBodyweightLunge,
+      'pike_push_up' => l10n.exercisePikePushUp,
+      'diamond_push_up' => l10n.exerciseDiamondPushUp,
+      'wide_push_up' => l10n.exerciseWidePushUp,
+      'decline_push_up' => l10n.exerciseDeclinePushUp,
+      'nordic_curl' => l10n.exerciseNordicCurl,
+      'single_leg_glute_bridge' => l10n.exerciseSingleLegGluteBridge,
+      'wall_sit' => l10n.exerciseWallSit,
+      'superman_hold' => l10n.exerciseSupermanHold,
+      'bird_dog' => l10n.exerciseBirdDog,
+      'sit_up' => l10n.exerciseSitUp,
+      'burpee' => l10n.exerciseBurpee,
+      'mountain_climber' => l10n.exerciseMountainClimber,
+      'high_knees' => l10n.exerciseHighKnees,
+      'jumping_jack' => l10n.exerciseJumpingJack,
+      'jump_squat' => l10n.exerciseJumpSquat,
+      'box_jump' => l10n.exerciseBoxJump,
+      'skater_jump' => l10n.exerciseSkaterJump,
+      'bear_crawl' => l10n.exerciseBearCrawl,
+      'sprint' => l10n.exerciseSprint,
+      'jump_rope' => l10n.exerciseJumpRope,
+      'battle_rope' => l10n.exerciseBattleRope,
+      'shadow_boxing' => l10n.exerciseShadowBoxing,
+      'dumbbell_thruster' => l10n.exerciseDumbbellThruster,
+      'dumbbell_clean_and_press' => l10n.exerciseDumbbellCleanAndPress,
+      'dumbbell_snatch' => l10n.exerciseDumbbellSnatch,
+      'dumbbell_romanian_deadlift' => l10n.exerciseDumbbellRomanianDeadlift,
+      'dumbbell_deadlift' => l10n.exerciseDumbbellDeadlift,
+      'dumbbell_front_squat' => l10n.exerciseDumbbellFrontSquat,
+      'dumbbell_lunge' => l10n.exerciseDumbbellLunge,
+      'dumbbell_lateral_lunge' => l10n.exerciseDumbbellLateralLunge,
+      'dumbbell_floor_press' => l10n.exerciseDumbbellFloorPress,
+      'renegade_row' => l10n.exerciseRenegadeRow,
+      'dumbbell_pullover' => l10n.exerciseDumbbellPullover,
+      'dumbbell_push_press' => l10n.exerciseDumbbellPushPress,
       'push_pull_legs' => l10n.seedRoutinePushPullLegs,
       'upper_lower' => l10n.seedRoutineUpperLower,
       'starting_strength' => l10n.seedRoutineStartingStrength,
       'stronglifts_5x5' => l10n.seedRoutineStrongLifts5x5,
       'full_body_3x' => l10n.seedRoutineFullBody3x,
+      'two_day_full_body' => l10n.seedRoutineTwoDayFullBody,
+      'bodyweight_basics' => l10n.seedRoutineBodyweightBasics,
+      'dumbbell_full_body' => l10n.seedRoutineDumbbellFullBody,
+      'interval_conditioning' => l10n.seedRoutineIntervalConditioning,
       'workout_a' => l10n.seedDayWorkoutA,
       'workout_b' => l10n.seedDayWorkoutB,
       'workout_c' => l10n.seedDayWorkoutC,
@@ -207,5 +274,23 @@ String? _seeded(AppLocalizations l10n, String key) => switch (key) {
       'trap_bar' => l10n.seedBarTrapBar,
       'safety_squat_bar' => l10n.seedBarSafetySquatBar,
       'smith_carriage' => l10n.seedBarSmithCarriage,
+      _ => null,
+    };
+
+/// The description shipped with the program keyed [key], in the app's language.
+///
+/// A separate table from [_seeded] because a program has two shipped strings and
+/// one key: the name and the paragraph under it are translated independently, and
+/// a published title left in English still has a description worth reading.
+String? _seededDescription(AppLocalizations l10n, String key) => switch (key) {
+      'push_pull_legs' => l10n.seedRoutineDescPushPullLegs,
+      'upper_lower' => l10n.seedRoutineDescUpperLower,
+      'starting_strength' => l10n.seedRoutineDescStartingStrength,
+      'stronglifts_5x5' => l10n.seedRoutineDescStrongLifts5x5,
+      'full_body_3x' => l10n.seedRoutineDescFullBody3x,
+      'two_day_full_body' => l10n.seedRoutineDescTwoDayFullBody,
+      'bodyweight_basics' => l10n.seedRoutineDescBodyweightBasics,
+      'dumbbell_full_body' => l10n.seedRoutineDescDumbbellFullBody,
+      'interval_conditioning' => l10n.seedRoutineDescIntervalConditioning,
       _ => null,
     };

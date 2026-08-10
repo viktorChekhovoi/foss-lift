@@ -165,6 +165,16 @@ screens:
     route: /routine/:id/share
     reach: A routine → share.
 
+  - id: routine-library
+    title: The routine library
+    route: /routines/library
+    reach: Routines → Ready-made routines.
+
+  - id: routine-preview
+    title: A ready-made program
+    route: /routines/library/:key
+    reach: The routine library → tap a program.
+
   - id: routine-import
     title: Import a routine
     route: /routine/import

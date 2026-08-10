@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/database.dart';
+import '../data/superset.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -87,14 +88,24 @@ class WorkoutDetailScreen extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Column(
                           children: [
-                            for (var i = 0; i < list.length; i++)
-                              _ExerciseRow(
-                                index: i + 1,
-                                view: list[i],
-                                unit: unit,
-                                plates: plates,
-                                last: i == list.length - 1,
-                              ),
+                            for (final group in supersetGroups(normaliseJoins([
+                              for (final v in list) v.item.supersetWithPrevious,
+                            ])))
+                              // A group of one is an ordinary exercise and says
+                              // nothing about itself; a real group is tagged
+                              // once, above the rows it holds.
+                              for (final i in group) ...[
+                                if (group.length > 1 && i == group.first)
+                                  _SupersetTag(),
+                                _ExerciseRow(
+                                  index: i + 1,
+                                  view: list[i],
+                                  unit: unit,
+                                  plates: plates,
+                                  grouped: group.length > 1,
+                                  last: i == list.length - 1,
+                                ),
+                              ],
                           ],
                         ),
                       ),
@@ -154,6 +165,31 @@ class _Pill extends StatelessWidget {
   }
 }
 
+/// Says that the rows under it are trained back to back. One line, above the
+/// group — the rows themselves keep their own targets, because a group is a way
+/// of performing exercises rather than an exercise of its own.
+class _SupersetTag extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        children: [
+          Text(
+            AppLocalizations.of(context).commonSuperset,
+            style: kMono.copyWith(
+              fontSize: 10,
+              letterSpacing: 1.0,
+              fontWeight: FontWeight.w700,
+              color: AppColors.accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ExerciseRow extends StatelessWidget {
   const _ExerciseRow({
     required this.index,
@@ -161,12 +197,17 @@ class _ExerciseRow extends StatelessWidget {
     required this.unit,
     required this.plates,
     required this.last,
+    this.grouped = false,
   });
   final int index;
   final WorkoutItemView view;
   final String unit;
   final PlateSettings plates;
   final bool last;
+
+  /// Whether this row belongs to a superset, which draws the accent down its
+  /// left edge so the group reads as a block.
+  final bool grouped;
 
   /// "31.25/side" beside the muscle group, so a barbell day can be read as the
   /// bars it will be. The full breakdown waits for the session — this screen is
@@ -190,10 +231,16 @@ class _ExerciseRow extends StatelessWidget {
     final perSide = _perSide(l10n);
     final muscle = muscleGroupLabel(l10n, view.exercise.muscleGroup);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: EdgeInsets.fromLTRB(grouped ? 10 : 0, 14, 0, 14),
       decoration: BoxDecoration(
-        border:
-            last ? null : Border(bottom: BorderSide(color: AppColors.line)),
+        border: Border(
+          bottom: last
+              ? BorderSide.none
+              : BorderSide(color: AppColors.line),
+          left: grouped
+              ? BorderSide(color: AppColors.accent.withValues(alpha: 0.5))
+              : BorderSide.none,
+        ),
       ),
       child: Row(
         children: [

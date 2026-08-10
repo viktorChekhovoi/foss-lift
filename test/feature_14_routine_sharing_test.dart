@@ -64,12 +64,18 @@ String _noise(int seed, int length) {
   ]);
 }
 
-/// The seeded demo routine, looked up by name — ids are an implementation
-/// detail of the seed order.
-Future<Routine> _routineNamed(AppDatabase db, String name) async {
-  final all = await db.watchRoutines().first;
-  return all.map((r) => r.routine).firstWhere((r) => r.name == name);
-}
+/// A genuine FLR1 code, written by the shipped build for the routine
+/// [_seedCustomRoutine] makes. This is the code in last month's chat message: it
+/// is not regenerated, because the point of it is that it was written by a build
+/// that is gone — one that had never heard of a superset, among other things.
+const _shippedFlr1 = 'FLR1.AeN0zUnKL1dwSay0uzrjEiMXozBvVGpRckZqkUJwYWliCQ'
+    'sjd6JTsouhkbFJvG7FHW5GDqh0MSPDdH42ZtYPjF-YH3EyswAAtQBW9Q';
+
+/// A shipped program, looked up by name and added from the routine library if
+/// this database has not got it — the routine list starts empty. Ids are an
+/// implementation detail either way.
+Future<Routine> _routineNamed(AppDatabase db, String name) =>
+    routineNamed(db, name);
 
 Future<Exercise?> _exerciseNamed(AppDatabase db, String name) async {
   final all = await db.watchExercises().first;
@@ -484,6 +490,132 @@ void main() {
     });
   });
 
+  group('a routine\'s description travels with it', () {
+    /// A one-day routine carrying [description], as it comes off the wire.
+    Future<SharedRoutine> roundTrip(String? description) async {
+      final plank = (await _exerciseNamed(db, 'Plank'))!;
+      final rid = await db.createRoutine(
+        name: 'Described',
+        color: 'FF6A3D',
+        restSeconds: 90,
+        description: description,
+      );
+      await db.replaceRoutineWorkouts(rid, [
+        (
+          id: null,
+          name: 'Day',
+          items: [
+            WorkoutItemsCompanion.insert(
+                workoutId: 0, exerciseId: plank.id),
+          ],
+        ),
+      ]);
+      final code = RoutineCode.encode(await db.sharedRoutine(rid));
+      final read = RoutineCode.decode(code);
+      expect(read, isA<RoutineCodeOk>());
+      return (read as RoutineCodeOk).routine;
+    }
+
+    test('the sender\'s paragraph arrives as they wrote it', () async {
+      const text = 'Four days a week: two heavy, two for volume. Bring chalk.';
+      expect((await roundTrip(text)).description, text);
+    });
+
+    test('a routine with nothing to say arrives with nothing', () async {
+      expect((await roundTrip(null)).description, isNull);
+      expect((await roundTrip('   ')).description, isNull,
+          reason: 'whitespace is not a description');
+    });
+
+    test('and costs nothing at all for saying so', () async {
+      final plank = (await _exerciseNamed(db, 'Plank'))!;
+      final rid = await db.createRoutine(
+          name: 'Described', color: 'FF6A3D', restSeconds: 90);
+      await db.replaceRoutineWorkouts(rid, [
+        (
+          id: null,
+          name: 'Day',
+          items: [
+            WorkoutItemsCompanion.insert(workoutId: 0, exerciseId: plank.id),
+          ],
+        ),
+      ]);
+      final plain = await db.sharedRoutine(rid);
+
+      /// The same routine, with [description] on it.
+      String codeWith(String? description) =>
+          RoutineCode.encode(SharedRoutine(
+            name: plain.name,
+            colorHex: plain.colorHex,
+            restSeconds: plain.restSeconds,
+            scheduleDays: plain.scheduleDays,
+            description: description,
+            exercises: plain.exercises,
+            workouts: plain.workouts,
+          ));
+
+      expect(plain.description, isNull);
+      expect(codeWith(null), RoutineCode.encode(plain));
+      expect(codeWith('   '), RoutineCode.encode(plain),
+          reason: 'whitespace buys no field either');
+      expect(
+        codeWith('A paragraph, which is the only thing paid for.').length,
+        greaterThan(RoutineCode.encode(plain).length),
+      );
+    });
+
+    test('a description longer than the format carries is cut, not refused',
+        () async {
+      final long = 'Z' * (RoutineCode.maxDescriptionBytes + 500);
+      final plain = await roundTrip('short');
+      final oversized = SharedRoutine(
+        name: plain.name,
+        colorHex: plain.colorHex,
+        restSeconds: plain.restSeconds,
+        scheduleDays: plain.scheduleDays,
+        description: long,
+        exercises: plain.exercises,
+        workouts: plain.workouts,
+      );
+
+      final back =
+          (RoutineCode.decode(RoutineCode.encode(oversized)) as RoutineCodeOk)
+              .routine;
+      expect(back.description, hasLength(RoutineCode.maxDescriptionBytes),
+          reason: 'cut to the limit rather than failing the whole export');
+      expect(RoutineCode.maxDescriptionBytes, greaterThan(300),
+          reason: 'generous next to the 300 characters the app enforces');
+    });
+
+    test('an import lands the description on the new routine', () async {
+      const text = 'Two sessions a week, whole body in each.';
+      final shared = await roundTrip(text);
+
+      final id = await db.importSharedRoutine(shared);
+
+      expect((await db.routineById(id)).description, text);
+    });
+
+    test('an imported program is nobody\'s copy of a shipped one', () async {
+      final ppl = await _routineNamed(db, 'Push / Pull / Legs');
+      final shared = await db.sharedRoutine(ppl.id);
+      expect(shared.description, isNotNull,
+          reason: 'the library program it came from describes itself');
+
+      final id = await db.importSharedRoutine(shared);
+      final landed = await db.routineById(id);
+
+      expect(landed.description, shared.description);
+      expect(landed.seedKey, isNull);
+      expect(
+        seededDescription(
+            l10nFor(const Locale('uk')), landed.seedKey, landed.description),
+        landed.description,
+        reason: 'an import shows the words it arrived with',
+      );
+    });
+  });
+
   group('what a code refuses to carry', () {
     test('a video link travels as its id, whatever form it arrived in', () {
       // Every shape a person might paste, and the one canonical form back.
@@ -560,13 +692,6 @@ void main() {
   });
 
   group('the whole muscle map travels, and an FLR1 code still opens', () {
-    /// A genuine FLR1 code, written by the shipped build for the routine
-    /// [_seedCustomRoutine] makes. This is the code in last month's chat
-    /// message: it is not regenerated, because the point of it is that it was
-    /// written by a build that is gone.
-    const shippedFlr1 = 'FLR1.AeN0zUnKL1dwSay0uzrjEiMXozBvVGpRckZqkUJwYWliCQ'
-        'sjd6JTsouhkbFJvG7FHW5GDqh0MSPDdH42ZtYPjF-YH3EyswAAtQBW9Q';
-
     /// A routine of one movement carrying [map], as it arrives on the far end.
     Future<SharedExercise> roundTrip(MuscleMap map) async {
       final sender = memoryDb();
@@ -644,7 +769,7 @@ void main() {
     });
 
     test('an FLR1 code arrives with one primary and no secondaries', () {
-      final result = RoutineCode.decode(shippedFlr1);
+      final result = RoutineCode.decode(_shippedFlr1);
 
       expect(result, isA<RoutineCodeOk>(),
           reason: 'a code somebody is still holding has to keep opening');
@@ -678,7 +803,7 @@ void main() {
       final flr2 =
           RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
 
-      for (final (code, version) in [(shippedFlr1, 'FLR1'), (flr2, 'FLR2')]) {
+      for (final (code, version) in [(_shippedFlr1, 'FLR1'), (flr2, 'FLR2')]) {
         final read = ShareCodec.unpack(code,
             versions: {'FLR1', 'FLR2'},
             host: RoutineCode.host,
@@ -696,12 +821,88 @@ void main() {
       final code =
           RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
 
-      expect(code.length, shippedFlr1.length);
+      expect(code.length, _shippedFlr1.length);
       expect(code.substring('FLR2.'.length),
-          shippedFlr1.substring('FLR1.'.length),
+          _shippedFlr1.substring('FLR1.'.length),
           reason: 'byte-identical to what FLR1 wrote, apart from the tag');
     });
 
+  });
+
+  group('a shared routine carries its supersets', () {
+    /// A two-slot day on the *sender's* phone, the second slot [joined] to the
+    /// first or not, gathered into the shape the wire format takes.
+    Future<SharedRoutine> twoSlotRoutine({required bool joined}) async {
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final rid = await sender.createRoutine(
+          name: 'Giant Set', color: 'FF0000', restSeconds: 90);
+      final wid = await sender.createWorkout(rid, 'Day');
+      await sender.replaceWorkoutItems(
+        wid,
+        itemCompanions([
+          ItemDraft.forExercise(await exerciseNamed(sender, 'Bench Press')),
+          ItemDraft.forExercise(await exerciseNamed(sender, 'Overhead Press'))
+            ..supersetWithPrevious = joined,
+        ], workoutId: wid),
+      );
+      return sender.sharedRoutine(rid);
+    }
+
+    test('the joins survive the trip, and the tag stays FLR2', () async {
+      final code = RoutineCode.encode(await twoSlotRoutine(joined: true));
+      expect(code, startsWith('FLR2.'),
+          reason: 'the joins ride after the days, not inside a slot');
+
+      final result = RoutineCode.decode(code);
+      expect(result, isA<RoutineCodeOk>());
+      final back = (result as RoutineCodeOk).routine;
+
+      expect(back.workouts.single.items.map((i) => i.supersetWithPrevious),
+          [false, true]);
+      // And it lands on the recipient as the same pair.
+      await db.importSharedRoutine(back);
+      final landed = await _routineNamed(db, 'Giant Set');
+      final day = (await db.workoutsForRoutine(landed.id)).single;
+      expect(
+        (await db.itemsForWorkout(day.id))
+            .map((v) => v.item.supersetWithPrevious),
+        [false, true],
+      );
+    });
+
+    test('a routine with none in it is no longer than it was before', () async {
+      // The section is written only when something is joined, so a joinless
+      // routine is the same bytes the shipped build wrote — see [_shippedFlr1],
+      // which is a code for exactly this routine from a build that had never
+      // heard of a superset.
+      final code =
+          RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+      expect(code.length, _shippedFlr1.length);
+      expect(code.substring('FLR2.'.length),
+          _shippedFlr1.substring('FLR1.'.length));
+
+      // The same two-slot day pays nothing for the feature either, and reads
+      // back with every slot standing on its own.
+      final plain = RoutineCode.encode(await twoSlotRoutine(joined: false));
+      final back = (RoutineCode.decode(plain) as RoutineCodeOk).routine;
+      expect(back.workouts.single.items.map((i) => i.supersetWithPrevious),
+          [false, false]);
+    });
+
+    test('a code written before the section decodes with nothing joined',
+        () async {
+      final result = RoutineCode.decode(_shippedFlr1);
+
+      expect(result, isA<RoutineCodeOk>());
+      final back = (result as RoutineCodeOk).routine;
+      expect(
+        back.workouts.expand((w) => w.items).map((i) => i.supersetWithPrevious),
+        everyElement(isFalse),
+        reason: 'what a code does not carry is taken as absent',
+      );
+    });
   });
 
   group('a code that will not read', () {
@@ -1050,8 +1251,8 @@ void main() {
           reason: 'the starter library is on both phones already');
       final routines = await db.watchRoutines().first;
       expect(routines.where((r) => r.routine.name == 'Push / Pull / Legs'),
-          hasLength(3),
-          reason: 'two imports plus the one that was already here');
+          hasLength(2),
+          reason: 'two imports, each a routine of its own');
     });
 
     test('brings a custom exercise the recipient has never seen', () async {
@@ -1076,13 +1277,30 @@ void main() {
     });
 
     test('does not take over Today', () async {
+      // There has to be something to take over: the list starts empty, and the
+      // first routine to arrive by any route becomes the current one because
+      // nothing else is. What this is about is the second one.
+      await routineNamed(db);
       final shared = await theirs(_seedCustomRoutine);
       final before = await db.watchActiveRoutineId().first;
+      expect(before, isNotNull);
 
       await db.importSharedRoutine(shared);
 
       expect(await db.watchActiveRoutineId().first, before,
           reason: 'importing a routine is not choosing it');
+    });
+
+    test('and becomes Today on an install with no routine at all', () async {
+      // The other half of the same rule: an import landing in an empty list has
+      // nothing to take over, and a list holding exactly one routine beside a
+      // Today that says it has nothing to offer is two answers to one question.
+      final shared = await theirs(_seedCustomRoutine);
+      expect(await db.watchActiveRoutineId().first, isNull);
+
+      final id = await db.importSharedRoutine(shared);
+
+      expect(await db.watchActiveRoutineId().first, id);
     });
   });
 

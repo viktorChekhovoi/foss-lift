@@ -97,6 +97,42 @@ const Map<String, String> kSeedExerciseKeys = {
   'Power Clean': 'power_clean',
   'Kettlebell Swing': 'kettlebell_swing',
   'Turkish Get-Up': 'turkish_get_up',
+  'Air Squat': 'air_squat',
+  'Bodyweight Lunge': 'bodyweight_lunge',
+  'Pike Push-Up': 'pike_push_up',
+  'Diamond Push-Up': 'diamond_push_up',
+  'Wide Push-Up': 'wide_push_up',
+  'Decline Push-Up': 'decline_push_up',
+  'Nordic Curl': 'nordic_curl',
+  'Single-Leg Glute Bridge': 'single_leg_glute_bridge',
+  'Wall Sit': 'wall_sit',
+  'Superman Hold': 'superman_hold',
+  'Bird Dog': 'bird_dog',
+  'Sit-Up': 'sit_up',
+  'Burpee': 'burpee',
+  'Mountain Climber': 'mountain_climber',
+  'High Knees': 'high_knees',
+  'Jumping Jack': 'jumping_jack',
+  'Jump Squat': 'jump_squat',
+  'Box Jump': 'box_jump',
+  'Skater Jump': 'skater_jump',
+  'Bear Crawl': 'bear_crawl',
+  'Sprint': 'sprint',
+  'Jump Rope': 'jump_rope',
+  'Battle Rope': 'battle_rope',
+  'Shadow Boxing': 'shadow_boxing',
+  'Dumbbell Thruster': 'dumbbell_thruster',
+  'Dumbbell Clean and Press': 'dumbbell_clean_and_press',
+  'Dumbbell Snatch': 'dumbbell_snatch',
+  'Dumbbell Romanian Deadlift': 'dumbbell_romanian_deadlift',
+  'Dumbbell Deadlift': 'dumbbell_deadlift',
+  'Dumbbell Front Squat': 'dumbbell_front_squat',
+  'Dumbbell Lunge': 'dumbbell_lunge',
+  'Dumbbell Lateral Lunge': 'dumbbell_lateral_lunge',
+  'Dumbbell Floor Press': 'dumbbell_floor_press',
+  'Renegade Row': 'renegade_row',
+  'Dumbbell Pullover': 'dumbbell_pullover',
+  'Dumbbell Push Press': 'dumbbell_push_press',
 };
 
 /// The same, over the bars a gym is assumed to rack. Their weights differ
@@ -111,7 +147,7 @@ const Map<String, String> kSeedBarKeys = {
   'Smith carriage': 'smith_carriage',
 };
 
-/// The same, for the five starter programs.
+/// The same, for the programs in the routine library.
 ///
 /// "Starting Strength" and "StrongLifts 5x5" are the names of published
 /// programs. They carry a key like the rest so a rename still clears it, but
@@ -123,6 +159,10 @@ const Map<String, String> kSeedRoutineKeys = {
   'Starting Strength': 'starting_strength',
   'StrongLifts 5x5': 'stronglifts_5x5',
   'Full Body 3x': 'full_body_3x',
+  'Two-Day Full Body': 'two_day_full_body',
+  'Bodyweight Basics': 'bodyweight_basics',
+  'Dumbbell Full Body': 'dumbbell_full_body',
+  'Interval Conditioning': 'interval_conditioning',
 };
 
 /// The same, for their training days. The three barbell programs all name

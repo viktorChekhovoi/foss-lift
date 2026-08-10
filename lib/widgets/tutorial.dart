@@ -28,11 +28,17 @@ import 'tutorial_demo.dart';
 /// this rect into equal slots — see [TutorialStep.navSlot].
 final tutorialNavBarKey = GlobalKey();
 
-/// The current routine's name and the link that switches routine, on Today.
-final tutorialTodayRoutineKey = GlobalKey();
+/// The card on Today that gets you a routine — the one a fresh install shows in
+/// place of a routine, offering a ready-made program or a new one.
+///
+/// **This is the Today anchor a first run actually has.** The routine list is
+/// empty until somebody puts something in it, so there is no routine name and no
+/// workout card to point at; there is this card.
+final tutorialTodayEmptyKey = GlobalKey();
 
-/// The current routine's next training day on the Today screen.
-final tutorialTodayWorkoutKey = GlobalKey();
+/// The current routine's name and the link that switches routine, on Today.
+/// The same step's second choice, for a replay on a phone that has a routine.
+final tutorialTodayRoutineKey = GlobalKey();
 
 /// The lifetime-totals card on the Today screen.
 final tutorialLifetimeKey = GlobalKey();
@@ -134,9 +140,10 @@ class TutorialStep {
 ///
 /// Two are offered on first launch, because "show me everything" and "just show
 /// me where things are" are different requests and guessing which one somebody
-/// wants is how a tour gets skipped. Both end in the builder, at different
-/// lengths: a first run is an app with nothing in it, and a tour that stops
-/// before making a routine stops one step short of anything you can do.
+/// wants is how a tour gets skipped. Both end by getting a routine — the library
+/// first, then the builder — at different lengths: a first run is an app with
+/// nothing in it, and a tour that stops before the routine list has something in
+/// it stops one step short of anything you can do.
 ///
 /// The third is that chapter on its own, started from Profile — for coming back
 /// on day ten wanting the builder and not the tour around it.
@@ -174,23 +181,25 @@ final List<TutorialStep> _kTabSteps = [
       (l) => l.tutorialProfileBody),
 ];
 
-/// What is on Today, up to the training day that starts a session.
+/// What is on Today before a session: where a routine comes from.
+///
+/// One step, because a fresh install has one thing on Today to talk about. The
+/// two that used to be here pointed at the routine you were following and the
+/// workout you were due next, and the programs the app ships are no longer
+/// written into a new install — so both of them spotlighted a card that was not
+/// there and described it anyway.
 ///
 /// **An anchored step may point below the fold** — the overlay scrolls the
 /// anchor into view before spotlighting it, so the lifetime card gets pointed at
-/// on a routine with more training days than fit on a screen.
+/// on a routine with more workouts than fit on a screen.
 final List<TutorialStep> _kTodaySteps = [
   TutorialStep(
-    id: 'today-routine',
-    anchors: [tutorialTodayRoutineKey],
+    id: 'today-get-a-routine',
+    // The empty card first, the routine name second: a first run has the
+    // former, a replay on day ten the latter, and they are never both up.
+    anchors: [tutorialTodayEmptyKey, tutorialTodayRoutineKey],
     title: (l) => l.tutorialTodayRoutineTitle,
     body: (l) => l.tutorialTodayRoutineBody,
-  ),
-  TutorialStep(
-    id: 'today-next',
-    anchors: [tutorialTodayWorkoutKey],
-    title: (l) => l.tutorialTodayTitle,
-    body: (l) => l.tutorialTodayBody,
   ),
 ];
 
@@ -211,10 +220,11 @@ final TutorialStep _kLifetimeStep = TutorialStep(
 /// leaves you somewhere you did not ask to be, so these steps carry a mock of
 /// the thing they describe instead of an anchor.
 ///
-/// **It runs straight off the training-day step**, because that is the order
-/// somebody moves in: a card you tap, a screen it opens, the thing you do there.
-/// Nothing behind the scrim has actually moved when it starts, so the first step
-/// is the one that says why the picture changed.
+/// **It runs straight off the Today step**, because that is the order somebody
+/// moves in: a routine, a workout in it, the thing you do there. Nothing behind
+/// the scrim has actually moved when it starts — and on a first run there is not
+/// even a workout card to have tapped — so the first step is the one that says
+/// why the picture changed.
 final List<TutorialStep> _kSessionSteps = [
   TutorialStep(
     id: 'session-open',
@@ -268,7 +278,12 @@ final List<TutorialStep> _kSessionSteps = [
   ),
 ];
 
-/// Building a routine, in full.
+/// Getting a routine, in full: the library first, then building one.
+///
+/// **The library leads** because it is the shortest path from a fresh install to
+/// training today — one tap, a program to read, and it is in the list. What
+/// follows builds one from nothing, which is the longer answer to the same
+/// question.
 ///
 /// **Shared, not copied.** All three tracks end here — the two first-run tours
 /// and the standalone one — and they use these very step objects rather than
@@ -276,6 +291,7 @@ final List<TutorialStep> _kSessionSteps = [
 /// one thing on the full tour and another on the quick one.
 final List<TutorialStep> _kBuilderSteps = [
   _kBuildOpenStep,
+  _kBuildLibraryStep,
   _kBuildNewStep,
   _drawn('build-name', TutorialDemoFocus.name, (l) => l.tutorialBuildNameTitle,
       (l) => l.tutorialBuildNameBody),
@@ -289,6 +305,14 @@ final List<TutorialStep> _kBuilderSteps = [
   // that opens it and says what is inside.
   _drawn('build-slot', TutorialDemoFocus.slot, (l) => l.tutorialBuildSlotTitle,
       (l) => l.tutorialBuildSlotBody),
+  // The same sheet again, with the checkbox at the foot of its Target card
+  // ringed. A step of its own rather than a sixth clause on the one above,
+  // because a superset is a way of training rather than a number, and it is the
+  // one control on the sheet somebody can tick without knowing what they have
+  // asked for.
+  _drawn('build-superset', TutorialDemoFocus.superset,
+      (l) => l.tutorialBuildSupersetTitle,
+      (l) => l.tutorialBuildSupersetBody),
   // Saving the day is what puts the routine screen back in front of you, so it
   // is a step of its own rather than a jump the last picture makes silently.
   _drawn('build-save-day', TutorialDemoFocus.saveDay,
@@ -297,26 +321,38 @@ final List<TutorialStep> _kBuilderSteps = [
 ];
 
 /// The same chapter for somebody who has used a tracker before: where the
-/// controls are, and nothing about what a routine or a training day *is*.
+/// controls are, and nothing about what a routine or a workout *is*.
 ///
-/// Four steps against the full seven. Naming the routine, adding a day and
+/// Five steps against the full ten. Naming the routine, adding a workout and
 /// filling it with exercises collapse into one callout, and the per-slot
-/// settings go entirely — they are the part the full tour is long for.
+/// settings and the superset checkbox go entirely — they are the part the full
+/// tour is long for. The library is not one of the cuts: "take the program
+/// somebody already wrote" is what an experienced gym-goer is most likely to
+/// want.
 final List<TutorialStep> _kQuickBuilderSteps = [
   _kBuildOpenStep,
+  _kBuildLibraryStep,
   _kBuildNewStep,
   _drawn('build-quick', TutorialDemoFocus.days,
       (l) => l.tutorialBuildQuickTitle, (l) => l.tutorialBuildQuickBody),
   _kBuildSaveStep,
 ];
 
-/// The three steps both versions of the chapter share verbatim: where routines
-/// live, where one starts, and how it ends.
+/// The four steps both versions of the chapter share verbatim: where routines
+/// live, the ready-made ones, where a new one starts, and how it ends.
 final TutorialStep _kBuildOpenStep = _drawn(
     'build-open',
     TutorialDemoFocus.routinesTab,
     (l) => l.tutorialBuildOpenTitle,
     (l) => l.tutorialBuildOpenBody);
+
+/// The library, on the same picture of the Routines tab. Before New routine
+/// because it is the answer that has somebody training the same day.
+final TutorialStep _kBuildLibraryStep = _drawn(
+    'build-library',
+    TutorialDemoFocus.library,
+    (l) => l.tutorialBuildLibraryTitle,
+    (l) => l.tutorialBuildLibraryBody);
 
 final TutorialStep _kBuildNewStep = _drawn(
     'build-new',
@@ -330,11 +366,12 @@ final TutorialStep _kBuildSaveStep = _drawn('build-save',
 
 /// The three tours, each an ordered list of steps.
 ///
-/// **Every one of them ends in the builder.** An empty app is the state every
-/// first run is in, so neither first-run tour finishes without showing the way
-/// out of it; the difference between them is how much of the builder they spend
-/// steps on. The third is the same chapter offered by itself, for coming back on
-/// day ten wanting the builder and not the tour around it.
+/// **Every one of them ends by getting a routine.** An empty routine list is the
+/// state every first run is in, so neither first-run tour finishes without
+/// showing both ways out of it — a program the app ships, or one built here; the
+/// difference between them is how many steps the building takes. The third is the
+/// same chapter offered by itself, for coming back on day ten wanting the builder
+/// and not the tour around it.
 ///
 /// Not `const`: the anchors are runtime [GlobalKey] instances.
 final Map<TutorialTrack, List<TutorialStep>> kTutorialTracks = {

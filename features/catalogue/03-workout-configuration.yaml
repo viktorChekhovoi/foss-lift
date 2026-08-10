@@ -8,6 +8,7 @@ code:
 - lib/widgets/builder_widgets.dart
 - lib/widgets/workout_items_editor.dart
 - lib/data/set_scheme.dart
+- lib/data/superset.dart
 test:
 - test/feature_03_workout_configuration_test.dart
 where: >-
@@ -100,6 +101,41 @@ groups:
     - session.set-logging
     - session.live-state
     - session.exercise-weight
+  - id: slot-joins-the-one-above-as-a-superset
+    t: A slot can be joined to the one above it as a superset
+    d: >-
+      one checkbox in the Target card, naming the exercise directly above it —
+      "Superset with Bench Press" — and the two are trained as one group: a set of
+      each, back to back, and the rest at the end of the round. Joining a third
+      slot to the second makes it a group of three. Only consecutive slots can be
+      joined, which is why the control says "the one above" rather than offering a
+      list: a group is always the run of rows it looks like. The first slot of a
+      workout has nothing above it and so has no checkbox.
+    defines:
+    - template.superset
+    uses:
+    - template.item
+    - template.rest
+  - id: superset-checkbox-says-what-a-superset-is
+    t: The checkbox says what a superset is, if you ask it
+    d: >-
+      an icon beside it opens two sentences — what a superset is, and why anybody
+      does one — and nothing sits under the control for everybody who already
+      knows. It is the one training term the app defines outside the tour, because
+      it is the one a slot can be switched to without knowing what has been asked
+      for.
+    uses:
+    - template.superset
+    - ui.gym-vocabulary
+  - id: superset-reads-as-a-group-in-the-list
+    t: A superset reads as a group in the exercise list
+    d: >-
+      its rows carry an accent edge down their left and the top one is tagged
+      SUPERSET, so which exercises are joined is something you see on the list
+      rather than something you open each slot to find out. Each row keeps its own
+      target line — a group is a way of performing slots, not a slot of its own.
+    uses:
+    - template.superset
   - id: progression-rates
     t: A slot carries its own progression rates
     d: >-
@@ -179,6 +215,13 @@ groups:
     d: and add more from the exercise picker.
     uses:
     - template.item
+  - id: make-a-superset
+    t: Make a superset
+    d: >-
+      open a workout → edit → tap the second of the two exercises → tick "Superset
+      with …". The two rows join in the list behind the sheet.
+    uses:
+    - template.superset
 - name: Behaviour & edge cases
   items:
   - id: which-targets-offered-depends-exercise
@@ -203,6 +246,23 @@ groups:
     uses:
     - template.rep-target
     - progression.rates
+  - id: a-joined-slot-dragged-to-the-top-is-unjoined
+    t: A joined slot dragged to the top of the list is unjoined
+    d: >-
+      the first exercise of a workout has nothing above it to be supersetted with,
+      so a row that lands there loses the join rather than keeping a link to
+      nothing. Dragging it back down does not restore it: the join belongs to a
+      pair, and which pair is exactly what the drag changed.
+    uses:
+    - template.superset
+  - id: removing-the-top-of-a-superset-leaves-the-rest-a-group
+    t: Removing the top row of a superset leaves the rest of it a group
+    d: >-
+      delete the first of three joined exercises and the second becomes the top of
+      a group of two — the joins that are left still describe consecutive rows.
+      Delete all but one and that one is an ordinary slot again.
+    uses:
+    - template.superset
   - id: set-measured-reps-or-seconds
     t: A set is measured in reps or seconds, never both
     d: >-

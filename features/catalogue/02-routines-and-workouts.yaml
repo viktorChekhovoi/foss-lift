@@ -12,6 +12,7 @@ code:
 - lib/screens/workout_edit_screen.dart
 - lib/widgets/workout_items_editor.dart
 - lib/widgets/routine_card.dart
+- lib/data/superset.dart
 - lib/data/workout_estimate.dart
 - lib/widgets/workout_estimate.dart
 test:
@@ -35,6 +36,17 @@ groups:
     - template.routine
     uses:
     - template.rest
+  - id: routine-can-describe-itself
+    t: A routine can say what it is
+    d: >-
+      an optional paragraph on the routine — who the program is for, how often it is trained, what it is trying to do. It is shown on the routine's own page, it travels in a routine code, and it is what every program in the library arrives already carrying. A routine nobody has described shows nothing at all, rather than an empty line where a paragraph would go.
+    screen: routine-detail
+    defines:
+    - template.description
+    uses:
+    - template.routine
+    - template.starter-library
+    - share.routine-code
   - id: workout-one-training-day-inside
     t: A workout is one session's worth of exercises inside a routine
     d: >-
@@ -57,31 +69,13 @@ groups:
     defines:
     - template.active-routine
   - id: two-demo-routines-seeded-first
-    t: Five starter programs are seeded on first launch
+    t: A routine comes from the library, from you, or from somebody else
     d: >-
-      Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three
-      beginner strength programs: Starting Strength, StrongLifts 5x5 and
-      Full Body 3x. Push / Pull / Legs is the one Today starts out about.
+      nothing is written into the list on your behalf — the programs the app ships
+      live in the routine library until you add one. See section 21.
     uses:
     - template.routine
-    - exercise.seed
-  - id: seeded-programmes-carry-their-prescription
-    t: A seeded program is set up the way the program is actually run
-    d: >-
-      Not one shape copied five times. Starting Strength opens on 3&nbsp;&times;&nbsp;5
-      with the deadlift a single set and the power clean 5&nbsp;&times;&nbsp;3;
-      StrongLifts is 5&nbsp;&times;&nbsp;5 with the deadlift 1&nbsp;&times;&nbsp;5.
-      The linear-progression programs step the squat and the deadlift 5&nbsp;kg a
-      session and the presses 2.5&nbsp;kg, and back off 10% only after
-      <b>three</b> failed sessions rather than the usual two. Rest defaults follow
-      the program too — five minutes on Starting Strength, three on StrongLifts.
-    uses:
-    - template.routine
-    - template.rest
-    - progression.rates
-    - exercise.seed
-    - template.item
-    - template.rep-target
+    - template.starter-library
   - id: workout-carries-estimated-duration
     t: A workout says how long it will take
     d: >-
@@ -99,6 +93,15 @@ groups:
     - template.rep-target
     - session.warmup-ramp
     - session.warmup-count
+  - id: day-shows-which-exercises-are-supersetted
+    t: A workout shows which of its exercises are supersetted
+    d: >-
+      the joined rows are bracketed together and the top one tagged, so what is
+      trained back to back is answered before Start rather than discovered on the
+      board.
+    screen: workout-detail
+    uses:
+    - template.superset
 - name: How to use it
   items:
   - id: see-current-routine-s-days
@@ -135,14 +138,15 @@ groups:
   - id: build-edit-routine
     t: Build / edit a routine
     d: >-
-      Routines → open a routine → edit → name, colour, default rest, schedule,
-      and the list of workouts: add, delete, and drag by the handle on the
-      left of each row into the order you train them.
+      Routines → open a routine → edit → name, description, colour, default rest,
+      schedule, and the list of workouts: add, delete, and drag by the handle on
+      the left of each row into the order you train them.
     screen: routine-edit
     uses:
     - template.routine
     - template.workout
     - template.rest
+    - template.description
   - id: build-edit-day-s-exercises
     t: Build / edit a workout's exercises
     d: >-
@@ -174,6 +178,18 @@ groups:
     uses:
     - template.duration-estimate
     - template.rest
+  - id: estimate-prices-a-superset-as-one-rest-a-round
+    t: The estimate prices a superset as one rest per round
+    d: >-
+      the movements of a group are performed back to back with nothing between
+      them, so the figure counts every member's work and one rest at the end of
+      each round. Joining two exercises therefore shortens the day by as many rests
+      as the group has rounds.
+    screen: workout-detail
+    uses:
+    - template.duration-estimate
+    - template.superset
+    - template.rest
   - id: estimate-is-planned-time-not-history
     t: The estimate is what the plan costs, not what past sessions took
     d: >-
@@ -198,6 +214,24 @@ groups:
     - template.routine
     - template.workout
     - ui.navigation
+  - id: description-of-a-shipped-program-follows-the-language
+    t: A program's description follows the language until you rewrite it
+    d: >-
+      the description a library program arrives with is canonical English on the row, like its name, and is resolved through the program's seed key when it is drawn. Write your own over it and yours is what is shown, in every language — the same bargain renaming a shipped routine strikes.
+    screen: routine-detail
+    uses:
+    - template.description
+    - template.starter-library
+    - ui.seeded-name
+    - ui.language
+  - id: description-capped-at-a-paragraph
+    t: A description is capped at a paragraph
+    d: >-
+      300 characters, enforced while typing rather than at the insert, so an over-long one is never a failed write. It is read on the screen that offers a program and it travels inside a routine code, where every byte is measured against what a QR can hold.
+    screen: routine-edit
+    uses:
+    - template.description
+    - share.routine-code
   - id: you-can-build-routine-s
     t: You can build a routine's exercises before saving it
     d: drafts are held in memory and written on save.

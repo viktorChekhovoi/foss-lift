@@ -116,6 +116,10 @@ const _sameInEveryLanguage = {'kg', 'lb', 'OK', 'AAA', 'QR', 'RGB', '1RM'};
 /// language for the same reason and by the reviewer's decision: they are proper
 /// nouns — a book's title and an app's name — and a lifter looking for the
 /// programme they have heard of must find the name they have heard.
+///
+/// `exerciseBurpee` is here for the three Romance languages for the same
+/// reason: the gym word in all of them is *burpee*, and there is no native noun
+/// to insist on. Awaiting a reviewer's confirmation.
 const Map<String, Set<String>> _keptInEnglish = {
   'uk': {
     'commonAppName', 'exerciseFormDemoLinkHint',
@@ -126,10 +130,11 @@ const Map<String, Set<String>> _keptInEnglish = {
   'es': {
     'clipPlayerTitle', 'commonAppName', 'commonClipCount',
     'commonEstimatedMinutes',
+    'exerciseBurpee',
     'exerciseClipsTitle', 'exerciseCrunch', 'exerciseDetailDemo',
     'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
-    'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCore',
+    'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCardio', 'muscleCore',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
     'settingsDeloadDaySuffix', 'shadeSetWeightSeconds',
@@ -141,9 +146,10 @@ const Map<String, Set<String>> _keptInEnglish = {
   },
   'pt': {
     'commonAppName', 'commonEstimatedMinutes',
+    'exerciseBurpee',
     'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
-    'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCore',
+    'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCardio', 'muscleCore',
     'seedDayLegs', 'seedDayPull', 'seedDayPush', 'seedRoutinePushPullLegs',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
@@ -158,9 +164,10 @@ const Map<String, Set<String>> _keptInEnglish = {
   },
   'pt_BR': {
     'commonAppName', 'commonEstimatedMinutes',
+    'exerciseBurpee',
     'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
-    'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCore',
+    'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCardio', 'muscleCore',
     'seedDayLegs', 'seedDayPull', 'seedDayPush', 'seedRoutinePushPullLegs',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',

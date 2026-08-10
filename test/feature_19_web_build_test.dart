@@ -124,8 +124,7 @@ void main() {
     test('what it writes is still a raw deflate stream', () async {
       final db = memoryDb();
       addTearDown(db.close);
-      final routines = await db.watchRoutines().first;
-      final shared = await db.sharedRoutine(routines.first.routine.id);
+      final shared = await db.sharedRoutine((await routineNamed(db)).id);
       final code = RoutineCode.encode(shared);
 
       // Decoding it here proves the round trip. Decoding the payload with

@@ -929,6 +929,18 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -939,6 +951,7 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
     restSeconds,
     scheduleDays,
     reminderMinutes,
+    description,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1008,6 +1021,15 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         ),
       );
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1049,6 +1071,10 @@ class $RoutinesTable extends Routines with TableInfo<$RoutinesTable, Routine> {
         DriftSqlType.int,
         data['${effectivePrefix}reminder_minutes'],
       ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
     );
   }
 
@@ -1082,6 +1108,18 @@ class Routine extends DataClass implements Insertable<Routine> {
   /// reminder. Null by default: a notification is something the user asks for,
   /// one routine at a time, not something an offline tracker starts doing.
   final int? reminderMinutes;
+
+  /// What the program is, in a sentence or two — who it is for, how often it is
+  /// trained, what it is trying to do. Null on a routine nobody has described,
+  /// which is every routine until somebody types one.
+  ///
+  /// **It travels.** A program the app ships arrives with the description its
+  /// author wrote, and a routine of your own carries yours into the code you
+  /// share and the backup you take. See `data/routine_code.dart`.
+  ///
+  /// **Declared last on purpose.** `ALTER TABLE … ADD COLUMN` appends, so an
+  /// upgraded database has to end up the same shape as a fresh one.
+  final String? description;
   const Routine({
     required this.id,
     required this.name,
@@ -1091,6 +1129,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     required this.restSeconds,
     required this.scheduleDays,
     this.reminderMinutes,
+    this.description,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1106,6 +1145,9 @@ class Routine extends DataClass implements Insertable<Routine> {
     map['schedule_days'] = Variable<int>(scheduleDays);
     if (!nullToAbsent || reminderMinutes != null) {
       map['reminder_minutes'] = Variable<int>(reminderMinutes);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
     }
     return map;
   }
@@ -1124,6 +1166,9 @@ class Routine extends DataClass implements Insertable<Routine> {
       reminderMinutes: reminderMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(reminderMinutes),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
     );
   }
 
@@ -1141,6 +1186,7 @@ class Routine extends DataClass implements Insertable<Routine> {
       restSeconds: serializer.fromJson<int>(json['restSeconds']),
       scheduleDays: serializer.fromJson<int>(json['scheduleDays']),
       reminderMinutes: serializer.fromJson<int?>(json['reminderMinutes']),
+      description: serializer.fromJson<String?>(json['description']),
     );
   }
   @override
@@ -1155,6 +1201,7 @@ class Routine extends DataClass implements Insertable<Routine> {
       'restSeconds': serializer.toJson<int>(restSeconds),
       'scheduleDays': serializer.toJson<int>(scheduleDays),
       'reminderMinutes': serializer.toJson<int?>(reminderMinutes),
+      'description': serializer.toJson<String?>(description),
     };
   }
 
@@ -1167,6 +1214,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     int? restSeconds,
     int? scheduleDays,
     Value<int?> reminderMinutes = const Value.absent(),
+    Value<String?> description = const Value.absent(),
   }) => Routine(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1178,6 +1226,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     reminderMinutes: reminderMinutes.present
         ? reminderMinutes.value
         : this.reminderMinutes,
+    description: description.present ? description.value : this.description,
   );
   Routine copyWithCompanion(RoutinesCompanion data) {
     return Routine(
@@ -1195,6 +1244,9 @@ class Routine extends DataClass implements Insertable<Routine> {
       reminderMinutes: data.reminderMinutes.present
           ? data.reminderMinutes.value
           : this.reminderMinutes,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
     );
   }
 
@@ -1208,7 +1260,8 @@ class Routine extends DataClass implements Insertable<Routine> {
           ..write('position: $position, ')
           ..write('restSeconds: $restSeconds, ')
           ..write('scheduleDays: $scheduleDays, ')
-          ..write('reminderMinutes: $reminderMinutes')
+          ..write('reminderMinutes: $reminderMinutes, ')
+          ..write('description: $description')
           ..write(')'))
         .toString();
   }
@@ -1223,6 +1276,7 @@ class Routine extends DataClass implements Insertable<Routine> {
     restSeconds,
     scheduleDays,
     reminderMinutes,
+    description,
   );
   @override
   bool operator ==(Object other) =>
@@ -1235,7 +1289,8 @@ class Routine extends DataClass implements Insertable<Routine> {
           other.position == this.position &&
           other.restSeconds == this.restSeconds &&
           other.scheduleDays == this.scheduleDays &&
-          other.reminderMinutes == this.reminderMinutes);
+          other.reminderMinutes == this.reminderMinutes &&
+          other.description == this.description);
 }
 
 class RoutinesCompanion extends UpdateCompanion<Routine> {
@@ -1247,6 +1302,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
   final Value<int> restSeconds;
   final Value<int> scheduleDays;
   final Value<int?> reminderMinutes;
+  final Value<String?> description;
   const RoutinesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1256,6 +1312,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     this.restSeconds = const Value.absent(),
     this.scheduleDays = const Value.absent(),
     this.reminderMinutes = const Value.absent(),
+    this.description = const Value.absent(),
   });
   RoutinesCompanion.insert({
     this.id = const Value.absent(),
@@ -1266,6 +1323,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     this.restSeconds = const Value.absent(),
     this.scheduleDays = const Value.absent(),
     this.reminderMinutes = const Value.absent(),
+    this.description = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Routine> custom({
     Expression<int>? id,
@@ -1276,6 +1334,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     Expression<int>? restSeconds,
     Expression<int>? scheduleDays,
     Expression<int>? reminderMinutes,
+    Expression<String>? description,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1286,6 +1345,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
       if (restSeconds != null) 'rest_seconds': restSeconds,
       if (scheduleDays != null) 'schedule_days': scheduleDays,
       if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+      if (description != null) 'description': description,
     });
   }
 
@@ -1298,6 +1358,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     Value<int>? restSeconds,
     Value<int>? scheduleDays,
     Value<int?>? reminderMinutes,
+    Value<String?>? description,
   }) {
     return RoutinesCompanion(
       id: id ?? this.id,
@@ -1308,6 +1369,7 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
       restSeconds: restSeconds ?? this.restSeconds,
       scheduleDays: scheduleDays ?? this.scheduleDays,
       reminderMinutes: reminderMinutes ?? this.reminderMinutes,
+      description: description ?? this.description,
     );
   }
 
@@ -1338,6 +1400,9 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
     if (reminderMinutes.present) {
       map['reminder_minutes'] = Variable<int>(reminderMinutes.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     return map;
   }
 
@@ -1351,7 +1416,8 @@ class RoutinesCompanion extends UpdateCompanion<Routine> {
           ..write('position: $position, ')
           ..write('restSeconds: $restSeconds, ')
           ..write('scheduleDays: $scheduleDays, ')
-          ..write('reminderMinutes: $reminderMinutes')
+          ..write('reminderMinutes: $reminderMinutes, ')
+          ..write('description: $description')
           ..write(')'))
         .toString();
   }
@@ -1968,6 +2034,20 @@ class $WorkoutItemsTable extends WorkoutItems
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _supersetWithPreviousMeta =
+      const VerificationMeta('supersetWithPrevious');
+  @override
+  late final GeneratedColumn<bool> supersetWithPrevious = GeneratedColumn<bool>(
+    'superset_with_previous',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("superset_with_previous" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1991,6 +2071,7 @@ class $WorkoutItemsTable extends WorkoutItems
     failureThreshold,
     successStreak,
     failStreak,
+    supersetWithPrevious,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2140,6 +2221,15 @@ class $WorkoutItemsTable extends WorkoutItems
         failStreak.isAcceptableOrUnknown(data['fail_streak']!, _failStreakMeta),
       );
     }
+    if (data.containsKey('superset_with_previous')) {
+      context.handle(
+        _supersetWithPreviousMeta,
+        supersetWithPrevious.isAcceptableOrUnknown(
+          data['superset_with_previous']!,
+          _supersetWithPreviousMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2237,6 +2327,10 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.int,
         data['${effectivePrefix}fail_streak'],
       )!,
+      supersetWithPrevious: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}superset_with_previous'],
+      )!,
     );
   }
 
@@ -2318,6 +2412,20 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
 
   /// Missed sessions since the last back-off or clean session.
   final int failStreak;
+
+  /// Whether this slot is trained together with the slot above it — a superset.
+  ///
+  /// **A join between neighbours, not a group id.** A superset is exercises done
+  /// back to back, which only means anything for slots that sit next to each
+  /// other; a group id would let a workout claim that slots one and four are a
+  /// group with two and three in between, and no screen could honestly draw
+  /// that. Expressed this way the nonsense is unrepresentable, reordering
+  /// re-forms the groups by itself, and the only rule to enforce is that the
+  /// first slot has nothing above it to join to. See `data/superset.dart`.
+  ///
+  /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
+  /// upgraded database has to end up the same shape as a fresh one.
+  final bool supersetWithPrevious;
   const WorkoutItem({
     required this.id,
     required this.workoutId,
@@ -2340,6 +2448,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     required this.failureThreshold,
     required this.successStreak,
     required this.failStreak,
+    required this.supersetWithPrevious,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2381,6 +2490,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     map['failure_threshold'] = Variable<int>(failureThreshold);
     map['success_streak'] = Variable<int>(successStreak);
     map['fail_streak'] = Variable<int>(failStreak);
+    map['superset_with_previous'] = Variable<bool>(supersetWithPrevious);
     return map;
   }
 
@@ -2415,6 +2525,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       failureThreshold: Value(failureThreshold),
       successStreak: Value(successStreak),
       failStreak: Value(failStreak),
+      supersetWithPrevious: Value(supersetWithPrevious),
     );
   }
 
@@ -2449,6 +2560,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       failureThreshold: serializer.fromJson<int>(json['failureThreshold']),
       successStreak: serializer.fromJson<int>(json['successStreak']),
       failStreak: serializer.fromJson<int>(json['failStreak']),
+      supersetWithPrevious: serializer.fromJson<bool>(
+        json['supersetWithPrevious'],
+      ),
     );
   }
   @override
@@ -2480,6 +2594,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'failureThreshold': serializer.toJson<int>(failureThreshold),
       'successStreak': serializer.toJson<int>(successStreak),
       'failStreak': serializer.toJson<int>(failStreak),
+      'supersetWithPrevious': serializer.toJson<bool>(supersetWithPrevious),
     };
   }
 
@@ -2505,6 +2620,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     int? failureThreshold,
     int? successStreak,
     int? failStreak,
+    bool? supersetWithPrevious,
   }) => WorkoutItem(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -2529,6 +2645,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     failureThreshold: failureThreshold ?? this.failureThreshold,
     successStreak: successStreak ?? this.successStreak,
     failStreak: failStreak ?? this.failStreak,
+    supersetWithPrevious: supersetWithPrevious ?? this.supersetWithPrevious,
   );
   WorkoutItem copyWithCompanion(WorkoutItemsCompanion data) {
     return WorkoutItem(
@@ -2577,6 +2694,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       failStreak: data.failStreak.present
           ? data.failStreak.value
           : this.failStreak,
+      supersetWithPrevious: data.supersetWithPrevious.present
+          ? data.supersetWithPrevious.value
+          : this.supersetWithPrevious,
     );
   }
 
@@ -2603,7 +2723,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('deload: $deload, ')
           ..write('failureThreshold: $failureThreshold, ')
           ..write('successStreak: $successStreak, ')
-          ..write('failStreak: $failStreak')
+          ..write('failStreak: $failStreak, ')
+          ..write('supersetWithPrevious: $supersetWithPrevious')
           ..write(')'))
         .toString();
   }
@@ -2631,6 +2752,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     failureThreshold,
     successStreak,
     failStreak,
+    supersetWithPrevious,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -2656,7 +2778,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.deload == this.deload &&
           other.failureThreshold == this.failureThreshold &&
           other.successStreak == this.successStreak &&
-          other.failStreak == this.failStreak);
+          other.failStreak == this.failStreak &&
+          other.supersetWithPrevious == this.supersetWithPrevious);
 }
 
 class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
@@ -2681,6 +2804,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<int> failureThreshold;
   final Value<int> successStreak;
   final Value<int> failStreak;
+  final Value<bool> supersetWithPrevious;
   const WorkoutItemsCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -2703,6 +2827,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.failureThreshold = const Value.absent(),
     this.successStreak = const Value.absent(),
     this.failStreak = const Value.absent(),
+    this.supersetWithPrevious = const Value.absent(),
   });
   WorkoutItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -2726,6 +2851,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.failureThreshold = const Value.absent(),
     this.successStreak = const Value.absent(),
     this.failStreak = const Value.absent(),
+    this.supersetWithPrevious = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId);
   static Insertable<WorkoutItem> custom({
@@ -2750,6 +2876,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<int>? failureThreshold,
     Expression<int>? successStreak,
     Expression<int>? failStreak,
+    Expression<bool>? supersetWithPrevious,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2773,6 +2900,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (failureThreshold != null) 'failure_threshold': failureThreshold,
       if (successStreak != null) 'success_streak': successStreak,
       if (failStreak != null) 'fail_streak': failStreak,
+      if (supersetWithPrevious != null)
+        'superset_with_previous': supersetWithPrevious,
     });
   }
 
@@ -2798,6 +2927,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<int>? failureThreshold,
     Value<int>? successStreak,
     Value<int>? failStreak,
+    Value<bool>? supersetWithPrevious,
   }) {
     return WorkoutItemsCompanion(
       id: id ?? this.id,
@@ -2821,6 +2951,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       failureThreshold: failureThreshold ?? this.failureThreshold,
       successStreak: successStreak ?? this.successStreak,
       failStreak: failStreak ?? this.failStreak,
+      supersetWithPrevious: supersetWithPrevious ?? this.supersetWithPrevious,
     );
   }
 
@@ -2894,6 +3025,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     if (failStreak.present) {
       map['fail_streak'] = Variable<int>(failStreak.value);
     }
+    if (supersetWithPrevious.present) {
+      map['superset_with_previous'] = Variable<bool>(
+        supersetWithPrevious.value,
+      );
+    }
     return map;
   }
 
@@ -2920,7 +3056,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('deload: $deload, ')
           ..write('failureThreshold: $failureThreshold, ')
           ..write('successStreak: $successStreak, ')
-          ..write('failStreak: $failStreak')
+          ..write('failStreak: $failStreak, ')
+          ..write('supersetWithPrevious: $supersetWithPrevious')
           ..write(')'))
         .toString();
   }
@@ -6746,6 +6883,7 @@ typedef $$RoutinesTableCreateCompanionBuilder =
       Value<int> restSeconds,
       Value<int> scheduleDays,
       Value<int?> reminderMinutes,
+      Value<String?> description,
     });
 typedef $$RoutinesTableUpdateCompanionBuilder =
     RoutinesCompanion Function({
@@ -6757,6 +6895,7 @@ typedef $$RoutinesTableUpdateCompanionBuilder =
       Value<int> restSeconds,
       Value<int> scheduleDays,
       Value<int?> reminderMinutes,
+      Value<String?> description,
     });
 
 final class $$RoutinesTableReferences
@@ -6829,6 +6968,11 @@ class $$RoutinesTableFilterComposer
 
   ColumnFilters<int> get reminderMinutes => $composableBuilder(
     column: $table.reminderMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6906,6 +7050,11 @@ class $$RoutinesTableOrderingComposer
     column: $table.reminderMinutes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RoutinesTableAnnotationComposer
@@ -6944,6 +7093,11 @@ class $$RoutinesTableAnnotationComposer
 
   GeneratedColumn<int> get reminderMinutes => $composableBuilder(
     column: $table.reminderMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => column,
   );
 
@@ -7009,6 +7163,7 @@ class $$RoutinesTableTableManager
                 Value<int> restSeconds = const Value.absent(),
                 Value<int> scheduleDays = const Value.absent(),
                 Value<int?> reminderMinutes = const Value.absent(),
+                Value<String?> description = const Value.absent(),
               }) => RoutinesCompanion(
                 id: id,
                 name: name,
@@ -7018,6 +7173,7 @@ class $$RoutinesTableTableManager
                 restSeconds: restSeconds,
                 scheduleDays: scheduleDays,
                 reminderMinutes: reminderMinutes,
+                description: description,
               ),
           createCompanionCallback:
               ({
@@ -7029,6 +7185,7 @@ class $$RoutinesTableTableManager
                 Value<int> restSeconds = const Value.absent(),
                 Value<int> scheduleDays = const Value.absent(),
                 Value<int?> reminderMinutes = const Value.absent(),
+                Value<String?> description = const Value.absent(),
               }) => RoutinesCompanion.insert(
                 id: id,
                 name: name,
@@ -7038,6 +7195,7 @@ class $$RoutinesTableTableManager
                 restSeconds: restSeconds,
                 scheduleDays: scheduleDays,
                 reminderMinutes: reminderMinutes,
+                description: description,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7514,6 +7672,7 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<int> failureThreshold,
       Value<int> successStreak,
       Value<int> failStreak,
+      Value<bool> supersetWithPrevious,
     });
 typedef $$WorkoutItemsTableUpdateCompanionBuilder =
     WorkoutItemsCompanion Function({
@@ -7538,6 +7697,7 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<int> failureThreshold,
       Value<int> successStreak,
       Value<int> failStreak,
+      Value<bool> supersetWithPrevious,
     });
 
 final class $$WorkoutItemsTableReferences
@@ -7682,6 +7842,11 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<int> get failStreak => $composableBuilder(
     column: $table.failStreak,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get supersetWithPrevious => $composableBuilder(
+    column: $table.supersetWithPrevious,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7836,6 +8001,11 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get supersetWithPrevious => $composableBuilder(
+    column: $table.supersetWithPrevious,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutsTableOrderingComposer get workoutId {
     final $$WorkoutsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7972,6 +8142,11 @@ class $$WorkoutItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get supersetWithPrevious => $composableBuilder(
+    column: $table.supersetWithPrevious,
+    builder: (column) => column,
+  );
+
   $$WorkoutsTableAnnotationComposer get workoutId {
     final $$WorkoutsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -8068,6 +8243,7 @@ class $$WorkoutItemsTableTableManager
                 Value<int> failureThreshold = const Value.absent(),
                 Value<int> successStreak = const Value.absent(),
                 Value<int> failStreak = const Value.absent(),
+                Value<bool> supersetWithPrevious = const Value.absent(),
               }) => WorkoutItemsCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -8090,6 +8266,7 @@ class $$WorkoutItemsTableTableManager
                 failureThreshold: failureThreshold,
                 successStreak: successStreak,
                 failStreak: failStreak,
+                supersetWithPrevious: supersetWithPrevious,
               ),
           createCompanionCallback:
               ({
@@ -8114,6 +8291,7 @@ class $$WorkoutItemsTableTableManager
                 Value<int> failureThreshold = const Value.absent(),
                 Value<int> successStreak = const Value.absent(),
                 Value<int> failStreak = const Value.absent(),
+                Value<bool> supersetWithPrevious = const Value.absent(),
               }) => WorkoutItemsCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -8136,6 +8314,7 @@ class $$WorkoutItemsTableTableManager
                 failureThreshold: failureThreshold,
                 successStreak: successStreak,
                 failStreak: failStreak,
+                supersetWithPrevious: supersetWithPrevious,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -26,6 +26,13 @@ const List<String> kMuscleGroups = [
   'Arms',
   'Core',
   'Other',
+  // Not a muscle, and deliberately in the list anyway — as `Other` already is.
+  // Conditioning work is what a sprint, a burpee or two minutes on a rope is
+  // *for*, and filing it under the muscles it happens to use put it in the way
+  // of somebody narrowing to Legs to pick a squat while leaving it findable by
+  // nobody at all: there is no filter on how a set is measured. It is the last
+  // entry because this list is a wire format — see the note above.
+  'Cardio',
 ];
 
 /// The equipment kinds offered in the exercise form, in display order.

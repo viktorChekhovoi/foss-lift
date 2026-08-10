@@ -45,11 +45,13 @@ enum TutorialDemoFocus {
   note,
   camera,
   routinesTab,
+  library,
   newRoutine,
   name,
   days,
   exercises,
   slot,
+  superset,
   saveDay,
   save,
 }
@@ -66,7 +68,10 @@ _BuilderScreen _screenFor(TutorialDemoFocus focus) => switch (focus) {
         _BuilderScreen.routine,
       TutorialDemoFocus.exercises || TutorialDemoFocus.saveDay =>
         _BuilderScreen.day,
-      TutorialDemoFocus.slot => _BuilderScreen.slot,
+      // Two steps against one picture: the numbers on the sheet, then the
+      // checkbox under them.
+      TutorialDemoFocus.slot || TutorialDemoFocus.superset =>
+        _BuilderScreen.slot,
       _ => _BuilderScreen.routines,
     };
 
@@ -81,6 +86,12 @@ const kTutorialDemoWeightKey = ValueKey('tutorial-demo-weight');
 
 /// The weight cell of a mock set row. One per row, so this matches several.
 const kTutorialDemoSetWeightKey = ValueKey('tutorial-demo-set-weight');
+
+/// The Ready-made routines button on the drawn Routines tab.
+const kTutorialDemoLibraryKey = ValueKey('tutorial-demo-library');
+
+/// The checkbox that joins a drawn slot to the one above it.
+const kTutorialDemoSupersetKey = ValueKey('tutorial-demo-superset');
 
 /// The accent ring the tour draws around what a step is about. One at a time,
 /// except on the weight step: it is about the difference between the exercise's
@@ -498,8 +509,13 @@ class TutorialBuilderDemo extends ConsumerWidget {
     );
   }
 
-  /// The Routines tab with one routine on it and New routine underneath —
-  /// which is what a first run looks like once the demo program is there.
+  /// The Routines tab as a fresh install has it: nothing in the list, and the
+  /// two ways to change that under it, in the order the real screen has them.
+  ///
+  /// It used to draw a routine card, from when the app wrote five programs into
+  /// every new install. It no longer does, so a card here would be a picture of
+  /// somebody else's phone — and the chapter's whole subject is the empty list
+  /// the reader is looking at.
   Widget _routines(AppLocalizations l10n) => Column(
         children: [
           _bar(l10n.routinesTitle),
@@ -508,12 +524,17 @@ class TutorialBuilderDemo extends ConsumerWidget {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               children: [
-                _card(l10n.seedRoutinePushPullLegs,
-                    l10n.routineEditWorkouts.toLowerCase()),
-                const SizedBox(height: 16),
                 _ringed(
                   on: focus == TutorialDemoFocus.newRoutine,
                   child: _outlined(l10n.routinesNewRoutine),
+                ),
+                const SizedBox(height: 10),
+                _ringed(
+                  on: focus == TutorialDemoFocus.library,
+                  child: KeyedSubtree(
+                    key: kTutorialDemoLibraryKey,
+                    child: _outlined(l10n.routineLibraryTitle),
+                  ),
                 ),
               ],
             ),
@@ -630,9 +651,6 @@ class TutorialBuilderDemo extends ConsumerWidget {
                   child: _list(
                     caption: l10n.itemEditorCaption,
                     addLabel: l10n.itemEditorAdd,
-                    // The slot step rings one row rather than the list: it is
-                    // about what opens when you tap one.
-                    ringRow: focus == TutorialDemoFocus.slot ? 0 : null,
                     rows: [
                       (
                         l10n.exerciseBenchPress,
@@ -668,8 +686,13 @@ class TutorialBuilderDemo extends ConsumerWidget {
   /// The step about it used to draw the day's list with the row ringed and
   /// describe the sheet in prose — which is a callout naming five fields
   /// against a picture of none of them. The sheet is the subject, so the sheet
-  /// is what is drawn. Nothing on it is ringed for the same reason: the whole
-  /// picture is what the words are about.
+  /// is what is drawn. Nothing is ringed on the step about the numbers, for the
+  /// same reason: the whole picture is what those words are about. The step after
+  /// it rings the one control on the sheet that is not a number.
+  ///
+  /// **It is the day's second exercise**, because the first has nothing above it
+  /// to be joined to and so no superset checkbox — the real sheet leaves the row
+  /// out entirely there.
   ///
   /// The cards, the grid and the steppers are the builder's own, so the fields
   /// sit where they sit in the app and read what they read there.
@@ -691,11 +714,11 @@ class TutorialBuilderDemo extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(l10n.exerciseBenchPress,
+                      Text(l10n.exerciseOverheadPress,
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
-                      Text(l10n.muscleChest,
+                      Text(l10n.muscleShoulders,
                           style: TextStyle(
                               fontSize: 13, color: AppColors.muted)),
                     ],
@@ -712,6 +735,24 @@ class TutorialBuilderDemo extends ConsumerWidget {
                 _field(l10n.itemEditorRest, 90,
                     suffix: l10n.itemEditorSecondsSuffix),
               ]),
+              // At the foot of the Target card, where the real sheet has it,
+              // and unticked — the step is about what ticking it would do.
+              //
+              // Only on that step, the way the rest bar is drawn only on the
+              // step about resting: the sheet is taller than a short phone with
+              // a callout docked under it, and the step before this one names
+              // five fields that all have to be on the picture.
+              if (focus == TutorialDemoFocus.superset) ...[
+                const SizedBox(height: 16),
+                _ringed(
+                  on: true,
+                  child: _check(
+                    key: kTutorialDemoSupersetKey,
+                    label: l10n.itemEditorSupersetWith(l10n.exerciseBenchPress),
+                    tooltip: l10n.itemEditorSupersetWhat,
+                  ),
+                ),
+              ],
             ]),
             const SizedBox(height: 14),
             builderCard(l10n.itemEditorProgression, [
@@ -722,6 +763,46 @@ class TutorialBuilderDemo extends ConsumerWidget {
                 _field(l10n.itemEditorMisses, 2),
               ]),
             ]),
+          ],
+        ),
+      );
+
+  /// The drawn checkbox row: the box, what ticking it would do, and the icon
+  /// that says what a superset is. Nothing behind any of them — a still life
+  /// takes no taps — so the callout beside it is the only explanation on offer
+  /// while the tour is up.
+  Widget _check({
+    required Key key,
+    required String label,
+    required String tooltip,
+  }) =>
+      KeyedSubtree(
+        key: key,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: false,
+                onChanged: (_) {},
+                activeColor: AppColors.accent,
+                side: BorderSide(color: AppColors.line, width: 1.5),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15)),
+            ),
+            Tooltip(
+              message: tooltip,
+              child: Icon(Icons.info_outline,
+                  size: 20, color: AppColors.accent),
+            ),
           ],
         ),
       );
@@ -776,7 +857,6 @@ class TutorialBuilderDemo extends ConsumerWidget {
     required String caption,
     required String addLabel,
     required List<(String, String)> rows,
-    int? ringRow,
   }) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -784,10 +864,7 @@ class TutorialBuilderDemo extends ConsumerWidget {
           builderLabel(caption),
           for (var i = 0; i < rows.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
-            _ringed(
-              on: ringRow == i,
-              child: _row(rows[i].$1, rows[i].$2),
-            ),
+            _row(rows[i].$1, rows[i].$2),
           ],
           const SizedBox(height: 10),
           _outlined(addLabel),
@@ -825,45 +902,6 @@ class TutorialBuilderDemo extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Icon(Icons.close, size: 18, color: AppColors.faint),
-          ],
-        ),
-      );
-
-  /// A routine as the Routines tab lists it.
-  Widget _card(String name, String subtitle) => Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              height: 34,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color: AppColors.accent,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text('3 $subtitle',
-                      style: kMono.copyWith(
-                          fontSize: 11.5, color: AppColors.muted)),
-                ],
-              ),
-            ),
           ],
         ),
       );

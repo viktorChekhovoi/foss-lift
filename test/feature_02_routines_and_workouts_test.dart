@@ -11,9 +11,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/routine_detail_screen.dart';
 import 'package:foss_lift/screens/routine_edit_screen.dart';
 import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
+import 'package:foss_lift/screens/workout_detail_screen.dart';
+import 'package:foss_lift/util/seed_names.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/widgets/exercise_filters.dart';
 import 'package:foss_lift/widgets/workout_items_editor.dart';
@@ -87,7 +90,11 @@ void main() {
   setUp(() => db = memoryDb());
   tearDown(() => db.close());
 
-  group('seeded hierarchy', () {
+  // What a program out of the routine library holds once it is added — the
+  // prescription each of the five is actually run on, rather than one slot shape
+  // copied five times. Which programs the library offers, and in what order, is
+  // section 21's; this is about what lands when you take one.
+  group('a program added from the library holds its own prescription', () {
     /// Asserts the [day] of [routine] holds exactly [want], in order.
     Future<void> expectSlots(
       String routine,
@@ -128,54 +135,6 @@ void main() {
         }
       }
     }
-
-    test('five starter programmes are seeded, with their day counts', () async {
-      final routines = await db.watchRoutines().first;
-
-      expect(
-        routines.map((r) => r.routine.name),
-        containsAll([
-          'Push / Pull / Legs',
-          'Upper / Lower',
-          'Starting Strength',
-          'StrongLifts 5x5',
-          'Full Body 3x',
-        ]),
-      );
-      expect(
-        (await routineWithCountNamed(db, 'Push / Pull / Legs')).workoutCount,
-        3,
-      );
-      expect(
-        (await routineWithCountNamed(db, 'Upper / Lower')).workoutCount,
-        4,
-      );
-      expect(
-        (await routineWithCountNamed(db, 'Starting Strength')).workoutCount,
-        2,
-      );
-      expect(
-        (await routineWithCountNamed(db, 'StrongLifts 5x5')).workoutCount,
-        2,
-      );
-      expect(
-        (await routineWithCountNamed(db, 'Full Body 3x')).workoutCount,
-        3,
-      );
-    });
-
-    test('the five sit in a fixed order, hypertrophy first', () async {
-      final byName = {
-        for (final r in await db.watchRoutines().first)
-          r.routine.name: r.routine.position,
-      };
-
-      expect(byName['Push / Pull / Legs'], 0);
-      expect(byName['Upper / Lower'], 1);
-      expect(byName['Starting Strength'], 2);
-      expect(byName['StrongLifts 5x5'], 3);
-      expect(byName['Full Body 3x'], 4);
-    });
 
     // -- The three beginner strength programmes ----------------------------
     // Each one is the prescription the programme is actually run on, not one
@@ -534,6 +493,190 @@ void main() {
     });
   });
 
+  group('a routine can say what it is', () {
+    /// The description field in the routine builder.
+    final field = find.byKey(const ValueKey('routine-description'));
+
+    /// Opens the builder on [rid] and returns once the routine is loaded.
+    Future<void> pumpBuilder(WidgetTester tester, int rid,
+        {Locale locale = const Locale('en')}) async {
+      tester.view.physicalSize = const Size(390, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(routedAppUnder(
+          container, RoutineEditScreen(routineId: rid), locale: locale));
+      await pumpThroughDatabase(tester);
+    }
+
+    /// A routine with one day, [description] and nothing else interesting.
+    Future<int> aRoutine(WidgetTester tester, {String? description}) async {
+      final rid = (await tester.runAsync(() async {
+        final id = await db.createRoutine(
+          name: 'My Split',
+          color: 'FF6A3D',
+          restSeconds: 90,
+          description: description,
+        );
+        await db.createWorkout(id, 'Day 1');
+        return id;
+      }))!;
+      return rid;
+    }
+
+    Future<Routine> reload(WidgetTester tester, int rid) async =>
+        (await tester.runAsync(() => db.routineById(rid)))!;
+
+    Future<void> save(WidgetTester tester) async {
+      await tester.tap(find.text(l10nFor().routineEditSave));
+      await pumpThroughDatabase(tester);
+    }
+
+    testWidgets('what you type in the builder is stored on the routine',
+        (tester) async {
+      final rid = await aRoutine(tester);
+      await pumpBuilder(tester, rid);
+
+      expect(field, findsOneWidget, reason: 'the builder has no description');
+      await tester.enterText(field, 'Four days, two of them heavy.');
+      await save(tester);
+
+      expect((await reload(tester, rid)).description,
+          'Four days, two of them heavy.');
+
+      await stop(tester);
+    });
+
+    testWidgets('editing a routine keeps the description it has',
+        (tester) async {
+      final rid = await aRoutine(tester, description: 'Three days a week.');
+      await pumpBuilder(tester, rid);
+
+      expect(find.text('Three days a week.'), findsOneWidget,
+          reason: 'the field opens on what is there');
+      await save(tester);
+
+      expect((await reload(tester, rid)).description, 'Three days a week.');
+
+      await stop(tester);
+    });
+
+    testWidgets('clearing it clears the description', (tester) async {
+      final rid = await aRoutine(tester, description: 'Three days a week.');
+      await pumpBuilder(tester, rid);
+
+      await tester.enterText(field, '   ');
+      await save(tester);
+
+      expect((await reload(tester, rid)).description, isNull,
+          reason: 'a blank field means there is nothing to say');
+
+      await stop(tester);
+    });
+
+    testWidgets('typing stops at a paragraph', (tester) async {
+      final rid = await aRoutine(tester);
+      await pumpBuilder(tester, rid);
+
+      await tester.enterText(field, 'x' * (kMaxDescriptionLength + 120));
+      await pumpThroughDatabase(tester);
+
+      expect(tester.widget<TextField>(field).controller!.text.length,
+          kMaxDescriptionLength,
+          reason: 'the cap is enforced while typing, not at the insert');
+
+      await stop(tester);
+    });
+
+    testWidgets('a described routine says so on its own page', (tester) async {
+      final rid = await aRoutine(tester, description: 'Three days a week.');
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+          appUnder(container, RoutineDetailScreen(routineId: rid)));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('Three days a week.'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('and one nobody has described shows nothing at all',
+        (tester) async {
+      final rid = await aRoutine(tester);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+          appUnder(container, RoutineDetailScreen(routineId: rid)));
+      await pumpThroughDatabase(tester);
+
+      // The workout count is there, so the page has drawn; there is simply no
+      // paragraph above it.
+      expect(find.textContaining(l10nFor().routineDetailWorkoutCount(1)),
+          findsOneWidget);
+      expect(
+        tester
+            .widgetList<Text>(find.byType(Text))
+            .where((t) => (t.data ?? '').length > 40),
+        isEmpty,
+        reason: 'nothing stands in for a description that is not there',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('a shipped description follows the language', (tester) async {
+      const es = Locale('es');
+      final program = kStarterRoutines.first;
+      final rid = (await tester
+          .runAsync(() => db.addStarterRoutine(program)))!;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final shown = seededDescription(
+          l10nFor(es), program.seedKey, program.description)!;
+
+      await tester.pumpWidget(appUnder(
+          container, RoutineDetailScreen(routineId: rid), locale: es));
+      await pumpThroughDatabase(tester);
+
+      expect(shown, isNot(program.description), reason: 'the premise');
+      expect(find.text(shown), findsOneWidget);
+      expect(find.text(program.description), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('one you have rewritten is shown as you wrote it',
+        (tester) async {
+      const es = Locale('es');
+      final program = kStarterRoutines.first;
+      final rid = (await tester.runAsync(() async {
+        final id = await db.addStarterRoutine(program);
+        await db.updateRoutineMeta(id,
+            name: program.name,
+            seedKey: program.seedKey,
+            color: program.colorHex,
+            restSeconds: program.restSeconds,
+            description: 'Mine now, and only three days of it.');
+        return id;
+      }))!;
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(appUnder(
+          container, RoutineDetailScreen(routineId: rid), locale: es));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('Mine now, and only three days of it.'), findsOneWidget,
+          reason: 'a description you typed is not a shipped string');
+
+      await stop(tester);
+    });
+  });
+
   group('a deleted current routine degrades to "none"', () {
     test('the current routine resolves to null once it is deleted', () async {
       final ppl = await routineWithCountNamed(db, 'Push / Pull / Legs');
@@ -553,14 +696,19 @@ void main() {
   });
 
   group('a routine name gets the room it needs', () {
-    /// The seeded routine names are the case that has to work: "Push / Pull /
+    /// The shipped routine names are the case that has to work: "Push / Pull /
     /// Legs" is ordinary, and cutting it to "Push / Pull / L…" on the first
     /// screen of the app is not a layout, it is a bug.
+    ///
+    /// It has to be in the list to be measured, and the list starts empty — so
+    /// the program is added from the library first, which is also how it gets
+    /// there in the app.
     Future<ProviderContainer> pumpAt(
       WidgetTester tester,
       Widget screen, {
       double textScale = 1.0,
     }) async {
+      await tester.runAsync(() => routineNamed(db));
       // A Pixel 4a is 393 dp wide; 390 is the number to design to.
       tester.view.physicalSize = const Size(390, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -978,6 +1126,51 @@ void main() {
       // And it is in the library for next time.
       final all = await tester.runAsync(() => db.watchExercises().first);
       expect(all!.map((e) => e.name), contains('Zercher Squat'));
+
+      await stop(tester);
+    });
+  });
+
+  group('A workout shows which of its exercises are supersetted', () {
+    // features/index.html#sec02 day-shows-which-exercises-are-supersetted — what
+    // is trained back to back is answered before Start, not discovered on the
+    // board.
+    testWidgets('the joined rows are tagged as a group', (tester) async {
+      late int w;
+      await tester.runAsync(() async {
+        w = await workoutIdNamed(db, 'Push');
+        final drafts = [
+          for (final v in await db.itemsForWorkout(w)) ItemDraft.fromView(v),
+        ];
+        drafts[1].supersetWithPrevious = true;
+        await db.replaceWorkoutItems(w, itemCompanions(drafts, workoutId: w));
+      });
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        appUnder(container, WorkoutDetailScreen(workoutId: w)),
+      );
+      await pumpThroughDatabase(tester);
+
+      expect(find.text(l10nFor().commonSuperset), findsOneWidget,
+          reason: 'the group is named once, above the rows it holds');
+
+      await stop(tester);
+    });
+
+    testWidgets('and a day with nothing joined says nothing', (tester) async {
+      late int w;
+      await tester.runAsync(() async => w = await workoutIdNamed(db, 'Push'));
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        appUnder(container, WorkoutDetailScreen(workoutId: w)),
+      );
+      await pumpThroughDatabase(tester);
+
+      expect(find.text(l10nFor().commonSuperset), findsNothing);
 
       await stop(tester);
     });

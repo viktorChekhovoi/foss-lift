@@ -98,7 +98,7 @@ WeightType weightTypeForEquipment(String equipment) =>
 /// a chest-supported row is often a plate-loaded machine, where "Bar" is the
 /// useful answer; a cable station may be a stack or plates on a carriage.
 /// Equipment "Barbell" says what the seed guessed, not what you own. So only the
-/// name settles anything, and it settles it for ten of the eighty-seven starters.
+/// name settles anything, and it settles it for twenty-two of the starters.
 ///
 /// A movement you made yourself is never fixed, whatever you called it: you
 /// named it and you loaded it, and reconciling the two is not the app's business.

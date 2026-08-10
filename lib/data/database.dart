@@ -11,8 +11,9 @@ import 'layoff.dart';
 import 'plates.dart';
 import 'progression.dart';
 import 'schedule.dart';
-import 'set_scheme.dart';
 import 'seed_keys.dart';
+import 'set_scheme.dart';
+import 'starter_routines.dart';
 import 'warmup.dart';
 
 export 'exercise_stats.dart';
@@ -22,6 +23,7 @@ export 'plates.dart';
 export 'progression.dart';
 export 'schedule.dart';
 export 'set_scheme.dart';
+export 'starter_routines.dart';
 
 part 'database.g.dart';
 
@@ -37,6 +39,15 @@ part 'database.g.dart';
 /// find out. Long enough for the longest real movement name and short enough
 /// to stay on one line of a card.
 const int kMaxNameLength = 80;
+
+/// The longest a routine's description may be, in characters.
+///
+/// A paragraph, not an essay: it is read on a card and on the screen that offers
+/// a program, and it travels inside a routine code where every byte is measured
+/// against what a QR can hold. The same cap the exercise note takes, for the same
+/// reason — the field enforces it while typing, so an over-long one is never a
+/// failed write.
+const int kMaxDescriptionLength = 300;
 
 /// The exercise library (Bench Press, Squat, …). Ships with a curated set;
 /// users can add their own ([isCustom] == true).
@@ -178,6 +189,19 @@ class Routines extends Table {
   /// reminder. Null by default: a notification is something the user asks for,
   /// one routine at a time, not something an offline tracker starts doing.
   IntColumn get reminderMinutes => integer().nullable()();
+
+  /// What the program is, in a sentence or two — who it is for, how often it is
+  /// trained, what it is trying to do. Null on a routine nobody has described,
+  /// which is every routine until somebody types one.
+  ///
+  /// **It travels.** A program the app ships arrives with the description its
+  /// author wrote, and a routine of your own carries yours into the code you
+  /// share and the backup you take. See `data/routine_code.dart`.
+  ///
+  /// **Declared last on purpose.** `ALTER TABLE … ADD COLUMN` appends, so an
+  /// upgraded database has to end up the same shape as a fresh one.
+  TextColumn get description =>
+      text().withLength(max: kMaxDescriptionLength).nullable()();
 }
 
 /// One day within a routine ("Push", "Upper 1"). Names need not be unique — an
@@ -277,6 +301,21 @@ class WorkoutItems extends Table {
 
   /// Missed sessions since the last back-off or clean session.
   IntColumn get failStreak => integer().withDefault(const Constant(0))();
+
+  /// Whether this slot is trained together with the slot above it — a superset.
+  ///
+  /// **A join between neighbours, not a group id.** A superset is exercises done
+  /// back to back, which only means anything for slots that sit next to each
+  /// other; a group id would let a workout claim that slots one and four are a
+  /// group with two and three in between, and no screen could honestly draw
+  /// that. Expressed this way the nonsense is unrepresentable, reordering
+  /// re-forms the groups by itself, and the only rule to enforce is that the
+  /// first slot has nothing above it to join to. See `data/superset.dart`.
+  ///
+  /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
+  /// upgraded database has to end up the same shape as a fresh one.
+  BoolColumn get supersetWithPrevious =>
+      boolean().withDefault(const Constant(false))();
 }
 
 /// A logged training session — one performance of a [Workouts] row.
@@ -663,46 +702,12 @@ extension BarAtWeight on List<Bar> {
 /// the values on offer and why.
 typedef VideoSetting = ({int height, int maxSeconds});
 
-/// One seeded exercise slot (first-run starter programs only).
-class _SeedItem {
-  /// A slot that steps at whatever its progression axis steps at by default:
-  /// 2.5 kg on a press, a rep on a movement that carries no load.
-  const _SeedItem(
-    this.name, {
-    required this.sets,
-    required this.min,
-    this.max,
-    this.w,
-  }) : inc = null,
-       deload = null;
-
-  /// A slot on one of the lifts a linear-progression program moves 5 kg a
-  /// session — the squat, the deadlift and their variants — rather than the
-  /// 2.5 kg the presses take. The back-off is twice the step, as everywhere.
-  const _SeedItem.heavy(
-    this.name, {
-    required this.sets,
-    required this.min,
-    required this.w,
-  }) : max = null,
-       inc = 5,
-       deload = 10;
-
-  /// The canonical English name of a movement in [_starterLibrary].
-  final String name;
-  final int sets;
-  final int min;
-  final int? max;
-
-  /// The load to open at, in kilograms, or null for a slot that carries none.
-  final double? w;
-
-  /// The program's own step up and back-off, or null to take the axis's.
-  final double? inc;
-  final double? deload;
-}
-
-/// The demo video for each starter movement, as a bare YouTube id.
+/// The demo video for a starter movement, as a bare YouTube id.
+///
+/// **Not every movement is in here.** A movement with no demo from a source
+/// worth trusting is left out rather than pointed at an approximation: the
+/// column is nullable and the exercise screen omits the row, whereas a guessed
+/// id is a link to somebody else's video that nothing in the app can notice.
 ///
 /// **Ids, not URLs.** Eleven characters is what identifies a video, and it is
 /// also what travels inside a shared routine — a full URL would not fit the
@@ -860,6 +865,59 @@ const Map<String, String> _starterDemos = {
       'bm9M6y4QFoM', // Deconstructing The Turkish Get Up — Bodybuilding.com
   "Farmer's Carry":
       '8OtwXwrJizk', // How To Do A Farmer's Walk (Farmer's Carry) — PureGym
+  'Air Squat': 'l83R5PblSMA', // Leg exercise - How to bodyweight squat — PureGym
+  'Bodyweight Lunge': 'g8-Ge9S0aUw', // How To Do A Forward Lunge — PureGym
+  'Pike Push-Up': '9NLyrC2joJs', // How To Do A Pike Push up — PureGym
+  'Diamond Push-Up': 'K8bKxVcwjrk', // How To Do A Diamond Push up — PureGym
+  'Wide Push-Up': 'UFa702F5WnY', // How To Do Wide Grip Push up — PureGym
+  'Decline Push-Up': 'QBlYp-EwHlo', // How To Do A Decline Push Up — PureGym
+  'Nordic Curl': 'Wo746janD2E', // How To Do Nordic Curls — PureGym
+  'Single-Leg Glute Bridge':
+      'sVfp4LN9niA', // How To  Do A Single Leg Glute Bridge — PureGym
+  'Wall Sit': '6Li55TURhVg', // How To Do A Wall Sit — PureGym
+  'Superman Hold': 'kTMBsUwEGPM', // How To Do Superman Exercises — PureGym
+  'Bird Dog':
+      'wiFNA3sqjCA', // How to Do the Bird Dog Exercise | Abs Workout — Howcast
+  'Sit-Up': 'T3XsCC2Td1g', // How To Do Sit Ups — PureGym
+  'Burpee': 'kMMzEzHv3Js', // Burpees — PureGym
+  'Mountain Climber': 'kLh-uczlPLg', // How To Do Mountain Climbers — PureGym
+  'High Knees': 'sTvekaq6vOU', // How To Do High Knees — PureGym
+  'Jumping Jack': 'ttVmvj88Zwc', // How To Do Jumping Jacks — PureGym
+  'Jump Squat': 'BRfxI2Es2lE', // How To Jump Squat — PureGym
+  'Box Jump': 'k7dmYdknbac', // How To Do Box Jumps — PureGym
+  'Skater Jump':
+      '4RuxhVJ4-pg', // How to Do a Skater | Sexy Legs Workout — Howcast
+  'Bear Crawl':
+      'vg5hegN6pk0', // How To Properly Do The Bear Crawl Exercise — Mind Pump TV
+  'Sprint': 'Oy3RWqqlMTg', // How to Sprint Faster | Sprinting — Howcast
+  'Jump Rope': 'yXIy2ueZtmY', // How To Skip Rope (Single Unders) — PureGym
+  'Battle Rope':
+      'ZujykKeVZpM', // Battlerope exercise - alternating waves — PureGym
+  'Shadow Boxing':
+      'G-PKXI4iSlo', // How to Shadowbox for Beginners | Boxing Lessons — Howcast
+  'Dumbbell Thruster':
+      'SnHdBY_sK6M', // How to Do a Dumbbell Thruster | Warrior Fitness — Howcast
+  'Dumbbell Snatch': 'gY7awqQmWlg', // How To Do Dumbbell Snatch — PureGym
+  'Dumbbell Romanian Deadlift':
+      'FQKfr1YDhEk', // How To: Dumbbell Romanian Deadlift — ScottHermanFitness
+  'Dumbbell Deadlift':
+      'plb5jEO4Unw', // COMPOUND EXERCISES - How to do a Dumbbell Deadlift — PureGym
+  'Dumbbell Front Squat':
+      'MJao9o7ROs0', // Dumbbell Front Squat | Exercise Guide — Bodybuilding.com
+  'Dumbbell Lunge':
+      'D7KaRcUTQeE', // How To: Dumbbell Stepping Lunge — ScottHermanFitness
+  // Loaded with a ball rather than dumbbells, which is the closest a source with
+  // a back catalogue got to this one. The pattern is the point of the demo.
+  'Dumbbell Lateral Lunge':
+      'liFeq7swKfc', // Side (Lateral) Lunge Technique — Mind Pump TV
+  'Dumbbell Floor Press':
+      'T0Y3OBF1bNI', // How To Do A Dumbbell Floor Press — PureGym
+  'Renegade Row': 'iwxg2SA8_OY', // How To Do Renegade Rows — PureGym
+  'Dumbbell Pullover':
+      '4B-BrBH17uM', // Bent Arm Dumbbell Pullover - Chest / Back Exercise - Bodybuilding.com — Bodybuilding.com
+  // No entry for Dumbbell Clean and Press or Dumbbell Push Press. The sources
+  // above carry the barbell versions and dumbbell clean-and-*jerk*, and a demo
+  // of the wrong lift is worse than the absent row the screen already handles.
 };
 
 /// One starter movement: what it is loaded with, and the groups it works
@@ -896,6 +954,14 @@ _Starter _s(
 /// How a movement is loaded follows from its equipment — see [_seedWeightType]
 /// for that rule and the handful of movements whose equipment does not settle
 /// it.
+///
+/// **A gym is not the only place anyone trains.** So the set covers three more
+/// ways to get a session out of it: bodyweight movements enough to fill a room
+/// with nothing in it, dumbbell movements enough to fill a room with one pair,
+/// and conditioning. The conditioning splits by how a set of it is counted —
+/// burpees and box jumps are a number of them, while skipping, sprinting and
+/// mountain climbers are a work period and are measured in seconds. See
+/// [_heldStarters].
 final Map<String, Map<String, _Starter>> _starterLibrary = {
   'Chest': {
     'Bench Press': _s('Barbell', also: ['Arms'], assists: ['Shoulders']),
@@ -921,6 +987,29 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     'Cable Fly': _s('Cable', assists: ['Shoulders']),
     'Push-Up': _s('Bodyweight', also: ['Arms'], assists: ['Shoulders', 'Core']),
     'Chest Dip': _s('Bodyweight', also: ['Arms'], assists: ['Shoulders']),
+    // The push-up variations. Moving the hands or the feet moves the work:
+    // widening the grip takes the triceps out of it, putting the feet up sends
+    // it to the upper chest and the front delt. The one that files elsewhere is
+    // the diamond push-up, which is a triceps movement — see Arms.
+    'Wide Push-Up': _s(
+      'Bodyweight',
+      assists: ['Shoulders', 'Arms', 'Core'],
+    ),
+    'Decline Push-Up': _s(
+      'Bodyweight',
+      also: ['Shoulders'],
+      assists: ['Arms', 'Core'],
+    ),
+    'Dumbbell Floor Press': _s(
+      'Dumbbell',
+      also: ['Arms'],
+      assists: ['Shoulders'],
+    ),
+    'Dumbbell Pullover': _s(
+      'Dumbbell',
+      also: ['Back'],
+      assists: ['Arms', 'Core'],
+    ),
   },
   'Back': {
     'Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
@@ -937,6 +1026,12 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     'Chin-Up': _s('Bodyweight', also: ['Arms'], assists: ['Core']),
     'Inverted Row': _s('Bodyweight', also: ['Arms'], assists: ['Core']),
     'Back Extension': _s('Bodyweight', also: ['Legs'], assists: ['Core']),
+    'Superman Hold': _s('Bodyweight', assists: ['Legs', 'Core']),
+    'Renegade Row': _s(
+      'Dumbbell',
+      also: ['Core', 'Arms'],
+      assists: ['Shoulders', 'Chest'],
+    ),
   },
   'Shoulders': {
     'Overhead Press': _s('Barbell', also: ['Arms'], assists: ['Core']),
@@ -954,6 +1049,23 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     'Machine Shoulder Press': _s('Machine', also: ['Arms']),
     'Reverse Pec Deck': _s('Machine', assists: ['Back']),
     'Cable Lateral Raise': _s('Cable'),
+    'Dumbbell Push Press': _s(
+      'Dumbbell',
+      also: ['Arms'],
+      assists: ['Legs', 'Core'],
+    ),
+    'Dumbbell Clean and Press': _s(
+      'Dumbbell',
+      also: ['Legs', 'Back'],
+      assists: ['Arms', 'Core'],
+    ),
+    'Pike Push-Up': _s(
+      'Bodyweight',
+      also: ['Arms'],
+      assists: ['Chest', 'Core'],
+    ),
+    // Conditioning that is mostly shoulders: the ropes and the rounds. Both are
+    // a work period rather than a rep count — see [_heldStarters].
   },
   'Legs': {
     'Back Squat': _s('Barbell', assists: ['Core', 'Back']),
@@ -993,6 +1105,43 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
       also: ['Back'],
       assists: ['Core', 'Arms'],
     ),
+    // A leg day off a pair of dumbbells. The hinges name Back as a primary for
+    // the same reason the barbell ones do; the squats and lunges do not, because
+    // holding a dumbbell is not what the back is there for.
+    'Dumbbell Thruster': _s(
+      'Dumbbell',
+      also: ['Shoulders'],
+      assists: ['Arms', 'Core'],
+    ),
+    'Dumbbell Snatch': _s(
+      'Dumbbell',
+      also: ['Shoulders', 'Back'],
+      assists: ['Arms', 'Core'],
+    ),
+    'Dumbbell Romanian Deadlift': _s(
+      'Dumbbell',
+      also: ['Back'],
+      assists: ['Core', 'Arms'],
+    ),
+    'Dumbbell Deadlift': _s(
+      'Dumbbell',
+      also: ['Back'],
+      assists: ['Core', 'Arms'],
+    ),
+    'Dumbbell Front Squat': _s(
+      'Dumbbell',
+      assists: ['Core', 'Shoulders', 'Arms'],
+    ),
+    'Dumbbell Lunge': _s('Dumbbell', assists: ['Core']),
+    'Dumbbell Lateral Lunge': _s('Dumbbell', assists: ['Core']),
+    // A leg day off nothing at all.
+    'Air Squat': _s('Bodyweight', assists: ['Core']),
+    'Bodyweight Lunge': _s('Bodyweight', assists: ['Core']),
+    'Nordic Curl': _s('Bodyweight', assists: ['Core']),
+    'Single-Leg Glute Bridge': _s('Bodyweight', assists: ['Core']),
+    'Wall Sit': _s('Bodyweight', assists: ['Core']),
+    // Conditioning. The jumps are counted, because a set of them is a number of
+    // jumps; the running and skipping are a work period — see [_heldStarters].
   },
   'Arms': {
     'Barbell Curl': _s('Barbell'),
@@ -1010,6 +1159,13 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     'Overhead Cable Extension': _s('Cable', assists: ['Core']),
     'Cable Curl': _s('Cable'),
     'Triceps Dip': _s('Bodyweight', also: ['Chest'], assists: ['Shoulders']),
+    // The push-up that is a triceps movement. Its siblings are under Chest;
+    // bringing the hands together is what moves it here.
+    'Diamond Push-Up': _s(
+      'Bodyweight',
+      also: ['Chest'],
+      assists: ['Shoulders', 'Core'],
+    ),
     // The forearm and grip movements. Programd for the part that gives out
     // first, and still an arm day either way.
     'Reverse Curl': _s('Barbell'),
@@ -1031,11 +1187,33 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     'Reverse Crunch': _s('Bodyweight'),
     'Russian Twist': _s('Bodyweight'),
     'Dead Bug': _s('Bodyweight'),
+    'Sit-Up': _s('Bodyweight'),
+    'Bird Dog': _s('Bodyweight', assists: ['Back', 'Legs']),
+    // Conditioning braced from the middle. Both run against a clock — see
+    // [_heldStarters].
     'Turkish Get-Up': _s(
       'Other',
       also: ['Shoulders'],
       assists: ['Legs', 'Arms'],
     ),
+  },
+  // Conditioning. These file here rather than under the muscles they use:
+  // interval work is what they are for, and a Legs filter full of sprints is
+  // a Legs filter somebody has to read past to find a squat. Every muscle each
+  // one leans on is still named — as an assist, which is what it is doing.
+  'Cardio': {
+    'Burpee': _s('Bodyweight', assists: ['Legs', 'Chest', 'Arms', 'Shoulders', 'Core']),
+    'Mountain Climber': _s('Bodyweight', assists: ['Core', 'Legs', 'Shoulders', 'Chest']),
+    'High Knees': _s('Bodyweight', assists: ['Legs', 'Core']),
+    'Jumping Jack': _s('Bodyweight', assists: ['Legs', 'Shoulders', 'Core']),
+    'Jump Squat': _s('Bodyweight', assists: ['Legs', 'Core']),
+    'Box Jump': _s('Bodyweight', assists: ['Legs', 'Core']),
+    'Skater Jump': _s('Bodyweight', assists: ['Legs', 'Core']),
+    'Bear Crawl': _s('Bodyweight', assists: ['Core', 'Shoulders', 'Legs', 'Arms']),
+    'Sprint': _s('Bodyweight', assists: ['Legs', 'Core']),
+    'Jump Rope': _s('Other', assists: ['Legs', 'Shoulders', 'Core']),
+    'Battle Rope': _s('Other', assists: ['Shoulders', 'Arms', 'Back', 'Core']),
+    'Shadow Boxing': _s('Bodyweight', assists: ['Shoulders', 'Core', 'Arms', 'Legs']),
   },
 };
 
@@ -1052,23 +1230,44 @@ Map<String, MuscleMap> get _starterMuscles => {
 
 /// The starters with no rep to count, so the clock is the only thing that can
 /// go up. Everything else in [_starterLibrary] is measured in reps.
+///
+/// Two kinds of movement end up here. A hold is a position you get into and
+/// stay in, where a rep would be the whole set. An interval is conditioning
+/// whose set is a work period: nobody counts mountain climbers or seconds of
+/// rope one rep at a time, and the thirty seconds is the prescription. What is
+/// *not* here is the conditioning that is genuinely counted — a set of burpees
+/// or box jumps is a number of them.
 const Set<String> _heldStarters = {
   'Plank',
   'Side Plank',
   'Hollow Hold',
+  'Superman Hold',
   'Dead Hang',
   "Farmer's Carry",
+  'Wall Sit',
+  'High Knees',
+  'Mountain Climber',
+  'Bear Crawl',
+  'Sprint',
+  'Jump Rope',
+  'Battle Rope',
+  'Shadow Boxing',
 };
 
 /// The starters whose equipment does not say how they are loaded, because their
 /// equipment is `Other`.
 ///
 /// A kettlebell is a weight in one hand, which is a dumbbell as far as the
-/// weight column is concerned; an ab wheel is your own body on a wheel.
+/// weight column is concerned; an ab wheel is your own body on a wheel, and so
+/// are a skipping rope and a pair of battle ropes — an implement, but not a
+/// load. Without an entry here the fallback would read all three as a machine
+/// and offer a weight field for a rope.
 const Map<String, WeightType> _starterLoadings = {
   'Kettlebell Swing': WeightType.dumbbell,
   'Turkish Get-Up': WeightType.dumbbell,
   'Ab Wheel Rollout': WeightType.none,
+  'Jump Rope': WeightType.none,
+  'Battle Rope': WeightType.none,
 };
 
 /// How a starter movement is loaded: what its equipment implies, unless it is
@@ -1152,8 +1351,15 @@ class AppDatabase extends _$AppDatabase {
   /// - **v2** — `Settings.warmup_sets`, the default warm-up rung count.
   /// - **v3** — `Exercises.extra_primary_groups` and `secondary_groups`, so a
   ///   movement can name every muscle group it works instead of one.
+  /// - **v4** — `WorkoutItems.superset_with_previous`, the join that makes two
+  ///   consecutive slots a superset.
+  /// - **v5** — `Routines.description`, what a program is in a sentence or two.
+  /// - **v6** — the starter movements this build ships that an installed
+  ///   database has never had, inserted. A release that adds more needs a rung of
+  ///   its own: this one runs once, and editing it would rewrite a step a phone
+  ///   has already climbed.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1206,11 +1412,87 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+      // v4 — a slot can be joined to the one above it as a superset. Off for
+      // every slot already on the phone, which is what a workout built before
+      // supersets existed meant: each exercise on its own.
+      if (from < 4) {
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "superset_with_previous" '
+          'INTEGER NOT NULL DEFAULT 0 '
+          'CHECK ("superset_with_previous" IN (0, 1))',
+        );
+      }
+      // v5 — a routine can say what it is. Null for every routine already on the
+      // phone, which is what "nobody has described this one" means.
+      if (from < 5) {
+        await m.database.customStatement(
+          'ALTER TABLE "routines" ADD COLUMN "description" TEXT NULL',
+        );
+      }
+      // v6 — the movements this build ships that this database has never had.
+      //
+      // The starter library grows, and an installed phone that never gets the
+      // additions cannot be given a program that uses one. So the shipped table
+      // is walked and anything missing is inserted, matched on the canonical
+      // English name — the same thing `_seed` writes and the same thing every
+      // routine code names.
+      //
+      // **Nothing existing is touched**: a movement already there keeps its
+      // loading, its bar and your note, whatever this build would now say about
+      // it. And the columns are named in the statement rather than left to a
+      // companion, so a later edit to the `Exercises` declaration cannot rewrite
+      // what this rung inserts.
+      if (from < 6) await _insertMissingStarterExercises(m.database);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Inserts every movement the shipped starter table names that [db] has not
+  /// got, as the v6 rung — see the ladder above.
+  ///
+  /// **Raw SQL, columns named.** Every rung has to build the shape of its own
+  /// era: a companion is written from the `Exercises` declaration as it stands
+  /// today, so a later column would silently change what a rung that has already
+  /// shipped inserts.
+  ///
+  /// Matched on the canonical English name, which is what `_seed` writes and what
+  /// every routine code names. A movement already there is left exactly as it is.
+  static Future<void> _insertMissingStarterExercises(DatabaseConnectionUser db) async {
+    for (final group in _starterLibrary.entries) {
+      for (final movement in group.value.entries) {
+        final name = movement.key;
+        // The three group columns as the plain strings a statement can bind,
+        // rather than through `muscleColumns`, whose job is a companion.
+        final muscles = _starterMuscles[name]!;
+        final measure = _heldStarters.contains(name)
+            ? ExerciseMeasure.time
+            : ExerciseMeasure.reps;
+        final video = _starterDemos[name];
+        await db.customStatement(
+          'INSERT INTO "exercises" '
+          '("name", "seed_key", "muscle_group", "extra_primary_groups", '
+          '"secondary_groups", "equipment", "video_url", "is_custom", '
+          '"measure", "weight_type", "bar_weight", "notes") '
+          'SELECT ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, NULL '
+          'WHERE NOT EXISTS (SELECT 1 FROM "exercises" WHERE "name" = ?)',
+          [
+            name,
+            kSeedExerciseKeys[name],
+            muscles.lead,
+            muscles.extraPrimary.join(kGroupSeparator),
+            muscles.secondary.join(kGroupSeparator),
+            movement.value.kit,
+            video == null ? null : youTubeUrl(video),
+            measure.name,
+            _seedWeightType(name, movement.value.kit).name,
+            name,
+          ],
+        );
+      }
+    }
+  }
 
   // ---- Exercise library --------------------------------------------------
 
@@ -1533,24 +1815,148 @@ class AppDatabase extends _$AppDatabase {
     return (row ?? -1) + 1;
   }
 
+  /// Writes a new routine and returns its id.
+  ///
+  /// **The first routine to arrive becomes the current one.** An install starts
+  /// with an empty list — the programs the app ships live in the routine library
+  /// until somebody adds one — so without this, Today would go on saying it has
+  /// nothing to offer while the list behind it held exactly one routine. It
+  /// applies however the routine arrived: built here, added from the library, or
+  /// imported from a code. A routine that is *already* current is never
+  /// displaced: that choice has been made, and adding a program to look at is not
+  /// the same as switching to it.
+  ///
+  /// [seedKey] is set only by the library, whose copies are shipped rows and have
+  /// to follow the language. A routine somebody names has none, by definition.
   Future<int> createRoutine({
     required String name,
     required String color,
     required int restSeconds,
     int scheduleDays = kNoScheduleMask,
     int? reminderMinutes,
+    String? seedKey,
+    String? description,
   }) async {
+    // **Both reads happen before the insert**, and that is not stylistic. A read
+    // that follows a write waits for the write's stream update to be delivered,
+    // and a widget test's clock parks that delivery until the tree is pumped —
+    // so a query issued after an insert inside `runAsync` never returns. Nothing
+    // can become the current routine between these lines anyway: this is one
+    // isolate, and there is no await between the answer and its use.
+    //
+    // Asked of the list rather than of the settings column, because a stored id
+    // pointing at a routine that has been deleted resolves to no current routine
+    // everywhere else, and it has to mean the same here.
+    final adopt = await currentRoutineId() == null;
     final pos = await _nextRoutinePosition();
-    return into(routines).insert(
+    final id = await into(routines).insert(
       RoutinesCompanion.insert(
         name: name,
+        seedKey: Value(seedKey),
         colorHex: Value(color),
         position: Value(pos),
         restSeconds: Value(restSeconds),
         scheduleDays: Value(scheduleDays),
         reminderMinutes: Value(reminderMinutes),
+        description: Value(description),
       ),
     );
+    if (adopt) await setActiveRoutineId(id);
+    return id;
+  }
+
+  /// The current routine's id, or null when there is not one — including when the
+  /// stored id names a routine that has since been deleted.
+  Future<int?> currentRoutineId() async {
+    final stored = (await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull())?.activeRoutineId;
+    if (stored == null) return null;
+    final row = await (select(
+      routines,
+    )..where((r) => r.id.equals(stored))).getSingleOrNull();
+    return row?.id;
+  }
+
+  /// Copies a program out of the routine library into the user's own list, and
+  /// returns the new routine's id.
+  ///
+  /// Exactly what the first-run seed used to write, on demand instead: the
+  /// routine, its training days and every slot in them, with the program's own
+  /// rest, schedule, rates and starting loads. See `data/starter_routines.dart`
+  /// for why the library is a table in the code.
+  ///
+  /// **No exercises are created.** Every movement the library names is in the
+  /// starter library already, so the slots point at the rows that are there — and
+  /// the history you have on Bench Press is the history the new program's bench
+  /// slot is about. A movement that somehow is not there is left out rather than
+  /// invented.
+  Future<int> addStarterRoutine(StarterRoutine program) async {
+    return transaction(() async {
+      final routineId = await createRoutine(
+        name: program.name,
+        color: program.colorHex,
+        restSeconds: program.restSeconds,
+        scheduleDays: program.scheduleDays,
+        seedKey: program.seedKey,
+        // Copied onto the routine rather than looked up from the library later:
+        // the copy is yours from the moment it lands, and yours is a routine that
+        // can be re-described.
+        description: program.description,
+      );
+      var dayPosition = 0;
+      for (final day in program.days) {
+        final workoutId = await into(workouts).insert(
+          WorkoutsCompanion.insert(
+            routineId: routineId,
+            name: day.name,
+            seedKey: Value(kSeedWorkoutKeys[day.name]),
+            position: Value(dayPosition++),
+          ),
+        );
+        var position = 0;
+        for (final slot in day.items) {
+          final exercise = await (select(
+            exercises,
+          )..where((e) => e.name.equals(slot.exercise))).getSingleOrNull();
+          if (exercise == null) continue;
+          // A held movement can only progress on time. Otherwise: a slot with no
+          // suggested load has nothing to add load to, so it progresses on reps —
+          // the right answer for the pull-ups and leg raises here.
+          final mode = exercise.measure.coerce(
+            slot.weightKg == null
+                ? ProgressionMode.reps
+                : ProgressionMode.weight,
+          );
+          // A held movement is measured in seconds, so the slot's target is its
+          // work interval — an interval program's answer where a strength
+          // program has a rep count. `holdSeconds` keeps the column's default
+          // where the program named none.
+          final hold = slot.holdSeconds;
+          await into(workoutItems).insert(
+            WorkoutItemsCompanion.insert(
+              workoutId: workoutId,
+              exerciseId: exercise.id,
+              position: Value(position++),
+              targetSets: Value(slot.sets),
+              // A timed slot has no rep target at all, so the column keeps its
+              // default rather than being written down to zero.
+              repsMin: slot.repsMin > 0
+                  ? Value(slot.repsMin)
+                  : const Value.absent(),
+              repsMax: Value(slot.repsMax),
+              holdSeconds: hold == null ? const Value.absent() : Value(hold),
+              suggestedWeight: Value(slot.weightKg),
+              progression: Value(mode),
+              increment: Value(slot.increment ?? mode.defaultIncrement),
+              deload: Value(slot.deload ?? mode.defaultDeload),
+              failureThreshold: Value(program.failureThreshold),
+            ),
+          );
+        }
+      }
+      return routineId;
+    });
   }
 
   /// Rewrites a routine's own settings. The schedule and reminder are written
@@ -1570,6 +1976,7 @@ class AppDatabase extends _$AppDatabase {
     int scheduleDays = kNoScheduleMask,
     int? reminderMinutes,
     String? seedKey,
+    String? description,
   }) {
     return (update(routines)..where((r) => r.id.equals(id))).write(
       RoutinesCompanion(
@@ -1579,6 +1986,9 @@ class AppDatabase extends _$AppDatabase {
         restSeconds: Value(restSeconds),
         scheduleDays: Value(scheduleDays),
         reminderMinutes: Value(reminderMinutes),
+        // A whole answer like the schedule and the reminder: null means the
+        // description has been cleared, never "leave the old one alone".
+        description: Value(description),
       ),
     );
   }
@@ -2625,225 +3035,16 @@ class AppDatabase extends _$AppDatabase {
       }
     }
 
-    // Five starter programs, each split into its training days. Upper/Lower
-    // deliberately repeats a day name — that is legal and worth demonstrating.
-    Future<int> routine(
-      String name,
-      String color,
-      int pos,
-      int rest,
-      List<({String name, List<_SeedItem> items})> days, {
-      int schedule = kNoScheduleMask,
-      int fails = defaultFailureThreshold,
-    }) async {
-      final rid = await into(routines).insert(
-        RoutinesCompanion.insert(
-          name: name,
-          seedKey: Value(kSeedRoutineKeys[name]),
-          colorHex: Value(color),
-          position: Value(pos),
-          restSeconds: Value(rest),
-          scheduleDays: Value(schedule),
-        ),
-      );
-      var dayPos = 0;
-      for (final day in days) {
-        final wid = await into(workouts).insert(
-          WorkoutsCompanion.insert(
-            routineId: rid,
-            name: day.name,
-            seedKey: Value(kSeedWorkoutKeys[day.name]),
-            position: Value(dayPos++),
-          ),
-        );
-        var i = 0;
-        for (final it in day.items) {
-          // A held movement can only progress on time. Otherwise: a slot with
-          // no suggested load has nothing to add load to, so it progresses on
-          // reps — the right answer for the pull-ups and leg raises that make
-          // up every one of them here.
-          final measure = measures[it.name] ?? ExerciseMeasure.reps;
-          final mode = measure.coerce(
-            it.w == null ? ProgressionMode.reps : ProgressionMode.weight,
-          );
-          await into(workoutItems).insert(
-            WorkoutItemsCompanion.insert(
-              workoutId: wid,
-              exerciseId: ids[it.name]!,
-              position: Value(i++),
-              targetSets: Value(it.sets),
-              repsMin: Value(it.min),
-              repsMax: Value(it.max),
-              suggestedWeight: Value(it.w),
-              progression: Value(mode),
-              increment: Value(it.inc ?? mode.defaultIncrement),
-              deload: Value(it.deload ?? mode.defaultDeload),
-              failureThreshold: Value(fails),
-            ),
-          );
-        }
-      }
-      return rid;
-    }
-
-    final ppl = await routine('Push / Pull / Legs', 'FF6A3D', 0, 120, [
-      (
-        name: 'Push',
-        items: [
-          _SeedItem('Bench Press', sets: 4, min: 6, max: 8, w: 80),
-          _SeedItem('Overhead Press', sets: 4, min: 8, max: null, w: 50),
-          _SeedItem('Incline DB Press', sets: 3, min: 10, max: 12, w: 30),
-          _SeedItem('Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-          _SeedItem('Triceps Pushdown', sets: 3, min: 12, max: 15, w: 35),
-        ],
-      ),
-      (
-        name: 'Pull',
-        items: [
-          _SeedItem('Deadlift', sets: 3, min: 5, max: null, w: 140),
-          _SeedItem('Pull-Up', sets: 4, min: 6, max: 10, w: null),
-          _SeedItem('Barbell Row', sets: 4, min: 8, max: null, w: 70),
-          _SeedItem('Face Pull', sets: 3, min: 15, max: 20, w: 25),
-          _SeedItem('Barbell Curl', sets: 3, min: 10, max: 12, w: 30),
-        ],
-      ),
-      (
-        name: 'Legs',
-        items: [
-          _SeedItem('Back Squat', sets: 4, min: 6, max: null, w: 110),
-          _SeedItem('Romanian Deadlift', sets: 3, min: 10, max: null, w: 90),
-          _SeedItem('Leg Press', sets: 3, min: 12, max: 15, w: 180),
-          _SeedItem('Leg Curl', sets: 3, min: 12, max: null, w: 45),
-          _SeedItem('Calf Raise', sets: 4, min: 15, max: 20, w: 60),
-        ],
-      ),
-      // Mondays, Wednesdays and Fridays — a schedule on one of the two demo
-      // routines and none on the other, so both states of the setting are
-      // visible before anyone has configured anything. No reminder either way:
-      // notifications are asked for, never assumed.
-    ], schedule: 1 << 0 | 1 << 2 | 1 << 4);
-
-    await routine('Upper / Lower', '3ED598', 1, 150, [
-      (
-        name: 'Upper 1',
-        items: [
-          _SeedItem('Bench Press', sets: 4, min: 5, max: null, w: 80),
-          _SeedItem('Barbell Row', sets: 4, min: 6, max: 8, w: 70),
-          _SeedItem('Overhead Press', sets: 3, min: 8, max: 10, w: 45),
-          _SeedItem('Lat Pulldown', sets: 3, min: 10, max: 12, w: 55),
-        ],
-      ),
-      (
-        name: 'Lower 1',
-        items: [
-          _SeedItem('Back Squat', sets: 4, min: 5, max: null, w: 110),
-          _SeedItem('Romanian Deadlift', sets: 3, min: 8, max: 10, w: 90),
-          _SeedItem('Leg Curl', sets: 3, min: 12, max: null, w: 45),
-          _SeedItem('Calf Raise', sets: 4, min: 15, max: 20, w: 60),
-        ],
-      ),
-      (
-        name: 'Upper 2',
-        items: [
-          _SeedItem('Incline DB Press', sets: 4, min: 8, max: 10, w: 30),
-          _SeedItem('Pull-Up', sets: 4, min: 6, max: 10, w: null),
-          _SeedItem('Lateral Raise', sets: 3, min: 15, max: null, w: 12),
-          _SeedItem('Hammer Curl', sets: 3, min: 10, max: 12, w: 14),
-        ],
-      ),
-      (
-        name: 'Lower 2',
-        items: [
-          _SeedItem('Deadlift', sets: 3, min: 5, max: null, w: 140),
-          _SeedItem('Front Squat', sets: 3, min: 8, max: 10, w: 70),
-          _SeedItem('Leg Press', sets: 3, min: 12, max: 15, w: 180),
-          _SeedItem('Hanging Leg Raise', sets: 3, min: 10, max: null, w: null),
-        ],
-      ),
-    ]);
-
-    // The three beginner strength programs. They are linear-progression
-    // barbell routines rather than splits, so they carry their own rates: the
-    // squat and the deadlift take 5 kg a session where a press takes 2.5, and
-    // the two published ones reset only after a third failed session — the
-    // extra attempt is part of the program, not a leniency.
-    await routine('Starting Strength', '4D9DE0', 2, 300, [
-      (
-        name: 'Workout A',
-        items: [
-          _SeedItem.heavy('Back Squat', sets: 3, min: 5, w: 60),
-          _SeedItem('Bench Press', sets: 3, min: 5, w: 45),
-          // One work set. The deadlift is the lift the program deliberately
-          // does not do three sets of.
-          _SeedItem.heavy('Deadlift', sets: 1, min: 5, w: 70),
-        ],
-      ),
-      (
-        name: 'Workout B',
-        items: [
-          _SeedItem.heavy('Back Squat', sets: 3, min: 5, w: 60),
-          _SeedItem('Overhead Press', sets: 3, min: 5, w: 30),
-          // Five triples, trained for speed rather than for load.
-          _SeedItem('Power Clean', sets: 5, min: 3, w: 40),
-        ],
-      ),
-    ], schedule: 1 << 0 | 1 << 2 | 1 << 4, fails: 3);
-
-    await routine('StrongLifts 5x5', 'C77DFF', 3, 180, [
-      (
-        name: 'Workout A',
-        items: [
-          // Everything but the deadlift takes the ordinary 2.5 kg here — the
-          // program is five sets of five on a bar that starts nearly empty.
-          _SeedItem('Back Squat', sets: 5, min: 5, w: 40),
-          _SeedItem('Bench Press', sets: 5, min: 5, w: 30),
-          _SeedItem('Barbell Row', sets: 5, min: 5, w: 30),
-        ],
-      ),
-      (
-        name: 'Workout B',
-        items: [
-          _SeedItem('Back Squat', sets: 5, min: 5, w: 40),
-          _SeedItem('Overhead Press', sets: 5, min: 5, w: 20),
-          _SeedItem.heavy('Deadlift', sets: 1, min: 5, w: 60),
-        ],
-      ),
-    ], schedule: 1 << 0 | 1 << 2 | 1 << 4, fails: 3);
-
-    // Not a published program, so it keeps the app's own back-off rule and
-    // trains on the other three days of the week.
-    await routine('Full Body 3x', 'E8C547', 4, 120, [
-      (
-        name: 'Workout A',
-        items: [
-          _SeedItem.heavy('Back Squat', sets: 3, min: 5, w: 55),
-          _SeedItem('Bench Press', sets: 3, min: 5, w: 40),
-          _SeedItem('Seated Cable Row', sets: 3, min: 10, w: 45),
-          _SeedItem('Hanging Leg Raise', sets: 3, min: 8, max: 12),
-        ],
-      ),
-      (
-        name: 'Workout B',
-        items: [
-          _SeedItem.heavy('Romanian Deadlift', sets: 3, min: 8, w: 60),
-          _SeedItem('Overhead Press', sets: 3, min: 6, max: 8, w: 30),
-          _SeedItem('Lat Pulldown', sets: 3, min: 10, max: 12, w: 50),
-          _SeedItem('Cable Crunch', sets: 3, min: 12, max: 15, w: 30),
-        ],
-      ),
-      (
-        name: 'Workout C',
-        items: [
-          _SeedItem.heavy('Deadlift', sets: 2, min: 5, w: 80),
-          _SeedItem('Incline DB Press', sets: 3, min: 8, max: 10, w: 22.5),
-          _SeedItem('Chin-Up', sets: 3, min: 5, max: 8),
-          _SeedItem('Leg Curl', sets: 3, min: 12, w: 40),
-        ],
-      ),
-    ], schedule: 1 << 1 | 1 << 3 | 1 << 5);
-
-    // Give Today something to be about on first launch.
-    await setActiveRoutineId(ppl);
+    // **No routines.** The programs the app ships live in the routine library
+    // — `data/starter_routines.dart` — and a list is what somebody put in it:
+    // five programs nobody chose are five rows to wade past before finding the
+    // one you actually train. So there is no current routine either, and Today
+    // opens on the card that offers both ways to get one.
+    //
+    // This is the *fresh install*. A phone that has been running the app already
+    // has those five as ordinary routines, with its history and its edits on
+    // them, and nothing removes them: see the migration ladder above, which does
+    // not touch the routines table.
   }
 }
 

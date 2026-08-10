@@ -5,6 +5,7 @@
 // of screens in its own right — they are two axes over the same list, so the
 // list lives here and both read it. A screen added to the app is added once.
 import 'package:flutter/material.dart';
+import 'package:foss_lift/data/starter_routines.dart';
 import 'package:foss_lift/screens/about_screen.dart';
 import 'package:foss_lift/screens/backup_screen.dart';
 import 'package:foss_lift/screens/bar_settings_screen.dart';
@@ -18,6 +19,7 @@ import 'package:foss_lift/screens/plate_inventory_screen.dart';
 import 'package:foss_lift/screens/profile_screen.dart';
 import 'package:foss_lift/screens/routine_detail_screen.dart';
 import 'package:foss_lift/screens/routine_edit_screen.dart';
+import 'package:foss_lift/screens/routine_library_screen.dart';
 import 'package:foss_lift/screens/routine_share_screen.dart';
 import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/exercise_settings_screen.dart';
@@ -31,6 +33,11 @@ import 'package:foss_lift/screens/workout_edit_screen.dart';
 final Map<String, Widget Function()> kSweepScreens = {
   'today': () => const TodayScreen(),
   'routines': () => const RoutinesScreen(),
+  'routine library': () => const RoutineLibraryScreen(),
+  // The first program in the library, which needs no row of its own: the library
+  // is code, so a preview renders against nothing but the app.
+  'routine preview': () =>
+      StarterRoutinePreviewScreen(routineKey: kStarterRoutines.first.key),
   'history': () => const HistoryScreen(),
   'profile': () => const ProfileScreen(),
   'library': () => const LibraryScreen(),

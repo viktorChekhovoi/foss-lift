@@ -106,6 +106,14 @@ concepts:
     what: A program. Its name, colour, order and default rest.
     code: [lib/data/database.dart, lib/screens/routine_edit_screen.dart]
 
+  - id: template.description
+    area: template
+    what: >-
+      What a routine is, in a sentence or two — where it is typed, where it is
+      shown, and how the description a shipped program arrives with follows the
+      language.
+    code: [lib/data/database.dart, lib/screens/routine_edit_screen.dart, lib/util/seed_names.dart]
+
   - id: template.workout
     area: template
     what: One workout inside a routine — the thing you actually start.
@@ -128,6 +136,14 @@ concepts:
       ramping up, or a weight and a rep count written out per set.
     code: [lib/data/set_scheme.dart, lib/widgets/workout_items_editor.dart]
 
+  - id: template.superset
+    area: template
+    what: >-
+      Which consecutive slots of a workout are trained as one round instead of
+      one after the other — the join between a slot and the one above it, and
+      where a group starts and ends.
+    code: [lib/data/superset.dart, lib/data/database.dart]
+
   - id: template.rest
     area: template
     what: The rest a slot gets, and the routine default it falls back to.
@@ -139,6 +155,13 @@ concepts:
       How long a workout will take, derived from the template — sets,
       targets, warm-up rungs and rest. Never read from logged sessions.
     code: [lib/data/workout_estimate.dart, lib/widgets/workout_estimate.dart]
+
+  - id: template.starter-library
+    area: template
+    what: >-
+      The programs the app ships — what is in the library, what a copy of one
+      arrives configured as, and what adding one does to your list.
+    code: [lib/data/starter_routines.dart, lib/screens/routine_library_screen.dart]
 
   - id: template.active-routine
     area: template
@@ -183,6 +206,14 @@ concepts:
     area: session
     what: Which set you are on — computed once, shown on the board and in the shade.
     code: [lib/state/workout_cue.dart]
+
+  - id: session.superset-round
+    area: session
+    what: >-
+      How a live superset is walked — a round across the group's movements
+      rather than a column down one of them — and the rest that belongs to the
+      end of a round instead of to each set in it.
+    code: [lib/state/workout_cue.dart, lib/state/active_workout.dart]
 
   - id: session.rest-timer
     area: session
@@ -427,10 +458,12 @@ concepts:
     area: ui
     what: >-
       The plain-language definitions of the words the app assumes — routine,
-      workout, set, rep, rest. The tour is the only place they are spelled
-      out; screens label their controls and leave the teaching to it. One noun
-      per thing: the tour never teaches a word a screen does not itself use.
-    code: [lib/widgets/tutorial.dart]
+      workout, set, rep, rest, superset. The tour is where they are spelled out;
+      screens label their controls and leave the teaching to it, with one
+      exception — a superset, which a slot can be switched to without knowing
+      what has been asked for, so the builder explains it behind an icon. One
+      noun per thing: nothing here teaches a word a screen does not itself use.
+    code: [lib/widgets/tutorial.dart, lib/widgets/workout_items_editor.dart]
 
   - id: ui.empty-state
     area: ui

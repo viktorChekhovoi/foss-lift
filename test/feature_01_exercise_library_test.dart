@@ -19,6 +19,16 @@ import 'package:foss_lift/widgets/exercise_filters.dart';
 import 'support/harness.dart';
 import 'support/seeded.dart';
 
+/// The groups that are actually muscles — what a day of training has to be able
+/// to cover with whatever equipment it has.
+///
+/// `Other` is the shelf everything unclassified lands on, and `Cardio` names what
+/// a set is *for* rather than a muscle it works: neither is something a dumbbell
+/// day owes you, and demanding coverage of them would be demanding a dumbbell
+/// sprint.
+final List<String> _muscleGroupsProper =
+    kMuscleGroups.where((g) => g != 'Other' && g != 'Cardio').toList();
+
 void main() {
   late AppDatabase db;
 
@@ -30,8 +40,8 @@ void main() {
       final all = await db.watchExercises().first;
       final starters = all.where((e) => !e.isCustom).toList();
 
-      // ~85 curated movements. Exactly the seeded set is custom-free.
-      expect(starters.length, greaterThanOrEqualTo(80));
+      // 123 curated movements. Exactly the seeded set is custom-free.
+      expect(starters.length, 123);
       expect(all.every((e) => !e.isCustom), isTrue);
     });
 
@@ -93,21 +103,40 @@ void main() {
       }
     });
 
-    test('every starter carries a demo-video link', () async {
-      final all = await db.watchExercises().first;
+    test('a starter demo is optional, and most of the set has one', () async {
+      final starters = (await db.watchExercises().first).where(
+        (e) => !e.isCustom,
+      );
 
-      for (final e in all.where((e) => !e.isCustom)) {
-        expect(e.videoUrl, isNotNull, reason: '${e.name} has no demo link');
+      // No demo is now a real answer: a movement nobody found a video for that
+      // they could stand behind ships with none rather than with a guessed id
+      // pointing at somebody else's clip. A blank string is *not* that answer —
+      // every screen asks whether the field is null, so an empty one reads as a
+      // link and opens nothing.
+      for (final e in starters) {
+        expect(
+          e.videoUrl,
+          anyOf(isNull, isNotEmpty),
+          reason: '${e.name} carries an empty demo link',
+        );
       }
+      // And the library is still overwhelmingly demonstrated: without a floor,
+      // a table that quietly lost its links passes every other check here.
+      expect(
+        starters.where((e) => e.videoUrl != null).length,
+        greaterThanOrEqualTo(93),
+        reason: 'three quarters of the 123 starters should show a demo',
+      );
     });
 
     test('and it is a specific video, not a search for one', () async {
       // These were `youtube.com/results?search_query=…`, which is a page of
       // results to pick from rather than a demo — and, having no video id in
-      // it, nothing a shared routine could carry either.
+      // it, nothing a shared routine could carry either. The starters with no
+      // demo at all are not this failure and are skipped.
       final all = await db.watchExercises().first;
 
-      for (final e in all.where((e) => !e.isCustom)) {
+      for (final e in all.where((e) => !e.isCustom && e.videoUrl != null)) {
         expect(
           youTubeVideoId(e.videoUrl ?? ''),
           isNotNull,
@@ -124,7 +153,9 @@ void main() {
     test('no two starters point at the same video', () async {
       // A copy-paste slip in the table is invisible on screen — both links
       // work, they are just the wrong demo on one of them.
-      final all = (await db.watchExercises().first).where((e) => !e.isCustom);
+      final all = (await db.watchExercises().first).where(
+        (e) => !e.isCustom && e.videoUrl != null,
+      );
       final byId = <String, List<String>>{};
       for (final e in all) {
         byId
@@ -159,6 +190,311 @@ void main() {
         all.map((e) => e.name),
         containsAll(['Zercher Squat', 'Bench Press']),
       );
+    });
+  });
+
+  group('enough of it to train with nothing, with dumbbells, or for time', () {
+    /// The movements the starter set grew by, and what each of them says about
+    /// itself: the groups it trains (the first the one it files under), the
+    /// groups it assists, what it is done with, and whether a set of it is
+    /// counted or run against the clock.
+    ///
+    /// A gym's library was the starting point, so a routine for an empty room
+    /// or a pair of dumbbells had almost nothing to be built out of.
+    const grown =
+        <String, (List<String>, List<String>, String, ExerciseMeasure)>{
+      // An empty room.
+      'Air Squat': (['Legs'], ['Core'], 'Bodyweight', ExerciseMeasure.reps),
+      'Bodyweight Lunge': (
+        ['Legs'],
+        ['Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Pike Push-Up': (
+        ['Shoulders', 'Arms'],
+        ['Chest', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Diamond Push-Up': (
+        ['Arms', 'Chest'],
+        ['Shoulders', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Wide Push-Up': (
+        ['Chest'],
+        ['Shoulders', 'Arms', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Decline Push-Up': (
+        ['Chest', 'Shoulders'],
+        ['Arms', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Nordic Curl': (['Legs'], ['Core'], 'Bodyweight', ExerciseMeasure.reps),
+      'Single-Leg Glute Bridge': (
+        ['Legs'],
+        ['Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Wall Sit': (['Legs'], ['Core'], 'Bodyweight', ExerciseMeasure.time),
+      'Superman Hold': (
+        ['Back'],
+        ['Legs', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.time,
+      ),
+      'Bird Dog': (
+        ['Core'],
+        ['Back', 'Legs'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Sit-Up': (['Core'], [], 'Bodyweight', ExerciseMeasure.reps),
+      // Conditioning: some of it counted, most of it a work period.
+      'Burpee': (
+        ['Cardio'],
+        ['Legs', 'Chest', 'Arms', 'Shoulders', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Mountain Climber': (
+        ['Cardio'],
+        ['Core', 'Legs', 'Shoulders', 'Chest'],
+        'Bodyweight',
+        ExerciseMeasure.time,
+      ),
+      'High Knees': (
+        ['Cardio'],
+        ['Legs', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.time,
+      ),
+      'Jumping Jack': (
+        ['Cardio'],
+        ['Legs', 'Shoulders', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Jump Squat': (
+        ['Cardio'],
+        ['Legs', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Box Jump': (
+        ['Cardio'],
+        ['Legs', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Skater Jump': (
+        ['Cardio'],
+        ['Legs', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.reps,
+      ),
+      'Bear Crawl': (
+        ['Cardio'],
+        ['Core', 'Shoulders', 'Legs', 'Arms'],
+        'Bodyweight',
+        ExerciseMeasure.time,
+      ),
+      'Sprint': (
+        ['Cardio'],
+        ['Legs', 'Core'],
+        'Bodyweight',
+        ExerciseMeasure.time,
+      ),
+      'Jump Rope': (
+        ['Cardio'],
+        ['Legs', 'Shoulders', 'Core'],
+        'Other',
+        ExerciseMeasure.time,
+      ),
+      'Battle Rope': (
+        ['Cardio'],
+        ['Shoulders', 'Arms', 'Back', 'Core'],
+        'Other',
+        ExerciseMeasure.time,
+      ),
+      'Shadow Boxing': (
+        ['Cardio'],
+        ['Shoulders', 'Core', 'Arms', 'Legs'],
+        'Bodyweight',
+        ExerciseMeasure.time,
+      ),
+      'Dumbbell Thruster': (
+        ['Legs', 'Shoulders'],
+        ['Arms', 'Core'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Clean and Press': (
+        ['Shoulders', 'Legs', 'Back'],
+        ['Arms', 'Core'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Snatch': (
+        ['Legs', 'Shoulders', 'Back'],
+        ['Arms', 'Core'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Romanian Deadlift': (
+        ['Legs', 'Back'],
+        ['Core', 'Arms'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Deadlift': (
+        ['Legs', 'Back'],
+        ['Core', 'Arms'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Front Squat': (
+        ['Legs'],
+        ['Core', 'Shoulders', 'Arms'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Lunge': (['Legs'], ['Core'], 'Dumbbell', ExerciseMeasure.reps),
+      'Dumbbell Lateral Lunge': (
+        ['Legs'],
+        ['Core'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Floor Press': (
+        ['Chest', 'Arms'],
+        ['Shoulders'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Renegade Row': (
+        ['Back', 'Core', 'Arms'],
+        ['Shoulders', 'Chest'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Pullover': (
+        ['Chest', 'Back'],
+        ['Arms', 'Core'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+      'Dumbbell Push Press': (
+        ['Shoulders', 'Arms'],
+        ['Legs', 'Core'],
+        'Dumbbell',
+        ExerciseMeasure.reps,
+      ),
+    };
+
+    /// The starter called [name] — reported as missing rather than as a "Bad
+    /// state: No element" from inside a `firstWhere`, which names nothing.
+    Future<Exercise> starter(String name) async {
+      final match = (await db.watchExercises().first).where(
+        (e) => e.name == name,
+      );
+      expect(match, hasLength(1), reason: '$name is not in the library');
+      return match.single;
+    }
+
+    test('each of the new movements says what the table says', () async {
+      final all = await db.watchExercises().first;
+
+      for (final entry in grown.entries) {
+        final matches = all.where((e) => e.name == entry.key);
+        expect(matches, hasLength(1), reason: '${entry.key} is not seeded');
+        final e = matches.single;
+        expect(e.isCustom, isFalse, reason: entry.key);
+        expect(e.muscles.primary, entry.value.$1, reason: entry.key);
+        expect(e.muscles.secondary, entry.value.$2, reason: entry.key);
+        expect(e.equipment, entry.value.$3, reason: entry.key);
+        expect(e.measure, entry.value.$4, reason: entry.key);
+      }
+    });
+
+    test('a session can be furnished with no equipment at all', () async {
+      final all = await db.watchExercises().first;
+      final bare = all.where((e) => e.equipment == 'Bodyweight').toList();
+
+      expect(
+        bare.length,
+        greaterThanOrEqualTo(25),
+        reason: 'a routine for an empty room is built out of these',
+      );
+      // A floor is not coverage: every muscle has to be reachable without
+      // equipment, or a whole day of a no-equipment routine has nothing in it.
+      for (final group in _muscleGroupsProper) {
+        expect(
+          bare.where((e) => e.muscles.trains(group)),
+          isNotEmpty,
+          reason: 'nothing bodyweight trains $group',
+        );
+      }
+    });
+
+    test('and the same holds for a pair of dumbbells', () async {
+      final all = await db.watchExercises().first;
+      final dumbbells = all.where((e) => e.equipment == 'Dumbbell').toList();
+
+      expect(dumbbells.length, greaterThanOrEqualTo(25));
+      for (final group in _muscleGroupsProper) {
+        expect(
+          dumbbells.where((e) => e.muscles.trains(group)),
+          isNotEmpty,
+          reason: 'nothing on dumbbells trains $group',
+        );
+      }
+    });
+
+    test('the ropes are conditioning kit, not a loaded machine', () async {
+      // Their equipment is "Other", which is the shelf everything unnamed lands
+      // on and the shelf whose default loading is a machine. A jump rope with a
+      // weight column wanting a number is the failure this catches.
+      for (final name in ['Jump Rope', 'Battle Rope']) {
+        final e = await starter(name);
+        expect(e.equipment, 'Other', reason: name);
+        expect(e.weightType, WeightType.none, reason: name);
+        expect(e.weightType.carriesWeight, isFalse, reason: name);
+      }
+    });
+
+    test('the conditioning work you can count is counted', () async {
+      // A burpee has a bottom and a top, so it has a rep. Only the movements
+      // with no rep in them are handed the clock.
+      for (final name in [
+        'Burpee',
+        'Jump Squat',
+        'Box Jump',
+        'Skater Jump',
+        'Jumping Jack',
+      ]) {
+        expect((await starter(name)).measure, ExerciseMeasure.reps,
+            reason: name);
+      }
+    });
+
+    test('each of them follows a language switch like any other starter',
+        () async {
+      // The name on screen is rendered from the seed key, so a movement seeded
+      // without one is frozen in English while the rest of the library moves.
+      for (final name in grown.keys) {
+        expect(
+          (await starter(name)).seedKey,
+          isNotNull,
+          reason: '$name has no seed key',
+        );
+      }
     });
   });
 
@@ -669,12 +1005,15 @@ void main() {
         'Cable': WeightType.machine,
         'Bodyweight': WeightType.none,
       };
-      // The movements whose equipment does not say how they are held: a
-      // kettlebell is a weight in one hand, an ab wheel is nothing at all.
+      // The five movements whose equipment does not say how they are held: a
+      // kettlebell is a weight in one hand; an ab wheel, a rope you skip and a
+      // rope you slam are nothing at all.
       const byHand = {
         'Kettlebell Swing': WeightType.dumbbell,
         'Turkish Get-Up': WeightType.dumbbell,
         'Ab Wheel Rollout': WeightType.none,
+        'Jump Rope': WeightType.none,
+        'Battle Rope': WeightType.none,
       };
 
       for (final e in await db.watchExercises().first) {
@@ -682,8 +1021,11 @@ void main() {
         if (want == null) continue; // 'Other' equipment, typed by hand above
         expect(e.weightType, want, reason: '${e.name} (${e.equipment})');
       }
+      final all = await db.watchExercises().first;
       for (final entry in byHand.entries) {
-        expect((await exerciseNamed(db, entry.key)).weightType, entry.value);
+        final match = all.where((e) => e.name == entry.key);
+        expect(match, hasLength(1), reason: '${entry.key} is not seeded');
+        expect(match.single.weightType, entry.value, reason: entry.key);
       }
     });
 
@@ -695,6 +1037,8 @@ void main() {
             .where((e) => e.weightType == WeightType.none)
             .map((e) => e.name);
 
+        // Every bodyweight starter, plus the three on the Other shelf that
+        // carry nothing: the wheel and the two ropes.
         expect(bare.toSet(), {
           'Push-Up',
           'Chest Dip',
@@ -714,6 +1058,32 @@ void main() {
           'Reverse Crunch',
           'Russian Twist',
           'Dead Bug',
+          // The room with nothing in it.
+          'Air Squat',
+          'Bodyweight Lunge',
+          'Pike Push-Up',
+          'Diamond Push-Up',
+          'Wide Push-Up',
+          'Decline Push-Up',
+          'Nordic Curl',
+          'Single-Leg Glute Bridge',
+          'Wall Sit',
+          'Superman Hold',
+          'Bird Dog',
+          'Sit-Up',
+          // The conditioning work.
+          'Burpee',
+          'Mountain Climber',
+          'High Knees',
+          'Jumping Jack',
+          'Jump Squat',
+          'Box Jump',
+          'Skater Jump',
+          'Bear Crawl',
+          'Sprint',
+          'Shadow Boxing',
+          'Jump Rope',
+          'Battle Rope',
         });
       },
     );
@@ -850,12 +1220,25 @@ void main() {
             .where((e) => e.measure == ExerciseMeasure.time)
             .toList();
 
+        // Fourteen: the positions you get into and stay in, the two you hold
+        // under load, and the conditioning movements whose set is a work period
+        // — nobody counts mountain climbers, they run the clock for thirty
+        // seconds.
         expect(held.map((e) => e.name).toSet(), {
           'Plank',
           'Side Plank',
           'Hollow Hold',
           'Dead Hang',
           "Farmer's Carry",
+          'Wall Sit',
+          'Superman Hold',
+          'High Knees',
+          'Mountain Climber',
+          'Bear Crawl',
+          'Sprint',
+          'Jump Rope',
+          'Battle Rope',
+          'Shadow Boxing',
         });
         expect(
           (await exerciseNamed(db, 'Bench Press')).measure,
@@ -1512,6 +1895,8 @@ void main() {
       // A movement that carries nothing. Deselecting is how you say so.
       await pumpForm(tester);
 
+      // The library ships an air squat of its own, so the row this makes is
+      // told apart from that one by isCustom below.
       await tester.enterText(find.byType(TextField).first, 'Air Squat');
       // Barbell is the form's opening equipment, so Bar starts selected.
       await tester.tap(find.text('Bar'));
@@ -1521,7 +1906,7 @@ void main() {
 
       final made = (await tester.runAsync(
         () => db.watchExercises().first,
-      ))!.firstWhere((e) => e.name == 'Air Squat');
+      ))!.firstWhere((e) => e.name == 'Air Squat' && e.isCustom);
       expect(made.weightType, WeightType.none);
 
       await stop(tester);
@@ -1542,7 +1927,7 @@ void main() {
 
       final made = (await tester.runAsync(
         () => db.watchExercises().first,
-      ))!.firstWhere((e) => e.name == 'Wall Sit');
+      ))!.firstWhere((e) => e.name == 'Wall Sit' && e.isCustom);
       expect(made.measure, ExerciseMeasure.time);
       expect(made.weightType, WeightType.none);
 
@@ -1566,7 +1951,7 @@ void main() {
 
       final made = (await tester.runAsync(
         () => db.watchExercises().first,
-      ))!.firstWhere((e) => e.name == 'Front Squat');
+      ))!.firstWhere((e) => e.name == 'Front Squat' && e.isCustom);
       expect(made.weightType, WeightType.bar);
 
       await stop(tester);

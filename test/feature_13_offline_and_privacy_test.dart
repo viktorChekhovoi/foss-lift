@@ -104,16 +104,21 @@ void main() {
   group('all data lives in a local on-device store', () {
     test('the database opens and seeds fully offline', () async {
       // memoryDb() opens a drift/SQLite database with no connectivity of any
-      // kind; that it seeds the starter routines proves the whole datastore is
-      // local and self-contained.
+      // kind; that it comes back seeded proves the whole datastore is local and
+      // self-contained. The exercise library is what it seeds — the routine list
+      // is empty until somebody puts something in it, and adding a program from
+      // the library is as offline as everything else.
       final db = memoryDb();
       addTearDown(db.close);
 
       expect(db, isA<AppDatabase>());
 
-      final routines = await db.watchRoutines().first;
-      expect(routines, isNotEmpty,
+      expect(await db.watchExercises().first, isNotEmpty,
           reason: 'seeded on first open with no network');
+      expect(await db.watchRoutines().first, isEmpty);
+      await db.addStarterRoutine(kStarterRoutines.first);
+      expect(await db.watchRoutines().first, hasLength(1),
+          reason: 'a program is taken out of the app, not off a server');
     });
   });
 
@@ -190,7 +195,7 @@ void main() {
       addTearDown(db.close);
 
       final row = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(row.data.values.first, 3);
+      expect(row.data.values.first, 6);
     });
 
     test('and on the same shape a fresh install gets', () async {
@@ -214,6 +219,54 @@ void main() {
       }
 
       expect(await shape(upgraded), await shape(fresh));
+    });
+  });
+
+  group('a workout from before the update has no supersets in it', () {
+    // The join between two slots is a new column with a default, so every slot
+    // on an installed phone keeps standing on its own. Making a superset is
+    // something you then do, not something the upgrade decides for you.
+
+    /// A v1 database holding a routine, one training day and two slots in it,
+    /// written as SQL against the frozen [kSchemaV1] — the bytes a phone on the
+    /// shipped build would hand the upgrade.
+    AppDatabase v1WithWorkout() => AppDatabase.forTesting(
+          NativeDatabase.memory(setup: (raw) {
+            for (final stmt in kSchemaV1) {
+              raw.execute(stmt);
+            }
+            raw.execute('INSERT INTO settings (id) VALUES (1)');
+            raw.execute(
+              'INSERT INTO exercises (id, name, muscle_group, equipment) '
+              "VALUES (1, 'Bench Press', 'Chest', 'Barbell'), "
+              "(2, 'Overhead Press', 'Shoulders', 'Barbell')",
+            );
+            raw.execute("INSERT INTO routines (id, name) VALUES (1, 'My split')");
+            raw.execute(
+              'INSERT INTO workouts (id, routine_id, name) '
+              "VALUES (1, 1, 'Push')",
+            );
+            raw.execute(
+              'INSERT INTO workout_items (id, workout_id, exercise_id, '
+              'position, target_sets) VALUES (1, 1, 1, 0, 4), (2, 1, 2, 1, 3)',
+            );
+            raw.execute('PRAGMA user_version = 1');
+          }),
+        );
+
+    test('every slot of a day that was already there stands on its own',
+        () async {
+      final db = v1WithWorkout();
+      addTearDown(db.close);
+
+      final items = await db.itemsForWorkout(1);
+      expect(items.map((v) => v.exercise.name),
+          ['Bench Press', 'Overhead Press'],
+          reason: 'the day itself is unchanged');
+      expect(items.map((v) => v.item.supersetWithPrevious),
+          everyElement(isFalse));
+      expect(items.map((v) => v.item.targetSets), [4, 3],
+          reason: 'nothing else about the slots moved either');
     });
   });
 
@@ -290,7 +343,7 @@ void main() {
       addTearDown(db.close);
 
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.data.values.first, 3);
+      expect(version.data.values.first, 6);
     });
 
     test('and on the same shape a fresh install gets', () async {

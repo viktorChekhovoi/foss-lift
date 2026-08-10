@@ -15,6 +15,7 @@ code:
 - tool/make_rest_tone.dart
 - lib/services/workout_shade.dart
 - lib/state/workout_cue.dart
+- lib/data/superset.dart
 - lib/widgets/start_workout.dart
 - lib/screens/exercise_settings_screen.dart
 test:
@@ -26,6 +27,7 @@ test:
 - test/feature_04_session_continuity_test.dart
 - test/feature_04_rest_done_test.dart
 - test/feature_04_template_drift_test.dart
+- test/feature_04_superset_test.dart
 where: >-
   <b>State</b> lib/state/active_workout.dart · <b>Warm-up ramp</b> lib/data/warmup.dart,
   loadLadder in lib/data/plates.dart · <b>Screens</b> lib/screens/workout_screen.dart,
@@ -136,6 +138,29 @@ groups:
     - load.loadable-grid
     - exercise.weight-type
     - session.warmup-count
+  - id: walks-a-superset-a-round-at-a-time
+    t: Walks a superset a round at a time
+    d: >-
+      the mark crosses the group's movements instead of running down one of them:
+      first set of each, then second set of each, and so on. A movement with fewer
+      sets than the one beside it drops out of the later rounds rather than holding
+      them up.
+    defines:
+    - session.superset-round
+    uses:
+    - session.progress-mark
+    - template.superset
+  - id: no-rest-inside-a-superset
+    t: There is no rest inside a superset
+    d: >-
+      logging a set of one movement in a group starts no clock at all — the next
+      movement is what you do now, and the mark is already on it. The rest comes
+      once every movement in the group has had its set, and it is the rest of the
+      slot whose set ended the round.
+    uses:
+    - session.superset-round
+    - session.rest-timer
+    - template.rest
   - id: survives-being-collapsed
     t: Survives being collapsed
     d: >-
@@ -254,6 +279,7 @@ groups:
     - session.live-state
     - session.progress-mark
     - session.rest-timer
+    - session.superset-round
     - storage.schema
   - id: note-one-exception-goes-both
     t: The note is the one exception, and it goes both ways
@@ -561,11 +587,14 @@ groups:
       the longest rest of the ramp: "Set up 100 kg, rest, then lift." Between working
       sets there is nothing to change: "Rest, then lift." Between exercises it is a
       different movement and a different setup: "Set up Overhead Press, rest, then
-      lift." — skipping past any exercise already finished.
+      lift." — skipping past any exercise already finished. At the end of a superset
+      round the movement it names is the one that opens the next round, which is
+      normally back at the top of the group.
     defines:
     - session.rest-cue
     uses:
     - session.warmup-ramp
+    - session.superset-round
   - id: rest-that-ended-says-so-and-waits
     t: A rest that has ended says the next set is up, and waits
     d: >-
@@ -825,6 +854,26 @@ groups:
     uses:
     - session.progress-mark
     - session.warmup-ramp
+  - id: board-draws-a-superset-as-one-block
+    t: The board draws a superset as one block
+    d: >-
+      the group's movements sit inside one bracket tagged SUPERSET, each keeping its
+      own heading, working weight, ramp and set rows. Nothing about a row changes —
+      what the bracket says is that the row marked next will be in the movement
+      below rather than the one you are looking at.
+    uses:
+    - session.superset-round
+  - id: superset-warms-up-every-movement-first
+    t: A superset warms up every movement before the first round
+    d: >-
+      each member keeps its own ramp, and the mark walks the group's ramps in order
+      before it opens the first round: you set both movements up, then work them
+      back to back. Rest between rungs stays the short warm-up rest, including from
+      the last rung of one movement to the first of the next.
+    uses:
+    - session.warmup-ramp
+    - session.superset-round
+    - session.rest-timer
   - id: board-opens-where-you-are
     t: The board opens on the exercise you are on
     d: >-

@@ -16,6 +16,10 @@
   "@commonDelete": {
     "description": "Removes the thing being looked at."
   },
+  "commonSuperset": "SUPERSET",
+  "@commonSuperset": {
+    "description": "Names a group of exercises trained back to back: the tag on the first row of one in the workout builder and on a workout's exercise list, and the label on the bracket the live board draws round it. Written as it is rendered — nothing upper-cases it — so keep it short."
+  },
   "commonDone": "Done",
   "@commonDone": {
     "description": "Closes a screen that has finished its job."
@@ -320,6 +324,10 @@
   "muscleCore": "Core",
   "@muscleCore": {
     "description": "Muscle group. Shown on the library filter chips, the exercise form and an exercise header."
+  },
+  "muscleCardio": "Cardio",
+  "@muscleCardio": {
+    "description": "The conditioning group, beside the muscle groups on the library filter chips, the exercise form and an exercise header. Not a muscle — it names what interval work is for."
   },
   "muscleOther": "Other",
   "@muscleOther": {
@@ -697,6 +705,150 @@
   "@exerciseTurkishGetUp": {
     "description": "Name of a movement in the starter exercise library."
   },
+  "exerciseAirSquat": "Air Squat",
+  "@exerciseAirSquat": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseBodyweightLunge": "Bodyweight Lunge",
+  "@exerciseBodyweightLunge": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exercisePikePushUp": "Pike Push-Up",
+  "@exercisePikePushUp": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDiamondPushUp": "Diamond Push-Up",
+  "@exerciseDiamondPushUp": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseWidePushUp": "Wide Push-Up",
+  "@exerciseWidePushUp": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDeclinePushUp": "Decline Push-Up",
+  "@exerciseDeclinePushUp": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseNordicCurl": "Nordic Curl",
+  "@exerciseNordicCurl": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseSingleLegGluteBridge": "Single-Leg Glute Bridge",
+  "@exerciseSingleLegGluteBridge": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseWallSit": "Wall Sit",
+  "@exerciseWallSit": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseSupermanHold": "Superman Hold",
+  "@exerciseSupermanHold": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseBirdDog": "Bird Dog",
+  "@exerciseBirdDog": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseSitUp": "Sit-Up",
+  "@exerciseSitUp": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseBurpee": "Burpee",
+  "@exerciseBurpee": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseMountainClimber": "Mountain Climber",
+  "@exerciseMountainClimber": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseHighKnees": "High Knees",
+  "@exerciseHighKnees": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseJumpingJack": "Jumping Jack",
+  "@exerciseJumpingJack": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseJumpSquat": "Jump Squat",
+  "@exerciseJumpSquat": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseBoxJump": "Box Jump",
+  "@exerciseBoxJump": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseSkaterJump": "Skater Jump",
+  "@exerciseSkaterJump": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseBearCrawl": "Bear Crawl",
+  "@exerciseBearCrawl": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseSprint": "Sprint",
+  "@exerciseSprint": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseJumpRope": "Jump Rope",
+  "@exerciseJumpRope": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseBattleRope": "Battle Rope",
+  "@exerciseBattleRope": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseShadowBoxing": "Shadow Boxing",
+  "@exerciseShadowBoxing": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellThruster": "Dumbbell Thruster",
+  "@exerciseDumbbellThruster": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellCleanAndPress": "Dumbbell Clean and Press",
+  "@exerciseDumbbellCleanAndPress": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellSnatch": "Dumbbell Snatch",
+  "@exerciseDumbbellSnatch": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellRomanianDeadlift": "Dumbbell Romanian Deadlift",
+  "@exerciseDumbbellRomanianDeadlift": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellDeadlift": "Dumbbell Deadlift",
+  "@exerciseDumbbellDeadlift": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellFrontSquat": "Dumbbell Front Squat",
+  "@exerciseDumbbellFrontSquat": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellLunge": "Dumbbell Lunge",
+  "@exerciseDumbbellLunge": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellLateralLunge": "Dumbbell Lateral Lunge",
+  "@exerciseDumbbellLateralLunge": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellFloorPress": "Dumbbell Floor Press",
+  "@exerciseDumbbellFloorPress": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseRenegadeRow": "Renegade Row",
+  "@exerciseRenegadeRow": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellPullover": "Dumbbell Pullover",
+  "@exerciseDumbbellPullover": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseDumbbellPushPress": "Dumbbell Push Press",
+  "@exerciseDumbbellPushPress": {
+    "description": "Name of a movement in the starter exercise library."
+  },
   "seedRoutinePushPullLegs": "Push / Pull / Legs",
   "@seedRoutinePushPullLegs": {
     "description": "Name of a demo program the app ships with."
@@ -716,6 +868,58 @@
   "seedRoutineFullBody3x": "Full Body 3x",
   "@seedRoutineFullBody3x": {
     "description": "Name of a demo program the app ships with: a whole-body session trained three times a week."
+  },
+  "seedRoutineTwoDayFullBody": "Two-Day Full Body",
+  "@seedRoutineTwoDayFullBody": {
+    "description": "Name of a program the app ships: a whole-body session trained twice a week."
+  },
+  "seedRoutineBodyweightBasics": "Bodyweight Basics",
+  "@seedRoutineBodyweightBasics": {
+    "description": "Name of a program the app ships: a strength program that needs no equipment."
+  },
+  "seedRoutineDumbbellFullBody": "Dumbbell Full Body",
+  "@seedRoutineDumbbellFullBody": {
+    "description": "Name of a program the app ships: a whole-body program trained with one pair of dumbbells."
+  },
+  "seedRoutineIntervalConditioning": "Interval Conditioning",
+  "@seedRoutineIntervalConditioning": {
+    "description": "Name of a program the app ships: timed conditioning intervals rather than sets of reps."
+  },
+  "seedRoutineDescPushPullLegs": "Three sessions a week, each one a different half of what you do: the muscles you push with, the ones you pull with, and legs. The usual next step once a beginner program stops adding weight every session.",
+  "@seedRoutineDescPushPullLegs": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescUpperLower": "Four sessions a week, alternating the upper body and the lower. Each muscle is trained twice a week, and no single session has to cover everything.",
+  "@seedRoutineDescUpperLower": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescStartingStrength": "Mark Rippetoe's beginner barbell program: two alternating workouts of three lifts each, three days a week, adding weight every session for as long as that keeps working. Long rests — it is heavy on purpose.",
+  "@seedRoutineDescStartingStrength": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescStrongLifts5x5": "Five sets of five, across five lifts and two alternating workouts, three days a week. The same idea as Starting Strength with more sets and a lighter start.",
+  "@seedRoutineDescStrongLifts5x5": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescFullBody3x": "Three full-body sessions a week, each with a squat or hinge, a press, a pull and some core work. For training three times a week without keeping track of a split.",
+  "@seedRoutineDescFullBody3x": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescTwoDayFullBody": "Two sessions a week, each with a squat or a hinge, a press, a pull and some core work. For a week that has two training days in it rather than four.",
+  "@seedRoutineDescTwoDayFullBody": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescBodyweightBasics": "Three sessions a week with no equipment beyond a floor and something to hang from. Add reps first; when the top of the range gets easy, move to a harder version of the same movement.",
+  "@seedRoutineDescBodyweightBasics": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescDumbbellFullBody": "Three whole-body sessions a week on one pair of dumbbells. Everything is pressed, pulled or carried with the weight in your hands, so it works in a spare room as well as in a gym.",
+  "@seedRoutineDescDumbbellFullBody": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescIntervalConditioning": "Two conditioning sessions a week, measured in seconds rather than reps: rounds of hard work against the clock with a short rest between them. Meant to be trained alongside a strength program, not instead of one.",
+  "@seedRoutineDescIntervalConditioning": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
   },
   "seedDayWorkoutA": "Workout A",
   "@seedDayWorkoutA": {
@@ -1181,6 +1385,19 @@
   "@itemEditorToFailure": {
     "description": "Checkbox label: take every set as far as it goes rather than stopping at a rep target."
   },
+  "itemEditorSupersetWhat": "What is a superset?",
+  "@itemEditorSupersetWhat": {
+    "description": "The tooltip on the info icon beside the superset checkbox, and the title of the box it opens. A question, because that is what the icon is answering."
+  },
+  "itemEditorSupersetExplained": "Two or more exercises done back to back, with no rest in between — a set of each, then the rest, then round again. It saves time, and keeps the pair working while the other muscle recovers.",
+  "@itemEditorSupersetExplained": {
+    "description": "What a superset is, for somebody who has just been offered one. Two sentences: what it is, and why anybody does it. The only place in the app outside the tour where a training term is defined."
+  },
+  "itemEditorSupersetWith": "Superset with {exercise}",
+  "@itemEditorSupersetWith": {
+    "description": "Checkbox label in the slot editor: train this exercise in the same round as the one directly above it.",
+    "placeholders": { "exercise": { "type": "String", "example": "Bench Press" } }
+  },
   "itemEditorWeight": "Weight",
   "@itemEditorWeight": {
     "description": "Card caption over the loading of a slot that carries none, where the card holds the word Bodyweight instead of a field."
@@ -1633,6 +1850,14 @@
   "routineEditNameHint": "e.g. Push / Pull / Legs",
   "@routineEditNameHint": {
     "description": "Placeholder in the routine's name field. Name a well-known split in the target language rather than translating this one word for word."
+  },
+  "routineEditDescription": "Description (optional)",
+  "@routineEditDescription": {
+    "description": "Field label over the routine's description in the routine builder. Rendered in small capitals by the app; write it in ordinary case."
+  },
+  "routineEditDescriptionHint": "e.g. Three sessions a week, whole body in each",
+  "@routineEditDescriptionHint": {
+    "description": "Placeholder in the routine's description field, showing the kind of sentence that belongs there. Write a natural example in your language rather than translating this one word for word."
   },
   "routineEditAccentColor": "Accent color",
   "@routineEditAccentColor": {
@@ -2379,7 +2604,7 @@
   "@todayNoRoutinesTitle": {
     "description": "Title of the empty card on the home screen when the user has no routines at all. A routine is a training program made of several workouts."
   },
-  "todayNoRoutinesBody": "Build one from the exercise library to get started.",
+  "todayNoRoutinesBody": "Add a ready-made one, or build your own.",
   "@todayNoRoutinesBody": {
     "description": "Body of the home screen's empty card when there are no routines. 'one' refers to a routine, named in the title above it."
   },
@@ -2420,6 +2645,14 @@
   "routinesTitle": "Routines",
   "@routinesTitle": {
     "description": "Large title of the routine list screen. Unlike navRoutines this one has the full screen width."
+  },
+  "routineLibraryTitle": "Ready-made routines",
+  "@routineLibraryTitle": {
+    "description": "The library of programs the app ships: the heading of that screen, and the row on the routine list that opens it. Fits a button — keep it short."
+  },
+  "routineLibraryAdd": "Add to my routines",
+  "@routineLibraryAdd": {
+    "description": "The button that copies the program being previewed into the user's own routine list."
   },
   "routinesNewRoutine": "+ New routine",
   "@routinesNewRoutine": {
@@ -3214,21 +3447,13 @@
   "@tutorialBackToTodayBody": {
     "description": "Body of the step returning to the Today tab, which introduces the run of steps about what is on it. 'Today' names a tab. One line — the callout sits above the bottom navigation bar."
   },
-  "tutorialTodayRoutineTitle": "The routine you are on",
+  "tutorialTodayRoutineTitle": "Your routine",
   "@tutorialTodayRoutineTitle": {
-    "description": "Title of the tour step spotlighting the current routine's name at the top of the Today screen. One line."
+    "description": "Title of the tour step spotlighting whatever Today has to offer about the current routine — on a fresh install the card that gets you one, later the routine's own name. One line."
   },
-  "tutorialTodayRoutineBody": "One routine is active at a time, and this page lists its workouts. 'Change' swaps to another routine.",
+  "tutorialTodayRoutineBody": "A routine is a training program: the workouts you rotate through, each one a session's worth of exercises. Get one here, and Today lists them with the one you are due next highlighted.",
   "@tutorialTodayRoutineBody": {
-    "description": "Body of the step about the current routine. 'Change' names the small text link beside the routine name — see todayChange — so use the same word you translated that with, and keep it quoted. Two or three lines."
-  },
-  "tutorialTodayTitle": "Your next workout",
-  "@tutorialTodayTitle": {
-    "description": "Title of the tour step spotlighting the current routine's next workout on the Today screen. One line."
-  },
-  "tutorialTodayBody": "Each card is one workout — a single session's worth of exercises. A push workout trains what you push with: chest, shoulders and triceps. The highlighted one is next in line.",
-  "@tutorialTodayBody": {
-    "description": "Body of the step about the workout cards. This is where the tour defines 'workout' and 'push workout' for somebody new to the gym, so keep both definitions rather than shortening to the nouns. Budget four lines; this callout floats beside the card it points at."
+    "description": "Body of the step about the routine on Today. A fresh install has an empty routine list, so this is where the tour defines 'routine' and 'workout' and says that this screen is where a routine comes from — keep both definitions rather than shortening to the nouns. Budget four lines."
   },
   "tutorialLifetimeTitle": "Lifetime totals",
   "@tutorialLifetimeTitle": {
@@ -3242,9 +3467,9 @@
   "@tutorialSessionOpenTitle": {
     "description": "Title of the tour step that explains where the live-workout screen comes from. It is the first step drawn over a full-size mock of that screen, and nothing behind the tour has actually moved. Two or three words on one line."
   },
-  "tutorialSessionOpenBody": "Open a workout, then tap Start workout to see this screen. This is where you'll log your exercises.",
+  "tutorialSessionOpenBody": "Open a workout, then tap Start workout to see this screen. This one is a push workout: chest, shoulders and triceps — the muscles you push with.",
   "@tutorialSessionOpenBody": {
-    "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it — see workoutDetailStart."
+    "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it — see workoutDetailStart. The second sentence is where the tour defines 'push workout', which the drawn screen is headed with."
   },
   "tutorialBoardTitle": "While you lift",
   "@tutorialBoardTitle": {
@@ -3345,6 +3570,14 @@
   "tutorialBuildSlotBody": "Tap an exercise to configure it. Sets is how many times you repeat it, the rep target is what each set aims at, and rest is the pause between them. Step up by is how much is added after a clean session; back off by is how much comes off after missing one.",
   "@tutorialBuildSlotBody": {
     "description": "Body of the step about one exercise's settings, shown against a drawing of the sheet those settings are on. It names five of the fields on that sheet, so use the same words you translated those field captions with — itemEditorSets, itemEditorReps, itemEditorRest, itemEditorStepUpBy and itemEditorBackOffBy. Five lines is survivable."
+  },
+  "tutorialBuildSupersetTitle": "A superset",
+  "@tutorialBuildSupersetTitle": {
+    "description": "Title of the tour step about the superset checkbox on the same sheet. One line, and it should be the noun the app uses elsewhere — see commonSuperset."
+  },
+  "tutorialBuildSupersetBody": "Ticking this joins the exercise to the one above it: a set of each, back to back, with the rest at the end of the round instead of between them. That is a superset, and it saves time.",
+  "@tutorialBuildSupersetBody": {
+    "description": "Body of the step about the superset checkbox, shown with that checkbox ringed. It is where the tour defines 'superset' for somebody new to the gym, so keep the definition rather than assuming the word. Use the same noun as commonSuperset. Four lines."
   },
   "tutorialBuildQuickTitle": "Name it and fill it",
   "@tutorialBuildQuickTitle": {
@@ -3592,9 +3825,17 @@
   "@tutorialBuildOpenTitle": {
     "description": "Title of the step that opens the builder chapter, on a drawn Routines screen with that tab lit in the navigation bar. Two or three words."
   },
-  "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and this is where you make one of your own.",
+  "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and under them the two ways to get another.",
   "@tutorialBuildOpenBody": {
-    "description": "Body of the first step of the builder chapter. The full tour arrives here from the Today steps, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines."
+    "description": "Body of the first step of the routine chapter. The full tour arrives here from the Today step, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines."
+  },
+  "tutorialBuildLibraryTitle": "Take a ready-made one",
+  "@tutorialBuildLibraryTitle": {
+    "description": "Title of the tour step ringing the Ready-made routines button on the drawn Routines tab. One line."
+  },
+  "tutorialBuildLibraryBody": "Ready-made routines holds the programs the app ships — Push / Pull / Legs, StrongLifts 5×5 and three more. Open one to read its workouts, then add it to your list. The rest of this builds one instead.",
+  "@tutorialBuildLibraryBody": {
+    "description": "Body of the step about the routine library. It names the button — see routineLibraryTitle — so use the same words you translated that with. The two programs are names, not to be translated. Four lines."
   },
   "commonDismiss": "Dismiss",
   "@commonDismiss": {

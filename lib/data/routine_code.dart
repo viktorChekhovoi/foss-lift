@@ -45,20 +45,32 @@
 /// the theme format.
 ///
 /// **`FLR1` is read and never written.** Its body is what follows, minus the two
-/// muscle lists: it had one byte for one muscle group, and a movement can work
-/// several. The bit that introduces the lists was unused in `FLR1`, so the same
-/// reader handles both and an `FLR1` exercise arrives with its one group as its
-/// only primary. The tag still had to move: a phone on the shipped build would
-/// otherwise read those lists as the next exercise's flags.
+/// muscle lists and the routine description: it had one byte for one muscle
+/// group, and a movement can work several. The bit that introduces the lists was
+/// unused in `FLR1`, so the same reader handles both and an `FLR1` exercise
+/// arrives with its one group as its only primary. The tag still had to move: a
+/// phone on the shipped build would otherwise read those lists as the next
+/// exercise's flags.
 ///
-/// Inside the envelope: one flag byte (bit 0: the rest is deflated), then the
-/// body, raw or deflated:
+/// The description is the one field `FLR2` grew **in the middle** rather than on
+/// the end, which is only safe because nothing in the world reads `FLR2` but this
+/// build: the shipped one refuses the tag outright, so there is no reader to
+/// desynchronise. It is announced by a bit in the flag byte rather than by an
+/// empty string, so a routine nobody has described pays nothing at all for the
+/// field — which is what keeps such a code byte-identical to the `FLR1` one the
+/// shipped build wrote, and what makes the `FLR1` bodies (whose flag byte only
+/// ever carried bit 0) read correctly through the same code. Anything added after
+/// this release goes on the end, in a trailing section, under the rules below.
+///
+/// Inside the envelope: one flag byte (bit 0: the rest is deflated; bit 1: the
+/// body carries a routine description), then the body, raw or deflated:
 ///
 /// ```
 /// string  routine name
 /// 3 bytes colour, RGB
 /// varint  default rest, seconds
 /// varint  training-day mask
+/// string  description — only with the description flag bit
 /// varint  exercise count, then that many exercises:
 ///   byte    flags — see the _ex* constants
 ///   string  name
@@ -75,9 +87,25 @@
 ///     varint  exercise index
 ///     varint  field mask — see the _f* constants
 ///     …only the fields the mask names, in bit order
+/// …then, only if the routine has a superset anywhere in it:
+/// varint  _sectionSupersets, then for each workout in the same order:
+///   varint  how many of its slots are joined to the slot above them
+///   varint  each of their indices
 /// ```
 ///
 /// There is no weight field in a slot, by design — see above.
+///
+/// **The supersets ride on the end rather than in the slot.** A new field bit
+/// would have been cheaper by a byte or two, and it would also have made every
+/// code this build writes unreadable to the shipped one: a reader that does not
+/// know a bit does not know to read the field behind it, so it would go on to
+/// parse a join as the next slot's exercise index and import nonsense. Trailing
+/// bytes are the one place this format can grow safely, because a reader that has
+/// what it came for stops. So an older build reads a superset routine as the same
+/// exercises in the same order with nothing joined, which is a fair reading of a
+/// program rather than a corrupt one — and a routine with no supersets in it
+/// costs nothing at all, since the section is written only when there is a join
+/// to carry.
 ///
 /// **The orders are frozen**: the field bits, the exercise flag bits, and the
 /// two vocabularies. Reordering any of them silently re-reads every code
@@ -166,8 +194,10 @@ class SharedItem {
     SetScheme scheme = SetScheme.flat,
     int schemePercent = kDefaultSchemePercent,
     List<CustomSet> customSets = const [],
+    bool supersetWithPrevious = false,
   }) =>
       SharedItem._(
+        supersetWithPrevious: supersetWithPrevious,
         exercise: exercise,
         targetSets: targetSets,
         repsMin: repsMin,
@@ -201,10 +231,38 @@ class SharedItem {
     required this.scheme,
     required this.schemePercent,
     required this.customSets,
+    this.supersetWithPrevious = false,
   });
 
   /// Index into [SharedRoutine.exercises].
   final int exercise;
+
+  /// Whether this slot is trained in the same round as the one above it. Part of
+  /// the prescription — "curls between sets of rows" is the program, not the
+  /// sender's body — and the one field that travels in a trailing section rather
+  /// than in the slot; see the library docs.
+  final bool supersetWithPrevious;
+
+  /// The same slot, joined to the one above it. How the supersets section is
+  /// applied once the slots themselves have been read.
+  SharedItem supersetted() => SharedItem._(
+        exercise: exercise,
+        targetSets: targetSets,
+        repsMin: repsMin,
+        repsMax: repsMax,
+        toFailure: toFailure,
+        restSeconds: restSeconds,
+        progression: progression,
+        holdSeconds: holdSeconds,
+        increment: increment,
+        deload: deload,
+        successThreshold: successThreshold,
+        failureThreshold: failureThreshold,
+        scheme: scheme,
+        schemePercent: schemePercent,
+        customSets: customSets,
+        supersetWithPrevious: true,
+      );
 
   final int targetSets;
   final int repsMin;
@@ -246,11 +304,21 @@ class SharedRoutine {
     required this.scheduleDays,
     required this.exercises,
     required this.workouts,
+    this.description,
   });
 
   final String name;
   final String colorHex;
   final int restSeconds;
+
+  /// What the program is, in a sentence or two, or null for a routine nobody has
+  /// described — which is what an `FLR1` code always decodes to, since the field
+  /// did not exist when that format was written.
+  ///
+  /// It travels as the sender's own words. A copy of a shipped program carries
+  /// the canonical English the app ships, but the routine it lands as is nobody's
+  /// copy of a library program, so what arrives is shown as it arrived.
+  final String? description;
 
   /// The weekday bitmask from `schedule.dart`. Part of the program — "this is
   /// a Monday/Wednesday/Friday split" is something the author decided.
@@ -291,11 +359,20 @@ abstract final class RoutineCode {
   /// the tail of a label is a smaller harm than refusing the whole program.
   static const int maxNameBytes = 200;
 
+  /// The longest description a code will carry, in UTF-8 bytes.
+  ///
+  /// The same bargain [maxNameBytes] strikes, at the size of a paragraph: well
+  /// clear of the 300 characters the database enforces, so a legal description is
+  /// never cut here first, and bounded all the same so a hostile code cannot
+  /// claim a megabyte of prose and be believed.
+  static const int maxDescriptionBytes = 700;
+
   /// Cuts [name] to [maxNameBytes], on a boundary that still decodes.
-  static String _clampName(String name) {
-    if (name.length <= maxNameBytes) return name;
-    return name.substring(0, maxNameBytes);
-  }
+  static String _clampName(String name) => _clamp(name, maxNameBytes);
+
+  /// Cuts [text] to [limit], on a boundary that still decodes.
+  static String _clamp(String text, int limit) =>
+      text.length <= limit ? text : text.substring(0, limit);
 
   /// Whether [link] fits in a QR code. Past this the routine is still perfectly
   /// shareable as a code you paste — an honest "too big for a QR" beats painting
@@ -337,6 +414,26 @@ abstract final class RoutineCode {
   static const int _fScheme = 1 << 11;
   static const int _fCustomSets = 1 << 12;
 
+  // -- Trailing sections ----------------------------------------------------
+  // Numbered, appended after the training days, and each one optional. A reader
+  // that does not know a section number stops at it: sections are read in
+  // order and the first unknown one ends the parse, which is the same
+  // forgiveness the end of the body already had. **Frozen**, like every other
+  // number here — a section keeps its number for good.
+
+  /// Which slots are joined to the slot above them — see `data/superset.dart`.
+  static const int _sectionSupersets = 1;
+
+  // -- Envelope flag bits ---------------------------------------------------
+  // The one byte in front of the body. **Frozen**, like everything else here.
+
+  /// The body that follows is deflated.
+  static const int _flagDeflated = 1 << 0;
+
+  /// The routine header carries a description. Never set by anything that wrote
+  /// `FLR1`, which is how one code path reads both.
+  static const int _flagDescription = 1 << 1;
+
   /// Deflate without the zlib wrapper — six bytes of header and checksum this
   /// format already provides for itself.
   ///
@@ -352,11 +449,17 @@ abstract final class RoutineCode {
 
   /// Encodes [routine] as a shareable code.
   static String encode(SharedRoutine routine) {
+    // Blank is nothing to say. Decided before the header is written, because the
+    // flag byte in front of the body is what announces the field.
+    final described = (routine.description ?? '').trim().isNotEmpty;
     final body = ByteWriter();
     body.string(_clampName(routine.name));
     body.bytes(_rgb(routine.colorHex));
     body.varint(routine.restSeconds);
     body.varint(routine.scheduleDays);
+    if (described) {
+      body.string(_clamp(routine.description!, maxDescriptionBytes));
+    }
 
     body.varint(routine.exercises.length);
     for (final e in routine.exercises) {
@@ -404,6 +507,23 @@ abstract final class RoutineCode {
       }
     }
 
+    // Only when there is one. A program of ordinary slots is the same number of
+    // bytes it was before supersets existed.
+    if (routine.workouts
+        .any((w) => w.items.any((it) => it.supersetWithPrevious))) {
+      body.varint(_sectionSupersets);
+      for (final w in routine.workouts) {
+        final joined = [
+          for (final (i, it) in w.items.indexed)
+            if (i > 0 && it.supersetWithPrevious) i,
+        ];
+        body.varint(joined.length);
+        for (final at in joined) {
+          body.varint(at);
+        }
+      }
+    }
+
     final raw = body.take();
     // Compress only when it actually helps: a short routine of common words
     // deflates to more than it started as, and paying for that in QR density
@@ -413,7 +533,10 @@ abstract final class RoutineCode {
 
     return ShareCodec.pack(
       version,
-      [smaller ? 0x01 : 0x00, ...(smaller ? packed : raw)],
+      [
+        (smaller ? _flagDeflated : 0) | (described ? _flagDescription : 0),
+        ...(smaller ? packed : raw),
+      ],
       checksumBytes: 4,
     );
   }
@@ -439,9 +562,10 @@ abstract final class RoutineCode {
     if (read.problem != null) return RoutineCodeFailure(read.problem!);
 
     final envelope = read.body!;
+    final flags = envelope[0];
     List<int> raw;
     try {
-      raw = envelope[0] & 0x01 != 0
+      raw = flags & _flagDeflated != 0
           ? _inflate(envelope.sublist(1))
           : envelope.sublist(1);
     } catch (_) {
@@ -449,7 +573,11 @@ abstract final class RoutineCode {
     }
 
     try {
-      return RoutineCodeOk(_read(ByteReader(raw)));
+      // The flag byte decides the shape of the header, not just whether the body
+      // is compressed: without the bit there is no description in it, which is
+      // both an undescribed routine and every `FLR1` code ever written.
+      return RoutineCodeOk(
+          _read(ByteReader(raw), described: flags & _flagDescription != 0));
     } on ShareCodeDamaged {
       return const RoutineCodeFailure(ShareCodeProblem.damaged);
     } on RangeError {
@@ -457,11 +585,13 @@ abstract final class RoutineCode {
     }
   }
 
-  static SharedRoutine _read(ByteReader r) {
+  static SharedRoutine _read(ByteReader r, {required bool described}) {
     final name = _clampName(r.string());
     final color = _hex(r.byte(), r.byte(), r.byte());
     final rest = r.varint();
     final days = r.varint();
+    final description =
+        described ? _clamp(r.string(), maxDescriptionBytes) : '';
 
     final exercises = <SharedExercise>[];
     final exerciseCount = r.varint();
@@ -508,17 +638,47 @@ abstract final class RoutineCode {
       }
       workouts.add(SharedWorkout(name: dayName, items: items));
     }
-    // Anything after this belongs to a later revision of FLR1 — ignored on
-    // purpose, but still covered by the checksum. See the library docs.
+    // The trailing sections, if the sender wrote any. Anything past the last one
+    // this build knows belongs to a later revision — ignored on purpose, but
+    // still covered by the checksum. See the library docs.
+    _readSections(r, workouts);
 
     return SharedRoutine(
       name: name.trim().isEmpty ? 'Shared routine' : name,
       colorHex: color,
       restSeconds: rest,
       scheduleDays: days,
+      // Blank and absent are the same thing: whitespace is not a description,
+      // and neither is a field an `FLR1` code never had.
+      description: description.trim().isEmpty ? null : description,
       exercises: exercises,
       workouts: workouts,
     );
+  }
+
+  /// Reads whatever sections follow the training days, applying each to
+  /// [workouts] as it goes.
+  ///
+  /// An older code simply ends here, and a code with a section this build has
+  /// never heard of stops at it: the sections are positional, so the first
+  /// unknown number is the end of what can honestly be read. Neither is a
+  /// failure — a routine is complete without any of this.
+  static void _readSections(ByteReader r, List<SharedWorkout> workouts) {
+    while (!r.atEnd) {
+      if (r.varint() != _sectionSupersets) return;
+      for (final w in workouts) {
+        for (var n = r.varint(); n > 0; n--) {
+          final at = r.varint();
+          // The list the workout is holding, edited in place: the slots have
+          // already been read, and a join is a fact about one of them rather
+          // than a reason to read the day again. An index outside the day is
+          // dropped rather than thrown over — the program is still importable.
+          if (at > 0 && at < w.items.length) {
+            w.items[at] = w.items[at].supersetted();
+          }
+        }
+      }
+    }
   }
 
   /// Writes a slot as a mask of what differs from the defaults, then those

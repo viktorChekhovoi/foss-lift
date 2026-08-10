@@ -20,7 +20,9 @@
 ///   default where it has none; [kWarmupRestSeconds] between warm-up rungs, and
 ///   the full rest after the last rung because the working set is next
 ///   (`ExerciseEntry.restAfterWarmup`). The very last set of the day is followed
-///   by nothing — you are finished.
+///   by nothing — you are finished. **A superset gets one rest per round rather
+///   than one per set**, because its movements are performed back to back; the
+///   rest is the closing movement's, exactly as the live session takes it.
 ///
 /// **Where the numbers come from.** [kSecondsPerRep] is three seconds, which is
 /// the middle of the tempo strength programs actually prescribe: roughly one
@@ -49,6 +51,7 @@ library;
 import 'dart:math' as math;
 
 import 'database.dart';
+import 'superset.dart';
 import 'warmup.dart';
 
 /// Seconds of work per planned rep. See the library doc for the tempo this
@@ -81,20 +84,48 @@ Duration estimateWorkoutDuration({
   // can be dropped at the end without special-casing the last exercise.
   final segments = <({int work, int rest})>[];
 
-  for (final item in items) {
-    final rest = item.restSeconds ?? routineRestSeconds;
-    final rungs = warmupRungsFor(item, sets: warmupSets);
-    for (var i = 0; i < rungs; i++) {
-      segments.add((
-        work: setSeconds(reps: warmupReps(_rungFraction(i, rungs))),
-        rest: i == rungs - 1 ? rest : kWarmupRestSeconds,
-      ));
+  // Slot by slot for an ordinary exercise, and round by round for a superset —
+  // see `data/superset.dart`. A group of one is an ordinary exercise, so the two
+  // cases share the arithmetic below rather than the loop above it.
+  final groups = supersetGroups(
+    normaliseJoins([for (final item in items) item.supersetWithPrevious]),
+  );
+
+  int restFor(WorkoutItem item) => item.restSeconds ?? routineRestSeconds;
+
+  int workFor(WorkoutItem item) => item.progression.timed
+      ? setSeconds(holdSeconds: item.holdSeconds)
+      : setSeconds(reps: item.repsMax ?? item.repsMin);
+
+  for (final group in groups) {
+    // The ramps, movement by movement, before the first round opens — as the
+    // live session walks them. Between rungs it is the short rest, and after a
+    // movement's last rung its own rest, because working sets are what follow.
+    for (final at in group) {
+      final item = items[at];
+      final rungs = warmupRungsFor(item, sets: warmupSets);
+      for (var i = 0; i < rungs; i++) {
+        segments.add((
+          work: setSeconds(reps: warmupReps(_rungFraction(i, rungs))),
+          rest: i == rungs - 1 ? restFor(item) : kWarmupRestSeconds,
+        ));
+      }
     }
-    final work = item.progression.timed
-        ? setSeconds(holdSeconds: item.holdSeconds)
-        : setSeconds(reps: item.repsMax ?? item.repsMin);
-    for (var i = 0; i < item.targetSets; i++) {
-      segments.add((work: work, rest: rest));
+    var rounds = 0;
+    for (final at in group) {
+      if (items[at].targetSets > rounds) rounds = items[at].targetSets;
+    }
+    for (var round = 0; round < rounds; round++) {
+      // Everything in the round is done back to back and the rest comes at the
+      // end of it, which is what makes a superset day shorter than the same
+      // exercises listed one after another.
+      final owing = [for (final at in group) if (round < items[at].targetSets) at];
+      for (final at in owing) {
+        segments.add((
+          work: workFor(items[at]),
+          rest: at == owing.last ? restFor(items[at]) : 0,
+        ));
+      }
     }
   }
 

@@ -148,6 +148,8 @@ extension RoutineSharing on AppDatabase {
           scheme: it.scheme,
           schemePercent: it.schemePercent,
           customSets: decodeCustomSets(it.customSets),
+          // Which slots are trained back to back is the program too.
+          supersetWithPrevious: it.supersetWithPrevious,
           // successStreak and failStreak are left behind on purpose: momentum
           // is earned on your own bar, not inherited with a program.
         ));
@@ -160,6 +162,9 @@ extension RoutineSharing on AppDatabase {
       colorHex: routine.colorHex,
       restSeconds: routine.restSeconds,
       scheduleDays: routine.scheduleDays,
+      // What the program is travels: it is a fact about the program rather than
+      // about the sender, which is the line everything else here is drawn on.
+      description: routine.description,
       // The reminder time does not travel — a notification is asked for.
       exercises: dictionary,
       workouts: workouts,
@@ -236,6 +241,10 @@ extension RoutineSharing on AppDatabase {
         color: shared.colorHex,
         restSeconds: shared.restSeconds,
         scheduleDays: shared.scheduleDays,
+        // No seed key goes with it: an import is nobody's copy of a library
+        // program, so the description it arrived with is shown as it arrived
+        // rather than resolved as a shipped string.
+        description: shared.description,
       );
 
       await replaceRoutineWorkouts(routineId, [
@@ -273,6 +282,9 @@ extension RoutineSharing on AppDatabase {
                   customSets: Value(it.scheme.isCustom
                       ? encodeCustomSets(it.customSets)
                       : null),
+                  // The first slot of a day cannot be joined to the one above
+                  // it, whatever a code claims — see [normaliseJoins].
+                  supersetWithPrevious: Value(i > 0 && it.supersetWithPrevious),
                 ),
             ],
           ),

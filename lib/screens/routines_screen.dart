@@ -52,6 +52,12 @@ class RoutinesScreen extends ConsumerWidget {
                   ],
                   const SizedBox(height: 4),
                   _NewRoutineButton(),
+                  const SizedBox(height: 10),
+                  // The other way to get one: a program the app ships, copied
+                  // into this list. It sits beside "build your own" rather than
+                  // in the list itself, so five programs nobody chose are not
+                  // five rows to scroll past.
+                  _ReadyMadeButton(),
                   const SizedBox(height: 18),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -96,6 +102,29 @@ Future<void> _pasteRoutine(BuildContext context) async {
 
 class _NewRoutineButton extends StatelessWidget {
   @override
+  Widget build(BuildContext context) => _WideButton(
+        label: AppLocalizations.of(context).routinesNewRoutine,
+        onPressed: () => context.push('/routine/new'),
+      );
+}
+
+/// The way into the programs the app ships — see `data/starter_routines.dart`.
+class _ReadyMadeButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => _WideButton(
+        label: AppLocalizations.of(context).routineLibraryTitle,
+        onPressed: () => context.push('/routines/library'),
+      );
+}
+
+/// One of the full-width outlined buttons under the routine list.
+class _WideButton extends StatelessWidget {
+  const _WideButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
@@ -106,8 +135,8 @@ class _NewRoutineButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        onPressed: () => context.push('/routine/new'),
-        child: Text(AppLocalizations.of(context).routinesNewRoutine),
+        onPressed: onPressed,
+        child: Text(label),
       ),
     );
   }

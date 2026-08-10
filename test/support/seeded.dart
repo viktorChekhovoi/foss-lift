@@ -1,18 +1,35 @@
-// Lookups over the first-install seed data, shared by the progression and
-// layoff feature tests so neither hard-codes an autoincrement id. The seed
-// builds "Push / Pull / Legs" first, but ids are still resolved by name here so
-// a change to the seed order cannot quietly break every test at once.
+// Lookups over the shipped programs, shared by the progression, layoff and
+// live-session feature tests so none of them hard-codes an autoincrement id or
+// writes a program of its own.
+//
+// **The programs are no longer seeded.** A fresh install opens on an empty
+// routine list; the five the app ships live in the routine library until somebody
+// adds one — see `data/starter_routines.dart` and section 21. A test about
+// progression or a live session still wants a real program to work against, and
+// the library's own is the most honest one to use, so [routineWithCountNamed]
+// installs the program it is asked for the first time it is asked. Every lookup
+// below goes through it, which is why they all read exactly as they did.
+//
+// A test *about* the empty list, the library, or what adding a program does uses
+// `memoryDb()` on its own and never comes here.
 import 'package:foss_lift/data/database.dart';
 
 /// The demo routine every seed lookup defaults to.
 const kPpl = 'Push / Pull / Legs';
 
-/// The seeded routine with [name], paired with its workout count.
+/// The routine with [name], added from the routine library if this database has
+/// not got it yet, paired with its workout count.
 Future<RoutineWithCount> routineWithCountNamed(
   AppDatabase db, [
   String name = kPpl,
 ]) async {
-  final rows = await db.watchRoutines().first;
+  var rows = await db.watchRoutines().first;
+  if (!rows.any((r) => r.routine.name == name)) {
+    await db.addStarterRoutine(
+      kStarterRoutines.firstWhere((program) => program.name == name),
+    );
+    rows = await db.watchRoutines().first;
+  }
   return rows.firstWhere((r) => r.routine.name == name);
 }
 

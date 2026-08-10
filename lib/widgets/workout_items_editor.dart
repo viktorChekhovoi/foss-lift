@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/superset.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../screens/exercise_detail_screen.dart'
@@ -10,14 +11,20 @@ import '../screens/exercise_detail_screen.dart'
 import '../screens/exercise_form_screen.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
+import '../util/seed_names.dart';
 import '../util/target_label.dart';
 import '../util/units.dart';
 import 'builder_widgets.dart';
-import 'common.dart' show sectionLabelStyle;
+import 'common.dart' show AppDialog, sectionLabelStyle, showAppDialog;
 
 /// Finds the two progression-amount fields in a test.
 const kStepUpFieldKey = ValueKey('amount-step-up');
 const kBackOffFieldKey = ValueKey('amount-back-off');
+
+/// Finds the checkbox that joins a slot to the one above it as a superset, and
+/// the icon beside it that says what one is.
+const kSupersetCheckKey = ValueKey('superset-with-previous');
+const kSupersetHintKey = ValueKey('superset-hint');
 
 /// A mutable working copy of one workout item while editing.
 ///
@@ -48,6 +55,7 @@ class ItemDraft {
     this.failureThreshold = defaultFailureThreshold,
     this.successStreak = 0,
     this.failStreak = 0,
+    this.supersetWithPrevious = false,
     this.exercise,
   })  : progression = _startingMode(measure, weightType, progression),
         increment = increment ??
@@ -108,6 +116,7 @@ class ItemDraft {
         failureThreshold: v.item.failureThreshold,
         successStreak: v.item.successStreak,
         failStreak: v.item.failStreak,
+        supersetWithPrevious: v.item.supersetWithPrevious,
       );
 
   /// A brand-new slot for [e], on whichever axis it can actually move along,
@@ -212,6 +221,11 @@ class ItemDraft {
   int successStreak;
   int failStreak;
 
+  /// Whether this slot is trained in the same round as the one above it — the
+  /// join that makes a run of slots a superset. Mutable: it is a checkbox, and
+  /// dragging a joined row to the top of the list takes it off again.
+  bool supersetWithPrevious;
+
   /// The axes this slot may be put on, per the exercise's measure and loading.
   List<ProgressionMode> get modes => _axesFor(measure, weightType);
 
@@ -278,6 +292,10 @@ class ItemDraft {
 /// no bar-loaded drafts can pass.
 List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
     {int workoutId = 0, double defaultBarKg = 0}) {
+  // The one join a workout cannot hold: the first slot has nothing above it. A
+  // row keeps its join as it is dragged, so this is how a list that has been
+  // reordered stops asserting it — see [normaliseJoins].
+  final joined = normaliseJoins([for (final d in drafts) d.supersetWithPrevious]);
   return [
     for (var i = 0; i < drafts.length; i++)
       WorkoutItemsCompanion.insert(
@@ -305,6 +323,7 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         failureThreshold: Value(drafts[i].failureThreshold),
         successStreak: Value(drafts[i].successStreak),
         failStreak: Value(drafts[i].failStreak),
+        supersetWithPrevious: Value(joined[i]),
       ),
   ];
 }
@@ -411,7 +430,23 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   }
 
   void _reorder(int from, int to) {
-    _bump(() => _items.insert(to, _items.removeAt(from)));
+    _bump(() {
+      _items.insert(to, _items.removeAt(from));
+      _normalise();
+    });
+  }
+
+  void _remove(int i) => _bump(() {
+        _items.removeAt(i);
+        _normalise();
+      });
+
+  /// Drops a join the list can no longer hold. A row keeps its join as it moves,
+  /// so dragging a joined row to the top — or deleting the row it was joined to,
+  /// leaving it at the top — is where a list would otherwise claim that the
+  /// first exercise is supersetted with the one above it.
+  void _normalise() {
+    if (_items.isNotEmpty) _items.first.supersetWithPrevious = false;
   }
 
   Future<void> _addExercise() async {
@@ -435,6 +470,14 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
 
   Future<void> _configure(int i) async {
     FocusManager.instance.primaryFocus?.unfocus();
+    final l10n = AppLocalizations.of(context);
+    // The movement directly above, as the screen names it — what the superset
+    // checkbox is offering to join to. Null on the first row, which has nothing
+    // above it.
+    final above = i == 0
+        ? null
+        : seededName(
+            l10n, _items[i - 1].exercise?.seedKey, _items[i - 1].name);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -456,6 +499,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
           unit: widget.unit,
           routineRest: widget.routineRest,
           defaultBarKg: widget.defaultBarKg,
+          exerciseAbove: above,
           onChanged: () => _bump(() {}),
         ),
       ),
@@ -466,6 +510,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final joins = normaliseJoins([for (final d in _items) d.supersetWithPrevious]);
     return BuilderReorderList<ItemDraft>(
       caption: l10n.itemEditorCaption,
       items: _items,
@@ -477,8 +522,12 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         index: i,
         title: draft.name,
         subtitle: draftSummary(l10n, draft, widget.unit),
+        // The group is tagged once, on the row it starts at, and drawn on all of
+        // its rows.
+        badge: inSuperset(joins, i) && !joins[i] ? l10n.commonSuperset : null,
+        grouped: inSuperset(joins, i),
         onTap: () => _configure(i),
-        onRemove: () => _bump(() => _items.removeAt(i)),
+        onRemove: () => _remove(i),
       ),
     );
   }
@@ -492,12 +541,18 @@ class _ItemConfigSheet extends ConsumerStatefulWidget {
     required this.unit,
     required this.routineRest,
     required this.defaultBarKg,
+    required this.exerciseAbove,
     required this.onChanged,
   });
   final ItemDraft draft;
   final String unit;
   final int routineRest;
   final double defaultBarKg;
+
+  /// The movement directly above this slot in the workout, named the way the
+  /// screens name it — what the superset checkbox offers to join to. Null on the
+  /// first slot, which has nothing above it and so gets no checkbox.
+  final String? exerciseAbove;
   final VoidCallback onChanged;
 
   @override
@@ -683,6 +738,24 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 ),
               ]),
+              // How this slot is performed against the one above it. In the
+              // basic half rather than behind Advanced: a superset changes what
+              // you do in the gym far more than a rep range does.
+              if (widget.exerciseAbove case final above?) ...[
+                const SizedBox(height: 16),
+                _CheckRow(
+                  key: kSupersetCheckKey,
+                  label: l10n.itemEditorSupersetWith(above),
+                  value: d.supersetWithPrevious,
+                  onChanged: (v) => _bump(() => d.supersetWithPrevious = v),
+                  // The one word on this sheet that is a training method rather
+                  // than a number, and the only one somebody can tick without
+                  // knowing what they have asked for. Behind a tap, not under the
+                  // control: a paragraph nobody needs would sit there for ever,
+                  // and this is read once.
+                  onExplain: () => _explainSuperset(context),
+                ),
+              ],
               // A hold has no rep range, no failure and no ladder, so it has no
               // advanced half either — and a toggle that opens onto nothing is
               // worse than no toggle.
@@ -1203,19 +1276,51 @@ class _CustomSetRow extends StatelessWidget {
   }
 }
 
+/// What a superset is, for somebody who has just been offered one.
+///
+/// The screens label their controls and leave the vocabulary to the tour — but a
+/// superset is the one thing on this sheet that is a training method rather than a
+/// number, and it is the one a user can switch on without knowing what they have
+/// asked for. So it is explained, in two sentences, behind a tap: an icon nobody
+/// has to press, rather than a paragraph under the checkbox that everybody has to
+/// read past for ever.
+Future<void> _explainSuperset(BuildContext context) {
+  final l10n = AppLocalizations.of(context);
+  return showAppDialog<void>(
+    context,
+    builder: (ctx) => AppDialog(
+      title: l10n.itemEditorSupersetWhat,
+      content: Text(l10n.itemEditorSupersetExplained),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(l10n.commonDone),
+        ),
+      ],
+    ),
+  );
+}
+
 /// A label with a checkbox, tappable across its whole width.
+///
+/// [onExplain] hangs an info icon on the end of the row — for a setting whose
+/// label names something the user may not know.
 class _CheckRow extends StatelessWidget {
   const _CheckRow({
+    super.key,
     required this.label,
     required this.value,
     required this.onChanged,
+    this.onExplain,
   });
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final VoidCallback? onExplain;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       onTap: () => onChanged(!value),
       borderRadius: BorderRadius.circular(10),
@@ -1241,6 +1346,16 @@ class _CheckRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 15)),
           ),
+          if (onExplain != null)
+            IconButton(
+              key: kSupersetHintKey,
+              onPressed: onExplain,
+              icon: const Icon(Icons.info_outline, size: 20),
+              color: AppColors.accent,
+              tooltip: l10n.itemEditorSupersetWhat,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
         ],
       ),
     );

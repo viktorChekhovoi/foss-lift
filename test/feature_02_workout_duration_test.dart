@@ -25,15 +25,19 @@ WorkoutItemsCompanion _slot({
   int? repsMax,
   int? rest,
   double? weight,
+  int position = 0,
+  bool joined = false,
 }) =>
     WorkoutItemsCompanion.insert(
       workoutId: workoutId,
       exerciseId: exerciseId,
+      position: Value(position),
       targetSets: Value(sets),
       repsMin: Value(repsMin),
       repsMax: Value(repsMax),
       restSeconds: Value(rest),
       suggestedWeight: Value(weight),
+      supersetWithPrevious: Value(joined),
     );
 
 void main() {
@@ -239,6 +243,51 @@ void main() {
         ),
       );
       expect(warmupRungsFor(held, sets: 5), 0);
+    });
+  });
+
+  group('a superset is priced as one rest per round', () {
+    /// Two counted slots of [sets] sets each, nothing on the bar so no ramp gets
+    /// in the way, with the second [joined] to the first or standing alone.
+    Future<Duration> twoSlots({required bool joined, int sets = 3}) async {
+      final bench = (await exerciseNamed(db, 'Bench Press')).id;
+      final ohp = (await exerciseNamed(db, 'Overhead Press')).id;
+      final w = await workoutIdNamed(db, 'Push');
+      await db.replaceWorkoutItems(w, [
+        _slot(workoutId: w, exerciseId: bench, sets: sets),
+        _slot(
+          workoutId: w,
+          exerciseId: ohp,
+          sets: sets,
+          position: 1,
+          joined: joined,
+        ),
+      ]);
+      final items = (await db.itemsForWorkout(w)).map((v) => v.item).toList();
+      return estimateWorkoutDuration(items: items, routineRestSeconds: 90);
+    }
+
+    test('joining two slots takes a rest off every round', () async {
+      // Three rounds, so three rests fewer than the same two exercises done one
+      // after the other.
+      expect(
+        (await twoSlots(joined: false)) - (await twoSlots(joined: true)),
+        const Duration(seconds: 3 * 90),
+      );
+    });
+
+    test('and what is left is the work back to back', () async {
+      // Six 5-rep sets, resting once at the end of each of the three rounds and
+      // not at all after the last one.
+      expect(
+        await twoSlots(joined: true),
+        Duration(seconds: 6 * setSeconds(reps: 5) + 2 * 90),
+      );
+      // The same day unjoined rests after every set but the last.
+      expect(
+        await twoSlots(joined: false),
+        Duration(seconds: 6 * setSeconds(reps: 5) + 5 * 90),
+      );
     });
   });
 

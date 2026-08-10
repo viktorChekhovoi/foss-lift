@@ -60,6 +60,26 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Scrolls the list until the row named [name] can be tapped, and finds it.
+  ///
+  /// Narrowing to a group returns the movements that only assist it as well as
+  /// the ones named after it, and those sections sort ahead of it — so Legs puts
+  /// three headings above the squats and the list runs well past the bottom of
+  /// the phone.
+  ///
+  /// `hitTestable`, not a bare `find.text`: a list builds a screenful either
+  /// side of what is showing, so a row can exist while sitting below the bottom
+  /// edge — and tapping one of those lands wherever it would have been, which
+  /// on a bottom sheet is the barrier that closes it.
+  Future<Finder> rowFor(WidgetTester tester, String name) async {
+    final row = find.text(name).hitTestable();
+    for (var drag = 0; drag < 40 && row.evaluate().isEmpty; drag++) {
+      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    return row;
+  }
+
   group('the control is one line, and says what it is doing', () {
     testWidgets('it opens as two buttons naming their dimension', (
       tester,
@@ -186,7 +206,7 @@ void main() {
         await tester.tap(find.byKey(kFilterSheetDoneKey));
         await tester.pumpAndSettle();
 
-        expect(find.text('Back Squat'), findsOneWidget);
+        expect(await rowFor(tester, 'Back Squat'), findsOneWidget);
         expect(find.text('Barbell Curl'), findsNothing);
 
         await stop(tester);
@@ -238,7 +258,7 @@ void main() {
       expect(find.byType(ExerciseFilterChips), findsOneWidget);
       await narrowBy(tester, 'muscle', 'Legs');
 
-      expect(find.text('Back Squat'), findsOneWidget);
+      expect(await rowFor(tester, 'Back Squat'), findsOneWidget);
       expect(find.text('Barbell Curl'), findsNothing);
 
       await stop(tester);
@@ -295,7 +315,7 @@ void main() {
       expect(
         find.widgetWithText(FilterFacetButton, 'Back, Legs'),
         findsOneWidget,
-        reason: 'the list came back showing all eighty-seven again',
+        reason: 'the list came back showing all 123 again',
       );
       expect(find.text('Barbell Curl'), findsNothing, reason: 'arms');
 
@@ -359,10 +379,11 @@ void main() {
       await tester.tap(find.text('Add exercise'));
       await tester.pumpAndSettle();
       await narrowBy(tester, 'muscle', 'Legs');
-      expect(find.text('Back Squat'), findsOneWidget);
+      final squat = await rowFor(tester, 'Back Squat');
+      expect(squat, findsOneWidget);
 
       // One movement taken, and back for the next.
-      await tester.tap(find.text('Back Squat'));
+      await tester.tap(squat);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add exercise'));
       await tester.pumpAndSettle();

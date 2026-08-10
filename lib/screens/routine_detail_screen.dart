@@ -34,6 +34,9 @@ class RoutineDetailScreen extends ConsumerWidget {
       }
     }
 
+    final description =
+        seededDescription(l10n, routine?.seedKey, routine?.description);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(routine == null
@@ -78,6 +81,19 @@ class RoutineDetailScreen extends ConsumerWidget {
           data: (list) => ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             children: [
+              // What the program is, where a routine has been described — the
+              // shipped paragraph in the app's language, or the one you typed.
+              // Nothing at all where nobody has said anything.
+              if (description != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14, top: 2),
+                  child: Text(
+                    description,
+                    style: TextStyle(
+                        fontSize: 14, height: 1.4, color: AppColors.muted),
+                  ),
+                ),
+              ],
               _CountChip(count: list.length),
               const SizedBox(height: 14),
               if (list.isEmpty)

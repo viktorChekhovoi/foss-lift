@@ -4,6 +4,11 @@
 //   * first launch offers a choice of two tours rather than starting one;
 //   * the full tour walks the four tabs, then Today, then the live workout it
 //     cannot show; the quick tour is the four tabs and stops;
+//   * a fresh install has an empty routine list, so the Today step points at the
+//     card that fills it and both first-run tours end by getting a routine —
+//     ready-made, or built;
+//   * the routine chapter defines a superset against the checkbox that offers
+//     one;
 //   * a third tour covers building a routine and starts on its own;
 //   * a step that asks you to tap something lets the tap through to the real
 //     widget, and the tour moves on with it;
@@ -36,6 +41,9 @@ final _l10n = l10nFor();
 /// bar, so the overlay can measure a target instead of guessing a position —
 /// mirroring how the app hangs the keys on Today and on `HomeShell`'s nav bar.
 ///
+/// The Today anchor is the empty routine card, because that is the one a fresh
+/// install has.
+///
 /// [onNavTap] and [onCardTap] record that the *real* widget got the tap, which
 /// is the whole question a tap-through step asks.
 Widget _anchoredHost({
@@ -45,7 +53,7 @@ Widget _anchoredHost({
     Scaffold(
       body: Center(
         child: SizedBox(
-          key: tutorialTodayWorkoutKey,
+          key: tutorialTodayEmptyKey,
           width: 200,
           height: 60,
           child: GestureDetector(
@@ -142,16 +150,16 @@ void main() {
       }
     });
 
-    test('the quick tour is the four tabs and a routine in four steps', () {
+    test('the quick tour is the four tabs and a routine in five steps', () {
       final steps = kTutorialTracks[TutorialTrack.quick]!;
       expect(steps.where((s) => s.demo == TutorialDemo.screen), isEmpty,
           reason: 'the quick tour skips the live workout');
       expect(steps.where((s) => s.demo == TutorialDemo.shade), isEmpty);
 
       final builder = steps.where((s) => s.id.startsWith('build-')).toList();
-      expect(builder, hasLength(4),
-          reason: 'condensed: where routines live, New routine, name and days, '
-              'Save');
+      expect(builder, hasLength(5),
+          reason: 'condensed: where routines live, the ready-made programs, '
+              'New routine, name and days, Save');
       expect(steps.length, lessThanOrEqualTo(10));
       // And it is genuinely shorter than the full tour's version of the same
       // chapter, which is the whole claim the word "quick" makes.
@@ -199,14 +207,62 @@ void main() {
             reason: 'the full tour never mentions $subject');
       }
       expect(kTutorialTracks[TutorialTrack.full]!.length,
-          lessThanOrEqualTo(24),
+          lessThanOrEqualTo(25),
           reason: 'still one sitting, not a manual — the full tour now ends by '
-              'building a routine, which is seven of these');
+              'getting a routine, which is ten of these');
+    });
+
+    test('the Today step points at the card that gets you a routine', () {
+      final step = kTutorialTracks[TutorialTrack.full]!
+          .firstWhere((s) => s.id == 'today-get-a-routine');
+      expect(step.anchors.first, tutorialTodayEmptyKey,
+          reason: 'a fresh install has no routine and so no workout card: the '
+              'only thing on Today to point at is the card that fills the list');
+      expect(step.anchors, contains(tutorialTodayRoutineKey),
+          reason: 'on a replay there is a current routine, and its name on '
+              'Today is where the same callout belongs');
+      expect(step.tapThrough, isFalse,
+          reason: 'the tour has nothing to say about the library screen yet');
+    });
+
+    test('both first-run tours say how to get a routine', () {
+      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
+        final said = saidBy(track);
+        expect(said, contains(_l10n.routineLibraryTitle.toLowerCase()),
+            reason: '$track never names "${_l10n.routineLibraryTitle}", which '
+                'is the shortest way out of an empty routine list');
+        expect(said, contains('new routine'),
+            reason: '$track never names the other way to get one');
+      }
+    });
+
+    test('the chapter offers a ready-made program before it builds one', () {
+      final ids =
+          kTutorialTracks[TutorialTrack.builder]!.map((s) => s.id).toList();
+      expect(ids.indexOf('build-library'), 1,
+          reason: 'straight after the step that says where routines live');
+      expect(ids.indexOf('build-library'), lessThan(ids.indexOf('build-new')));
+    });
+
+    test('the superset step comes after the settings it sits under', () {
+      final ids =
+          kTutorialTracks[TutorialTrack.builder]!.map((s) => s.id).toList();
+      expect(ids.indexOf('build-superset'), ids.indexOf('build-slot') + 1);
+      // The one training term of the chapter, and the quick tour — which skips
+      // the sheet entirely — does not teach it.
+      final said = kTutorialTracks[TutorialTrack.builder]!
+          .firstWhere((s) => s.id == 'build-superset');
+      final words = '${said.title(_l10n)} ${said.body(_l10n)}'.toLowerCase();
+      expect(words, contains('superset'));
+      expect(words, contains('rest'),
+          reason: 'what joining two exercises does to the rest between them is '
+              'the whole of the definition');
+      expect(saidBy(TutorialTrack.quick), isNot(contains('superset')));
     });
 
     test('the full tour explains the gym words it uses', () {
       final said = saidBy(TutorialTrack.full);
-      for (final word in ['routine', 'workout', 'rep']) {
+      for (final word in ['routine', 'workout', 'rep', 'superset']) {
         expect(said, contains(word),
             reason: 'somebody new to the gym is left guessing at "$word"');
       }
@@ -217,11 +273,13 @@ void main() {
       final drawn = steps.where((s) => s.demo == TutorialDemo.builder);
       expect(drawn.map((s) => s.focus).toSet(), {
         TutorialDemoFocus.routinesTab,
+        TutorialDemoFocus.library,
         TutorialDemoFocus.newRoutine,
         TutorialDemoFocus.name,
         TutorialDemoFocus.days,
         TutorialDemoFocus.exercises,
         TutorialDemoFocus.slot,
+        TutorialDemoFocus.superset,
         TutorialDemoFocus.saveDay,
         TutorialDemoFocus.save,
       }, reason: 'each control the chapter is about gets its own picture, and '
@@ -272,6 +330,71 @@ void main() {
             findsOneWidget,
             reason: 'the sheet the step describes does not show $label');
       }
+      // The numbers are what this step is about, so nothing on the sheet is
+      // singled out — the checkbox under them belongs to the step after it.
+      expect(find.byKey(kTutorialDemoRingKey), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('the drawn Routines tab offers both ways to get a routine',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      final steps = kTutorialTracks[TutorialTrack.builder]!;
+      container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
+      for (var i = 0;
+          i < steps.indexWhere((s) => s.focus == TutorialDemoFocus.library);
+          i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.text(_l10n.routineLibraryTitle), findsOneWidget);
+      expect(find.text(_l10n.routinesNewRoutine), findsOneWidget,
+          reason: 'both buttons are on the screen, so both are on the picture');
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoLibraryKey)),
+          findsOneWidget,
+          reason: 'this step is about the ready-made programs');
+      // And the list above them is empty, which is what a fresh install's
+      // Routines tab is.
+      expect(find.text(_l10n.seedRoutinePushPullLegs), findsNothing,
+          reason: 'the drawn tab shows a routine nobody has added yet');
+
+      await stop(tester);
+    });
+
+    testWidgets('the superset step rings the checkbox that makes one',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      final steps = kTutorialTracks[TutorialTrack.builder]!;
+      container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
+      for (var i = 0;
+          i < steps.indexWhere((s) => s.focus == TutorialDemoFocus.superset);
+          i++) {
+        container.read(tutorialProvider.notifier).next();
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      // The same sheet the settings step draws, with the control the callout is
+      // about ringed — and the checkbox names the exercise above it, exactly as
+      // the real one does.
+      expect(find.text(_l10n.itemEditorSupersetWith(_l10n.exerciseBenchPress)),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoSupersetKey)),
+          findsOneWidget);
+      expect(find.byType(Checkbox), findsOneWidget);
 
       await stop(tester);
     });
@@ -337,9 +460,9 @@ void main() {
       }
     });
 
-    test('the live workout follows the workout that starts one', () {
+    test('the live workout follows the Today step', () {
       final ids = kTutorialTracks[TutorialTrack.full]!.map((s) => s.id).toList();
-      final next = ids.indexOf('today-next');
+      final next = ids.indexOf('today-get-a-routine');
       final session = ids.where((id) => id.startsWith('session-')).toList();
       expect(next, greaterThan(0));
       expect(session, isNotEmpty);
@@ -540,7 +663,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
 
       // The Today card is nowhere near the spotlit tab.
-      await tester.tap(find.byKey(tutorialTodayWorkoutKey), warnIfMissed: false);
+      await tester.tap(find.byKey(tutorialTodayEmptyKey), warnIfMissed: false);
       await tester.pump();
 
       expect(cards, 0, reason: 'the app is not poked mid-sentence');
@@ -561,7 +684,7 @@ void main() {
       await tester.pump();
       final steps = kTutorialTracks[TutorialTrack.full]!;
       final target =
-          steps.indexWhere((s) => s.anchors.contains(tutorialTodayWorkoutKey));
+          steps.indexWhere((s) => s.anchors.contains(tutorialTodayEmptyKey));
       expect(target, greaterThan(0));
       for (var i = 0; i < target; i++) {
         container.read(tutorialProvider.notifier).next();
@@ -571,7 +694,7 @@ void main() {
       expect(steps[target].tapThrough, isFalse,
           reason: 'the tour should not send you off Today mid-tour');
 
-      await tester.tap(find.byKey(tutorialTodayWorkoutKey), warnIfMissed: false);
+      await tester.tap(find.byKey(tutorialTodayEmptyKey), warnIfMissed: false);
       await tester.pump();
 
       expect(cards, 0, reason: 'this step is "look at this", not "tap this"');
@@ -1123,6 +1246,34 @@ void main() {
 
       expect(container.read(tutorialProvider).track, TutorialTrack.builder,
           reason: 'the builder tour starts on its own, not after the others');
+
+      await stop(tester);
+    });
+
+    testWidgets('every anchor a first-run tour uses is there on a fresh install',
+        (tester) async {
+      // The whole failure mode this guards: a step that points at the routine
+      // you are on, on a phone whose routine list is empty, spotlights nothing
+      // and describes a card that is not there.
+      await tester.pumpWidget(routedAppUnder(
+        container,
+        Scaffold(
+          body: TutorialOverlay(child: const TodayScreen()),
+          bottomNavigationBar: SizedBox(key: tutorialNavBarKey, height: 64),
+        ),
+      ));
+      await pumpThroughDatabase(tester);
+      expect((await tester.runAsync(() => db.watchRoutines().first))!, isEmpty,
+          reason: 'a fresh install opens with an empty routine list');
+
+      for (final track in [TutorialTrack.full, TutorialTrack.quick]) {
+        for (final step in kTutorialTracks[track]!) {
+          if (step.anchors.isEmpty) continue;
+          expect(step.anchors.any((k) => k.currentContext != null), isTrue,
+              reason: '${step.id} points at a widget a fresh install does not '
+                  'have');
+        }
+      }
 
       await stop(tester);
     });

@@ -77,6 +77,7 @@ class RoutineEditScreen extends ConsumerStatefulWidget {
 class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     with TracksUnsavedEdits {
   final _name = TextEditingController();
+  final _description = TextEditingController();
   String _color = _palette.first;
   int _restSeconds = 90;
   int _scheduleDays = kNoScheduleMask;
@@ -94,12 +95,20 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
   String _storedName = '';
   String _shownName = '';
 
+  /// The same pair for the description, and for the same reason: a copy of a
+  /// shipped program opens with the *translated* paragraph in the field, and
+  /// handing that back untouched must not store the Spanish words over the
+  /// canonical English. See [_WorkoutDraft.rename].
+  String? _storedDescription;
+  String _shownDescription = '';
+
   bool get _isEdit => widget.routineId != null;
 
   @override
   void initState() {
     super.initState();
     _name.addListener(markEdited);
+    _description.addListener(markEdited);
     if (_isEdit) {
       _load();
     } else {
@@ -122,6 +131,10 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
       _storedName = routine.name;
       _shownName = seededName(l10n, routine.seedKey, routine.name);
       _name.text = _shownName;
+      _storedDescription = routine.description;
+      _shownDescription =
+          seededDescription(l10n, routine.seedKey, routine.description) ?? '';
+      _description.text = _shownDescription;
       _color = routine.colorHex;
       _restSeconds = routine.restSeconds;
       _scheduleDays = routine.scheduleDays;
@@ -145,6 +158,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
   @override
   void dispose() {
     _name.dispose();
+    _description.dispose();
     super.dispose();
   }
 
@@ -240,6 +254,15 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     final keepsSeed = _seedKey != null && typed == _shownName;
     final name = keepsSeed ? _storedName : typed;
 
+    // The same reading for the description: blank means there is nothing to say,
+    // and the translated paragraph handed back untouched is not a rewrite.
+    final typedDescription = _description.text.trim();
+    final description = typedDescription.isEmpty
+        ? null
+        : typedDescription == _shownDescription
+            ? _storedDescription
+            : typedDescription;
+
     final int routineId;
     if (_isEdit) {
       routineId = widget.routineId!;
@@ -251,6 +274,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
         restSeconds: _restSeconds,
         scheduleDays: _scheduleDays,
         reminderMinutes: _reminderMinutes,
+        description: description,
       );
     } else {
       routineId = await db.createRoutine(
@@ -259,6 +283,7 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
         restSeconds: _restSeconds,
         scheduleDays: _scheduleDays,
         reminderMinutes: _reminderMinutes,
+        description: description,
       );
     }
 
@@ -380,6 +405,20 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration: builderInput(l10n.routineEditNameHint),
+                        ),
+                        const SizedBox(height: 20),
+                        builderLabel(l10n.routineEditDescription),
+                        TextField(
+                          key: const ValueKey('routine-description'),
+                          controller: _description,
+                          textCapitalization: TextCapitalization.sentences,
+                          keyboardType: TextInputType.multiline,
+                          maxLines: 4,
+                          minLines: 2,
+                          maxLength: kMaxDescriptionLength,
+                          style: const TextStyle(fontSize: 15),
+                          decoration:
+                              builderInput(l10n.routineEditDescriptionHint),
                         ),
                         const SizedBox(height: 20),
                         builderLabel(l10n.routineEditAccentColor),

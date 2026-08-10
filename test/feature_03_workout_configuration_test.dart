@@ -39,14 +39,15 @@ void main() {
   tearDown(() => db.close());
 
   /// Mounts the exercise list editor over [drafts] and opens the config sheet
-  /// on the first one — the sheet is a sheet over a builder, so it is exercised
-  /// the way the builder opens it rather than pumped bare.
+  /// on the one at [at] — the sheet is a sheet over a builder, so it is
+  /// exercised the way the builder opens it rather than pumped bare.
   Future<void> openSheet(
     WidgetTester tester,
     ProviderContainer container,
     List<ItemDraft> drafts, {
     String unit = 'kg',
     Size size = const Size(390, 1400),
+    int at = 0,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -69,7 +70,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(drafts.first.name));
+    await tester.tap(find.text(drafts[at].name));
     await tester.pumpAndSettle();
   }
 
@@ -1084,6 +1085,15 @@ void main() {
 
     /// Takes Back Squat out of the picker, narrowing to Legs to find it the way
     /// the picker's own control does.
+    ///
+    /// **Narrowing is not the same as arriving at the row.** The muscle filter
+    /// keeps everything that *assists* the group as well as everything named
+    /// after it, and those sections sort ahead of it — so Legs puts three
+    /// headings above the squats and the list runs well past the bottom of the
+    /// phone. Hence the scroll, and `hitTestable`: a lazy list builds a screenful
+    /// either side of what is showing, so a row can exist while sitting below the
+    /// bottom edge, and tapping one of those lands on the sheet's barrier and
+    /// closes it.
     Future<void> addBackSquat(WidgetTester tester) async {
       await tester.tap(find.text(l10nFor().itemEditorAdd));
       await tester.pumpAndSettle();
@@ -1093,7 +1103,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(kFilterSheetDoneKey));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Back Squat'));
+      final row = find.text('Back Squat').hitTestable();
+      for (var drag = 0; drag < 40 && row.evaluate().isEmpty; drag++) {
+        await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(row);
       await tester.pumpAndSettle();
     }
 
@@ -1151,4 +1166,227 @@ void main() {
       await stop(tester);
     });
   });
+
+  group('a slot can be joined to the one above it as a superset', () {
+    /// The exercise list on [drafts], mounted the way the workout builder mounts
+    /// it and with no sheet open. The list handed in is the one the editor writes
+    /// into, so a test can read what the taps and the drags did.
+    Future<void> pumpList(
+      WidgetTester tester,
+      ProviderContainer container,
+      List<ItemDraft> drafts,
+    ) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: drafts,
+                  unit: 'kg',
+                  routineRest: 90,
+                  defaultBarKg: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// Drafts for [names], in order, with the ones at [joined] tied to the slot
+    /// above them.
+    Future<List<ItemDraft>> draftsFor(
+      WidgetTester tester,
+      List<String> names, {
+      Set<int> joined = const {},
+    }) async =>
+        (await tester.runAsync(() async => [
+              for (var i = 0; i < names.length; i++)
+                ItemDraft.forExercise(await exerciseNamed(db, names[i]))
+                  ..supersetWithPrevious = joined.contains(i),
+            ]))!;
+
+    /// Drags the [index]th grab handle by [dy], in steps — the reorderable
+    /// decides where a row belongs from how far the pointer has travelled, so
+    /// one teleporting move tells it nothing.
+    Future<void> dragRow(WidgetTester tester, int index, double dy) async {
+      final handle = find.byIcon(Icons.drag_indicator).at(index);
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(Offset(0, dy / 8));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the first slot of a workout has nothing above it to join to',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final drafts =
+          await draftsFor(tester, ['Bench Press', 'Overhead Press']);
+
+      await openSheet(tester, container, drafts);
+      expect(find.byKey(_supersetCheck), findsNothing,
+          reason: 'a control that could only be ticked against nothing');
+      await stop(tester);
+
+      await openSheet(tester, container, drafts, at: 1);
+      expect(find.byKey(_supersetCheck), findsOneWidget);
+      expect(
+        find.text(l10nFor().itemEditorSupersetWith('Bench Press')),
+        findsOneWidget,
+        reason: 'the control names the exercise directly above it',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('ticking it joins the pair', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final drafts =
+          await draftsFor(tester, ['Bench Press', 'Overhead Press']);
+
+      await openSheet(tester, container, drafts, at: 1);
+      await tester.tap(find.byKey(_supersetCheck));
+      await tester.pumpAndSettle();
+
+      expect(drafts[1].supersetWithPrevious, isTrue);
+      expect(drafts[0].supersetWithPrevious, isFalse);
+
+      await stop(tester);
+    });
+
+    // The trip through the database the builder makes on save, without a tree
+    // over it. **Not a widget test**, and not for tidiness: a query issued after
+    // a write waits for the write's stream update to be delivered, and a widget
+    // test parks that delivery until the tree is pumped — which cannot happen
+    // inside the `runAsync` the write needs. Save-and-read-back belongs where
+    // there is no fake clock to deadlock against.
+    test('and saving keeps them joined', () async {
+      final drafts = [
+        for (final name in ['Bench Press', 'Overhead Press'])
+          ItemDraft.forExercise(await exerciseNamed(db, name)),
+      ];
+      drafts[1].supersetWithPrevious = true;
+
+      final rid = await db.createRoutine(
+          name: 'Joined', color: 'FF0000', restSeconds: 90);
+      final wid = await db.createWorkout(rid, 'Day');
+      await db.replaceWorkoutItems(wid, itemCompanions(drafts, workoutId: wid));
+      final saved = await db.itemsForWorkout(wid);
+
+      expect(saved.map((v) => v.exercise.name),
+          ['Bench Press', 'Overhead Press']);
+      expect(saved.map((v) => v.item.supersetWithPrevious), [false, true]);
+      // And a reload of the same workout opens on the same pair.
+      expect(saved.map((v) => ItemDraft.fromView(v).supersetWithPrevious),
+          [false, true]);
+    });
+
+    testWidgets('a superset reads as a group in the exercise list',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final l10n = l10nFor();
+
+      await pumpList(
+        tester,
+        container,
+        await draftsFor(tester, ['Bench Press', 'Overhead Press']),
+      );
+      expect(find.text(l10n.commonSuperset), findsNothing,
+          reason: 'nothing is joined');
+      await stop(tester);
+
+      await pumpList(
+        tester,
+        container,
+        await draftsFor(tester, ['Bench Press', 'Overhead Press'],
+            joined: {1}),
+      );
+
+      expect(find.text(l10n.commonSuperset), findsOneWidget,
+          reason: 'the top row of the group is tagged, once');
+      // Each row keeps its own target line: a group is a way of performing
+      // slots, not a slot of its own.
+      expect(find.text('Overhead Press'), findsOneWidget);
+      expect(find.byIcon(Icons.drag_indicator), findsNWidgets(2));
+
+      await stop(tester);
+    });
+
+    testWidgets('a joined slot dragged to the top of the list is unjoined',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final drafts = await draftsFor(
+          tester, ['Bench Press', 'Overhead Press'], joined: {1});
+      await pumpList(tester, container, drafts);
+
+      // Overhead Press is the joined row; drag it above Bench Press.
+      final gap = tester.getTopLeft(find.text('Overhead Press')).dy -
+          tester.getTopLeft(find.text('Bench Press')).dy;
+      await dragRow(tester, 1, -(gap + 10));
+
+      expect(drafts.map((d) => d.name), ['Overhead Press', 'Bench Press'],
+          reason: 'the dragged row did not move');
+      expect(drafts.map((d) => d.supersetWithPrevious), [false, false],
+          reason: 'the row at the top has nothing above it to be joined to');
+      expect(find.text(l10nFor().commonSuperset), findsNothing);
+
+      // Dragging it back down does not restore the join: it belonged to a pair,
+      // and which pair is exactly what the drag changed.
+      await dragRow(tester, 0, gap + 10);
+
+      expect(drafts.map((d) => d.name), ['Bench Press', 'Overhead Press']);
+      expect(drafts.map((d) => d.supersetWithPrevious), [false, false]);
+
+      await stop(tester);
+    });
+
+    testWidgets('removing the top row of a superset leaves the rest a group',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final drafts = await draftsFor(
+        tester,
+        ['Bench Press', 'Overhead Press', 'Incline DB Press'],
+        joined: {1, 2},
+      );
+      await pumpList(tester, container, drafts);
+      expect(find.text(l10nFor().commonSuperset), findsOneWidget);
+
+      // Delete the first of the three.
+      await tester.tap(find.byIcon(Icons.close).first);
+      await tester.pumpAndSettle();
+
+      expect(drafts.map((d) => d.name), ['Overhead Press', 'Incline DB Press']);
+      expect(drafts.map((d) => d.supersetWithPrevious), [false, true],
+          reason: 'the second row becomes the top of a group of two');
+      expect(find.text(l10nFor().commonSuperset), findsOneWidget);
+
+      // Delete all but one and that one is an ordinary slot again.
+      await tester.tap(find.byIcon(Icons.close).first);
+      await tester.pumpAndSettle();
+
+      expect(drafts.map((d) => d.name), ['Incline DB Press']);
+      expect(drafts.single.supersetWithPrevious, isFalse);
+      expect(find.text(l10nFor().commonSuperset), findsNothing);
+
+      await stop(tester);
+    });
+  });
 }
+
+/// The one checkbox that joins a slot to the one above it.
+const _supersetCheck = ValueKey('superset-with-previous');

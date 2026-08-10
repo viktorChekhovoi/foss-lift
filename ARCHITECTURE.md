@@ -43,6 +43,10 @@ lib/
 │   │                             (the prescription only: no weights travel)
 │   ├── routine_import.dart       Routine ⇄ database, and what to do about clashes
 │   ├── backup_archive.dart       FLB1 — what a backup file is, without the disk
+│   ├── superset.dart             Which consecutive slots are one round — the
+│   │                             join between neighbours, turned into groups
+│   ├── starter_routines.dart     The programs the app ships, as prescriptions
+│   │                             rather than rows — what the library offers
 │   ├── progression.dart          Progression modes + the step/deload rules
 │   ├── layoff.dart               Gap → back-off: the rules for coming back
 │   ├── plates.dart               Weight types + what goes on each side of a bar
@@ -139,9 +143,9 @@ has "Upper 1" and "Upper 2".
 | Table          | Holds |
 |----------------|-------|
 | `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup (the **lead** group — the one it files under and the one an FLR1 code carries), `extraPrimaryGroups` and `secondaryGroups` (the rest of what it trains and what it only assists, unit-separator-joined; read all three through `Exercise.muscles` as a `MuscleMap`), equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
-| `Routines`     | A program. name, `seedKey` (nullable — which demo program this is; **cleared on rename**, so a routine you have named stops following the language), colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
+| `Routines`     | A program. name, `description` (nullable, ≤`kMaxDescriptionLength` — what the program is, in a sentence or two; shipped copies carry the canonical English and read through `seededDescription`), `seedKey` (nullable — which demo program this is; **cleared on rename**, so a routine you have named stops following the language), colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position |
-| `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters |
+| `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters, and `supersetWithPrevious` — trained in the same round as the slot above it, see `data/superset.dart` |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, `seedKey` (nullable — denormalised beside the name, so a logged day still reads in the current language), times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, and `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`) |
 | `Settings`     | Single-row (id=1) app prefs. `weightUnit` (**nullable — null is "not stored yet", which the first launch answers from the phone's region via `seedWeightUnit`**; everything that only displays a weight reads null as kg), `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, `barWeight` (the default bar, named by its weight — see `Bars`), a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), `warmupSets` (how many warm-up rungs a session opens each exercise with, 1–`kMaxWarmupSets`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null), and the chosen language (`localeTag` — `uk`, `pt_BR`; null only until first run resolves the phone's language and writes it) |
@@ -234,18 +238,88 @@ the starter library only the Plank is held.
   invented — "load 2.5 kg onto a push-up".
 `_seed()` populates the starter library (~85 exercises, from the
 `_starterLibrary` table above it — keyed by the group each movement *files*
-under, with the rest of what it trains and assists beside it) plus five starter programs on first launch:
-two hypertrophy splits (PPL, Upper/Lower) and three beginner strength routines
-(Starting Strength, StrongLifts 5x5, Full Body 3x). Each slot is written from a
-`_SeedItem`, which carries the program's own step-up, back-off and failure
-threshold where they differ from the defaults — a linear-progression barbell
-program adds 5 kg a session to the squat and resets only after a third missed
-session.
+under, with the rest of what it trains and assists beside it), the racked bars and
+the settings row — and **no routines at all**. The five programs the app ships
+live in the routine library instead, and arrive only when somebody adds one; see
+below.
 
 `database.g.dart` is generated — after editing tables/`@DriftDatabase`, run:
 ```
 dart run build_runner build
 ```
+
+### The routine library — `data/starter_routines.dart`
+The five programs the app ships — two hypertrophy splits (PPL, Upper/Lower) and
+three beginner strength routines (Starting Strength, StrongLifts 5x5, Full Body
+3x) — as a table of prescriptions in code rather than rows in the database. Each
+carries the program's own rest, schedule, step-up, back-off and failure threshold
+where they differ from the defaults: a linear-progression barbell program adds
+5 kg a session to the squat and resets only after a third missed session.
+
+- **They are not seeded.** A fresh install opens on an empty routine list, and
+  `RoutineLibraryScreen` (`/routines/library`) is where the programs are offered.
+  A preview (`/routines/library/:key`) shows every day and slot before anything
+  is written; `AppDatabase.addStarterRoutine` then writes exactly what the seed
+  used to. **Installed phones keep the five they already have** — the migration
+  ladder does not touch the routines table.
+- **Code, not rows**, which settles several questions at once: nothing to
+  migrate, nothing to keep in step with a backup, and no way for a phone to hold
+  a library different from the build it is running. Same argument as the colour
+  presets.
+- Adding creates **no exercises**: every movement the library names is in the
+  starter library, so a copy's slots point at the rows already there and inherit
+  the history on them.
+- **A program says what it is.** `StarterRoutine.description` is canonical
+  English on a shipped row, so the library preview and the routine screen render
+  it through `seededDescription` (`util/seed_names.dart`) and it follows the
+  language — unless somebody has typed over it, which the helper tells apart by
+  comparing the column against the shipped text. A routine of your own carries
+  whatever you wrote, and both travel in a routine code.
+- **The library covers training without a gym**: beside the five gym programs
+  there are Two-Day Full Body, Bodyweight Basics, Dumbbell Full Body and Interval
+  Conditioning. The last is timed rather than counted — `StarterSlot.holdSeconds`
+  is the work period, and it only means anything on a movement the library holds
+  as *held*, because the axis comes from the movement's own measure.
+- **`createRoutine` adopts the first routine to arrive** as the current one,
+  whichever way it arrived — built, imported or added from the library —
+  because an empty install has no current routine and Today would otherwise sit
+  empty beside a list holding exactly one program. One already current is never
+  displaced.
+
+### Supersets — `data/superset.dart`
+Two or more exercises performed back to back: a set of each, then the rest, then
+round again. The template says so with `WorkoutItems.supersetWithPrevious` — a
+**join between neighbours**, not a group id — and this module turns a list of
+joins into groups of indices.
+
+- The shape is the argument. A group id would let a workout claim slots one and
+  four are a group with two and three in between, which nobody can perform and
+  every screen would then have to draw something for. A join cannot express it,
+  reordering re-forms the groups by itself, and the only rule left to enforce is
+  that the first slot has nothing above it (`normaliseJoins`, applied on the way
+  to the database and on the way onto a screen).
+- **The live session's unit of progress becomes the group.** `nextUp` walks every
+  member's warm-up ramp, then the working sets a round at a time — set one of
+  each, set two of each — and a member with fewer sets drops out of the later
+  rounds. A group of one short-circuits to what it always did, so nothing about a
+  day without supersets goes near the round arithmetic.
+- **`ActiveWorkout.restAfter(ei, index, warmup:)` is the one answer to "what rest
+  follows this row"**, and zero seconds is what a superset is: the next movement
+  of the group is what you do now, so no clock starts and no banner appears. The
+  rest arrives at the end of the round and belongs to the slot that closed it.
+  It answers **positionally** — by the plan, not by what happens to be logged —
+  so a row ticked out of order does not rewrite what follows the row you just
+  did.
+- The board draws a group inside one bracket (`_SupersetBracket`), each member
+  keeping its own heading, weight, ramp and rows: the only thing a group changes
+  about a row is which row is marked next.
+- `workout_estimate.dart` prices a group as one rest per round, which is what
+  makes a superset day shorter than the same exercises listed separately.
+- **In a routine code the joins ride in a trailing section**, not in a slot's
+  field mask — see `data/routine_code.dart`. A new field bit would make every
+  code this build writes unreadable to the shipped one; trailing bytes are the
+  one place the format can grow, so an older build reads a superset routine as
+  the same exercises unjoined.
 
 ### Layoffs — `data/layoff.dart` + `layoffFor` / `applyLayoffDeload`
 Progression judges what you did; a layoff judges what you did **not** do. Coming
@@ -545,6 +619,8 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 |-------|--------|---------|
 | `/today` | today_screen | The current routine's workouts (or a chooser), lifetime totals |
 | `/routines` | routines_screen | All routines, pick the current one, + "New routine" |
+| `/routines/library` | routine_library_screen | The programs the app ships; tap one to preview it |
+| `/routines/library/:key` | routine_library_screen | One program in full, and the button that copies it |
 | `/routine/:id` | routine_detail_screen | The routine's workouts; tap one to open it |
 | `/routine/new`, `/routine/:id/edit` | routine_edit_screen | Routine meta + its workout list |
 | `/workout/:id` | workout_detail_screen | A day's exercises + **Start workout** |
@@ -736,8 +812,13 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
-  The ladder currently runs **v1 → v2 → v3** (`Settings.warmup_sets`, then
-  `Exercises.extra_primary_groups` and `secondary_groups`). Each rung spells
+  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6**
+  (`Settings.warmup_sets`; `Exercises.extra_primary_groups` and
+  `secondary_groups`; `WorkoutItems.superset_with_previous`;
+  `Routines.description`; then the starter movements this build ships that an
+  installed database has never had). That last rung is generic — it walks the
+  shipped table and inserts what is missing — but it runs **once**, so a release
+  that adds more movements needs a rung of its own rather than an edit to it. Each rung spells
   its `ALTER TABLE` out rather than calling `m.addColumn`, because `addColumn`
   reads the column as *today's* code declares it: a later edit to that column
   would silently rewrite a rung that has already shipped. A new column also goes

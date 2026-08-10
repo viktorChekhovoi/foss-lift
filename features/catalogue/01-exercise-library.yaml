@@ -25,14 +25,69 @@ groups:
 - name: What it does
   items:
   - id: ships-85-starter-exercises
-    t: Ships 87 starter exercises
+    t: Ships 123 starter exercises
     d: >-
-      each with a demo-video link, in the canonical https://youtu.be/&lt;id&gt;
-      short form.
+      most of them with a demo-video link, in the canonical
+      https://youtu.be/&lt;id&gt; short form.
     defines:
     - exercise.seed
     uses:
     - exercise.video-url
+  - id: covers-bodyweight-dumbbells-conditioning
+    t: Enough of it to train with nothing, with dumbbells alone, or for conditioning
+    d: >-
+      the starter set began as a gym's set — barbells, machines and cables, with
+      a few bodyweight movements round the edges — which left a routine that
+      needed no equipment with almost nothing to be built out of. It now also
+      carries what an empty room needs (air squats and bodyweight lunges, the
+      pike, diamond, wide and decline push-up, the Nordic curl, the single-leg
+      glute bridge, the bird dog, the sit-up), what a pair of dumbbells needs
+      (the thruster, the clean and press, the snatch, the Romanian and plain
+      deadlift, the front squat, the lunge, the lateral lunge, the floor press,
+      the pullover, the push press and the renegade row — the step-up was already
+      there), and the
+      conditioning work: burpees, jump squats, box jumps, skater jumps and
+      jumping jacks counted, and the wall sit, the superman hold, high knees,
+      mountain climbers, the bear crawl, the sprint, the jump rope, the battle
+      rope and shadow boxing measured as a work period rather than a rep count.
+      The conditioning work files under its own group — see below.
+    uses:
+    - exercise.seed
+    - exercise.taxonomy
+    - exercise.measure
+    - exercise.muscle-map
+  - id: conditioning-files-under-cardio
+    t: Conditioning files under Cardio, which is not a muscle
+    d: >-
+      a sprint, a burpee and two minutes on a rope are not what a Legs day is
+      looking for, and filing them under the muscles they happen to use put them
+      in the way of somebody narrowing to Legs to pick a squat — while leaving
+      them findable by nobody at all, since nothing filters on how a set is
+      measured. So the group list carries one entry that names what the work is
+      <i>for</i> rather than a muscle, exactly as <b>Other</b> already names the
+      shelf for everything unclassified. Every muscle each movement leans on is
+      still named beside it, as an assist, which is what it is doing — so
+      narrowing to Legs still finds the jump squat, several rows down where it
+      belongs. Kettlebell swings and Turkish get-ups stay where they are: they are
+      loaded lifts people program for strength.
+    defines:
+    - exercise.taxonomy
+    uses:
+    - exercise.muscle-map
+    - exercise.seed
+    - exercise.filter
+  - id: cardio-is-appended-not-inserted
+    t: The new group went on the end of the list, and had to
+    d: >-
+      the group vocabulary is a wire format — a shared routine sends the index,
+      not the word — so a group inserted anywhere but the end would silently
+      re-label every movement in every code already written. Appending is the one
+      safe edit, and it is why Cardio sits after Other rather than beside the
+      muscles it reads with on screen.
+    screen: none
+    uses:
+    - exercise.taxonomy
+    - share.routine-code
   - id: searchable-name
     t: Searchable by name, in your language and in English
     d: >-
@@ -75,7 +130,7 @@ groups:
     t: A filter you set stays set
     d: >-
       narrowing to legs and back, opening a movement and coming back leaves the
-      list still narrowed to legs and back rather than showing all eighty-seven
+      list still narrowed to legs and back rather than showing all 123
       again. The button says which choices are live without the sheet being
       opened to check, so a list that is hiding things always says what it is
       hiding them by — a filter you have forgotten about looks exactly like a
@@ -83,7 +138,7 @@ groups:
       the visit: leaving the library entirely and coming back finds it as you
       left it, and the builder's picker — where adding three leg movements means
       opening it three times — opens on legs again rather than on all
-      eighty-seven. The library and the picker keep <i>separate</i> choices,
+      123. The library and the picker keep <i>separate</i> choices,
       because a picker that opened pre-narrowed by something done on another
       screen reads as a bug. The search text is not kept: it has a box showing
       it, and a query that outlived the box would narrow the list with nothing
@@ -168,8 +223,14 @@ groups:
     t: Measure — counted or held
     d: >-
       done for reps, or a timed hold like a plank. Decides which progression axes
-      a slot can ever use. Five starters are held rather than counted: Plank, Side
-      Plank, Hollow Hold, Dead Hang and Farmer's Carry.
+      a slot can ever use. Fourteen starters are held rather than counted: the
+      four positions you get into and stay in (Plank, Side Plank, Hollow Hold,
+      Superman Hold), the two you hold under load (Dead Hang, Farmer's Carry),
+      the Wall Sit, and the seven conditioning movements whose set is a work
+      period rather than a number of reps — High Knees, Mountain Climber, Bear
+      Crawl, Sprint, Jump Rope, Battle Rope and Shadow Boxing. Counting a
+      mountain climber is not what anyone does with one; running the clock for
+      thirty seconds is.
     screen: exercise-form
     defines:
     - exercise.measure
@@ -252,7 +313,10 @@ groups:
       most of the set. Every id is listed in one place (_starterDemos) with the
       video's own title beside it, so a re-check can tell "this is gone" from
       "this is now something else"; YouTube's oEmbed endpoint makes re-checking
-      the lot a loop.
+      the lot a loop. A movement with no demo anybody could stand behind ships
+      with none: the field is nullable and the screen simply omits the row,
+      which is the honest answer where a guessed id would be a link to somebody
+      else's video.
     screen: exercise-detail
     defines:
     - exercise.video-url
@@ -388,11 +452,12 @@ groups:
     d: >-
       Barbell → bar, Dumbbell → dumbbell, Bodyweight → nothing, everything else
       → machine, which is the right guess because almost everything is loaded. The
-      three starters whose equipment is "Other" are named by hand — a kettlebell
-      swing and a Turkish get-up load like a dumbbell, an ab wheel loads nothing.
+      five starters whose equipment is "Other" are named by hand — a kettlebell
+      swing and a Turkish get-up load like a dumbbell, an ab wheel, a jump rope
+      and a battle rope load nothing.
       On a starter it is then **fixed only where the movement's own name states
-      the implement** — Barbell Curl, Dumbbell Row, Incline DB Press: ten of the
-      eighty-seven. There the exercise screen states the loading instead of
+      the implement** — Barbell Curl, Dumbbell Row, Incline DB Press: twenty-two
+      of the 123. There the exercise screen states the loading instead of
       offering chips, and the writer refuses a change rather than trusting the
       screen, because any other answer leaves the name contradicting the weight
       column. Everything else stays a choice, and deliberately: how a movement is
