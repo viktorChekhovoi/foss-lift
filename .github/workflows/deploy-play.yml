@@ -34,20 +34,18 @@ on:
         type: choice
         default: completed
         options: [completed, draft, inProgress]
+      # For when Play answers a commit with "Precondition check failed", which
+      # is it refusing the edit while the app has changes still awaiting
+      # review. Nothing then ships until somebody presses Send for review in
+      # the console, which is why this is off by default.
       changes_not_sent_for_review:
-        description: >-
-          Commit the release without sending it for review. Play refuses the
-          commit outright ("Precondition check failed") when the app already
-          has changes waiting to be reviewed, and this is the way past that —
-          at the cost of having to press Send for review in the console
-          afterwards, because nothing else will.
+        description: Commit without sending for review
         type: boolean
         default: false
+      # Play rejects a versionCode it has already accepted, so this is how you
+      # re-upload after a failure without editing pubspec.yaml.
       build_number:
-        description: >-
-          versionCode override. Leave empty to use the build number in
-          pubspec.yaml. Play rejects a versionCode it has already seen, so
-          this is the way to re-upload without editing pubspec.
+        description: 'versionCode (default: the one in pubspec.yaml)'
         type: string
         required: false
 
