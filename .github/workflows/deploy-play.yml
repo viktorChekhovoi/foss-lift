@@ -34,6 +34,15 @@ on:
         type: choice
         default: completed
         options: [completed, draft, inProgress]
+      changes_not_sent_for_review:
+        description: >-
+          Commit the release without sending it for review. Play refuses the
+          commit outright ("Precondition check failed") when the app already
+          has changes waiting to be reviewed, and this is the way past that —
+          at the cost of having to press Send for review in the console
+          afterwards, because nothing else will.
+        type: boolean
+        default: false
       build_number:
         description: >-
           versionCode override. Leave empty to use the build number in
@@ -135,10 +144,15 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.fosslift.foss_lift
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          # A tag push is the conservative path: internal track, so nothing
-          # reaches users until you promote it in the console.
-          track: ${{ inputs.track || 'internal' }}
+          # `tracks`, not `track` — the singular is deprecated and warns.
+          #
+          # A track has to exist in the Play Console before a release can be
+          # committed to it. `internal` and `alpha` are set up here; `beta` is
+          # not, and committing to it fails after the upload has already
+          # succeeded, which reads like an upload problem and is not one.
+          tracks: ${{ inputs.track || 'internal' }}
           status: ${{ inputs.status || 'completed' }}
+          changesNotSentForReview: ${{ inputs.changes_not_sent_for_review || false }}
 
       - name: Remove the keystore
         # Belt and braces — the runner is destroyed anyway, but a failed job
