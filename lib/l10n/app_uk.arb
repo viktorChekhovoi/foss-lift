@@ -40,6 +40,8 @@
   "settingsLanguage": "Мова",
   "settingsWarmups": "Розминка",
   "settingsWarmupSets": "Підходи",
+  "settingsWarmupsOff": "Вимкнено",
+  "workoutEditSuggestWarmups": "Пропонувати розминку",
   "settingsDeload": "Розвантаження після перерви",
   "settingsDeloadAfter": "Після",
   "settingsDeloadCut": "Мінус",

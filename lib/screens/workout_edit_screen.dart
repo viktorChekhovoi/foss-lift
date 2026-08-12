@@ -28,6 +28,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
   final List<ItemDraft> _items = [];
   int _routineId = 0;
   int _routineRest = 90;
+  bool _warmupsEnabled = true;
   bool _loaded = false;
   bool _saving = false;
 
@@ -56,6 +57,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
       _name.text = _shownName;
       _routineId = workout.routineId;
       _routineRest = routine.restSeconds;
+      _warmupsEnabled = workout.warmupsEnabled;
       _items
         ..clear()
         ..addAll(items.map(ItemDraft.fromView));
@@ -83,6 +85,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
     // Only a name that actually changed is written: renaming is what makes a
     // day yours, and [AppDatabase.renameWorkout] clears the seed key to say so.
     if (name != _shownName) await db.renameWorkout(widget.workoutId, name);
+    await db.setWorkoutWarmupsEnabled(widget.workoutId, _warmupsEnabled);
     await db.replaceWorkoutItems(
       widget.workoutId,
       itemCompanions(
@@ -161,6 +164,18 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration: builderInput(l10n.workoutEditNameHint),
                         ),
+                        // Above the exercises, with the name: both are facts
+                        // about the day itself, and a switch under a list of
+                        // twelve movements is a switch nobody scrolls to.
+                        const SizedBox(height: 18),
+                        builderLabel(l10n.settingsWarmups),
+                        _WarmupsRow(
+                          on: _warmupsEnabled,
+                          onToggle: (v) => setState(() {
+                            _warmupsEnabled = v;
+                            markEdited();
+                          }),
+                        ),
                         WorkoutItemsEditor(
                           defaultBarKg: ref.watch(plateSettingsProvider).barKg,
                           items: _items,
@@ -187,6 +202,42 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// The day's warm-up switch: a row rather than a checkbox inside a slot's
+/// Target card, because it is a fact about the whole day. It sits under the
+/// exercise list, where the day ends.
+class _WarmupsRow extends StatelessWidget {
+  const _WarmupsRow({required this.on, required this.onToggle});
+  final bool on;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.line),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              AppLocalizations.of(context).workoutEditSuggestWarmups,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Switch(
+            value: on,
+            activeThumbColor: AppColors.accent,
+            onChanged: onToggle,
+          ),
+        ],
       ),
     );
   }

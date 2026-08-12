@@ -157,6 +157,13 @@ concepts:
     what: The rest a slot gets, and the routine default it falls back to.
     code: [lib/data/database.dart]
 
+  - id: template.warmups-off
+    area: template
+    what: >-
+      Whether a workout offers warm-up ramps at all — the switch on the day, and
+      what a session started from it opens with.
+    code: [lib/data/database.dart, lib/screens/workout_edit_screen.dart]
+
   - id: template.duration-estimate
     area: template
     what: >-

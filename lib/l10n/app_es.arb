@@ -40,6 +40,8 @@
   "settingsLanguage": "Idioma",
   "settingsWarmups": "Calentamiento",
   "settingsWarmupSets": "Series",
+  "settingsWarmupsOff": "Desactivado",
+  "workoutEditSuggestWarmups": "Sugerir calentamientos",
   "settingsDeload": "Descarga tras un parón",
   "settingsDeloadAfter": "Tras",
   "settingsDeloadCut": "Recorte",

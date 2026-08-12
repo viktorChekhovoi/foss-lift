@@ -146,7 +146,7 @@ has "Upper 1" and "Upper 2".
 |----------------|-------|
 | `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup (the **lead** group — the one it files under and the one an FLR1 code carries), `extraPrimaryGroups` and `secondaryGroups` (the rest of what it trains and what it only assists, unit-separator-joined; read all three through `Exercise.muscles` as a `MuscleMap`), equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
 | `Routines`     | A program. name, `description` (nullable, ≤`kMaxDescriptionLength` — what the program is, in a sentence or two; shipped copies carry the canonical English and read through `seededDescription`), `seedKey` (nullable — which demo program this is; **cleared on rename**, so a routine you have named stops following the language), colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
-| `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position |
+| `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position, `warmupsEnabled` (on by default — off means this day suggests no warm-up ramps at all) |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters, and `supersetWithPrevious` — trained in the same round as the slot above it, see `data/superset.dart` |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, `seedKey` (nullable — denormalised beside the name, so a logged day still reads in the current language), times, duration, totalVolume*, setsCompleted |
 | `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`), and the four nullable console readouts a set on a cardio machine may carry: `speedKph`, `inclinePercent`, `resistanceLevel`, `distanceKm` (speed and distance metric in the column, converted for display — see `util/cardio_units.dart`) |
@@ -821,13 +821,15 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
-  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6**
+  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8**
   (`Settings.warmup_sets`; `Exercises.extra_primary_groups` and
   `secondary_groups`; `WorkoutItems.superset_with_previous`;
-  `Routines.description`; then the starter movements this build ships that an
-  installed database has never had). That last rung is generic — it walks the
-  shipped table and inserts what is missing — but it runs **once**, so a release
-  that adds more movements needs a rung of its own rather than an edit to it. Each rung spells
+  `Routines.description`; the starter movements this build ships that an
+  installed database has never had; the four console readouts on `SessionSets`
+  and the same starter walk again; `Workouts.warmups_enabled`). The starter walk
+  is generic — it walks the shipped table and inserts what is missing — but each
+  rung that runs it runs **once**, so a release that adds more movements needs a
+  rung of its own rather than an edit to one that shipped. Each rung spells
   its `ALTER TABLE` out rather than calling `m.addColumn`, because `addColumn`
   reads the column as *today's* code declares it: a later edit to that column
   would silently rewrite a rung that has already shipped. A new column also goes

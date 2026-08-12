@@ -1171,19 +1171,42 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('nor below a single rung — off is a per-exercise decision',
+    testWidgets('and down to none, which is one of the answers',
         (tester) async {
-      // Zero belongs to the session's own stepper, where a movement you are
-      // already warm for can be skipped. A default of none is a setting that
-      // turns the feature off from a screen that never mentions it.
       await pumpSettings(tester, 1);
       await tester.tap(warmupStepper(Icons.remove));
       await pumpThroughDatabase(tester);
 
-      expect(warmupReads('1'), findsOneWidget);
-      expect(await stored(tester), 1);
+      expect(warmupReads('0'), findsOneWidget);
+      expect(await stored(tester), 0);
+
+      // And no further: none is the floor.
+      await tester.tap(warmupStepper(Icons.remove));
+      await pumpThroughDatabase(tester);
+      expect(await stored(tester), 0);
 
       await stop(tester);
+    });
+
+    test('at none, a session opens with no ramp on any exercise', () async {
+      await db.setDefaultWarmupSets(0);
+      await startPush();
+
+      expect(session().exercises, hasLength(kPushSize));
+      expect(session().exercises.every((e) => e.warmupCount == 0), isTrue);
+      expect(session().exercises.every((e) => e.warmups.isEmpty), isTrue,
+          reason: 'at none the app stops suggesting warm-ups altogether');
+    });
+
+    test('and the stepper on the board still builds one', () async {
+      await db.setDefaultWarmupSets(0);
+      final ctl = await startPush();
+
+      ctl.setWarmupCount(0, 3);
+
+      expect(session().exercises[0].warmups, isNotEmpty,
+          reason: 'what you have already warmed up for is a decision about '
+              'today');
     });
   });
 
@@ -2439,6 +2462,97 @@ void main() {
 
       expect(find.byKey(kNextSetKey), findsNothing);
       expect(find.byKey(kNextWarmupKey), findsNothing);
+      await stopAll(tester);
+    });
+  });
+
+  group('An exercise with every working set logged is finished', () {
+    // Warm-ups are suggestions, so a rung left unticked on a movement you have
+    // already worked is not something anybody is going back for.
+
+    /// Logs every working set of exercise [ei], leaving its ramp untouched.
+    void doTheWork(ActiveWorkoutController ctl, int ei) {
+      for (var si = 0; si < session().exercises[ei].sets.length; si++) {
+        ctl.cycleSet(ei, si);
+      }
+      ctl.stopRest(tone: false);
+    }
+
+    test('the mark passes its ramp by and lands on the next movement',
+        () async {
+      final ctl = await startPush();
+      doTheWork(ctl, 0);
+      expect(session().exercises[0].warmups.any((w) => w.done), isFalse,
+          reason: 'the premise: the ramp was never ticked');
+
+      final cue = nextUp(session())!;
+
+      expect(cue.exerciseIndex, 1,
+          reason: 'the next movement that still owes work');
+      // The shade names the same movement, from the same arithmetic.
+      expect(cue.exercise, session().exercises[1].name);
+      expect(session().exercises[0].warmups.every((w) => !w.done), isTrue);
+    });
+
+    test('a rung ticked afterwards is recorded and starts no rest', () async {
+      final ctl = await startPush();
+      doTheWork(ctl, 0);
+
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        final rest = session().restAfter(0, wi, warmup: true);
+        expect(rest.seconds, 0,
+            reason: 'there is nothing left on that movement to rest for');
+        expect(rest.prompt, isNull);
+      }
+
+      ctl.cycleWarmup(0, 0);
+      expect(session().exercises[0].warmups[0].done, isTrue,
+          reason: 'squaring the board up at the end still records the rung');
+    });
+
+    testWidgets('so the board marks the next movement, not the leftover rung',
+        (tester) async {
+      late String next;
+      await pumpPushScreen(tester, before: (ctl) {
+        next = session().exercises[1].name;
+        doTheWork(ctl, 0);
+      });
+
+      expect(find.byKey(ValueKey('w1-0-$next')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(ValueKey('w1-0-$next')),
+          matching: find.byKey(kNextSetKey),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('w0-0-Bench Press')),
+          matching: find.byKey(kNextSetKey),
+        ),
+        findsNothing,
+      );
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and tapping the leftover rung opens no rest bar',
+        (tester) async {
+      // The board is mounted first and the work done under it: opening on a
+      // session already in progress scrolls to the marked movement, which is
+      // no longer Bench.
+      await pumpPushScreen(tester);
+      doTheWork(container!.read(activeWorkoutProvider.notifier), 0);
+      await tester.pump();
+
+      await tapCell(tester, repsCell('w0-0-Bench Press'));
+      await tester.pump();
+
+      expect(session().exercises[0].warmups[0].done, isTrue);
+      expect(find.byKey(kRestBannerKey), findsNothing,
+          reason: 'nothing on that movement is left to rest for');
+
       await stopAll(tester);
     });
   });

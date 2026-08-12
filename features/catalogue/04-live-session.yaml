@@ -28,6 +28,7 @@ test:
 - test/feature_04_rest_done_test.dart
 - test/feature_04_template_drift_test.dart
 - test/feature_04_superset_test.dart
+- test/feature_04_warmups_off_test.dart
 - test/feature_04_cardio_console_test.dart
 - test/feature_04_slot_settings_test.dart
 where: >-
@@ -241,13 +242,14 @@ groups:
     t: Every other edit made in the builder waits for the next session
     d: >-
       removing an exercise, reordering the list, renaming a movement or changing
-      a slot's sets, target or rest <i>from the workout builder</i> leaves the
-      running session alone, and takes effect the next time you start it. The
-      session is a snapshot on purpose — it is what lets the board be edited
-      instantly and a crash mid-workout leave no half-written rows — and a
-      snapshot that silently re-arranged itself under somebody mid-set would be
-      worse than one that is honestly out of date. The board's own settings sheet
-      is the exception, and it is not one: it knows which exercise on the board
+      a slot's sets or target <i>from the workout builder</i> leaves the running
+      session alone, and takes effect the next time you start it. The session is
+      a snapshot on purpose — it is what lets the board be edited instantly and a
+      crash mid-workout leave no half-written rows — and a snapshot that silently
+      re-arranged itself under somebody mid-set would be worse than one that is
+      honestly out of date. Rest is the exception, and the reason it can be one
+      is that it names no row — see the entry below. The board's own settings
+      sheet is the other, and it is not one: it knows which exercise on the board
       it was opened from, so it can change that one without guessing. Finishing
       writes what you actually did, including the sets of an exercise that has
       since been deleted from the template.
@@ -257,6 +259,28 @@ groups:
     - session.live-state
     - session.slot-settings
     - session.finish
+    - template.rest
+  - id: rest-changed-in-the-builder-reaches-the-session
+    t: A rest time changed mid-workout reaches the session you are training
+    d: >-
+      lengthen a slot's rest in the workout builder, or the routine's default
+      rest under a slot that names none of its own, and the session already
+      running takes the new number: the next rest you start is the one you have
+      just asked for. Rest can be taken where sets and order cannot, because it
+      names no row — there is nothing for it to re-file, and nothing already
+      logged changes. A rest already counting down keeps the length it started
+      at. You are resting on a decision you have already made, and a clock that
+      grew while you watched it is worse than one that ends and lets the next
+      rest be the longer one; the running rest's own −15s and +15s are still
+      there for today. Slots are matched to the board by movement, in order, the
+      same way an added exercise is found, so a day reordered and re-timed in one
+      save hands its rests out in board order.
+    screen: session
+    uses:
+    - session.template-drift
+    - session.live-state
+    - session.rest-timer
+    - template.rest
   - id: recorded-duration-is-real-time
     t: The duration a workout is filed under is the time it really took
     d: >-
@@ -860,6 +884,22 @@ groups:
     uses:
     - session.progress-mark
     - session.warmup-ramp
+  - id: every-working-set-logged-finishes-the-exercise
+    t: An exercise with every working set logged is finished, ramp or no ramp
+    d: >-
+      warm-ups are suggestions, so a rung left unticked on a movement you have
+      already worked is not something anybody is going back for: the mark passes
+      the ramp by and lands on the next movement that still owes work, and the
+      shade names that movement too. Ticking one of those rungs afterwards —
+      squaring the board up at the end, or logging a rung late — records it and
+      starts no rest, because there is nothing left on that movement to rest for.
+      Inside a superset the same holds one member at a time: a movement whose
+      sets are all logged drops out of the group's ramps as well as its rounds.
+    uses:
+    - session.progress-mark
+    - session.warmup-ramp
+    - session.rest-timer
+    - session.superset-round
   - id: board-draws-a-superset-as-one-block
     t: The board draws a superset as one block
     d: >-
@@ -1101,13 +1141,14 @@ groups:
     - session.exercise-weight
     - session.warmup-count
   - id: default-warm-up-count-is-a-setting
-    t: How many rungs a ramp opens with is a setting
+    t: How many rungs a ramp opens with is a setting, and none is one of the answers
     d: >-
-      Profile → Exercise settings → Warm-ups, one to six, three until it is
+      Profile → Exercise settings → Warm-ups, none to six, three until it is
       changed. Every exercise in a session starts its stepper there, and the
-      duration estimate on a training day prices the same number. A session
-      already running keeps the count it started with, and a stepper moved
-      during it stays moved.
+      duration estimate on a training day prices the same number. At none the app
+      stops suggesting warm-ups altogether: no ramp is built, no board shows one,
+      and the estimate prices the working sets alone. A session already running
+      keeps the count it started with, and a stepper moved during it stays moved.
     screen: settings
     defines:
     - session.warmup-count
@@ -1115,6 +1156,27 @@ groups:
     - storage.settings
     - template.duration-estimate
     - session.start
+  - id: a-workout-can-turn-its-own-ramps-off
+    t: A single workout can turn its warm-up ramps off
+    d: >-
+      a switch in the workout builder, on until you turn it off. Off, that day
+      starts with no ramps on any of its movements and its estimate prices none —
+      for the day that follows another, or the one you warm up for before you
+      open the app. It belongs to the day, so switching Push off leaves Legs
+      alone, and it is stored on the workout rather than the session: a day
+      trained with no ramps opens with none again next week. The app-wide count
+      at none does the same thing everywhere, and either being off is enough. The
+      stepper on the board still works during the session, because what you have
+      already warmed up for is a decision about today.
+    screen: workout-edit
+    defines:
+    - template.warmups-off
+    uses:
+    - session.warmup-ramp
+    - session.warmup-count
+    - template.workout
+    - template.duration-estimate
+    - storage.schema
   - id: warm-up-rest-shorter-between
     t: Warm-up rest is shorter between rungs, full before the work
     d: >-

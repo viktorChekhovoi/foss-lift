@@ -445,6 +445,33 @@ void main() {
         session().exercises[1].restSeconds,
       );
     });
+
+    test('a member whose sets are all logged drops out of the ramps too',
+        () async {
+      // `every-working-set-logged-finishes-the-exercise`, one member at a time:
+      // the group's ramp walk passes a finished movement by, exactly as its
+      // rounds do.
+      final ctl = await startDay(ramped);
+      for (var si = 0; si < session().exercises[0].sets.length; si++) {
+        ctl.cycleSet(0, si);
+      }
+      ctl.stopRest(tone: false);
+      expect(session().exercises[0].warmups.any((w) => w.done), isFalse,
+          reason: 'the premise: Bench was worked without its ramp');
+
+      final cue = nextUp(session())!;
+      expect(cue.exerciseIndex, 1);
+      expect(cue.warmup, isTrue,
+          reason: "the group's ramps open the round, and only Overhead Press "
+              'still owes one');
+
+      // And a rung of the finished member ticked afterwards rests for nothing.
+      for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
+        final rest = session().restAfter(0, wi, warmup: true);
+        expect(rest.seconds, 0);
+        expect(rest.prompt, isNull);
+      }
+    });
   });
 
   group('The board draws a superset as one block', () {

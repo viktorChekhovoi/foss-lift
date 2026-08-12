@@ -302,7 +302,12 @@ class ExerciseEntry {
   }
 
   /// Rest to start after a completed set (resolved from the routine/item).
-  final int restSeconds;
+  ///
+  /// **Not final.** It is the one number the builder can move under a running
+  /// session — see [ActiveWorkoutController._takeTemplateChanges]. Rest names no
+  /// row, so taking a new one re-files nothing; every other template edit waits
+  /// for the next session.
+  int restSeconds;
 
   /// Whether this counts as a clean session for progression: every planned set
   /// logged, and none of them short.
@@ -571,6 +576,14 @@ class ActiveWorkout {
     required bool warmup,
   }) {
     final e = exercises[ei];
+    // A movement whose working sets are all logged is finished, and a ramp
+    // belongs to work that is still ahead of you. Ticking a leftover rung
+    // afterwards squares the board up; it is not the start of anything, so
+    // there is nothing to rest for. Ahead of the group logic on purpose: it is
+    // as true of a superset member as of an exercise on its own.
+    if (warmup && e.sets.isNotEmpty && e.sets.every((s) => s.done)) {
+      return (seconds: 0, prompt: null);
+    }
     final group = supersetGroupOf(ei);
     if (group.length == 1) {
       return (
@@ -1121,8 +1134,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final stored = await _db.watchPlateSetup().first;
     // How deep every ramp opens. Read once, like the rack: changing the setting
     // mid-session must not grow a ramp somebody is halfway up, and a stepper
-    // moved during the session is a decision about today.
-    final warmupSets = await _db.defaultWarmupSets();
+    // moved during the session is a decision about today. None is an answer —
+    // the app stops suggesting warm-ups altogether — and so is a day that has
+    // switched its own ramps off, which is read below with the workout.
+    var warmupSets = await _db.defaultWarmupSets();
     final setup = resolvePlateSettings(
       unit: unit,
       kgRack: stored.kgRack,
@@ -1134,6 +1149,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       final workout = await _db.workoutById(workoutId);
       routineId = workout.routineId;
       seedKey = workout.seedKey;
+      // The day's own switch, and it wins over the app-wide count: a movement
+      // added to this session later gets no ramp either, because the session
+      // carries the number rather than re-asking.
+      if (!workout.warmupsEnabled) warmupSets = 0;
       final routine = await _db.routineById(routineId);
       final items = await _db.itemsForWorkout(workoutId);
       for (final v in items) {
@@ -1173,7 +1192,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   ///
   /// The gym's numbers are passed in rather than read here, because the two
   /// callers have different ideas of "now": [start] has just read them, and
-  /// [_takeTemplateAdditions] must use the ones the session froze on the way in
+  /// [_takeTemplateChanges] must use the ones the session froze on the way in
   /// — see [ActiveWorkout.barKg].
   ExerciseEntry _entryFor(
     WorkoutItemView v, {
@@ -1275,14 +1294,20 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// The provider has been disposed and [state] can no longer be touched.
   bool _gone = false;
 
+  /// **Both tables, because a rest lives on either of them.** A slot names its
+  /// own rest or falls back to the routine's default, so a session watching only
+  /// the slots would miss the stepper in the routine builder — which is the one
+  /// most people reach for, since it sets the rest for the whole day at once.
   void _watchTemplate(int workoutId) {
     _stopWatchingTemplate();
     _templateWatch = _db
-        .tableUpdates(TableUpdateQuery.onTable(_db.workoutItems))
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([_db.workoutItems, _db.routines]),
+        )
         .listen((_) => unawaited(_rereadTemplate(workoutId)));
   }
 
-  /// Reads the day back and hands it to [_takeTemplateAdditions].
+  /// Reads the day back and hands it to [_takeTemplateChanges].
   ///
   /// [_gone] is checked either side of the read: the notification arrives from a
   /// stream that outlives the session, and the trip to the database gives the
@@ -1291,7 +1316,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (_gone || state?.workoutId != workoutId) return;
     final items = await _db.itemsForWorkout(workoutId);
     if (_gone) return;
-    await _takeTemplateAdditions(items);
+    await _takeTemplateChanges(items);
   }
 
   /// Drops the subscription — on the way into the next session, and when the
@@ -1306,25 +1331,41 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _templateWatch = null;
   }
 
-  /// Puts whatever [items] has that the session has not on the end of the board.
-  Future<void> _takeTemplateAdditions(List<WorkoutItemView> items) async {
+  /// Takes from [items] the two things a running session may safely take: the
+  /// rest of a slot it is already carrying, and a movement put on the end of the
+  /// day.
+  ///
+  /// **Rest is the only number here that moves.** Sets, targets and order are
+  /// held by position on the board, so changing one under a session would re-file
+  /// work somebody has already logged; a rest names no row, starts nothing and
+  /// ends nothing, so the worst it can do is make the next countdown the length
+  /// the user has just asked for — which is the whole point. A rest already
+  /// running is left alone: it belongs to the set that started it.
+  Future<void> _takeTemplateChanges(List<WorkoutItemView> items) async {
     final before = state;
     final workoutId = before?.workoutId;
     if (before == null || workoutId == null) return;
-    if (_additionsIn(before, items).isEmpty) return;
     // The rest a slot falls back on when it names none of its own — read the
     // same way [start] reads it.
     final routine =
         await _db.routineById((await _db.workoutById(workoutId)).routineId);
     // That was a trip to the database, and the session may have been finished,
-    // thrown away or replaced while it ran — so what gets appended is worked out
-    // again against the session as it stands now.
+    // thrown away or replaced while it ran — so the work below is done against
+    // the session as it stands now.
     if (_gone) return;
     final s = state;
     if (s == null || s.workoutId != before.workoutId) return;
-    final extra = _additionsIn(s, items);
-    if (extra.isEmpty) return;
-    for (final v in extra) {
+    final paired = _pairWithTemplate(s, items);
+
+    var moved = false;
+    for (final at in paired.matched.entries) {
+      final rest = at.value.item.restSeconds ?? routine.restSeconds;
+      if (s.exercises[at.key].restSeconds != rest) {
+        s.exercises[at.key].restSeconds = rest;
+        moved = true;
+      }
+    }
+    for (final v in paired.extra) {
       s.exercises.add(
         _entryFor(
           v,
@@ -1338,38 +1379,45 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           defaultRestSeconds: routine.restSeconds,
         ),
       );
+      moved = true;
     }
-    _commit(s.copyWith());
+    if (moved) _commit(s.copyWith());
   }
 
-  /// The template rows the session has not got, in template order.
+  /// The template lined up against the board: which row each slot the session is
+  /// already carrying corresponds to, and the slots left over, in template order.
   ///
   /// **Movements counted off, not item ids compared.** Saving the workout editor
   /// deletes and reinserts every row, so every item id changes on any save at
   /// all — and an id diff would read a plain reorder as five additions and
   /// append the whole day to itself. What a slot is, to a session, is which
   /// movement it holds; so the template's movements are counted off against the
-  /// ones the session is already carrying and whatever is left over is what
-  /// somebody added. A removal leaves nothing over, and neither does a reorder,
-  /// a rename or a slot re-configured.
-  List<WorkoutItemView> _additionsIn(
-    ActiveWorkout s,
-    List<WorkoutItemView> items,
-  ) {
-    final held = <int, int>{};
-    for (final e in s.exercises) {
-      if (e.exerciseId case final id?) held[id] = (held[id] ?? 0) + 1;
-    }
-    final extra = <WorkoutItemView>[];
-    for (final v in items) {
-      final left = held[v.exercise.id] ?? 0;
-      if (left > 0) {
-        held[v.exercise.id] = left - 1;
-      } else {
-        extra.add(v);
+  /// ones the session is already carrying, in board order, and whatever is left
+  /// over is what somebody added. A removal leaves nothing over, and neither
+  /// does a reorder, a rename or a slot re-configured.
+  ///
+  /// The pairing a reorder produces is by movement rather than by position,
+  /// which is the honest answer available: three slots of the same movement
+  /// re-timed and re-ordered in one save hand their rests out in board order.
+  ({Map<int, WorkoutItemView> matched, List<WorkoutItemView> extra})
+      _pairWithTemplate(ActiveWorkout s, List<WorkoutItemView> items) {
+    final held = <int, List<int>>{};
+    for (var ei = 0; ei < s.exercises.length; ei++) {
+      if (s.exercises[ei].exerciseId case final id?) {
+        (held[id] ??= <int>[]).add(ei);
       }
     }
-    return extra;
+    final matched = <int, WorkoutItemView>{};
+    final extra = <WorkoutItemView>[];
+    for (final v in items) {
+      final rows = held[v.exercise.id];
+      if (rows == null || rows.isEmpty) {
+        extra.add(v);
+      } else {
+        matched[rows.removeAt(0)] = v;
+      }
+    }
+    return (matched: matched, extra: extra);
   }
 
   /// One edit to one row of the board — a working set, or a warm-up rung when
@@ -1498,13 +1546,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// Takes the workout's slot for the exercise at [ei] as it now stands, after
   /// the settings sheet on the board has written it.
   ///
-  /// **Not [_takeTemplateAdditions].** That one watches the slot table and is
-  /// deliberately conservative — it appends at the tail and refuses everything
-  /// else, because it cannot tell a reconfigured slot from a deleted one plus a
-  /// new one, and guessing wrong re-files logged sets under the wrong movement.
-  /// This is the other case: the sheet was opened *from* a row of the board, so
-  /// which exercise changed is known rather than inferred, and the change can be
-  /// taken safely.
+  /// **Not [_takeTemplateChanges].** That one watches the tables and is
+  /// deliberately conservative — it takes a rest and appends at the tail, and
+  /// refuses everything else, because it cannot tell a reconfigured slot from a
+  /// deleted one plus a new one, and guessing wrong re-files logged sets under
+  /// the wrong movement. This is the other case: the sheet was opened *from* a
+  /// row of the board, so which exercise changed is known rather than inferred,
+  /// and the whole change can be taken safely.
   ///
   /// What the board takes: the rest, the working weight and every set still to
   /// come. What it will not touch is a set already logged — it keeps the weight
@@ -1540,7 +1588,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final fresh = _entryFor(
       view,
       // The session's own numbers, not the settings as they stand now — the
-      // same reason [_takeTemplateAdditions] passes these.
+      // same reason [_takeTemplateChanges] passes these.
       unit: s.unit,
       plates: s.plates,
       barKg: s.barKg,

@@ -81,9 +81,10 @@ groups:
     d: >-
       an estimate read off the template alone — the working sets, the warm-up
       rungs before them at the count Settings asks for, the rest after every set
-      but the last, and time under the bar scaled by the reps or the hold. Shown
-      as a single rounded figure next to the exercise count, on the workout
-      and on its Today card.
+      but the last, and time under the bar scaled by the reps or the hold. A day
+      with its ramps switched off, or a count of none, is priced on its working
+      sets alone. Shown as a single rounded figure next to the exercise count, on
+      the workout and on its Today card.
     screen: workout-detail
     defines:
     - template.duration-estimate
@@ -93,6 +94,7 @@ groups:
     - template.rep-target
     - session.warmup-ramp
     - session.warmup-count
+    - template.warmups-off
   - id: day-shows-which-exercises-are-supersetted
     t: A workout shows which of its exercises are supersetted
     d: >-

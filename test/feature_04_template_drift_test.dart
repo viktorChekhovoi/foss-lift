@@ -1,6 +1,7 @@
 // Integration tests for features/index.html#sec04 — what a running session does
-// when the workout behind it is edited: `exercise-added-mid-session-joins-the-end`
-// and `other-edits-wait-for-the-next-session`.
+// when the workout behind it is edited: `exercise-added-mid-session-joins-the-end`,
+// `other-edits-wait-for-the-next-session` and
+// `rest-changed-in-the-builder-reaches-the-session`.
 //
 // The edit is made the way the workout editor makes it — the whole item list
 // rewritten — while the session is live and its board is on screen. What is
@@ -91,6 +92,30 @@ void main() {
     });
     await pumpThroughDatabase(tester);
   }
+
+  /// Rewrites the routine behind the day being trained, changing only its
+  /// default rest — the number every slot that names none of its own falls back
+  /// on. Written the way the routine builder writes it.
+  Future<void> editRoutineRest(WidgetTester tester, int seconds) async {
+    await tester.runAsync(() async {
+      final workout = await db.workoutById(wid);
+      final routine = await db.routineById(workout.routineId);
+      await db.updateRoutineMeta(
+        routine.id,
+        name: routine.name,
+        color: routine.colorHex,
+        restSeconds: seconds,
+        scheduleDays: routine.scheduleDays,
+        reminderMinutes: routine.reminderMinutes,
+        seedKey: routine.seedKey,
+        description: routine.description,
+      );
+    });
+    await pumpThroughDatabase(tester);
+  }
+
+  /// The rest each exercise on the board would start, in board order.
+  List<int> liveRests() => [for (final e in session().exercises) e.restSeconds];
 
   /// Appends [kAdded] to the drafts — the movement decided on halfway through.
   Future<ItemDraft> addedDraft() async {
@@ -257,25 +282,23 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets("changing a slot's sets, target and rest leaves it alone",
+    testWidgets("changing a slot's sets and target leaves it alone",
         (tester) async {
+      // Rest is the exception, and has a group of its own below.
       await pumpPushScreen(tester);
       final bench = session().exercises[0];
       final sets = bench.sets.length;
       final goal = bench.sets.first.goal;
-      final rest = bench.restSeconds;
 
       await editWorkout(tester, (drafts) {
         drafts[0]
           ..sets = sets + 2
           ..repsMin = 3
-          ..repsMax = 3
-          ..restSeconds = rest + 60;
+          ..repsMax = 3;
       });
 
       expect(session().exercises[0].sets.length, sets);
       expect(session().exercises[0].sets.first.goal, goal);
-      expect(session().exercises[0].restSeconds, rest);
       expect(liveNames(), kPushNames);
 
       await stopAll(tester);
@@ -323,6 +346,123 @@ void main() {
       await pumpThroughDatabase(tester);
 
       expect(liveNames(), [...kPushNames, 'Landmine Press']);
+
+      await stopAll(tester);
+    });
+  });
+
+  group('A rest time changed mid-workout reaches the session', () {
+    // Rest is the one edit a running session takes besides an addition, and it
+    // can be because it names no row: there is nothing for it to re-file.
+
+    /// Logs Bench's ramp out of the way so the next thing logged is a working
+    /// set, and the rest it starts is the exercise's own rather than the short
+    /// warm-up one.
+    void clearBenchRamp(ActiveWorkoutController ctl) {
+      for (var i = 0; i < session().exercises[0].warmups.length; i++) {
+        ctl.logNextAtGoal();
+        ctl.stopRest(tone: false);
+      }
+    }
+
+    testWidgets("a slot's own rest is taken by the movement it belongs to",
+        (tester) async {
+      await pumpPushScreen(tester);
+      // The seeded day names no rest of its own, so every slot rests the
+      // routine's 120.
+      expect(liveRests(), everyElement(120));
+
+      await editWorkout(tester, (drafts) => drafts[0].restSeconds = 200);
+
+      expect(liveRests(), [200, 120, 120, 120, 120],
+          reason: 'the next rest on Bench is the one just asked for');
+
+      await stopAll(tester);
+    });
+
+    testWidgets("the routine's default reaches a slot that names none of its "
+        'own', (tester) async {
+      await pumpPushScreen(tester);
+      // One slot with a rest of its own; the other four fall back.
+      await editWorkout(tester, (drafts) => drafts[1].restSeconds = 200);
+
+      await editRoutineRest(tester, 240);
+
+      expect(liveRests(), [240, 200, 240, 240, 240],
+          reason: 'a slot with its own rest keeps it; the rest take the '
+              "routine's new default");
+
+      await stopAll(tester);
+    });
+
+    testWidgets('a rest already counting down keeps the length it started at',
+        (tester) async {
+      await pumpPushScreen(tester);
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      clearBenchRamp(ctl);
+      ctl.logNextAtGoal(); // Bench, first working set → the 120 s rest
+      expect(session().restLeft, 120, reason: 'the premise: a rest is running');
+
+      await editWorkout(tester, (drafts) => drafts[0].restSeconds = 200);
+
+      expect(session().restLeft, lessThanOrEqualTo(120),
+          reason: 'a clock that grew while you watched it is worse than one '
+              'that ends and lets the next rest be the longer one');
+      expect(session().restLeft, greaterThan(0),
+          reason: 'and it is still running');
+
+      // The next rest started is the one that was asked for.
+      ctl.stopRest(tone: false);
+      ctl.logNextAtGoal();
+      expect(session().restLeft, 200);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and nothing already logged moves with it', (tester) async {
+      await pumpPushScreen(tester);
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      ctl.cycleSet(0, 0);
+      ctl.cycleSet(1, 0);
+      final order = session().exercises[1].sets[0].loggedOrder;
+      final counts = [for (final e in session().exercises) e.sets.length];
+      final goals = [for (final e in session().exercises) e.sets.first.goal];
+
+      await editWorkout(tester, (drafts) {
+        for (final d in drafts) {
+          d.restSeconds = 200;
+        }
+      });
+
+      expect(liveRests(), everyElement(200));
+      expect(liveNames(), kPushNames);
+      expect([for (final e in session().exercises) e.sets.length], counts);
+      expect([for (final e in session().exercises) e.sets.first.goal], goals);
+      expect(session().exercises[0].sets[0].logged, isNotNull);
+      expect(session().exercises[1].sets[0].logged, isNotNull);
+      expect(session().exercises[1].sets[0].loggedOrder, order);
+      expect(session().doneSets, 2);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('a day reordered and re-timed in one save hands its rests out '
+        'in board order', (tester) async {
+      await pumpPushScreen(tester);
+
+      await editWorkout(tester, (drafts) {
+        // Bench moved to the end and every slot given a rest of its own, in
+        // one save — the case where matching by position would hand the wrong
+        // movement the wrong number.
+        drafts.add(drafts.removeAt(0));
+        for (var i = 0; i < drafts.length; i++) {
+          drafts[i].restSeconds = 100 + i * 10;
+        }
+      });
+
+      expect(liveNames(), kPushNames, reason: 'the reorder itself waits');
+      expect(liveRests(), [140, 100, 110, 120, 130],
+          reason: 'slots are matched to the board by movement, not by position');
 
       await stopAll(tester);
     });

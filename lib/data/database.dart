@@ -222,6 +222,12 @@ class Workouts extends Table {
   /// rename, for the same reason as [Routines.seedKey].
   TextColumn get seedKey => text().nullable()();
   IntColumn get position => integer().withDefault(const Constant(0))();
+
+  /// Whether this day suggests warm-up ramps at all. On unless somebody turns
+  /// it off — for the day that follows another, or the one you warm up for
+  /// before the app is open. It belongs to the day rather than the session, so
+  /// a day trained without ramps opens without them again next week.
+  BoolColumn get warmupsEnabled => boolean().withDefault(const Constant(true))();
 }
 
 /// One exercise slot inside a workout. Reps are stored structurally so the app
@@ -1433,8 +1439,11 @@ class AppDatabase extends _$AppDatabase {
   ///   movements this build ships that a v6 database has never had — the cardio
   ///   machines. A rung of its own rather than an edit to v6, for the reason
   ///   stated there.
+  /// - **v8** — `Workouts.warmups_enabled`, the switch that turns a day's
+  ///   warm-up ramps off. On for every workout already on a phone, which is what
+  ///   a day built before the switch existed meant.
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1540,6 +1549,16 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         await _insertMissingStarterExercises(m.database);
+      }
+      // v8 — a workout can turn its warm-up ramps off. On for every day already
+      // on the phone: a workout built before the switch existed suggested ramps,
+      // and an upgrade must not quietly stop suggesting them.
+      if (from < 8) {
+        await m.database.customStatement(
+          'ALTER TABLE "workouts" ADD COLUMN "warmups_enabled" '
+          'INTEGER NOT NULL DEFAULT 1 '
+          'CHECK ("warmups_enabled" IN (0, 1))',
+        );
       }
     },
     beforeOpen: (details) async {
@@ -1788,6 +1807,14 @@ class AppDatabase extends _$AppDatabase {
       // following the language.
       WorkoutsCompanion(name: Value(name), seedKey: const Value(null)),
     );
+  }
+
+  /// Turns this day's warm-up ramps on or off. The name and the slots are left
+  /// alone — this is not a rename, so the seed key stays and a demo day keeps
+  /// following the language.
+  Future<void> setWorkoutWarmupsEnabled(int id, bool enabled) {
+    return (update(workouts)..where((w) => w.id.equals(id)))
+        .write(WorkoutsCompanion(warmupsEnabled: Value(enabled)));
   }
 
   /// Deletes a workout; its exercise slots cascade away via the foreign key.

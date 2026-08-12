@@ -1488,6 +1488,21 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _warmupsEnabledMeta = const VerificationMeta(
+    'warmupsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> warmupsEnabled = GeneratedColumn<bool>(
+    'warmups_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("warmups_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1495,6 +1510,7 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
     name,
     seedKey,
     position,
+    warmupsEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1539,6 +1555,15 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
         position.isAcceptableOrUnknown(data['position']!, _positionMeta),
       );
     }
+    if (data.containsKey('warmups_enabled')) {
+      context.handle(
+        _warmupsEnabledMeta,
+        warmupsEnabled.isAcceptableOrUnknown(
+          data['warmups_enabled']!,
+          _warmupsEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1568,6 +1593,10 @@ class $WorkoutsTable extends Workouts with TableInfo<$WorkoutsTable, Workout> {
         DriftSqlType.int,
         data['${effectivePrefix}position'],
       )!,
+      warmupsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}warmups_enabled'],
+      )!,
     );
   }
 
@@ -1586,12 +1615,19 @@ class Workout extends DataClass implements Insertable<Workout> {
   /// rename, for the same reason as [Routines.seedKey].
   final String? seedKey;
   final int position;
+
+  /// Whether this day suggests warm-up ramps at all. On unless somebody turns
+  /// it off — for the day that follows another, or the one you warm up for
+  /// before the app is open. It belongs to the day rather than the session, so
+  /// a day trained without ramps opens without them again next week.
+  final bool warmupsEnabled;
   const Workout({
     required this.id,
     required this.routineId,
     required this.name,
     this.seedKey,
     required this.position,
+    required this.warmupsEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1603,6 +1639,7 @@ class Workout extends DataClass implements Insertable<Workout> {
       map['seed_key'] = Variable<String>(seedKey);
     }
     map['position'] = Variable<int>(position);
+    map['warmups_enabled'] = Variable<bool>(warmupsEnabled);
     return map;
   }
 
@@ -1615,6 +1652,7 @@ class Workout extends DataClass implements Insertable<Workout> {
           ? const Value.absent()
           : Value(seedKey),
       position: Value(position),
+      warmupsEnabled: Value(warmupsEnabled),
     );
   }
 
@@ -1629,6 +1667,7 @@ class Workout extends DataClass implements Insertable<Workout> {
       name: serializer.fromJson<String>(json['name']),
       seedKey: serializer.fromJson<String?>(json['seedKey']),
       position: serializer.fromJson<int>(json['position']),
+      warmupsEnabled: serializer.fromJson<bool>(json['warmupsEnabled']),
     );
   }
   @override
@@ -1640,6 +1679,7 @@ class Workout extends DataClass implements Insertable<Workout> {
       'name': serializer.toJson<String>(name),
       'seedKey': serializer.toJson<String?>(seedKey),
       'position': serializer.toJson<int>(position),
+      'warmupsEnabled': serializer.toJson<bool>(warmupsEnabled),
     };
   }
 
@@ -1649,12 +1689,14 @@ class Workout extends DataClass implements Insertable<Workout> {
     String? name,
     Value<String?> seedKey = const Value.absent(),
     int? position,
+    bool? warmupsEnabled,
   }) => Workout(
     id: id ?? this.id,
     routineId: routineId ?? this.routineId,
     name: name ?? this.name,
     seedKey: seedKey.present ? seedKey.value : this.seedKey,
     position: position ?? this.position,
+    warmupsEnabled: warmupsEnabled ?? this.warmupsEnabled,
   );
   Workout copyWithCompanion(WorkoutsCompanion data) {
     return Workout(
@@ -1663,6 +1705,9 @@ class Workout extends DataClass implements Insertable<Workout> {
       name: data.name.present ? data.name.value : this.name,
       seedKey: data.seedKey.present ? data.seedKey.value : this.seedKey,
       position: data.position.present ? data.position.value : this.position,
+      warmupsEnabled: data.warmupsEnabled.present
+          ? data.warmupsEnabled.value
+          : this.warmupsEnabled,
     );
   }
 
@@ -1673,13 +1718,15 @@ class Workout extends DataClass implements Insertable<Workout> {
           ..write('routineId: $routineId, ')
           ..write('name: $name, ')
           ..write('seedKey: $seedKey, ')
-          ..write('position: $position')
+          ..write('position: $position, ')
+          ..write('warmupsEnabled: $warmupsEnabled')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, routineId, name, seedKey, position);
+  int get hashCode =>
+      Object.hash(id, routineId, name, seedKey, position, warmupsEnabled);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1688,7 +1735,8 @@ class Workout extends DataClass implements Insertable<Workout> {
           other.routineId == this.routineId &&
           other.name == this.name &&
           other.seedKey == this.seedKey &&
-          other.position == this.position);
+          other.position == this.position &&
+          other.warmupsEnabled == this.warmupsEnabled);
 }
 
 class WorkoutsCompanion extends UpdateCompanion<Workout> {
@@ -1697,12 +1745,14 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
   final Value<String> name;
   final Value<String?> seedKey;
   final Value<int> position;
+  final Value<bool> warmupsEnabled;
   const WorkoutsCompanion({
     this.id = const Value.absent(),
     this.routineId = const Value.absent(),
     this.name = const Value.absent(),
     this.seedKey = const Value.absent(),
     this.position = const Value.absent(),
+    this.warmupsEnabled = const Value.absent(),
   });
   WorkoutsCompanion.insert({
     this.id = const Value.absent(),
@@ -1710,6 +1760,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     required String name,
     this.seedKey = const Value.absent(),
     this.position = const Value.absent(),
+    this.warmupsEnabled = const Value.absent(),
   }) : routineId = Value(routineId),
        name = Value(name);
   static Insertable<Workout> custom({
@@ -1718,6 +1769,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     Expression<String>? name,
     Expression<String>? seedKey,
     Expression<int>? position,
+    Expression<bool>? warmupsEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1725,6 +1777,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
       if (name != null) 'name': name,
       if (seedKey != null) 'seed_key': seedKey,
       if (position != null) 'position': position,
+      if (warmupsEnabled != null) 'warmups_enabled': warmupsEnabled,
     });
   }
 
@@ -1734,6 +1787,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     Value<String>? name,
     Value<String?>? seedKey,
     Value<int>? position,
+    Value<bool>? warmupsEnabled,
   }) {
     return WorkoutsCompanion(
       id: id ?? this.id,
@@ -1741,6 +1795,7 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
       name: name ?? this.name,
       seedKey: seedKey ?? this.seedKey,
       position: position ?? this.position,
+      warmupsEnabled: warmupsEnabled ?? this.warmupsEnabled,
     );
   }
 
@@ -1762,6 +1817,9 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
+    if (warmupsEnabled.present) {
+      map['warmups_enabled'] = Variable<bool>(warmupsEnabled.value);
+    }
     return map;
   }
 
@@ -1772,7 +1830,8 @@ class WorkoutsCompanion extends UpdateCompanion<Workout> {
           ..write('routineId: $routineId, ')
           ..write('name: $name, ')
           ..write('seedKey: $seedKey, ')
-          ..write('position: $position')
+          ..write('position: $position, ')
+          ..write('warmupsEnabled: $warmupsEnabled')
           ..write(')'))
         .toString();
   }
@@ -7476,6 +7535,7 @@ typedef $$WorkoutsTableCreateCompanionBuilder =
       required String name,
       Value<String?> seedKey,
       Value<int> position,
+      Value<bool> warmupsEnabled,
     });
 typedef $$WorkoutsTableUpdateCompanionBuilder =
     WorkoutsCompanion Function({
@@ -7484,6 +7544,7 @@ typedef $$WorkoutsTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String?> seedKey,
       Value<int> position,
+      Value<bool> warmupsEnabled,
     });
 
 final class $$WorkoutsTableReferences
@@ -7552,6 +7613,11 @@ class $$WorkoutsTableFilterComposer
 
   ColumnFilters<int> get position => $composableBuilder(
     column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get warmupsEnabled => $composableBuilder(
+    column: $table.warmupsEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7633,6 +7699,11 @@ class $$WorkoutsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get warmupsEnabled => $composableBuilder(
+    column: $table.warmupsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$RoutinesTableOrderingComposer get routineId {
     final $$RoutinesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7677,6 +7748,11 @@ class $$WorkoutsTableAnnotationComposer
 
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<bool> get warmupsEnabled => $composableBuilder(
+    column: $table.warmupsEnabled,
+    builder: (column) => column,
+  );
 
   $$RoutinesTableAnnotationComposer get routineId {
     final $$RoutinesTableAnnotationComposer composer = $composerBuilder(
@@ -7760,12 +7836,14 @@ class $$WorkoutsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String?> seedKey = const Value.absent(),
                 Value<int> position = const Value.absent(),
+                Value<bool> warmupsEnabled = const Value.absent(),
               }) => WorkoutsCompanion(
                 id: id,
                 routineId: routineId,
                 name: name,
                 seedKey: seedKey,
                 position: position,
+                warmupsEnabled: warmupsEnabled,
               ),
           createCompanionCallback:
               ({
@@ -7774,12 +7852,14 @@ class $$WorkoutsTableTableManager
                 required String name,
                 Value<String?> seedKey = const Value.absent(),
                 Value<int> position = const Value.absent(),
+                Value<bool> warmupsEnabled = const Value.absent(),
               }) => WorkoutsCompanion.insert(
                 id: id,
                 routineId: routineId,
                 name: name,
                 seedKey: seedKey,
                 position: position,
+                warmupsEnabled: warmupsEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map(

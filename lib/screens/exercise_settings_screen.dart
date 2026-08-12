@@ -96,12 +96,15 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               builderGrid([
                 BuilderField(
                   label: l10n.settingsWarmupSets,
+                  // The one state worth naming: a stepper reading 0 has stopped
+                  // being a count.
+                  note: warmupSets == 0 ? l10n.settingsWarmupsOff : null,
                   child: NumberStepper(
                     value: warmupSets,
-                    // One is the floor: skipping the ramp altogether belongs to
-                    // the session's own stepper, where you know which movement
-                    // you are already warm for.
-                    min: 1,
+                    // None is an answer: somebody who warms up before the app is
+                    // open wants the app to stop suggesting it, everywhere,
+                    // rather than to shut a group on every exercise.
+                    min: 0,
                     max: kMaxWarmupSets,
                     onChanged: db.setDefaultWarmupSets,
                   ),

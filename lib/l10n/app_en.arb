@@ -205,6 +205,14 @@
   "@settingsWarmupSets": {
     "description": "Field label over the stepper that sets how many warm-up rungs every exercise opens with. Rendered in small capitals; keep it short."
   },
+  "settingsWarmupsOff": "Off",
+  "@settingsWarmupsOff": {
+    "description": "Note under the warm-up rung stepper when it reads zero, saying the app suggests no warm-ups at all."
+  },
+  "workoutEditSuggestWarmups": "Suggest warm-ups",
+  "@workoutEditSuggestWarmups": {
+    "description": "Label on the switch in the workout builder that turns this day's warm-up ramps on or off."
+  },
   "settingsDeload": "Deload after time off",
   "@settingsDeload": {
     "description": "Card title over the layoff rules. A deload is a deliberate reduction in training load."
