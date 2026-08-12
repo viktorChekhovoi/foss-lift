@@ -80,6 +80,32 @@ groups:
     uses:
     - storage.migration
     - template.superset
+  - id: an-update-brings-the-new-starter-movements
+    t: An update brings the starter movements the phone has never had
+    d: >-
+      the starter library grows, and a phone that never got the additions cannot
+      be given a routine that uses one — so the shipped set is walked on upgrade
+      and anything missing is inserted, matched on the canonical English name.
+      Nothing already there is touched: a movement you have set a loading, a bar
+      or a note on keeps all three, whatever this build would now say about it,
+      and a movement you built yourself under the same name blocks the insert
+      rather than being overwritten.
+    screen: none
+    uses:
+    - storage.migration
+    - exercise.seed
+  - id: sets-logged-before-the-update-carry-no-readouts
+    t: A set logged before the update carries no console readouts
+    d: >-
+      speed, incline, resistance and distance are four nullable columns added to
+      the logged-set table, so every set already in the history arrives with all
+      four empty — which is what "nobody recorded this" means, and it is what
+      the recap prints nothing for.
+    screen: none
+    uses:
+    - storage.migration
+    - session.console-metrics
+    - history.session-record
   - id: only-notification-local-one
     t: The only "notification" is a local one
     d: scheduled on-device; it never leaves the phone.

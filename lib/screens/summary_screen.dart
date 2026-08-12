@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../state/active_workout.dart';
 import '../theme/app_theme.dart';
+import '../util/cardio_units.dart';
 import '../util/clip_label.dart';
 import '../util/seed_names.dart';
 import '../util/units.dart';
@@ -559,6 +560,18 @@ class _SessionExerciseRow extends StatelessWidget {
                     ],
                   ),
                 ),
+                // What the machine was set to, on the set being reported above.
+                // The whole reason for typing it during the session is that a
+                // later reading of "20:00 on the treadmill" can tell a walk from
+                // a run; a set carrying no readouts prints nothing at all.
+                if (cardioSummary(l10n, best.console, unit: unit)
+                    case final readouts?) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    readouts,
+                    style: kMono.copyWith(fontSize: 11, color: AppColors.faint),
+                  ),
+                ],
               ],
             ),
           ),

@@ -18,6 +18,7 @@ import '../data/plates.dart';
 import '../data/progression.dart' show ProgressionMode;
 import '../data/set_scheme.dart';
 import '../data/warmup.dart' show kDefaultWarmupSets;
+import '../util/cardio_units.dart';
 import 'active_workout.dart';
 
 /// The live session as one line of JSON.
@@ -71,6 +72,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'goalReps': e.goalReps,
             'floorKg': e.floorKg,
             'supersetWithPrevious': e.supersetWithPrevious,
+            'cardioMachine': e.cardioMachine,
             'warmupCount': e.warmupCount,
             'warmupBarKg': e.warmupBarKg,
             'warmupRestSeconds': e.warmupRestSeconds,
@@ -147,6 +149,7 @@ Map<String, dynamic> _set(SetEntry s) => {
       'logged': s.logged,
       'loggedOrder': s.loggedOrder,
       'videoPath': s.videoPath,
+      if (s.hasConsole) 'console': _console(s.console),
     };
 
 SetEntry _readSet(Map<String, dynamic> m) => SetEntry(
@@ -157,7 +160,30 @@ SetEntry _readSet(Map<String, dynamic> m) => SetEntry(
       logged: m['logged'] as int?,
       loggedOrder: m['loggedOrder'] as int?,
       videoPath: m['videoPath'] as String?,
+      console: _readConsole(m['console']),
     );
+
+/// What the console said, written down only when somebody wrote it down. Nearly
+/// every set has nothing here, and a key per set for four nulls is four keys per
+/// set of a blob that is rewritten on every tap.
+Map<String, dynamic> _console(ConsoleMetrics c) => {
+      'speedKph': ?c.speedKph,
+      'inclinePercent': ?c.inclinePercent,
+      'resistanceLevel': ?c.resistanceLevel,
+      'distanceKm': ?c.distanceKm,
+    };
+
+/// The readouts a snapshot carries, or none — which is also what a snapshot
+/// written before there were any comes back as.
+ConsoleMetrics _readConsole(Object? raw) {
+  if (raw is! Map<String, dynamic>) return kNoConsoleMetrics;
+  return (
+    speedKph: (raw['speedKph'] as num?)?.toDouble(),
+    inclinePercent: (raw['inclinePercent'] as num?)?.toDouble(),
+    resistanceLevel: raw['resistanceLevel'] as int?,
+    distanceKm: (raw['distanceKm'] as num?)?.toDouble(),
+  );
+}
 
 RestSetRef? _readRestFor(Object? raw) {
   if (raw is! Map<String, dynamic>) return null;
@@ -236,6 +262,9 @@ ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
       // Absent in a snapshot from a build that had no supersets, which means
       // exactly what it says: this exercise stood on its own.
       supersetWithPrevious: m['supersetWithPrevious'] as bool? ?? false,
+      // Likewise absent in a snapshot from a build that had no console readouts:
+      // no exercise on that board offered them, so false is what it meant.
+      cardioMachine: m['cardioMachine'] as bool? ?? false,
       warmupCount: m['warmupCount'] as int,
       warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
       warmupRestSeconds: m['warmupRestSeconds'] as int,

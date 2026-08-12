@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/database.dart' show WorkoutItemView;
 import '../data/plates.dart';
 import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
@@ -17,11 +18,14 @@ import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/seed_names.dart';
+import '../util/cardio_units.dart';
 import '../util/units.dart';
 import '../widgets/board_cells.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/common.dart';
 import '../widgets/plate_line.dart';
+import '../widgets/workout_items_editor.dart'
+    show ItemDraft, itemUpdate, showItemConfigSheet;
 
 /// Marks the set to do now, and the collapsed warm-up group standing in for a
 /// rung of one. Exactly one of the two is on the board at a time, and neither
@@ -41,6 +45,16 @@ const _wholeBoard = ScrollCacheExtent.pixels(100000);
 /// The one place an exercise's goal is stated — beside the weight you can edit.
 /// One per exercise on the board, and nowhere on a set row.
 const kExerciseGoalKey = ValueKey('exercise-goal');
+
+/// The control beside an exercise's name that opens its slot settings — the
+/// builder's own sheet, reached from the board.
+const kSlotSettingsKey = ValueKey('slot-settings');
+
+/// The details control on a cardio-machine set row, the panel of four fields it
+/// opens, and the one-line summary that stands in for the panel while it is shut.
+const kConsoleToggleKey = ValueKey('console-toggle');
+const kConsoleFieldsKey = ValueKey('console-fields');
+const kConsoleSummaryKey = ValueKey('console-summary');
 
 /// Whether the board says anything about weight for this exercise at all — the
 /// working weight, the plate breakdown, the unit column and every row's weight
@@ -347,6 +361,70 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setWorkingWeight(ei, kg);
   }
 
+  /// [row] with its console readouts folded under it, on a cardio machine, and
+  /// [row] untouched on everything else.
+  Widget _withConsole(
+    int ei,
+    int si,
+    SetEntry entry,
+    String unit, {
+    required bool cardio,
+    required Widget row,
+  }) {
+    if (!cardio) return row;
+    return _ConsoleRow(
+      // Per set and per exercise, so the panel a row was left open on stays
+      // open on that row and nowhere else.
+      key: ValueKey('console-$ei-$si'),
+      entry: entry,
+      unit: unit,
+      onChanged: (m) =>
+          ref.read(activeWorkoutProvider.notifier).setConsole(ei, si, m),
+      row: row,
+    );
+  }
+
+  /// The slot's own settings — the builder's sheet, opened from the board.
+  ///
+  /// **It writes the workout, not a copy of it.** Changing a progression rule
+  /// mid-session is exactly the moment you have learned the step is too big, and
+  /// an edit that expired with the session would have to be made again in the
+  /// builder afterwards. So the slot is updated in place, keeping its id, and
+  /// the running board then takes what it safely can — see
+  /// [ActiveWorkoutController.reconfigure].
+  ///
+  /// The write happens as the sheet closes rather than on every keystroke: the
+  /// sheet edits a draft, and one write at the end is one row rewritten instead
+  /// of one per character typed into the rest field.
+  Future<void> _editSlot(int ei) async {
+    final e = ref.read(activeWorkoutProvider)?.exercises[ei];
+    final itemId = e?.itemId;
+    if (itemId == null) return;
+    final db = ref.read(databaseProvider);
+    final item = await db.workoutItemById(itemId);
+    if (item == null || !mounted) return;
+    final exercise = await db.exerciseById(item.exerciseId);
+    if (!mounted) return;
+
+    final unit = ref.read(weightUnitProvider).value ?? 'kg';
+    final barKg = ref.read(plateSettingsProvider).barKg;
+    final draft = ItemDraft.fromView(WorkoutItemView(item, exercise));
+    await showItemConfigSheet(
+      context,
+      draft: draft,
+      unit: unit,
+      // What the rest field shows when the slot names none of its own. The
+      // session already resolved it once, and it is the same number.
+      routineRest: e!.restSeconds,
+      defaultBarKg: barKg,
+      // No superset checkbox here — see [showItemConfigSheet].
+      onChanged: () {},
+    );
+    if (!mounted) return;
+    await db.updateWorkoutItem(itemId, itemUpdate(draft, defaultBarKg: barKg));
+    await ref.read(activeWorkoutProvider.notifier).reconfigure(ei);
+  }
+
   /// One set's own weight — the deload-to-finish case, and nothing else on the
   /// exercise moves with it.
   /// The camera on a set row. With no clip it goes straight to filming — that
@@ -583,6 +661,15 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                     onWarmupCount: (n) =>
                                         controller.setWarmupCount(ei, n),
                                     onEditWorkingWeight: () => _editWorkingWeight(ei),
+                                    // Null on an exercise with no slot behind
+                                    // it: there is nowhere for the sheet to
+                                    // write, so the control is absent rather
+                                    // than opening one that throws the edit
+                                    // away.
+                                    onSettings:
+                                        session.exercises[ei].itemId == null
+                                        ? null
+                                        : () => _editSlot(ei),
                                     warmupRowBuilder: (wi) {
                                       final entry = session.exercises[ei].warmups[wi];
                                       final marked =
@@ -641,7 +728,15 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           next.setIndex == si;
                                       return _openOnRow(
                                         marked: marked,
-                                        _SetRow(
+                                        _withConsole(
+                                          ei,
+                                          si,
+                                          entry,
+                                          unit,
+                                          cardio: session
+                                              .exercises[ei]
+                                              .cardioMachine,
+                                          row: _SetRow(
                                           key: ValueKey(
                                             '$ei-$si-${session.exercises[ei].name}',
                                           ),
@@ -691,6 +786,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                                   .setVideos
                                               ? () => _video(ei, si, entry)
                                               : null,
+                                          ),
                                         ),
                                       );
                                     },
@@ -1024,6 +1120,7 @@ class _ExerciseBlock extends StatelessWidget {
     required this.warmupIsNext,
     required this.onWarmupCount,
     required this.onEditWorkingWeight,
+    this.onSettings,
   });
 
   /// Where this exercise sits in the session — only used to key its working
@@ -1039,6 +1136,10 @@ class _ExerciseBlock extends StatelessWidget {
   final bool warmupIsNext;
   final ValueChanged<int> onWarmupCount;
   final VoidCallback onEditWorkingWeight;
+
+  /// Opens this slot's settings. Null on an exercise the session is carrying
+  /// with no template row behind it — there is nothing to write.
+  final VoidCallback? onSettings;
 
   /// What this exercise is aiming at, the way a lifter says it: `3 × 8`, or
   /// `2 × 45s` for a hold. Null when there are no sets to aim at anything.
@@ -1066,6 +1167,7 @@ class _ExerciseBlock extends StatelessWidget {
           _ExerciseHeading(
             name: seededName(l10n, exercise.seedKey, exercise.name),
             exerciseId: exercise.exerciseId,
+            onSettings: onSettings,
           ),
           // The warm-up ramp, kept in a group of its own above the working sets
           // so the two are never confused. Only a weight-based slot with a load
@@ -1175,12 +1277,20 @@ class _ExerciseBlock extends StatelessWidget {
 /// forgotten. So the note comes off [exerciseNoteProvider] rather than out of
 /// the session's snapshot, and writing one here writes it to the library.
 class _ExerciseHeading extends ConsumerWidget {
-  const _ExerciseHeading({required this.name, this.exerciseId});
+  const _ExerciseHeading({
+    required this.name,
+    this.exerciseId,
+    this.onSettings,
+  });
   final String name;
 
   /// Null for an ad-hoc entry with no library movement behind it — there is
   /// nowhere to keep a note, so none is offered.
   final int? exerciseId;
+
+  /// Opens the slot's settings — the same sheet the builder opens. Null when
+  /// there is no slot behind this exercise; see [_ExerciseBlock.onSettings].
+  final VoidCallback? onSettings;
 
   /// Brings the note up, and writes back whatever comes of it.
   Future<void> _open(
@@ -1205,7 +1315,9 @@ class _ExerciseHeading extends ConsumerWidget {
       String tooltip,
       VoidCallback onPressed, {
       bool lit = false,
+      Key? key,
     }) => IconButton(
+      key: key,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1251,6 +1363,17 @@ class _ExerciseHeading extends ConsumerWidget {
                 note == null ? l10n.sessionAddNote : l10n.sessionMyNote,
                 () => _open(context, ref, id, note),
                 lit: note != null,
+              ),
+            if (onSettings case final open?)
+              // Quiet, and beside the note rather than in a menu: it is reached
+              // once or twice a session, but the moment it is wanted is the
+              // moment the rule is wrong, and a rule you have to remember until
+              // afterwards is a rule that stays wrong.
+              icon(
+                Icons.tune,
+                l10n.sessionSlotSettings,
+                open,
+                key: kSlotSettingsKey,
               ),
           ],
         ),
@@ -1774,6 +1897,252 @@ class _SetRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A set row of a cardio machine, with what the console said folded away under
+/// it.
+///
+/// **Shut by default and per set.** The interval you ran at 14 km/h and the one
+/// you walked at 5 are two rows with two answers, so the toggle belongs to the
+/// row rather than to the block — and every one of the four fields is optional,
+/// so a set with none of them filled in is a complete set and reads as one.
+///
+/// Shut, the row is not silent: whatever has been typed stands in for the panel
+/// as a one-line summary, so a folded row never looks like a row with nothing
+/// in it.
+class _ConsoleRow extends StatefulWidget {
+  const _ConsoleRow({
+    super.key,
+    required this.entry,
+    required this.unit,
+    required this.onChanged,
+    required this.row,
+  });
+
+  final SetEntry entry;
+  final String unit;
+  final ValueChanged<ConsoleMetrics> onChanged;
+
+  /// The set row itself, built by the board exactly as any other row is.
+  final Widget row;
+
+  @override
+  State<_ConsoleRow> createState() => _ConsoleRowState();
+}
+
+class _ConsoleRowState extends State<_ConsoleRow> {
+  /// Opens on whatever has already been typed: a row you have filled in and
+  /// come back to has nothing to hide.
+  late bool _open = widget.entry.hasConsole;
+
+  ConsoleMetrics get _m => widget.entry.console;
+
+  void _write({
+    double? Function()? speed,
+    double? Function()? incline,
+    int? Function()? resistance,
+    double? Function()? distance,
+  }) => widget.onChanged((
+    speedKph: speed == null ? _m.speedKph : speed(),
+    inclinePercent: incline == null ? _m.inclinePercent : incline(),
+    resistanceLevel: resistance == null ? _m.resistanceLevel : resistance(),
+    distanceKm: distance == null ? _m.distanceKm : distance(),
+  ));
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final summary = cardioSummary(l10n, _m, unit: widget.unit);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        widget.row,
+        Padding(
+          padding: const EdgeInsets.only(left: kSetNumberColumnWidth, bottom: 2),
+          child: Row(
+            children: [
+              GestureDetector(
+                key: kConsoleToggleKey,
+                onTap: () => setState(() => _open = !_open),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 4, 8, 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _open
+                            ? Icons.keyboard_arrow_down_rounded
+                            : Icons.keyboard_arrow_right_rounded,
+                        size: 16,
+                        color: AppColors.faint,
+                      ),
+                      Text(
+                        l10n.sessionConsoleDetails,
+                        style: kMono.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 0.8,
+                          color: AppColors.faint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (!_open && summary != null)
+                Expanded(
+                  child: Text(
+                    summary,
+                    key: kConsoleSummaryKey,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: kMono.copyWith(
+                      fontSize: 11,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (_open)
+          Padding(
+            key: kConsoleFieldsKey,
+            padding: const EdgeInsets.only(
+              left: kSetNumberColumnWidth,
+              bottom: 8,
+            ),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              children: [
+                _ConsoleField(
+                  label: l10n.sessionConsoleSpeed,
+                  suffix: speedSuffix(l10n, widget.unit),
+                  value: _m.speedKph == null
+                      ? null
+                      : toDisplaySpeed(_m.speedKph!, widget.unit),
+                  onChanged: (v) => _write(
+                    speed: () =>
+                        v == null ? null : speedToKph(v, widget.unit),
+                  ),
+                ),
+                _ConsoleField(
+                  label: l10n.sessionConsoleIncline,
+                  suffix: '%',
+                  value: _m.inclinePercent,
+                  onChanged: (v) => _write(incline: () => v),
+                ),
+                _ConsoleField(
+                  label: l10n.sessionConsoleResistance,
+                  value: _m.resistanceLevel?.toDouble(),
+                  decimals: false,
+                  onChanged: (v) => _write(resistance: () => v?.round()),
+                ),
+                _ConsoleField(
+                  label: l10n.sessionConsoleDistance,
+                  suffix: distanceSuffix(l10n, widget.unit),
+                  value: _m.distanceKm == null
+                      ? null
+                      : toDisplayDistance(_m.distanceKm!, widget.unit),
+                  onChanged: (v) => _write(
+                    distance: () =>
+                        v == null ? null : distanceToKm(v, widget.unit),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// One optional readout: a label, a narrow number field, and the unit it is in.
+///
+/// Empty is the resting state and means "nobody wrote this down" — clearing the
+/// field hands back null rather than zero, because a 0% incline is a flat
+/// treadmill somebody typed and a different fact from an incline nobody looked
+/// at.
+class _ConsoleField extends StatefulWidget {
+  const _ConsoleField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.suffix,
+    this.decimals = true,
+  });
+
+  final String label;
+  final String? suffix;
+  final double? value;
+  final bool decimals;
+  final ValueChanged<double?> onChanged;
+
+  @override
+  State<_ConsoleField> createState() => _ConsoleFieldState();
+}
+
+class _ConsoleFieldState extends State<_ConsoleField> {
+  late final TextEditingController _c = TextEditingController(
+    text: widget.value == null ? '' : fmtUpTo(widget.value!, 2),
+  );
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  /// Reports on every keystroke rather than on submit: the session is in memory,
+  /// there is no Save on this screen, and a number typed and then walked away
+  /// from has to be the number that was meant.
+  void _report(String text) {
+    final trimmed = text.trim().replaceAll(',', '.');
+    if (trimmed.isEmpty) {
+      widget.onChanged(null);
+      return;
+    }
+    final v = double.tryParse(trimmed);
+    // Not a number yet — a lone "." on the way to "1.5". Left alone rather than
+    // written as null, which would clear what is already stored mid-word.
+    if (v == null) return;
+    widget.onChanged(v < 0 ? 0 : v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 104,
+      child: TextField(
+        controller: _c,
+        keyboardType: TextInputType.numberWithOptions(
+          decimal: widget.decimals,
+        ),
+        style: kMono.copyWith(fontSize: 13),
+        decoration: InputDecoration(
+          isDense: true,
+          labelText: widget.label,
+          labelStyle: TextStyle(fontSize: 11, color: AppColors.muted),
+          suffixText: widget.suffix,
+          suffixStyle: kMono.copyWith(fontSize: 11, color: AppColors.faint),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 8,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: AppColors.line),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: AppColors.line),
+          ),
+        ),
+        onChanged: _report,
       ),
     );
   }

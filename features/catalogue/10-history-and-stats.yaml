@@ -46,6 +46,21 @@ groups:
     screen: today
     defines:
     - history.aggregates
+  - id: recap-repeats-a-cardio-set-s-readouts
+    t: The recap says what a cardio machine was set to
+    d: >-
+      the best set of a movement done on a console reads its speed, incline,
+      resistance and distance under the duration, in the gym's own unit — the
+      whole reason for typing them during the session is that a later reading of
+      "20:00 on the treadmill" can tell a walk from a run. Only the readouts that
+      were filled in are printed; a set carrying none reads exactly as it did
+      before, with no empty labels standing in for numbers nobody wrote down.
+    screen: summary
+    uses:
+    - session.recap
+    - session.console-metrics
+    - history.session-record
+    - load.units
   - id: per-exercise-progress-chart
     t: Per-exercise progress chart
     d: >-

@@ -77,6 +77,8 @@ lib/
 ├── util/capabilities.dart        What this build can do — the web's four absences
 ├── util/units.dart               kg⇄lb conversion, each unit's step, and the
 │                                 first-run guess (pure functions)
+├── util/cardio_units.dart        The console readouts a cardio-machine set
+│                                 carries, and km⇄mi / km/h⇄mph for them
 ├── util/qr_capacity.dart         What a QR holds; how much error correction it affords
 ├── util/video_links.dart         A YouTube URL reduced to its video id
 ├── util/format.dart              fmtTotal — big running totals for stat tiles
@@ -147,7 +149,7 @@ has "Upper 1" and "Upper 2".
 | `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters, and `supersetWithPrevious` — trained in the same round as the slot above it, see `data/superset.dart` |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, `seedKey` (nullable — denormalised beside the name, so a logged day still reads in the current language), times, duration, totalVolume*, setsCompleted |
-| `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, and `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`) |
+| `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`), and the four nullable console readouts a set on a cardio machine may carry: `speedKph`, `inclinePercent`, `resistanceLevel`, `distanceKm` (speed and distance metric in the column, converted for display — see `util/cardio_units.dart`) |
 | `Settings`     | Single-row (id=1) app prefs. `weightUnit` (**nullable — null is "not stored yet", which the first launch answers from the phone's region via `seedWeightUnit`**; everything that only displays a weight reads null as kg), `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, `barWeight` (the default bar, named by its weight — see `Bars`), a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), `warmupSets` (how many warm-up rungs a session opens each exercise with, 1–`kMaxWarmupSets`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null), and the chosen language (`localeTag` — `uk`, `pt_BR`; null only until first run resolves the phone's language and writes it) |
 | `CustomThemes` | One row per theme the user built or imported: just the palette as JSON, name included (`AppPalette.toJson`). Presets are code, not rows |
 | `Bars`         | The bars the gym racks: `unit` (which unit's list — one per unit, like the plate rack), `name`, `seedKey` (nullable — which shipped bar this is, rendered through it so the name follows the language), `weightKg`. Seeded with the common bars on first run and the user's to rename, re-weigh, delete and add to |
@@ -739,6 +741,13 @@ you never looked at.
   `kMarkerDistance` apart. A routine's own `colorHex` is parsed by `hexColor()` and bypasses
   this entirely, so per-routine accents show through any theme. `kMono` is the
   tabular monospace style for all numbers.
+- **Cardio readouts** (`util/cardio_units.dart`): `ConsoleMetrics` and the
+  km⇄mi / km/h⇄mph pair. Same rule as weight — stored metric, converted only for
+  display — and the unit is not a second preference: the kg/lb setting decides
+  it, because a gym that weighs a barbell in pounds reads its treadmill in
+  miles. Which movements have a console is derived, not stored:
+  `isCardioMachine` in `data/exercise_taxonomy.dart` is "files under Cardio,
+  equipment Machine", so a shared routine carries the fact without a field.
 - **Units** (`util/units.dart`): `toDisplayWeight`, `toKg`, `unitSuffix`. Any
   new weight display/input must go through these. The suffix takes an
   `AppLocalizations` because "kg" is "кг" in Ukrainian; the numbers themselves

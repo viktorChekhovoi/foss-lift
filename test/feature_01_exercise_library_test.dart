@@ -40,8 +40,8 @@ void main() {
       final all = await db.watchExercises().first;
       final starters = all.where((e) => !e.isCustom).toList();
 
-      // 123 curated movements. Exactly the seeded set is custom-free.
-      expect(starters.length, 123);
+      // 133 curated movements. Exactly the seeded set is custom-free.
+      expect(starters.length, 133);
       expect(all.every((e) => !e.isCustom), isTrue);
     });
 
@@ -983,10 +983,13 @@ void main() {
       final all = await db.watchExercises().first;
       final loaded = all.where(
         (e) =>
-            e.equipment == 'Barbell' ||
-            e.equipment == 'Dumbbell' ||
-            e.equipment == 'Machine' ||
-            e.equipment == 'Cable',
+            // A cardio machine is equipment `Machine` and has no load at all —
+            // a treadmill's number is its speed. See _starterLoadings.
+            !e.isCardioMachine &&
+            (e.equipment == 'Barbell' ||
+                e.equipment == 'Dumbbell' ||
+                e.equipment == 'Machine' ||
+                e.equipment == 'Cable'),
       );
       for (final e in loaded) {
         expect(
@@ -1005,15 +1008,26 @@ void main() {
         'Cable': WeightType.machine,
         'Bodyweight': WeightType.none,
       };
-      // The five movements whose equipment does not say how they are held: a
+      // The movements whose equipment does not say how they are held: a
       // kettlebell is a weight in one hand; an ab wheel, a rope you skip and a
-      // rope you slam are nothing at all.
+      // rope you slam are nothing at all; and a cardio machine is a `Machine`
+      // with no weight stack behind it.
       const byHand = {
         'Kettlebell Swing': WeightType.dumbbell,
         'Turkish Get-Up': WeightType.dumbbell,
         'Ab Wheel Rollout': WeightType.none,
         'Jump Rope': WeightType.none,
         'Battle Rope': WeightType.none,
+        'Treadmill': WeightType.none,
+        'Elliptical': WeightType.none,
+        'Stationary Bike': WeightType.none,
+        'Recumbent Bike': WeightType.none,
+        'Rowing Machine': WeightType.none,
+        'Stair Climber': WeightType.none,
+        'Air Bike': WeightType.none,
+        'Ski Erg': WeightType.none,
+        'Arc Trainer': WeightType.none,
+        "Jacob's Ladder": WeightType.none,
       };
 
       for (final e in await db.watchExercises().first) {
@@ -1084,6 +1098,17 @@ void main() {
           'Shadow Boxing',
           'Jump Rope',
           'Battle Rope',
+          // The cardio floor: a console with no load to name.
+          'Treadmill',
+          'Elliptical',
+          'Stationary Bike',
+          'Recumbent Bike',
+          'Rowing Machine',
+          'Stair Climber',
+          'Air Bike',
+          'Ski Erg',
+          'Arc Trainer',
+          "Jacob's Ladder",
         });
       },
     );
@@ -1220,10 +1245,11 @@ void main() {
             .where((e) => e.measure == ExerciseMeasure.time)
             .toList();
 
-        // Fourteen: the positions you get into and stay in, the two you hold
-        // under load, and the conditioning movements whose set is a work period
-        // — nobody counts mountain climbers, they run the clock for thirty
-        // seconds.
+        // Twenty-four: the positions you get into and stay in, the two you hold
+        // under load, the conditioning movements whose set is a work period —
+        // nobody counts mountain climbers, they run the clock for thirty
+        // seconds — and the ten cardio machines, where twenty minutes is the
+        // whole prescription.
         expect(held.map((e) => e.name).toSet(), {
           'Plank',
           'Side Plank',
@@ -1239,6 +1265,16 @@ void main() {
           'Jump Rope',
           'Battle Rope',
           'Shadow Boxing',
+          'Treadmill',
+          'Elliptical',
+          'Stationary Bike',
+          'Recumbent Bike',
+          'Rowing Machine',
+          'Stair Climber',
+          'Air Bike',
+          'Ski Erg',
+          'Arc Trainer',
+          "Jacob's Ladder",
         });
         expect(
           (await exerciseNamed(db, 'Bench Press')).measure,

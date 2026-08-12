@@ -195,7 +195,7 @@ void main() {
       addTearDown(db.close);
 
       final row = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(row.data.values.first, 6);
+      expect(row.data.values.first, 7);
     });
 
     test('and on the same shape a fresh install gets', () async {
@@ -219,6 +219,80 @@ void main() {
       }
 
       expect(await shape(upgraded), await shape(fresh));
+    });
+  });
+
+  group('an update brings the starter movements the phone never had', () {
+    /// A v1 database holding one starter movement the user has since noted, and
+    /// nothing else from the library — the shape a phone several releases behind
+    /// hands the ladder.
+    AppDatabase v1WithOneMovement() => AppDatabase.forTesting(
+          NativeDatabase.memory(setup: (raw) {
+            for (final stmt in kSchemaV1) {
+              raw.execute(stmt);
+            }
+            raw.execute('INSERT INTO settings (id) VALUES (1)');
+            raw.execute(
+              'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+              'equipment, weight_type, notes) '
+              "VALUES (1, 'Bench Press', 'bench_press', 'Chest', 'Barbell', "
+              "'bar', 'seat 4, pin 7')",
+            );
+            raw.execute('PRAGMA user_version = 1');
+          }),
+        );
+
+    test('the cardio machines arrive with the climb', () async {
+      final db = v1WithOneMovement();
+      addTearDown(db.close);
+
+      final all = await db.watchExercises().first;
+      final treadmill = all.firstWhere((e) => e.name == 'Treadmill');
+      expect(treadmill.isCardioMachine, isTrue);
+      expect(treadmill.measure, ExerciseMeasure.time);
+      expect(treadmill.weightType, WeightType.none);
+      expect(treadmill.seedKey, isNotNull);
+    });
+
+    test('and what was already there is left exactly as it was', () async {
+      final db = v1WithOneMovement();
+      addTearDown(db.close);
+
+      final all = await db.watchExercises().first;
+      final bench = all.where((e) => e.name == 'Bench Press');
+      expect(bench, hasLength(1), reason: 'inserted a second copy');
+      expect(bench.single.notes, 'seat 4, pin 7');
+    });
+  });
+
+  group('a set logged before the update carries no console readouts', () {
+    test('the four columns arrive empty on history that was already there',
+        () async {
+      final db = AppDatabase.forTesting(
+        NativeDatabase.memory(setup: (raw) {
+          for (final stmt in kSchemaV1) {
+            raw.execute(stmt);
+          }
+          raw.execute('INSERT INTO settings (id) VALUES (1)');
+          raw.execute(
+            'INSERT INTO sessions (id, name, started_at, duration_seconds) '
+            "VALUES (1, 'Push', 1700000000, 3600)",
+          );
+          raw.execute(
+            'INSERT INTO session_sets (session_id, exercise_name, set_number, '
+            "weight, reps, done) VALUES (1, 'Bench Press', 1, 80.0, 8, 1)",
+          );
+          raw.execute('PRAGMA user_version = 1');
+        }),
+      );
+      addTearDown(db.close);
+
+      final set = (await db.setsForSession(1)).single;
+      expect(set.reps, 8, reason: 'the set itself is unchanged');
+      expect(set.speedKph, isNull);
+      expect(set.inclinePercent, isNull);
+      expect(set.resistanceLevel, isNull);
+      expect(set.distanceKm, isNull);
     });
   });
 
@@ -343,7 +417,7 @@ void main() {
       addTearDown(db.close);
 
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.data.values.first, 6);
+      expect(version.data.values.first, 7);
     });
 
     test('and on the same shape a fresh install gets', () async {

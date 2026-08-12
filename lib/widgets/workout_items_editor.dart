@@ -328,6 +328,37 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
   ];
 }
 
+/// One draft as an update to the slot it came from — everything the config
+/// sheet edits, and nothing else.
+///
+/// [itemCompanions] is for saving a *list*: the builder rewrites the lot,
+/// because position and the superset joins are facts about the order. This is
+/// for the one slot the live board's settings sheet changed, written through
+/// [AppDatabase.updateWorkoutItem] so the row keeps its id — the session is
+/// holding it, and the streaks live on it.
+///
+/// Position, workout and the superset join are deliberately absent: the sheet
+/// opened from the board does not offer them, and a companion that named them
+/// would write today's guess over what the builder set.
+WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
+    WorkoutItemsCompanion(
+      targetSets: Value(d.sets),
+      repsMin: Value(d.repsMin),
+      repsMax: Value(d.toFailure ? null : d.repsMax),
+      toFailure: Value(d.toFailure),
+      restSeconds: Value(d.restSeconds),
+      suggestedWeight: Value(d.clampedWeightKg(defaultBarKg)),
+      scheme: Value(d.scheme),
+      schemePercent: Value(d.schemePercent),
+      customSets: Value(d.scheme.isCustom ? encodeCustomSets(d.customSets) : null),
+      progression: Value(d.progression),
+      holdSeconds: Value(d.holdSeconds),
+      increment: Value(d.increment),
+      deload: Value(d.deload),
+      successThreshold: Value(d.successThreshold),
+      failureThreshold: Value(d.failureThreshold),
+    );
+
 /// The decimals [fmtWeight] will show, as a rounding: what the field puts back
 /// must be what the field says.
 double roundStepWeight(double display) =>
@@ -478,31 +509,14 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         ? null
         : seededName(
             l10n, _items[i - 1].exercise?.seedKey, _items[i - 1].name);
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      // Without this the sheet grows behind the status bar and the camera
-      // cut-out takes a bite out of the exercise name at the top of it.
-      useSafeArea: true,
-      backgroundColor: AppColors.ground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      // The keyboard inset is taken here, outside the sheet's own scroll view:
-      // that is what ends the viewport above the keyboard, so a field tapped
-      // near the bottom of the sheet can be scrolled clear of it rather than
-      // left underneath it.
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: _ItemConfigSheet(
-          draft: _items[i],
-          unit: widget.unit,
-          routineRest: widget.routineRest,
-          defaultBarKg: widget.defaultBarKg,
-          exerciseAbove: above,
-          onChanged: () => _bump(() {}),
-        ),
-      ),
+    await showItemConfigSheet(
+      context,
+      draft: _items[i],
+      unit: widget.unit,
+      routineRest: widget.routineRest,
+      defaultBarKg: widget.defaultBarKg,
+      exerciseAbove: above,
+      onChanged: () => _bump(() {}),
     );
     FocusManager.instance.primaryFocus?.unfocus();
   }
@@ -532,6 +546,52 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     );
   }
 }
+
+/// Opens the slot editor over [draft], editing it in place and reporting each
+/// change through [onChanged].
+///
+/// Public because the builder is no longer the only screen that configures a
+/// slot: the live board opens the same sheet from the settings control beside an
+/// exercise's name, so a progression rule can be changed where somebody notices
+/// it is wrong. Passing no [exerciseAbove] leaves out the superset checkbox,
+/// which is what the board does — what is trained in the same round is the shape
+/// of the day, and re-shaping it around sets already logged is the one edit a
+/// running session refuses.
+Future<void> showItemConfigSheet(
+  BuildContext context, {
+  required ItemDraft draft,
+  required String unit,
+  required int routineRest,
+  double defaultBarKg = 0,
+  String? exerciseAbove,
+  required VoidCallback onChanged,
+}) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      // Without this the sheet grows behind the status bar and the camera
+      // cut-out takes a bite out of the exercise name at the top of it.
+      useSafeArea: true,
+      backgroundColor: AppColors.ground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      // The keyboard inset is taken here, outside the sheet's own scroll view:
+      // that is what ends the viewport above the keyboard, so a field tapped
+      // near the bottom of the sheet can be scrolled clear of it rather than
+      // left underneath it.
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: _ItemConfigSheet(
+          draft: draft,
+          unit: unit,
+          routineRest: routineRest,
+          defaultBarKg: defaultBarKg,
+          exerciseAbove: exerciseAbove,
+          onChanged: onChanged,
+        ),
+      ),
+    );
 
 /// Bottom-sheet editor for a single item's sets / reps / rest / weight, plus
 /// the library properties of the movement it stands for.

@@ -15,6 +15,7 @@ code:
 test:
 - test/feature_01_exercise_library_test.dart
 - test/feature_01_exercise_filters_test.dart
+- test/feature_01_cardio_machines_test.dart
 where: >-
   <b>Screens</b> lib/screens/library_screen.dart, exercise_form_screen.dart, exercise_detail_screen.dart
   · <b>Filtering</b> lib/data/exercise_filter.dart, lib/widgets/exercise_filters.dart,
@@ -25,7 +26,7 @@ groups:
 - name: What it does
   items:
   - id: ships-85-starter-exercises
-    t: Ships 123 starter exercises
+    t: Ships 133 starter exercises
     d: >-
       most of them with a demo-video link, in the canonical
       https://youtu.be/&lt;id&gt; short form.
@@ -56,6 +57,42 @@ groups:
     - exercise.taxonomy
     - exercise.measure
     - exercise.muscle-map
+  - id: cardio-floor-is-in-the-starter-set
+    t: The cardio machines are in the starter set too
+    d: >-
+      the conditioning that was there was the kind you do on a mat — burpees,
+      skipping, a sprint — which is not what most people mean by cardio. Ten
+      machines now sit beside it: the treadmill, the elliptical, the stationary
+      and recumbent bike, the rowing machine, the stair climber, the air bike,
+      the ski erg, the arc trainer and Jacob's ladder. Every one is measured as a
+      work period rather than a rep count, and carries no weight — a treadmill
+      has no load to name — so a slot on one progresses by adding minutes. The
+      muscles each leans on are named as assists, as the rest of the group's are.
+    uses:
+    - exercise.seed
+    - exercise.taxonomy
+    - exercise.measure
+    - exercise.muscle-map
+    - exercise.weight-type
+    - exercise.cardio-machine
+  - id: a-cardio-machine-is-cardio-and-a-machine
+    t: A movement is a cardio machine when it files under Cardio and its equipment is Machine
+    d: >-
+      that pair is what puts the console readouts — speed, incline, resistance,
+      distance — on a set of it during a workout. Derived rather than stored, and
+      deliberately: both halves already travel in a routine code as indexes into
+      frozen lists, so a treadmill shared with somebody arrives as a treadmill
+      without a flag of its own being added to the format. It also means a
+      movement you build for the machine your gym has gets the readouts by
+      classifying it, with nothing else to find and tick. A burpee is Cardio and
+      bodyweight, so it has no console and is offered none.
+    screen: none
+    defines:
+    - exercise.cardio-machine
+    uses:
+    - exercise.taxonomy
+    - exercise.muscle-map
+    - share.routine-code
   - id: conditioning-files-under-cardio
     t: Conditioning files under Cardio, which is not a muscle
     d: >-
@@ -130,7 +167,7 @@ groups:
     t: A filter you set stays set
     d: >-
       narrowing to legs and back, opening a movement and coming back leaves the
-      list still narrowed to legs and back rather than showing all 123
+      list still narrowed to legs and back rather than showing all 133
       again. The button says which choices are live without the sheet being
       opened to check, so a list that is hiding things always says what it is
       hiding them by — a filter you have forgotten about looks exactly like a
@@ -138,7 +175,7 @@ groups:
       the visit: leaving the library entirely and coming back finds it as you
       left it, and the builder's picker — where adding three leg movements means
       opening it three times — opens on legs again rather than on all
-      123. The library and the picker keep <i>separate</i> choices,
+      133. The library and the picker keep <i>separate</i> choices,
       because a picker that opened pre-narrowed by something done on another
       screen reads as a bug. The search text is not kept: it has a box showing
       it, and a query that outlived the box would narrow the list with nothing
@@ -223,14 +260,15 @@ groups:
     t: Measure — counted or held
     d: >-
       done for reps, or a timed hold like a plank. Decides which progression axes
-      a slot can ever use. Fourteen starters are held rather than counted: the
+      a slot can ever use. Twenty-four starters are held rather than counted: the
       four positions you get into and stay in (Plank, Side Plank, Hollow Hold,
       Superman Hold), the two you hold under load (Dead Hang, Farmer's Carry),
-      the Wall Sit, and the seven conditioning movements whose set is a work
+      the Wall Sit, the seven conditioning movements whose set is a work
       period rather than a number of reps — High Knees, Mountain Climber, Bear
-      Crawl, Sprint, Jump Rope, Battle Rope and Shadow Boxing. Counting a
-      mountain climber is not what anyone does with one; running the clock for
-      thirty seconds is.
+      Crawl, Sprint, Jump Rope, Battle Rope and Shadow Boxing — and all ten
+      cardio machines. Counting a mountain climber is not what anyone does with
+      one; running the clock for thirty seconds is, and twenty minutes is what
+      anyone does with a treadmill.
     screen: exercise-form
     defines:
     - exercise.measure
@@ -451,13 +489,15 @@ groups:
     t: Weight type is seeded from equipment
     d: >-
       Barbell → bar, Dumbbell → dumbbell, Bodyweight → nothing, everything else
-      → machine, which is the right guess because almost everything is loaded. The
-      five starters whose equipment is "Other" are named by hand — a kettlebell
-      swing and a Turkish get-up load like a dumbbell, an ab wheel, a jump rope
-      and a battle rope load nothing.
+      → machine, which is the right guess because almost everything is loaded.
+      Fifteen starters are named by hand instead, because their equipment does
+      not settle it: a kettlebell swing and a Turkish get-up load like a
+      dumbbell; an ab wheel, a jump rope and a battle rope load nothing; and
+      neither does any of the ten cardio machines, which are equipment "Machine"
+      and have no weight to name — a treadmill's number is its speed.
       On a starter it is then **fixed only where the movement's own name states
       the implement** — Barbell Curl, Dumbbell Row, Incline DB Press: twenty-two
-      of the 123. There the exercise screen states the loading instead of
+      of the 133. There the exercise screen states the loading instead of
       offering chips, and the writer refuses a change rather than trusting the
       screen, because any other answer leaves the name contradicting the weight
       column. Everything else stays a choice, and deliberately: how a movement is

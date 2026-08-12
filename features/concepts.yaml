@@ -80,6 +80,14 @@ concepts:
     what: Barbell, dumbbell, machine/cable, or none — decides whether a lift has a bar and plates behind it, and whether it has a weight at all.
     code: [lib/data/database.dart, lib/data/plates.dart]
 
+  - id: exercise.cardio-machine
+    area: exercise
+    what: >-
+      Which movements are done on a console that reports speed, incline,
+      resistance and distance — derived from the classification rather than
+      stored, so a shared routine carries it without a field of its own.
+    code: [lib/data/exercise_taxonomy.dart, lib/data/database.dart]
+
   - id: exercise.notes
     area: exercise
     what: The user's own note on a movement. Never travels in a routine code.
@@ -272,6 +280,21 @@ concepts:
     area: session
     what: The whole session in the notification shade, and the foreground service under it.
     code: [lib/services/workout_shade.dart]
+
+  - id: session.console-metrics
+    area: session
+    what: >-
+      The optional readouts a set on a cardio machine carries beside its
+      duration — speed, incline, resistance level and distance — and the units
+      they are shown and stored in.
+    code: [lib/state/active_workout.dart, lib/screens/workout_screen.dart, lib/util/cardio_units.dart]
+
+  - id: session.slot-settings
+    area: session
+    what: >-
+      Reconfiguring an exercise slot from the live board — the same sheet the
+      builder uses, what it writes, and how much of it the running session takes.
+    code: [lib/screens/workout_screen.dart, lib/widgets/workout_items_editor.dart]
 
   - id: session.recap
     area: session

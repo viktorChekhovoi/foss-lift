@@ -147,6 +147,12 @@ extension ExerciseMuscles on Exercise {
   );
 }
 
+/// Whether this movement is done on a cardio console — see [cardioMachine],
+/// which is where the rule and the reason for deriving it live.
+extension ExerciseConsole on Exercise {
+  bool get isCardioMachine => cardioMachine(muscles.lead, equipment);
+}
+
 /// The columns a [MuscleMap] is written to. The lead is a column of its own; the
 /// rest are two joined lists — see [Exercises.muscleGroup].
 ///
@@ -394,6 +400,31 @@ class SessionSets extends Table {
   /// One column rather than a table: one clip per set is the feature, and
   /// several angles of the same set is not.
   TextColumn get videoPath => text().nullable()();
+
+  // ---- What the console said ----------------------------------------------
+  //
+  // The four readouts a set on a cardio machine can carry. All four are
+  // nullable and all four are ordinarily null: twenty minutes on a treadmill is
+  // a complete set whether or not anybody wrote the speed down, and a set logged
+  // before this existed has none of them. Null is "nobody recorded this", never
+  // zero — a 0% incline is a flat treadmill somebody typed, and it is a
+  // different fact from an incline nobody looked at.
+
+  /// Speed, in kilometres per hour. Metric in the column and converted for
+  /// display, exactly as [weight] is stored in kilograms — see
+  /// `util/cardio_units.dart`.
+  RealColumn get speedKph => real().nullable()();
+
+  /// The incline, as a percentage. No unit to convert: a 2% treadmill is 2% in
+  /// every gym.
+  RealColumn get inclinePercent => real().nullable()();
+
+  /// The resistance level the machine was set to. A number the machine made up,
+  /// so it is stored as it reads and never scaled.
+  IntColumn get resistanceLevel => integer().nullable()();
+
+  /// Distance covered, in kilometres. Metric for the same reason [speedKph] is.
+  RealColumn get distanceKm => real().nullable()();
 }
 
 /// A single-row key/value store for app-wide preferences (always id == 1).
@@ -1214,7 +1245,40 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     'Jump Rope': _s('Other', assists: ['Legs', 'Shoulders', 'Core']),
     'Battle Rope': _s('Other', assists: ['Shoulders', 'Arms', 'Back', 'Core']),
     'Shadow Boxing': _s('Bodyweight', assists: ['Shoulders', 'Core', 'Arms', 'Legs']),
+    // The cardio floor. Equipment `Machine` beside the `Cardio` group is what
+    // makes each of these a console — see [isCardioMachine] — so a set of one
+    // can carry the speed, incline, resistance and distance it was done at.
+    // None of them carries a weight; see [_starterLoadings].
+    'Treadmill': _s('Machine', assists: ['Legs', 'Core']),
+    'Elliptical': _s('Machine', assists: ['Legs', 'Arms', 'Core']),
+    'Stationary Bike': _s('Machine', assists: ['Legs', 'Core']),
+    'Recumbent Bike': _s('Machine', assists: ['Legs']),
+    'Rowing Machine': _s('Machine', assists: ['Legs', 'Back', 'Arms', 'Core']),
+    'Stair Climber': _s('Machine', assists: ['Legs', 'Core']),
+    'Air Bike': _s('Machine', assists: ['Legs', 'Arms', 'Shoulders', 'Core']),
+    'Ski Erg': _s('Machine', assists: ['Back', 'Arms', 'Shoulders', 'Core']),
+    'Arc Trainer': _s('Machine', assists: ['Legs', 'Core']),
+    "Jacob's Ladder": _s('Machine', assists: ['Legs', 'Back', 'Arms', 'Core']),
   },
+};
+
+/// The starter movements done on a cardio console — the ones the group above
+/// files under `Cardio` with `Machine` equipment.
+///
+/// Written out rather than filtered so the loading table and the held table
+/// below can each name the set once, and so a reader can see what "the ten
+/// machines" refers to without running the predicate in their head.
+const Set<String> _cardioMachines = {
+  'Treadmill',
+  'Elliptical',
+  'Stationary Bike',
+  'Recumbent Bike',
+  'Rowing Machine',
+  'Stair Climber',
+  'Air Bike',
+  'Ski Erg',
+  'Arc Trainer',
+  "Jacob's Ladder",
 };
 
 /// Every starter movement's map, by name — what the first-run seed writes and
@@ -1252,6 +1316,9 @@ const Set<String> _heldStarters = {
   'Jump Rope',
   'Battle Rope',
   'Shadow Boxing',
+  // Twenty minutes is what anybody does with a treadmill; nobody counts a rep
+  // on one.
+  ..._cardioMachines,
 };
 
 /// The starters whose equipment does not say how they are loaded, because their
@@ -1262,12 +1329,16 @@ const Set<String> _heldStarters = {
 /// are a skipping rope and a pair of battle ropes — an implement, but not a
 /// load. Without an entry here the fallback would read all three as a machine
 /// and offer a weight field for a rope.
-const Map<String, WeightType> _starterLoadings = {
+final Map<String, WeightType> _starterLoadings = {
   'Kettlebell Swing': WeightType.dumbbell,
   'Turkish Get-Up': WeightType.dumbbell,
   'Ab Wheel Rollout': WeightType.none,
   'Jump Rope': WeightType.none,
   'Battle Rope': WeightType.none,
+  // The cardio machines are equipment `Machine`, which the fallback would read
+  // as a weight stack. A treadmill's number is its speed, and it has no load to
+  // name at all.
+  for (final machine in _cardioMachines) machine: WeightType.none,
 };
 
 /// How a starter movement is loaded: what its equipment implies, unless it is
@@ -1358,8 +1429,12 @@ class AppDatabase extends _$AppDatabase {
   ///   database has never had, inserted. A release that adds more needs a rung of
   ///   its own: this one runs once, and editing it would rewrite a step a phone
   ///   has already climbed.
+  /// - **v7** — the four console readouts on `SessionSets`, and the starter
+  ///   movements this build ships that a v6 database has never had — the cardio
+  ///   machines. A rung of its own rather than an edit to v6, for the reason
+  ///   stated there.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1443,6 +1518,29 @@ class AppDatabase extends _$AppDatabase {
       // companion, so a later edit to the `Exercises` declaration cannot rewrite
       // what this rung inserts.
       if (from < 6) await _insertMissingStarterExercises(m.database);
+      // v7 — what the console said, on a logged set. Four nullable columns, so
+      // every set already in the history arrives with all four empty, which is
+      // exactly what "nobody recorded this" means.
+      //
+      // The starter walk runs again for the movements v6 never had: the rung
+      // that added it is written to run once, so a release that adds more
+      // movements adds a rung rather than editing that one. Re-running it is
+      // safe — every insert is a `WHERE NOT EXISTS` on the name — and it is
+      // what brings the cardio machines to a phone that is already on v6.
+      if (from < 7) {
+        for (final column in [
+          ('speed_kph', 'REAL'),
+          ('incline_percent', 'REAL'),
+          ('resistance_level', 'INTEGER'),
+          ('distance_km', 'REAL'),
+        ]) {
+          await m.database.customStatement(
+            'ALTER TABLE "session_sets" ADD COLUMN '
+            '"${column.$1}" ${column.$2} NULL',
+          );
+        }
+        await _insertMissingStarterExercises(m.database);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -2046,6 +2144,20 @@ class AppDatabase extends _$AppDatabase {
       }
     });
   }
+
+  /// Rewrites one slot in place, keeping its id.
+  ///
+  /// [replaceWorkoutItems] is what the builder saves through — it deletes and
+  /// reinserts the lot, because the thing being saved is an ordered list. This
+  /// is for the one edit that is about a single slot and nothing else: the
+  /// settings sheet opened from the live board, where the session is holding
+  /// the slot's id and a delete-and-reinsert would take the streaks and leave
+  /// the session pointing at a row that no longer exists.
+  ///
+  /// The companion carries only what the sheet edits. Position, workout and the
+  /// superset join are absent from it and so are left where they are.
+  Future<void> updateWorkoutItem(int id, WorkoutItemsCompanion values) =>
+      (update(workoutItems)..where((i) => i.id.equals(id))).write(values);
 
   // ---- Progression --------------------------------------------------------
 

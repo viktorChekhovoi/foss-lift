@@ -28,6 +28,8 @@ test:
 - test/feature_04_rest_done_test.dart
 - test/feature_04_template_drift_test.dart
 - test/feature_04_superset_test.dart
+- test/feature_04_cardio_console_test.dart
+- test/feature_04_slot_settings_test.dart
 where: >-
   <b>State</b> lib/state/active_workout.dart · <b>Warm-up ramp</b> lib/data/warmup.dart,
   loadLadder in lib/data/plates.dart · <b>Screens</b> lib/screens/workout_screen.dart,
@@ -236,20 +238,24 @@ groups:
     - template.item
     - session.warmup-ramp
   - id: other-edits-wait-for-the-next-session
-    t: Every other edit to a running workout waits for the next session
+    t: Every other edit made in the builder waits for the next session
     d: >-
       removing an exercise, reordering the list, renaming a movement or changing
-      a slot's sets, target or rest leaves the running session alone, and takes
-      effect the next time you start it. The session is a snapshot on purpose —
-      it is what lets the board be edited instantly and a crash mid-workout leave
-      no half-written rows — and a snapshot that silently re-arranged itself
-      under somebody mid-set would be worse than one that is honestly out of
-      date. Finishing writes what you actually did, including the sets of an
-      exercise that has since been deleted from the template.
+      a slot's sets, target or rest <i>from the workout builder</i> leaves the
+      running session alone, and takes effect the next time you start it. The
+      session is a snapshot on purpose — it is what lets the board be edited
+      instantly and a crash mid-workout leave no half-written rows — and a
+      snapshot that silently re-arranged itself under somebody mid-set would be
+      worse than one that is honestly out of date. The board's own settings sheet
+      is the exception, and it is not one: it knows which exercise on the board
+      it was opened from, so it can change that one without guessing. Finishing
+      writes what you actually did, including the sets of an exercise that has
+      since been deleted from the template.
     screen: none
     uses:
     - session.template-drift
     - session.live-state
+    - session.slot-settings
     - session.finish
   - id: recorded-duration-is-real-time
     t: The duration a workout is filed under is the time it really took
@@ -932,6 +938,145 @@ groups:
     screen: none
     uses:
     - progression.verdict
+- name: Cardio machines
+  screen: session
+  uses:
+  - session.console-metrics
+  - exercise.cardio-machine
+  items:
+  - id: cardio-set-carries-console-readouts
+    t: A set on a cardio machine can carry what the console said
+    d: >-
+      speed, incline, resistance level and distance, beside the minutes the set
+      already records. Twenty minutes on a treadmill is not a training record on
+      its own — it is twenty minutes at 9.5 km/h on a 2% incline, and next week's
+      twenty minutes is only progress if you know which of the two it beat.
+    defines:
+    - session.console-metrics
+    uses:
+    - session.set-logging
+  - id: readouts-are-optional-every-one-of-them
+    t: Every readout is optional, and none is asked for
+    d: >-
+      the row shows the duration and nothing else until you open the details
+      under it; each of the four fields is then blank and stays blank unless you
+      fill it. A machine that has no incline, a session nobody wrote the speed
+      down for, and a set on a bike where the only number worth keeping is the
+      resistance are all ordinary — a set with none of the four filled in is a
+      complete set, not an incomplete one, and nothing warns about it or blocks
+      Finish.
+    uses:
+    - session.console-metrics
+  - id: readouts-fold-away-under-the-row
+    t: The fields fold away under the set they belong to
+    d: >-
+      a details control on the row opens them in place and shuts them again, and
+      the toggle is per set: the interval you ran at 14 km/h and the one you
+      walked at 5 are two rows with two sets of numbers, not one number for the
+      block. A row carrying any readout says so when shut, so a set whose detail
+      is folded away never looks like a set that has none.
+    uses:
+    - session.console-metrics
+    - session.set-logging
+  - id: readouts-follow-the-gyms-unit
+    t: Speed and distance follow the unit the gym counts in
+    d: >-
+      kilometres per hour and kilometres where the app is in kg, miles per hour
+      and miles where it is in lb — the same setting, because a gym that weighs
+      in pounds reads its treadmill in miles. Incline is a percentage and
+      resistance is a level the machine made up, and neither has a unit to
+      convert. Storage is metric throughout, exactly as weight is stored in
+      kilograms: switching units re-reads what is already logged, and never
+      rewrites it.
+    uses:
+    - session.console-metrics
+    - load.units
+  - id: readouts-are-kept-with-the-session
+    t: The readouts are kept with the set, and survive the app dying
+    d: >-
+      they go into the crash snapshot with everything else the board holds, and
+      they are written alongside the set when the session is finished — so the
+      recap and the history entry can say what the twenty minutes were spent
+      doing. A set that is never logged takes its readouts with it, as it takes
+      its weight.
+    screen: none
+    uses:
+    - session.console-metrics
+    - session.live-state
+    - session.finish
+    - history.session-record
+  - id: only-a-cardio-machine-gets-the-details-control
+    t: Only a cardio machine gets the details control
+    d: >-
+      a bench press row has no speed and a plank has no incline, and four blank
+      fields under every set of every movement would be four things to ignore on
+      a screen whose whole job is one tap per set. So the control appears on the
+      sets of a movement that files under Cardio with Machine equipment, and
+      nowhere else.
+    uses:
+    - exercise.cardio-machine
+    - session.console-metrics
+- name: Slot settings from the board
+  screen: session
+  uses:
+  - session.slot-settings
+  items:
+  - id: slot-settings-open-from-the-board
+    t: An exercise's settings open from the board
+    d: >-
+      the settings control beside a movement's name opens the same sheet the
+      workout builder opens — sets, reps, rest, weight, the set scheme, the
+      progression axis and its rates — so a rule you want to change is changed
+      where you noticed it was wrong, rather than remembered until after the
+      session. The one thing the sheet does not offer here is the superset join:
+      what is trained in the same round is the shape of the day, and re-shaping
+      the day around sets already logged is the edit the session refuses.
+    defines:
+    - session.slot-settings
+    uses:
+    - template.item
+    - progression.rates
+    - template.set-scheme
+  - id: board-settings-are-saved-to-the-workout
+    t: What you change there is saved to the workout
+    d: >-
+      it is the workout's slot being edited, not a copy of it, so next week opens
+      on what you set today — which is the point of changing a progression rule
+      mid-session at all: you have just learned the step is too big. Nothing is
+      written twice and nothing has to be repeated in the builder afterwards.
+    uses:
+    - session.slot-settings
+    - template.item
+  - id: board-takes-the-change-where-it-can
+    t: The board takes the change where it safely can
+    d: >-
+      rest, the working weight and the target of every set still to come move at
+      once; a set already logged keeps what it was done at, exactly as it does
+      when the weight alone is edited. Asking for more sets adds them on the end,
+      and asking for fewer drops the ones nobody has logged — a slot cannot be
+      cut below the sets you have already done, so a workout that went further
+      than planned is never asked to lose one. What the console said on a set is
+      never rebuilt away either, logged or not: a readout is not a target, it is
+      something typed off a machine, and losing it because the rest time changed
+      would be losing data. The progression rates are the same edit either way:
+      they are read from the slot when the session is filed, so a rate changed
+      mid-session is the rate the session progresses by.
+    uses:
+    - session.slot-settings
+    - session.live-state
+    - session.exercise-weight
+    - session.console-metrics
+    - template.rep-target
+    - progression.rates
+  - id: no-settings-on-an-exercise-with-no-slot
+    t: A movement the session is carrying without a slot has no settings to open
+    d: >-
+      a session started from a workout has a slot behind every exercise. One that
+      does not — anything the board is holding with no template row of its own —
+      has nowhere for the sheet to write, so the control is absent rather than
+      opening a sheet that would throw the edit away.
+    uses:
+    - session.slot-settings
 - name: Warm-ups
   screen: session
   uses:

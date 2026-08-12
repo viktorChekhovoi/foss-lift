@@ -801,6 +801,46 @@
   "@exerciseShadowBoxing": {
     "description": "Name of a movement in the starter exercise library."
   },
+  "exerciseTreadmill": "Treadmill",
+  "@exerciseTreadmill": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseElliptical": "Elliptical",
+  "@exerciseElliptical": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseStationaryBike": "Stationary Bike",
+  "@exerciseStationaryBike": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseRecumbentBike": "Recumbent Bike",
+  "@exerciseRecumbentBike": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseRowingMachine": "Rowing Machine",
+  "@exerciseRowingMachine": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseStairClimber": "Stair Climber",
+  "@exerciseStairClimber": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseAirBike": "Air Bike",
+  "@exerciseAirBike": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseSkiErg": "Ski Erg",
+  "@exerciseSkiErg": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseArcTrainer": "Arc Trainer",
+  "@exerciseArcTrainer": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseJacobsLadder": "Jacob's Ladder",
+  "@exerciseJacobsLadder": {
+    "description": "Name of a movement in the starter exercise library."
+  },
   "exerciseDumbbellThruster": "Dumbbell Thruster",
   "@exerciseDumbbellThruster": {
     "description": "Name of a movement in the starter exercise library."
@@ -2072,6 +2112,80 @@
   "unitLbSuffix": "lb",
   "@unitLbSuffix": {
     "description": "The pound suffix as it appears next to a number — the short form, not the word."
+  },
+  "sessionConsoleDetails": "Details",
+  "@sessionConsoleDetails": {
+    "description": "Opens the optional speed / incline / resistance / distance fields under a set done on a cardio machine. A control on a row that is already tight, so keep it to a word."
+  },
+  "sessionConsoleSpeed": "Speed",
+  "@sessionConsoleSpeed": {
+    "description": "Label of the optional speed field on a cardio-machine set — what the treadmill or bike console read."
+  },
+  "sessionConsoleIncline": "Incline",
+  "@sessionConsoleIncline": {
+    "description": "Label of the optional incline field on a cardio-machine set, as a percentage."
+  },
+  "sessionConsoleResistance": "Resistance",
+  "@sessionConsoleResistance": {
+    "description": "Label of the optional resistance-level field on a cardio-machine set. A number the machine made up, not a unit."
+  },
+  "sessionConsoleDistance": "Distance",
+  "@sessionConsoleDistance": {
+    "description": "Label of the optional distance field on a cardio-machine set."
+  },
+  "sessionSlotSettings": "Exercise settings",
+  "@sessionSlotSettings": {
+    "description": "Tooltip on the control beside an exercise's name during a live workout, which opens the slot's sets / reps / rest / progression sheet."
+  },
+  "unitKmhSuffix": "km/h",
+  "@unitKmhSuffix": {
+    "description": "The speed suffix shown beside a cardio-machine readout in a metric gym — the short form, not the words."
+  },
+  "unitMphSuffix": "mph",
+  "@unitMphSuffix": {
+    "description": "The speed suffix shown beside a cardio-machine readout in a gym that weighs in pounds."
+  },
+  "unitKmSuffix": "km",
+  "@unitKmSuffix": {
+    "description": "The distance suffix in a metric gym — the short form, not the word."
+  },
+  "unitMiSuffix": "mi",
+  "@unitMiSuffix": {
+    "description": "The distance suffix in a gym that weighs in pounds — the short form, not the word."
+  },
+  "unitCardioShort": "{amount} {unit}",
+  "@unitCardioShort": {
+    "description": "A cardio readout and its unit together, e.g. “9.5 km/h” or “3.2 km”. `amount` is already formatted for the language and `unit` is one of unitKmhSuffix / unitMphSuffix / unitKmSuffix / unitMiSuffix. Reorder or close the gap if your language writes it differently.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "9.5"
+      },
+      "unit": {
+        "type": "String",
+        "example": "km/h"
+      }
+    }
+  },
+  "unitInclineShort": "{percent}%",
+  "@unitInclineShort": {
+    "description": "A treadmill incline, written as tightly as the language allows — it sits on a set row beside two or three other readouts.",
+    "placeholders": {
+      "percent": {
+        "type": "String",
+        "example": "2"
+      }
+    }
+  },
+  "unitResistanceShort": "L{level}",
+  "@unitResistanceShort": {
+    "description": "The resistance level a machine was set to, abbreviated for a crowded row — English writes L7 for “level 7”. Use whatever letter your language abbreviates “level” with.",
+    "placeholders": {
+      "level": {
+        "type": "String",
+        "example": "7"
+      }
+    }
   },
   "historyTitle": "History",
   "@historyTitle": {

@@ -98,7 +98,22 @@ bool _isPlural(String message) =>
 
 /// English strings a translation may legitimately leave alone: unit suffixes
 /// and initialisms that are the same word in every language the app ships in.
-const _sameInEveryLanguage = {'kg', 'lb', 'OK', 'AAA', 'QR', 'RGB', '1RM'};
+const _sameInEveryLanguage = {
+  'kg',
+  'lb',
+  'OK',
+  'AAA',
+  'QR',
+  'RGB',
+  '1RM',
+  // The cardio-machine readouts. Ukrainian writes км/год and км; Spanish and
+  // both Portuguese variants write the SI abbreviations exactly as English
+  // does, and mph and mi are borrowed wholesale everywhere the app ships.
+  'km/h',
+  'mph',
+  'km',
+  'mi',
+};
 
 /// Words a native reviewer decided each language really does say in English.
 ///

@@ -19,6 +19,7 @@ import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
 import '../services/workout_shade.dart'
     show pendingShadeActionsProvider, restIsOverLine;
+import '../util/cardio_units.dart';
 import 'session_mirror.dart';
 import 'workout_cue.dart';
 
@@ -44,6 +45,7 @@ class SetEntry {
     this.logged,
     this.loggedOrder,
     this.videoPath,
+    this.console = kNoConsoleMetrics,
   }) : weight = weight ?? goalWeight ?? 0;
 
   /// The target from the template — reps, or seconds when [timed]. Immutable.
@@ -86,6 +88,19 @@ class SetEntry {
   /// sweep collects; the ordering is chosen so it can never strand a row
   /// pointing at nothing.
   String? videoPath;
+
+  /// What the machine's console said, on a set done on one — see
+  /// [ConsoleMetrics]. All four readouts are optional and all four are
+  /// ordinarily unset: twenty minutes on a treadmill is a complete set whether
+  /// or not anybody wrote the speed down.
+  ///
+  /// Held per set rather than per exercise, because that is the grain the
+  /// numbers have: the interval you ran at 14 km/h and the one you walked at 5
+  /// are two rows with two answers, not one answer for the block.
+  ConsoleMetrics console;
+
+  /// Whether any readout has been filled in on this set.
+  bool get hasConsole => hasConsoleMetrics(console);
 
   bool get done => logged != null;
 
@@ -139,8 +154,16 @@ class ExerciseEntry {
     this.goalReps = 0,
     this.floorKg = 0,
     this.supersetWithPrevious = false,
+    this.cardioMachine = false,
   }) : warmups = warmups ?? <SetEntry>[];
   final int? exerciseId;
+
+  /// Whether this movement is done on a console that reports speed, incline,
+  /// resistance and distance — carried from the library at start, because it is
+  /// a fact about the movement and the session is a snapshot of one. What
+  /// decides whether the board offers the readouts on this exercise's rows at
+  /// all. See `isCardioMachine`.
+  final bool cardioMachine;
 
   /// Whether this exercise is trained in the same round as the one above it —
   /// carried straight from the slot. What makes a run of exercises a superset;
@@ -1209,6 +1232,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       goalReps: goal,
       floorKg: warmupBar,
       supersetWithPrevious: v.item.supersetWithPrevious,
+      cardioMachine: v.exercise.isCardioMachine,
       sets: [
         for (final t in targets)
           SetEntry(
@@ -1452,6 +1476,115 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _commit(s.copyWith());
   }
 
+  /// Writes what the console said on one set of a cardio machine.
+  ///
+  /// All four readouts at once, because that is how the panel that types them
+  /// works: a field left blank is a null being written, so handing back
+  /// [kNoConsoleMetrics] is how a set's numbers are cleared again.
+  ///
+  /// Not routed through [_editEntry]: nothing here can change whether a set is
+  /// logged, so there is no logging order to restamp and no rest to start or
+  /// take back. Typing the speed you ran at is not logging the set.
+  void setConsole(int ei, int si, ConsoleMetrics metrics) {
+    final s = state;
+    if (s == null) return;
+    if (ei < 0 || ei >= s.exercises.length) return;
+    final sets = s.exercises[ei].sets;
+    if (si < 0 || si >= sets.length) return;
+    sets[si].console = metrics;
+    _commit(s.copyWith());
+  }
+
+  /// Takes the workout's slot for the exercise at [ei] as it now stands, after
+  /// the settings sheet on the board has written it.
+  ///
+  /// **Not [_takeTemplateAdditions].** That one watches the slot table and is
+  /// deliberately conservative — it appends at the tail and refuses everything
+  /// else, because it cannot tell a reconfigured slot from a deleted one plus a
+  /// new one, and guessing wrong re-files logged sets under the wrong movement.
+  /// This is the other case: the sheet was opened *from* a row of the board, so
+  /// which exercise changed is known rather than inferred, and the change can be
+  /// taken safely.
+  ///
+  /// What the board takes: the rest, the working weight and every set still to
+  /// come. What it will not touch is a set already logged — it keeps the weight
+  /// and the goal it was done at, exactly as it does when only the weight is
+  /// edited — and the slot cannot be cut below the sets already done, so a
+  /// session that went further than planned never loses one.
+  ///
+  /// A silent no-op for an index off the board, and for an exercise with no slot
+  /// behind it: there is nothing to read back.
+  Future<void> reconfigure(int ei) async {
+    final before = state;
+    if (before == null || ei < 0 || ei >= before.exercises.length) return;
+    final itemId = before.exercises[ei].itemId;
+    final workoutId = before.workoutId;
+    if (itemId == null || workoutId == null) return;
+
+    final views = await _db.itemsForWorkout(workoutId);
+    final view = views.where((v) => v.item.id == itemId).firstOrNull;
+    if (view == null || _gone) return;
+    final routine =
+        await _db.routineById((await _db.workoutById(workoutId)).routineId);
+    if (_gone) return;
+
+    // Those were trips to the database, so the board is looked at again rather
+    // than trusted from before them — the session may have been finished, thrown
+    // away or replaced while they ran.
+    final s = state;
+    if (s == null || s.workoutId != workoutId) return;
+    if (ei >= s.exercises.length) return;
+    final old = s.exercises[ei];
+    if (old.itemId != itemId) return;
+
+    final fresh = _entryFor(
+      view,
+      // The session's own numbers, not the settings as they stand now — the
+      // same reason [_takeTemplateAdditions] passes these.
+      unit: s.unit,
+      plates: s.plates,
+      barKg: s.barKg,
+      // The stepper on the board is a decision about today and outranks the
+      // app-wide default a fresh entry would take.
+      warmupSets: old.warmupCount,
+      defaultRestSeconds: routine.restSeconds,
+    );
+    _carryLoggedWork(from: old, to: fresh);
+    s.exercises[ei] = fresh;
+    _commit(s.copyWith());
+  }
+
+  /// Moves everything already done from [from] onto [to], which is the same slot
+  /// rebuilt from a template that has changed under it.
+  ///
+  /// A logged set is moved whole — its weight, its result and its goal — because
+  /// what it says is what happened, and a target rewritten after the fact would
+  /// turn a set that was hit into one that was missed. Sets past the end of the
+  /// new list are appended rather than dropped: asking for three sets after
+  /// doing four is a decision about what is left to do, not permission to erase
+  /// the fourth.
+  void _carryLoggedWork({required ExerciseEntry from, required ExerciseEntry to}) {
+    for (var i = 0; i < from.sets.length; i++) {
+      if (!from.sets[i].done) {
+        // A set nobody has logged is rebuilt to the new target — but what the
+        // console said is not a target, it is something typed off a machine.
+        // Losing it because the rest time changed would be losing data.
+        if (i < to.sets.length) to.sets[i].console = from.sets[i].console;
+        continue;
+      }
+      if (i < to.sets.length) {
+        to.sets[i] = from.sets[i];
+      } else {
+        to.sets.add(from.sets[i]);
+      }
+    }
+    // The ramp is regenerated from the working weight, so a rung already done
+    // is carried the same way [_rebuildRamp] carries one.
+    for (var i = 0; i < to.warmups.length && i < from.warmups.length; i++) {
+      if (from.warmups[i].done) to.warmups[i] = from.warmups[i];
+    }
+  }
+
   /// Logs the next outstanding set at its goal and starts the rest — what the
   /// shade's **Done** button does.
   void logNextAtGoal() => _logNext(short: false);
@@ -1631,6 +1764,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
             goalSeconds: Value(set.timed ? set.goal : null),
             goalWeight: Value(set.goalWeight),
             videoPath: Value(set.videoPath),
+            // What the console said, where anybody wrote it down. Null
+            // throughout on everything that is not a cardio machine, and on
+            // most sets that are.
+            speedKph: Value(set.console.speedKph),
+            inclinePercent: Value(set.console.inclinePercent),
+            resistanceLevel: Value(set.console.resistanceLevel),
+            distanceKm: Value(set.console.distanceKm),
           ),
         );
       }

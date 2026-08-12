@@ -3841,6 +3841,50 @@ class $SessionSetsTable extends SessionSets
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _speedKphMeta = const VerificationMeta(
+    'speedKph',
+  );
+  @override
+  late final GeneratedColumn<double> speedKph = GeneratedColumn<double>(
+    'speed_kph',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _inclinePercentMeta = const VerificationMeta(
+    'inclinePercent',
+  );
+  @override
+  late final GeneratedColumn<double> inclinePercent = GeneratedColumn<double>(
+    'incline_percent',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resistanceLevelMeta = const VerificationMeta(
+    'resistanceLevel',
+  );
+  @override
+  late final GeneratedColumn<int> resistanceLevel = GeneratedColumn<int>(
+    'resistance_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _distanceKmMeta = const VerificationMeta(
+    'distanceKm',
+  );
+  @override
+  late final GeneratedColumn<double> distanceKm = GeneratedColumn<double>(
+    'distance_km',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3857,6 +3901,10 @@ class $SessionSetsTable extends SessionSets
     seconds,
     goalSeconds,
     videoPath,
+    speedKph,
+    inclinePercent,
+    resistanceLevel,
+    distanceKm,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3966,6 +4014,36 @@ class $SessionSetsTable extends SessionSets
         videoPath.isAcceptableOrUnknown(data['video_path']!, _videoPathMeta),
       );
     }
+    if (data.containsKey('speed_kph')) {
+      context.handle(
+        _speedKphMeta,
+        speedKph.isAcceptableOrUnknown(data['speed_kph']!, _speedKphMeta),
+      );
+    }
+    if (data.containsKey('incline_percent')) {
+      context.handle(
+        _inclinePercentMeta,
+        inclinePercent.isAcceptableOrUnknown(
+          data['incline_percent']!,
+          _inclinePercentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('resistance_level')) {
+      context.handle(
+        _resistanceLevelMeta,
+        resistanceLevel.isAcceptableOrUnknown(
+          data['resistance_level']!,
+          _resistanceLevelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('distance_km')) {
+      context.handle(
+        _distanceKmMeta,
+        distanceKm.isAcceptableOrUnknown(data['distance_km']!, _distanceKmMeta),
+      );
+    }
     return context;
   }
 
@@ -4031,6 +4109,22 @@ class $SessionSetsTable extends SessionSets
         DriftSqlType.string,
         data['${effectivePrefix}video_path'],
       ),
+      speedKph: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}speed_kph'],
+      ),
+      inclinePercent: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}incline_percent'],
+      ),
+      resistanceLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}resistance_level'],
+      ),
+      distanceKm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_km'],
+      ),
     );
   }
 
@@ -4089,6 +4183,22 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
   /// One column rather than a table: one clip per set is the feature, and
   /// several angles of the same set is not.
   final String? videoPath;
+
+  /// Speed, in kilometres per hour. Metric in the column and converted for
+  /// display, exactly as [weight] is stored in kilograms — see
+  /// `util/cardio_units.dart`.
+  final double? speedKph;
+
+  /// The incline, as a percentage. No unit to convert: a 2% treadmill is 2% in
+  /// every gym.
+  final double? inclinePercent;
+
+  /// The resistance level the machine was set to. A number the machine made up,
+  /// so it is stored as it reads and never scaled.
+  final int? resistanceLevel;
+
+  /// Distance covered, in kilometres. Metric for the same reason [speedKph] is.
+  final double? distanceKm;
   const SessionSet({
     required this.id,
     required this.sessionId,
@@ -4104,6 +4214,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     this.seconds,
     this.goalSeconds,
     this.videoPath,
+    this.speedKph,
+    this.inclinePercent,
+    this.resistanceLevel,
+    this.distanceKm,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4133,6 +4247,18 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     }
     if (!nullToAbsent || videoPath != null) {
       map['video_path'] = Variable<String>(videoPath);
+    }
+    if (!nullToAbsent || speedKph != null) {
+      map['speed_kph'] = Variable<double>(speedKph);
+    }
+    if (!nullToAbsent || inclinePercent != null) {
+      map['incline_percent'] = Variable<double>(inclinePercent);
+    }
+    if (!nullToAbsent || resistanceLevel != null) {
+      map['resistance_level'] = Variable<int>(resistanceLevel);
+    }
+    if (!nullToAbsent || distanceKm != null) {
+      map['distance_km'] = Variable<double>(distanceKm);
     }
     return map;
   }
@@ -4165,6 +4291,18 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       videoPath: videoPath == null && nullToAbsent
           ? const Value.absent()
           : Value(videoPath),
+      speedKph: speedKph == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speedKph),
+      inclinePercent: inclinePercent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(inclinePercent),
+      resistanceLevel: resistanceLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resistanceLevel),
+      distanceKm: distanceKm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(distanceKm),
     );
   }
 
@@ -4188,6 +4326,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       seconds: serializer.fromJson<int?>(json['seconds']),
       goalSeconds: serializer.fromJson<int?>(json['goalSeconds']),
       videoPath: serializer.fromJson<String?>(json['videoPath']),
+      speedKph: serializer.fromJson<double?>(json['speedKph']),
+      inclinePercent: serializer.fromJson<double?>(json['inclinePercent']),
+      resistanceLevel: serializer.fromJson<int?>(json['resistanceLevel']),
+      distanceKm: serializer.fromJson<double?>(json['distanceKm']),
     );
   }
   @override
@@ -4208,6 +4350,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       'seconds': serializer.toJson<int?>(seconds),
       'goalSeconds': serializer.toJson<int?>(goalSeconds),
       'videoPath': serializer.toJson<String?>(videoPath),
+      'speedKph': serializer.toJson<double?>(speedKph),
+      'inclinePercent': serializer.toJson<double?>(inclinePercent),
+      'resistanceLevel': serializer.toJson<int?>(resistanceLevel),
+      'distanceKm': serializer.toJson<double?>(distanceKm),
     };
   }
 
@@ -4226,6 +4372,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     Value<int?> seconds = const Value.absent(),
     Value<int?> goalSeconds = const Value.absent(),
     Value<String?> videoPath = const Value.absent(),
+    Value<double?> speedKph = const Value.absent(),
+    Value<double?> inclinePercent = const Value.absent(),
+    Value<int?> resistanceLevel = const Value.absent(),
+    Value<double?> distanceKm = const Value.absent(),
   }) => SessionSet(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -4243,6 +4393,14 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     seconds: seconds.present ? seconds.value : this.seconds,
     goalSeconds: goalSeconds.present ? goalSeconds.value : this.goalSeconds,
     videoPath: videoPath.present ? videoPath.value : this.videoPath,
+    speedKph: speedKph.present ? speedKph.value : this.speedKph,
+    inclinePercent: inclinePercent.present
+        ? inclinePercent.value
+        : this.inclinePercent,
+    resistanceLevel: resistanceLevel.present
+        ? resistanceLevel.value
+        : this.resistanceLevel,
+    distanceKm: distanceKm.present ? distanceKm.value : this.distanceKm,
   );
   SessionSet copyWithCompanion(SessionSetsCompanion data) {
     return SessionSet(
@@ -4270,6 +4428,16 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ? data.goalSeconds.value
           : this.goalSeconds,
       videoPath: data.videoPath.present ? data.videoPath.value : this.videoPath,
+      speedKph: data.speedKph.present ? data.speedKph.value : this.speedKph,
+      inclinePercent: data.inclinePercent.present
+          ? data.inclinePercent.value
+          : this.inclinePercent,
+      resistanceLevel: data.resistanceLevel.present
+          ? data.resistanceLevel.value
+          : this.resistanceLevel,
+      distanceKm: data.distanceKm.present
+          ? data.distanceKm.value
+          : this.distanceKm,
     );
   }
 
@@ -4289,7 +4457,11 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ..write('goalWeight: $goalWeight, ')
           ..write('seconds: $seconds, ')
           ..write('goalSeconds: $goalSeconds, ')
-          ..write('videoPath: $videoPath')
+          ..write('videoPath: $videoPath, ')
+          ..write('speedKph: $speedKph, ')
+          ..write('inclinePercent: $inclinePercent, ')
+          ..write('resistanceLevel: $resistanceLevel, ')
+          ..write('distanceKm: $distanceKm')
           ..write(')'))
         .toString();
   }
@@ -4310,6 +4482,10 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     seconds,
     goalSeconds,
     videoPath,
+    speedKph,
+    inclinePercent,
+    resistanceLevel,
+    distanceKm,
   );
   @override
   bool operator ==(Object other) =>
@@ -4328,7 +4504,11 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           other.goalWeight == this.goalWeight &&
           other.seconds == this.seconds &&
           other.goalSeconds == this.goalSeconds &&
-          other.videoPath == this.videoPath);
+          other.videoPath == this.videoPath &&
+          other.speedKph == this.speedKph &&
+          other.inclinePercent == this.inclinePercent &&
+          other.resistanceLevel == this.resistanceLevel &&
+          other.distanceKm == this.distanceKm);
 }
 
 class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
@@ -4346,6 +4526,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
   final Value<int?> seconds;
   final Value<int?> goalSeconds;
   final Value<String?> videoPath;
+  final Value<double?> speedKph;
+  final Value<double?> inclinePercent;
+  final Value<int?> resistanceLevel;
+  final Value<double?> distanceKm;
   const SessionSetsCompanion({
     this.id = const Value.absent(),
     this.sessionId = const Value.absent(),
@@ -4361,6 +4545,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.seconds = const Value.absent(),
     this.goalSeconds = const Value.absent(),
     this.videoPath = const Value.absent(),
+    this.speedKph = const Value.absent(),
+    this.inclinePercent = const Value.absent(),
+    this.resistanceLevel = const Value.absent(),
+    this.distanceKm = const Value.absent(),
   });
   SessionSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -4377,6 +4565,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.seconds = const Value.absent(),
     this.goalSeconds = const Value.absent(),
     this.videoPath = const Value.absent(),
+    this.speedKph = const Value.absent(),
+    this.inclinePercent = const Value.absent(),
+    this.resistanceLevel = const Value.absent(),
+    this.distanceKm = const Value.absent(),
   }) : sessionId = Value(sessionId),
        exerciseName = Value(exerciseName),
        setNumber = Value(setNumber);
@@ -4395,6 +4587,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Expression<int>? seconds,
     Expression<int>? goalSeconds,
     Expression<String>? videoPath,
+    Expression<double>? speedKph,
+    Expression<double>? inclinePercent,
+    Expression<int>? resistanceLevel,
+    Expression<double>? distanceKm,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4411,6 +4607,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       if (seconds != null) 'seconds': seconds,
       if (goalSeconds != null) 'goal_seconds': goalSeconds,
       if (videoPath != null) 'video_path': videoPath,
+      if (speedKph != null) 'speed_kph': speedKph,
+      if (inclinePercent != null) 'incline_percent': inclinePercent,
+      if (resistanceLevel != null) 'resistance_level': resistanceLevel,
+      if (distanceKm != null) 'distance_km': distanceKm,
     });
   }
 
@@ -4429,6 +4629,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Value<int?>? seconds,
     Value<int?>? goalSeconds,
     Value<String?>? videoPath,
+    Value<double?>? speedKph,
+    Value<double?>? inclinePercent,
+    Value<int?>? resistanceLevel,
+    Value<double?>? distanceKm,
   }) {
     return SessionSetsCompanion(
       id: id ?? this.id,
@@ -4445,6 +4649,10 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       seconds: seconds ?? this.seconds,
       goalSeconds: goalSeconds ?? this.goalSeconds,
       videoPath: videoPath ?? this.videoPath,
+      speedKph: speedKph ?? this.speedKph,
+      inclinePercent: inclinePercent ?? this.inclinePercent,
+      resistanceLevel: resistanceLevel ?? this.resistanceLevel,
+      distanceKm: distanceKm ?? this.distanceKm,
     );
   }
 
@@ -4493,6 +4701,18 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     if (videoPath.present) {
       map['video_path'] = Variable<String>(videoPath.value);
     }
+    if (speedKph.present) {
+      map['speed_kph'] = Variable<double>(speedKph.value);
+    }
+    if (inclinePercent.present) {
+      map['incline_percent'] = Variable<double>(inclinePercent.value);
+    }
+    if (resistanceLevel.present) {
+      map['resistance_level'] = Variable<int>(resistanceLevel.value);
+    }
+    if (distanceKm.present) {
+      map['distance_km'] = Variable<double>(distanceKm.value);
+    }
     return map;
   }
 
@@ -4512,7 +4732,11 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
           ..write('goalWeight: $goalWeight, ')
           ..write('seconds: $seconds, ')
           ..write('goalSeconds: $goalSeconds, ')
-          ..write('videoPath: $videoPath')
+          ..write('videoPath: $videoPath, ')
+          ..write('speedKph: $speedKph, ')
+          ..write('inclinePercent: $inclinePercent, ')
+          ..write('resistanceLevel: $resistanceLevel, ')
+          ..write('distanceKm: $distanceKm')
           ..write(')'))
         .toString();
   }
@@ -8807,6 +9031,10 @@ typedef $$SessionSetsTableCreateCompanionBuilder =
       Value<int?> seconds,
       Value<int?> goalSeconds,
       Value<String?> videoPath,
+      Value<double?> speedKph,
+      Value<double?> inclinePercent,
+      Value<int?> resistanceLevel,
+      Value<double?> distanceKm,
     });
 typedef $$SessionSetsTableUpdateCompanionBuilder =
     SessionSetsCompanion Function({
@@ -8824,6 +9052,10 @@ typedef $$SessionSetsTableUpdateCompanionBuilder =
       Value<int?> seconds,
       Value<int?> goalSeconds,
       Value<String?> videoPath,
+      Value<double?> speedKph,
+      Value<double?> inclinePercent,
+      Value<int?> resistanceLevel,
+      Value<double?> distanceKm,
     });
 
 final class $$SessionSetsTableReferences
@@ -8919,6 +9151,26 @@ class $$SessionSetsTableFilterComposer
 
   ColumnFilters<String> get videoPath => $composableBuilder(
     column: $table.videoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get speedKph => $composableBuilder(
+    column: $table.speedKph,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get inclinePercent => $composableBuilder(
+    column: $table.inclinePercent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resistanceLevel => $composableBuilder(
+    column: $table.resistanceLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9020,6 +9272,26 @@ class $$SessionSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get speedKph => $composableBuilder(
+    column: $table.speedKph,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get inclinePercent => $composableBuilder(
+    column: $table.inclinePercent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resistanceLevel => $composableBuilder(
+    column: $table.resistanceLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SessionsTableOrderingComposer get sessionId {
     final $$SessionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9102,6 +9374,24 @@ class $$SessionSetsTableAnnotationComposer
   GeneratedColumn<String> get videoPath =>
       $composableBuilder(column: $table.videoPath, builder: (column) => column);
 
+  GeneratedColumn<double> get speedKph =>
+      $composableBuilder(column: $table.speedKph, builder: (column) => column);
+
+  GeneratedColumn<double> get inclinePercent => $composableBuilder(
+    column: $table.inclinePercent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get resistanceLevel => $composableBuilder(
+    column: $table.resistanceLevel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => column,
+  );
+
   $$SessionsTableAnnotationComposer get sessionId {
     final $$SessionsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -9168,6 +9458,10 @@ class $$SessionSetsTableTableManager
                 Value<int?> seconds = const Value.absent(),
                 Value<int?> goalSeconds = const Value.absent(),
                 Value<String?> videoPath = const Value.absent(),
+                Value<double?> speedKph = const Value.absent(),
+                Value<double?> inclinePercent = const Value.absent(),
+                Value<int?> resistanceLevel = const Value.absent(),
+                Value<double?> distanceKm = const Value.absent(),
               }) => SessionSetsCompanion(
                 id: id,
                 sessionId: sessionId,
@@ -9183,6 +9477,10 @@ class $$SessionSetsTableTableManager
                 seconds: seconds,
                 goalSeconds: goalSeconds,
                 videoPath: videoPath,
+                speedKph: speedKph,
+                inclinePercent: inclinePercent,
+                resistanceLevel: resistanceLevel,
+                distanceKm: distanceKm,
               ),
           createCompanionCallback:
               ({
@@ -9200,6 +9498,10 @@ class $$SessionSetsTableTableManager
                 Value<int?> seconds = const Value.absent(),
                 Value<int?> goalSeconds = const Value.absent(),
                 Value<String?> videoPath = const Value.absent(),
+                Value<double?> speedKph = const Value.absent(),
+                Value<double?> inclinePercent = const Value.absent(),
+                Value<int?> resistanceLevel = const Value.absent(),
+                Value<double?> distanceKm = const Value.absent(),
               }) => SessionSetsCompanion.insert(
                 id: id,
                 sessionId: sessionId,
@@ -9215,6 +9517,10 @@ class $$SessionSetsTableTableManager
                 seconds: seconds,
                 goalSeconds: goalSeconds,
                 videoPath: videoPath,
+                speedKph: speedKph,
+                inclinePercent: inclinePercent,
+                resistanceLevel: resistanceLevel,
+                distanceKm: distanceKm,
               ),
           withReferenceMapper: (p0) => p0
               .map(

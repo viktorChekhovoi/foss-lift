@@ -75,7 +75,7 @@ groups:
     d: >-
       Every movement the app ships with carries a <code>seedKey</code>, and the
       name on screen is looked up from it rather than read out of the row. So
-      switching from Spanish to Ukrainian renames all 123 of them, and switching
+      switching from Spanish to Ukrainian renames all 133 of them, and switching
       back renames them again. A movement you added yourself has no key and
       keeps the name you gave it.
     defines:

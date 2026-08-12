@@ -45,6 +45,29 @@ const List<String> kEquipmentTypes = [
   'Other',
 ];
 
+/// The group a movement done on a cardio console files under.
+const String kCardioGroup = 'Cardio';
+
+/// The equipment such a movement is described as.
+const String kMachineEquipment = 'Machine';
+
+/// Whether a movement classified this way is done on a console that reports
+/// speed, incline, resistance and distance — a treadmill, a rower, a stair
+/// climber.
+///
+/// **Derived, never stored.** Both halves already travel in a routine code as
+/// indexes into the frozen lists above, so a treadmill shared with somebody
+/// arrives as a treadmill without a flag of its own being added to the format —
+/// and a movement built for the machine a particular gym has earns the readouts
+/// by being classified, with nothing else to find and tick.
+///
+/// [leadGroup] is the group the movement files under ([MuscleMap.lead]), not any
+/// group it merely touches: a jump squat assists Legs and is still conditioning
+/// done on the floor. A burpee is Cardio and bodyweight, so it answers false —
+/// there is no console to read.
+bool cardioMachine(String leadGroup, String equipment) =>
+    leadGroup == kCardioGroup && equipment == kMachineEquipment;
+
 /// What separates group names inside one stored column.
 ///
 /// A unit separator rather than a comma: a group name is usually one of
