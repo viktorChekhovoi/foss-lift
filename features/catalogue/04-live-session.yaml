@@ -1100,7 +1100,13 @@ groups:
       something typed off a machine, and losing it because the rest time changed
       would be losing data. The progression rates are the same edit either way:
       they are read from the slot when the session is filed, so a rate changed
-      mid-session is the rate the session progresses by.
+      mid-session is the rate the session progresses by. So is the rule the
+      session is <i>judged</i> by, which is the part that could have gone the
+      other way: tick "add weight only at the top of the rep range" from the
+      board and this session is already the one that holds its weight inside the
+      range rather than counting it a miss. The board is rebuilt from the slot
+      rather than patched field by field, so a rule added later is taken without
+      anybody having to remember to add it here.
     uses:
     - session.slot-settings
     - session.live-state
@@ -1108,6 +1114,8 @@ groups:
     - session.console-metrics
     - template.rep-target
     - progression.rates
+    - progression.double
+    - progression.verdict
   - id: no-settings-on-an-exercise-with-no-slot
     t: A movement the session is carrying without a slot has no settings to open
     d: >-

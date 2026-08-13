@@ -121,6 +121,42 @@ void main() {
       expect(only().sets.map((s) => s.weight), everyElement(90));
     });
 
+    test('the rule the session is judged by moves with it', () async {
+      // A 3 × 6–8 slot started with the climb off, ticked on from the board
+      // mid-session: this session is the one that holds inside the range.
+      wid = await workoutIdNamed(db, 'Push');
+      final e = (await db.watchExercises().first)
+          .firstWhere((x) => x.name == 'Bench Press');
+      await db.replaceWorkoutItems(
+        wid,
+        itemCompanions([
+          ItemDraft.forExercise(e)
+            ..sets = 3
+            ..repsMin = 6
+            ..repsMax = 8
+            ..weightKg = 80
+        ], workoutId: wid),
+      );
+      await startDay();
+      expect(only().verdict, SessionVerdict.miss,
+          reason: 'nothing logged yet, and no range to forgive it');
+
+      await reconfigure((d) => d..addWeightAtTopOfRange = true);
+
+      // 8/7/7 — inside the range, short of the top of it.
+      control().setLogged(0, 0, 8);
+      control().setLogged(0, 1, 7);
+      control().setLogged(0, 2, 7);
+      expect(only().verdict, SessionVerdict.hold,
+          reason: 'the board took the new rule, not just the new rates');
+
+      await control().finish();
+      final item = (await db.itemsForWorkout(wid)).single.item;
+      expect(item.suggestedWeight, 80, reason: 'a hold moves nothing');
+      expect(item.failStreak, 0, reason: 'and spends nothing');
+      expect(item.successStreak, 0);
+    });
+
     test('a set already logged keeps what it was done at', () async {
       await makeDay(sets: 3, kg: 80);
       await startDay();
