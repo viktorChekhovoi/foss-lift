@@ -592,6 +592,7 @@ class NumberStepper extends StatelessWidget {
     this.isEmpty = false,
     this.emptyLabel = '—',
     this.onClear,
+    this.enabled = true,
   });
   final int value;
   final ValueChanged<int> onChanged;
@@ -607,9 +608,15 @@ class NumberStepper extends StatelessWidget {
   /// Called instead of [onChanged] when − would take the value below [min].
   final VoidCallback? onClear;
 
+  /// Whether the number can be moved at all. A stepper that cannot still shows
+  /// what it holds, greyed, with both buttons dead — the setting is not in use
+  /// today and the number it is holding is still yours.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
-    final canGoDown = isEmpty ? false : (value > min || onClear != null);
+    final canGoDown =
+        enabled && !isEmpty && (value > min || onClear != null);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -629,12 +636,15 @@ class NumberStepper extends StatelessWidget {
               style: kMono.copyWith(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: isEmpty ? AppColors.faint : AppColors.text,
+                color: isEmpty || !enabled ? AppColors.faint : AppColors.text,
               ),
             ),
           ),
         ),
-        stepperButton(Icons.add, isEmpty || value < max ? _up : null),
+        stepperButton(
+          Icons.add,
+          enabled && (isEmpty || value < max) ? _up : null,
+        ),
       ],
     );
   }

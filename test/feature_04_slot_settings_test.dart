@@ -122,8 +122,10 @@ void main() {
     });
 
     test('the rule the session is judged by moves with it', () async {
-      // A 3 × 6–8 slot started with the climb off, ticked on from the board
-      // mid-session: this session is the one that holds inside the range.
+      // A 3 × 6–8 slot started as an ordinary weight slot, switched to the
+      // advanced axis from the board mid-session: this session is already
+      // judged against the rep goal inside the range rather than against the
+      // top of it, which is the number it opened on.
       wid = await workoutIdNamed(db, 'Push');
       final e = (await db.watchExercises().first)
           .firstWhere((x) => x.name == 'Bench Press');
@@ -138,22 +140,26 @@ void main() {
         ], workoutId: wid),
       );
       await startDay();
-      expect(only().verdict, SessionVerdict.miss,
-          reason: 'nothing logged yet, and no range to forgive it');
+      expect(only().sets.map((s) => s.goal), everyElement(8),
+          reason: 'the top of the range, until the rule changes');
 
-      await reconfigure((d) => d..addWeightAtTopOfRange = true);
+      await reconfigure((d) => d..setAdvanced(true));
 
-      // 8/7/7 — inside the range, short of the top of it.
-      control().setLogged(0, 0, 8);
-      control().setLogged(0, 1, 7);
-      control().setLogged(0, 2, 7);
-      expect(only().verdict, SessionVerdict.hold,
+      expect(only().sets.map((s) => s.goal), everyElement(6),
+          reason: 'the goal starts at the bottom of the range');
+
+      // Six on every set: short of the top, and exactly what the goal asked.
+      control().setLogged(0, 0, 6);
+      control().setLogged(0, 1, 6);
+      control().setLogged(0, 2, 6);
+      expect(only().verdict, SessionVerdict.success,
           reason: 'the board took the new rule, not just the new rates');
 
       await control().finish();
       final item = (await db.itemsForWorkout(wid)).single.item;
-      expect(item.suggestedWeight, 80, reason: 'a hold moves nothing');
-      expect(item.failStreak, 0, reason: 'and spends nothing');
+      expect(item.repsTarget, 7, reason: 'the goal climbed');
+      expect(item.suggestedWeight, 80, reason: 'and the load waited');
+      expect(item.failStreak, 0);
       expect(item.successStreak, 0);
     });
 

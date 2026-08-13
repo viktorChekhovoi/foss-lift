@@ -275,8 +275,10 @@ class _ExerciseRow extends StatelessWidget {
               progression: view.item.progression,
               toFailure: view.item.toFailure,
               holdSeconds: view.item.holdSeconds,
-              repsMin: view.item.repsMin,
-              repsMax: view.item.repsMax,
+              // What the next session will actually ask for: a slot climbing
+              // its range is aiming at one number, not at the whole range.
+              repsMin: view.item.goalReps,
+              repsMax: view.item.climbsRange ? null : view.item.repsMax,
             ),
             style: kMono.copyWith(
               fontSize: 13,

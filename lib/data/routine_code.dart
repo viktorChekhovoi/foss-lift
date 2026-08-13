@@ -200,10 +200,14 @@ class SharedItem {
     List<CustomSet> customSets = const [],
     bool supersetWithPrevious = false,
     bool addWeightAtTopOfRange = false,
+    double? repsIncrement,
+    double? repsDeload,
   }) =>
       SharedItem._(
         supersetWithPrevious: supersetWithPrevious,
         addWeightAtTopOfRange: addWeightAtTopOfRange,
+        repsIncrement: repsIncrement ?? ProgressionMode.reps.defaultIncrement,
+        repsDeload: repsDeload ?? ProgressionMode.reps.defaultDeload,
         exercise: exercise,
         targetSets: targetSets,
         repsMin: repsMin,
@@ -239,6 +243,8 @@ class SharedItem {
     required this.customSets,
     this.supersetWithPrevious = false,
     this.addWeightAtTopOfRange = false,
+    this.repsIncrement = 1,
+    this.repsDeload = 2,
   });
 
   /// Index into [SharedRoutine.exercises].
@@ -250,17 +256,31 @@ class SharedItem {
   /// than in the slot; see the library docs.
   final bool supersetWithPrevious;
 
-  /// Whether this slot holds its load until the top of its rep range. The other
-  /// field that travels in a trailing section rather than in the slot, for the
-  /// same reason [supersetWithPrevious] does.
+  /// Whether this slot takes reps and weight in turn. Travels in a trailing
+  /// section rather than in the slot, for the same reason [supersetWithPrevious]
+  /// does.
   final bool addWeightAtTopOfRange;
+
+  /// The rep step and rep back-off that rule advances by, beside [increment]
+  /// and [deload], which are its weight half. In a trailing section of their own
+  /// for the same reason, and carried only for the slots that use them: where
+  /// the sender's program had got to inside its range is not part of the
+  /// program, but how fast it climbs is.
+  final double repsIncrement;
+  final double repsDeload;
 
   /// The same slot with one of the trailing-section flags set.
   ///
   /// Both sections are applied after the slots have been read, so each needs a
   /// copy of a slot that is otherwise untouched — one method rather than one
   /// per flag, because the fields being carried across are the same fields.
-  SharedItem _flagged({bool? superset, bool? climbRange}) => SharedItem._(
+  SharedItem _flagged({
+    bool? superset,
+    bool? climbRange,
+    double? repsIncrement,
+    double? repsDeload,
+  }) =>
+      SharedItem._(
         exercise: exercise,
         targetSets: targetSets,
         repsMin: repsMin,
@@ -278,14 +298,20 @@ class SharedItem {
         customSets: customSets,
         supersetWithPrevious: superset ?? supersetWithPrevious,
         addWeightAtTopOfRange: climbRange ?? addWeightAtTopOfRange,
+        repsIncrement: repsIncrement ?? this.repsIncrement,
+        repsDeload: repsDeload ?? this.repsDeload,
       );
 
   /// The same slot, joined to the one above it. How the supersets section is
   /// applied once the slots themselves have been read.
   SharedItem supersetted() => _flagged(superset: true);
 
-  /// The same slot, ticked to add weight at the top of its range.
+  /// The same slot, ticked to take reps and weight in turn.
   SharedItem climbingRange() => _flagged(climbRange: true);
+
+  /// The same slot, advancing its reps at the rates the code carried.
+  SharedItem atRepRates(double increment, double deload) =>
+      _flagged(repsIncrement: increment, repsDeload: deload);
 
   final int targetSets;
   final int repsMin;
@@ -450,6 +476,9 @@ abstract final class RoutineCode {
   /// Which slots hold their load until the top of their rep range.
   static const int _sectionRangeClimb = 2;
 
+  /// The rep step and rep back-off of the slots that do.
+  static const int _sectionRepRates = 3;
+
   // -- Envelope flag bits ---------------------------------------------------
   // The one byte in front of the body. **Frozen**, like everything else here.
 
@@ -550,6 +579,7 @@ abstract final class RoutineCode {
       routine.workouts,
       (i, it) => it.addWeightAtTopOfRange,
     );
+    _writeRepRates(body, routine.workouts);
 
     final raw = body.take();
     // Compress only when it actually helps: a short routine of common words
@@ -736,6 +766,53 @@ abstract final class RoutineCode {
     }
   }
 
+  /// Writes the rep rates of the slots that take reps and weight in turn, as a
+  /// marked slot's index and its two amounts.
+  ///
+  /// Same shape as [_writeMarks] with a pair of numbers hung off each index,
+  /// rather than that method with a payload: two readers that agree about
+  /// nothing but the counts are two readers, and this one has to be as
+  /// skippable as the rest. Written only for the slots the rates apply to, and
+  /// only when at least one of them differs from what a reader would assume.
+  static void _writeRepRates(ByteWriter body, List<SharedWorkout> workouts) {
+    bool worthCarrying(SharedItem it) =>
+        it.addWeightAtTopOfRange &&
+        (it.repsIncrement != ProgressionMode.reps.defaultIncrement ||
+            it.repsDeload != ProgressionMode.reps.defaultDeload);
+    final rated = [
+      for (final w in workouts)
+        [
+          for (final (i, it) in w.items.indexed)
+            if (worthCarrying(it)) (i, it),
+        ],
+    ];
+    if (rated.every((l) => l.isEmpty)) return;
+    body.varint(_sectionRepRates);
+    for (final list in rated) {
+      body.varint(list.length);
+      for (final (at, it) in list) {
+        body.varint(at);
+        body.fixed2(it.repsIncrement);
+        body.fixed2(it.repsDeload);
+      }
+    }
+  }
+
+  /// Reads one [_writeRepRates] section onto the slots it names, dropping an
+  /// index outside its day exactly as [_readMarks] does.
+  static void _readRepRates(ByteReader r, List<SharedWorkout> workouts) {
+    for (final w in workouts) {
+      for (var n = r.varint(); n > 0; n--) {
+        final at = r.varint();
+        final increment = r.fixed2();
+        final deload = r.fixed2();
+        if (at >= 0 && at < w.items.length) {
+          w.items[at] = w.items[at].atRepRates(increment, deload);
+        }
+      }
+    }
+  }
+
   /// Reads whatever sections follow the training days, applying each to
   /// [workouts] as it goes.
   ///
@@ -752,6 +829,8 @@ abstract final class RoutineCode {
           _readMarks(r, workouts, (it) => it.supersetted(), from: 1);
         case _sectionRangeClimb:
           _readMarks(r, workouts, (it) => it.climbingRange());
+        case _sectionRepRates:
+          _readRepRates(r, workouts);
         default:
           return;
       }

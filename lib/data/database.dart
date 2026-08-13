@@ -328,21 +328,89 @@ class WorkoutItems extends Table {
   BoolColumn get supersetWithPrevious =>
       boolean().withDefault(const Constant(false))();
 
-  /// Double progression: hold the load while the reps climb inside [repsMin]
-  /// … [repsMax], and step the load only once the top of the range is reached
-  /// at every set.
+  /// Double progression: take the reps and the load in turn inside [repsMin]
+  /// … [repsMax], climbing [repsTarget] to the top of the range and stepping
+  /// the load only from there.
   ///
   /// Off unless asked for, and meaningless without both a rep range and the
   /// weight axis — a slot with a fixed count has no range to climb, and the
   /// reps axis already advances the number this would. The flag is kept even
   /// while it means nothing, so taking a rep range off a slot and putting it
   /// back does not quietly rewrite how the slot progresses.
+  BoolColumn get addWeightAtTopOfRange =>
+      boolean().withDefault(const Constant(false))();
+
+  /// How far [repsTarget] moves on a step up, and how far it drops on a
+  /// back-off — the rep half of the rates a slot on the advanced axis carries,
+  /// beside [increment] and [deload], which are its weight half. Ignored by
+  /// every other axis.
+  ///
+  /// Reals rather than integers because [increment] is one, and a rep rate that
+  /// stored differently would be a second kind of number to read, round and
+  /// share for no gain — they are rounded where they are applied.
+  RealColumn get repsIncrement => real().withDefault(const Constant(1))();
+  RealColumn get repsDeload => real().withDefault(const Constant(2))();
+
+  /// Where inside [repsMin] … [repsMax] the slot has got to, on the advanced
+  /// axis. Null means the bottom of the range, which is where a slot that has
+  /// never run the rule — or has just had the load stepped — starts.
+  ///
+  /// Program state rather than a fact about one session: it is what the next
+  /// session is judged against, so it outlives the session that moved it. Read
+  /// through [WorkoutItemTarget.goalReps], which holds it inside a range that
+  /// may have been edited underneath it.
+  IntColumn get repsTarget => integer().nullable()();
+
+  /// The step and back-off this slot last had on the axes it is *not* on, so
+  /// that trying another rule for a session does not cost the numbers set
+  /// against the one it came from. Null means none kept — a new slot, or one
+  /// that has never been moved.
+  ///
+  /// Encoded rather than given a column per axis, because the pairs are only
+  /// ever read and written as a set and nothing queries them: see
+  /// `encodeSparedRates`. The axis in use keeps its rates in [increment] and
+  /// [deload] as it always has, and the advanced axis its rep half in
+  /// [repsIncrement] and [repsDeload] — this holds what is on none of them.
   ///
   /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
-  BoolColumn get addWeightAtTopOfRange =>
-      boolean().withDefault(const Constant(false))();
+  TextColumn get sparedRates => text().nullable()();
+}
+
+/// What one slot's sets are actually aiming at, and by which rule.
+///
+/// The two questions every reader of a stored slot has to ask before it can
+/// treat [WorkoutItems.repsMin], [WorkoutItems.repsMax] and
+/// [WorkoutItems.repsTarget] as anything: which of the four target kinds this
+/// slot is, and what number falls out of it.
+extension WorkoutItemTarget on WorkoutItem {
+  /// Whether this slot takes reps and weight in turn — the advanced axis.
+  ///
+  /// All four conditions, every time it is asked. A slot keeps the setting
+  /// through an edit that makes it meaningless (the range taken off, failure
+  /// switched on), and while that lasts it is an ordinary weight slot.
+  bool get climbsRange =>
+      addWeightAtTopOfRange &&
+      !toFailure &&
+      repsMax != null &&
+      progression == ProgressionMode.weight;
+
+  /// The rep goal a set of this slot is judged against.
+  ///
+  /// Asked in order: failure has no goal but the number to beat; the advanced
+  /// axis is wherever the climb has got to, held inside the range in case the
+  /// range moved under it; an ordinary range asks for the top of itself; and a
+  /// fixed count is itself. Says nothing about a timed slot, which is measured
+  /// in seconds — see [WorkoutItems.holdSeconds].
+  int get goalReps {
+    if (toFailure) return repsMin;
+    final top = repsMax;
+    if (top == null) return repsMin;
+    if (!climbsRange) return top;
+    final goal = repsTarget ?? repsMin;
+    return goal < repsMin ? repsMin : (goal > top ? top : goal);
+  }
 }
 
 /// A logged training session — one performance of a [Workouts] row.
@@ -1457,8 +1525,18 @@ class AppDatabase extends _$AppDatabase {
   /// - **v8** — `Workouts.warmups_enabled`, the switch that turns a day's
   ///   warm-up ramps off. On for every workout already on a phone, which is what
   ///   a day built before the switch existed meant.
+  /// - **v9** — `WorkoutItems.add_weight_at_top_of_range`, the opt-in that takes
+  ///   reps and weight in turn. Off on every slot already on a phone.
+  /// - **v10** — the rest of that rule: the rep step and rep back-off it
+  ///   advances by, and the live rep goal inside the range. A slot already on
+  ///   the phone lands on the defaults with its goal at the bottom of its range,
+  ///   which is where the rule starts anyway.
+  /// - **v11** — `WorkoutItems.spared_rates`, the rates a slot keeps for the
+  ///   axes it is not on. Empty on every slot already on a phone, which is what
+  ///   "this slot has never been moved off its axis" means, and what a slot
+  ///   that has been gets from the first switch after the upgrade.
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1584,6 +1662,32 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE "workout_items" ADD COLUMN "add_weight_at_top_of_range" '
           'INTEGER NOT NULL DEFAULT 0 '
           'CHECK ("add_weight_at_top_of_range" IN (0, 1))',
+        );
+      }
+      // v10 — the rep rates that rule advances by, and where inside its range a
+      // slot has got to. The defaults are a rep a session and two back, and a
+      // null goal is the bottom of the range: a slot that was already ticked on
+      // the shipped build was climbing its range by hand, so starting it at the
+      // bottom asks for the session it would have been asked for anyway.
+      if (from < 10) {
+        for (final column in const [
+          ('reps_increment', 'REAL NOT NULL DEFAULT 1.0'),
+          ('reps_deload', 'REAL NOT NULL DEFAULT 2.0'),
+          ('reps_target', 'INTEGER NULL'),
+        ]) {
+          await m.database.customStatement(
+            'ALTER TABLE "workout_items" ADD COLUMN '
+            '"${column.$1}" ${column.$2}',
+          );
+        }
+      }
+      // v11 — the rates kept for the axes a slot is not on. Null on every slot
+      // already on the phone: nothing was kept before this, and there is
+      // nothing honest to invent — the numbers a slot had on the axis it left
+      // last year were overwritten by the defaults at the time.
+      if (from < 11) {
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "spared_rates" TEXT NULL',
         );
       }
     },
@@ -2244,8 +2348,10 @@ class AppDatabase extends _$AppDatabase {
   /// [verdict] is the whole exercise's verdict for the session, not one set's —
   /// see `ExerciseEntry.verdict`. [performedWeight] is the load actually
   /// carried through every set of it, which on the weight axis is allowed to
-  /// raise the target on its own — see below. Returns how far the target
-  /// moved, in the mode's own unit, counted from where it was before.
+  /// raise the target on its own — see below. Returns how far the target moved,
+  /// counted from where it was before, and which axis it moved along: a slot
+  /// taking reps and weight in turn has two, and only one of them pays out on
+  /// any one session.
   ///
   /// [sessionWeight] is the load the session carried for a slot that has **no**
   /// stored target — the weight typed onto the board, or the sets logged at one.
@@ -2255,14 +2361,14 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// The slot may be gone (the workout was edited while the session was in
   /// progress), in which case there is nothing to advance and nothing to say.
-  Future<double> advanceProgression(
+  Future<ProgressionMove> advanceProgression(
     int itemId, {
     required SessionVerdict verdict,
     double? performedWeight,
     double? sessionWeight,
   }) async {
     final it = await workoutItemById(itemId);
-    if (it == null) return 0;
+    if (it == null) return (moved: 0.0, axis: ProgressionMode.weight);
 
     final step = stepProgression(
       verdict: verdict,
@@ -2281,6 +2387,10 @@ class AppDatabase extends _$AppDatabase {
     var moved = 0.0;
 
     final mode = it.progression;
+    // Which axis the step lands on. The slot's own, except on the advanced
+    // axis, where the rep goal takes the step while there is range left in the
+    // direction it is going and the load takes it at either end.
+    var axis = mode;
     switch (mode) {
       case ProgressionMode.weight:
         final floorKg = await _loadFloorFor(it);
@@ -2304,11 +2414,32 @@ class AppDatabase extends _$AppDatabase {
           final base = performedWeight != null && performedWeight > stored
               ? performedWeight
               : stored;
-          final to = advanceTarget(base, step.delta, mode, floorKg: floorKg);
-          if (to != it.suggestedWeight) {
-            patch = patch.copyWith(suggestedWeight: Value(to));
+          final climb = _climbStep(it, step.delta);
+          if (climb != 0) {
+            // The reps are what moved today. The load still takes a bar
+            // loaded past the suggestion — that is progression whichever axis
+            // the earned step was spent on — but it is not what happened.
+            patch = patch.copyWith(repsTarget: Value(it.goalReps + climb));
+            if (base != stored) {
+              patch = patch.copyWith(suggestedWeight: Value(base));
+            }
+            moved = climb.toDouble();
+            axis = ProgressionMode.reps;
+          } else {
+            final to = advanceTarget(base, step.delta, mode, floorKg: floorKg);
+            if (to != it.suggestedWeight) {
+              patch = patch.copyWith(suggestedWeight: Value(to));
+            }
+            moved = to - stored;
+            // The load moved at one end of the range, so the climb starts
+            // again at the other: a step up is paid for by going back to the
+            // bottom, and a back-off buys its way up to the top.
+            if (it.climbsRange && step.delta != 0) {
+              patch = patch.copyWith(
+                repsTarget: Value(step.delta > 0 ? it.repsMin : it.repsMax!),
+              );
+            }
           }
-          moved = to - stored;
         }
       case ProgressionMode.reps:
         if (step.delta != 0) {
@@ -2335,7 +2466,27 @@ class AppDatabase extends _$AppDatabase {
     await (update(
       workoutItems,
     )..where((i) => i.id.equals(itemId))).write(patch);
-    return moved;
+    return (moved: moved, axis: axis);
+  }
+
+  /// How far the rep goal of [it] moves on a step of [delta], or zero when the
+  /// reps are not what this step moves — every slot but one taking reps and
+  /// weight in turn, and one of those standing at the end of its range that the
+  /// step is heading for. Zero is what hands the step to the load.
+  static int _climbStep(WorkoutItem it, double delta) {
+    if (delta == 0 || !it.climbsRange) return 0;
+    final goal = it.goalReps;
+    // Rounded here rather than stored as an integer, for the reason the columns
+    // give: they are reals because the weight rates beside them are.
+    if (delta > 0) {
+      final top = it.repsMax!;
+      if (goal >= top) return 0;
+      final to = goal + it.repsIncrement.round();
+      return (to > top ? top : to) - goal;
+    }
+    if (goal <= it.repsMin) return 0;
+    final to = goal - it.repsDeload.round();
+    return (to < it.repsMin ? it.repsMin : to) - goal;
   }
 
   // ---- Layoff deloads -----------------------------------------------------

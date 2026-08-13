@@ -48,6 +48,53 @@ enum ProgressionMode {
       };
 }
 
+/// A step up and a back-off, in the units of whatever they move.
+typedef ProgressionRates = ({double increment, double deload});
+
+/// The four ways a slot can be set to advance: the three axes, and the advanced
+/// rule that takes weight and reps in turn. Not what a slot stores about itself
+/// — that is an axis and a tick — but what its *rates* are filed under, both in
+/// the open editor and in `WorkoutItems.spared_rates`.
+///
+/// **The names are stored.** They are written into that column, so a value may
+/// be added but none may be renamed or dropped: a phone is holding rows that
+/// name them.
+enum RateAxis { weight, reps, time, advanced }
+
+/// The rates kept for the axes a slot is not on, as the column holds them:
+/// `weight:2.5:5;reps:1:2`.
+///
+/// Empty comes back as null rather than as an empty string, so "nothing kept"
+/// is one value in the database instead of two.
+String? encodeSparedRates(Map<RateAxis, ProgressionRates> rates) => rates.isEmpty
+    ? null
+    : [
+        for (final e in rates.entries)
+          '${e.key.name}:${e.value.increment}:${e.value.deload}',
+      ].join(';');
+
+/// The inverse, forgiving of anything that is not it.
+///
+/// A pair that will not parse is dropped and the rest are kept: what is at
+/// stake is a convenience, and the worst case of reading it wrong has to be an
+/// axis that opens at its defaults rather than a workout that will not open. An
+/// axis this build does not know is dropped the same way, so a database written
+/// by a later one still reads.
+Map<RateAxis, ProgressionRates> decodeSparedRates(String? encoded) {
+  final out = <RateAxis, ProgressionRates>{};
+  if (encoded == null || encoded.isEmpty) return out;
+  for (final part in encoded.split(';')) {
+    final fields = part.split(':');
+    if (fields.length != 3) continue;
+    final axis = RateAxis.values.asNameMap()[fields[0]];
+    final increment = double.tryParse(fields[1]);
+    final deload = double.tryParse(fields[2]);
+    if (axis == null || increment == null || deload == null) continue;
+    out[axis] = (increment: increment, deload: deload);
+  }
+  return out;
+}
+
 /// How a movement is measured — a property of the exercise itself, not of any
 /// program built on it. A squat is counted; a plank is held.
 ///
@@ -82,18 +129,12 @@ enum ExerciseMeasure {
 
 /// What one session did to the target it was judged against.
 ///
-/// Two of the three answers are as old as the app: you did what was asked, or
-/// you did not. [hold] exists for the slot that climbs a rep range before its
-/// load moves, where "eight, seven, seven out of six-to-eight" is honestly
-/// neither — the session was trained as prescribed and the top of the range was
-/// not reached, and the program's answer to that is to come back and do it
-/// again at the same weight.
+/// Two answers on every slot, the slot taking reps and weight in turn included:
+/// there the rep goal inside the range is a number like any other, and a session
+/// either made it or did not.
 enum SessionVerdict {
   /// Every planned set logged, none short. Feeds the success streak.
   success,
-
-  /// Trained, inside the range, short of the top. Feeds neither streak.
-  hold,
 
   /// A set skipped, or one that came up short of what was asked.
   miss,
@@ -111,6 +152,13 @@ const defaultFailureThreshold = 2;
 /// should move as a result. A [delta] of zero means hold and keep counting.
 typedef ProgressionStep = ({int successes, int failures, double delta});
 
+/// What advancing one slot actually moved: how far, in [axis]'s own unit.
+///
+/// The axis is reported rather than assumed because a slot taking reps and
+/// weight in turn has two, and which of them a session paid out on is the whole
+/// content of "what happened" — see `AppDatabase.advanceProgression`.
+typedef ProgressionMove = ({double moved, ProgressionMode axis});
+
 /// Folds one session's outcome into an exercise's progression counters.
 ///
 /// Consecutive means consecutive: a success zeroes the failure count and a
@@ -118,13 +166,6 @@ typedef ProgressionStep = ({int successes, int failures, double delta});
 /// assembled out of three good sessions spread across a bad month. When a
 /// threshold is reached the target moves and *both* counters reset — the next
 /// step has to be earned from scratch rather than firing again every session.
-///
-/// [SessionVerdict.hold] is the exception that breaks neither rule: it returns
-/// the counters exactly as they arrived. A session spent working up through a
-/// rep range is not a good session and not a bad one, so it must not zero the
-/// streak on either side of it — three weeks of climbing 6 to 8 would otherwise
-/// spend a clean session that was already banked, or forgive a miss that is
-/// still owed.
 ProgressionStep stepProgression({
   required SessionVerdict verdict,
   required int successes,
@@ -134,9 +175,6 @@ ProgressionStep stepProgression({
   required double increment,
   required double deload,
 }) {
-  if (verdict == SessionVerdict.hold) {
-    return (successes: successes, failures: failures, delta: 0);
-  }
   if (verdict == SessionVerdict.success) {
     final n = successes + 1;
     if (n >= successThreshold) {

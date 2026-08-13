@@ -1102,9 +1102,9 @@ groups:
       they are read from the slot when the session is filed, so a rate changed
       mid-session is the rate the session progresses by. So is the rule the
       session is <i>judged</i> by, which is the part that could have gone the
-      other way: tick "add weight only at the top of the rep range" from the
-      board and this session is already the one that holds its weight inside the
-      range rather than counting it a miss. The board is rebuilt from the slot
+      other way: switch a slot to the advanced axis from the board and this
+      session is already judged against the rep goal inside the range rather than
+      against the number it opened on. The board is rebuilt from the slot
       rather than patched field by field, so a rule added later is taken without
       anybody having to remember to add it here.
     uses:

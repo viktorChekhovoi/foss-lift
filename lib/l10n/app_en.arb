@@ -1433,13 +1433,69 @@
   "@itemEditorToFailure": {
     "description": "Checkbox label: take every set as far as it goes rather than stopping at a rep target."
   },
-  "itemEditorAddWeightAtTop": "Add weight only at the top of the rep range",
+  "itemEditorAddWeightAtTop": "Progress by reps, then weight",
   "@itemEditorAddWeightAtTop": {
-    "description": "Checkbox label in the Progression card's Advanced half: hold the load until every set reaches the top of the rep range, then add weight and start again from the bottom. Always listed, and greyed out on a slot that has no rep range to climb."
+    "description": "Checkbox label in the Progression card's Advanced half, and the name of the Advanced axis it switches the slot to: climb the rep goal to the top of the range, then add weight and start the reps again at the bottom. Always listed, and greyed out on a slot with no rep range to climb."
   },
-  "itemEditorRangeClimbNeedsRange": "Configure a rep range to enable rep-weight progression",
+  "itemEditorAddWeightAtTopHint": "Combine weight and rep progression; increase reps until you hit the max, then increase weight",
+  "@itemEditorAddWeightAtTopHint": {
+    "description": "The line under the \"Progress by reps, then weight\" checkbox, saying what the combination does. Always shown, whether or not the box can be ticked."
+  },
+  "itemEditorModeAdvanced": "Advanced",
+  "@itemEditorModeAdvanced": {
+    "description": "Pill on the axis row for the slot that takes reps and weight in turn, beside Weight and Reps. Selecting it is the same switch as the \"Progress by reps, then weight\" tick."
+  },
+  "itemEditorStepUpWeight": "Step up weight",
+  "@itemEditorStepUpWeight": {
+    "description": "Field caption over how much load the slot gains after enough clean sessions, on the axis that also steps reps — so the caption has to say which of the two numbers it moves."
+  },
+  "itemEditorStepUpReps": "Step up reps",
+  "@itemEditorStepUpReps": {
+    "description": "Field caption over how many reps the goal gains after enough clean sessions, on the axis that also steps weight."
+  },
+  "itemEditorBackOffWeight": "Back off weight",
+  "@itemEditorBackOffWeight": {
+    "description": "Field caption over how much load the slot sheds after enough missed sessions, on the axis that also steps reps."
+  },
+  "itemEditorBackOffReps": "Back off reps",
+  "@itemEditorBackOffReps": {
+    "description": "Field caption over how many reps the goal sheds after enough missed sessions, on the axis that also steps weight."
+  },
+  "itemEditorRuleAtTop": "At {top} reps, add {step} instead and start again at {bottom}.",
+  "@itemEditorRuleAtTop": {
+    "description": "What the earned step does once the rep goal has reached the top of the range: the weight moves instead of the reps, and the goal starts again at the bottom. Shown under the rep rule on the advanced axis. The amount arrives already formatted in its unit.",
+    "placeholders": {
+      "top": {
+        "type": "int"
+      },
+      "step": {
+        "type": "String",
+        "example": "2.5 kg"
+      },
+      "bottom": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorRuleAtBottom": "At {bottom} reps, drop {back} instead and start again at {top}.",
+  "@itemEditorRuleAtBottom": {
+    "description": "What the back-off does once the rep goal is already at the bottom of the range: the weight comes down instead of the reps, and the goal starts again at the top. Shown under the rep rule on the advanced axis.",
+    "placeholders": {
+      "bottom": {
+        "type": "int"
+      },
+      "back": {
+        "type": "String",
+        "example": "5 kg"
+      },
+      "top": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorRangeClimbNeedsRange": "Set up a rep range first",
   "@itemEditorRangeClimbNeedsRange": {
-    "description": "The one line under the greyed-out range-climb checkbox, saying what has to be set before it can be ticked. Shown when the slot has no rep range, runs to failure, or progresses by reps or time."
+    "description": "The line under the greyed-out \"Progress by reps, then weight\" checkbox, saying what has to be set before it can be ticked. Shown when the slot has no rep range or runs to failure."
   },
   "itemEditorSupersetWhat": "What is a superset?",
   "@itemEditorSupersetWhat": {
@@ -1452,7 +1508,12 @@
   "itemEditorSupersetWith": "Superset with {exercise}",
   "@itemEditorSupersetWith": {
     "description": "Checkbox label in the slot editor: train this exercise in the same round as the one directly above it.",
-    "placeholders": { "exercise": { "type": "String", "example": "Bench Press" } }
+    "placeholders": {
+      "exercise": {
+        "type": "String",
+        "example": "Bench Press"
+      }
+    }
   },
   "itemEditorWeight": "Weight",
   "@itemEditorWeight": {
@@ -2378,10 +2439,6 @@
         "type": "int"
       }
     }
-  },
-  "summaryHeldTopTheRange": "Top the range on every set",
-  "@summaryHeldTopTheRange": {
-    "description": "The subline under a movement whose weight did not move because the session landed inside its rep range rather than at the top of it. Says what would step the weight up: reaching the top of the range on every set. Replaces the clean-session countdown on such a slot, because working up through a range moves neither streak."
   },
   "progressNoHistory": "No history yet",
   "@progressNoHistory": {

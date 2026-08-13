@@ -56,19 +56,58 @@ groups:
     uses:
     - template.set-scheme
     - template.rep-target
+  - id: to-failure-greys-the-rep-range
+    t: Ticking "to failure" greys the rep range out rather than taking it away
+    d: >-
+      sets taken as far as they go are not aiming at a range, so the stepper goes
+      dead — and keeps the bound it had, on screen and in storage. Untick and the
+      range is back where it was, including after the slot has been saved and
+      reopened. A field that vanishes takes the number with it and makes trying
+      the other rule for a session cost you the one you had.
+    screen: workout-edit
+    uses:
+    - template.rep-target
   - id: progression-card-has-its-own-advanced
     t: The Progression card has its own Advanced half
     d: >-
-      the axis, the two amounts and the two thresholds stay in the open; the ways
-      of advancing that most slots never use sit behind an Advanced toggle in the
+      the axis, the amounts and the two thresholds stay in the open; the ways of
+      advancing that most slots never use sit behind an Advanced toggle in the
       same card, shut by default and opening already expanded on a slot that uses
-      one. Progression is configured in one place — a rule about how a slot
-      advances belongs under Progression whatever it reads from, so the range
-      climb is here rather than beside the rep range it needs.
+      one. It holds one thing so far: <b>Progress by reps, then weight</b>, under
+      a line saying what that combination does — climb the reps to the top of the
+      range, then add weight. Progression is configured in one place, so the
+      switch is here rather than beside the rep range it needs.
     defines:
     - progression.advanced
     uses:
     - progression.axis
+    - progression.rates
+    - progression.double
+  - id: advanced-axis-is-a-pill-and-a-tick
+    t: The advanced rule is a pill on the axis row and a tick, and they are one switch
+    d: >-
+      turning the tick on selects an <b>Advanced</b> pill beside Weight and Reps;
+      tapping Weight or Reps turns the tick back off. Two ways in because they
+      answer two questions — somebody reading the axis row wants a fourth option
+      there, and somebody who has never met double progression needs the sentence
+      that only fits under a checkbox — and one switch because they are one
+      setting.
+    screen: workout-edit
+    uses:
+    - progression.double
+    - progression.axis
+    - progression.advanced
+  - id: advanced-axis-shows-both-rates
+    t: The advanced axis asks for both pairs of amounts and one pair of thresholds
+    d: >-
+      a step-up and a back-off for the reps, a step-up and a back-off for the
+      weight, and — under them — the one clean-session count and the one miss
+      count that govern the pair. The rule is read back under the fields as the
+      three sentences it is: what a clean session and a miss do to the reps, what
+      happens at the top of the range, and what happens at the bottom.
+    screen: workout-edit
+    uses:
+    - progression.double
     - progression.rates
   - id: sets-can-back-off-ramp-or-be-written-out
     t: The sets of a slot can back off, ramp up, or be written out one by one
@@ -154,7 +193,8 @@ groups:
     t: A slot carries its own progression rates
     d: >-
       the axis and the step/back-off numbers: increment, success threshold, deload
-      amount, failure threshold.
+      amount, failure threshold — and, for a slot taking reps and weight in turn,
+      the rep step and rep back-off beside the weight ones.
     uses:
     - progression.rates
   - id: step-amounts-tapped-or-typed
@@ -218,11 +258,11 @@ groups:
     uses:
     - progression.axis
   - id: turn-on-add-weight-at-top-of-range
-    t: Turn on the range climb
+    t: Turn on progress by reps, then weight
     d: >-
       open a slot's config sheet → set a rep range under Target's Advanced →
-      scroll to Progression → tap its own Advanced → tick "Add weight only at
-      the top of the rep range".
+      scroll to Progression → tap the Advanced pill on the axis row. The tick of
+      the same name, under the card's own Advanced toggle, is the other way in.
     screen: workout-edit
     uses:
     - progression.double
@@ -267,23 +307,28 @@ groups:
   - id: switching-axis-keeps-the-rates-you-set
     t: Switching the axis keeps the rates you set on the axis you left
     d: >-
-      the step and back-off typed against weight are put aside when the slot moves to reps, and come back when it moves back, so looking at the other rule does not cost you the numbers you had. An axis the slot has not been on yet opens at that axis's defaults — 2.5 of anything is a sane step in kilograms and nonsense in reps — and so does one it is pushed off by a change in the library, which comes back to its own numbers if the exercise allows the axis again. The set-aside numbers belong to the open editor; the slot stores the axis in use and its two rates, as before.
+      the step and back-off typed against weight are put aside when the slot moves to reps, and come back when it moves back, so looking at the other rule does not cost you the numbers you had. The advanced axis is a third set of numbers on the same terms: its weight pair and its rep pair are its own, and going Weight → Advanced → Weight finds the plain weight rates exactly as they were left. An axis the slot has not been on yet opens at that axis's defaults — 2.5 of anything is a sane step in kilograms and nonsense in reps — except the advanced axis, which opens at whatever the slot's current weight rates are, since it is the same load it was about to move. An axis the library pushes a slot off comes back to its own numbers if the exercise allows it again. The set-aside numbers are kept on the slot beside the rates in use, so they outlive the sheet being closed, the app being shut and the phone being upgraded: a slot you set up in kilograms a year ago still has them when you go back to it. A slot arriving in a shared routine code is the one case with none — a code carries the axis in use and the rates that axis reads, and where somebody else's other axes had got to is not part of the program.
     screen: workout-edit
     uses:
     - progression.axis
     - progression.rates
+    - progression.double
     - exercise.measure
+    - storage.schema
+    - share.routine-code
   - id: range-climb-greyed-without-a-range
-    t: The range climb is greyed out until there is a range to climb
+    t: The advanced rule is greyed out until there is a range to climb
     d: >-
-      it stays on the list rather than vanishing, greyed and untickable, under
-      one line saying what it wants: a rep range. A control that appears and
-      disappears as a field two cards up is filled in teaches nobody where it
-      went, and somebody looking for double progression needs to find it before
-      they can work out what it needs. Set the upper bound and it comes alive
-      where they are already looking. The same line does the same job on a slot
-      running to failure, and on one progressing by reps or by time, where the
-      axis rather than the range is what is missing.
+      the tick stays on the list rather than vanishing, greyed and untickable,
+      under one line saying what it wants: set up a rep range first. The pill on
+      the axis row greys with it and does nothing when tapped. A control that
+      appears and disappears as a field two cards up is filled in teaches nobody
+      where it went, and somebody looking for double progression needs to find it
+      before they can work out what it needs. Set the upper bound and both come
+      alive where they are already looking. The same goes for a slot running to
+      failure, and for a held movement or one that carries no load, which has no
+      second axis to take turns with — those are not offered the pill at all,
+      because the axis row only ever shows axes the exercise allows.
     screen: workout-edit
     uses:
     - progression.double
@@ -294,9 +339,9 @@ groups:
     t: A rep range keeps its width as progression moves it
     d: >-
       6–8 steps to 7–9, not 6–9. That is the reps axis, where the range is the
-      thing being advanced. A weight slot ticked to add weight at the top of its
-      range does not move the range at all — there the range is the ladder, and a
-      ladder that climbs with you is no ladder.
+      thing being advanced. The advanced axis does not move the range at all —
+      there the range is the ladder and the goal is what climbs it, and a ladder
+      that climbs with you is no ladder.
     screen: none
     uses:
     - template.rep-target

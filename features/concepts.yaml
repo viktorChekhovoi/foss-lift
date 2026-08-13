@@ -347,12 +347,14 @@ concepts:
 
   - id: progression.rates
     area: progression
-    what: How much to add, after how many good sessions, and how far to back off.
+    what: >-
+      How much to add, after how many good sessions, and how far to back off —
+      one pair of amounts per axis the slot advances on.
     code: [lib/data/progression.dart]
 
   - id: progression.verdict
     area: progression
-    what: Whether a session counted as clean, as a miss, or as neither.
+    what: Whether a session counted as clean or as a miss.
     code: [lib/data/progression.dart]
 
   - id: progression.advanced
@@ -365,8 +367,8 @@ concepts:
   - id: progression.double
     area: progression
     what: >-
-      The opt-in rule that makes a weight slot climb its rep range before the
-      load moves, and hold the weight while it is climbing.
+      The opt-in rule that takes reps and weight in turn: a live rep goal climbs
+      the slot's range, and the load moves only at the top of it.
     code: [lib/data/progression.dart, lib/data/database.dart]
 
   - id: progression.streak

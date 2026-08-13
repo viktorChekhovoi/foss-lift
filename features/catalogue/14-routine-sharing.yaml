@@ -106,15 +106,20 @@ groups:
     - share.routine-code
     - template.superset
   - id: range-climb-travels-on-the-end-of-the-code
-    t: A shared routine carries which slots climb their range
+    t: A shared routine carries which slots take reps and weight in turn, and at what rates
     d: >-
       the ticks ride in their own appended section, behind the supersets, for the
       same reason those do: a new bit inside a slot would leave the shipped build
-      parsing a tick as the next slot's exercise. An older build imports the
-      routine with the box unticked on every slot, which is a program that adds
-      weight a session sooner rather than a corrupt one. A routine where nothing
-      climbs a range costs no bytes at all — the section is written only when
-      there is a tick to carry.
+      parsing a tick as the next slot's exercise. The rep step and rep back-off
+      those slots advance by ride in a section of their own behind that, on the
+      same terms and for the same reason, and only for the slots that use them.
+      An older build imports the routine with the box unticked on every slot,
+      which is a program that adds weight a session sooner rather than a corrupt
+      one. Where the sender's program had got to inside its range does not travel
+      at all: a shared routine is a program, not somebody's progress through one,
+      so every imported slot starts at the bottom of its range. A routine where
+      nothing takes the two axes in turn costs no bytes at all — neither section
+      is written when there is nothing to carry.
     uses:
     - share.routine-code
     - progression.double

@@ -109,14 +109,9 @@ class SetEntry {
   bool get missedGoal => done && (logged! < goal || underWeight);
 
   /// A logged set done at less than the load it was set. Split out from
-  /// [missedGoal] because a slot climbing a rep range forgives reps under the
-  /// goal and does not forgive this: coming down in weight to finish the set is
-  /// a miss whatever the reps did.
+  /// [missedGoal] because the two failures read differently on the board:
+  /// coming down in weight to finish the set is a miss whatever the reps did.
   bool get underWeight => done && weight < (goalWeight ?? 0) - 1e-9;
-
-  /// A logged set that reached at least [slack] reps below its goal, at the
-  /// load it was set. What "inside the range" means for one set.
-  bool doneWithin(int slack) => done && !underWeight && logged! >= goal - slack;
 
   /// The tap cycle: untouched → the goal → one rep fewer → … → 0 → untouched.
   ///
@@ -161,7 +156,6 @@ class ExerciseEntry {
     this.schemePercent = kDefaultSchemePercent,
     this.customSets = const [],
     this.goalReps = 0,
-    this.rangeSlack = 0,
     this.floorKg = 0,
     this.supersetWithPrevious = false,
     this.cardioMachine = false,
@@ -240,14 +234,6 @@ class ExerciseEntry {
 
   /// The slot's own rep target, which every scheme but a custom one repeats.
   final int goalReps;
-
-  /// How far under a set's goal still counts as trained — the width of the rep
-  /// range on a slot that climbs it, and zero on every other slot.
-  ///
-  /// A width rather than the bottom of the range, so it survives a set scheme:
-  /// the goal a back-off set carries is not the slot's own, and the room to work
-  /// up through is 6-to-8's two reps wherever that set sits on the ladder.
-  final int rangeSlack;
 
   /// The lightest this exercise may be loaded to — the empty bar, or 0.
   final double floorKg;
@@ -338,22 +324,11 @@ class ExerciseEntry {
   /// What this session did to the target — the whole exercise's answer, which is
   /// what progression is advanced with.
   ///
-  /// Three-valued only on a slot climbing a rep range ([rangeSlack] above zero).
-  /// There, a set that lands anywhere in the range at the load it was set is
-  /// neither the clean session that earns the step nor the miss that spends one:
-  /// the range is exactly the room the program gave you to work up through, and
-  /// using it is not failing. Falling out of the bottom of it still is, and so is
-  /// coming down in weight, which is why this asks [SetEntry.doneWithin] rather
-  /// than simply relaxing the goal.
-  SessionVerdict get verdict {
-    if (succeeded) return SessionVerdict.success;
-    if (rangeSlack > 0 &&
-        sets.isNotEmpty &&
-        sets.every((s) => s.doneWithin(rangeSlack))) {
-      return SessionVerdict.hold;
-    }
-    return SessionVerdict.miss;
-  }
+  /// Two-valued on every slot, the one taking reps and weight in turn included:
+  /// there the goal each set carries is wherever the climb has got to inside the
+  /// range, so "did you make it" is the same question it is anywhere else.
+  SessionVerdict get verdict =>
+      succeeded ? SessionVerdict.success : SessionVerdict.miss;
 
   /// The load actually carried through the whole exercise: the *lightest* of
   /// the logged sets, or null if none were.
@@ -1241,11 +1216,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     required int defaultRestSeconds,
   }) {
     final mode = v.item.progression;
-    // The goal is the hold for a timed exercise, and otherwise the top of
-    // the rep range or the fixed count. A to-failure set carries no upper
-    // bound, so its goal is `repsMin` — the number you have to beat for
-    // the set to count, which is exactly what "to failure" is asking.
-    final goal = mode.timed ? v.item.holdSeconds : (v.item.repsMax ?? v.item.repsMin);
+    // The goal is the hold for a timed exercise, and otherwise whatever the
+    // slot's own target works out to — see [WorkoutItemTarget.goalReps], which
+    // is where the four kinds of rep target are read in order.
+    final goal = mode.timed ? v.item.holdSeconds : v.item.goalReps;
     final w = v.item.suggestedWeight;
     // The bar this movement stands on, whatever it is loaded to today —
     // resolved here because it cannot change mid-session, unlike the ramp
@@ -1259,8 +1233,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final targets = resolveSetTargets(
       scheme: v.item.scheme,
       sets: v.item.targetSets,
-      // A to-failure set has no upper bound, so its goal is `repsMin` —
-      // the number you have to beat, which is what `goal` already is.
       goalReps: goal,
       topWeightKg: w,
       unit: unit,
@@ -1287,13 +1259,6 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       schemePercent: v.item.schemePercent,
       customSets: decodeCustomSets(v.item.customSets),
       goalReps: goal,
-      // Only where all three hold: the tick, a range to climb, and the axis
-      // whose load is the thing being held while it is climbed.
-      rangeSlack: v.item.addWeightAtTopOfRange &&
-              v.item.repsMax != null &&
-              mode == ProgressionMode.weight
-          ? v.item.repsMax! - v.item.repsMin
-          : 0,
       floorKg: warmupBar,
       supersetWithPrevious: v.item.supersetWithPrevious,
       cardioMachine: v.exercise.isCardioMachine,
@@ -1898,7 +1863,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     for (final e in s.exercises) {
       final itemId = e.itemId;
       if (itemId == null) continue;
-      final moved = await _db.advanceProgression(
+      final move = await _db.advanceProgression(
         itemId,
         verdict: e.verdict,
         performedWeight: e.performedWeight,
@@ -1912,10 +1877,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       // the resulting target and the streaks — so the summary can explain it.
       final it = await _db.workoutItemById(itemId);
       if (it == null) continue; // slot deleted mid-session; nothing to say
-      final mode = it.progression;
+      // The axis that actually paid out, which on a slot taking reps and weight
+      // in turn is not the axis it is filed under — and the target read off
+      // that same axis, so the two halves of the line agree.
+      final mode = move.axis;
       final double? target = switch (mode) {
         ProgressionMode.weight => it.suggestedWeight,
-        ProgressionMode.reps => it.repsMin.toDouble(),
+        ProgressionMode.reps => it.goalReps.toDouble(),
         ProgressionMode.time => it.holdSeconds.toDouble(),
       };
       // A weight slot with no suggested weight is a bodyweight movement with no
@@ -1926,17 +1894,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           name: e.name,
           seedKey: e.seedKey,
           mode: mode,
-          moved: moved,
+          moved: move.moved,
           target: target,
           successes: it.successStreak,
           failures: it.failStreak,
           successThreshold: it.successThreshold,
           failureThreshold: it.failureThreshold,
-          // Read from the slot rather than from the session, so a slot whose
-          // range was taken off mid-session is explained as what it now is.
-          climbingRange: it.addWeightAtTopOfRange &&
-              it.repsMax != null &&
-              mode == ProgressionMode.weight,
         ),
       );
     }
@@ -2015,7 +1978,6 @@ class ProgressionOutcome {
     required this.failures,
     required this.successThreshold,
     required this.failureThreshold,
-    this.climbingRange = false,
   });
 
   /// The canonical English name. The summary renders
@@ -2033,13 +1995,6 @@ class ProgressionOutcome {
   final int failures;
   final int successThreshold;
   final int failureThreshold;
-
-  /// Whether this slot climbs its rep range before its load moves. What makes a
-  /// held exercise's subline the range rather than a countdown: the streaks a
-  /// countdown reads are exactly the numbers a hold leaves alone, so counting
-  /// them down would promise a step that this session did nothing to bring
-  /// closer.
-  final bool climbingRange;
 
   bool get steppedUp => moved > 1e-9;
   bool get backedOff => moved < -1e-9;

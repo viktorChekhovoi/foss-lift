@@ -152,6 +152,8 @@ extension RoutineSharing on AppDatabase {
           // whether a slot climbs its range before its load moves.
           supersetWithPrevious: it.supersetWithPrevious,
           addWeightAtTopOfRange: it.addWeightAtTopOfRange,
+          repsIncrement: it.repsIncrement,
+          repsDeload: it.repsDeload,
           // successStreak and failStreak are left behind on purpose: momentum
           // is earned on your own bar, not inherited with a program.
         ));
@@ -288,6 +290,11 @@ extension RoutineSharing on AppDatabase {
                   // it, whatever a code claims — see [normaliseJoins].
                   supersetWithPrevious: Value(i > 0 && it.supersetWithPrevious),
                   addWeightAtTopOfRange: Value(it.addWeightAtTopOfRange),
+                  repsIncrement: Value(it.repsIncrement),
+                  repsDeload: Value(it.repsDeload),
+                  // repsTarget is left behind with the streaks: where the
+                  // sender had got to inside their range is progress, not
+                  // program, so an imported slot starts at the bottom of it.
                 ),
             ],
           ),

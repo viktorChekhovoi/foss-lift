@@ -17,9 +17,23 @@ import '../util/units.dart';
 import 'builder_widgets.dart';
 import 'common.dart' show AppDialog, sectionLabelStyle, showAppDialog;
 
-/// Finds the two progression-amount fields in a test.
+/// Finds the progression-amount fields in a test. The first two are the pair
+/// every axis has; on the axis that takes reps and weight in turn they are its
+/// weight pair, and the rep pair below is beside them.
 const kStepUpFieldKey = ValueKey('amount-step-up');
 const kBackOffFieldKey = ValueKey('amount-back-off');
+const kRepsStepUpFieldKey = ValueKey('amount-reps-step-up');
+const kRepsBackOffFieldKey = ValueKey('amount-reps-back-off');
+
+/// Finds the rep range's stepper, which is greyed rather than gone on a slot
+/// whose sets run to failure.
+const kRepRangeFieldKey = ValueKey('rep-range');
+
+/// Finds the axis pills.
+const kModeWeightKey = ValueKey('mode-weight');
+const kModeRepsKey = ValueKey('mode-reps');
+const kModeTimeKey = ValueKey('mode-time');
+const kModeAdvancedKey = ValueKey('mode-advanced');
 
 /// Finds the checkbox that joins a slot to the one above it as a superset, and
 /// the icon beside it that says what one is.
@@ -40,6 +54,9 @@ class ItemDraft {
     this.repsMax,
     this.toFailure = false,
     this.addWeightAtTopOfRange = false,
+    this.repsIncrement = 1,
+    this.repsDeload = 2,
+    this.repsTarget,
     this.restSeconds,
     double? weightKg,
     this.scheme = SetScheme.flat,
@@ -58,7 +75,9 @@ class ItemDraft {
     this.failStreak = 0,
     this.supersetWithPrevious = false,
     this.exercise,
-  })  : progression = _startingMode(measure, weightType, progression),
+    Map<RateAxis, ProgressionRates> sparedRates = const {},
+  })  : _rates = {...sparedRates},
+        progression = _startingMode(measure, weightType, progression),
         increment = increment ??
             _startingMode(measure, weightType, progression).defaultIncrement,
         deload = deload ??
@@ -99,6 +118,9 @@ class ItemDraft {
         repsMax: v.item.repsMax,
         toFailure: v.item.toFailure,
         addWeightAtTopOfRange: v.item.addWeightAtTopOfRange,
+        repsIncrement: v.item.repsIncrement,
+        repsDeload: v.item.repsDeload,
+        repsTarget: v.item.repsTarget,
         restSeconds: v.item.restSeconds,
         weightKg: v.item.suggestedWeight,
         scheme: v.item.scheme,
@@ -119,6 +141,7 @@ class ItemDraft {
         successStreak: v.item.successStreak,
         failStreak: v.item.failStreak,
         supersetWithPrevious: v.item.supersetWithPrevious,
+        sparedRates: decodeSparedRates(v.item.sparedRates),
       );
 
   /// A brand-new slot for [e], on whichever axis it can actually move along,
@@ -173,11 +196,23 @@ class ItemDraft {
   int? repsMax;
   bool toFailure;
 
-  /// Double progression: hold the load until the top of the rep range is
-  /// reached at every set. Kept while [canClimbRange] is false rather than
-  /// cleared, so taking a rep range off and putting it back does not silently
-  /// change how the slot progresses — see the column of the same name.
+  /// Double progression: take the reps and the load in turn, climbing
+  /// [repsTarget] to the top of the rep range before the load moves. Kept while
+  /// [canClimbRange] is false rather than cleared, so taking a rep range off and
+  /// putting it back does not silently change how the slot progresses — see the
+  /// column of the same name.
   bool addWeightAtTopOfRange;
+
+  /// The rep half of the rates the advanced axis advances by. The weight half
+  /// is [increment] and [deload], which every other axis uses for whatever it
+  /// moves.
+  double repsIncrement;
+  double repsDeload;
+
+  /// Where inside the range the climb has got to. Carried, not edited: it is
+  /// where the program stands rather than something the builder sets, and a
+  /// draft that dropped it would restart everybody's climb on a rename.
+  int? repsTarget;
 
   int? restSeconds;
 
@@ -209,12 +244,34 @@ class ItemDraft {
   /// the greyed row and the line saying what it wants.
   bool get usesProgressionAdvanced => addWeightAtTopOfRange;
 
-  /// Whether the range climb is on offer: a rep range to climb, on the axis
-  /// whose load is what waits at the top of it. A slot running to failure has
-  /// no range — [toFailure] takes the upper bound away — and one progressing on
-  /// reps or time is already advancing what this would.
+  /// Whether the advanced axis is on offer: a rep range to climb, and a load to
+  /// wait at the top of it. Sets taken to failure are not aiming at a range, and
+  /// a movement that is held or carries nothing has no second axis to take turns
+  /// with.
+  ///
+  /// Asks what the exercise *allows* rather than which axis the slot is on:
+  /// picking Advanced while the slot sits on the reps pill is a legal move, and
+  /// it is the move that puts it on the weight axis.
   bool get canClimbRange =>
-      !toFailure && repsMax != null && progression == ProgressionMode.weight;
+      !toFailure &&
+      repsMax != null &&
+      modes.contains(ProgressionMode.weight);
+
+  /// Whether the slot is actually running that rule — ticked, and able to.
+  bool get onAdvancedAxis => addWeightAtTopOfRange && canClimbRange;
+
+  /// The rep goal a set of this slot aims at: the number to beat when the sets
+  /// run to failure, wherever the climb has got to on the advanced axis, and
+  /// otherwise the top of the range or the fixed count. The draft's copy of
+  /// [WorkoutItemTarget.goalReps], which is what the board reads.
+  int get goalReps {
+    if (toFailure) return repsMin;
+    final top = repsMax;
+    if (top == null) return repsMin;
+    if (!onAdvancedAxis) return top;
+    final goal = repsTarget ?? repsMin;
+    return goal < repsMin ? repsMin : (goal > top ? top : goal);
+  }
 
   /// What each set is aiming at, given the gym's [unit] and the lightest weight
   /// this slot may be loaded to. The one place the scheme is turned into
@@ -224,7 +281,7 @@ class ItemDraft {
       resolveSetTargets(
         scheme: scheme,
         sets: sets,
-        goalReps: toFailure ? repsMin : (repsMax ?? repsMin),
+        goalReps: goalReps,
         topWeightKg: clampedWeightKg(defaultBarKg),
         unit: unit,
         percent: schemePercent,
@@ -276,25 +333,78 @@ class ItemDraft {
     return w < floor ? floor : w;
   }
 
-  /// The step and back-off last set on each axis this draft has been on, so
+  /// The step and back-off last set on each axis this slot is *not* on, so
   /// switching away and back does not throw away numbers somebody typed — the
-  /// same keeping as [customSets]. Only the axis in use is stored on the slot;
-  /// this is the open editor's memory of the others.
-  final Map<ProgressionMode, ({double increment, double deload})> _rates = {};
+  /// same keeping as [customSets]. The axis in use keeps its own pair in
+  /// [increment] and [deload], and is never a key here.
+  ///
+  /// Stored, as `WorkoutItems.spared_rates`: the sheet closes, the app is shut
+  /// and the numbers are still what they were. Read through [sparedRates],
+  /// which is what the two write paths put in the column.
+  ///
+  /// The advanced axis is a key of its own rather than the weight axis it runs
+  /// on: its step is what to add at the top of a rep range, which is not
+  /// necessarily what the same slot adds every session on the plain rule. Its
+  /// rep rates need no keeping — [repsIncrement] and [repsDeload] are fields
+  /// nothing else writes.
+  final Map<RateAxis, ProgressionRates> _rates;
+
+  /// The set-aside pairs as the column holds them, or null when none are.
+  String? get sparedRates => encodeSparedRates(_rates);
+
+  RateAxis get _rateAxis => onAdvancedAxis
+      ? RateAxis.advanced
+      : switch (progression) {
+          ProgressionMode.weight => RateAxis.weight,
+          ProgressionMode.reps => RateAxis.reps,
+          ProgressionMode.time => RateAxis.time,
+        };
 
   /// Switches the axis, bringing back the rates last set on it, or that mode's
   /// defaults in [unit] on an axis this slot has not been on: 2.5 of anything
   /// is a sane step in kilograms and nonsense in reps. An axis the exercise
   /// does not allow is ignored.
+  ///
+  /// Picking one of the plain axes leaves the advanced one, which is what the
+  /// pills mean: they are four ways for this slot to advance and it is on one.
   void setMode(ProgressionMode mode, {String unit = 'kg'}) {
-    if (mode == progression || !modes.contains(mode)) return;
-    _putOnAxis(mode, unit);
+    if (!modes.contains(mode)) return;
+    if (mode == progression && !onAdvancedAxis) return;
+    _switchAxis(unit, () {
+      addWeightAtTopOfRange = false;
+      progression = mode;
+    });
   }
 
-  void _putOnAxis(ProgressionMode mode, String unit) {
-    _rates[progression] = (increment: increment, deload: deload);
-    progression = mode;
-    final kept = _rates[mode];
+  /// Puts the slot on — or takes it off — the axis that climbs the rep range
+  /// before the load moves. Going on brings the weight axis with it: it is the
+  /// load that waits at the top of the range.
+  void setAdvanced(bool on, {String unit = 'kg'}) {
+    if (on == onAdvancedAxis || (on && !canClimbRange)) return;
+    _switchAxis(unit, () {
+      addWeightAtTopOfRange = on;
+      if (on) progression = ProgressionMode.weight;
+    });
+  }
+
+  /// Runs [change] between putting the rates of the axis being left aside and
+  /// bringing back those of the axis being joined.
+  void _switchAxis(String unit, VoidCallback change) {
+    final from = _rateAxis;
+    _rates[from] = (increment: increment, deload: deload);
+    change();
+    final to = _rateAxis;
+    // The axis being joined comes out of the map on the way in: what is left
+    // there is exactly the axes the slot is not on, which is what gets stored.
+    // The advanced axis, entered for the first time, opens on the slot's own
+    // weight rates rather than on the defaults: it is the same load it was
+    // about to move, and a 5 kg step nobody has changed their mind about should
+    // not silently become 2.5 for having been asked to wait for the top of a
+    // range.
+    final kept = _rates.remove(to) ??
+        (to == RateAxis.advanced ? _rates[RateAxis.weight] : null);
+    if (to == from) return;
+    final mode = to == RateAxis.advanced ? ProgressionMode.weight : progression;
     increment = kept?.increment ?? defaultIncrementFor(mode, unit);
     deload = kept?.deload ?? defaultDeloadFor(mode, unit);
   }
@@ -313,7 +423,7 @@ class ItemDraft {
     measure = e.measure;
     weightType = e.weightType;
     barKg = e.barWeight;
-    if (!modes.contains(progression)) _putOnAxis(modes.first, unit);
+    if (!modes.contains(progression)) setMode(modes.first, unit: unit);
     if (!weightType.carriesWeight) weightKg = null;
   }
 }
@@ -337,9 +447,16 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         position: Value(i),
         targetSets: Value(drafts[i].sets),
         repsMin: Value(drafts[i].repsMin),
-        repsMax: Value(drafts[i].toFailure ? null : drafts[i].repsMax),
+        // Kept as it stands under a slot run to failure: the range is not what
+        // those sets aim at, and taking the number away would make trying
+        // failure for a week cost the range somebody set.
+        repsMax: Value(drafts[i].repsMax),
         toFailure: Value(drafts[i].toFailure),
         addWeightAtTopOfRange: Value(drafts[i].addWeightAtTopOfRange),
+        repsIncrement: Value(drafts[i].repsIncrement),
+        repsDeload: Value(drafts[i].repsDeload),
+        repsTarget: Value(drafts[i].repsTarget),
+        sparedRates: Value(drafts[i].sparedRates),
         restSeconds: Value(drafts[i].restSeconds),
         suggestedWeight: Value(drafts[i].clampedWeightKg(defaultBarKg)),
         scheme: Value(drafts[i].scheme),
@@ -378,9 +495,13 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
     WorkoutItemsCompanion(
       targetSets: Value(d.sets),
       repsMin: Value(d.repsMin),
-      repsMax: Value(d.toFailure ? null : d.repsMax),
+      repsMax: Value(d.repsMax),
       toFailure: Value(d.toFailure),
       addWeightAtTopOfRange: Value(d.addWeightAtTopOfRange),
+      repsIncrement: Value(d.repsIncrement),
+      repsDeload: Value(d.repsDeload),
+      repsTarget: Value(d.repsTarget),
+      sparedRates: Value(d.sparedRates),
       restSeconds: Value(d.restSeconds),
       suggestedWeight: Value(d.clampedWeightKg(defaultBarKg)),
       scheme: Value(d.scheme),
@@ -425,10 +546,16 @@ String progressionAmount(
 /// message, so the phrase lives inside the translation rather than being
 /// stitched on after it.
 String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
+  // On the advanced axis this sentence is the rep half of the rule — what the
+  // load does is what happens at either end of the range, which is the two
+  // lines under it.
+  final mode = d.onAdvancedAxis ? ProgressionMode.reps : d.progression;
+  final step = d.onAdvancedAxis ? d.repsIncrement : d.increment;
+  final back = d.onAdvancedAxis ? d.repsDeload : d.deload;
   return l10n.itemEditorProgressionRule(
-    progressionAmount(l10n, d.increment, d.progression, unit),
+    progressionAmount(l10n, step, mode, unit),
     d.successThreshold,
-    progressionAmount(l10n, d.deload, d.progression, unit),
+    progressionAmount(l10n, back, mode, unit),
     d.failureThreshold,
   );
 }
@@ -442,8 +569,10 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
     progression: d.progression,
     toFailure: d.toFailure,
     holdSeconds: d.holdSeconds,
-    repsMin: d.repsMin,
-    repsMax: d.repsMax,
+    // The same phrase the training day shows, and for the same reason: a slot
+    // climbing its range aims at one number rather than at the range.
+    repsMin: d.goalReps,
+    repsMax: d.onAdvancedAxis ? null : d.repsMax,
   );
   final w = d.weightKg == null
       ? null
@@ -700,6 +829,20 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     super.dispose();
   }
 
+  /// One of the faint lines this sheet explains itself with — the axis it has
+  /// no choice about, and the rule its numbers add up to.
+  Widget _note(String text) => Text(
+        text,
+        style: kMono.copyWith(
+            fontSize: 11, height: 1.5, color: AppColors.faint),
+      );
+
+  /// A progression amount in the display unit, as a weight — what the two ends
+  /// of a climbed range are worth, whichever axis the sentence around it is
+  /// about.
+  String _weightAmount(AppLocalizations l10n, double amount) =>
+      progressionAmount(l10n, amount, ProgressionMode.weight, widget.unit);
+
   void _bump(VoidCallback fn) {
     setState(fn);
     widget.onChanged();
@@ -865,35 +1008,37 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 ),
                 if (_advanced) ...[
                   const SizedBox(height: 14),
-                  // A range has no meaning once the set runs to failure, so the
-                  // field goes away rather than sitting there greyed out.
-                  if (!d.toFailure) ...[
-                    builderGrid([
-                      BuilderField(
-                        label: l10n.itemEditorRepRange,
-                        // The range it currently produces, so the caption says
-                        // what the number does rather than where it goes. The
-                        // Reps field it extends is in the basic half above, out
-                        // of sight of this one.
-                        note: d.repsMax == null
-                            ? null
-                            : l10n.itemEditorRepRangeSpan(d.repsMin, d.repsMax!),
-                        child: NumberStepper(
-                          // Stepping down past the lower bound drops the upper
-                          // one entirely — no stray clear button to knock the
-                          // row out of line with the rest of the grid.
-                          value: d.repsMax ?? d.repsMin,
-                          isEmpty: d.repsMax == null,
-                          emptyLabel: l10n.itemEditorNoUpper,
-                          min: d.repsMin,
-                          max: 100,
-                          onChanged: (v) => _bump(() => d.repsMax = v),
-                          onClear: () => _bump(() => d.repsMax = null),
-                        ),
+                  // Sets taken to failure are not aiming at a range, so the
+                  // stepper goes dead — and keeps what it is holding. Taking
+                  // the field away would take the number with it, and trying
+                  // failure for a week would cost the range you had.
+                  builderGrid([
+                    BuilderField(
+                      label: l10n.itemEditorRepRange,
+                      // The range it currently produces, so the caption says
+                      // what the number does rather than where it goes. The
+                      // Reps field it extends is in the basic half above, out
+                      // of sight of this one.
+                      note: d.repsMax == null
+                          ? null
+                          : l10n.itemEditorRepRangeSpan(d.repsMin, d.repsMax!),
+                      child: NumberStepper(
+                        key: kRepRangeFieldKey,
+                        // Stepping down past the lower bound drops the upper
+                        // one entirely — no stray clear button to knock the
+                        // row out of line with the rest of the grid.
+                        value: d.repsMax ?? d.repsMin,
+                        isEmpty: d.repsMax == null,
+                        emptyLabel: l10n.itemEditorNoUpper,
+                        min: d.repsMin,
+                        max: 100,
+                        enabled: !d.toFailure,
+                        onChanged: (v) => _bump(() => d.repsMax = v),
+                        onClear: () => _bump(() => d.repsMax = null),
                       ),
-                    ]),
-                    const SizedBox(height: 14),
-                  ],
+                    ),
+                  ]),
+                  const SizedBox(height: 14),
                   _CheckRow(
                     label: l10n.itemEditorToFailure,
                     value: d.toFailure,
@@ -952,19 +1097,30 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 _ModePicker(
                   modes: d.modes,
                   mode: d.progression,
+                  advanced: d.onAdvancedAxis,
+                  // Offered wherever the two axes it takes in turn exist, and
+                  // dead until there is a range for them to take turns inside —
+                  // the tick below is where the sentence saying so fits.
+                  advancedOffered: d.modes.contains(ProgressionMode.weight) &&
+                      d.modes.contains(ProgressionMode.reps),
+                  advancedEnabled: d.canClimbRange,
                   onChanged: (m) =>
                       _bump(() => d.setMode(m, unit: widget.unit)),
+                  onAdvanced: () =>
+                      _bump(() => d.setAdvanced(true, unit: widget.unit)),
                 )
               else
-                Text(
-                  _soleAxis(l10n, d.modes.first),
-                  style: kMono.copyWith(
-                      fontSize: 11, height: 1.5, color: AppColors.faint),
-                ),
+                _note(_soleAxis(l10n, d.modes.first)),
               const SizedBox(height: 16),
+              // Two amounts on an ordinary axis; four on the one that takes reps
+              // and weight in turn, because a rep is not a kilogram. The two
+              // thresholds are not doubled with them: a session is clean or
+              // missed for the slot, not for one of its axes.
               builderGrid([
                 BuilderField(
-                  label: l10n.itemEditorStepUpBy,
+                  label: d.onAdvancedAxis
+                      ? l10n.itemEditorStepUpWeight
+                      : l10n.itemEditorStepUpBy,
                   child: _AmountField(
                     key: kStepUpFieldKey,
                     value: d.increment,
@@ -976,17 +1132,22 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     onChanged: (v) => _bump(() => d.increment = v),
                   ),
                 ),
-                BuilderField(
-                  label: l10n.itemEditorCleanSessions,
-                  child: NumberStepper(
-                    value: d.successThreshold,
-                    min: 1,
-                    max: 10,
-                    onChanged: (v) => _bump(() => d.successThreshold = v),
+                if (d.onAdvancedAxis)
+                  BuilderField(
+                    label: l10n.itemEditorStepUpReps,
+                    child: _AmountField(
+                      key: kRepsStepUpFieldKey,
+                      value: d.repsIncrement,
+                      mode: ProgressionMode.reps,
+                      unit: widget.unit,
+                      allowZero: false,
+                      onChanged: (v) => _bump(() => d.repsIncrement = v),
+                    ),
                   ),
-                ),
                 BuilderField(
-                  label: l10n.itemEditorBackOffBy,
+                  label: d.onAdvancedAxis
+                      ? l10n.itemEditorBackOffWeight
+                      : l10n.itemEditorBackOffBy,
                   child: _AmountField(
                     key: kBackOffFieldKey,
                     value: d.deload,
@@ -995,6 +1156,26 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     // Zero is a real answer here: a missed session that never
                     // lightens the load.
                     onChanged: (v) => _bump(() => d.deload = v),
+                  ),
+                ),
+                if (d.onAdvancedAxis)
+                  BuilderField(
+                    label: l10n.itemEditorBackOffReps,
+                    child: _AmountField(
+                      key: kRepsBackOffFieldKey,
+                      value: d.repsDeload,
+                      mode: ProgressionMode.reps,
+                      unit: widget.unit,
+                      onChanged: (v) => _bump(() => d.repsDeload = v),
+                    ),
+                  ),
+                BuilderField(
+                  label: l10n.itemEditorCleanSessions,
+                  child: NumberStepper(
+                    value: d.successThreshold,
+                    min: 1,
+                    max: 10,
+                    onChanged: (v) => _bump(() => d.successThreshold = v),
                   ),
                 ),
                 BuilderField(
@@ -1008,12 +1189,24 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 ),
               ]),
               const SizedBox(height: 14),
-              // The four numbers above, read back as the rule they add up to.
-              Text(
-                progressionRule(l10n, d, widget.unit),
-                style: kMono.copyWith(
-                    fontSize: 11, height: 1.5, color: AppColors.faint),
-              ),
+              // The numbers above, read back as the rule they add up to: one
+              // sentence on an ordinary axis, and on the advanced one what the
+              // reps do plus what happens at each end of the range.
+              _note(progressionRule(l10n, d, widget.unit)),
+              if (d.onAdvancedAxis) ...[
+                const SizedBox(height: 6),
+                _note(l10n.itemEditorRuleAtTop(
+                  d.repsMax!,
+                  _weightAmount(l10n, d.increment),
+                  d.repsMin,
+                )),
+                const SizedBox(height: 6),
+                _note(l10n.itemEditorRuleAtBottom(
+                  d.repsMin,
+                  _weightAmount(l10n, d.deload),
+                  d.repsMax!,
+                )),
+              ],
               // The ways of advancing most slots never use. In this card rather
               // than beside the rep range one of them reads: how a slot
               // progresses is decided in one place, whatever the rule happens to
@@ -1034,10 +1227,15 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 _CheckRow(
                   key: kRangeClimbKey,
                   label: l10n.itemEditorAddWeightAtTop,
-                  value: d.addWeightAtTopOfRange,
+                  value: d.onAdvancedAxis,
                   enabled: d.canClimbRange,
+                  // What the combination does, said once under the one control
+                  // that offers it — this is the tick somebody meets without
+                  // knowing what they have been offered.
+                  note: l10n.itemEditorAddWeightAtTopHint,
                   disabledNote: l10n.itemEditorRangeClimbNeedsRange,
-                  onChanged: (v) => _bump(() => d.addWeightAtTopOfRange = v),
+                  onChanged: (v) =>
+                      _bump(() => d.setAdvanced(v, unit: widget.unit)),
                 ),
               ],
             ]),
@@ -1231,13 +1429,13 @@ class _SchemeSection extends StatelessWidget {
               index: i,
               row: i < d.customSets.length
                   ? d.customSets[i]
-                  : CustomSet(reps: _goalReps(d), percent: 100),
+                  : CustomSet(reps: d.goalReps, percent: 100),
               onChanged: (row) {
                 final rows = [
                   for (var j = 0; j < d.sets; j++)
                     j < d.customSets.length
                         ? d.customSets[j]
-                        : CustomSet(reps: _goalReps(d), percent: 100),
+                        : CustomSet(reps: d.goalReps, percent: 100),
                 ];
                 rows[i] = row;
                 d.customSets = rows;
@@ -1260,15 +1458,11 @@ class _SchemeSection extends StatelessWidget {
   }
 }
 
-/// The rep target a scheme repeats: the top of the range, or the number to beat
-/// on a set run to failure.
-int _goalReps(ItemDraft d) => d.toFailure ? d.repsMin : (d.repsMax ?? d.repsMin);
-
 /// What a fresh custom scheme opens on: the slot as it already is, one row per
 /// set. Editing from what you have beats editing from blanks.
 List<CustomSet> _seedCustomRows(ItemDraft d) => [
       for (var i = 0; i < d.sets; i++)
-        CustomSet(reps: _goalReps(d), percent: 100),
+        CustomSet(reps: d.goalReps, percent: 100),
     ];
 
 /// The scheme as the sets it produces: "100 · 90 · 80 kg", or the rep counts
@@ -1447,6 +1641,7 @@ class _CheckRow extends StatelessWidget {
     required this.onChanged,
     this.onExplain,
     this.enabled = true,
+    this.note,
     this.disabledNote,
   });
   final String label;
@@ -1457,6 +1652,11 @@ class _CheckRow extends StatelessWidget {
   /// Whether the option can be taken at all. A row that cannot is greyed and
   /// untickable rather than absent — see [disabledNote].
   final bool enabled;
+
+  /// The one line under the row saying what the option does, shown whether or
+  /// not it can be taken. For a setting whose label names a training method
+  /// rather than a number — where the alternative is a word nobody can act on.
+  final String? note;
 
   /// The one line under a disabled row saying what it wants before it can be
   /// ticked. Not a caption explaining the option: it is what somebody has to do
@@ -1507,45 +1707,70 @@ class _CheckRow extends StatelessWidget {
       ],
     );
 
-    if (enabled || disabledNote == null) {
-      return InkWell(
-        onTap: enabled ? () => onChanged(!value) : null,
-        borderRadius: BorderRadius.circular(10),
-        child: row,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        row,
-        // Indented to the label rather than to the row, so it reads as
-        // belonging to this option and not to the next one down.
-        Padding(
-          padding: const EdgeInsets.only(left: 36, top: 2),
-          child: Text(
-            disabledNote!,
-            style: kMono.copyWith(
-                fontSize: 11, height: 1.5, color: AppColors.faint),
-          ),
-        ),
-      ],
+    // What the option does, then — while it cannot be taken — what it wants
+    // first. Both indented to the label rather than to the row, so they read as
+    // belonging to this option and not to the next one down.
+    final lines = [
+      ?note,
+      if (!enabled) ?disabledNote,
+    ];
+    // The lines are inside the tap target, not under it: they are part of what
+    // is being offered, and a row that stops reacting halfway down its own
+    // explanation is a row that looks broken.
+    return InkWell(
+      onTap: enabled ? () => onChanged(!value) : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          row,
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(left: 36, top: 2),
+              child: Text(
+                line,
+                style: kMono.copyWith(
+                    fontSize: 11, height: 1.5, color: AppColors.faint),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
-/// The axes an exercise may progress on, as one row of pills.
+/// The ways an exercise may be set to advance, as pills.
 ///
 /// Only ever shows [modes] — the axes its measure allows. Offering to progress
-/// a deadlift by time is offering a choice with no right answer in it.
+/// a deadlift by time is offering a choice with no right answer in it. The
+/// advanced rule is a pill like the others because it is a fourth answer to the
+/// same question, and it sits on a row of its own: it is the one whose name is
+/// not the number it moves, and three pills abreast leaves no room to say so in
+/// any language.
 class _ModePicker extends StatelessWidget {
   const _ModePicker({
     required this.modes,
     required this.mode,
     required this.onChanged,
+    this.advanced = false,
+    this.advancedOffered = false,
+    this.advancedEnabled = false,
+    this.onAdvanced,
   });
   final List<ProgressionMode> modes;
   final ProgressionMode mode;
   final ValueChanged<ProgressionMode> onChanged;
+
+  /// Whether the slot is on the axis that takes reps and weight in turn — which
+  /// is also what makes none of [modes] the selected one.
+  final bool advanced;
+
+  /// Whether that pill is shown at all, and whether it can be pressed. Shown
+  /// wherever the two axes it combines exist, and dead until there is a rep
+  /// range for them to take turns inside.
+  final bool advancedOffered;
+  final bool advancedEnabled;
+  final VoidCallback? onAdvanced;
 
   static String _label(AppLocalizations l10n, ProgressionMode m) => switch (m) {
         ProgressionMode.weight => l10n.itemEditorModeWeight,
@@ -1553,43 +1778,81 @@ class _ModePicker extends StatelessWidget {
         ProgressionMode.time => l10n.itemEditorModeTime,
       };
 
+  static Key _key(ProgressionMode m) => switch (m) {
+        ProgressionMode.weight => kModeWeightKey,
+        ProgressionMode.reps => kModeRepsKey,
+        ProgressionMode.time => kModeTimeKey,
+      };
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final m in modes)
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: m == modes.last ? 0 : 8),
-              child: _pill(l10n, m),
-            ),
+        Row(
+          children: [
+            for (final m in modes)
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: m == modes.last ? 0 : 8),
+                  child: _pill(
+                    label: _label(l10n, m),
+                    pillKey: _key(m),
+                    on: !advanced && m == mode,
+                    onTap: () => onChanged(m),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        if (advancedOffered) ...[
+          const SizedBox(height: 8),
+          _pill(
+            label: l10n.itemEditorModeAdvanced,
+            pillKey: kModeAdvancedKey,
+            on: advanced,
+            onTap: advancedEnabled ? onAdvanced : null,
           ),
+        ],
       ],
     );
   }
 
-  Widget _pill(AppLocalizations l10n, ProgressionMode m) {
-    final on = m == mode;
+  Widget _pill({
+    required String label,
+    required Key pillKey,
+    required bool on,
+    required VoidCallback? onTap,
+  }) {
+    final live = onTap != null;
     return Material(
+      key: pillKey,
       color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => onChanged(m),
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: on ? AppColors.accent : AppColors.line),
+            border: Border.all(
+                color: on
+                    ? AppColors.accent
+                    : (live ? AppColors.line : AppColors.line.withValues(alpha: 0.5))),
           ),
           padding: const EdgeInsets.symmetric(vertical: 11),
           child: Text(
-            _label(l10n, m),
+            label,
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: kMono.copyWith(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: on ? AppColors.accent : AppColors.muted,
+              color: on
+                  ? AppColors.accent
+                  : (live ? AppColors.muted : AppColors.faint),
             ),
           ),
         ),

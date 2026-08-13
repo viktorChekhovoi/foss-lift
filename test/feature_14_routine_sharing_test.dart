@@ -984,6 +984,95 @@ void main() {
     });
   });
 
+  group('the rep rates travel with the slots that use them', () {
+    /// A two-slot day on the *sender's* phone: a 6–8 Bench Press on the
+    /// advanced axis, stepping its goal by [repsIncrement] and backing it off
+    /// by [repsDeload] and already partway up its range, plus an ordinary
+    /// Overhead Press.
+    Future<SharedRoutine> ratedRoutine({
+      bool advanced = true,
+      double repsIncrement = 2,
+      double repsDeload = 3,
+      int? repsTarget = 8,
+    }) async {
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final rid = await sender.createRoutine(
+          name: 'Double Up', color: 'FF0000', restSeconds: 90);
+      final wid = await sender.createWorkout(rid, 'Day');
+      final bench = ItemDraft.forExercise(await exerciseNamed(sender, 'Bench Press'))
+        ..repsMin = 6
+        ..repsMax = 8
+        ..repsIncrement = repsIncrement
+        ..repsDeload = repsDeload
+        ..repsTarget = repsTarget;
+      if (advanced) bench.setAdvanced(true);
+      await sender.replaceWorkoutItems(
+        wid,
+        itemCompanions([
+          bench,
+          ItemDraft.forExercise(await exerciseNamed(sender, 'Overhead Press')),
+        ], workoutId: wid),
+      );
+      return sender.sharedRoutine(rid);
+    }
+
+    test('the rep step and back-off survive the trip', () async {
+      final code = RoutineCode.encode(await ratedRoutine());
+      final back = (RoutineCode.decode(code) as RoutineCodeOk).routine;
+
+      final climbing = back.workouts.single.items.first;
+      expect(climbing.addWeightAtTopOfRange, isTrue);
+      expect(climbing.repsIncrement, 2);
+      expect(climbing.repsDeload, 3);
+
+      // And they land on the recipient as the program the sender wrote.
+      await db.importSharedRoutine(back);
+      final landed = await _routineNamed(db, 'Double Up');
+      final day = (await db.workoutsForRoutine(landed.id)).single;
+      final items = await db.itemsForWorkout(day.id);
+      expect(items.first.item.repsIncrement, 2);
+      expect(items.first.item.repsDeload, 3);
+      expect(items.first.item.repsMax, 8, reason: 'the range they move inside');
+    });
+
+    test('where the sender had got to does not travel', () async {
+      // A shared routine is a program, not somebody's progress through one.
+      final code = RoutineCode.encode(await ratedRoutine());
+      final back = (RoutineCode.decode(code) as RoutineCodeOk).routine;
+      await db.importSharedRoutine(back);
+
+      final landed = await _routineNamed(db, 'Double Up');
+      final day = (await db.workoutsForRoutine(landed.id)).single;
+      final slot = (await db.itemsForWorkout(day.id)).first.item;
+      expect(slot.repsTarget, isNull);
+      expect(slot.goalReps, 6, reason: 'every imported slot starts at the bottom');
+    });
+
+    test('a slot that does not use them pays nothing for them', () async {
+      // Only the slots taking the two axes in turn carry the pair, so rates
+      // left on a slot that is not climbing cost the code nothing.
+      final rated = RoutineCode.encode(await ratedRoutine(advanced: false));
+      final plain = RoutineCode.encode(await ratedRoutine(
+          advanced: false, repsIncrement: 1, repsDeload: 2));
+
+      expect(rated, plain);
+      final back = (RoutineCode.decode(rated) as RoutineCodeOk).routine;
+      expect(back.workouts.single.items.first.repsIncrement, 1);
+      expect(back.workouts.single.items.first.repsDeload, 2);
+    });
+
+    test('a code written before the section imports at the defaults', () async {
+      final result = RoutineCode.decode(_shippedFlr1);
+
+      expect(result, isA<RoutineCodeOk>());
+      final back = (result as RoutineCodeOk).routine;
+      final items = back.workouts.expand((w) => w.items);
+      expect(items.map((i) => i.repsIncrement), everyElement(1));
+      expect(items.map((i) => i.repsDeload), everyElement(2));
+    });
+  });
+
   group('a code that will not read', () {
     /// Text a paste box will actually see: empty, junk, truncated, the wrong
     /// kind of code, and one carrying characters a URL treats as punctuation.
@@ -1186,6 +1275,23 @@ void main() {
       expect(bench.increment, closeTo(toKg(5, 'lb'), 1e-6),
           reason: 'a pounds gym steps by 5 lb, not by 5.51');
       expect(bench.deload, closeTo(toKg(10, 'lb'), 1e-6));
+    });
+
+    test('a code carries the axis in use and none of the ones it is not',
+        () async {
+      final shared =
+          await theirs((s) async => (await _routineNamed(s, 'Push / Pull / Legs')).id);
+
+      final id = await db.importSharedRoutine(shared);
+      final days = await db.workoutsForRoutine(id);
+      final bench = (await db.itemsForWorkout(days.first.id))
+          .firstWhere((v) => v.exercise.name == 'Bench Press')
+          .item;
+
+      // Where the sender's other axes had got to is not part of the program,
+      // so an imported slot starts with nothing kept — its first switch opens
+      // on the receiving gym's defaults.
+      expect(bench.sparedRates, isNull);
     });
 
     group('a rate that travelled lands on a tidy number', () {

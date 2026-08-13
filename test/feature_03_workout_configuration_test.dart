@@ -427,7 +427,7 @@ void main() {
       expect(label(bench), '6–8');
     });
 
-    test('a to-failure slot drops its range and says so', () async {
+    test('a to-failure slot keeps its range and still says failure', () async {
       final push = await workoutIdNamed(db, 'Push');
       final bench = await exerciseNamed(db, 'Bench Press');
 
@@ -441,8 +441,13 @@ void main() {
 
       final saved = (await itemNamed(db, push, 'Bench Press')).item;
       expect(saved.toFailure, isTrue);
-      expect(saved.repsMax, isNull); // a range has no meaning at failure
+      // The bound is stored as it stands: every reader asks about failure
+      // before it asks about the range, so the sets still run to failure and
+      // unticking gives the range back.
+      expect(saved.repsMax, 8);
       expect(label(saved), l10nFor().targetFailure);
+      expect(saved.goalReps, saved.repsMin,
+          reason: 'the number a set has to beat, not the top of the range');
     });
 
     test('a timed hold reads in seconds', () async {
@@ -556,6 +561,74 @@ void main() {
       expect(saved.deload, 2);
     });
 
+    test('the set-aside rates outlive the sheet and the app', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..increment = 1.25
+        ..deload = 7.5
+        ..setMode(ProgressionMode.reps);
+
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft], workoutId: push),
+      );
+
+      // The sheet, the screen and the process are all gone: this is the slot as
+      // the next session reads it off the phone.
+      final reopened = ItemDraft.fromView(await itemNamed(db, push, 'Bench Press'));
+      expect(reopened.progression, ProgressionMode.reps);
+
+      reopened.setMode(ProgressionMode.weight);
+      expect(reopened.increment, 1.25);
+      expect(reopened.deload, 7.5);
+    });
+
+    test('the advanced axis keeps its own pair across a save', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..repsMin = 6
+        ..repsMax = 8
+        ..setAdvanced(true);
+      draft
+        ..increment = 5
+        ..deload = 10
+        ..setAdvanced(false);
+      draft
+        ..increment = 1.25
+        ..deload = 7.5;
+
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft], workoutId: push),
+      );
+
+      final reopened = ItemDraft.fromView(await itemNamed(db, push, 'Bench Press'));
+      expect(reopened.increment, 1.25, reason: 'the plain weight rates, in use');
+
+      reopened.setAdvanced(true);
+      expect(reopened.increment, 5);
+      expect(reopened.deload, 10);
+    });
+
+    test('a slot saved from the live board keeps them too', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final view = await itemNamed(db, push, 'Bench Press');
+      final draft = ItemDraft.fromView(view)
+        ..increment = 1.25
+        ..deload = 7.5
+        ..setMode(ProgressionMode.reps);
+
+      // The board's settings sheet writes the one slot through, keeping its id.
+      await db.updateWorkoutItem(view.item.id, itemUpdate(draft));
+
+      final reopened = ItemDraft.fromView(await itemNamed(db, push, 'Bench Press'))
+        ..setMode(ProgressionMode.weight);
+      expect(reopened.increment, 1.25);
+      expect(reopened.deload, 7.5);
+    });
+
     test(
       'a slot pushed off its axis by the library finds its numbers again',
       () async {
@@ -580,6 +653,106 @@ void main() {
         expect(draft.deload, 7.5);
       },
     );
+
+    test(
+      'the advanced axis opens at the weight rates and the rep defaults',
+      () async {
+        // It is the same load it was about to move, so its weight pair is the
+        // slot's own; a rep is not a kilogram, so its rep pair starts at the
+        // reps axis's defaults.
+        final bench = await exerciseNamed(db, 'Bench Press');
+        final draft = ItemDraft.forExercise(bench)
+          ..repsMax = 8
+          ..increment = 1.25
+          ..deload = 7.5;
+
+        draft.setAdvanced(true);
+
+        expect(draft.progression, ProgressionMode.weight);
+        expect(draft.increment, 1.25);
+        expect(draft.deload, 7.5);
+        expect(draft.repsIncrement, 1);
+        expect(draft.repsDeload, 2);
+      },
+    );
+
+    test('weight → advanced → weight finds the plain rates untouched', () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..repsMax = 8
+        ..increment = 1.25
+        ..deload = 7.5;
+
+      draft.setAdvanced(true);
+      draft
+        ..increment = 5
+        ..deload = 10
+        ..repsIncrement = 2
+        ..repsDeload = 3;
+
+      draft.setAdvanced(false);
+      expect(draft.increment, 1.25, reason: 'the plain weight rates, as left');
+      expect(draft.deload, 7.5);
+
+      // A third set of numbers on the same terms: the advanced axis keeps its
+      // own pair too.
+      draft.setAdvanced(true);
+      expect(draft.increment, 5);
+      expect(draft.deload, 10);
+      expect(draft.repsIncrement, 2);
+      expect(draft.repsDeload, 3);
+    });
+
+    test('reps → advanced puts the slot on weight and keeps the rep rates',
+        () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..repsMax = 8
+        ..increment = 1.25
+        ..deload = 7.5;
+
+      draft.setMode(ProgressionMode.reps);
+      draft
+        ..increment = 3
+        ..deload = 1;
+
+      draft.setAdvanced(true);
+      expect(draft.progression, ProgressionMode.weight);
+      expect(draft.increment, 1.25, reason: 'the weight rates it had');
+      expect(draft.deload, 7.5);
+      expect(draft.repsIncrement, 1, reason: 'the reps-axis defaults');
+      expect(draft.repsDeload, 2);
+
+      // And back to reps: the numbers typed against that axis are still there.
+      draft.setMode(ProgressionMode.reps);
+      expect(draft.increment, 3);
+      expect(draft.deload, 1);
+      expect(draft.addWeightAtTopOfRange, isFalse);
+    });
+
+    test('only the axis in use reaches the database, rep rates included',
+        () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..repsMin = 6
+        ..repsMax = 8
+        ..setAdvanced(true)
+        ..increment = 5
+        ..repsIncrement = 2
+        ..repsDeload = 3;
+
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft], workoutId: push),
+      );
+
+      final saved = (await itemNamed(db, push, 'Bench Press')).item;
+      expect(saved.progression, ProgressionMode.weight);
+      expect(saved.increment, 5);
+      expect(saved.repsIncrement, 2);
+      expect(saved.repsDeload, 3);
+    });
   });
 
   group('a rep range keeps its width as progression moves it', () {
@@ -612,25 +785,39 @@ void main() {
       expect(width, 4); // still 6–10 wide, wherever it landed
     });
 
-    test('a slot climbing its range does not move the range at all', () async {
-      // There the range is the ladder, so it stays put while the load moves.
+    test('a slot on the advanced axis does not move the range at all', () async {
+      // There the range is the ladder and the goal is what climbs it, so the
+      // range stays put whichever of the two axes pays out.
       final push = await workoutIdNamed(db, 'Push');
       final bench = await exerciseNamed(db, 'Bench Press');
       final draft = ItemDraft.forExercise(bench)
         ..repsMin = 6
         ..repsMax = 8
         ..weightKg = 80
-        ..addWeightAtTopOfRange = true;
+        ..setAdvanced(true);
       await db.replaceWorkoutItems(
         push,
         itemCompanions([draft], workoutId: push),
       );
       final saved = (await itemNamed(db, push, 'Bench Press')).item;
 
-      await db.advanceProgression(saved.id, verdict: SessionVerdict.success, performedWeight: 80);
+      // A clean session at the bottom of the range: the goal climbs.
+      await db.advanceProgression(saved.id,
+          verdict: SessionVerdict.success, performedWeight: 80);
+      var after = (await db.workoutItemById(saved.id))!;
+      expect(after.goalReps, 7);
+      expect(after.repsMin, 6);
+      expect(after.repsMax, 8);
 
-      final after = await db.workoutItemById(saved.id);
-      expect(after!.suggestedWeight, 82.5);
+      // And again from the top, where the weight is what moves.
+      await db.updateWorkoutItem(
+        saved.id,
+        const WorkoutItemsCompanion(repsTarget: Value(8)),
+      );
+      await db.advanceProgression(saved.id,
+          verdict: SessionVerdict.success, performedWeight: 80);
+      after = (await db.workoutItemById(saved.id))!;
+      expect(after.suggestedWeight, 82.5);
       expect(after.repsMin, 6);
       expect(after.repsMax, 8);
     });
@@ -1058,13 +1245,178 @@ void main() {
     });
   });
 
-  group('the Progression card carries the range climb under its own Advanced',
-      () {
-    /// The line the greyed checkbox sits under. The key does not exist yet, so
-    /// the English is asserted as written.
-    const needsRange =
-        'Configure a rep range to enable rep-weight progression';
+  group('the advanced rule is a pill on the axis row and a tick', () {
+    /// A Bench Press draft opened in the config sheet, [configure]d first.
+    Future<ItemDraft> openDraft(
+      WidgetTester tester,
+      ProviderContainer container, {
+      String exercise = 'Bench Press',
+      void Function(ItemDraft)? configure,
+    }) async {
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, exercise))))!;
+      configure?.call(draft);
+      await openSheet(tester, container, [draft]);
+      return draft;
+    }
 
+    /// The checkbox inside the range-climb row.
+    Checkbox climbBox(WidgetTester tester) => tester.widget<Checkbox>(
+        find.descendant(
+            of: find.byKey(kRangeClimbKey), matching: find.byType(Checkbox)));
+
+    Future<void> openProgressionAdvanced(WidgetTester tester) async {
+      await tester.tap(find.byKey(kProgressionAdvancedKey));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tap(WidgetTester tester, Key key) async {
+      await tester.tap(find.byKey(key), warnIfMissed: false);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a counted lift with a range is offered all three', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+
+      expect(find.byKey(kModeWeightKey), findsOneWidget);
+      expect(find.byKey(kModeRepsKey), findsOneWidget);
+      expect(find.byKey(kModeAdvancedKey), findsOneWidget);
+      expect(find.byKey(kModeTimeKey), findsNothing,
+          reason: 'the row only ever shows axes the exercise allows');
+
+      await stop(tester);
+    });
+
+    testWidgets('the Advanced pill turns the tick on and holds the weight axis',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft =
+          await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+      await openProgressionAdvanced(tester);
+      expect(climbBox(tester).value, isFalse, reason: 'off by default');
+
+      await tap(tester, kModeAdvancedKey);
+
+      expect(draft.addWeightAtTopOfRange, isTrue);
+      expect(draft.onAdvancedAxis, isTrue);
+      expect(draft.progression, ProgressionMode.weight,
+          reason: 'the load is what waits at the top of the range');
+      expect(climbBox(tester).value, isTrue, reason: 'one switch, two ways in');
+
+      await stop(tester);
+    });
+
+    testWidgets('the Weight pill turns it back off and leaves the axis alone', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container,
+          configure: (d) => d
+            ..repsMax = 8
+            ..setAdvanced(true));
+
+      await tap(tester, kModeWeightKey);
+
+      expect(draft.addWeightAtTopOfRange, isFalse);
+      expect(draft.onAdvancedAxis, isFalse);
+      expect(draft.progression, ProgressionMode.weight);
+      expect(climbBox(tester).value, isFalse);
+
+      await stop(tester);
+    });
+
+    testWidgets('the Reps pill turns it off and moves the slot', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container,
+          configure: (d) => d
+            ..repsMax = 8
+            ..setAdvanced(true));
+
+      await tap(tester, kModeRepsKey);
+
+      expect(draft.addWeightAtTopOfRange, isFalse);
+      expect(draft.progression, ProgressionMode.reps);
+
+      await stop(tester);
+    });
+
+    testWidgets('the tick is the other way onto the pill', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft =
+          await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+      await openProgressionAdvanced(tester);
+
+      await tap(tester, kRangeClimbKey);
+      expect(draft.onAdvancedAxis, isTrue);
+      expect(find.byKey(kRepsStepUpFieldKey), findsOneWidget,
+          reason: 'the axis row moved with it, and so did its amounts');
+
+      await tap(tester, kRangeClimbKey);
+      expect(draft.onAdvancedAxis, isFalse);
+      expect(find.byKey(kRepsStepUpFieldKey), findsNothing);
+
+      await stop(tester);
+    });
+
+    testWidgets('a slot on the reps axis may still pick Advanced', (
+      tester,
+    ) async {
+      // Not a move the slot could make before: picking the advanced rule from
+      // the Reps pill is legal, and it is what puts the slot on the weight axis.
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container,
+          configure: (d) => d
+            ..repsMax = 10
+            ..setMode(ProgressionMode.reps));
+
+      await tap(tester, kModeAdvancedKey);
+
+      expect(draft.onAdvancedAxis, isTrue);
+      expect(draft.progression, ProgressionMode.weight);
+
+      await stop(tester);
+    });
+
+    testWidgets('the pill does nothing while there is no range to climb', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container);
+
+      expect(find.byKey(kModeAdvancedKey), findsOneWidget,
+          reason: 'greyed where it lives, not taken away');
+      await tap(tester, kModeAdvancedKey);
+
+      expect(draft.addWeightAtTopOfRange, isFalse);
+      expect(draft.progression, ProgressionMode.weight);
+
+      await stop(tester);
+    });
+
+    testWidgets('a held movement is never offered it', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await openDraft(tester, container, exercise: 'Plank');
+
+      expect(find.byKey(kModeAdvancedKey), findsNothing,
+          reason: 'a hold has no second axis to take turns with');
+
+      await stop(tester);
+    });
+  });
+
+  group('the Progression card carries the advanced rule under its own Advanced',
+      () {
     /// A Bench Press draft opened in the config sheet, [configure]d first.
     Future<ItemDraft> openDraft(
       WidgetTester tester,
@@ -1116,14 +1468,14 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a slot that climbs its range opens Advanced already expanded',
+    testWidgets('a slot on the advanced axis opens Advanced already expanded',
         (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await openDraft(tester, container,
           configure: (d) => d
             ..repsMax = 8
-            ..addWeightAtTopOfRange = true);
+            ..setAdvanced(true));
 
       // No tap: nothing a slot actually does is hidden behind a toggle
       // somebody has to think to press.
@@ -1152,10 +1504,29 @@ void main() {
       await stop(tester);
     });
 
+    testWidgets('the tick sits under the line saying what it does', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final l10n = l10nFor();
+      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+      await openProgressionAdvanced(tester);
+
+      expect(find.text(l10n.itemEditorAddWeightAtTop), findsOneWidget);
+      expect(find.text(l10n.itemEditorAddWeightAtTopHint), findsOneWidget,
+          reason: 'what the combination does, whether or not it can be ticked');
+      expect(find.text(l10n.itemEditorRangeClimbNeedsRange), findsNothing,
+          reason: 'it has its range; there is nothing left to ask for');
+
+      await stop(tester);
+    });
+
     testWidgets('a fixed rep count gets it greyed out, not taken away',
         (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
+      final l10n = l10nFor();
       final draft = await openDraft(tester, container);
 
       await openProgressionAdvanced(tester);
@@ -1163,7 +1534,9 @@ void main() {
       expect(find.byKey(kRangeClimbKey), findsOneWidget,
           reason: 'a control that vanishes teaches nobody where it went');
       expect(climbBox(tester).onChanged, isNull, reason: 'untickable');
-      expect(find.text(needsRange), findsOneWidget);
+      expect(find.text(l10n.itemEditorAddWeightAtTopHint), findsOneWidget,
+          reason: 'the line saying what it does stays either way');
+      expect(find.text(l10n.itemEditorRangeClimbNeedsRange), findsOneWidget);
 
       await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
       await tester.pumpAndSettle();
@@ -1176,13 +1549,16 @@ void main() {
     testWidgets('a slot running to failure gets the same line', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
+      // A range it is not aiming at, which is not a range to climb.
       final draft = await openDraft(tester, container,
-          configure: (d) => d..toFailure = true);
+          configure: (d) => d
+            ..repsMax = 8
+            ..toFailure = true);
 
       await openProgressionAdvanced(tester);
 
       expect(climbBox(tester).onChanged, isNull);
-      expect(find.text(needsRange), findsOneWidget);
+      expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsOneWidget);
 
       await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
       await tester.pumpAndSettle();
@@ -1191,7 +1567,12 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a slot on the reps axis gets it greyed too', (tester) async {
+    testWidgets('a slot on the reps axis with a range may take it', (
+      tester,
+    ) async {
+      // The tick asks whether the rule is available, not which axis the slot is
+      // on: coming to it from Reps is a legal move, and taking it moves the
+      // slot to the weight axis.
       final container = containerFor(db);
       addTearDown(container.dispose);
       final draft = await openDraft(tester, container,
@@ -1201,20 +1582,19 @@ void main() {
 
       await openProgressionAdvanced(tester);
 
-      expect(find.byKey(kRangeClimbKey), findsOneWidget,
-          reason: 'the reps axis already advances the number this would, '
-              'but the row still says so where it lives');
-      expect(climbBox(tester).onChanged, isNull);
-      expect(find.text(needsRange), findsOneWidget);
+      expect(draft.canClimbRange, isTrue);
+      expect(climbBox(tester).onChanged, isNotNull);
+      expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsNothing);
 
-      await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
+      await tester.tap(find.byKey(kRangeClimbKey));
       await tester.pumpAndSettle();
-      expect(draft.addWeightAtTopOfRange, isFalse);
+      expect(draft.onAdvancedAxis, isTrue);
+      expect(draft.progression, ProgressionMode.weight);
 
       await stop(tester);
     });
 
-    testWidgets('a timed slot lists it as well', (tester) async {
+    testWidgets('a timed slot lists it, greyed', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await openDraft(tester, container, exercise: 'Plank');
@@ -1223,7 +1603,7 @@ void main() {
 
       expect(find.byKey(kRangeClimbKey), findsOneWidget);
       expect(climbBox(tester).onChanged, isNull);
-      expect(find.text(needsRange), findsOneWidget);
+      expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsOneWidget);
 
       await stop(tester);
     });
@@ -1256,7 +1636,7 @@ void main() {
 
       expect(draft.repsMax, isNotNull);
       expect(climbBox(tester).onChanged, isNotNull, reason: 'now tickable');
-      expect(find.text(needsRange), findsNothing,
+      expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsNothing,
           reason: 'it has what it wanted');
       expect(climbBelowToggle(), before,
           reason: 'it comes alive where they are already looking');
@@ -1264,30 +1644,19 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('ticking it is what turns the range climb on', (tester) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      final draft =
-          await openDraft(tester, container, configure: (d) => d..repsMax = 8);
-
-      await openProgressionAdvanced(tester);
-
-      expect(draft.addWeightAtTopOfRange, isFalse, reason: 'off by default');
-      await tester.tap(find.byKey(kRangeClimbKey));
-      await tester.pumpAndSettle();
-      expect(draft.addWeightAtTopOfRange, isTrue);
-
-      await stop(tester);
-    });
-
-    test('the tick round-trips through a save', () async {
+    test('the tick, the rates and the goal round-trip through a save', () async {
       final push = await workoutIdNamed(db, 'Push');
       final bench = await exerciseNamed(db, 'Bench Press');
 
       final draft = ItemDraft.forExercise(bench)
         ..repsMin = 6
         ..repsMax = 8
-        ..addWeightAtTopOfRange = true;
+        ..setAdvanced(true)
+        ..repsIncrement = 2
+        ..repsDeload = 3
+        // Carried, not edited — like the streaks. Renaming the day must not
+        // put somebody back at the bottom of their range.
+        ..repsTarget = 7;
       await db.replaceWorkoutItems(
         push,
         itemCompanions([draft], workoutId: push),
@@ -1295,15 +1664,292 @@ void main() {
 
       final saved = await itemNamed(db, push, 'Bench Press');
       expect(saved.item.addWeightAtTopOfRange, isTrue);
-      // And back into a draft, so reopening the sheet finds the box ticked.
-      expect(ItemDraft.fromView(saved).addWeightAtTopOfRange, isTrue);
+      expect(saved.item.repsIncrement, 2);
+      expect(saved.item.repsDeload, 3);
+      expect(saved.item.repsTarget, 7);
+      expect(saved.item.climbsRange, isTrue);
+
+      // And back into a draft, so reopening the sheet finds it as it was.
+      final back = ItemDraft.fromView(saved);
+      expect(back.onAdvancedAxis, isTrue);
+      expect(back.repsIncrement, 2);
+      expect(back.repsDeload, 3);
+      expect(back.repsTarget, 7);
     });
 
-    test('an untouched slot saves with it off', () async {
+    test('an untouched slot saves with it off, at the rep defaults', () async {
       final push = await workoutIdNamed(db, 'Push');
       final bench = (await itemNamed(db, push, 'Bench Press')).item;
       expect(bench.repsMax, 8);
       expect(bench.addWeightAtTopOfRange, isFalse);
+      expect(bench.repsIncrement, 1);
+      expect(bench.repsDeload, 2);
+      expect(bench.repsTarget, isNull);
+    });
+  });
+
+  group('the advanced axis asks for both pairs of amounts', () {
+    /// A Bench Press draft opened in the config sheet, [configure]d first.
+    Future<ItemDraft> openDraft(
+      WidgetTester tester,
+      ProviderContainer container, {
+      void Function(ItemDraft)? configure,
+    }) async {
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!;
+      configure?.call(draft);
+      await openSheet(tester, container, [draft]);
+      return draft;
+    }
+
+    /// A slot on the advanced axis, 6–8 at the untouched defaults.
+    Future<ItemDraft> openAdvanced(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) =>
+        openDraft(tester, container,
+            configure: (d) => d
+              ..repsMin = 6
+              ..repsMax = 8
+              ..setAdvanced(true));
+
+    testWidgets('four amounts and one pair of thresholds', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final l10n = l10nFor();
+      await openAdvanced(tester, container);
+
+      expect(find.byKey(kStepUpFieldKey), findsOneWidget);
+      expect(find.byKey(kBackOffFieldKey), findsOneWidget);
+      expect(find.byKey(kRepsStepUpFieldKey), findsOneWidget);
+      expect(find.byKey(kRepsBackOffFieldKey), findsOneWidget);
+
+      expect(fieldLabel(l10n.itemEditorStepUpWeight), findsOneWidget);
+      expect(fieldLabel(l10n.itemEditorStepUpReps), findsOneWidget);
+      expect(fieldLabel(l10n.itemEditorBackOffWeight), findsOneWidget);
+      expect(fieldLabel(l10n.itemEditorBackOffReps), findsOneWidget);
+
+      // One clean-session count and one miss count govern both axes: a session
+      // is clean or missed for the slot, not for one of its axes.
+      expect(fieldLabel(l10n.itemEditorCleanSessions), findsOneWidget);
+      expect(fieldLabel(l10n.itemEditorMisses), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('an ordinary weight slot asks for one pair', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final l10n = l10nFor();
+      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+
+      expect(find.byKey(kRepsStepUpFieldKey), findsNothing);
+      expect(find.byKey(kRepsBackOffFieldKey), findsNothing);
+      expect(fieldLabel(l10n.itemEditorStepUpBy), findsOneWidget);
+      expect(fieldLabel(l10n.itemEditorBackOffBy), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('the rep pair moves a rep at a time', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openAdvanced(tester, container);
+      expect(draft.repsIncrement, 1);
+      expect(draft.repsDeload, 2);
+
+      await tester.tap(stepper(kRepsStepUpFieldKey, Icons.add));
+      await tester.pumpAndSettle();
+      expect(draft.repsIncrement, 2);
+
+      await tester.tap(stepper(kRepsBackOffFieldKey, Icons.remove));
+      await tester.pumpAndSettle();
+      expect(draft.repsDeload, 1);
+
+      await stop(tester);
+    });
+
+    testWidgets('the weight pair is still the weight pair', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openAdvanced(tester, container);
+
+      await tester.tap(stepper(kStepUpFieldKey, Icons.add));
+      await tester.pumpAndSettle();
+      expect(draft.increment, closeTo(3.75, 0.001), reason: 'one tap of 1.25 kg');
+
+      await stop(tester);
+    });
+
+    testWidgets('the rule is read back as the three sentences it is', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final l10n = l10nFor();
+      await openAdvanced(tester, container);
+
+      // What a clean session and a miss do to the reps…
+      expect(
+        find.text(l10n.itemEditorProgressionRule(
+          progressionAmount(l10n, 1, ProgressionMode.reps, 'kg'),
+          1,
+          progressionAmount(l10n, 2, ProgressionMode.reps, 'kg'),
+          2,
+        )),
+        findsOneWidget,
+      );
+      // …what happens at the top of the range…
+      expect(
+        find.text(l10n.itemEditorRuleAtTop(
+          8,
+          progressionAmount(l10n, 2.5, ProgressionMode.weight, 'kg'),
+          6,
+        )),
+        findsOneWidget,
+      );
+      // …and what happens at the bottom.
+      expect(
+        find.text(l10n.itemEditorRuleAtBottom(
+          6,
+          progressionAmount(l10n, 5, ProgressionMode.weight, 'kg'),
+          8,
+        )),
+        findsOneWidget,
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('an ordinary slot keeps the one sentence', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final l10n = l10nFor();
+      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+
+      expect(
+        find.text(l10n.itemEditorProgressionRule(
+          progressionAmount(l10n, 2.5, ProgressionMode.weight, 'kg'),
+          1,
+          progressionAmount(l10n, 5, ProgressionMode.weight, 'kg'),
+          2,
+        )),
+        findsOneWidget,
+      );
+      expect(
+        find.text(l10n.itemEditorRuleAtTop(
+          8,
+          progressionAmount(l10n, 2.5, ProgressionMode.weight, 'kg'),
+          6,
+        )),
+        findsNothing,
+        reason: 'there is no top to reach on a slot that is not climbing',
+      );
+
+      await stop(tester);
+    });
+  });
+
+  group('ticking to failure greys the rep range rather than taking it away', () {
+    /// A Bench Press draft opened in the config sheet with its Target card's
+    /// advanced half open — a rep range opens it on its own.
+    Future<ItemDraft> openRanged(
+      WidgetTester tester,
+      ProviderContainer container, {
+      bool toFailure = false,
+    }) async {
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
+        ..repsMin = 6
+        ..repsMax = 8
+        ..toFailure = toFailure;
+      await openSheet(tester, container, [draft]);
+      return draft;
+    }
+
+    NumberStepper rangeStepper(WidgetTester tester) =>
+        tester.widget<NumberStepper>(find.byKey(kRepRangeFieldKey));
+
+    testWidgets('the stepper goes dead and keeps the bound it had', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openRanged(tester, container, toFailure: true);
+
+      expect(find.byKey(kRepRangeFieldKey), findsOneWidget,
+          reason: 'a field that vanishes takes the number with it');
+      expect(rangeStepper(tester).enabled, isFalse);
+      expect(find.text('8'), findsWidgets, reason: 'the bound is still on screen');
+
+      await tester.tap(stepper(kRepRangeFieldKey, Icons.add),
+          warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(stepper(kRepRangeFieldKey, Icons.remove),
+          warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(draft.repsMax, 8, reason: 'both buttons are dead');
+
+      await stop(tester);
+    });
+
+    testWidgets('unticking gives it back where it was', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openRanged(tester, container, toFailure: true);
+
+      await tester.tap(find.text(l10nFor().itemEditorToFailure));
+      await tester.pumpAndSettle();
+
+      expect(draft.toFailure, isFalse);
+      expect(draft.repsMax, 8);
+      expect(rangeStepper(tester).enabled, isTrue);
+
+      await stop(tester);
+    });
+
+    test('and it survives a save and a reopen', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([
+          ItemDraft.forExercise(bench)
+            ..repsMin = 6
+            ..repsMax = 8
+            ..toFailure = true
+        ], workoutId: push),
+      );
+
+      final saved = await itemNamed(db, push, 'Bench Press');
+      expect(saved.item.toFailure, isTrue);
+      expect(saved.item.repsMax, 8, reason: 'stored as it stands');
+
+      // Reopened and unticked: the range is exactly where it was left.
+      final back = ItemDraft.fromView(saved)..toFailure = false;
+      expect(back.repsMax, 8);
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([back], workoutId: push),
+      );
+      expect((await itemNamed(db, push, 'Bench Press')).item.repsMax, 8);
+    });
+
+    test('a to-failure slot still trains to failure', () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..repsMin = 6
+        ..repsMax = 8
+        ..toFailure = true;
+
+      // Every reader asks about failure before it asks about the range.
+      expect(draft.canClimbRange, isFalse);
+      expect(
+        draft.targets(unit: 'kg').map((t) => t.reps),
+        everyElement(6),
+        reason: 'the number a set has to beat, not the top of the range',
+      );
     });
   });
 
@@ -1323,9 +1969,11 @@ void main() {
       final bench = (await itemNamed(db, push, 'Bench Press')).item;
       expect(bench.suggestedWeight, 80);
 
-      final moved = await db.advanceProgression(bench.id, verdict: SessionVerdict.success);
+      final moved =
+          await db.advanceProgression(bench.id, verdict: SessionVerdict.success);
 
-      expect(moved, 2.5);
+      expect(moved.moved, 2.5);
+      expect(moved.axis, ProgressionMode.weight);
       expect((await db.workoutItemById(bench.id))!.suggestedWeight, 82.5);
     });
 
