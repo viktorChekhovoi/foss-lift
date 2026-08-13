@@ -199,10 +199,15 @@ class ItemDraft {
   /// card opens expanded when it is, so nothing a slot actually does is hidden
   /// behind a toggle somebody has to think to press.
   bool get usesAdvanced =>
-      toFailure ||
-      repsMax != null ||
-      scheme != SetScheme.flat ||
-      (canClimbRange && addWeightAtTopOfRange);
+      toFailure || repsMax != null || scheme != SetScheme.flat;
+
+  /// The same question for the Progression card's own Advanced half, which
+  /// holds only the range climb so far.
+  ///
+  /// Asks the tick alone rather than [canClimbRange] as well: a slot that is
+  /// ticked but has lost its range is exactly the slot whose owner needs to see
+  /// the greyed row and the line saying what it wants.
+  bool get usesProgressionAdvanced => addWeightAtTopOfRange;
 
   /// Whether the range climb is on offer: a rep range to climb, on the axis
   /// whose load is what waits at the top of it. A slot running to failure has
@@ -653,6 +658,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   /// is the app arguing with you.
   late bool _advanced = widget.draft.usesAdvanced;
 
+  /// The same, for the Progression card's own half.
+  late bool _progressionAdvanced = widget.draft.usesProgressionAdvanced;
+
   ItemDraft get d => widget.draft;
 
   /// True when [d] is measured in seconds rather than reps.
@@ -882,20 +890,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     value: d.toFailure,
                     onChanged: (v) => _bump(() => d.toFailure = v),
                   ),
-                  // Offered only where it does something: there has to be a
-                  // range to climb, and a load to hold while it is climbed.
-                  // Ticking it on a slot that has neither would be an option
-                  // that changes nothing, which is worse than an absent one.
-                  if (d.canClimbRange) ...[
-                    const SizedBox(height: 14),
-                    _CheckRow(
-                      key: kRangeClimbKey,
-                      label: l10n.itemEditorAddWeightAtTop,
-                      value: d.addWeightAtTopOfRange,
-                      onChanged: (v) =>
-                          _bump(() => d.addWeightAtTopOfRange = v),
-                    ),
-                  ],
                   const SizedBox(height: 18),
                   _SchemeSection(
                     draft: d,
@@ -1011,6 +1005,32 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 style: kMono.copyWith(
                     fontSize: 11, height: 1.5, color: AppColors.faint),
               ),
+              // The ways of advancing most slots never use. In this card rather
+              // than beside the rep range one of them reads: how a slot
+              // progresses is decided in one place, whatever the rule happens to
+              // look at.
+              const SizedBox(height: 14),
+              _AdvancedToggle(
+                rowKey: kProgressionAdvancedKey,
+                open: _progressionAdvanced,
+                onTap: () => setState(
+                    () => _progressionAdvanced = !_progressionAdvanced),
+              ),
+              if (_progressionAdvanced) ...[
+                const SizedBox(height: 14),
+                // Listed whether or not it can be taken. A control that comes
+                // and goes as a field in another card is filled in teaches
+                // nobody where it went, and somebody looking for this has to
+                // find it before they can learn what it needs.
+                _CheckRow(
+                  key: kRangeClimbKey,
+                  label: l10n.itemEditorAddWeightAtTop,
+                  value: d.addWeightAtTopOfRange,
+                  enabled: d.canClimbRange,
+                  disabledNote: l10n.itemEditorRangeClimbNeedsRange,
+                  onChanged: (v) => _bump(() => d.addWeightAtTopOfRange = v),
+                ),
+              ],
             ]),
             // Last, and in a card of its own: everything above belongs to this
             // slot, everything here belongs to the movement.
@@ -1073,22 +1093,31 @@ const kSchemePickerKey = ValueKey('set-scheme');
 const kSchemePercentKey = ValueKey('scheme-percent');
 const kSchemePreviewKey = ValueKey('scheme-preview');
 const kRangeClimbKey = ValueKey('add-weight-at-top-of-range');
+const kProgressionAdvancedKey = ValueKey('progression-advanced');
 
 /// The one control that opens the rest of the Target card.
 ///
 /// A row rather than a Material [ExpansionTile]: the card already has its own
 /// padding and its own type, and a tile brings a second set of both.
 class _AdvancedToggle extends StatelessWidget {
-  const _AdvancedToggle({required this.open, required this.onTap});
+  const _AdvancedToggle({
+    required this.open,
+    required this.onTap,
+    this.rowKey = kAdvancedToggleKey,
+  });
 
   final bool open;
   final VoidCallback onTap;
+
+  /// Which half of the sheet this one opens — there is one per card, and a test
+  /// tapping "Advanced" has to be able to say which.
+  final Key rowKey;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return InkWell(
-      key: kAdvancedToggleKey,
+      key: rowKey,
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
@@ -1408,52 +1437,89 @@ class _CheckRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.onExplain,
+    this.enabled = true,
+    this.disabledNote,
   });
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
   final VoidCallback? onExplain;
 
+  /// Whether the option can be taken at all. A row that cannot is greyed and
+  /// untickable rather than absent — see [disabledNote].
+  final bool enabled;
+
+  /// The one line under a disabled row saying what it wants before it can be
+  /// ticked. Not a caption explaining the option: it is what somebody has to do
+  /// next, which is the one thing a helper line under a control is for.
+  final String? disabledNote;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return InkWell(
-      onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            height: 24,
-            child: Checkbox(
-              value: value,
-              onChanged: (v) => onChanged(v ?? false),
-              activeColor: AppColors.accent,
-              checkColor: const Color(0xFF1A0E07),
-              side: BorderSide(color: AppColors.line, width: 1.5),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+    final row = Row(
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            value: value,
+            // Null is what makes Flutter draw the box as disabled, and it is
+            // also what stops the tap: one signal rather than a grey paint job
+            // over a control that still works.
+            onChanged: enabled ? (v) => onChanged(v ?? false) : null,
+            activeColor: AppColors.accent,
+            checkColor: const Color(0xFF1A0E07),
+            side: BorderSide(color: AppColors.line, width: 1.5),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          const SizedBox(width: 12),
-          // The label gives; the checkbox is the control and stays whole.
-          Expanded(
-            child: Text(label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15)),
+        ),
+        const SizedBox(width: 12),
+        // The label gives; the checkbox is the control and stays whole.
+        Expanded(
+          child: Text(label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 15,
+                color: enabled ? null : AppColors.faint,
+              )),
+        ),
+        if (onExplain != null)
+          IconButton(
+            key: kSupersetHintKey,
+            onPressed: onExplain,
+            icon: const Icon(Icons.info_outline, size: 20),
+            color: AppColors.accent,
+            tooltip: l10n.itemEditorSupersetWhat,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
-          if (onExplain != null)
-            IconButton(
-              key: kSupersetHintKey,
-              onPressed: onExplain,
-              icon: const Icon(Icons.info_outline, size: 20),
-              color: AppColors.accent,
-              tooltip: l10n.itemEditorSupersetWhat,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            ),
-        ],
-      ),
+      ],
+    );
+
+    if (enabled || disabledNote == null) {
+      return InkWell(
+        onTap: enabled ? () => onChanged(!value) : null,
+        borderRadius: BorderRadius.circular(10),
+        child: row,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        row,
+        // Indented to the label rather than to the row, so it reads as
+        // belonging to this option and not to the next one down.
+        Padding(
+          padding: const EdgeInsets.only(left: 36, top: 2),
+          child: Text(
+            disabledNote!,
+            style: kMono.copyWith(
+                fontSize: 11, height: 1.5, color: AppColors.faint),
+          ),
+        ),
+      ],
     );
   }
 }

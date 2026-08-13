@@ -980,7 +980,12 @@ void main() {
     });
   });
 
-  group('Advanced offers the range climb where it means something', () {
+  group('the Progression card carries the range climb under its own Advanced',
+      () {
+    /// The line the greyed checkbox sits under. The key does not exist yet, so
+    /// the English is asserted as written.
+    const needsRange = 'Needs a rep range';
+
     /// A Bench Press draft opened in the config sheet, [configure]d first.
     Future<ItemDraft> openDraft(
       WidgetTester tester,
@@ -995,74 +1000,187 @@ void main() {
       return draft;
     }
 
-    /// The rep-range stepper — the one in the advanced half showing no upper
-    /// bound yet, which is the only empty stepper the sheet draws.
-    Finder emptyRangeStepper() => find.byWidgetPredicate(
-        (w) => w is NumberStepper && w.isEmpty);
+    /// The rep-range stepper — the one in the Target card's advanced half
+    /// showing no upper bound yet, which is the only empty stepper the sheet
+    /// draws.
+    Finder emptyRangeStepper() =>
+        find.byWidgetPredicate((w) => w is NumberStepper && w.isEmpty);
 
-    testWidgets('a fixed rep count is not offered it', (tester) async {
+    /// The checkbox inside the range-climb row.
+    Checkbox climbBox(WidgetTester tester) => tester.widget<Checkbox>(
+        find.descendant(
+            of: find.byKey(kRangeClimbKey), matching: find.byType(Checkbox)));
+
+    /// Where a card's caption sits, so a row can be placed under the right one.
+    double captionY(WidgetTester tester, String caption) =>
+        tester.getTopLeft(find.text(caption.toUpperCase())).dy;
+
+    Future<void> openProgressionAdvanced(WidgetTester tester) async {
+      await tester.tap(find.byKey(kProgressionAdvancedKey));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Advanced is shut by default and opens on a tap',
+        (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
-      await openDraft(tester, container);
+      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
 
-      await tester.tap(find.byKey(kAdvancedToggleKey));
-      await tester.pumpAndSettle();
-
-      expect(fieldLabel(l10nFor().itemEditorRepRange), findsOneWidget);
+      expect(find.byKey(kProgressionAdvancedKey), findsOneWidget,
+          reason: 'every slot has the toggle, whatever it can do');
       expect(find.byKey(kRangeClimbKey), findsNothing,
-          reason: 'a slot with no range has no range to climb');
+          reason: 'the ways of advancing most slots never use start shut');
+
+      await openProgressionAdvanced(tester);
+      expect(find.byKey(kRangeClimbKey), findsOneWidget);
 
       await stop(tester);
     });
 
-    testWidgets('the checkbox arrives with the upper bound and goes with it',
+    testWidgets('a slot that climbs its range opens Advanced already expanded',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await openDraft(tester, container,
+          configure: (d) => d
+            ..repsMax = 8
+            ..addWeightAtTopOfRange = true);
+
+      // No tap: nothing a slot actually does is hidden behind a toggle
+      // somebody has to think to press.
+      expect(find.byKey(kRangeClimbKey), findsOneWidget);
+      expect(climbBox(tester).value, isTrue);
+      expect(tester.getTopLeft(find.byKey(kRangeClimbKey)).dy,
+          greaterThan(captionY(tester, l10nFor().itemEditorProgression)),
+          reason: 'it is in the Progression card, not the Target one');
+
+      await stop(tester);
+    });
+
+    testWidgets('the Target card no longer offers it', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      // A rep range opens the Target card's advanced half on its own, so this
+      // is the card at its most open.
+      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+
+      expect(fieldLabel(l10nFor().itemEditorRepRange), findsOneWidget,
+          reason: 'the Target card is open, so this is not a closed-card pass');
+      expect(find.text(l10nFor().itemEditorToFailure), findsOneWidget);
+      expect(find.byKey(kRangeClimbKey), findsNothing,
+          reason: 'progression is configured in one place, and it is not here');
+
+      await stop(tester);
+    });
+
+    testWidgets('a fixed rep count gets it greyed out, not taken away',
         (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       final draft = await openDraft(tester, container);
 
+      await openProgressionAdvanced(tester);
+
+      expect(find.byKey(kRangeClimbKey), findsOneWidget,
+          reason: 'a control that vanishes teaches nobody where it went');
+      expect(climbBox(tester).onChanged, isNull, reason: 'untickable');
+      expect(find.text(needsRange), findsOneWidget);
+
+      await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(draft.addWeightAtTopOfRange, isFalse,
+          reason: 'tapping a greyed row changes nothing');
+
+      await stop(tester);
+    });
+
+    testWidgets('a slot running to failure gets the same line', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container,
+          configure: (d) => d..toFailure = true);
+
+      await openProgressionAdvanced(tester);
+
+      expect(climbBox(tester).onChanged, isNull);
+      expect(find.text(needsRange), findsOneWidget);
+
+      await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(draft.addWeightAtTopOfRange, isFalse);
+
+      await stop(tester);
+    });
+
+    testWidgets('a slot on the reps axis gets it greyed too', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container,
+          configure: (d) => d
+            ..repsMax = 10
+            ..setMode(ProgressionMode.reps));
+
+      await openProgressionAdvanced(tester);
+
+      expect(find.byKey(kRangeClimbKey), findsOneWidget,
+          reason: 'the reps axis already advances the number this would, '
+              'but the row still says so where it lives');
+      expect(climbBox(tester).onChanged, isNull);
+      expect(find.text(needsRange), findsOneWidget);
+
+      await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(draft.addWeightAtTopOfRange, isFalse);
+
+      await stop(tester);
+    });
+
+    testWidgets('a timed slot lists it as well', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await openDraft(tester, container, exercise: 'Plank');
+
+      await openProgressionAdvanced(tester);
+
+      expect(find.byKey(kRangeClimbKey), findsOneWidget);
+      expect(climbBox(tester).onChanged, isNull);
+      expect(find.text(needsRange), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('the upper bound brings it alive without moving the row',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = await openDraft(tester, container);
+
+      // Both halves open: the range is authored in Target, the climb in
+      // Progression, and the second must react to the first.
       await tester.tap(find.byKey(kAdvancedToggleKey));
       await tester.pumpAndSettle();
-      expect(find.byKey(kRangeClimbKey), findsNothing);
+      await openProgressionAdvanced(tester);
+      // Measured from the toggle it sits under, not from the top of the sheet:
+      // filling the upper bound in also gives the Target card its "6–8" note,
+      // which moves every card below it. What matters is that the row does not
+      // move within the half it is in.
+      double climbBelowToggle() =>
+          tester.getTopLeft(find.byKey(kRangeClimbKey)).dy -
+          tester.getTopLeft(find.byKey(kProgressionAdvancedKey)).dy;
+      final before = climbBelowToggle();
+      expect(climbBox(tester).onChanged, isNull);
 
       // + on the empty rep-range stepper fills the upper bound in.
       await tester.tap(find.descendant(
           of: emptyRangeStepper(), matching: find.byIcon(Icons.add)));
       await tester.pumpAndSettle();
+
       expect(draft.repsMax, isNotNull);
-      expect(find.byKey(kRangeClimbKey), findsOneWidget);
-
-      await stop(tester);
-    });
-
-    testWidgets('a slot on the reps axis is not offered it', (tester) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      await openDraft(tester, container,
-          configure: (d) => d
-            ..repsMax = 10
-            ..setMode(ProgressionMode.reps));
-
-      expect(fieldLabel(l10nFor().itemEditorRepRange), findsOneWidget);
-      expect(find.byKey(kRangeClimbKey), findsNothing,
-          reason: 'the reps axis already advances the number this would');
-
-      await stop(tester);
-    });
-
-    testWidgets('a ticked slot opens the advanced half already expanded',
-        (tester) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      final draft = await openDraft(tester, container,
-          configure: (d) => d
-            ..repsMax = 8
-            ..addWeightAtTopOfRange = true);
-
-      // No tap on Advanced: nothing a slot actually does is hidden behind a
-      // toggle somebody has to think to press.
-      expect(find.byKey(kRangeClimbKey), findsOneWidget);
-      expect(draft.usesAdvanced, isTrue);
+      expect(climbBox(tester).onChanged, isNotNull, reason: 'now tickable');
+      expect(find.text(needsRange), findsNothing,
+          reason: 'it has what it wanted');
+      expect(climbBelowToggle(), before,
+          reason: 'it comes alive where they are already looking');
 
       await stop(tester);
     });
@@ -1072,6 +1190,8 @@ void main() {
       addTearDown(container.dispose);
       final draft =
           await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+
+      await openProgressionAdvanced(tester);
 
       expect(draft.addWeightAtTopOfRange, isFalse, reason: 'off by default');
       await tester.tap(find.byKey(kRangeClimbKey));

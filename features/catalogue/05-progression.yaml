@@ -37,9 +37,10 @@ groups:
   - id: climb-the-range-then-add-weight
     t: A weight slot can climb its rep range before the load moves
     d: >-
-      tick "Add weight at the top of the range" on a slot with a rep range and
-      the two numbers take turns: the weight holds while the reps climb inside
-      6–8, and topping the range at every set is what earns the step up — at
+      tick "Add weight at the top of the range" under Progression → Advanced on
+      a slot with a rep range and the two numbers take turns: the weight holds
+      while the reps climb inside 6–8, and topping the range at every set is
+      what earns the step up — at
       which point the load moves by the slot's increment and the goal drops back
       to the bottom of the range. The range itself never moves. Off by default,
       and offered only where it means something: a slot with a fixed rep count
@@ -50,6 +51,7 @@ groups:
     - progression.double
     uses:
     - progression.axis
+    - progression.advanced
     - progression.rates
     - template.rep-target
     - session.exercise-weight

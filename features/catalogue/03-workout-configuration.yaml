@@ -47,17 +47,29 @@ groups:
     uses:
     - template.item
   - id: advanced-holds-the-rest-of-the-target
-    t: Advanced holds the rep range, to failure, the set scheme and the range climb
+    t: Advanced holds the rep range, to failure, and the set scheme
     d: >-
-      tapping it opens the upper bound of the rep range, the to-failure checkbox,
-      the way the sets differ from one another, and — on a weight slot that has a
-      rep range — "Add weight at the top of the range". It opens already expanded
-      on a slot that is using any of them, so nothing a slot actually does is
-      hidden behind a toggle somebody has to think to press.
+      tapping it opens the upper bound of the rep range, the to-failure checkbox
+      and the way the sets differ from one another. It opens already expanded on
+      a slot that is using any of them, so nothing a slot actually does is hidden
+      behind a toggle somebody has to think to press.
     uses:
     - template.set-scheme
     - template.rep-target
-    - progression.double
+  - id: progression-card-has-its-own-advanced
+    t: The Progression card has its own Advanced half
+    d: >-
+      the axis, the two amounts and the two thresholds stay in the open; the ways
+      of advancing that most slots never use sit behind an Advanced toggle in the
+      same card, shut by default and opening already expanded on a slot that uses
+      one. Progression is configured in one place — a rule about how a slot
+      advances belongs under Progression whatever it reads from, so the range
+      climb is here rather than beside the rep range it needs.
+    defines:
+    - progression.advanced
+    uses:
+    - progression.axis
+    - progression.rates
   - id: sets-can-back-off-ramp-or-be-written-out
     t: The sets of a slot can back off, ramp up, or be written out one by one
     d: >-
@@ -208,12 +220,13 @@ groups:
   - id: turn-on-add-weight-at-top-of-range
     t: Turn on the range climb
     d: >-
-      open a slot's config sheet → set a rep range under Advanced → tick "Add
-      weight at the top of the range". The checkbox is there only once the range
-      is: it appears as the upper bound is filled in and goes when it is cleared.
+      open a slot's config sheet → set a rep range under Target's Advanced →
+      scroll to Progression → tap its own Advanced → tick "Add weight at the top
+      of the range".
     screen: workout-edit
     uses:
     - progression.double
+    - progression.advanced
     - template.rep-target
   - id: sheet-field-stays-above-keyboard
     t: A field tapped in the config sheet scrolls clear of the keyboard
@@ -249,6 +262,23 @@ groups:
     uses:
     - exercise.measure
     - exercise.weight-type
+    - progression.axis
+    - template.rep-target
+  - id: range-climb-greyed-without-a-range
+    t: The range climb is greyed out until there is a range to climb
+    d: >-
+      it stays on the list rather than vanishing, greyed and untickable, under
+      one line saying what it wants: a rep range. A control that appears and
+      disappears as a field two cards up is filled in teaches nobody where it
+      went, and somebody looking for double progression needs to find it before
+      they can work out what it needs. Set the upper bound and it comes alive
+      where they are already looking. The same line does the same job on a slot
+      running to failure, and on one progressing by reps or by time, where the
+      axis rather than the range is what is missing.
+    screen: workout-edit
+    uses:
+    - progression.double
+    - progression.advanced
     - progression.axis
     - template.rep-target
   - id: rep-range-keeps-width-progression

@@ -355,6 +355,13 @@ concepts:
     what: Whether a session counted as clean, as a miss, or as neither.
     code: [lib/data/progression.dart]
 
+  - id: progression.advanced
+    area: progression
+    what: >-
+      The shut-by-default half of the Progression card, where the ways of
+      advancing that most slots never use are offered.
+    code: [lib/widgets/workout_items_editor.dart]
+
   - id: progression.double
     area: progression
     what: >-

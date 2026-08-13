@@ -319,6 +319,7 @@
   "itemEditorSchemeSeparator": " · ",
   "itemEditorToFailure": "Até à falha",
   "itemEditorAddWeightAtTop": "Aumentar a carga no topo da faixa",
+  "itemEditorRangeClimbNeedsRange": "Precisa de uma faixa de repetições",
   "itemEditorSupersetWhat": "O que é uma supersérie?",
   "itemEditorSupersetExplained": "Dois ou mais exercícios seguidos, sem descanso entre eles — uma série de cada, depois o descanso e outra volta. Poupa tempo e mantém o par a trabalhar enquanto o outro músculo recupera.",
   "itemEditorSupersetWith": "Supersérie com {exercise}",
