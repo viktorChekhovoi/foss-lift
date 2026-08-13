@@ -2107,6 +2107,21 @@ class $WorkoutItemsTable extends WorkoutItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _addWeightAtTopOfRangeMeta =
+      const VerificationMeta('addWeightAtTopOfRange');
+  @override
+  late final GeneratedColumn<bool> addWeightAtTopOfRange =
+      GeneratedColumn<bool>(
+        'add_weight_at_top_of_range',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("add_weight_at_top_of_range" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2131,6 +2146,7 @@ class $WorkoutItemsTable extends WorkoutItems
     successStreak,
     failStreak,
     supersetWithPrevious,
+    addWeightAtTopOfRange,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2289,6 +2305,15 @@ class $WorkoutItemsTable extends WorkoutItems
         ),
       );
     }
+    if (data.containsKey('add_weight_at_top_of_range')) {
+      context.handle(
+        _addWeightAtTopOfRangeMeta,
+        addWeightAtTopOfRange.isAcceptableOrUnknown(
+          data['add_weight_at_top_of_range']!,
+          _addWeightAtTopOfRangeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2390,6 +2415,10 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.bool,
         data['${effectivePrefix}superset_with_previous'],
       )!,
+      addWeightAtTopOfRange: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}add_weight_at_top_of_range'],
+      )!,
     );
   }
 
@@ -2482,9 +2511,22 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
   /// re-forms the groups by itself, and the only rule to enforce is that the
   /// first slot has nothing above it to join to. See `data/superset.dart`.
   ///
-  /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
-  /// upgraded database has to end up the same shape as a fresh one.
   final bool supersetWithPrevious;
+
+  /// Double progression: hold the load while the reps climb inside [repsMin]
+  /// … [repsMax], and step the load only once the top of the range is reached
+  /// at every set.
+  ///
+  /// Off unless asked for, and meaningless without both a rep range and the
+  /// weight axis — a slot with a fixed count has no range to climb, and the
+  /// reps axis already advances the number this would. The flag is kept even
+  /// while it means nothing, so taking a rep range off a slot and putting it
+  /// back does not quietly rewrite how the slot progresses.
+  ///
+  /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
+  /// upgraded database has to end up the same shape as a fresh one. Whatever
+  /// column comes next goes under this one, and takes this note with it.
+  final bool addWeightAtTopOfRange;
   const WorkoutItem({
     required this.id,
     required this.workoutId,
@@ -2508,6 +2550,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     required this.successStreak,
     required this.failStreak,
     required this.supersetWithPrevious,
+    required this.addWeightAtTopOfRange,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2550,6 +2593,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     map['success_streak'] = Variable<int>(successStreak);
     map['fail_streak'] = Variable<int>(failStreak);
     map['superset_with_previous'] = Variable<bool>(supersetWithPrevious);
+    map['add_weight_at_top_of_range'] = Variable<bool>(addWeightAtTopOfRange);
     return map;
   }
 
@@ -2585,6 +2629,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       successStreak: Value(successStreak),
       failStreak: Value(failStreak),
       supersetWithPrevious: Value(supersetWithPrevious),
+      addWeightAtTopOfRange: Value(addWeightAtTopOfRange),
     );
   }
 
@@ -2622,6 +2667,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       supersetWithPrevious: serializer.fromJson<bool>(
         json['supersetWithPrevious'],
       ),
+      addWeightAtTopOfRange: serializer.fromJson<bool>(
+        json['addWeightAtTopOfRange'],
+      ),
     );
   }
   @override
@@ -2654,6 +2702,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'successStreak': serializer.toJson<int>(successStreak),
       'failStreak': serializer.toJson<int>(failStreak),
       'supersetWithPrevious': serializer.toJson<bool>(supersetWithPrevious),
+      'addWeightAtTopOfRange': serializer.toJson<bool>(addWeightAtTopOfRange),
     };
   }
 
@@ -2680,6 +2729,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     int? successStreak,
     int? failStreak,
     bool? supersetWithPrevious,
+    bool? addWeightAtTopOfRange,
   }) => WorkoutItem(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -2705,6 +2755,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     successStreak: successStreak ?? this.successStreak,
     failStreak: failStreak ?? this.failStreak,
     supersetWithPrevious: supersetWithPrevious ?? this.supersetWithPrevious,
+    addWeightAtTopOfRange: addWeightAtTopOfRange ?? this.addWeightAtTopOfRange,
   );
   WorkoutItem copyWithCompanion(WorkoutItemsCompanion data) {
     return WorkoutItem(
@@ -2756,6 +2807,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       supersetWithPrevious: data.supersetWithPrevious.present
           ? data.supersetWithPrevious.value
           : this.supersetWithPrevious,
+      addWeightAtTopOfRange: data.addWeightAtTopOfRange.present
+          ? data.addWeightAtTopOfRange.value
+          : this.addWeightAtTopOfRange,
     );
   }
 
@@ -2783,7 +2837,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('failureThreshold: $failureThreshold, ')
           ..write('successStreak: $successStreak, ')
           ..write('failStreak: $failStreak, ')
-          ..write('supersetWithPrevious: $supersetWithPrevious')
+          ..write('supersetWithPrevious: $supersetWithPrevious, ')
+          ..write('addWeightAtTopOfRange: $addWeightAtTopOfRange')
           ..write(')'))
         .toString();
   }
@@ -2812,6 +2867,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     successStreak,
     failStreak,
     supersetWithPrevious,
+    addWeightAtTopOfRange,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -2838,7 +2894,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.failureThreshold == this.failureThreshold &&
           other.successStreak == this.successStreak &&
           other.failStreak == this.failStreak &&
-          other.supersetWithPrevious == this.supersetWithPrevious);
+          other.supersetWithPrevious == this.supersetWithPrevious &&
+          other.addWeightAtTopOfRange == this.addWeightAtTopOfRange);
 }
 
 class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
@@ -2864,6 +2921,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<int> successStreak;
   final Value<int> failStreak;
   final Value<bool> supersetWithPrevious;
+  final Value<bool> addWeightAtTopOfRange;
   const WorkoutItemsCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -2887,6 +2945,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.successStreak = const Value.absent(),
     this.failStreak = const Value.absent(),
     this.supersetWithPrevious = const Value.absent(),
+    this.addWeightAtTopOfRange = const Value.absent(),
   });
   WorkoutItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -2911,6 +2970,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.successStreak = const Value.absent(),
     this.failStreak = const Value.absent(),
     this.supersetWithPrevious = const Value.absent(),
+    this.addWeightAtTopOfRange = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId);
   static Insertable<WorkoutItem> custom({
@@ -2936,6 +2996,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<int>? successStreak,
     Expression<int>? failStreak,
     Expression<bool>? supersetWithPrevious,
+    Expression<bool>? addWeightAtTopOfRange,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2961,6 +3022,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (failStreak != null) 'fail_streak': failStreak,
       if (supersetWithPrevious != null)
         'superset_with_previous': supersetWithPrevious,
+      if (addWeightAtTopOfRange != null)
+        'add_weight_at_top_of_range': addWeightAtTopOfRange,
     });
   }
 
@@ -2987,6 +3050,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<int>? successStreak,
     Value<int>? failStreak,
     Value<bool>? supersetWithPrevious,
+    Value<bool>? addWeightAtTopOfRange,
   }) {
     return WorkoutItemsCompanion(
       id: id ?? this.id,
@@ -3011,6 +3075,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       successStreak: successStreak ?? this.successStreak,
       failStreak: failStreak ?? this.failStreak,
       supersetWithPrevious: supersetWithPrevious ?? this.supersetWithPrevious,
+      addWeightAtTopOfRange:
+          addWeightAtTopOfRange ?? this.addWeightAtTopOfRange,
     );
   }
 
@@ -3089,6 +3155,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
         supersetWithPrevious.value,
       );
     }
+    if (addWeightAtTopOfRange.present) {
+      map['add_weight_at_top_of_range'] = Variable<bool>(
+        addWeightAtTopOfRange.value,
+      );
+    }
     return map;
   }
 
@@ -3116,7 +3187,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('failureThreshold: $failureThreshold, ')
           ..write('successStreak: $successStreak, ')
           ..write('failStreak: $failStreak, ')
-          ..write('supersetWithPrevious: $supersetWithPrevious')
+          ..write('supersetWithPrevious: $supersetWithPrevious, ')
+          ..write('addWeightAtTopOfRange: $addWeightAtTopOfRange')
           ..write(')'))
         .toString();
   }
@@ -7977,6 +8049,7 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<int> successStreak,
       Value<int> failStreak,
       Value<bool> supersetWithPrevious,
+      Value<bool> addWeightAtTopOfRange,
     });
 typedef $$WorkoutItemsTableUpdateCompanionBuilder =
     WorkoutItemsCompanion Function({
@@ -8002,6 +8075,7 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<int> successStreak,
       Value<int> failStreak,
       Value<bool> supersetWithPrevious,
+      Value<bool> addWeightAtTopOfRange,
     });
 
 final class $$WorkoutItemsTableReferences
@@ -8151,6 +8225,11 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<bool> get supersetWithPrevious => $composableBuilder(
     column: $table.supersetWithPrevious,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get addWeightAtTopOfRange => $composableBuilder(
+    column: $table.addWeightAtTopOfRange,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8310,6 +8389,11 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get addWeightAtTopOfRange => $composableBuilder(
+    column: $table.addWeightAtTopOfRange,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutsTableOrderingComposer get workoutId {
     final $$WorkoutsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8451,6 +8535,11 @@ class $$WorkoutItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get addWeightAtTopOfRange => $composableBuilder(
+    column: $table.addWeightAtTopOfRange,
+    builder: (column) => column,
+  );
+
   $$WorkoutsTableAnnotationComposer get workoutId {
     final $$WorkoutsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -8548,6 +8637,7 @@ class $$WorkoutItemsTableTableManager
                 Value<int> successStreak = const Value.absent(),
                 Value<int> failStreak = const Value.absent(),
                 Value<bool> supersetWithPrevious = const Value.absent(),
+                Value<bool> addWeightAtTopOfRange = const Value.absent(),
               }) => WorkoutItemsCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -8571,6 +8661,7 @@ class $$WorkoutItemsTableTableManager
                 successStreak: successStreak,
                 failStreak: failStreak,
                 supersetWithPrevious: supersetWithPrevious,
+                addWeightAtTopOfRange: addWeightAtTopOfRange,
               ),
           createCompanionCallback:
               ({
@@ -8596,6 +8687,7 @@ class $$WorkoutItemsTableTableManager
                 Value<int> successStreak = const Value.absent(),
                 Value<int> failStreak = const Value.absent(),
                 Value<bool> supersetWithPrevious = const Value.absent(),
+                Value<bool> addWeightAtTopOfRange = const Value.absent(),
               }) => WorkoutItemsCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -8619,6 +8711,7 @@ class $$WorkoutItemsTableTableManager
                 successStreak: successStreak,
                 failStreak: failStreak,
                 supersetWithPrevious: supersetWithPrevious,
+                addWeightAtTopOfRange: addWeightAtTopOfRange,
               ),
           withReferenceMapper: (p0) => p0
               .map(

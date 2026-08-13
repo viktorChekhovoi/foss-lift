@@ -39,6 +39,7 @@ class ItemDraft {
     this.repsMin = 8,
     this.repsMax,
     this.toFailure = false,
+    this.addWeightAtTopOfRange = false,
     this.restSeconds,
     double? weightKg,
     this.scheme = SetScheme.flat,
@@ -97,6 +98,7 @@ class ItemDraft {
         repsMin: v.item.repsMin,
         repsMax: v.item.repsMax,
         toFailure: v.item.toFailure,
+        addWeightAtTopOfRange: v.item.addWeightAtTopOfRange,
         restSeconds: v.item.restSeconds,
         weightKg: v.item.suggestedWeight,
         scheme: v.item.scheme,
@@ -170,6 +172,13 @@ class ItemDraft {
   int repsMin;
   int? repsMax;
   bool toFailure;
+
+  /// Double progression: hold the load until the top of the rep range is
+  /// reached at every set. Kept while [canClimbRange] is false rather than
+  /// cleared, so taking a rep range off and putting it back does not silently
+  /// change how the slot progresses — see the column of the same name.
+  bool addWeightAtTopOfRange;
+
   int? restSeconds;
 
   /// The top of every ladder [scheme] produces, not the weight of set one —
@@ -190,7 +199,17 @@ class ItemDraft {
   /// card opens expanded when it is, so nothing a slot actually does is hidden
   /// behind a toggle somebody has to think to press.
   bool get usesAdvanced =>
-      toFailure || repsMax != null || scheme != SetScheme.flat;
+      toFailure ||
+      repsMax != null ||
+      scheme != SetScheme.flat ||
+      (canClimbRange && addWeightAtTopOfRange);
+
+  /// Whether the range climb is on offer: a rep range to climb, on the axis
+  /// whose load is what waits at the top of it. A slot running to failure has
+  /// no range — [toFailure] takes the upper bound away — and one progressing on
+  /// reps or time is already advancing what this would.
+  bool get canClimbRange =>
+      !toFailure && repsMax != null && progression == ProgressionMode.weight;
 
   /// What each set is aiming at, given the gym's [unit] and the lightest weight
   /// this slot may be loaded to. The one place the scheme is turned into
@@ -306,6 +325,7 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         repsMin: Value(drafts[i].repsMin),
         repsMax: Value(drafts[i].toFailure ? null : drafts[i].repsMax),
         toFailure: Value(drafts[i].toFailure),
+        addWeightAtTopOfRange: Value(drafts[i].addWeightAtTopOfRange),
         restSeconds: Value(drafts[i].restSeconds),
         suggestedWeight: Value(drafts[i].clampedWeightKg(defaultBarKg)),
         scheme: Value(drafts[i].scheme),
@@ -346,6 +366,7 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       repsMin: Value(d.repsMin),
       repsMax: Value(d.toFailure ? null : d.repsMax),
       toFailure: Value(d.toFailure),
+      addWeightAtTopOfRange: Value(d.addWeightAtTopOfRange),
       restSeconds: Value(d.restSeconds),
       suggestedWeight: Value(d.clampedWeightKg(defaultBarKg)),
       scheme: Value(d.scheme),
@@ -861,6 +882,20 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     value: d.toFailure,
                     onChanged: (v) => _bump(() => d.toFailure = v),
                   ),
+                  // Offered only where it does something: there has to be a
+                  // range to climb, and a load to hold while it is climbed.
+                  // Ticking it on a slot that has neither would be an option
+                  // that changes nothing, which is worse than an absent one.
+                  if (d.canClimbRange) ...[
+                    const SizedBox(height: 14),
+                    _CheckRow(
+                      key: kRangeClimbKey,
+                      label: l10n.itemEditorAddWeightAtTop,
+                      value: d.addWeightAtTopOfRange,
+                      onChanged: (v) =>
+                          _bump(() => d.addWeightAtTopOfRange = v),
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   _SchemeSection(
                     draft: d,
@@ -1037,6 +1072,7 @@ const kAdvancedToggleKey = ValueKey('target-advanced');
 const kSchemePickerKey = ValueKey('set-scheme');
 const kSchemePercentKey = ValueKey('scheme-percent');
 const kSchemePreviewKey = ValueKey('scheme-preview');
+const kRangeClimbKey = ValueKey('add-weight-at-top-of-range');
 
 /// The one control that opens the rest of the Target card.
 ///

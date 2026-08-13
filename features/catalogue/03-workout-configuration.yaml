@@ -47,15 +47,17 @@ groups:
     uses:
     - template.item
   - id: advanced-holds-the-rest-of-the-target
-    t: Advanced holds the rep range, to failure, and the set scheme
+    t: Advanced holds the rep range, to failure, the set scheme and the range climb
     d: >-
-      tapping it opens the upper bound of the rep range, the to-failure checkbox
-      and the way the sets differ from one another. It opens already expanded on
-      a slot that is using any of them, so nothing a slot actually does is hidden
-      behind a toggle somebody has to think to press.
+      tapping it opens the upper bound of the rep range, the to-failure checkbox,
+      the way the sets differ from one another, and — on a weight slot that has a
+      rep range — "Add weight at the top of the range". It opens already expanded
+      on a slot that is using any of them, so nothing a slot actually does is
+      hidden behind a toggle somebody has to think to press.
     uses:
     - template.set-scheme
     - template.rep-target
+    - progression.double
   - id: sets-can-back-off-ramp-or-be-written-out
     t: The sets of a slot can back off, ramp up, or be written out one by one
     d: >-
@@ -203,6 +205,16 @@ groups:
       because it decides whether everything below asks for reps or for seconds.
     uses:
     - progression.axis
+  - id: turn-on-add-weight-at-top-of-range
+    t: Turn on the range climb
+    d: >-
+      open a slot's config sheet → set a rep range under Advanced → tick "Add
+      weight at the top of the range". The checkbox is there only once the range
+      is: it appears as the upper bound is filled in and goes when it is cleared.
+    screen: workout-edit
+    uses:
+    - progression.double
+    - template.rep-target
   - id: sheet-field-stays-above-keyboard
     t: A field tapped in the config sheet scrolls clear of the keyboard
     d: >-
@@ -241,11 +253,16 @@ groups:
     - template.rep-target
   - id: rep-range-keeps-width-progression
     t: A rep range keeps its width as progression moves it
-    d: 6–8 steps to 7–9, not 6–9.
+    d: >-
+      6–8 steps to 7–9, not 6–9. That is the reps axis, where the range is the
+      thing being advanced. A weight slot ticked to add weight at the top of its
+      range does not move the range at all — there the range is the ladder, and a
+      ladder that climbs with you is no ladder.
     screen: none
     uses:
     - template.rep-target
     - progression.rates
+    - progression.double
   - id: a-joined-slot-dragged-to-the-top-is-unjoined
     t: A joined slot dragged to the top of the list is unjoined
     d: >-

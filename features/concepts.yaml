@@ -352,8 +352,15 @@ concepts:
 
   - id: progression.verdict
     area: progression
-    what: Whether a session counted as clean or as a miss.
+    what: Whether a session counted as clean, as a miss, or as neither.
     code: [lib/data/progression.dart]
+
+  - id: progression.double
+    area: progression
+    what: >-
+      The opt-in rule that makes a weight slot climb its rep range before the
+      load moves, and hold the weight while it is climbing.
+    code: [lib/data/progression.dart, lib/data/database.dart]
 
   - id: progression.streak
     area: progression

@@ -1433,6 +1433,10 @@
   "@itemEditorToFailure": {
     "description": "Checkbox label: take every set as far as it goes rather than stopping at a rep target."
   },
+  "itemEditorAddWeightAtTop": "Add weight at the top of the range",
+  "@itemEditorAddWeightAtTop": {
+    "description": "Checkbox label under the rep range: hold the load until every set reaches the top of the range, then add weight and start again from the bottom. Shown only on a weight slot that has a rep range."
+  },
   "itemEditorSupersetWhat": "What is a superset?",
   "@itemEditorSupersetWhat": {
     "description": "The tooltip on the info icon beside the superset checkbox, and the title of the box it opens. A question, because that is what the icon is answering."
@@ -2370,6 +2374,10 @@
         "type": "int"
       }
     }
+  },
+  "summaryHeldTopTheRange": "Top the range on every set",
+  "@summaryHeldTopTheRange": {
+    "description": "The subline under a movement whose weight did not move because the session landed inside its rep range rather than at the top of it. Says what would step the weight up: reaching the top of the range on every set. Replaces the clean-session countdown on such a slot, because working up through a range moves neither streak."
   },
   "progressNoHistory": "No history yet",
   "@progressNoHistory": {

@@ -34,6 +34,25 @@ groups:
       rate is configurable per slot.
     defines:
     - progression.rates
+  - id: climb-the-range-then-add-weight
+    t: A weight slot can climb its rep range before the load moves
+    d: >-
+      tick "Add weight at the top of the range" on a slot with a rep range and
+      the two numbers take turns: the weight holds while the reps climb inside
+      6–8, and topping the range at every set is what earns the step up — at
+      which point the load moves by the slot's increment and the goal drops back
+      to the bottom of the range. The range itself never moves. Off by default,
+      and offered only where it means something: a slot with a fixed rep count
+      has no range to climb, and a slot on the reps or time axis is already
+      advancing the number this would advance.
+    screen: session
+    defines:
+    - progression.double
+    uses:
+    - progression.axis
+    - progression.rates
+    - template.rep-target
+    - session.exercise-weight
   - id: loading-bar-past-suggestion-itself
     t: Loading the bar past the suggestion is itself progression
     d: >-
@@ -56,9 +75,52 @@ groups:
   items:
   - id: verdict-every-planned-set-logged
     t: The verdict is "every planned set logged and none short"
-    d: a skipped set is a miss; finishing at a reduced weight is a miss.
+    d: >-
+      a skipped set is a miss; finishing at a reduced weight is a miss. The
+      verdict has two answers on every slot but one: a slot climbing its rep
+      range has a third, because landing inside the range is neither.
     defines:
     - progression.verdict
+    uses:
+    - progression.double
+  - id: range-not-topped-holds-everything
+    t: A session inside the range holds the weight and both streaks
+    d: >-
+      8/7/7 against 3×6–8 is not a clean session and not a miss: the load stays
+      where it is, and the success and failure counts stay where they are, so
+      three sessions spent working up through a range neither earn a step nor
+      spend a back-off. Falling below the bottom of the range is still a miss and
+      still feeds the back-off, which is what a rep range means — the bottom is
+      the weight's price of admission, and the top is what buys the next one.
+    uses:
+    - progression.double
+    - progression.verdict
+    - progression.streak
+    - template.rep-target
+  - id: recap-held-range-says-top-it
+    t: The recap tells a held slot climbing a range what it is waiting for
+    d: >-
+      an ordinary held exercise counts down the clean sessions or the misses left
+      before its target moves. Neither number is what a slot climbing a range is
+      waiting on, so it is told the thing that would actually move it: top the
+      range on every set. Counting down a streak that this session did not touch
+      would be counting down something that never arrives.
+    screen: summary
+    uses:
+    - progression.double
+    - progression.streak
+    - session.recap
+  - id: ticked-slot-without-a-range-is-ordinary
+    t: A ticked slot with no range left is an ordinary weight slot
+    d: >-
+      take the rep range off a slot that was climbing one and it steps up on a
+      clean session like any other, because there is no longer a range to top.
+      The tick is kept rather than cleared, so putting the range back puts the
+      behaviour back — dropping it would make an edit somebody made to the reps
+      quietly rewrite the progression rules underneath.
+    uses:
+    - progression.double
+    - template.rep-target
   - id: weight-axis-step-applied-lightest
     t: On the weight axis, the step is applied to the lightest logged set
     d: >-

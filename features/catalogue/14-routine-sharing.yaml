@@ -105,6 +105,19 @@ groups:
     uses:
     - share.routine-code
     - template.superset
+  - id: range-climb-travels-on-the-end-of-the-code
+    t: A shared routine carries which slots climb their range
+    d: >-
+      the ticks ride in their own appended section, behind the supersets, for the
+      same reason those do: a new bit inside a slot would leave the shipped build
+      parsing a tick as the next slot's exercise. An older build imports the
+      routine with the box unticked on every slot, which is a program that adds
+      weight a session sooner rather than a corrupt one. A routine where nothing
+      climbs a range costs no bytes at all — the section is written only when
+      there is a tick to carry.
+    uses:
+    - share.routine-code
+    - progression.double
   - id: description-travels-with-the-routine
     t: A routine's description travels with it
     d: >-

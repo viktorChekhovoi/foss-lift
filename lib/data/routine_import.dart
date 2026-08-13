@@ -148,8 +148,10 @@ extension RoutineSharing on AppDatabase {
           scheme: it.scheme,
           schemePercent: it.schemePercent,
           customSets: decodeCustomSets(it.customSets),
-          // Which slots are trained back to back is the program too.
+          // Which slots are trained back to back is the program too, and so is
+          // whether a slot climbs its range before its load moves.
           supersetWithPrevious: it.supersetWithPrevious,
+          addWeightAtTopOfRange: it.addWeightAtTopOfRange,
           // successStreak and failStreak are left behind on purpose: momentum
           // is earned on your own bar, not inherited with a program.
         ));
@@ -285,6 +287,7 @@ extension RoutineSharing on AppDatabase {
                   // The first slot of a day cannot be joined to the one above
                   // it, whatever a code claims — see [normaliseJoins].
                   supersetWithPrevious: Value(i > 0 && it.supersetWithPrevious),
+                  addWeightAtTopOfRange: Value(it.addWeightAtTopOfRange),
                 ),
             ],
           ),

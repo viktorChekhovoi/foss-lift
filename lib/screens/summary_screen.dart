@@ -411,7 +411,12 @@ class _ProgressionRow extends StatelessWidget {
 
   /// The subline for a held exercise: how many more sessions or misses stand
   /// between it and the next move. Null when there is nothing pending to say.
+  ///
+  /// A slot climbing a rep range is not counting anything down — a session
+  /// inside the range leaves both streaks where they were — so it is told what
+  /// would actually move it instead.
   String? _heldNote(AppLocalizations l10n) {
+    if (outcome.climbingRange) return l10n.summaryHeldTopTheRange;
     if (outcome.failures > 0) {
       final n = outcome.failureThreshold - outcome.failures;
       if (n > 0) return l10n.summaryHeldMisses(n);

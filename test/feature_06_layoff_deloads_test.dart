@@ -205,7 +205,7 @@ void main() {
     test('a deload clears both progression streaks', () async {
       final id = await slotIdNamed(db, 'Push', 'Bench Press');
       // Put some momentum on the slot first: one miss leaves a fail streak.
-      await db.advanceProgression(id, success: false);
+      await db.advanceProgression(id, verdict: SessionVerdict.miss);
       expect((await db.workoutItemById(id))!.failStreak, 1);
 
       final push = await workoutNamed(db, 'Push');

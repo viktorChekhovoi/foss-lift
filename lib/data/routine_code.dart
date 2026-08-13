@@ -91,11 +91,15 @@
 /// varint  _sectionSupersets, then for each workout in the same order:
 ///   varint  how many of its slots are joined to the slot above them
 ///   varint  each of their indices
+/// …then, only if any slot climbs its rep range:
+/// varint  _sectionRangeClimb, in the same shape: per workout, how many of its
+///   slots add weight at the top of the range, then which
 /// ```
 ///
 /// There is no weight field in a slot, by design — see above.
 ///
-/// **The supersets ride on the end rather than in the slot.** A new field bit
+/// **The supersets and the range climb ride on the end rather than in the
+/// slot.** A new field bit
 /// would have been cheaper by a byte or two, and it would also have made every
 /// code this build writes unreadable to the shipped one: a reader that does not
 /// know a bit does not know to read the field behind it, so it would go on to
@@ -195,9 +199,11 @@ class SharedItem {
     int schemePercent = kDefaultSchemePercent,
     List<CustomSet> customSets = const [],
     bool supersetWithPrevious = false,
+    bool addWeightAtTopOfRange = false,
   }) =>
       SharedItem._(
         supersetWithPrevious: supersetWithPrevious,
+        addWeightAtTopOfRange: addWeightAtTopOfRange,
         exercise: exercise,
         targetSets: targetSets,
         repsMin: repsMin,
@@ -232,6 +238,7 @@ class SharedItem {
     required this.schemePercent,
     required this.customSets,
     this.supersetWithPrevious = false,
+    this.addWeightAtTopOfRange = false,
   });
 
   /// Index into [SharedRoutine.exercises].
@@ -243,9 +250,17 @@ class SharedItem {
   /// than in the slot; see the library docs.
   final bool supersetWithPrevious;
 
-  /// The same slot, joined to the one above it. How the supersets section is
-  /// applied once the slots themselves have been read.
-  SharedItem supersetted() => SharedItem._(
+  /// Whether this slot holds its load until the top of its rep range. The other
+  /// field that travels in a trailing section rather than in the slot, for the
+  /// same reason [supersetWithPrevious] does.
+  final bool addWeightAtTopOfRange;
+
+  /// The same slot with one of the trailing-section flags set.
+  ///
+  /// Both sections are applied after the slots have been read, so each needs a
+  /// copy of a slot that is otherwise untouched — one method rather than one
+  /// per flag, because the fields being carried across are the same fields.
+  SharedItem _flagged({bool? superset, bool? climbRange}) => SharedItem._(
         exercise: exercise,
         targetSets: targetSets,
         repsMin: repsMin,
@@ -261,8 +276,16 @@ class SharedItem {
         scheme: scheme,
         schemePercent: schemePercent,
         customSets: customSets,
-        supersetWithPrevious: true,
+        supersetWithPrevious: superset ?? supersetWithPrevious,
+        addWeightAtTopOfRange: climbRange ?? addWeightAtTopOfRange,
       );
+
+  /// The same slot, joined to the one above it. How the supersets section is
+  /// applied once the slots themselves have been read.
+  SharedItem supersetted() => _flagged(superset: true);
+
+  /// The same slot, ticked to add weight at the top of its range.
+  SharedItem climbingRange() => _flagged(climbRange: true);
 
   final int targetSets;
   final int repsMin;
@@ -424,6 +447,9 @@ abstract final class RoutineCode {
   /// Which slots are joined to the slot above them — see `data/superset.dart`.
   static const int _sectionSupersets = 1;
 
+  /// Which slots hold their load until the top of their rep range.
+  static const int _sectionRangeClimb = 2;
+
   // -- Envelope flag bits ---------------------------------------------------
   // The one byte in front of the body. **Frozen**, like everything else here.
 
@@ -507,22 +533,23 @@ abstract final class RoutineCode {
       }
     }
 
-    // Only when there is one. A program of ordinary slots is the same number of
-    // bytes it was before supersets existed.
-    if (routine.workouts
-        .any((w) => w.items.any((it) => it.supersetWithPrevious))) {
-      body.varint(_sectionSupersets);
-      for (final w in routine.workouts) {
-        final joined = [
-          for (final (i, it) in w.items.indexed)
-            if (i > 0 && it.supersetWithPrevious) i,
-        ];
-        body.varint(joined.length);
-        for (final at in joined) {
-          body.varint(at);
-        }
-      }
-    }
+    // Each only when there is one to carry, and in ascending section order,
+    // which is what lets a reader stop at the first number it does not know. A
+    // program using neither is the same number of bytes it was before either
+    // existed.
+    _writeMarks(
+      body,
+      _sectionSupersets,
+      routine.workouts,
+      // The first slot of a day has nothing above it to be joined to.
+      (i, it) => i > 0 && it.supersetWithPrevious,
+    );
+    _writeMarks(
+      body,
+      _sectionRangeClimb,
+      routine.workouts,
+      (i, it) => it.addWeightAtTopOfRange,
+    );
 
     final raw = body.take();
     // Compress only when it actually helps: a short routine of common words
@@ -656,6 +683,59 @@ abstract final class RoutineCode {
     );
   }
 
+  /// Writes [section] as the indices, day by day, of the slots [mark] picks —
+  /// and writes nothing at all when it picks none anywhere.
+  ///
+  /// The shape every trailing section that flags slots shares: per workout, how
+  /// many of its slots carry the flag, then which. Counted first so a reader
+  /// that wants the section can take it in one pass, and skipped entirely when
+  /// empty so a routine pays nothing for a feature it does not use.
+  static void _writeMarks(
+    ByteWriter body,
+    int section,
+    List<SharedWorkout> workouts,
+    bool Function(int, SharedItem) mark,
+  ) {
+    final marked = [
+      for (final w in workouts)
+        [
+          for (final (i, it) in w.items.indexed)
+            if (mark(i, it)) i,
+        ],
+    ];
+    if (marked.every((l) => l.isEmpty)) return;
+    body.varint(section);
+    for (final list in marked) {
+      body.varint(list.length);
+      for (final at in list) {
+        body.varint(at);
+      }
+    }
+  }
+
+  /// Reads one [_writeMarks] section, replacing each marked slot with [apply]
+  /// of itself.
+  ///
+  /// The list the workout is holding is edited in place: the slots have already
+  /// been read, and a flag is a fact about one of them rather than a reason to
+  /// read the day again. An index outside the day is dropped rather than thrown
+  /// over — the program is still importable.
+  static void _readMarks(
+    ByteReader r,
+    List<SharedWorkout> workouts,
+    SharedItem Function(SharedItem) apply, {
+    int from = 0,
+  }) {
+    for (final w in workouts) {
+      for (var n = r.varint(); n > 0; n--) {
+        final at = r.varint();
+        if (at >= from && at < w.items.length) {
+          w.items[at] = apply(w.items[at]);
+        }
+      }
+    }
+  }
+
   /// Reads whatever sections follow the training days, applying each to
   /// [workouts] as it goes.
   ///
@@ -665,18 +745,15 @@ abstract final class RoutineCode {
   /// failure — a routine is complete without any of this.
   static void _readSections(ByteReader r, List<SharedWorkout> workouts) {
     while (!r.atEnd) {
-      if (r.varint() != _sectionSupersets) return;
-      for (final w in workouts) {
-        for (var n = r.varint(); n > 0; n--) {
-          final at = r.varint();
-          // The list the workout is holding, edited in place: the slots have
-          // already been read, and a join is a fact about one of them rather
-          // than a reason to read the day again. An index outside the day is
-          // dropped rather than thrown over — the program is still importable.
-          if (at > 0 && at < w.items.length) {
-            w.items[at] = w.items[at].supersetted();
-          }
-        }
+      switch (r.varint()) {
+        case _sectionSupersets:
+          // From 1: the first slot of a day cannot be joined to what is above
+          // it, and a code claiming otherwise is not read into one.
+          _readMarks(r, workouts, (it) => it.supersetted(), from: 1);
+        case _sectionRangeClimb:
+          _readMarks(r, workouts, (it) => it.climbingRange());
+        default:
+          return;
       }
     }
   }

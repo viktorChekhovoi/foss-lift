@@ -80,6 +80,25 @@ enum ExerciseMeasure {
       modes.contains(mode) ? mode : defaultMode;
 }
 
+/// What one session did to the target it was judged against.
+///
+/// Two of the three answers are as old as the app: you did what was asked, or
+/// you did not. [hold] exists for the slot that climbs a rep range before its
+/// load moves, where "eight, seven, seven out of six-to-eight" is honestly
+/// neither — the session was trained as prescribed and the top of the range was
+/// not reached, and the program's answer to that is to come back and do it
+/// again at the same weight.
+enum SessionVerdict {
+  /// Every planned set logged, none short. Feeds the success streak.
+  success,
+
+  /// Trained, inside the range, short of the top. Feeds neither streak.
+  hold,
+
+  /// A set skipped, or one that came up short of what was asked.
+  miss,
+}
+
 /// One clean session earns a step up: the common case is a program that adds
 /// weight every time you finish the sets it asked for.
 const defaultSuccessThreshold = 1;
@@ -99,8 +118,15 @@ typedef ProgressionStep = ({int successes, int failures, double delta});
 /// assembled out of three good sessions spread across a bad month. When a
 /// threshold is reached the target moves and *both* counters reset — the next
 /// step has to be earned from scratch rather than firing again every session.
+///
+/// [SessionVerdict.hold] is the exception that breaks neither rule: it returns
+/// the counters exactly as they arrived. A session spent working up through a
+/// rep range is not a good session and not a bad one, so it must not zero the
+/// streak on either side of it — three weeks of climbing 6 to 8 would otherwise
+/// spend a clean session that was already banked, or forgive a miss that is
+/// still owed.
 ProgressionStep stepProgression({
-  required bool success,
+  required SessionVerdict verdict,
   required int successes,
   required int failures,
   required int successThreshold,
@@ -108,7 +134,10 @@ ProgressionStep stepProgression({
   required double increment,
   required double deload,
 }) {
-  if (success) {
+  if (verdict == SessionVerdict.hold) {
+    return (successes: successes, failures: failures, delta: 0);
+  }
+  if (verdict == SessionVerdict.success) {
     final n = successes + 1;
     if (n >= successThreshold) {
       return (successes: 0, failures: 0, delta: increment);

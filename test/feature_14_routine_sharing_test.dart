@@ -905,6 +905,85 @@ void main() {
     });
   });
 
+  group('a shared routine carries which slots climb their range', () {
+    /// A two-slot day on the *sender's* phone: a ranged Bench Press ticked to
+    /// add weight at the top of its range when [climbs], and an Overhead Press
+    /// that is an ordinary slot either way.
+    Future<SharedRoutine> rangedRoutine({required bool climbs}) async {
+      final sender = memoryDb();
+      addTearDown(sender.close);
+      final rid = await sender.createRoutine(
+          name: 'Double Up', color: 'FF0000', restSeconds: 90);
+      final wid = await sender.createWorkout(rid, 'Day');
+      await sender.replaceWorkoutItems(
+        wid,
+        itemCompanions([
+          ItemDraft.forExercise(await exerciseNamed(sender, 'Bench Press'))
+            ..repsMin = 6
+            ..repsMax = 8
+            ..addWeightAtTopOfRange = climbs,
+          ItemDraft.forExercise(await exerciseNamed(sender, 'Overhead Press')),
+        ], workoutId: wid),
+      );
+      return sender.sharedRoutine(rid);
+    }
+
+    test('the ticks survive the trip, and the tag stays FLR2', () async {
+      final code = RoutineCode.encode(await rangedRoutine(climbs: true));
+      expect(code, startsWith('FLR2.'),
+          reason: 'the ticks ride after the days, not inside a slot');
+
+      final result = RoutineCode.decode(code);
+      expect(result, isA<RoutineCodeOk>());
+      final back = (result as RoutineCodeOk).routine;
+      expect(back.workouts.single.items.map((i) => i.addWeightAtTopOfRange),
+          [true, false]);
+
+      // And it lands on the recipient as the same program.
+      await db.importSharedRoutine(back);
+      final landed = await _routineNamed(db, 'Double Up');
+      final day = (await db.workoutsForRoutine(landed.id)).single;
+      final items = await db.itemsForWorkout(day.id);
+      expect(items.map((v) => v.item.addWeightAtTopOfRange), [true, false]);
+      expect(items.first.item.repsMax, 8, reason: 'the range it climbs');
+    });
+
+    test('a routine where nothing climbs a range costs no bytes at all',
+        () async {
+      // The section is written only when there is a tick to carry, so a routine
+      // without one is the same bytes the shipped build wrote — see
+      // [_shippedFlr1], a code for exactly this routine from a build that had
+      // never heard of the tick.
+      final code =
+          RoutineCode.encode(await db.sharedRoutine(await _seedCustomRoutine(db)));
+
+      expect(code.length, _shippedFlr1.length);
+      expect(code.substring('FLR2.'.length),
+          _shippedFlr1.substring('FLR1.'.length));
+
+      // The same two-slot day pays nothing for the feature either.
+      final plain = RoutineCode.encode(await rangedRoutine(climbs: false));
+      final back = (RoutineCode.decode(plain) as RoutineCodeOk).routine;
+      expect(back.workouts.single.items.map((i) => i.addWeightAtTopOfRange),
+          [false, false]);
+    });
+
+    test('a code written before the section decodes with nothing ticked',
+        () async {
+      final result = RoutineCode.decode(_shippedFlr1);
+
+      expect(result, isA<RoutineCodeOk>());
+      final back = (result as RoutineCodeOk).routine;
+      expect(
+        back.workouts
+            .expand((w) => w.items)
+            .map((i) => i.addWeightAtTopOfRange),
+        everyElement(isFalse),
+        reason: 'a program that adds weight a session sooner, not a corrupt one',
+      );
+    });
+  });
+
   group('a code that will not read', () {
     /// Text a paste box will actually see: empty, junk, truncated, the wrong
     /// kind of code, and one carrying characters a URL treats as punctuation.

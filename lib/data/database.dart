@@ -302,6 +302,7 @@ class WorkoutItems extends Table {
   IntColumn get failureThreshold =>
       integer().withDefault(const Constant(defaultFailureThreshold))();
 
+
   /// Clean sessions since the last step up or miss.
   ///
   /// Stored rather than derived from history, unlike the next-workout
@@ -324,9 +325,23 @@ class WorkoutItems extends Table {
   /// re-forms the groups by itself, and the only rule to enforce is that the
   /// first slot has nothing above it to join to. See `data/superset.dart`.
   ///
-  /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
-  /// upgraded database has to end up the same shape as a fresh one.
   BoolColumn get supersetWithPrevious =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Double progression: hold the load while the reps climb inside [repsMin]
+  /// … [repsMax], and step the load only once the top of the range is reached
+  /// at every set.
+  ///
+  /// Off unless asked for, and meaningless without both a rep range and the
+  /// weight axis — a slot with a fixed count has no range to climb, and the
+  /// reps axis already advances the number this would. The flag is kept even
+  /// while it means nothing, so taking a rep range off a slot and putting it
+  /// back does not quietly rewrite how the slot progresses.
+  ///
+  /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
+  /// upgraded database has to end up the same shape as a fresh one. Whatever
+  /// column comes next goes under this one, and takes this note with it.
+  BoolColumn get addWeightAtTopOfRange =>
       boolean().withDefault(const Constant(false))();
 }
 
@@ -1443,7 +1458,7 @@ class AppDatabase extends _$AppDatabase {
   ///   warm-up ramps off. On for every workout already on a phone, which is what
   ///   a day built before the switch existed meant.
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1558,6 +1573,17 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE "workouts" ADD COLUMN "warmups_enabled" '
           'INTEGER NOT NULL DEFAULT 1 '
           'CHECK ("warmups_enabled" IN (0, 1))',
+        );
+      }
+      // v9 — a slot can climb its rep range before its load moves. Off on every
+      // slot already on the phone: double progression is opt-in, and turning it
+      // on under somebody would stall a program that has been adding weight
+      // every session since they built it.
+      if (from < 9) {
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "add_weight_at_top_of_range" '
+          'INTEGER NOT NULL DEFAULT 0 '
+          'CHECK ("add_weight_at_top_of_range" IN (0, 1))',
         );
       }
     },
@@ -2215,8 +2241,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Advances one exercise slot after a session, per its own progression rules.
   ///
-  /// [success] is the whole exercise's verdict for the session, not one set's —
-  /// see `ExerciseEntry.succeeded`. [performedWeight] is the load actually
+  /// [verdict] is the whole exercise's verdict for the session, not one set's —
+  /// see `ExerciseEntry.verdict`. [performedWeight] is the load actually
   /// carried through every set of it, which on the weight axis is allowed to
   /// raise the target on its own — see below. Returns how far the target
   /// moved, in the mode's own unit, counted from where it was before.
@@ -2231,7 +2257,7 @@ class AppDatabase extends _$AppDatabase {
   /// progress), in which case there is nothing to advance and nothing to say.
   Future<double> advanceProgression(
     int itemId, {
-    required bool success,
+    required SessionVerdict verdict,
     double? performedWeight,
     double? sessionWeight,
   }) async {
@@ -2239,7 +2265,7 @@ class AppDatabase extends _$AppDatabase {
     if (it == null) return 0;
 
     final step = stepProgression(
-      success: success,
+      verdict: verdict,
       successes: it.successStreak,
       failures: it.failStreak,
       successThreshold: it.successThreshold,
