@@ -37,7 +37,8 @@ groups:
   - id: climb-the-range-then-add-weight
     t: A weight slot can climb its rep range before the load moves
     d: >-
-      tick "Add weight at the top of the range" under Progression → Advanced on
+      tick "Add weight only at the top of the rep range" under Progression →
+      Advanced on
       a slot with a rep range and the two numbers take turns: the weight holds
       while the reps climb inside 6–8, and topping the range at every set is
       what earns the step up — at

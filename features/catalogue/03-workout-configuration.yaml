@@ -221,8 +221,8 @@ groups:
     t: Turn on the range climb
     d: >-
       open a slot's config sheet → set a rep range under Target's Advanced →
-      scroll to Progression → tap its own Advanced → tick "Add weight at the top
-      of the range".
+      scroll to Progression → tap its own Advanced → tick "Add weight only at
+      the top of the rep range".
     screen: workout-edit
     uses:
     - progression.double

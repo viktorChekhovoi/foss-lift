@@ -1433,11 +1433,11 @@
   "@itemEditorToFailure": {
     "description": "Checkbox label: take every set as far as it goes rather than stopping at a rep target."
   },
-  "itemEditorAddWeightAtTop": "Add weight at the top of the range",
+  "itemEditorAddWeightAtTop": "Add weight only at the top of the rep range",
   "@itemEditorAddWeightAtTop": {
-    "description": "Checkbox label under the rep range: hold the load until every set reaches the top of the range, then add weight and start again from the bottom. Shown only on a weight slot that has a rep range."
+    "description": "Checkbox label in the Progression card's Advanced half: hold the load until every set reaches the top of the rep range, then add weight and start again from the bottom. Always listed, and greyed out on a slot that has no rep range to climb."
   },
-  "itemEditorRangeClimbNeedsRange": "Needs a rep range",
+  "itemEditorRangeClimbNeedsRange": "Configure a rep range to enable rep-weight progression",
   "@itemEditorRangeClimbNeedsRange": {
     "description": "The one line under the greyed-out range-climb checkbox, saying what has to be set before it can be ticked. Shown when the slot has no rep range, runs to failure, or progresses by reps or time."
   },
@@ -1445,9 +1445,9 @@
   "@itemEditorSupersetWhat": {
     "description": "The tooltip on the info icon beside the superset checkbox, and the title of the box it opens. A question, because that is what the icon is answering."
   },
-  "itemEditorSupersetExplained": "Two or more exercises done back to back, with no rest in between — a set of each, then the rest, then round again. It saves time, and keeps the pair working while the other muscle recovers.",
+  "itemEditorSupersetExplained": "Two or more exercises done back to back, with no rest in between; saves time in the gym",
   "@itemEditorSupersetExplained": {
-    "description": "What a superset is, for somebody who has just been offered one. Two sentences: what it is, and why anybody does it. The only place in the app outside the tour where a training term is defined."
+    "description": "What a superset is, for somebody who has just been offered one: what it is, then why anybody does it. The only place in the app outside the tour where a training term is defined."
   },
   "itemEditorSupersetWith": "Superset with {exercise}",
   "@itemEditorSupersetWith": {

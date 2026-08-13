@@ -984,7 +984,8 @@ void main() {
       () {
     /// The line the greyed checkbox sits under. The key does not exist yet, so
     /// the English is asserted as written.
-    const needsRange = 'Needs a rep range';
+    const needsRange =
+        'Configure a rep range to enable rep-weight progression';
 
     /// A Bench Press draft opened in the config sheet, [configure]d first.
     Future<ItemDraft> openDraft(
