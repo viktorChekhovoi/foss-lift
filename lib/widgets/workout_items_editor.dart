@@ -276,18 +276,27 @@ class ItemDraft {
     return w < floor ? floor : w;
   }
 
-  /// Switches the axis, resetting the rates to that mode's defaults in [unit]:
-  /// 2.5 of anything is a sane step in kilograms and nonsense in reps. An axis
-  /// the exercise does not allow is ignored.
+  /// The step and back-off last set on each axis this draft has been on, so
+  /// switching away and back does not throw away numbers somebody typed — the
+  /// same keeping as [customSets]. Only the axis in use is stored on the slot;
+  /// this is the open editor's memory of the others.
+  final Map<ProgressionMode, ({double increment, double deload})> _rates = {};
+
+  /// Switches the axis, bringing back the rates last set on it, or that mode's
+  /// defaults in [unit] on an axis this slot has not been on: 2.5 of anything
+  /// is a sane step in kilograms and nonsense in reps. An axis the exercise
+  /// does not allow is ignored.
   void setMode(ProgressionMode mode, {String unit = 'kg'}) {
     if (mode == progression || !modes.contains(mode)) return;
     _putOnAxis(mode, unit);
   }
 
   void _putOnAxis(ProgressionMode mode, String unit) {
+    _rates[progression] = (increment: increment, deload: deload);
     progression = mode;
-    increment = defaultIncrementFor(mode, unit);
-    deload = defaultDeloadFor(mode, unit);
+    final kept = _rates[mode];
+    increment = kept?.increment ?? defaultIncrementFor(mode, unit);
+    deload = kept?.deload ?? defaultDeloadFor(mode, unit);
   }
 
   /// Takes the library's word for what this movement now is.
@@ -1669,7 +1678,7 @@ class _AmountFieldState extends State<_AmountField> {
   @override
   void didUpdateWidget(_AmountField old) {
     super.didUpdateWidget(old);
-    // Switching the axis resets the amount underneath the field, and so does a
+    // Switching the axis swaps the amount underneath the field, and so does a
     // button press; typing does not, and rewriting the text mid-edit would
     // fight the cursor.
     if (widget.mode != old.mode || (!_focus.hasFocus && _shown != _c.text)) {

@@ -489,7 +489,7 @@ void main() {
     });
 
     test(
-      'switching axis resets the step/back-off to that axis\'s defaults',
+      'an axis the slot has not been on opens at that axis\'s defaults',
       () async {
         final bench = await exerciseNamed(db, 'Bench Press');
         final draft = ItemDraft.forExercise(bench);
@@ -500,6 +500,84 @@ void main() {
         expect(draft.progression, ProgressionMode.reps);
         expect(draft.increment, 1); // rep defaults, not 2.5 reps
         expect(draft.deload, 2);
+      },
+    );
+  });
+
+  group('switching the axis keeps the rates set on the axis left behind', () {
+    test('the numbers typed on weight come back when weight does', () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..increment = 1.25
+        ..deload = 7.5;
+
+      draft.setMode(ProgressionMode.reps);
+      expect(draft.increment, 1); // the reps axis, at its own defaults
+      expect(draft.deload, 2);
+
+      draft.setMode(ProgressionMode.weight);
+      expect(draft.increment, 1.25); // not 2.5 — what was typed
+      expect(draft.deload, 7.5);
+    });
+
+    test('each axis keeps its own pair across repeated switches', () async {
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)..increment = 5;
+
+      draft.setMode(ProgressionMode.reps);
+      draft.increment = 3;
+      draft.deload = 1;
+
+      draft.setMode(ProgressionMode.weight);
+      expect(draft.increment, 5);
+      expect(draft.deload, 5);
+
+      draft.setMode(ProgressionMode.reps);
+      expect(draft.increment, 3);
+      expect(draft.deload, 1);
+    });
+
+    test('only the axis in use reaches the database', () async {
+      final push = await workoutIdNamed(db, 'Push');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      final draft = ItemDraft.forExercise(bench)
+        ..increment = 1.25
+        ..deload = 7.5
+        ..setMode(ProgressionMode.reps);
+
+      await db.replaceWorkoutItems(
+        push,
+        itemCompanions([draft], workoutId: push),
+      );
+
+      final saved = (await itemNamed(db, push, 'Bench Press')).item;
+      expect(saved.progression, ProgressionMode.reps);
+      expect(saved.increment, 1);
+      expect(saved.deload, 2);
+    });
+
+    test(
+      'a slot pushed off its axis by the library finds its numbers again',
+      () async {
+        final bench = await exerciseNamed(db, 'Bench Press');
+        final draft = ItemDraft.forExercise(bench)
+          ..increment = 1.25
+          ..deload = 7.5;
+
+        // The movement is reclassified as held while the sheet is open: the
+        // weight axis is gone, so the slot is moved to time.
+        final held = bench.copyWith(measure: ExerciseMeasure.time);
+        draft.adoptExercise(held);
+        expect(draft.progression, ProgressionMode.time);
+        expect(draft.increment, 5); // time defaults
+        expect(draft.deload, 10);
+
+        // Reclassified back: time is no longer allowed, so the slot returns to
+        // the weight axis — with the numbers it had there.
+        draft.adoptExercise(bench);
+        expect(draft.progression, ProgressionMode.weight);
+        expect(draft.increment, 1.25);
+        expect(draft.deload, 7.5);
       },
     );
   });

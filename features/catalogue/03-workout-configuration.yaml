@@ -264,6 +264,15 @@ groups:
     - exercise.weight-type
     - progression.axis
     - template.rep-target
+  - id: switching-axis-keeps-the-rates-you-set
+    t: Switching the axis keeps the rates you set on the axis you left
+    d: >-
+      the step and back-off typed against weight are put aside when the slot moves to reps, and come back when it moves back, so looking at the other rule does not cost you the numbers you had. An axis the slot has not been on yet opens at that axis's defaults — 2.5 of anything is a sane step in kilograms and nonsense in reps — and so does one it is pushed off by a change in the library, which comes back to its own numbers if the exercise allows the axis again. The set-aside numbers belong to the open editor; the slot stores the axis in use and its two rates, as before.
+    screen: workout-edit
+    uses:
+    - progression.axis
+    - progression.rates
+    - exercise.measure
   - id: range-climb-greyed-without-a-range
     t: The range climb is greyed out until there is a range to climb
     d: >-
