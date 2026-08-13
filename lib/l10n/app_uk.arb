@@ -319,7 +319,7 @@
   "itemEditorSchemeSeparator": " · ",
   "itemEditorToFailure": "До відмови",
   "itemEditorAddWeightAtTop": "Додавати вагу лише на верхній межі діапазону повторень",
-  "itemEditorRangeClimbNeedsRange": "Налаштуйте діапазон повторень, щоб увімкнути прогресію за повтореннями та вагою",
+  "itemEditorRangeClimbNeedsRange": "Налаштуйте діапазон повторень",
   "itemEditorSupersetWhat": "Що таке суперсет?",
   "itemEditorSupersetExplained": "Дві або більше вправ поспіль, без відпочинку між ними; це економить час у залі",
   "itemEditorSupersetWith": "Суперсет із {exercise}",
