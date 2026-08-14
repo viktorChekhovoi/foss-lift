@@ -191,6 +191,146 @@ void main() {
     });
   });
 
+  group('the weight is nudged by the amounts the slot progresses by', () {
+    Finder weightBox() => find.descendant(
+          of: find.byKey(kWeightFieldKey),
+          matching: find.byType(TextField),
+        );
+
+    testWidgets('+ adds the step-up and − takes off the back-off',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      // The two rates are deliberately different sizes, which is the point:
+      // this slot climbs 2.5 and drops 5.
+      final draft = ItemDraft.forExercise(bench)
+        ..weightKg = 100
+        ..increment = 2.5
+        ..deload = 5;
+
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.add));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(102.5, 1e-9));
+      expect(find.text('102.5'), findsWidgets);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.remove));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(97.5, 1e-9));
+
+      await stop(tester);
+    });
+
+    testWidgets('a back-off of zero makes − fall back to the step-up',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      final draft = ItemDraft.forExercise(bench)
+        ..weightKg = 100
+        ..increment = 2.5
+        ..deload = 0;
+
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.remove));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(97.5, 1e-9),
+          reason: 'a button that does nothing is not a button');
+
+      await stop(tester);
+    });
+
+    testWidgets('on a reps axis the taps are worth the unit\'s own step',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      // The slot's rates are now counted in reps, so there is no weight rate to
+      // borrow.
+      final draft = ItemDraft.forExercise(bench)
+        ..weightKg = 100
+        ..setMode(ProgressionMode.reps, unit: 'kg');
+
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.add));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(102.5, 1e-9));
+
+      await stop(tester);
+    });
+
+    testWidgets('− stops at the empty bar', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      final draft = ItemDraft.forExercise(bench)
+        ..weightKg = 22.5
+        ..deload = 5;
+
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.remove));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(20, 1e-9),
+          reason: 'the bar is the floor on a barbell movement');
+
+      await stop(tester);
+    });
+
+    testWidgets('an empty field has a dead − and a + that fills in the floor',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      final draft = ItemDraft.forExercise(bench)..weightKg = null;
+
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.remove));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, isNull);
+
+      await tester.tap(stepper(kWeightFieldKey, Icons.add));
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(20, 1e-9));
+
+      await stop(tester);
+    });
+
+    testWidgets('typing straight in is untouched by the buttons',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () => exerciseNamed(db, 'Bench Press'),
+      ))!;
+      final draft = ItemDraft.forExercise(bench)..weightKg = 100;
+
+      await openSheet(tester, container, [draft]);
+
+      await tester.enterText(weightBox(), '48.75');
+      await tester.pumpAndSettle();
+      expect(draft.weightKg, closeTo(48.75, 1e-9),
+          reason: 'not rounded to a tap');
+
+      await stop(tester);
+    });
+  });
+
   group('the sheet keeps the field you are typing in above the keyboard', () {
     testWidgets('focusing a field low in the sheet scrolls it into view', (
       tester,
@@ -968,21 +1108,47 @@ void main() {
       expect(got.map((t) => t.weightKg), [90, 100, 100]);
     });
 
-    test('every computed weight lands on something you can load', () {
-      // 90% of 102.5 is 92.25, which is not a bar anybody sets.
+    test('every computed weight keeps the arithmetic that made it', () {
+      // 90% of 102.5 is 92.25, and that is what the set asks for — snapping to
+      // the 2.5 kg a gym counts by would move it to 92.5 and make the app
+      // disagree with its own percentage.
       expect(targets(SetScheme.backOff, top: 102.5).map((t) => t.weightKg),
-          [102.5, 92.5, 82.5]);
-      // And in a pounds gym it snaps to the pound step instead.
-      final lb = targets(SetScheme.backOff, top: toKg(225, 'lb'), unit: 'lb');
-      for (final t in lb) {
-        expect(toDisplayWeight(t.weightKg!, 'lb') % 5, closeTo(0, 1e-6));
-      }
+          [102.5, 92.25, 82.0]);
+      // The eighth of a kilogram is where it stops: 65% of 77 is 50.05.
+      expect(
+          targets(SetScheme.custom,
+                  sets: 1,
+                  top: 77,
+                  custom: [const CustomSet(reps: 5, percent: 65)])
+              .single
+              .weightKg,
+          closeTo(50, 1e-9));
+      // And a pounds gym lands on the quarter pound instead.
+      final lb = targets(SetScheme.custom,
+          sets: 1,
+          top: toKg(77, 'lb'),
+          unit: 'lb',
+          custom: [const CustomSet(reps: 5, percent: 65)]);
+      expect(toDisplayWeight(lb.single.weightKg!, 'lb'), closeTo(50, 1e-9));
+    });
+
+    test('a training-max percentage is not rounded up to the next plate', () {
+      // The bug this replaced: 65% of a 75 kg training max is 48.75, and the
+      // board showed 50.
+      expect(
+          targets(SetScheme.custom,
+                  sets: 1,
+                  top: 75,
+                  custom: [const CustomSet(reps: 5, percent: 65)])
+              .single
+              .weightKg,
+          closeTo(48.75, 1e-9));
     });
 
     test('and never falls under the bar it is loaded on', () {
       final got =
           targets(SetScheme.backOff, sets: 4, percent: 30, top: 60, floorKg: 20);
-      expect(got.map((t) => t.weightKg), [60, 42.5, 25, 20],
+      expect(got.map((t) => t.weightKg), [60, 42, 24, 20],
           reason: 'an unloadable set is not a lighter set');
     });
 
@@ -1127,7 +1293,7 @@ void main() {
       ctl.setWorkingWeight(0, 80);
 
       final sets = container.read(activeWorkoutProvider)!.exercises.single.sets;
-      expect(sets.map((s) => s.weight), [80, 72.5, 65],
+      expect(sets.map((s) => s.weight), [80, 72, 64],
           reason: 'the proportions are the scheme; the top of it is the edit');
     });
 
@@ -1142,7 +1308,7 @@ void main() {
       final sets = container.read(activeWorkoutProvider)!.exercises.single.sets;
       expect(sets.first.weight, 100,
           reason: 'what is in the log is what happened');
-      expect(sets[1].weight, 72.5);
+      expect(sets[1].weight, 72);
     });
 
     test('a flat slot is unchanged by any of it', () async {

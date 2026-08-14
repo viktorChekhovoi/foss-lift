@@ -20,6 +20,7 @@ import 'common.dart' show AppDialog, sectionLabelStyle, showAppDialog;
 /// Finds the progression-amount fields in a test. The first two are the pair
 /// every axis has; on the axis that takes reps and weight in turn they are its
 /// weight pair, and the rep pair below is beside them.
+const kWeightFieldKey = ValueKey('slot-weight');
 const kStepUpFieldKey = ValueKey('amount-step-up');
 const kBackOffFieldKey = ValueKey('amount-back-off');
 const kRepsStepUpFieldKey = ValueKey('amount-reps-step-up');
@@ -565,7 +566,7 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
 /// The decimals [fmtWeight] will show, as a rounding: what the field puts back
 /// must be what the field says.
 double roundStepWeight(double display) =>
-    double.parse(display.toStringAsFixed(2));
+    double.parse(display.toStringAsFixed(3));
 
 /// Formats a progression amount in its mode's own unit: "2.5 kg", "1 rep",
 /// "5s". Weight is converted to the display unit like every other weight.
@@ -881,6 +882,53 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     super.dispose();
   }
 
+  /// What one tap of the weight field's − or + is worth.
+  ///
+  /// The slot's own rates, because they are what a session would do to this
+  /// weight: + adds the step up and − takes off the back off, and on a slot
+  /// climbing 2.5 and dropping 5 the two taps are deliberately different sizes.
+  /// A back-off of zero is a slot that never lightens on a miss, which is a real
+  /// answer for progression and a dead button here, so − borrows the step
+  /// instead. Where the slot progresses by reps or by seconds there is no weight
+  /// rate to borrow at all and the unit's own step stands in.
+  double _weightNudge(int sign) {
+    final onWeightRates =
+        d.progression == ProgressionMode.weight || d.onAdvancedAxis;
+    if (!onWeightRates) return unitStepKg(widget.unit);
+    final rate = sign > 0 || d.deload <= 0 ? d.increment : d.deload;
+    return rate > 0 ? rate : unitStepKg(widget.unit);
+  }
+
+  /// Whether − has anywhere to go: a field nobody has filled in has no number to
+  /// take anything off, and one already at the bar is at the floor.
+  bool get _canNudgeWeightDown {
+    final w = d.weightKg;
+    return w != null && w > d.floorKg(widget.defaultBarKg) + 1e-9;
+  }
+
+  void _nudgeWeight(int sign) {
+    final floor = d.floorKg(widget.defaultBarKg);
+    final current = d.weightKg;
+    if (current == null) {
+      // + on an empty field fills in the lightest the movement can be — the bar
+      // it is loaded on, or one tap's worth where there is no bar.
+      if (sign > 0) _setWeight(floor > 0 ? floor : _weightNudge(1));
+      return;
+    }
+    final next = current + sign * _weightNudge(sign);
+    _setWeight(next < floor ? floor : next);
+  }
+
+  /// Writes a nudged weight to the draft and to the box at once.
+  ///
+  /// Rounded to what the box will actually show, so a rate converted from
+  /// pounds cannot leave a tail behind the text on every tap.
+  void _setWeight(double kg) {
+    final display = roundStepWeight(toDisplayWeight(kg, widget.unit));
+    _weight.text = fmtWeight(display);
+    _bump(() => d.weightKg = toKg(display, widget.unit));
+  }
+
   /// One of the faint lines this sheet explains itself with — the axis it has
   /// no choice about, and the rule its numbers add up to.
   Widget _note(String text) => Text(
@@ -1134,23 +1182,38 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                           '(${unitSuffix(l10n, widget.unit)})'
                       : l10n.itemEditorWeightWithUnit(
                           unitSuffix(l10n, widget.unit)), [
-                TextField(
-                  controller: _weight,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style:
-                      kMono.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
-                  // Blank on a loaded movement is a number nobody has filled in
-                  // yet, not bodyweight — the loading says which it is, and this
-                  // one carries a weight. Over a bar, the hint is the bar: it is
-                  // the floor the value is held at on the way to the database.
-                  decoration: builderInput(_weightHint(l10n)),
-                  onChanged: (v) {
-                    final parsed = double.tryParse(v.trim());
-                    d.weightKg =
-                        parsed == null ? null : toKg(parsed, widget.unit);
-                    widget.onChanged();
-                  },
+                Row(
+                  key: kWeightFieldKey,
+                  children: [
+                    stepperButton(
+                      Icons.remove,
+                      _canNudgeWeightDown ? () => _nudgeWeight(-1) : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _weight,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        style: kMono.copyWith(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                        // Blank on a loaded movement is a number nobody has
+                        // filled in yet, not bodyweight — the loading says which
+                        // it is, and this one carries a weight. Over a bar, the
+                        // hint is the bar: it is the floor the value is held at
+                        // on the way to the database.
+                        decoration: builderInput(_weightHint(l10n)),
+                        onChanged: (v) {
+                          final parsed =
+                              double.tryParse(v.trim().replaceAll(',', '.'));
+                          _bump(() => d.weightKg =
+                              parsed == null ? null : toKg(parsed, widget.unit));
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    stepperButton(Icons.add, () => _nudgeWeight(1)),
+                  ],
                 ),
               ]),
             const SizedBox(height: 14),

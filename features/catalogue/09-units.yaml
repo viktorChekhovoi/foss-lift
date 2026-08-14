@@ -72,19 +72,36 @@ groups:
   - id: exercise-weight-and-its-sets-are-one-load
     t: An exercise's weight and its set rows are the same load
     d: >-
-      both sit on the step the unit counts by, so a header reading 101 kg over rows
-      reading 100 is not a state the board can be in. The weight an exercise is
-      worked at is put on that step exactly as the weights of its sets are — when
-      the session hydrates and again every time the weight is changed — so the
-      rows, the working weight and the plate line under them all describe one bar.
-      In pounds that means a 100 kg suggestion opens at 220 lb everywhere rather
-      than at 220.46 in one place and 220 in another.
+      both sit on the same fine grid, so a header reading 101 kg over rows reading
+      100 is not a state the board can be in. The weight an exercise is worked at
+      goes through the same snap as the weights of its sets — when the session
+      hydrates and again every time the weight is changed — so the rows, the
+      working weight and the plate line under them all describe one bar. A weight
+      already on the grid passes through untouched, which is why a slot set to
+      48.75 kg opens at 48.75 rather than being rounded to a number nobody typed.
     screen: session
     uses:
     - load.units
-    - load.unit-defaults
+    - load.fine-grid
     - session.exercise-weight
     - template.set-scheme
+  - id: each-unit-has-its-own-fine-grid
+    t: Each unit has a fine grid, separate from the step it counts by
+    d: >-
+      an eighth of a kilogram in a metric gym, a quarter of a pound in a pounds
+      one. It is not the 2.5 kg or 5 lb a gym loads by and is not what a slot
+      progresses in; it is the resolution a weight the app worked out for itself is
+      expressed to. Two jobs use it: killing the tail on a converted figure, and
+      keeping a percentage where the arithmetic put it instead of rounding it to
+      the nearest plate change. Switching units is the one place that still snaps
+      to the coarse step — 100 kg opens at 220 lb, not 220.5 — because re-plating
+      a whole gym is a different question from resolving one set.
+    screen: none
+    defines:
+    - load.fine-grid
+    uses:
+    - load.units
+    - load.unit-defaults
   - id: each-unit-has-its-own-default-step
     t: Step up and back off have a default in each unit
     d: >-
@@ -116,12 +133,15 @@ groups:
     - session.exercise-weight
     - load.plate-solver
   - id: weights-read-to-two-decimals
-    t: A weight reads to two decimals, with trailing zeros dropped
+    t: A weight reads to three decimals, with trailing zeros dropped
     d: >-
       100 kg is "100", a 1.25 kg plate is "1.25" and not "1.3", and a 2.5 lb step
-      is "2.5". One helper formats every weight the app shows — a set row, a step
-      rate, a plate breakdown — so the same number never reads two ways on two
-      screens.
+      is "2.5". Three rather than two because the fine grid reaches an eighth of a
+      kilogram, and a percentage landing on 48.875 that reads "48.88" is a number
+      the app cannot be asked for again. One helper formats every weight the app
+      shows — a set row, a step rate, a plate breakdown — so the same number never
+      reads two ways on two screens.
     screen: none
     uses:
     - load.units
+    - load.fine-grid

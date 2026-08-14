@@ -365,6 +365,11 @@ concepts:
     what: Which plates make a weight, and whether they make it exactly.
     code: [lib/data/plates.dart, lib/widgets/plate_line.dart]
 
+  - id: load.fine-grid
+    area: load
+    what: The finest a weight the app computes is expressed to — an eighth of a kilogram, or a quarter of a pound. Not the step a gym counts by; what a percentage or a conversion is tidied onto.
+    code: [lib/util/units.dart, lib/data/set_scheme.dart]
+
   - id: load.loadable-grid
     area: load
     what: Which weights a given setup can actually be set to — what a warm-up rung may land on.

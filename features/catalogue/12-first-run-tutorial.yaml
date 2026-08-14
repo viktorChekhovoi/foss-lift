@@ -490,12 +490,16 @@ groups:
       the current theme's colours and the chosen weight unit, so what the tour
       shows is what the app will look like — a tour in pounds does not demonstrate
       a board in kilos. Its example weights are snapped to the step the gym counts
-      by, the same landing a real target gets, so a pounds gym is shown a bar it
-      could load rather than a kilogram figure converted to two decimals.
+      by, so a pounds gym is shown a bar it could load rather than a kilogram
+      figure converted to two decimals. That is the coarse step rather than the
+      fine grid a real target lands on, and the one place the mock parts company
+      with the real screen on purpose: a real weight keeps the arithmetic that
+      made it, and an invented one has none to keep.
     uses:
     - theme.colour-role
     - load.units
     - load.unit-defaults
+    - load.fine-grid
   - id: shade-step-named-for-the-shade
     t: The shade step is named for the shade
     d: >-

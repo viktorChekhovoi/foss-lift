@@ -35,18 +35,20 @@ String fmtDuration(int seconds) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-/// A weight for display: up to two decimals, trailing zeros dropped.
+/// A weight for display: up to three decimals, trailing zeros dropped.
 ///
 /// 100.0 → "100", 102.5 → "102.5", 1.25 → "1.25" — and "102,5" in a language
 /// that writes it that way, because every formatter here goes through `intl`
 /// and `intl` reads `Intl.defaultLocale`, which the app root keeps in step with
 /// the language.
 ///
-/// Two decimals rather than one, everywhere rather than only on the plate line:
-/// the smallest pair of plates a metric gym owns makes 1.25 kg, a step that
-/// reads "1.3" is a weight nobody can build, and the same number reading two
-/// ways on two screens is worse than either.
-String fmtWeight(double w) => fmtUpTo(w, 2);
+/// Three decimals, everywhere rather than only on the plate line: the smallest
+/// pair of plates a metric gym owns makes 1.25 kg, a step that reads "1.3" is a
+/// weight nobody can build, and the fine grid a computed weight lands on
+/// (`kFineGridKg`) reaches an eighth of a kilogram — so a percentage landing on
+/// 48.875 has to read as 48.875 rather than as an 48.88 nothing can be set to.
+/// The same number reading two ways on two screens is worse than either.
+String fmtWeight(double w) => fmtUpTo(w, 3);
 
 /// Exactly one decimal place, in the app's language: 2.0 → "2.0", 1.44 → "1.4".
 ///

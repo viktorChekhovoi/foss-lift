@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/set_scheme.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
@@ -133,14 +132,16 @@ const _kDemoSets = 3;
 /// One of those weights as the gym counting in [unit] would have it.
 ///
 /// The constants are kilograms, and a kilogram pushed straight through
-/// [toDisplayWeight] reads 176.37 lb — a bar nobody sets, and one the real
-/// board could not produce: every target it draws has been landed on the step
-/// the unit counts by. So the mock goes through the board's own
-/// [resolveTopWeight] rather than carrying a second set of pounds constants.
-/// One number, landed the way the board lands it, and it stays right if the
-/// step a unit counts by ever changes.
-double _demoWeight(double kg, String unit) =>
-    resolveTopWeight(topWeightKg: kg, unit: unit)!;
+/// [toDisplayWeight] reads 176.37 lb — a bar nobody sets. So the mock snaps to
+/// the step the unit counts by rather than carrying a second set of pounds
+/// constants: one number, and it stays right if that step ever changes.
+///
+/// The coarse step rather than the board's own [snapToFineGrid], which is the
+/// one place the mock deliberately parts company with the real screen. A real
+/// target keeps the arithmetic that made it, tail and all, because a percentage
+/// is an instruction; a made-up example has no arithmetic behind it to keep, and
+/// a demo board reading 176.25 lb teaches an oddity instead of a bar.
+double _demoWeight(double kg, String unit) => snapToUnitStep(kg, unit);
 
 /// The whole session screen, as the tour draws it: the day's header, its
 /// exercises, and the rest bar when the step is about resting.

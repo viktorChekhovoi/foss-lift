@@ -109,9 +109,38 @@ double defaultDeloadFor(ProgressionMode mode, String unit) =>
 /// 100 kg is 220.46 lb, which is not a bar anybody sets; snapped, it is 220 lb.
 /// Only a *target* is ever put through this — what was actually lifted is
 /// history and is never rewritten.
+///
+/// This is the coarse answer, and a unit switch is the one caller left: it
+/// re-plates a whole gym, so landing on a number a pounds gym recognises is
+/// worth moving the bar for. A weight the app worked out for itself — a
+/// percentage of a training max, a back-off rung — goes through
+/// [snapToFineGrid] instead, because rounding 48.75 up to 50 makes the app
+/// disagree with its own arithmetic.
 double snapToUnitStep(double kg, String unit) {
   final step = unitStepKg(unit);
   return (kg / step).roundToDouble() * step;
+}
+
+/// The finest a weight the app computed for itself is expressed to: an eighth
+/// of a kilogram, or a quarter of a pound.
+///
+/// Not the step a gym counts by ([unitStepKg]) and not what a slot progresses
+/// in. Its job is to kill the tail a percentage or a conversion leaves behind —
+/// 65% of 77 kg is 50.05, and the set asks for 50 — while leaving alone every
+/// weight somebody could plausibly have meant. The two units differ because
+/// they are read at different resolutions: an eighth of a kilogram and a
+/// quarter of a pound are within a gram of each other.
+const double kFineGridKg = 0.125;
+const double kFineGridLb = 0.25;
+
+double fineGridKg(String unit) =>
+    unit == 'lb' ? toKg(kFineGridLb, 'lb') : kFineGridKg;
+
+/// [kg] put onto [fineGridKg], measured in [unit] so a pounds gym lands on a
+/// quarter pound rather than on a quarter pound's worth of kilograms.
+double snapToFineGrid(double kg, String unit) {
+  final grid = unit == 'lb' ? kFineGridLb : kFineGridKg;
+  return toKg((toDisplayWeight(kg, unit) / grid).roundToDouble() * grid, unit);
 }
 
 /// The grid a weight that arrived from somewhere else is put back onto: a

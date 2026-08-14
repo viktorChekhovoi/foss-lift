@@ -212,7 +212,7 @@ void main() {
       expect(targets.single.minReps, 8);
     });
 
-    test("a cycle's weights land on the unit's step and hold at the bar", () {
+    test("a cycle's weights keep their percentage and hold at the bar", () {
       final targets = resolveSetTargets(
         scheme: SetScheme.cycle,
         sets: 3,
@@ -227,8 +227,9 @@ void main() {
           ],
         ],
       );
-      // 65% of 102.5 is 66.625, which is not a bar anybody sets.
-      expect(targets[0].weightKg, 67.5);
+      // 65% of 102.5 is 66.625, and the eighth of a kilogram the fine grid
+      // reaches holds it there rather than rounding the week to 67.5.
+      expect(targets[0].weightKg, closeTo(66.625, 1e-9));
       // 10% of 102.5 is under the empty bar.
       expect(targets[1].weightKg, 20.0);
     });

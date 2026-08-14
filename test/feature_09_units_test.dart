@@ -90,19 +90,45 @@ void main() {
     });
   });
 
-  group('a weight reads to two decimals', () {
+  group('each unit has a fine grid, separate from the step it counts by', () {
+    test('an eighth of a kilogram, a quarter of a pound', () {
+      expect(snapToFineGrid(48.75, 'kg'), closeTo(48.75, 1e-9));
+      expect(snapToFineGrid(48.8, 'kg'), closeTo(48.75, 1e-9));
+      expect(snapToFineGrid(50.05, 'kg'), closeTo(50, 1e-9));
+      expect(toDisplayWeight(snapToFineGrid(toKg(50.05, 'lb'), 'lb'), 'lb'),
+          closeTo(50, 1e-9));
+      expect(toDisplayWeight(snapToFineGrid(toKg(50.2, 'lb'), 'lb'), 'lb'),
+          closeTo(50.25, 1e-9));
+    });
+
+    test('it is not the step a gym counts by', () {
+      // The coarse step is what a slot progresses in and what a unit switch
+      // re-plates onto; the fine grid is neither.
+      expect(fineGridKg('kg'), lessThan(unitStepKg('kg')));
+      expect(fineGridKg('lb'), lessThan(unitStepKg('lb')));
+    });
+  });
+
+  group('a weight reads to three decimals', () {
     test('trailing zeros are dropped, 1.25 is not rounded to 1.3', () {
       expect(fmtWeight(100), '100');
       expect(fmtWeight(102.5), '102.5');
       expect(fmtWeight(1.25), '1.25');
-      expect(fmtWeight(toDisplayWeight(100, 'lb')), '220.46');
+      expect(fmtWeight(toDisplayWeight(100, 'lb')), '220.462');
+    });
+
+    test('the eighth of a kilogram the fine grid reaches is readable', () {
+      // Two decimals would print this as "48.88", a weight the app cannot be
+      // asked for again.
+      expect(fmtWeight(48.875), '48.875');
+      expect(fmtWeight(48.75), '48.75');
     });
 
     test('one helper formats every weight the app shows', () {
       // A plate, a step and a set row all read the same — see rule 6 in
       // CLAUDE.md, and the two helpers this replaced.
-      for (final v in [1.25, 2.5, 20.0, 220.462262]) {
-        expect(fmtWeight(v), fmtUpTo(v, 2));
+      for (final v in [1.25, 2.5, 20.0, 48.875, 220.462262]) {
+        expect(fmtWeight(v), fmtUpTo(v, 3));
       }
     });
   });
@@ -312,6 +338,27 @@ void main() {
   });
 
   group('an exercise\'s weight and its set rows are one load', () {
+    test('a weight already on the grid is not rewritten', () async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      // The bug this replaced: the coarse step rounded this to 50.
+      final wid = await _slotAt(db, weightKg: 48.75);
+      await container
+          .read(activeWorkoutProvider.notifier)
+          .start(workoutId: wid, name: 'Day');
+
+      final e = container.read(activeWorkoutProvider)!.exercises.single;
+      expect(e.workingKg, closeTo(48.75, 1e-9));
+      for (final s in e.sets) {
+        expect(s.weight, closeTo(48.75, 1e-9));
+      }
+    });
+
     test('a suggestion off the unit\'s step opens snapped in both places',
         () async {
       final db = memoryDb();
@@ -330,14 +377,16 @@ void main() {
           .start(workoutId: wid, name: 'Day');
 
       final e = container.read(activeWorkoutProvider)!.exercises.single;
-      expect(toDisplayWeight(e.workingKg!, 'lb'), closeTo(220, 1e-6));
+      expect(toDisplayWeight(e.workingKg!, 'lb'), closeTo(220.5, 1e-6),
+          reason: '220.462 lb goes onto the quarter pound, not onto the 5 lb '
+              'a pounds gym counts by');
       for (final s in e.sets) {
         expect(s.weight, e.workingKg,
             reason: 'the header and the rows describe one bar');
       }
     });
 
-    test('a weight set on the board lands on the step its sets use', () async {
+    test('a weight set on the board lands on the grid its sets use', () async {
       final db = memoryDb();
       final container = containerFor(db);
       addTearDown(() async {
@@ -348,13 +397,33 @@ void main() {
       final wid = await _slotAt(db, weightKg: 100);
       final ctrl = container.read(activeWorkoutProvider.notifier);
       await ctrl.start(workoutId: wid, name: 'Day');
-      ctrl.setWorkingWeight(0, 101); // a metric gym counts by 2.5
+      // Off the grid by a hundredth, which is the size of the tail a conversion
+      // leaves — not the size of an edit anybody made on purpose.
+      ctrl.setWorkingWeight(0, 101.03);
 
       final e = container.read(activeWorkoutProvider)!.exercises.single;
-      expect(e.workingKg, 100);
+      expect(e.workingKg, closeTo(101, 1e-9));
       for (final s in e.sets) {
-        expect(s.weight, 100);
+        expect(s.weight, closeTo(101, 1e-9));
       }
+    });
+
+    test('and a weight already on the grid is left where it was', () async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      final wid = await _slotAt(db, weightKg: 100);
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(workoutId: wid, name: 'Day');
+      ctrl.setWorkingWeight(0, 101);
+
+      expect(container.read(activeWorkoutProvider)!.exercises.single.workingKg,
+          closeTo(101, 1e-9),
+          reason: '101 kg is a bar somebody chose, not a rounding error');
     });
   });
 
@@ -447,7 +516,7 @@ void main() {
   });
 
   group('a converted weight still fits the board', () {
-    testWidgets('a six-character weight does not overflow a set row',
+    testWidgets('a seven-character weight does not overflow a set row',
         (tester) async {
       final db = memoryDb();
       final container = containerFor(db);
@@ -464,8 +533,8 @@ void main() {
         await ctrl.start(workoutId: wid, name: 'Day');
         // One set dropped to an awkward load. The exercise's own weight and the
         // sets that follow it are snapped, but a single set is the deload that
-        // finishes a set and is taken at face value — so this is where six
-        // characters still reach a row.
+        // finishes a set and is taken at face value — so this is where the
+        // widest weight the app can print still reaches a row.
         ctrl.setWeight(0, 0, 100);
       });
 
@@ -476,7 +545,7 @@ void main() {
       });
 
       expect(overflows, isEmpty, reason: overflows.join('\n'));
-      expect(find.text('220.46'), findsWidgets);
+      expect(find.text('220.462'), findsWidgets);
       await stop(tester);
     });
   });

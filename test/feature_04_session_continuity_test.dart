@@ -462,7 +462,7 @@ void main() {
       final ctl = container!.read(activeWorkoutProvider.notifier);
       ctl.setWorkingWeight(0, 110);
       expect(session().exercises.single.sets.map((s) => s.weight).toList(),
-          [110.0, 100.0, 87.5], reason: 'moving the top moves the rungs');
+          [110.0, 99.0, 88.0], reason: 'moving the top moves the rungs');
 
       // And the bar is still the floor under the ladder: every rung of a 20 kg
       // bench sits on the bar rather than under it.

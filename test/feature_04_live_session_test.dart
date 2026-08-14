@@ -3604,10 +3604,11 @@ void main() {
       await tapCell(tester, repsCell('w0-$last-Bench Press'));
       await tester.pump();
 
-      // The switch to pounds snapped the template's 80 kg to the nearest
-      // 5 lb, so the bar is set to a round 175 — which is the point of the
-      // snap, and the number the ramp then works back from.
-      expect(find.textContaining('Set up 175 lb'), findsOneWidget);
+      // The template's 80 kg reads 176.37 lb, put onto the quarter pound the
+      // board works to — the number the ramp then works back from. Not the
+      // 175 a pounds gym counts to: a weight the app was given is kept, and
+      // only a unit *switch* re-plates it onto the coarse step.
+      expect(find.textContaining('Set up 176.25 lb'), findsOneWidget);
 
       await stopAll(tester);
     });

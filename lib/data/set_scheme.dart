@@ -334,10 +334,16 @@ int _atLeastNothing(int percent) => percent < 0 ? 0 : percent;
 double _effectiveFloor(double? topWeightKg, double floorKg) =>
     (topWeightKg ?? 0) >= floorKg ? floorKg : 0.0;
 
-/// One weight put where every weight this file produces goes: on the step
-/// [unit] counts by, and at or above [floor].
+/// One weight put where every weight this file produces goes: on [unit]'s fine
+/// grid, and at or above [floor].
+///
+/// The grid is fine rather than the step a gym counts by, because a percentage
+/// is an instruction and not a suggestion: 65% of a 75 kg training max is 48.75,
+/// and a coarse snap would move that set to 50 while the row above still said
+/// 65%. It stays a snap rather than nothing at all so a conversion cannot leave
+/// a six-decimal tail on a set row.
 double _land(double raw, String unit, double floor) {
-  final snapped = snapToUnitStep(raw, unit);
+  final snapped = snapToFineGrid(raw, unit);
   return snapped < floor ? floor : snapped;
 }
 
