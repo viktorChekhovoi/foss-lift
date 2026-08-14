@@ -121,15 +121,29 @@ double snapToUnitStep(double kg, String unit) {
   return (kg / step).roundToDouble() * step;
 }
 
-/// The finest a weight the app computed for itself is expressed to: an eighth
-/// of a kilogram, or a quarter of a pound.
+/// The finest a weight the app was not handed is expressed to: an eighth of a
+/// kilogram, or a quarter of a pound.
 ///
 /// Not the step a gym counts by ([unitStepKg]) and not what a slot progresses
-/// in. Its job is to kill the tail a percentage or a conversion leaves behind —
-/// 65% of 77 kg is 50.05, and the set asks for 50 — while leaving alone every
-/// weight somebody could plausibly have meant. The two units differ because
-/// they are read at different resolutions: an eighth of a kilogram and a
-/// quarter of a pound are within a gram of each other.
+/// in. Three callers, one question — how precisely does the app hold a weight it
+/// worked out rather than one somebody typed:
+///
+/// - a percentage keeps the arithmetic that made it (65% of 75 kg is 48.75, and
+///   the coarse step would call that 50);
+/// - a converted figure loses its tail before it reaches a set row;
+/// - a step rate decoded from a routine code is repaired. `ByteWriter.fixed2`
+///   carries hundredths of a kilogram and cannot hold a pounds figure exactly:
+///   2.5 lb is 1.1339809 kg, goes out as 1.13 and reads back as 2.49 lb. The
+///   error is at most a hundredth of a kilogram and half this grid is six times
+///   that, so the number lands back where it started.
+///
+/// The two units differ because they are read at different resolutions: an
+/// eighth of a kilogram and a quarter of a pound are within a gram of each
+/// other. Both leave the smallest rate a gym actually uses alone — the 1.25 kg
+/// pair a metric gym steps by, the 2.5 lb pair a pounds one does.
+///
+/// Only a weight the app computed or decoded goes through this. Nothing already
+/// on the phone is rounded.
 const double kFineGridKg = 0.125;
 const double kFineGridLb = 0.25;
 
@@ -140,28 +154,6 @@ double fineGridKg(String unit) =>
 /// quarter pound rather than on a quarter pound's worth of kilograms.
 double snapToFineGrid(double kg, String unit) {
   final grid = unit == 'lb' ? kFineGridLb : kFineGridKg;
-  return toKg((toDisplayWeight(kg, unit) / grid).roundToDouble() * grid, unit);
-}
-
-/// The grid a weight that arrived from somewhere else is put back onto: a
-/// quarter of a kilogram, or half a pound.
-///
-/// Not the same fraction in both units, because the smallest rate each gym
-/// actually uses is not the same: 1.25 kg is the pair of 1.25s a metric gym
-/// steps by and has to survive, while no pounds gym counts below the half.
-const double kTidyGridLb = 0.5;
-const double kTidyGridKg = 0.25;
-
-/// [kg] rounded to the nearest [kTidyGridKg] or [kTidyGridLb] of [unit].
-///
-/// This is a repair, not a preference. A wire format that carries kilograms to
-/// two decimals (`ByteWriter.fixed2`) cannot hold a pounds figure exactly: 2.5 lb
-/// is 1.1339809 kg, arrives as 1.13, and reads back as 2.49 lb. The error is at
-/// most a hundredth of a kilogram, so either grid is coarse enough to put the
-/// number back where it started. Only a value that has travelled is put through
-/// this — nothing already on the phone is rounded.
-double snapToTidyGrid(double kg, String unit) {
-  final grid = unit == 'lb' ? kTidyGridLb : kTidyGridKg;
   return toKg((toDisplayWeight(kg, unit) / grid).roundToDouble() * grid, unit);
 }
 

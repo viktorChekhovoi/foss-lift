@@ -91,9 +91,12 @@ groups:
       an eighth of a kilogram in a metric gym, a quarter of a pound in a pounds
       one. It is not the 2.5 kg or 5 lb a gym loads by and is not what a slot
       progresses in; it is the resolution a weight the app worked out for itself is
-      expressed to. Two jobs use it: killing the tail on a converted figure, and
-      keeping a percentage where the arithmetic put it instead of rounding it to
-      the nearest plate change. Switching units is the one place that still snaps
+      expressed to. Three jobs use it: keeping a percentage where the arithmetic
+      put it instead of rounding it to the nearest plate change, killing the tail
+      a conversion leaves on a set row, and repairing the hundredth of a kilogram
+      a step rate loses on its way through a routine code. One grid for all three,
+      because they are one question — how precisely does this app hold a weight it
+      was not handed. Switching units is the one place that still snaps
       to the coarse step — 100 kg opens at 220 lb, not 220.5 — because re-plating
       a whole gym is a different question from resolving one set.
     screen: none

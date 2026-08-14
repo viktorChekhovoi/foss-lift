@@ -341,11 +341,12 @@ String? _canonicalVideo(String? url) {
 
 /// A rate the sender actually spent bytes on, as it lands here.
 ///
-/// A weight is put back on the receiving phone's grid — see [snapToTidyGrid]
-/// for the format's rounding this undoes. Reps and seconds carry no unit and
-/// pass straight through.
+/// A weight is put back on the receiving phone's fine grid — see
+/// [snapToFineGrid] for the format's rounding this undoes, and for why the same
+/// grid a percentage lands on is the right one to repair onto. Reps and seconds
+/// carry no unit and pass straight through.
 double _landedRate(double value, ProgressionMode mode, String unit) =>
-    mode == ProgressionMode.weight ? snapToTidyGrid(value, unit) : value;
+    mode == ProgressionMode.weight ? snapToFineGrid(value, unit) : value;
 
 /// The incoming definition as a row patch.
 ///

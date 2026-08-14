@@ -1363,11 +1363,26 @@ void main() {
         expect(item.deload, closeTo(12.5, 1e-9));
       });
 
-      test('the quarter-kilo grid leaves a 1.25 kg step alone', () async {
+      test('the grid leaves a 1.25 kg step alone', () async {
         final item = await landed(increment: 1.25, deload: 2.5, unit: 'kg');
         expect(item.increment, closeTo(1.25, 1e-9),
             reason: 'the pair of 1.25s a metric gym steps by');
         expect(item.deload, closeTo(2.5, 1e-9));
+      });
+
+      test('it is the same grid a percentage lands on, not a coarser one',
+          () async {
+        // A rate on the fine grid but not on any coarser one. A separate,
+        // coarser import grid used to round these to 1.25 kg and 2.5 lb — a
+        // rate the sender never set.
+        final metric = await landed(increment: 1.125, deload: 2.375, unit: 'kg');
+        expect(metric.increment, closeTo(1.125, 1e-9));
+        expect(metric.deload, closeTo(2.375, 1e-9));
+
+        final pounds = await landed(
+            increment: toKg(2.25, 'lb'), deload: toKg(7.25, 'lb'), unit: 'lb');
+        expect(toDisplayWeight(pounds.increment, 'lb'), closeTo(2.25, 1e-9));
+        expect(toDisplayWeight(pounds.deload, 'lb'), closeTo(7.25, 1e-9));
       });
 
       test('a rep rate carries no unit and is left alone', () async {

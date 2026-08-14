@@ -229,15 +229,16 @@ groups:
     d: >-
       the wire format carries a rate as hundredths of a kilogram, so a rate set in
       pounds arrives a hundredth of a kilogram off what it was — a 2.5 lb step comes
-      back as 2.49 lb. A decoded weight rate is rounded in the *receiving* phone's
-      unit: to the nearest half pound, or to the nearest quarter kilogram, which is
-      fine enough to leave the 1.25 kg a metric gym steps by alone. Rep and hold rates
-      carry no unit and are untouched, and a rate that was never sent still takes the
-      unit default rather than being rounded to one.
+      back as 2.49 lb. A decoded weight rate is put on the receiving phone's fine
+      grid, measured in that phone's own unit, which is the same grid a percentage
+      lands on and is coarse enough to absorb an error that size several times over.
+      Rep and hold rates carry no unit and are untouched, and a rate that was never
+      sent still takes the unit default rather than being rounded to one.
     screen: none
     uses:
     - share.routine-code
     - load.unit-defaults
+    - load.fine-grid
     - progression.rates
   - id: qr-offered-whenever-one-can
     t: A QR is offered whenever one can hold the routine
