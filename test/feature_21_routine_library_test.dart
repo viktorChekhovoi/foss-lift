@@ -50,6 +50,10 @@ const _kLibraryOrder = [
   'bodyweight-basics',
   'dumbbell-full-body',
   'interval-conditioning',
+  '531-classic',
+  '531-bbb',
+  '531-fsl',
+  '531-beginners',
 ];
 
 /// The languages a shipped program has to read in.
@@ -254,7 +258,7 @@ void main() {
   });
 
   group('the library holds the programs the app ships', () {
-    test('nine of them, each with its own key', () {
+    test('thirteen of them, each with its own key', () {
       expect(kStarterRoutines, hasLength(_kLibraryOrder.length));
       expect(kStarterRoutines.map((p) => p.key).toSet(),
           hasLength(_kLibraryOrder.length),

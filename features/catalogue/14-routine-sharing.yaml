@@ -125,6 +125,21 @@ groups:
     uses:
     - share.routine-code
     - progression.double
+  - id: cycles-travel-on-the-end-of-the-code
+    t: A shared routine carries its cycles, and older builds get the first week
+    d: >-
+      the weeks ride in a section of their own behind the rep rates, on the terms
+      every trailing section is on. Inside the slot itself the cycle is written
+      as the plain custom scheme its first week already is, so a build that stops
+      before the section imports a working program — the same exercises, the same
+      sets, the opening week's reps and percentages — rather than a slot with no
+      scheme at all. Where the sender had got to in the cycle does not travel:
+      an imported copy opens on week one, for the reason a rep goal does not
+      travel either.
+    uses:
+    - share.routine-code
+    - template.cycle
+    - template.per-set-reps
   - id: description-travels-with-the-routine
     t: A routine's description travels with it
     d: >-

@@ -144,6 +144,37 @@ concepts:
       ramping up, or a weight and a rep count written out per set.
     code: [lib/data/set_scheme.dart, lib/widgets/workout_items_editor.dart]
 
+  - id: template.per-set-reps
+    area: template
+    what: >-
+      What one written-out row of a slot asks for — a count, a range, or a
+      minimum with no top (AMRAP) — and which of those numbers a set is judged
+      against.
+    code: [lib/data/set_scheme.dart, lib/widgets/workout_items_editor.dart]
+
+  - id: template.cycle
+    area: template
+    what: >-
+      The ordered weeks a slot rotates through, one per session, and where it
+      has got to. Each week is a written-out set of rows; the slot's weight is
+      what their percentages are of.
+    code: [lib/data/set_scheme.dart, lib/data/database.dart]
+
+  - id: template.training-max
+    area: template
+    what: >-
+      The one weight a cycle's percentages are taken from, and what moves it —
+      a number you train off rather than one you lift.
+    code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
+
+  - id: template.advanced-programming
+    area: template
+    what: >-
+      The app-wide switch that decides whether the builder offers cycles,
+      per-set reps and training maxes at all, and the rule that a slot already
+      using one shows its controls regardless.
+    code: [lib/data/database.dart, lib/screens/exercise_settings_screen.dart]
+
   - id: template.superset
     area: template
     what: >-

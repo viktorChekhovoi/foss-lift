@@ -42,14 +42,29 @@ class SetEntry {
     this.goalWeight,
     this.timed = false,
     double? weight,
+    int? goalMin,
+    this.amrap = false,
     this.logged,
     this.loggedOrder,
     this.videoPath,
     this.console = kNoConsoleMetrics,
-  }) : weight = weight ?? goalWeight ?? 0;
+  })  : weight = weight ?? goalWeight ?? 0,
+        goalMin = goalMin ?? goal;
 
   /// The target from the template — reps, or seconds when [timed]. Immutable.
   final int goal;
+
+  /// The number below which this set counts as short.
+  ///
+  /// [goal] for every set the app has ever had, and the *bottom* of the range
+  /// for a written-out row that carries one: 8–12 asks for 12 and is not a miss
+  /// at 9. A row with no top ([amrap]) asks for its minimum and floors on it, so
+  /// the two are the same number there.
+  final int goalMin;
+
+  /// Whether this set has no ceiling — do at least [goal] and keep going. The
+  /// board says so; nothing else about the set changes.
+  final bool amrap;
 
   /// True when this set is held for time rather than counted in reps.
   final bool timed;
@@ -104,9 +119,9 @@ class SetEntry {
 
   bool get done => logged != null;
 
-  /// A logged set that came up short — under the goal, or at a weight below
-  /// the suggested one. Deloading to finish a set is still a miss.
-  bool get missedGoal => done && (logged! < goal || underWeight);
+  /// A logged set that came up short — under the goal's floor, or at a weight
+  /// below the suggested one. Deloading to finish a set is still a miss.
+  bool get missedGoal => done && (logged! < goalMin || underWeight);
 
   /// A logged set done at less than the load it was set. Split out from
   /// [missedGoal] because the two failures read differently on the board:
@@ -155,6 +170,8 @@ class ExerciseEntry {
     this.scheme = SetScheme.flat,
     this.schemePercent = kDefaultSchemePercent,
     this.customSets = const [],
+    this.cycle = const [],
+    this.cyclePosition = 0,
     this.goalReps = 0,
     this.floorKg = 0,
     this.supersetWithPrevious = false,
@@ -232,6 +249,16 @@ class ExerciseEntry {
   final int schemePercent;
   final List<CustomSet> customSets;
 
+  /// The weeks a cycle rotates through, and which of them this session is —
+  /// see `data/set_scheme.dart`. Empty on every slot that is not on a cycle.
+  final List<List<CustomSet>> cycle;
+  final int cyclePosition;
+
+  /// Which week of how many this session is, counting from one, for the line
+  /// under the exercise. Zero when there is no cycle to say anything about.
+  int get cycleWeek => cycle.isEmpty ? 0 : (cyclePosition % cycle.length) + 1;
+  int get cycleWeeks => cycle.length;
+
   /// The slot's own rep target, which every scheme but a custom one repeats.
   final int goalReps;
 
@@ -247,6 +274,8 @@ class ExerciseEntry {
         unit: unit,
         percent: schemePercent,
         custom: customSets,
+        cycle: cycle,
+        cyclePosition: cyclePosition,
         floorKg: floorKg,
       );
 
@@ -1232,12 +1261,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     // ladder off it — see `data/set_scheme.dart`.
     final targets = resolveSetTargets(
       scheme: v.item.scheme,
-      sets: v.item.targetSets,
+      // The week's own row count on a cycle, the stored count everywhere else
+      // — see [WorkoutItemTarget.setCount].
+      sets: v.item.setCount,
       goalReps: goal,
       topWeightKg: w,
       unit: unit,
       percent: v.item.schemePercent,
       custom: decodeCustomSets(v.item.customSets),
+      cycle: v.item.cycleWeeks,
+      cyclePosition: v.item.cyclePosition,
       floorKg: warmupBar,
     );
     final e = ExerciseEntry(
@@ -1258,6 +1291,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       scheme: v.item.scheme,
       schemePercent: v.item.schemePercent,
       customSets: decodeCustomSets(v.item.customSets),
+      cycle: v.item.cycleWeeks,
+      cyclePosition: v.item.cyclePosition,
       goalReps: goal,
       floorKg: warmupBar,
       supersetWithPrevious: v.item.supersetWithPrevious,
@@ -1268,6 +1303,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
             // A hold is counted in seconds and no scheme touches that; the
             // weight on it still ramps like anything else.
             goal: mode.timed ? goal : t.reps,
+            goalMin: mode.timed ? null : t.minReps,
+            amrap: !mode.timed && t.amrap,
             goalWeight: t.weightKg,
             timed: mode.timed,
           ),

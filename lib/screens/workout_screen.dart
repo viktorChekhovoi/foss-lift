@@ -45,6 +45,7 @@ const _wholeBoard = ScrollCacheExtent.pixels(100000);
 /// The one place an exercise's goal is stated — beside the weight you can edit.
 /// One per exercise on the board, and nowhere on a set row.
 const kExerciseGoalKey = ValueKey('exercise-goal');
+const kCycleWeekKey = ValueKey('cycle-week');
 
 /// The control beside an exercise's name that opens its slot settings — the
 /// builder's own sheet, reached from the board.
@@ -1151,6 +1152,18 @@ class _ExerciseBlock extends StatelessWidget {
     if (exercise.sets.isEmpty) return null;
     final first = exercise.sets.first;
     final sets = exercise.sets.length;
+    // A written-out week whose rows differ has no single goal to multiply —
+    // "3 × 5" would be a lie about the week that reads 5/3/1. The rows are the
+    // prescription, so they are listed.
+    if (!first.timed &&
+        exercise.sets.any((s) => s.goal != first.goal || s.amrap != first.amrap)) {
+      return exercise.sets
+          .map((s) => s.amrap ? l10n.targetAmrap(s.goal) : '${s.goal}')
+          .join(l10n.itemEditorSchemeSeparator);
+    }
+    if (!first.timed && first.amrap) {
+      return '${l10n.sessionGoalCounted(sets, first.goal)}+';
+    }
     return first.timed
         ? l10n.sessionGoalTimed(sets, first.goal)
         : l10n.sessionGoalCounted(sets, first.goal);
@@ -1166,6 +1179,12 @@ class _ExerciseBlock extends StatelessWidget {
         children: [
           _ExerciseHeading(
             name: seededName(l10n, exercise.seedKey, exercise.name),
+            // Which week of the cycle this session is. 3 × 3 at 80% and 3 × 5
+            // at 75% are the same slot on different weeks, and nothing else on
+            // the block says which one you are looking at.
+            subtitle: exercise.cycleWeeks == 0
+                ? null
+                : l10n.sessionCycleWeek(exercise.cycleWeek, exercise.cycleWeeks),
             exerciseId: exercise.exerciseId,
             onSettings: onSettings,
           ),
@@ -1221,7 +1240,13 @@ class _ExerciseBlock extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
-                      '@',
+                      // A cycle's weight is not a weight the session asks for —
+                      // every set below is a percentage of it — so it is named
+                      // rather than joined to the goal by an "@" that would
+                      // read as "do the goal at this".
+                      exercise.cycleWeeks == 0
+                          ? '@'
+                          : l10n.sessionTrainingMaxShort,
                       style: kMono.copyWith(
                         fontSize: 13,
                         color: AppColors.faint,
@@ -1279,10 +1304,15 @@ class _ExerciseBlock extends StatelessWidget {
 class _ExerciseHeading extends ConsumerWidget {
   const _ExerciseHeading({
     required this.name,
+    this.subtitle,
     this.exerciseId,
     this.onSettings,
   });
   final String name;
+
+  /// One short line under the name — the cycle's week, where there is one.
+  /// Null on every slot that is not on a cycle, which is most of them.
+  final String? subtitle;
 
   /// Null for an ad-hoc entry with no library movement behind it — there is
   /// nowhere to keep a note, so none is offered.
@@ -1377,6 +1407,17 @@ class _ExerciseHeading extends ConsumerWidget {
               ),
           ],
         ),
+        if (subtitle case final line?)
+          Padding(
+            // Indented to clear the dot, so it reads as belonging to the name
+            // above it rather than as a row of its own.
+            padding: const EdgeInsets.only(left: 18, top: 2),
+            child: Text(
+              line,
+              key: kCycleWeekKey,
+              style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
+            ),
+          ),
       ],
     );
   }

@@ -265,21 +265,35 @@ class _ExerciseRow extends StatelessWidget {
                   perSide == null ? muscle : '$muscle · $perSide',
                   style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
+                // Which week of its cycle the next session of this slot is, on
+                // the day that offers it — the same line the live board shows,
+                // and for the same reason.
+                if (view.item.runsCycle)
+                  Text(
+                    l10n.sessionCycleWeek(
+                        view.item.cycleWeekNumber, view.item.cycleWeeks.length),
+                    style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
+                  ),
               ],
             ),
           ),
           Text(
-            setsTargetLabel(
-              l10n,
-              sets: view.item.targetSets,
-              progression: view.item.progression,
-              toFailure: view.item.toFailure,
-              holdSeconds: view.item.holdSeconds,
-              // What the next session will actually ask for: a slot climbing
-              // its range is aiming at one number, not at the whole range.
-              repsMin: view.item.goalReps,
-              repsMax: view.item.climbsRange ? null : view.item.repsMax,
-            ),
+            // A cycle's week is written out a set at a time, so it is listed
+            // rather than multiplied — see [rowsTargetLabel].
+            view.item.runsCycle
+                ? rowsTargetLabel(l10n, view.item.cycleRows)
+                : setsTargetLabel(
+                    l10n,
+                    sets: view.item.targetSets,
+                    progression: view.item.progression,
+                    toFailure: view.item.toFailure,
+                    holdSeconds: view.item.holdSeconds,
+                    // What the next session will actually ask for: a slot
+                    // climbing its range is aiming at one number, not at the
+                    // whole range.
+                    repsMin: view.item.goalReps,
+                    repsMax: view.item.climbsRange ? null : view.item.repsMax,
+                  ),
             style: kMono.copyWith(
               fontSize: 13,
               color: AppColors.accent,

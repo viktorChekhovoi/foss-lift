@@ -202,8 +202,10 @@ class SharedItem {
     bool addWeightAtTopOfRange = false,
     double? repsIncrement,
     double? repsDeload,
+    List<List<CustomSet>> cycle = const [],
   }) =>
       SharedItem._(
+        cycle: cycle,
         supersetWithPrevious: supersetWithPrevious,
         addWeightAtTopOfRange: addWeightAtTopOfRange,
         repsIncrement: repsIncrement ?? ProgressionMode.reps.defaultIncrement,
@@ -245,6 +247,7 @@ class SharedItem {
     this.addWeightAtTopOfRange = false,
     this.repsIncrement = 1,
     this.repsDeload = 2,
+    this.cycle = const [],
   });
 
   /// Index into [SharedRoutine.exercises].
@@ -269,6 +272,17 @@ class SharedItem {
   final double repsIncrement;
   final double repsDeload;
 
+  /// The weeks a slot on a cycle rotates through. In a trailing section of its
+  /// own, on the terms every trailing section is on — and, inside the slot
+  /// itself, written as the plain custom scheme its first week already is, so a
+  /// build that stops before the section imports a working program rather than
+  /// a slot with no scheme at all.
+  ///
+  /// Where the sender had got to in the cycle does not travel: a shared routine
+  /// is a program, not somebody's progress through one, so an imported copy
+  /// opens on week one.
+  final List<List<CustomSet>> cycle;
+
   /// The same slot with one of the trailing-section flags set.
   ///
   /// Both sections are applied after the slots have been read, so each needs a
@@ -279,6 +293,8 @@ class SharedItem {
     bool? climbRange,
     double? repsIncrement,
     double? repsDeload,
+    List<List<CustomSet>>? cycle,
+    SetScheme? scheme,
   }) =>
       SharedItem._(
         exercise: exercise,
@@ -293,13 +309,14 @@ class SharedItem {
         deload: deload,
         successThreshold: successThreshold,
         failureThreshold: failureThreshold,
-        scheme: scheme,
+        scheme: scheme ?? this.scheme,
         schemePercent: schemePercent,
         customSets: customSets,
         supersetWithPrevious: superset ?? supersetWithPrevious,
         addWeightAtTopOfRange: climbRange ?? addWeightAtTopOfRange,
         repsIncrement: repsIncrement ?? this.repsIncrement,
         repsDeload: repsDeload ?? this.repsDeload,
+        cycle: cycle ?? this.cycle,
       );
 
   /// The same slot, joined to the one above it. How the supersets section is
@@ -312,6 +329,12 @@ class SharedItem {
   /// The same slot, advancing its reps at the rates the code carried.
   SharedItem atRepRates(double increment, double deload) =>
       _flagged(repsIncrement: increment, repsDeload: deload);
+
+  /// The same slot, running the weeks the cycle section carried. The scheme
+  /// comes with them: it travelled in the slot as `custom`, which is what an
+  /// older reader has to see, and only this section can correct it.
+  SharedItem cycling(List<List<CustomSet>> weeks) =>
+      _flagged(cycle: weeks, scheme: SetScheme.cycle);
 
   final int targetSets;
   final int repsMin;
@@ -479,6 +502,9 @@ abstract final class RoutineCode {
   /// The rep step and rep back-off of the slots that do.
   static const int _sectionRepRates = 3;
 
+  /// The weeks of the slots that run a cycle.
+  static const int _sectionCycles = 4;
+
   // -- Envelope flag bits ---------------------------------------------------
   // The one byte in front of the body. **Frozen**, like everything else here.
 
@@ -580,6 +606,7 @@ abstract final class RoutineCode {
       (i, it) => it.addWeightAtTopOfRange,
     );
     _writeRepRates(body, routine.workouts);
+    _writeCycles(body, routine.workouts);
 
     final raw = body.take();
     // Compress only when it actually helps: a short routine of common words
@@ -831,6 +858,8 @@ abstract final class RoutineCode {
           _readMarks(r, workouts, (it) => it.climbingRange());
         case _sectionRepRates:
           _readRepRates(r, workouts);
+        case _sectionCycles:
+          _readCycles(r, workouts);
         default:
           return;
       }
@@ -854,10 +883,16 @@ abstract final class RoutineCode {
     if (it.deload != it.progression.defaultDeload) mask |= _fDeload;
     if (it.successThreshold != plain.successThreshold) mask |= _fSuccess;
     if (it.failureThreshold != plain.failureThreshold) mask |= _fFailure;
-    if (it.scheme != plain.scheme || it.schemePercent != plain.schemePercent) {
+    // A cycle travels in the slot as the custom scheme its opening week
+    // already is — see [SharedItem.cycle]. The trailing section puts it back.
+    final scheme = it.scheme == SetScheme.cycle ? SetScheme.custom : it.scheme;
+    final rows = it.scheme == SetScheme.cycle
+        ? (it.cycle.isEmpty ? const <CustomSet>[] : it.cycle.first)
+        : it.customSets;
+    if (scheme != plain.scheme || it.schemePercent != plain.schemePercent) {
       mask |= _fScheme;
     }
-    if (it.customSets.isNotEmpty) mask |= _fCustomSets;
+    if (rows.isNotEmpty) mask |= _fCustomSets;
 
     out.varint(mask);
     if (mask & _fSets != 0) out.varint(it.targetSets);
@@ -871,16 +906,83 @@ abstract final class RoutineCode {
     if (mask & _fSuccess != 0) out.varint(it.successThreshold);
     if (mask & _fFailure != 0) out.varint(it.failureThreshold);
     if (mask & _fScheme != 0) {
-      out.byte(it.scheme.index);
+      out.byte(scheme.index);
       out.varint(it.schemePercent);
     }
-    // Each row is a pair, so one count and twice that many varints. Only a
-    // custom slot ever writes any.
+    // Each row is a pair, so one count and twice that many varints. **Frozen at
+    // a pair**: a row that carries a range or an open end travels here as its
+    // goal alone, because widening this would desynchronise every reader of a
+    // slot rather than of a trailing section. The full row travels in the cycle
+    // section for the slots that have one.
     if (mask & _fCustomSets != 0) {
-      out.varint(it.customSets.length);
-      for (final row in it.customSets) {
-        out.varint(row.reps);
+      out.varint(rows.length);
+      for (final row in rows) {
+        out.varint(row.goalReps);
         out.varint(row.percent);
+      }
+    }
+  }
+
+  /// Writes the weeks of every slot that runs a cycle, in the shape the other
+  /// sections use: per workout, how many of its slots have one, then each
+  /// slot's index followed by its weeks. Nothing at all when no slot does.
+  ///
+  /// A row is four varints — the bottom, the top plus one (zero for none), the
+  /// open end, and the percentage — rather than the pair a slot's own rows are,
+  /// because this section is new and can afford the honest shape.
+  static void _writeCycles(ByteWriter body, List<SharedWorkout> workouts) {
+    final cycled = [
+      for (final w in workouts)
+        [
+          for (final (i, it) in w.items.indexed)
+            if (it.scheme == SetScheme.cycle && it.cycle.isNotEmpty) (i, it),
+        ],
+    ];
+    if (cycled.every((l) => l.isEmpty)) return;
+    body.varint(_sectionCycles);
+    for (final list in cycled) {
+      body.varint(list.length);
+      for (final (at, it) in list) {
+        body.varint(at);
+        body.varint(it.cycle.length);
+        for (final week in it.cycle) {
+          body.varint(week.length);
+          for (final row in week) {
+            body.varint(row.reps);
+            body.varint(row.repsMax == null ? 0 : row.repsMax! + 1);
+            body.varint(row.amrap ? 1 : 0);
+            body.varint(row.percent);
+          }
+        }
+      }
+    }
+  }
+
+  /// Reads one [_writeCycles] section onto the slots it names, dropping an
+  /// index outside its day exactly as [_readMarks] does.
+  static void _readCycles(ByteReader r, List<SharedWorkout> workouts) {
+    for (final w in workouts) {
+      for (var n = r.varint(); n > 0; n--) {
+        final at = r.varint();
+        final weeks = <List<CustomSet>>[];
+        for (var week = r.varint(); week > 0; week--) {
+          final rows = <CustomSet>[];
+          for (var row = r.varint(); row > 0; row--) {
+            final reps = r.varint();
+            final top = r.varint();
+            final amrap = r.varint() != 0;
+            rows.add(CustomSet(
+              reps: reps,
+              repsMax: top == 0 ? null : top - 1,
+              amrap: amrap,
+              percent: r.varint(),
+            ));
+          }
+          weeks.add(rows);
+        }
+        if (at >= 0 && at < w.items.length) {
+          w.items[at] = w.items[at].cycling(weeks);
+        }
       }
     }
   }

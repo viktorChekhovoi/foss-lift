@@ -148,6 +148,9 @@ extension RoutineSharing on AppDatabase {
           scheme: it.scheme,
           schemePercent: it.schemePercent,
           customSets: decodeCustomSets(it.customSets),
+          // The weeks travel; where the slot has got to in them does not, for
+          // the reason repsTarget does not — see below.
+          cycle: it.cycleWeeks,
           // Which slots are trained back to back is the program too, and so is
           // whether a slot climbs its range before its load moves.
           supersetWithPrevious: it.supersetWithPrevious,
@@ -286,6 +289,11 @@ extension RoutineSharing on AppDatabase {
                   customSets: Value(it.scheme.isCustom
                       ? encodeCustomSets(it.customSets)
                       : null),
+                  cycleBlocks: Value(it.scheme == SetScheme.cycle
+                      ? encodeCycleBlocks(it.cycle)
+                      : null),
+                  // An imported copy opens on week one: cyclePosition takes its
+                  // column default rather than the sender's progress.
                   // The first slot of a day cannot be joined to the one above
                   // it, whatever a code claims — see [normaliseJoins].
                   supersetWithPrevious: Value(i > 0 && it.supersetWithPrevious),

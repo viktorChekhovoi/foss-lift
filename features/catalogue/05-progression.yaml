@@ -68,10 +68,15 @@ groups:
   - id: loading-bar-past-suggestion-itself
     t: Loading the bar past the suggestion is itself progression
     d: >-
-      beating the stored target raises it, even before a step is formally "earned".
+      beating the stored target raises it, even before a step is formally
+      "earned". Not on a slot running a cycle, where the stored number is a
+      training max rather than a weight the session asked for — see
+      <b>22</b>.
     uses:
     - progression.verdict
     - session.exercise-weight
+    - template.cycle
+    - template.training-max
 - name: How to use it
   items:
   - id: automatic

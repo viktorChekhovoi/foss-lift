@@ -173,6 +173,10 @@ const Map<String, String> kSeedRoutineKeys = {
   'Bodyweight Basics': 'bodyweight_basics',
   'Dumbbell Full Body': 'dumbbell_full_body',
   'Interval Conditioning': 'interval_conditioning',
+  '5/3/1 Classic': 'five_three_one_classic',
+  '5/3/1 Boring But Big': 'five_three_one_bbb',
+  '5/3/1 First Set Last': 'five_three_one_fsl',
+  '5/3/1 for Beginners': 'five_three_one_beginners',
 };
 
 /// The same, for their training days. The three barbell programs all name
@@ -188,5 +192,9 @@ const Map<String, String> kSeedWorkoutKeys = {
   'Workout A': 'workout_a',
   'Workout B': 'workout_b',
   'Workout C': 'workout_c',
+  'Press': 'press',
+  'Deadlift': 'deadlift_day',
+  'Bench': 'bench',
+  'Squat': 'squat',
 };
 

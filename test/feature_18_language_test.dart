@@ -132,12 +132,18 @@ const _sameInEveryLanguage = {
 /// nouns — a book's title and an app's name — and a lifter looking for the
 /// programme they have heard of must find the name they have heard.
 ///
+/// `seedRoutine531BoringButBig` and `seedRoutine531FirstSetLast` are in every
+/// language on the same terms: they name published 5/3/1 templates, and the
+/// half that carries the meaning — "5/3/1" — is digits either way. Somebody
+/// searching for Boring But Big is searching for those three words.
+///
 /// `exerciseBurpee` is here for the three Romance languages for the same
 /// reason: the gym word in all of them is *burpee*, and there is no native noun
 /// to insist on. Awaiting a reviewer's confirmation.
 const Map<String, Set<String>> _keptInEnglish = {
   'uk': {
     'commonAppName', 'exerciseFormDemoLinkHint',
+    'seedRoutine531BoringButBig', 'seedRoutine531FirstSetLast',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'themeChannelBlue',
     'themeChannelGreen', 'themeChannelRed', 'videoSettingsHeight',
@@ -150,6 +156,7 @@ const Map<String, Set<String>> _keptInEnglish = {
     'exerciseFormDemoLinkHint', 'exerciseFormMeasureReps',
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
     'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCardio', 'muscleCore',
+    'seedRoutine531BoringButBig', 'seedRoutine531FirstSetLast',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
     'settingsDeloadDaySuffix', 'shadeSetWeightSeconds',
@@ -166,6 +173,7 @@ const Map<String, Set<String>> _keptInEnglish = {
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
     'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCardio', 'muscleCore',
     'seedDayLegs', 'seedDayPull', 'seedDayPush', 'seedRoutinePushPullLegs',
+    'seedRoutine531BoringButBig', 'seedRoutine531FirstSetLast',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
     'settingsDeloadDaySuffix',
@@ -184,6 +192,7 @@ const Map<String, Set<String>> _keptInEnglish = {
     'itemEditorAmountReps', 'itemEditorModeReps', 'itemEditorReps',
     'itemEditorSecondsSuffix', 'itemEditorSuffixReps', 'muscleCardio', 'muscleCore',
     'seedDayLegs', 'seedDayPull', 'seedDayPush', 'seedRoutinePushPullLegs',
+    'seedRoutine531BoringButBig', 'seedRoutine531FirstSetLast',
     'seedRoutineStartingStrength', 'seedRoutineStrongLifts5x5',
     'sessionGoalTimed', 'sessionRestMinus', 'sessionRestPlus',
     'settingsDeloadDaySuffix',

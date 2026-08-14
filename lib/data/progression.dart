@@ -189,6 +189,50 @@ ProgressionStep stepProgression({
   return (successes: 0, failures: n, delta: 0);
 }
 
+/// Where a cycle stands after a session, and what that did to the weight its
+/// percentages are of. A [delta] of zero means the weight holds.
+typedef CycleStep = ({int position, int misses, double delta});
+
+/// Folds one session's outcome into a slot running a cycle.
+///
+/// A cycle progresses on two clocks and they are not the same clock. The weeks
+/// move every session — that is what a cycle is, and skipping a day does not
+/// skip its week, because the week belongs to the slot rather than to the
+/// calendar. The *weight* those weeks are percentages of moves once, on the
+/// session that brings the cycle round, because moving it mid-cycle would
+/// change what every remaining week's percentage is taken from.
+///
+/// The verdict of a cycle is the misses in it, counted rather than streaked:
+/// a bad week in the middle is still a bad week when the cycle closes three
+/// sessions later, which a consecutive count would have forgiven. None at all
+/// earns [increment]; [failureThreshold] of them costs [deload]; between the
+/// two the weight holds, which is what a single bad night's sleep should cost.
+///
+/// [weeks] of zero is a cycle nobody has written yet — nothing to advance and
+/// nothing to earn, rather than a division by nothing.
+CycleStep stepCycle({
+  required SessionVerdict verdict,
+  required int position,
+  required int misses,
+  required int weeks,
+  required int failureThreshold,
+  required double increment,
+  required double deload,
+}) {
+  final counted = misses + (verdict == SessionVerdict.miss ? 1 : 0);
+  if (weeks <= 0) return (position: 0, misses: counted, delta: 0);
+
+  final next = (position + 1) % weeks;
+  if (next != 0) return (position: next, misses: counted, delta: 0);
+
+  final delta = counted == 0
+      ? increment
+      : (counted >= failureThreshold ? -deload : 0.0);
+  // Both the position and the count start again: the next cycle is judged on
+  // its own weeks, not on the one that has just been paid out.
+  return (position: 0, misses: 0, delta: delta);
+}
+
 /// Moves a target by [delta], never below the floor that applies to it.
 ///
 /// The floor is the mode's own [ProgressionMode.floor], or [floorKg] where that

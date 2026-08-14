@@ -2168,6 +2168,29 @@ class $WorkoutItemsTable extends WorkoutItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _cycleBlocksMeta = const VerificationMeta(
+    'cycleBlocks',
+  );
+  @override
+  late final GeneratedColumn<String> cycleBlocks = GeneratedColumn<String>(
+    'cycle_blocks',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cyclePositionMeta = const VerificationMeta(
+    'cyclePosition',
+  );
+  @override
+  late final GeneratedColumn<int> cyclePosition = GeneratedColumn<int>(
+    'cycle_position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2197,6 +2220,8 @@ class $WorkoutItemsTable extends WorkoutItems
     repsDeload,
     repsTarget,
     sparedRates,
+    cycleBlocks,
+    cyclePosition,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2394,6 +2419,24 @@ class $WorkoutItemsTable extends WorkoutItems
         ),
       );
     }
+    if (data.containsKey('cycle_blocks')) {
+      context.handle(
+        _cycleBlocksMeta,
+        cycleBlocks.isAcceptableOrUnknown(
+          data['cycle_blocks']!,
+          _cycleBlocksMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cycle_position')) {
+      context.handle(
+        _cyclePositionMeta,
+        cyclePosition.isAcceptableOrUnknown(
+          data['cycle_position']!,
+          _cyclePositionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2515,6 +2558,14 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.string,
         data['${effectivePrefix}spared_rates'],
       ),
+      cycleBlocks: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cycle_blocks'],
+      ),
+      cyclePosition: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_position'],
+      )!,
     );
   }
 
@@ -2652,10 +2703,30 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
   /// [deload] as it always has, and the advanced axis its rep half in
   /// [repsIncrement] and [repsDeload] — this holds what is on none of them.
   ///
+  final String? sparedRates;
+
+  /// The weeks this slot rotates through, encoded — see [encodeCycleBlocks].
+  /// Null on every slot that does not run a cycle, which is nearly all of them.
+  ///
+  /// A week is a written-out set of rows exactly like [customSets], so the two
+  /// share a grammar; what a cycle adds is that there are several of them and
+  /// only one is trained per session. Kept across a switch to another scheme
+  /// and back, on the same terms as [customSets]: trying a ramp for a session
+  /// must not throw away a cycle somebody wrote out.
+  final String? cycleBlocks;
+
+  /// Which week the *next* session of this slot uses — an index into
+  /// [cycleBlocks], wrapping.
+  ///
+  /// Program state, like [repsTarget] and the streaks beside it: it is what the
+  /// next session is prescribed from, so it outlives the session that moved it
+  /// and it survives a builder edit. It does **not** travel in a routine code —
+  /// where the sender had got to is not part of the program.
+  ///
   /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
-  final String? sparedRates;
+  final int cyclePosition;
   const WorkoutItem({
     required this.id,
     required this.workoutId,
@@ -2684,6 +2755,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     required this.repsDeload,
     this.repsTarget,
     this.sparedRates,
+    this.cycleBlocks,
+    required this.cyclePosition,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2735,6 +2808,10 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     if (!nullToAbsent || sparedRates != null) {
       map['spared_rates'] = Variable<String>(sparedRates);
     }
+    if (!nullToAbsent || cycleBlocks != null) {
+      map['cycle_blocks'] = Variable<String>(cycleBlocks);
+    }
+    map['cycle_position'] = Variable<int>(cyclePosition);
     return map;
   }
 
@@ -2779,6 +2856,10 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       sparedRates: sparedRates == null && nullToAbsent
           ? const Value.absent()
           : Value(sparedRates),
+      cycleBlocks: cycleBlocks == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cycleBlocks),
+      cyclePosition: Value(cyclePosition),
     );
   }
 
@@ -2823,6 +2904,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       repsDeload: serializer.fromJson<double>(json['repsDeload']),
       repsTarget: serializer.fromJson<int?>(json['repsTarget']),
       sparedRates: serializer.fromJson<String?>(json['sparedRates']),
+      cycleBlocks: serializer.fromJson<String?>(json['cycleBlocks']),
+      cyclePosition: serializer.fromJson<int>(json['cyclePosition']),
     );
   }
   @override
@@ -2860,6 +2943,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'repsDeload': serializer.toJson<double>(repsDeload),
       'repsTarget': serializer.toJson<int?>(repsTarget),
       'sparedRates': serializer.toJson<String?>(sparedRates),
+      'cycleBlocks': serializer.toJson<String?>(cycleBlocks),
+      'cyclePosition': serializer.toJson<int>(cyclePosition),
     };
   }
 
@@ -2891,6 +2976,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     double? repsDeload,
     Value<int?> repsTarget = const Value.absent(),
     Value<String?> sparedRates = const Value.absent(),
+    Value<String?> cycleBlocks = const Value.absent(),
+    int? cyclePosition,
   }) => WorkoutItem(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -2921,6 +3008,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     repsDeload: repsDeload ?? this.repsDeload,
     repsTarget: repsTarget.present ? repsTarget.value : this.repsTarget,
     sparedRates: sparedRates.present ? sparedRates.value : this.sparedRates,
+    cycleBlocks: cycleBlocks.present ? cycleBlocks.value : this.cycleBlocks,
+    cyclePosition: cyclePosition ?? this.cyclePosition,
   );
   WorkoutItem copyWithCompanion(WorkoutItemsCompanion data) {
     return WorkoutItem(
@@ -2987,6 +3076,12 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       sparedRates: data.sparedRates.present
           ? data.sparedRates.value
           : this.sparedRates,
+      cycleBlocks: data.cycleBlocks.present
+          ? data.cycleBlocks.value
+          : this.cycleBlocks,
+      cyclePosition: data.cyclePosition.present
+          ? data.cyclePosition.value
+          : this.cyclePosition,
     );
   }
 
@@ -3019,7 +3114,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('repsIncrement: $repsIncrement, ')
           ..write('repsDeload: $repsDeload, ')
           ..write('repsTarget: $repsTarget, ')
-          ..write('sparedRates: $sparedRates')
+          ..write('sparedRates: $sparedRates, ')
+          ..write('cycleBlocks: $cycleBlocks, ')
+          ..write('cyclePosition: $cyclePosition')
           ..write(')'))
         .toString();
   }
@@ -3053,6 +3150,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     repsDeload,
     repsTarget,
     sparedRates,
+    cycleBlocks,
+    cyclePosition,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3084,7 +3183,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.repsIncrement == this.repsIncrement &&
           other.repsDeload == this.repsDeload &&
           other.repsTarget == this.repsTarget &&
-          other.sparedRates == this.sparedRates);
+          other.sparedRates == this.sparedRates &&
+          other.cycleBlocks == this.cycleBlocks &&
+          other.cyclePosition == this.cyclePosition);
 }
 
 class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
@@ -3115,6 +3216,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<double> repsDeload;
   final Value<int?> repsTarget;
   final Value<String?> sparedRates;
+  final Value<String?> cycleBlocks;
+  final Value<int> cyclePosition;
   const WorkoutItemsCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -3143,6 +3246,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.repsDeload = const Value.absent(),
     this.repsTarget = const Value.absent(),
     this.sparedRates = const Value.absent(),
+    this.cycleBlocks = const Value.absent(),
+    this.cyclePosition = const Value.absent(),
   });
   WorkoutItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -3172,6 +3277,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.repsDeload = const Value.absent(),
     this.repsTarget = const Value.absent(),
     this.sparedRates = const Value.absent(),
+    this.cycleBlocks = const Value.absent(),
+    this.cyclePosition = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId);
   static Insertable<WorkoutItem> custom({
@@ -3202,6 +3309,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<double>? repsDeload,
     Expression<int>? repsTarget,
     Expression<String>? sparedRates,
+    Expression<String>? cycleBlocks,
+    Expression<int>? cyclePosition,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3233,6 +3342,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (repsDeload != null) 'reps_deload': repsDeload,
       if (repsTarget != null) 'reps_target': repsTarget,
       if (sparedRates != null) 'spared_rates': sparedRates,
+      if (cycleBlocks != null) 'cycle_blocks': cycleBlocks,
+      if (cyclePosition != null) 'cycle_position': cyclePosition,
     });
   }
 
@@ -3264,6 +3375,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<double>? repsDeload,
     Value<int?>? repsTarget,
     Value<String?>? sparedRates,
+    Value<String?>? cycleBlocks,
+    Value<int>? cyclePosition,
   }) {
     return WorkoutItemsCompanion(
       id: id ?? this.id,
@@ -3294,6 +3407,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       repsDeload: repsDeload ?? this.repsDeload,
       repsTarget: repsTarget ?? this.repsTarget,
       sparedRates: sparedRates ?? this.sparedRates,
+      cycleBlocks: cycleBlocks ?? this.cycleBlocks,
+      cyclePosition: cyclePosition ?? this.cyclePosition,
     );
   }
 
@@ -3389,6 +3504,12 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     if (sparedRates.present) {
       map['spared_rates'] = Variable<String>(sparedRates.value);
     }
+    if (cycleBlocks.present) {
+      map['cycle_blocks'] = Variable<String>(cycleBlocks.value);
+    }
+    if (cyclePosition.present) {
+      map['cycle_position'] = Variable<int>(cyclePosition.value);
+    }
     return map;
   }
 
@@ -3421,7 +3542,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('repsIncrement: $repsIncrement, ')
           ..write('repsDeload: $repsDeload, ')
           ..write('repsTarget: $repsTarget, ')
-          ..write('sparedRates: $sparedRates')
+          ..write('sparedRates: $sparedRates, ')
+          ..write('cycleBlocks: $cycleBlocks, ')
+          ..write('cyclePosition: $cyclePosition')
           ..write(')'))
         .toString();
   }
@@ -5285,6 +5408,20 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant(kDefaultWarmupSets),
   );
+  static const VerificationMeta _advancedProgrammingMeta =
+      const VerificationMeta('advancedProgramming');
+  @override
+  late final GeneratedColumn<bool> advancedProgramming = GeneratedColumn<bool>(
+    'advanced_programming',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("advanced_programming" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5302,6 +5439,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     videoMaxSeconds,
     localeTag,
     warmupSets,
+    advancedProgramming,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5426,6 +5564,15 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         warmupSets.isAcceptableOrUnknown(data['warmup_sets']!, _warmupSetsMeta),
       );
     }
+    if (data.containsKey('advanced_programming')) {
+      context.handle(
+        _advancedProgrammingMeta,
+        advancedProgramming.isAcceptableOrUnknown(
+          data['advanced_programming']!,
+          _advancedProgrammingMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5494,6 +5641,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       warmupSets: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}warmup_sets'],
+      )!,
+      advancedProgramming: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}advanced_programming'],
       )!,
     );
   }
@@ -5612,6 +5763,22 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// here rather than beside the other counts keeps a fresh install and an
   /// upgraded one on exactly the same table, right down to the column order.
   final int warmupSets;
+
+  /// Whether the builder offers cycles, per-set rep ranges and training maxes.
+  ///
+  /// Off on a fresh install and off on every phone that upgrades into this
+  /// build. Most programs are a set count and a rep target, and a picker with a
+  /// week-by-week prescription in it is a question those programs never have to
+  /// answer.
+  ///
+  /// It gates what the builder **offers**, never what it runs: a slot that
+  /// already has a cycle — because a ready-made program brought one, or because
+  /// the switch was on last month — shows its controls regardless. A program
+  /// you cannot look at is worse than a picker with a fifth option in it.
+  ///
+  /// **Declared last**, for the reason [warmupSets] gives above; the note moves
+  /// to whatever column comes next.
+  final bool advancedProgramming;
   const Setting({
     required this.id,
     this.weightUnit,
@@ -5628,6 +5795,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     required this.videoMaxSeconds,
     this.localeTag,
     required this.warmupSets,
+    required this.advancedProgramming,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5661,6 +5829,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       map['locale_tag'] = Variable<String>(localeTag);
     }
     map['warmup_sets'] = Variable<int>(warmupSets);
+    map['advanced_programming'] = Variable<bool>(advancedProgramming);
     return map;
   }
 
@@ -5695,6 +5864,7 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? const Value.absent()
           : Value(localeTag),
       warmupSets: Value(warmupSets),
+      advancedProgramming: Value(advancedProgramming),
     );
   }
 
@@ -5719,6 +5889,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       videoMaxSeconds: serializer.fromJson<int>(json['videoMaxSeconds']),
       localeTag: serializer.fromJson<String?>(json['localeTag']),
       warmupSets: serializer.fromJson<int>(json['warmupSets']),
+      advancedProgramming: serializer.fromJson<bool>(
+        json['advancedProgramming'],
+      ),
     );
   }
   @override
@@ -5740,6 +5913,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'videoMaxSeconds': serializer.toJson<int>(videoMaxSeconds),
       'localeTag': serializer.toJson<String?>(localeTag),
       'warmupSets': serializer.toJson<int>(warmupSets),
+      'advancedProgramming': serializer.toJson<bool>(advancedProgramming),
     };
   }
 
@@ -5759,6 +5933,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     int? videoMaxSeconds,
     Value<String?> localeTag = const Value.absent(),
     int? warmupSets,
+    bool? advancedProgramming,
   }) => Setting(
     id: id ?? this.id,
     weightUnit: weightUnit.present ? weightUnit.value : this.weightUnit,
@@ -5783,6 +5958,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
     localeTag: localeTag.present ? localeTag.value : this.localeTag,
     warmupSets: warmupSets ?? this.warmupSets,
+    advancedProgramming: advancedProgramming ?? this.advancedProgramming,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -5823,6 +5999,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       warmupSets: data.warmupSets.present
           ? data.warmupSets.value
           : this.warmupSets,
+      advancedProgramming: data.advancedProgramming.present
+          ? data.advancedProgramming.value
+          : this.advancedProgramming,
     );
   }
 
@@ -5843,7 +6022,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('videoHeight: $videoHeight, ')
           ..write('videoMaxSeconds: $videoMaxSeconds, ')
           ..write('localeTag: $localeTag, ')
-          ..write('warmupSets: $warmupSets')
+          ..write('warmupSets: $warmupSets, ')
+          ..write('advancedProgramming: $advancedProgramming')
           ..write(')'))
         .toString();
   }
@@ -5865,6 +6045,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     videoMaxSeconds,
     localeTag,
     warmupSets,
+    advancedProgramming,
   );
   @override
   bool operator ==(Object other) =>
@@ -5884,7 +6065,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.videoHeight == this.videoHeight &&
           other.videoMaxSeconds == this.videoMaxSeconds &&
           other.localeTag == this.localeTag &&
-          other.warmupSets == this.warmupSets);
+          other.warmupSets == this.warmupSets &&
+          other.advancedProgramming == this.advancedProgramming);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -5903,6 +6085,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> videoMaxSeconds;
   final Value<String?> localeTag;
   final Value<int> warmupSets;
+  final Value<bool> advancedProgramming;
   const SettingsCompanion({
     this.id = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -5919,6 +6102,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.videoMaxSeconds = const Value.absent(),
     this.localeTag = const Value.absent(),
     this.warmupSets = const Value.absent(),
+    this.advancedProgramming = const Value.absent(),
   });
   SettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -5936,6 +6120,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.videoMaxSeconds = const Value.absent(),
     this.localeTag = const Value.absent(),
     this.warmupSets = const Value.absent(),
+    this.advancedProgramming = const Value.absent(),
   });
   static Insertable<Setting> custom({
     Expression<int>? id,
@@ -5953,6 +6138,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<int>? videoMaxSeconds,
     Expression<String>? localeTag,
     Expression<int>? warmupSets,
+    Expression<bool>? advancedProgramming,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5970,6 +6156,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (videoMaxSeconds != null) 'video_max_seconds': videoMaxSeconds,
       if (localeTag != null) 'locale_tag': localeTag,
       if (warmupSets != null) 'warmup_sets': warmupSets,
+      if (advancedProgramming != null)
+        'advanced_programming': advancedProgramming,
     });
   }
 
@@ -5989,6 +6177,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<int>? videoMaxSeconds,
     Value<String?>? localeTag,
     Value<int>? warmupSets,
+    Value<bool>? advancedProgramming,
   }) {
     return SettingsCompanion(
       id: id ?? this.id,
@@ -6006,6 +6195,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       videoMaxSeconds: videoMaxSeconds ?? this.videoMaxSeconds,
       localeTag: localeTag ?? this.localeTag,
       warmupSets: warmupSets ?? this.warmupSets,
+      advancedProgramming: advancedProgramming ?? this.advancedProgramming,
     );
   }
 
@@ -6057,6 +6247,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (warmupSets.present) {
       map['warmup_sets'] = Variable<int>(warmupSets.value);
     }
+    if (advancedProgramming.present) {
+      map['advanced_programming'] = Variable<bool>(advancedProgramming.value);
+    }
     return map;
   }
 
@@ -6077,7 +6270,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('videoHeight: $videoHeight, ')
           ..write('videoMaxSeconds: $videoMaxSeconds, ')
           ..write('localeTag: $localeTag, ')
-          ..write('warmupSets: $warmupSets')
+          ..write('warmupSets: $warmupSets, ')
+          ..write('advancedProgramming: $advancedProgramming')
           ..write(')'))
         .toString();
   }
@@ -8287,6 +8481,8 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<double> repsDeload,
       Value<int?> repsTarget,
       Value<String?> sparedRates,
+      Value<String?> cycleBlocks,
+      Value<int> cyclePosition,
     });
 typedef $$WorkoutItemsTableUpdateCompanionBuilder =
     WorkoutItemsCompanion Function({
@@ -8317,6 +8513,8 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<double> repsDeload,
       Value<int?> repsTarget,
       Value<String?> sparedRates,
+      Value<String?> cycleBlocks,
+      Value<int> cyclePosition,
     });
 
 final class $$WorkoutItemsTableReferences
@@ -8491,6 +8689,16 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<String> get sparedRates => $composableBuilder(
     column: $table.sparedRates,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cycleBlocks => $composableBuilder(
+    column: $table.cycleBlocks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cyclePosition => $composableBuilder(
+    column: $table.cyclePosition,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8675,6 +8883,16 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get cycleBlocks => $composableBuilder(
+    column: $table.cycleBlocks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cyclePosition => $composableBuilder(
+    column: $table.cyclePosition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutsTableOrderingComposer get workoutId {
     final $$WorkoutsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8841,6 +9059,16 @@ class $$WorkoutItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get cycleBlocks => $composableBuilder(
+    column: $table.cycleBlocks,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cyclePosition => $composableBuilder(
+    column: $table.cyclePosition,
+    builder: (column) => column,
+  );
+
   $$WorkoutsTableAnnotationComposer get workoutId {
     final $$WorkoutsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -8943,6 +9171,8 @@ class $$WorkoutItemsTableTableManager
                 Value<double> repsDeload = const Value.absent(),
                 Value<int?> repsTarget = const Value.absent(),
                 Value<String?> sparedRates = const Value.absent(),
+                Value<String?> cycleBlocks = const Value.absent(),
+                Value<int> cyclePosition = const Value.absent(),
               }) => WorkoutItemsCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -8971,6 +9201,8 @@ class $$WorkoutItemsTableTableManager
                 repsDeload: repsDeload,
                 repsTarget: repsTarget,
                 sparedRates: sparedRates,
+                cycleBlocks: cycleBlocks,
+                cyclePosition: cyclePosition,
               ),
           createCompanionCallback:
               ({
@@ -9001,6 +9233,8 @@ class $$WorkoutItemsTableTableManager
                 Value<double> repsDeload = const Value.absent(),
                 Value<int?> repsTarget = const Value.absent(),
                 Value<String?> sparedRates = const Value.absent(),
+                Value<String?> cycleBlocks = const Value.absent(),
+                Value<int> cyclePosition = const Value.absent(),
               }) => WorkoutItemsCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -9029,6 +9263,8 @@ class $$WorkoutItemsTableTableManager
                 repsDeload: repsDeload,
                 repsTarget: repsTarget,
                 sparedRates: sparedRates,
+                cycleBlocks: cycleBlocks,
+                cyclePosition: cyclePosition,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -10096,6 +10332,7 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<int> videoMaxSeconds,
       Value<String?> localeTag,
       Value<int> warmupSets,
+      Value<bool> advancedProgramming,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
     SettingsCompanion Function({
@@ -10114,6 +10351,7 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<int> videoMaxSeconds,
       Value<String?> localeTag,
       Value<int> warmupSets,
+      Value<bool> advancedProgramming,
     });
 
 class $$SettingsTableFilterComposer
@@ -10197,6 +10435,11 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<int> get warmupSets => $composableBuilder(
     column: $table.warmupSets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get advancedProgramming => $composableBuilder(
+    column: $table.advancedProgramming,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10284,6 +10527,11 @@ class $$SettingsTableOrderingComposer
     column: $table.warmupSets,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get advancedProgramming => $composableBuilder(
+    column: $table.advancedProgramming,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SettingsTableAnnotationComposer
@@ -10361,6 +10609,11 @@ class $$SettingsTableAnnotationComposer
     column: $table.warmupSets,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get advancedProgramming => $composableBuilder(
+    column: $table.advancedProgramming,
+    builder: (column) => column,
+  );
 }
 
 class $$SettingsTableTableManager
@@ -10406,6 +10659,7 @@ class $$SettingsTableTableManager
                 Value<int> videoMaxSeconds = const Value.absent(),
                 Value<String?> localeTag = const Value.absent(),
                 Value<int> warmupSets = const Value.absent(),
+                Value<bool> advancedProgramming = const Value.absent(),
               }) => SettingsCompanion(
                 id: id,
                 weightUnit: weightUnit,
@@ -10422,6 +10676,7 @@ class $$SettingsTableTableManager
                 videoMaxSeconds: videoMaxSeconds,
                 localeTag: localeTag,
                 warmupSets: warmupSets,
+                advancedProgramming: advancedProgramming,
               ),
           createCompanionCallback:
               ({
@@ -10440,6 +10695,7 @@ class $$SettingsTableTableManager
                 Value<int> videoMaxSeconds = const Value.absent(),
                 Value<String?> localeTag = const Value.absent(),
                 Value<int> warmupSets = const Value.absent(),
+                Value<bool> advancedProgramming = const Value.absent(),
               }) => SettingsCompanion.insert(
                 id: id,
                 weightUnit: weightUnit,
@@ -10456,6 +10712,7 @@ class $$SettingsTableTableManager
                 videoMaxSeconds: videoMaxSeconds,
                 localeTag: localeTag,
                 warmupSets: warmupSets,
+                advancedProgramming: advancedProgramming,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

@@ -62,6 +62,8 @@ class ItemDraft {
     this.scheme = SetScheme.flat,
     this.schemePercent = kDefaultSchemePercent,
     this.customSets = const [],
+    this.cycle = const [],
+    this.cyclePosition = 0,
     this.measure = ExerciseMeasure.reps,
     this.weightType = WeightType.machine,
     this.barKg,
@@ -126,6 +128,8 @@ class ItemDraft {
         scheme: v.item.scheme,
         schemePercent: v.item.schemePercent,
         customSets: decodeCustomSets(v.item.customSets),
+        cycle: v.item.cycleWeeks,
+        cyclePosition: v.item.cyclePosition,
         // The library has the final say on the axis: an exercise that changed
         // measure — or lost its loading — must not leave a saved workout
         // counting reps against a hold or kilograms against a pull-up.
@@ -230,11 +234,43 @@ class ItemDraft {
   /// scheme and back, so trying a ramp does not throw away what was typed.
   List<CustomSet> customSets;
 
+  /// The weeks a cycle rotates through, kept on the same terms as [customSets]
+  /// — a cycle somebody wrote out is far more work than a ramp, and switching
+  /// away for a session must not cost it.
+  List<List<CustomSet>> cycle;
+
+  /// Where the slot has got to in that cycle. **Carried, not edited**: fixing a
+  /// typo in week three cannot send the slot back to week one, any more than
+  /// opening the builder can forgive a pending back-off.
+  int cyclePosition;
+
+  /// How many working sets this slot has — the current week's row count on a
+  /// cycle, and [sets] everywhere else. The draft's copy of
+  /// [WorkoutItemTarget.setCount].
+  int get setCount {
+    final rows = cycleRows;
+    return rows.isEmpty ? sets : rows.length;
+  }
+
+  /// The rows the next session of this slot would be prescribed, or empty when
+  /// it is not on a cycle.
+  List<CustomSet> get cycleRows => scheme == SetScheme.cycle
+      ? cycleBlockAt(cycle, cyclePosition)
+      : const [];
+
   /// Whether anything in the Advanced half of the Target card is in use. The
   /// card opens expanded when it is, so nothing a slot actually does is hidden
   /// behind a toggle somebody has to think to press.
   bool get usesAdvanced =>
       toFailure || repsMax != null || scheme != SetScheme.flat;
+
+  /// Whether this slot is using anything advanced programming gates, and so
+  /// shows those controls however the app-wide switch is set. A ready-made
+  /// 5/3/1 program has to be editable by somebody who never turned it on.
+  bool get usesAdvancedProgramming =>
+      scheme.isAdvanced ||
+      customSets.any((r) => r.amrap || r.repsMax != null) ||
+      cycle.any((week) => week.isNotEmpty);
 
   /// The same question for the Progression card's own Advanced half, which
   /// holds only the range climb so far.
@@ -286,6 +322,8 @@ class ItemDraft {
         unit: unit,
         percent: schemePercent,
         custom: customSets,
+        cycle: cycle,
+        cyclePosition: cyclePosition,
         floorKg: floorKg(defaultBarKg),
       );
 
@@ -466,6 +504,12 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         customSets: Value(drafts[i].scheme.isCustom
             ? encodeCustomSets(drafts[i].customSets)
             : null),
+        // The same rule one level up: only a cycle spends the column, and the
+        // position rides along untouched — see [ItemDraft.cyclePosition].
+        cycleBlocks: Value(drafts[i].scheme == SetScheme.cycle
+            ? encodeCycleBlocks(drafts[i].cycle)
+            : null),
+        cyclePosition: Value(drafts[i].cyclePosition),
         progression: Value(drafts[i].progression),
         holdSeconds: Value(drafts[i].holdSeconds),
         increment: Value(drafts[i].increment),
@@ -507,6 +551,9 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       scheme: Value(d.scheme),
       schemePercent: Value(d.schemePercent),
       customSets: Value(d.scheme.isCustom ? encodeCustomSets(d.customSets) : null),
+      cycleBlocks:
+          Value(d.scheme == SetScheme.cycle ? encodeCycleBlocks(d.cycle) : null),
+      cyclePosition: Value(d.cyclePosition),
       progression: Value(d.progression),
       holdSeconds: Value(d.holdSeconds),
       increment: Value(d.increment),
@@ -563,17 +610,22 @@ String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
 /// Compact target/weight/progression summary for a draft item, e.g.
 /// "4 × 6–8 · 80 kg · +2.5 kg".
 String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
-  final target = setsTargetLabel(
-    l10n,
-    sets: d.sets,
-    progression: d.progression,
-    toFailure: d.toFailure,
-    holdSeconds: d.holdSeconds,
-    // The same phrase the training day shows, and for the same reason: a slot
-    // climbing its range aims at one number rather than at the range.
-    repsMin: d.goalReps,
-    repsMax: d.onAdvancedAxis ? null : d.repsMax,
-  );
+  // A cycle's week is written out a set at a time, so the summary lists the
+  // rows rather than multiplying one of them — the same choice the training
+  // day makes.
+  final target = d.cycleRows.isNotEmpty
+      ? rowsTargetLabel(l10n, d.cycleRows)
+      : setsTargetLabel(
+          l10n,
+          sets: d.sets,
+          progression: d.progression,
+          toFailure: d.toFailure,
+          holdSeconds: d.holdSeconds,
+          // The same phrase the training day shows, and for the same reason: a
+          // slot climbing its range aims at one number rather than at the range.
+          repsMin: d.goalReps,
+          repsMax: d.onAdvancedAxis ? null : d.repsMax,
+        );
   final w = d.weightKg == null
       ? null
       : l10n.unitWeightShort(
@@ -928,9 +980,15 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 BuilderField(
                   label: l10n.itemEditorSets,
                   child: NumberStepper(
-                    value: d.sets,
+                    value: d.setCount,
                     min: 1,
                     max: 12,
+                    // A cycle writes its week out a row at a time, so how many
+                    // rows the week has *is* how many sets there are. The
+                    // stepper reads it and goes dead rather than disappearing —
+                    // the count is still a fact about the slot, it is just not
+                    // this control's to set any more.
+                    enabled: d.scheme != SetScheme.cycle,
                     onChanged: (v) => _bump(() => d.sets = v),
                   ),
                 ),
@@ -1049,6 +1107,8 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     draft: d,
                     unit: widget.unit,
                     defaultBarKg: widget.defaultBarKg,
+                    advanced:
+                        ref.watch(advancedProgrammingProvider).value ?? false,
                     onChanged: () => _bump(() {}),
                   ),
                 ],
@@ -1069,7 +1129,11 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ])
             else
               builderCard(
-                  l10n.itemEditorWeightWithUnit(unitSuffix(l10n, widget.unit)), [
+                  d.scheme == SetScheme.cycle
+                      ? '${l10n.itemEditorTrainingMax} '
+                          '(${unitSuffix(l10n, widget.unit)})'
+                      : l10n.itemEditorWeightWithUnit(
+                          unitSuffix(l10n, widget.unit)), [
                 TextField(
                   controller: _weight,
                   keyboardType:
@@ -1299,6 +1363,7 @@ const kAdvancedToggleKey = ValueKey('target-advanced');
 const kSchemePickerKey = ValueKey('set-scheme');
 const kSchemePercentKey = ValueKey('scheme-percent');
 const kSchemePreviewKey = ValueKey('scheme-preview');
+const kCycleAddWeekKey = ValueKey('cycle-add-week');
 const kRangeClimbKey = ValueKey('add-weight-at-top-of-range');
 const kProgressionAdvancedKey = ValueKey('progression-advanced');
 
@@ -1358,20 +1423,42 @@ class _AdvancedToggle extends StatelessWidget {
   }
 }
 
-/// How the sets of this slot differ from one another: the four schemes, the
-/// percentage the two ladders are made of, the written-out rows of a custom
-/// one, and the whole thing read back as the weights it produces.
+/// Which schemes the picker puts on offer.
+///
+/// The four ordinary ones always, and the advanced ones when [advanced] says
+/// so — or when the slot is already on one ([draftUsesCycle]), because a
+/// ready-made program that arrived with a cycle has to stay editable by
+/// somebody who never turned the switch on. A picker that could not show the
+/// scheme a slot is running would have no pill lit at all.
+List<SetScheme> schemesOffered({
+  required bool advanced,
+  required bool draftUsesCycle,
+}) =>
+    [
+      for (final s in SetScheme.values)
+        if (!s.isAdvanced || advanced || draftUsesCycle) s,
+    ];
+
+/// How the sets of this slot differ from one another: the schemes on offer, the
+/// percentage the two ladders are made of, the written-out rows of a custom one
+/// or the weeks of a cycle, and the whole thing read back as the weights it
+/// produces.
 class _SchemeSection extends StatelessWidget {
   const _SchemeSection({
     required this.draft,
     required this.unit,
     required this.defaultBarKg,
+    required this.advanced,
     required this.onChanged,
   });
 
   final ItemDraft draft;
   final String unit;
   final double defaultBarKg;
+
+  /// The app-wide advanced-programming switch — see [schemesOffered].
+  final bool advanced;
+
   final VoidCallback onChanged;
 
   @override
@@ -1386,13 +1473,21 @@ class _SchemeSection extends StatelessWidget {
         _SchemePicker(
           key: kSchemePickerKey,
           scheme: d.scheme,
+          offered: schemesOffered(
+            advanced: advanced,
+            draftUsesCycle: d.usesAdvancedProgramming,
+          ),
           // The rows a custom scheme was given survive a trip through another
           // scheme and back, so trying a ramp does not throw away what was
-          // typed. Only a custom slot ever writes them to the database.
+          // typed. Only a custom slot ever writes them to the database, and a
+          // cycle's weeks are kept on exactly the same terms.
           onChanged: (s) {
             d.scheme = s;
             if (s.isCustom && d.customSets.isEmpty) {
               d.customSets = _seedCustomRows(d);
+            }
+            if (s == SetScheme.cycle && d.cycle.isEmpty) {
+              d.cycle = [_seedCustomRows(d)];
             }
             onChanged();
           },
@@ -1427,6 +1522,7 @@ class _SchemeSection extends StatelessWidget {
             if (i > 0) const SizedBox(height: 10),
             _CustomSetRow(
               index: i,
+              advanced: advanced || d.usesAdvancedProgramming,
               row: i < d.customSets.length
                   ? d.customSets[i]
                   : CustomSet(reps: d.goalReps, percent: 100),
@@ -1443,6 +1539,14 @@ class _SchemeSection extends StatelessWidget {
               },
             ),
           ],
+        ],
+        if (d.scheme == SetScheme.cycle) ...[
+          const SizedBox(height: 14),
+          _CycleEditor(
+            draft: d,
+            advanced: advanced || d.usesAdvancedProgramming,
+            onChanged: onChanged,
+          ),
         ],
         const SizedBox(height: 14),
         // The scheme read back as the sets it adds up to — the same trick the
@@ -1494,10 +1598,12 @@ class _SchemePicker extends StatelessWidget {
   const _SchemePicker({
     super.key,
     required this.scheme,
+    required this.offered,
     required this.onChanged,
   });
 
   final SetScheme scheme;
+  final List<SetScheme> offered;
   final ValueChanged<SetScheme> onChanged;
 
   static String _label(AppLocalizations l10n, SetScheme s) => switch (s) {
@@ -1505,6 +1611,7 @@ class _SchemePicker extends StatelessWidget {
         SetScheme.backOff => l10n.itemEditorSchemeBackOff,
         SetScheme.ramp => l10n.itemEditorSchemeRamp,
         SetScheme.custom => l10n.itemEditorSchemeCustom,
+        SetScheme.cycle => l10n.itemEditorSchemeCycle,
       };
 
   @override
@@ -1516,7 +1623,7 @@ class _SchemePicker extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        for (final s in SetScheme.values)
+        for (final s in offered)
           _pill(label: _label(l10n, s), on: s == scheme, onTap: () => onChanged(s)),
       ],
     );
@@ -1559,15 +1666,26 @@ class _CustomSetRow extends StatelessWidget {
     required this.index,
     required this.row,
     required this.onChanged,
+    this.advanced = false,
   });
 
   final int index;
   final CustomSet row;
   final ValueChanged<CustomSet> onChanged;
 
+  /// Whether the row's upper bound and its open end are on offer. With this
+  /// false the row asks for a count and a percentage, which is what it asked
+  /// for before either existed.
+  final bool advanced;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // A row with no ceiling has no upper bound to set, so the bound goes dead
+    // rather than away — the same rule the slot's own range follows under
+    // "to failure", and for the same reason: taking the field away takes the
+    // number with it.
+    final capped = !row.amrap;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1584,7 +1702,7 @@ class _CustomSetRow extends StatelessWidget {
               value: row.reps,
               min: 1,
               max: 100,
-              onChanged: (v) => onChanged(CustomSet(reps: v, percent: row.percent)),
+              onChanged: (v) => onChanged(_with(reps: v)),
             ),
           ),
           BuilderField(
@@ -1595,11 +1713,255 @@ class _CustomSetRow extends StatelessWidget {
               step: 5,
               min: 0,
               max: 150,
-              onChanged: (v) => onChanged(CustomSet(reps: row.reps, percent: v)),
+              onChanged: (v) => onChanged(_with(percent: v)),
             ),
           ),
         ]),
+        if (advanced) ...[
+          const SizedBox(height: 10),
+          builderGrid([
+            BuilderField(
+              label: l10n.itemEditorRepRange,
+              child: NumberStepper(
+                value: row.repsMax ?? row.reps,
+                isEmpty: row.repsMax == null,
+                emptyLabel: l10n.itemEditorNoUpper,
+                min: row.reps,
+                max: 100,
+                enabled: capped,
+                onChanged: (v) => onChanged(_with(repsMax: v)),
+                onClear: () => onChanged(_with(clearMax: true)),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          _CheckRow(
+            label: l10n.itemEditorSchemeAmrap,
+            value: row.amrap,
+            onChanged: (v) => onChanged(_with(amrap: v, clearMax: v)),
+          ),
+        ],
       ],
+    );
+  }
+
+  /// The row with one thing changed. Written out because [CustomSet] is
+  /// immutable and every control here changes exactly one of its four fields.
+  CustomSet _with({
+    int? reps,
+    int? percent,
+    int? repsMax,
+    bool? amrap,
+    bool clearMax = false,
+  }) {
+    final open = amrap ?? row.amrap;
+    final top = clearMax || open ? null : (repsMax ?? row.repsMax);
+    final bottom = reps ?? row.reps;
+    return CustomSet(
+      reps: bottom,
+      // Raising the bottom past the top would ask for a range that runs
+      // backwards; the top comes with it instead.
+      repsMax: top == null ? null : (top < bottom ? bottom : top),
+      amrap: open,
+      percent: percent ?? row.percent,
+    );
+  }
+}
+
+/// The weeks of a cycle: each one a list of written-out rows, added, edited and
+/// removed a week at a time.
+///
+/// Deliberately a plain column rather than anything reorderable. Weeks are read
+/// in the order they are written and a cycle is three or four of them — the
+/// drag handles that earn their place on a list of exercises would be chrome
+/// here.
+class _CycleEditor extends StatelessWidget {
+  const _CycleEditor({
+    required this.draft,
+    required this.advanced,
+    required this.onChanged,
+  });
+
+  final ItemDraft draft;
+  final bool advanced;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final d = draft;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var w = 0; w < d.cycle.length; w++) ...[
+          if (w > 0) const SizedBox(height: 18),
+          _WeekHeader(
+            // Counting from one, and marked when it is the week the next
+            // session will actually run — the cycle's position is program
+            // state the builder shows rather than edits.
+            title: l10n.itemEditorCycleWeek(w + 1),
+            current: d.cycle.length > 1 &&
+                w == d.cyclePosition % d.cycle.length,
+            onRemove: d.cycle.length > 1 ? () => _removeWeek(w) : null,
+          ),
+          const SizedBox(height: 8),
+          for (var i = 0; i < d.cycle[w].length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _CustomSetRow(
+              index: i,
+              advanced: advanced,
+              row: d.cycle[w][i],
+              onChanged: (row) => _setRow(w, i, row),
+            ),
+          ],
+          const SizedBox(height: 10),
+          _CycleActions(
+            onAddSet: () => _addSet(w),
+            onRemoveSet: d.cycle[w].length > 1 ? () => _removeSet(w) : null,
+          ),
+        ],
+        const SizedBox(height: 14),
+        _AddWeekButton(onTap: _addWeek),
+      ],
+    );
+  }
+
+  void _setRow(int week, int index, CustomSet row) {
+    final weeks = [for (final w in draft.cycle) [...w]];
+    weeks[week][index] = row;
+    draft.cycle = weeks;
+    onChanged();
+  }
+
+  void _addSet(int week) {
+    final weeks = [for (final w in draft.cycle) [...w]];
+    // The last row again rather than a blank: a week is written by copying the
+    // set above it and changing one number.
+    weeks[week].add(weeks[week].isEmpty
+        ? CustomSet(reps: draft.goalReps, percent: 100)
+        : weeks[week].last);
+    draft.cycle = weeks;
+    onChanged();
+  }
+
+  void _removeSet(int week) {
+    final weeks = [for (final w in draft.cycle) [...w]];
+    weeks[week].removeLast();
+    draft.cycle = weeks;
+    onChanged();
+  }
+
+  /// A new week is a copy of the last one, for the reason a new set is a copy
+  /// of the set above it: week two of a cycle differs from week one by a rep
+  /// count and a percentage, not by everything.
+  void _addWeek() {
+    draft.cycle = [
+      ...draft.cycle,
+      if (draft.cycle.isEmpty)
+        _seedCustomRows(draft)
+      else
+        [...draft.cycle.last],
+    ];
+    onChanged();
+  }
+
+  void _removeWeek(int week) {
+    final weeks = [for (final w in draft.cycle) [...w]]..removeAt(week);
+    draft.cycle = weeks;
+    // The position is held inside what is left rather than reset: removing
+    // week four must not send a slot on week three back to week one.
+    if (draft.cyclePosition >= weeks.length && weeks.isNotEmpty) {
+      draft.cyclePosition = weeks.length - 1;
+    }
+    onChanged();
+  }
+}
+
+/// One week's heading: which week it is, whether it is the one coming up, and
+/// the way to remove it.
+class _WeekHeader extends StatelessWidget {
+  const _WeekHeader({
+    required this.title,
+    required this.current,
+    required this.onRemove,
+  });
+
+  final String title;
+  final bool current;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            current ? l10n.itemEditorCycleWeekNext(title) : title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: kMono.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: current ? AppColors.accent : AppColors.muted,
+            ),
+          ),
+        ),
+        if (onRemove != null)
+          IconButton(
+            onPressed: onRemove,
+            visualDensity: VisualDensity.compact,
+            tooltip: l10n.itemEditorCycleRemoveWeek,
+            icon: Icon(Icons.close, size: 18, color: AppColors.faint),
+          ),
+      ],
+    );
+  }
+}
+
+/// Add or drop a set inside one week.
+class _CycleActions extends StatelessWidget {
+  const _CycleActions({required this.onAddSet, required this.onRemoveSet});
+
+  final VoidCallback onAddSet;
+  final VoidCallback? onRemoveSet;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        TextButton.icon(
+          onPressed: onAddSet,
+          icon: const Icon(Icons.add, size: 16),
+          label: Text(l10n.itemEditorCycleAddSet),
+        ),
+        const SizedBox(width: 8),
+        if (onRemoveSet != null)
+          TextButton.icon(
+            onPressed: onRemoveSet,
+            icon: const Icon(Icons.remove, size: 16),
+            label: Text(l10n.itemEditorCycleRemoveSet),
+          ),
+      ],
+    );
+  }
+}
+
+class _AddWeekButton extends StatelessWidget {
+  const _AddWeekButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return OutlinedButton.icon(
+      key: kCycleAddWeekKey,
+      onPressed: onTap,
+      icon: const Icon(Icons.add, size: 18),
+      label: Text(l10n.itemEditorCycleAddWeek),
     );
   }
 }

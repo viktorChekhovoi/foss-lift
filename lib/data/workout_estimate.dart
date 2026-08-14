@@ -8,7 +8,7 @@
 /// **What the estimate is made of.** A workout is a sequence of efforts with
 /// rest between them, so that is what is counted:
 ///
-/// - **Working sets** — [WorkoutItem.targetSets] of them, each costing
+/// - **Working sets** — [WorkoutItemTarget.setCount] of them, each costing
 ///   [kSecondsPerRep] per planned rep (a range is planned at its top end, the
 ///   same goal a live set is given) plus [kSetSetupSeconds] of getting into
 ///   position. A held slot costs its [WorkoutItem.holdSeconds] instead.
@@ -113,13 +113,13 @@ Duration estimateWorkoutDuration({
     }
     var rounds = 0;
     for (final at in group) {
-      if (items[at].targetSets > rounds) rounds = items[at].targetSets;
+      if (items[at].setCount > rounds) rounds = items[at].setCount;
     }
     for (var round = 0; round < rounds; round++) {
       // Everything in the round is done back to back and the rest comes at the
       // end of it, which is what makes a superset day shorter than the same
       // exercises listed one after another.
-      final owing = [for (final at in group) if (round < items[at].targetSets) at];
+      final owing = [for (final at in group) if (round < items[at].setCount) at];
       for (final at in owing) {
         segments.add((
           work: workFor(items[at]),

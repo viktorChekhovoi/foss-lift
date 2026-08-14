@@ -4059,5 +4059,132 @@
   "storageEvictableNotice": "This browser has not promised to keep your training. It should survive, but clearing site data or running low on space would take it.",
   "@storageEvictableNotice": {
     "description": "A dismissible note shown on the Today screen of the browser build when storage is real but the browser refused to exempt it from eviction. Milder than storageEphemeralWarning: the data is probably fine. Two short sentences."
+  },
+  "itemEditorSchemeCycle": "Cycle",
+  "@itemEditorSchemeCycle": {
+    "description": "One of the set-scheme pills: several weeks of written-out sets, taken one per session. One short word — the pills share a row."
+  },
+  "itemEditorSchemeAmrap": "As many as possible",
+  "@itemEditorSchemeAmrap": {
+    "description": "Checkbox under one written-out set: the set has no upper rep count, only a minimum to beat. The \"+\" set of a 5/3/1 week."
+  },
+  "itemEditorCycleWeek": "Week {n}",
+  "@itemEditorCycleWeek": {
+    "description": "Heading over one week of a cycle in the exercise builder.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorCycleWeekNext": "{week} · next",
+  "@itemEditorCycleWeekNext": {
+    "description": "The same heading when it is the week the next session will run.",
+    "placeholders": {
+      "week": {
+        "type": "String"
+      }
+    }
+  },
+  "itemEditorCycleAddWeek": "Add week",
+  "@itemEditorCycleAddWeek": {
+    "description": "Button that appends a week to a cycle, copying the last one."
+  },
+  "itemEditorCycleRemoveWeek": "Remove week",
+  "@itemEditorCycleRemoveWeek": {
+    "description": "Tooltip on the × beside a week of a cycle."
+  },
+  "itemEditorCycleAddSet": "Add set",
+  "@itemEditorCycleAddSet": {
+    "description": "Button that appends a set to one week of a cycle."
+  },
+  "itemEditorCycleRemoveSet": "Remove set",
+  "@itemEditorCycleRemoveSet": {
+    "description": "Button that drops the last set from one week of a cycle."
+  },
+  "itemEditorTrainingMax": "Training max",
+  "@itemEditorTrainingMax": {
+    "description": "Field label over the weight of a slot running a cycle, where every set is a percentage of it rather than the weight itself. Replaces \"Weight\"."
+  },
+  "settingsAdvancedProgramming": "Advanced programming",
+  "@settingsAdvancedProgramming": {
+    "description": "Switch on the training settings screen."
+  },
+  "settingsAdvancedProgrammingNote": "Cycles, per-set reps and training maxes in the builder.",
+  "@settingsAdvancedProgrammingNote": {
+    "description": "The one line under that switch, saying what turning it on puts on screen. Not a definition of any of the three."
+  },
+  "sessionCycleWeek": "Week {n}/{total}",
+  "@sessionCycleWeek": {
+    "description": "Line under an exercise on the live board and the training day, saying which week of its cycle this session is.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "targetAmrap": "{reps}+",
+  "@targetAmrap": {
+    "description": "A set with no upper rep count, in a target summary: at least this many.",
+    "placeholders": {
+      "reps": {
+        "type": "int"
+      }
+    }
+  },
+  "seedRoutine531Classic": "5/3/1 Classic",
+  "@seedRoutine531Classic": {
+    "description": "Name of a shipped program in the routine library. \"5/3/1\" is the program's published name and stays as digits in every language."
+  },
+  "seedRoutine531BoringButBig": "5/3/1 Boring But Big",
+  "@seedRoutine531BoringButBig": {
+    "description": "Name of a shipped program. \"Boring But Big\" is the published name of the template; translate it only if it is known under a translated name in your language."
+  },
+  "seedRoutine531FirstSetLast": "5/3/1 First Set Last",
+  "@seedRoutine531FirstSetLast": {
+    "description": "Name of a shipped program. \"First Set Last\" is the published name of the template — five sets at the weight the session opened on."
+  },
+  "seedRoutine531Beginners": "5/3/1 for Beginners",
+  "@seedRoutine531Beginners": {
+    "description": "Name of a shipped program: the four lifts folded into three sessions a week."
+  },
+  "seedRoutineDesc531Classic": "Four sessions a week, one main lift each: three working sets off a training max, the last of them for as many reps as you have. Two assistance movements follow. Set each training max to 90% of your best single before you start.",
+  "@seedRoutineDesc531Classic": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDesc531BoringButBig": "The same four sessions, with five sets of ten of the main lift at half the training max after it. The most work of the four and the one that adds size. Set each training max to 90% of your best single before you start.",
+  "@seedRoutineDesc531BoringButBig": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDesc531FirstSetLast": "The same four sessions, with five sets of five of the main lift at the week's own opening percentage after it. Less volume than Boring But Big and heavier, because the back-off weight climbs as the week does. Set each training max to 90% of your best single before you start.",
+  "@seedRoutineDesc531FirstSetLast": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDesc531Beginners": "The four lifts folded into three sessions a week, two of them a session. For somebody whose linear progression has stopped adding weight but who does not want four days in the gym. Set each training max to 90% of your best single before you start.",
+  "@seedRoutineDesc531Beginners": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedDayPress": "Press",
+  "@seedDayPress": {
+    "description": "Name of a shipped training day: the session built round the overhead press."
+  },
+  "seedDayDeadlift": "Deadlift",
+  "@seedDayDeadlift": {
+    "description": "Name of a shipped training day: the session built round the deadlift."
+  },
+  "seedDayBench": "Bench",
+  "@seedDayBench": {
+    "description": "Name of a shipped training day: the session built round the bench press."
+  },
+  "seedDaySquat": "Squat",
+  "@seedDaySquat": {
+    "description": "Name of a shipped training day: the session built round the squat."
+  },
+  "sessionTrainingMaxShort": "TM",
+  "@sessionTrainingMaxShort": {
+    "description": "Two-letter marker on the live board, in front of the weight of a slot running a cycle: the number is a training max the sets are percentages of, not a weight to lift. Replaces the '@' that joins a goal to its load. Keep it to two or three characters — it shares a line with the goal and the weight."
   }
 }

@@ -23,7 +23,7 @@ groups:
   - id: library-holds-the-programs-the-app-ships
     t: The library holds the programs the app ships
     d: >-
-      nine of them. Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three beginner barbell programs, Starting Strength, StrongLifts 5x5 and Full Body 3x, for somebody with a gym. Then four for everybody else: Bodyweight Basics, Dumbbell Full Body, Interval Conditioning, and Two-Day Full Body for a week with two sessions in it. They are a table in the app rather than rows in your database, so the list is the same on every phone and nothing you do to a copy can change it.
+      thirteen of them. Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three beginner barbell programs, Starting Strength, StrongLifts 5x5 and Full Body 3x, for somebody with a gym. Four for everybody else: Bodyweight Basics, Dumbbell Full Body, Interval Conditioning, and Two-Day Full Body for a week with two sessions in it. And four 5/3/1 programs for somebody past a linear progression — see below. They are a table in the app rather than rows in your database, so the list is the same on every phone and nothing you do to a copy can change it.
     defines:
     - template.starter-library
     uses:
@@ -31,7 +31,7 @@ groups:
   - id: your-list-holds-only-what-you-put-there
     t: Your routine list holds only what you put there
     d: >-
-      a fresh install opens on an empty list, because nine programs nobody chose is nine rows to wade past before finding the one you train. What is in the list is what you added: a ready-made program, one you built, or one somebody shared with you. An empty list says so in one line — "No routines yet" — and leaves the + in the corner to be the way out of it.
+      a fresh install opens on an empty list, because thirteen programs nobody chose is thirteen rows to wade past before finding the one you train. What is in the list is what you added: a ready-made program, one you built, or one somebody shared with you. An empty list says so in one line — "No routines yet" — and leaves the + in the corner to be the way out of it.
     screen: routines
     uses:
     - template.starter-library
@@ -104,10 +104,38 @@ groups:
     - template.starter-library
     - template.item
     - template.rep-target
+  - id: library-ships-four-531-programs
+    t: Four of the programs run 5/3/1 cycles
+    d: >-
+      the same four training days — press, deadlift, bench, squat — under four
+      different amounts of work. <b>5/3/1 Classic</b> is the main lift and two
+      assistance movements a day. <b>Boring But Big</b> adds five sets of ten at
+      half the training max. <b>First Set Last</b> adds five sets at the week's
+      own opening percentage, so its back-off weight moves with the week.
+      <b>5/3/1 for Beginners</b> folds the four lifts into three days a week, two
+      main lifts a day. All four open at a training max the copy asks you to
+      replace with 90% of your own best single.
+    uses:
+    - template.starter-library
+    - template.cycle
+    - template.training-max
+    - template.per-set-reps
+  - id: a-531-copy-is-an-ordinary-routine
+    t: A 5/3/1 copy is an ordinary routine, editable without the switch
+    d: >-
+      the cycles arrive whether or not advanced programming is on, and every
+      slot that has one shows its weeks in the builder — a program you cannot
+      look at is not a program you have been given. What the switch decides is
+      whether a slot <i>without</i> a cycle is offered one.
+    screen: workout-edit
+    uses:
+    - template.starter-library
+    - template.advanced-programming
+    - template.cycle
   - id: program-says-what-it-is
     t: A program says what it is before you take it
     d: >-
-      the preview opens with the program's own description — who it is for, how often it is trained, what it is trying to do — so choosing between nine of them is not a matter of guessing from a name. The copy keeps it, so the routine still explains itself a month later, and rewriting it is one more thing a copy of yours can do.
+      the preview opens with the program's own description — who it is for, how often it is trained, what it is trying to do — so choosing between thirteen of them is not a matter of guessing from a name. The copy keeps it, so the routine still explains itself a month later, and rewriting it is one more thing a copy of yours can do.
     screen: routine-preview
     uses:
     - template.starter-library

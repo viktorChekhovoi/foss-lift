@@ -112,18 +112,23 @@ groups:
   - id: sets-can-back-off-ramp-or-be-written-out
     t: The sets of a slot can back off, ramp up, or be written out one by one
     d: >-
-      four schemes. <b>Flat</b> — the default — is every set at the same weight
-      and the same target. <b>Back-off</b> opens at the slot's weight and takes a
-      configurable percentage off each set after it: at 10%, three sets are 100%,
-      90%, 80%. <b>Ramp</b> is the same ladder climbed the other way, so the last
-      set is the slot's weight and the ones before it are lighter. <b>Custom</b>
-      is a row per set, each with its own rep count and its own percentage of the
-      slot's weight. The slot's weight is the top of the ladder in every case, so
-      progression still moves one number and the whole scheme moves with it.
+      <b>Flat</b> — the default — is every set at the same weight and the same
+      target. <b>Back-off</b> opens at the slot's weight and takes a configurable
+      percentage off each set after it: at 10%, three sets are 100%, 90%, 80%.
+      <b>Ramp</b> is the same ladder climbed the other way, so the last set is the
+      slot's weight and the ones before it are lighter. <b>Custom</b> is a row per
+      set, each with its own rep target and its own percentage of the slot's
+      weight. <b>Cycle</b> is several sets of those rows — a week each, taken in
+      turn — and appears only with advanced programming on. The slot's weight is
+      the top of the ladder in every case, so progression still moves one number
+      and the whole scheme moves with it.
     defines:
     - template.set-scheme
     uses:
     - template.item
+    - template.cycle
+    - template.per-set-reps
+    - template.advanced-programming
     - progression.rates
   - id: scheme-weights-land-on-something-loadable
     t: A scheme's weights land on something you can actually load

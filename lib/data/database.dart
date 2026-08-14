@@ -372,10 +372,30 @@ class WorkoutItems extends Table {
   /// [deload] as it always has, and the advanced axis its rep half in
   /// [repsIncrement] and [repsDeload] — this holds what is on none of them.
   ///
+  TextColumn get sparedRates => text().nullable()();
+
+  /// The weeks this slot rotates through, encoded — see [encodeCycleBlocks].
+  /// Null on every slot that does not run a cycle, which is nearly all of them.
+  ///
+  /// A week is a written-out set of rows exactly like [customSets], so the two
+  /// share a grammar; what a cycle adds is that there are several of them and
+  /// only one is trained per session. Kept across a switch to another scheme
+  /// and back, on the same terms as [customSets]: trying a ramp for a session
+  /// must not throw away a cycle somebody wrote out.
+  TextColumn get cycleBlocks => text().nullable()();
+
+  /// Which week the *next* session of this slot uses — an index into
+  /// [cycleBlocks], wrapping.
+  ///
+  /// Program state, like [repsTarget] and the streaks beside it: it is what the
+  /// next session is prescribed from, so it outlives the session that moved it
+  /// and it survives a builder edit. It does **not** travel in a routine code —
+  /// where the sender had got to is not part of the program.
+  ///
   /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
-  TextColumn get sparedRates => text().nullable()();
+  IntColumn get cyclePosition => integer().withDefault(const Constant(0))();
 }
 
 /// What one slot's sets are actually aiming at, and by which rule.
@@ -410,6 +430,38 @@ extension WorkoutItemTarget on WorkoutItem {
     if (!climbsRange) return top;
     final goal = repsTarget ?? repsMin;
     return goal < repsMin ? repsMin : (goal > top ? top : goal);
+  }
+
+  /// Whether this slot rotates through weeks — the scheme *and* something to
+  /// rotate. A cycle scheme with no weeks written into it trains flat, which is
+  /// what an unfinished one should do rather than nothing at all.
+  bool get runsCycle =>
+      scheme == SetScheme.cycle && cycleBlocks != null && cycleWeeks.isNotEmpty;
+
+  /// The weeks, decoded. Cheap enough to read where it is needed rather than
+  /// cached — the column is a few dozen characters and this is not a query.
+  List<List<CustomSet>> get cycleWeeks => decodeCycleBlocks(cycleBlocks);
+
+  /// The rows the next session of this slot is prescribed, or empty for a slot
+  /// that is not on a cycle.
+  List<CustomSet> get cycleRows =>
+      runsCycle ? cycleBlockAt(cycleWeeks, cyclePosition) : const [];
+
+  /// Which week of how many the next session is, counting from one — what the
+  /// board and the training day say. Zero for a slot with no cycle.
+  int get cycleWeekNumber =>
+      runsCycle ? (cyclePosition % cycleWeeks.length) + 1 : 0;
+
+  /// How many working sets the next session of this slot has.
+  ///
+  /// [targetSets] for every slot but one on a cycle, where a week is written
+  /// out in full and how many rows it has *is* how many sets there are. Every
+  /// reader of a slot's set count goes through this, so a cycle whose weeks
+  /// differ in length cannot be counted one way by the board and another by the
+  /// duration estimate.
+  int get setCount {
+    final rows = cycleRows;
+    return rows.isEmpty ? targetSets : rows.length;
   }
 }
 
@@ -630,6 +682,23 @@ class Settings extends Table {
   /// upgraded one on exactly the same table, right down to the column order.
   IntColumn get warmupSets =>
       integer().withDefault(const Constant(kDefaultWarmupSets))();
+
+  /// Whether the builder offers cycles, per-set rep ranges and training maxes.
+  ///
+  /// Off on a fresh install and off on every phone that upgrades into this
+  /// build. Most programs are a set count and a rep target, and a picker with a
+  /// week-by-week prescription in it is a question those programs never have to
+  /// answer.
+  ///
+  /// It gates what the builder **offers**, never what it runs: a slot that
+  /// already has a cycle — because a ready-made program brought one, or because
+  /// the switch was on last month — shows its controls regardless. A program
+  /// you cannot look at is worse than a picker with a fifth option in it.
+  ///
+  /// **Declared last**, for the reason [warmupSets] gives above; the note moves
+  /// to whatever column comes next.
+  BoolColumn get advancedProgramming =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -1535,8 +1604,13 @@ class AppDatabase extends _$AppDatabase {
   ///   axes it is not on. Empty on every slot already on a phone, which is what
   ///   "this slot has never been moved off its axis" means, and what a slot
   ///   that has been gets from the first switch after the upgrade.
+  /// - **v12** — cycles: `WorkoutItems.cycle_blocks` and `cycle_position`, and
+  ///   `Settings.advanced_programming`. Every slot already on a phone arrives
+  ///   with no weeks and on week one of the cycle it has not got, and the switch
+  ///   arrives off — so an upgraded install trains exactly what it trained
+  ///   before and the builder looks the way it looked.
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1688,6 +1762,26 @@ class AppDatabase extends _$AppDatabase {
       if (from < 11) {
         await m.database.customStatement(
           'ALTER TABLE "workout_items" ADD COLUMN "spared_rates" TEXT NULL',
+        );
+      }
+      // v12 — a slot can rotate through weeks, and the builder can be asked to
+      // offer that. No slot on a phone gains a cycle: an empty column is a slot
+      // whose scheme is whatever it already was, and the position beneath it is
+      // week one of nothing. The switch arrives off for the same reason it is
+      // off on a fresh install — the feature is opt-in, and an update is not
+      // the opting.
+      if (from < 12) {
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "cycle_blocks" TEXT NULL',
+        );
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "cycle_position" '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+        await m.database.customStatement(
+          'ALTER TABLE "settings" ADD COLUMN "advanced_programming" '
+          'INTEGER NOT NULL DEFAULT 0 '
+          'CHECK ("advanced_programming" IN (0, 1))',
         );
       }
     },
@@ -2188,12 +2282,22 @@ class AppDatabase extends _$AppDatabase {
           // program has a rep count. `holdSeconds` keeps the column's default
           // where the program named none.
           final hold = slot.holdSeconds;
+          // A slot on a cycle states its sets a week at a time rather than as a
+          // count, so the stored count is the opening week's — what the slot
+          // falls back to if the cycle is ever emptied.
+          final cycling = slot.cycle.isNotEmpty;
+          final sets = cycling ? slot.cycle.first.length : slot.sets;
           await into(workoutItems).insert(
             WorkoutItemsCompanion.insert(
               workoutId: workoutId,
               exerciseId: exercise.id,
               position: Value(position++),
-              targetSets: Value(slot.sets),
+              targetSets: Value(sets),
+              scheme: cycling
+                  ? const Value(SetScheme.cycle)
+                  : const Value.absent(),
+              cycleBlocks:
+                  cycling ? Value(encodeCycleBlocks(slot.cycle)) : const Value.absent(),
               // A timed slot has no rep target at all, so the column keeps its
               // default rather than being written down to zero.
               repsMin: slot.repsMin > 0
@@ -2370,6 +2474,10 @@ class AppDatabase extends _$AppDatabase {
     final it = await workoutItemById(itemId);
     if (it == null) return (moved: 0.0, axis: ProgressionMode.weight);
 
+    // A cycle answers the whole question differently and answers it first: the
+    // weeks are what advance, and the weight moves once, when they come round.
+    if (it.runsCycle) return _advanceCycle(it, verdict);
+
     final step = stepProgression(
       verdict: verdict,
       successes: it.successStreak,
@@ -2467,6 +2575,63 @@ class AppDatabase extends _$AppDatabase {
       workoutItems,
     )..where((i) => i.id.equals(itemId))).write(patch);
     return (moved: moved, axis: axis);
+  }
+
+  /// Advances a slot running a cycle: the week always, the weight at the wrap.
+  ///
+  /// **The performed weight is deliberately not consulted here**, unlike every
+  /// other weight-axis slot. On an ordinary slot, working above the suggestion
+  /// is itself progression and the target follows the bar. On a cycle the stored
+  /// number is a training max — every set is a percentage of it — so a heavy
+  /// week would be read as the max having gone up, and the next week's
+  /// percentages would be taken from a number nobody chose.
+  ///
+  /// [WorkoutItems.failStreak] does double duty as the misses this cycle has
+  /// collected. It is the same quantity in both readings — sessions that came up
+  /// short since the last time the weight moved — and giving a cycle a counter
+  /// of its own would leave two columns to keep in step and a layoff deload to
+  /// remember to clear twice.
+  Future<ProgressionMove> _advanceCycle(
+    WorkoutItem it,
+    SessionVerdict verdict,
+  ) async {
+    final step = stepCycle(
+      verdict: verdict,
+      position: it.cyclePosition,
+      misses: it.failStreak,
+      weeks: it.cycleWeeks.length,
+      failureThreshold: it.failureThreshold,
+      increment: it.increment,
+      deload: it.deload,
+    );
+
+    var patch = WorkoutItemsCompanion(
+      cyclePosition: Value(step.position),
+      failStreak: Value(step.misses),
+      // A cycle does not count clean sessions towards anything, so the counter
+      // beside the misses is held at nothing rather than left to drift.
+      successStreak: const Value(0),
+    );
+
+    var moved = 0.0;
+    final from = it.suggestedWeight;
+    if (step.delta != 0 && from != null) {
+      final floorKg = await _loadFloorFor(it);
+      final stored = from < floorKg ? floorKg : from;
+      final to = advanceTarget(
+        stored,
+        step.delta,
+        ProgressionMode.weight,
+        floorKg: floorKg,
+      );
+      patch = patch.copyWith(suggestedWeight: Value(to));
+      moved = to - stored;
+    }
+
+    await (update(
+      workoutItems,
+    )..where((i) => i.id.equals(it.id))).write(patch);
+    return (moved: moved, axis: ProgressionMode.weight);
   }
 
   /// How far the rep goal of [it] moves on a step of [delta], or zero when the
@@ -2940,6 +3105,17 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setTutorialSeen(bool seen) =>
       _writeSettings(SettingsCompanion(tutorialSeen: Value(seen)));
+
+  /// Whether the builder offers cycles, per-set rep ranges and training maxes —
+  /// see [Settings.advancedProgramming]. Off until asked for.
+  Stream<bool> watchAdvancedProgramming() {
+    return (select(settings)..where((s) => s.id.equals(1)))
+        .watchSingleOrNull()
+        .map((s) => s?.advancedProgramming ?? false);
+  }
+
+  Future<void> setAdvancedProgramming(bool on) =>
+      _writeSettings(SettingsCompanion(advancedProgramming: Value(on)));
 
   /// The user's text-size nudge. 1.0 — follow the phone — until they say
   /// otherwise.

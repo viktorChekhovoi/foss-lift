@@ -19,7 +19,7 @@ import '../util/units.dart';
 /// otherwise. Ten percent is what the phrase "back-off sets" usually means.
 const int kDefaultSchemePercent = 10;
 
-/// The four shapes a slot's sets can take.
+/// The five shapes a slot's sets can take.
 enum SetScheme {
   /// Every set at the slot's weight and rep target. The default.
   flat,
@@ -32,39 +32,108 @@ enum SetScheme {
   /// weight, and the ones before it are lighter.
   ramp,
 
-  /// A row per set, each with its own rep count and its own percentage.
-  custom;
+  /// A row per set, each with its own rep target and its own percentage.
+  custom,
+
+  /// Several sets of those rows — a week each — taken one per session. See
+  /// [encodeCycleBlocks].
+  ///
+  /// **Declared last.** The name is what the column stores, so a value may be
+  /// added but none may be renamed, dropped or reordered.
+  cycle;
 
   /// Whether this scheme needs the per-set rows to mean anything.
   bool get isCustom => this == SetScheme.custom;
+
+  /// Whether this scheme is written out a set at a time — the two that are.
+  ///
+  /// What the builder asks when deciding whether to draw rows at all, and what
+  /// [resolveSetTargets] asks when deciding where the rows come from.
+  bool get isWrittenOut => this == SetScheme.custom || this == SetScheme.cycle;
+
+  /// Whether this scheme is one of the ones advanced programming gates.
+  bool get isAdvanced => this == SetScheme.cycle;
 }
 
-/// One row of a [SetScheme.custom] prescription: what to aim for, and at what
-/// fraction of the slot's weight.
+/// One row of a written-out prescription: what to aim for, and at what fraction
+/// of the slot's weight.
+///
+/// The rep target is one of three things, and which it is decides what the set
+/// is judged against: a plain count ([reps] alone), a range ([repsMax] as
+/// well), or a minimum with no top at all ([amrap]) — the "5+" set 5/3/1 is
+/// named after. [goalReps] and [minReps] are how the rest of the app asks,
+/// rather than re-deriving the three cases at each reader.
 class CustomSet {
-  const CustomSet({required this.reps, required this.percent});
+  const CustomSet({
+    required this.reps,
+    required this.percent,
+    this.repsMax,
+    this.amrap = false,
+  });
 
+  /// The bottom of the row: a count, the bottom of a range, or the minimum an
+  /// open-ended set has to beat.
   final int reps;
+
+  /// The top of a range, or null for a row that has no top — either because it
+  /// is a plain count or because it is [amrap].
+  final int? repsMax;
+
+  /// Whether the row has no ceiling: do at least [reps] and keep going.
+  ///
+  /// Exclusive with [repsMax] by construction — "8–12 or more" asks two
+  /// questions — and the constructor is not where that is enforced, because a
+  /// row decoded from a column somebody hand-edited still has to read as
+  /// *something*. [goalReps] resolves the pair, openness first.
+  final bool amrap;
 
   /// Of the slot's weight, as a whole percentage. 100 is the slot's weight.
   final int percent;
 
+  /// What the row asks for — the number the board opens on and the first tap
+  /// claims. The top of a range; the minimum of an open-ended row, which is
+  /// the only number it names.
+  int get goalReps => amrap ? reps : (repsMax ?? reps);
+
+  /// The number below which the set is a miss. Always the bottom: a range is
+  /// met anywhere inside itself, and a plain count is its own floor.
+  int get minReps => reps;
+
   @override
   bool operator ==(Object other) =>
-      other is CustomSet && other.reps == reps && other.percent == percent;
+      other is CustomSet &&
+      other.reps == reps &&
+      other.repsMax == repsMax &&
+      other.amrap == amrap &&
+      other.percent == percent;
 
   @override
-  int get hashCode => Object.hash(reps, percent);
+  int get hashCode => Object.hash(reps, repsMax, amrap, percent);
 
   @override
-  String toString() => '$reps×$percent%';
+  String toString() =>
+      '${amrap ? '$reps+' : (repsMax == null ? '$reps' : '$reps-$repsMax')}'
+      '×$percent%';
 }
 
 /// What one set of a hydrated slot is aiming at.
 class SetTarget {
-  const SetTarget({required this.reps, this.weightKg});
+  const SetTarget({
+    required this.reps,
+    this.weightKg,
+    int? minReps,
+    this.amrap = false,
+  }) : minReps = minReps ?? reps;
 
+  /// The goal — see [CustomSet.goalReps].
   final int reps;
+
+  /// The number below which this set is a miss. [reps] unless the row it came
+  /// from was a range, where anywhere inside the range counts.
+  final int minReps;
+
+  /// Whether the set has no ceiling — carried so the board can say so.
+  final bool amrap;
 
   /// In kilograms, already snapped and floored — or null for a movement that
   /// carries no load, which has nothing to take a percentage of.
@@ -72,10 +141,14 @@ class SetTarget {
 
   @override
   bool operator ==(Object other) =>
-      other is SetTarget && other.reps == reps && other.weightKg == weightKg;
+      other is SetTarget &&
+      other.reps == reps &&
+      other.minReps == minReps &&
+      other.amrap == amrap &&
+      other.weightKg == weightKg;
 
   @override
-  int get hashCode => Object.hash(reps, weightKg);
+  int get hashCode => Object.hash(reps, minReps, amrap, weightKg);
 
   @override
   String toString() => '$reps @ ${weightKg ?? '—'}';
@@ -86,8 +159,19 @@ class SetTarget {
 /// Text rather than a table of its own. These rows only ever mean anything to
 /// the slot that owns them, are read and written whole, and are never queried —
 /// which is the shape of a value, not of a relation.
+///
+/// **The grammar grew, and the old shape is still in it.** A row's rep half is
+/// `5`, `8-12` or `5+`; a plain count is written exactly as it always was, so
+/// every column already on a phone reads unchanged and a slot nobody has given
+/// a range to writes the same bytes it used to.
 String encodeCustomSets(List<CustomSet> sets) =>
-    sets.map((s) => '${s.reps}:${s.percent}').join(',');
+    sets.map((s) => '${_encodeReps(s)}:${s.percent}').join(',');
+
+String _encodeReps(CustomSet s) {
+  if (s.amrap) return '${s.reps}+';
+  final top = s.repsMax;
+  return top == null ? '${s.reps}' : '${s.reps}-$top';
+}
 
 /// The inverse, forgiving of anything that is not it.
 ///
@@ -100,12 +184,71 @@ List<CustomSet> decodeCustomSets(String? encoded) {
   for (final part in encoded.split(',')) {
     final halves = part.split(':');
     if (halves.length != 2) return const [];
-    final reps = int.tryParse(halves[0]);
     final percent = int.tryParse(halves[1]);
-    if (reps == null || percent == null) return const [];
-    out.add(CustomSet(reps: reps, percent: percent));
+    final row = _decodeReps(halves[0]);
+    if (percent == null || row == null) return const [];
+    out.add(CustomSet(
+      reps: row.reps,
+      repsMax: row.repsMax,
+      amrap: row.amrap,
+      percent: percent,
+    ));
   }
   return out;
+}
+
+/// The rep half of a row: `5`, `8-12` or `5+`. Null for anything that is none
+/// of the three.
+({int reps, int? repsMax, bool amrap})? _decodeReps(String text) {
+  if (text.endsWith('+')) {
+    final reps = int.tryParse(text.substring(0, text.length - 1));
+    return reps == null ? null : (reps: reps, repsMax: null, amrap: true);
+  }
+  final dash = text.indexOf('-');
+  if (dash >= 0) {
+    final reps = int.tryParse(text.substring(0, dash));
+    final top = int.tryParse(text.substring(dash + 1));
+    if (reps == null || top == null) return null;
+    return (reps: reps, repsMax: top, amrap: false);
+  }
+  final reps = int.tryParse(text);
+  return reps == null ? null : (reps: reps, repsMax: null, amrap: false);
+}
+
+/// What separates one week of a cycle from the next in the column.
+///
+/// A character the row grammar cannot produce, so the two levels can share one
+/// value without either having to escape the other.
+const String kCycleBlockSeparator = '|';
+
+/// A cycle's weeks as one column value: [encodeCustomSets] per week, joined.
+///
+/// Null for a cycle with nothing in it, so "no cycle" is one value in the
+/// database rather than two — the same rule `encodeSparedRates` follows.
+String? encodeCycleBlocks(List<List<CustomSet>> blocks) => blocks.isEmpty
+    ? null
+    : blocks.map(encodeCustomSets).join(kCycleBlockSeparator);
+
+/// The inverse, forgiving on the same terms: a week that will not parse comes
+/// back empty rather than taking the cycle with it, because a slot that trains
+/// one week flat is still a slot.
+List<List<CustomSet>> decodeCycleBlocks(String? encoded) {
+  if (encoded == null || encoded.isEmpty) return const [];
+  return [
+    for (final block in encoded.split(kCycleBlockSeparator))
+      decodeCustomSets(block),
+  ];
+}
+
+/// The week [position] names, wrapping — the week after the last is the first.
+///
+/// Also the answer to a position left past the end by an edit that shortened
+/// the cycle: it lands back inside rather than throwing, so trimming a cycle in
+/// the builder cannot leave a slot pointing at a week that is gone.
+List<CustomSet> cycleBlockAt(List<List<CustomSet>> blocks, int position) {
+  if (blocks.isEmpty) return const [];
+  final i = position % blocks.length;
+  return blocks[i < 0 ? i + blocks.length : i];
 }
 
 /// What each of [sets] sets is aiming at, in order.
@@ -118,6 +261,11 @@ List<CustomSet> decodeCustomSets(String? encoded) {
 /// converted target obeys: it is snapped to the step [unit] counts by, because
 /// 90% of 102.5 kg is 92.25 and nobody sets that bar; and it is held at
 /// [floorKg], because a set under the empty bar is not a lighter set.
+/// A cycle takes its rows from the week [cyclePosition] names rather than from
+/// [custom], and its set count from that week rather than from [sets] — a week
+/// is written out in full, so how many rows it has *is* how many sets there
+/// are. A cycle with no weeks in it falls back to [sets] flat sets, which is
+/// what a scheme nobody has filled in should train as.
 List<SetTarget> resolveSetTargets({
   required SetScheme scheme,
   required int sets,
@@ -126,9 +274,15 @@ List<SetTarget> resolveSetTargets({
   required String unit,
   int percent = kDefaultSchemePercent,
   List<CustomSet> custom = const [],
+  List<List<CustomSet>> cycle = const [],
+  int cyclePosition = 0,
   double floorKg = 0,
 }) {
   final floor = _effectiveFloor(topWeightKg, floorKg);
+  final rows = scheme == SetScheme.cycle
+      ? cycleBlockAt(cycle, cyclePosition)
+      : custom;
+  final count = scheme == SetScheme.cycle && rows.isNotEmpty ? rows.length : sets;
 
   double? weightAt(int wholePercent) {
     final top = topWeightKg;
@@ -137,7 +291,7 @@ List<SetTarget> resolveSetTargets({
   }
 
   return [
-    for (var i = 0; i < sets; i++)
+    for (var i = 0; i < count; i++)
       switch (scheme) {
         SetScheme.flat => SetTarget(reps: goalReps, weightKg: weightAt(100)),
         SetScheme.backOff => SetTarget(
@@ -155,11 +309,14 @@ List<SetTarget> resolveSetTargets({
         // The set count and the rows are edited separately, so they can
         // disagree for a tap or two. A row that is not there yet is the slot's
         // own target at its own weight — a set that reads as unconfigured
-        // rather than one that vanishes.
-        SetScheme.custom => i < custom.length
+        // rather than one that vanishes. A cycle cannot be in that state, since
+        // its count comes from its rows, but it reads through the same branch.
+        SetScheme.custom || SetScheme.cycle => i < rows.length
             ? SetTarget(
-                reps: custom[i].reps,
-                weightKg: weightAt(_atLeastNothing(custom[i].percent)),
+                reps: rows[i].goalReps,
+                minReps: rows[i].minReps,
+                amrap: rows[i].amrap,
+                weightKg: weightAt(_atLeastNothing(rows[i].percent)),
               )
             : SetTarget(reps: goalReps, weightKg: weightAt(100)),
       },

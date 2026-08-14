@@ -1292,8 +1292,8 @@ void main() {
       final db = oldDatabase();
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 11, reason: 'three columns, one rung — and the '
-          'kept rates a rung above them');
+      expect(db.schemaVersion, 12, reason: 'three columns, one rung — the kept '
+          'rates a rung above them, and the cycle columns above those');
       final row = await db.customSelect('PRAGMA user_version').getSingle();
       expect(row.data.values.first, db.schemaVersion);
     });

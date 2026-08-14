@@ -1,0 +1,223 @@
+id: "22"
+title: Cycles and training maxes
+tagline: >-
+  A slot can rotate through a fixed set of weeks — each with its own written-out
+  sets — and move the weight they are percentages of when the cycle comes round.
+  The toolbox 5/3/1 is built from, and off by default.
+screen: workout-edit
+code:
+- lib/data/set_scheme.dart
+- lib/data/progression.dart
+- lib/data/database.dart
+- lib/widgets/workout_items_editor.dart
+test:
+- test/feature_22_cycles_test.dart
+where: >-
+  <b>Blocks and rows</b> lib/data/set_scheme.dart (CycleBlocks, resolveSetTargets)
+  · <b>The wrap</b> lib/data/progression.dart (stepCycle), applied by
+  AppDatabase.advanceProgression · <b>Data</b> WorkoutItems.cycle_blocks /
+  cycle_position, Settings.advanced_programming · <b>Builder</b>
+  lib/widgets/workout_items_editor.dart (_CycleEditor, _CustomSetRow)
+groups:
+- name: The cycle
+  items:
+  - id: a-slot-can-run-a-cycle
+    t: A slot can rotate through a fixed set of weeks
+    d: >-
+      <b>Cycle</b> is the fifth set scheme, beside flat, back-off, ramp and
+      custom. Instead of one written-out set of rows it holds several — a week
+      each — and one session uses one of them. The week after the last is the
+      first again. Everything a written-out row already says it says here too: a
+      rep target and a percentage of the slot's weight, per set.
+    defines:
+    - template.cycle
+    uses:
+    - template.set-scheme
+    - template.item
+  - id: the-cycle-advances-on-the-slot-that-ran-it
+    t: Each slot advances its own cycle, on the session that trained it
+    d: >-
+      where a slot has got to is stored on that slot, not on the routine, and it
+      moves on when the workout holding it is finished. A four-day split where
+      each lift comes round once a week keeps every lift on the same week without
+      anything counting weeks; a lift you train twice a week runs its cycle twice
+      as fast, which is what training it twice a week is. Skipping a day does not
+      skip its week — the week is waiting the next time you train it.
+    screen: session
+    uses:
+    - template.cycle
+    - session.finish
+  - id: the-wrap-is-what-moves-the-weight
+    t: Coming round to the first week again is what moves the weight
+    d: >-
+      the percentages take care of the weeks; the weight they are of is what a
+      cycle progresses. It moves once, on the session that closes the cycle: up
+      by the slot's step if no session in the cycle came up short, down by its
+      back-off if the number that did reaches the slot's miss threshold, and held
+      where it is in between. Both counters then start again with the new cycle.
+      A three-week block that adds 2.5 kg to the press and 5 kg to the squat is
+      the step and the threshold, not a rule of its own.
+    screen: none
+    defines:
+    - template.training-max
+    uses:
+    - template.cycle
+    - progression.rates
+    - progression.streak
+  - id: a-cycle-weight-is-not-raised-by-what-you-lifted
+    t: Loading the bar past the prescription does not move a cycle's weight
+    d: >-
+      on an ordinary weight slot, working above the suggestion is itself
+      progression and the target follows the bar. On a cycle it cannot be: every
+      set is a percentage of the slot's weight rather than the weight itself, so
+      a heavy week would read as a target that had gone up and the next week's
+      percentages would be taken from it. A cycle's weight moves at the wrap and
+      nowhere else.
+    screen: none
+    uses:
+    - template.cycle
+    - template.training-max
+    - session.exercise-weight
+    - progression.verdict
+  - id: the-week-is-on-screen
+    t: The board says which week of the cycle you are on
+    d: >-
+      "Week 2/4" under the exercise, on the live board and on the day that
+      offers it, because 3×3 at 80% and 3×5 at 75% are the same slot on different
+      weeks and nothing else on the row says which. The goal beside it is listed
+      set by set — "5 · 3 · 1+" — wherever the week's rows differ, since "3 × 5"
+      would be a claim about two sets that is false of both.
+    screen: session
+    points:
+    - workout-detail
+    uses:
+    - template.cycle
+    - template.item
+    - session.set-logging
+- name: What a written-out row can ask for
+  items:
+  - id: a-row-can-ask-for-a-range-or-for-as-many-as-you-have
+    t: A written-out row takes a count, a range, or a minimum with no top
+    d: >-
+      5, or 8–12, or 5+. The third is the set 5/3/1 is named after — a minimum
+      to beat and no ceiling — and it is per row rather than per slot, so one
+      slot can hold two fixed sets and an open one. Rows belong to the custom
+      scheme as much as to a cycle; both are written out a set at a time.
+    defines:
+    - template.per-set-reps
+    uses:
+    - template.set-scheme
+    - template.rep-target
+  - id: a-row-is-judged-against-its-own-floor
+    t: A row is missed only below its own floor
+    d: >-
+      a range asks for its top and is not a miss anywhere inside itself: 8–12 is
+      met at 9. A row with no top asks for its minimum, so beating it is not a
+      different kind of success and falling under it is the only miss there is.
+      A plain count is its own floor, which is what every set was before rows
+      could hold a range.
+    screen: session
+    uses:
+    - template.per-set-reps
+    - session.set-logging
+    - progression.verdict
+- name: Advanced programming
+  items:
+  - id: advanced-programming-is-off-until-asked-for
+    t: Cycles, per-set reps and training maxes are off until asked for
+    d: >-
+      one switch in Settings, off on a fresh install and off on every phone
+      upgrading to this build. With it off the scheme picker offers the four it
+      always did and a written-out row asks for a count, which is the whole of
+      what most programs need. Nothing already configured stops working — the
+      switch decides what the builder <i>offers</i>, not what it will run.
+    screen: settings
+    defines:
+    - template.advanced-programming
+    uses:
+    - template.cycle
+    - template.per-set-reps
+  - id: a-slot-already-using-them-shows-its-controls
+    t: A slot already using them shows its controls whatever the switch says
+    d: >-
+      adding a ready-made 5/3/1 program with the switch off must not produce a
+      workout you can look at and not edit. So the cycle card, the per-set rows
+      and the training-max label appear on any slot that has them, the same way
+      the Advanced toggle inside the sheet opens by itself on a slot that is
+      using it.
+    screen: workout-edit
+    uses:
+    - template.advanced-programming
+    - template.cycle
+  - id: the-weight-field-says-training-max-on-a-cycle-slot
+    t: On a cycle slot the weight field is a training max
+    d: >-
+      it is not a weight the session asks you to lift — every set is a
+      percentage of it — so the builder's card is headed "Training max" instead
+      of "Weight", and on the board the "@" that joins a goal to its load
+      becomes "TM": "do 5 · 3 · 1+ at this" would be wrong about all three sets.
+      Editing it moves the whole week at once, which is what adjusting a
+      training max means.
+    screen: workout-edit
+    points:
+    - session
+    uses:
+    - template.training-max
+    - session.exercise-weight
+- name: Behaviour & edge cases
+  items:
+  - id: an-upgraded-phone-changes-nothing
+    t: An upgraded phone trains exactly what it trained before
+    d: >-
+      the two columns a cycle needs arrive empty on every slot already on a
+      phone, and the switch arrives off. No slot gains a scheme, no weight moves,
+      and the builder looks the way it looked — the whole feature is opt-in and
+      an update is not the opting.
+    screen: none
+    uses:
+    - storage.schema
+    - template.cycle
+    - template.advanced-programming
+  - id: a-cycle-of-one-week-is-just-a-custom-scheme
+    t: A cycle of one week is a custom scheme that steps every session
+    d: >-
+      nothing special-cases the count. One week wraps on every session, so the
+      weight moves on every session and the rows never change — which is a
+      written-out slot with ordinary progression, arrived at from the other
+      direction. A cycle with no weeks in it at all trains as flat rather than as
+      nothing.
+    screen: none
+    uses:
+    - template.cycle
+  - id: editing-the-weeks-does-not-restart-the-cycle
+    t: Editing the weeks does not send the slot back to week one
+    d: >-
+      where the slot has got to is kept through a builder edit, the way the
+      progression streaks are: fixing a typo in week three must not cost the two
+      weeks already trained. A position past the end of a shortened cycle is read
+      as the last week rather than as an error.
+    screen: workout-edit
+    uses:
+    - template.cycle
+    - progression.streak
+- name: Where to find it
+  items:
+  - id: turn-advanced-programming-on
+    t: Turn advanced programming on
+    d: >-
+      Profile → Settings → Advanced programming. The scheme picker in the
+      exercise builder grows a fifth option and written-out rows grow a rep
+      range and a + .
+    screen: settings
+    uses:
+    - template.advanced-programming
+  - id: build-a-cycle
+    t: Build a cycle
+    d: >-
+      Routines → a routine → a day → edit → tap a slot → Target → Advanced → Set
+      scheme → Cycle. Add a week, then a row per set: reps and the percentage of
+      the training max. Weeks are reordered and removed like the slots
+      themselves.
+    screen: workout-edit
+    uses:
+    - template.cycle

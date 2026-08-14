@@ -25,6 +25,7 @@ library;
 
 import 'progression.dart';
 import 'schedule.dart' show kNoScheduleMask;
+import 'set_scheme.dart';
 import 'seed_keys.dart';
 
 /// One exercise slot of a shipped program.
@@ -39,7 +40,8 @@ class StarterSlot {
     this.weightKg,
     this.holdSeconds,
   })  : increment = null,
-        deload = null;
+        deload = null,
+        cycle = const [];
 
   /// A slot on one of the lifts a linear-progression program moves 5 kg a
   /// session — the squat, the deadlift and their variants — rather than the
@@ -52,7 +54,27 @@ class StarterSlot {
   })  : repsMax = null,
         holdSeconds = null,
         increment = 5,
-        deload = 10;
+        deload = 10,
+        cycle = const [];
+
+  /// A slot that rotates through [cycle] — a week of written-out sets at a
+  /// time, every percentage taken from [weightKg] as a training max.
+  ///
+  /// [increment] is what the max gains when a clean cycle comes round, which is
+  /// where a 5/3/1 program's "add 2.5 kg to the presses and 5 to the pulls"
+  /// lives. The set count comes from the weeks rather than being stated: a week
+  /// is written out in full, so how many rows it has is how many sets there
+  /// are.
+  const StarterSlot.cycling(
+    this.exercise, {
+    required this.cycle,
+    required this.weightKg,
+    required this.increment,
+  })  : sets = 0,
+        repsMin = 0,
+        repsMax = null,
+        holdSeconds = null,
+        deload = null;
 
   /// The canonical English name of a movement in the starter library.
   final String exercise;
@@ -74,6 +96,10 @@ class StarterSlot {
   /// The program's own step up and back-off, or null to take the axis's.
   final double? increment;
   final double? deload;
+
+  /// The weeks this slot rotates through, or empty for a slot that does not —
+  /// see [StarterSlot.cycling] and `data/set_scheme.dart`.
+  final List<List<CustomSet>> cycle;
 }
 
 /// One training day of a shipped program.
@@ -155,10 +181,100 @@ const int _tf = 1 << 1 | 1 << 4;
 /// a Monday/Wednesday/Friday one rather than on top of them.
 const int _ts = 1 << 1 | 1 << 5;
 
+/// Monday, Wednesday, Friday and Saturday — the four-day 5/3/1 week, with one
+/// pair of days back to back rather than a session on a Sunday.
+const int _mwfs = 1 << 0 | 1 << 2 | 1 << 4 | 1 << 5;
+
+/// The four weeks of a 5/3/1 main lift: three working weeks and a deload, every
+/// set a percentage of the training max.
+///
+/// Written once and shared by the four programs below, which differ in what
+/// they put *after* the main lift rather than in the main lift itself. The last
+/// set of each working week has no upper rep count — that is the "+" set the
+/// program is named after, and it is what tells you whether the training max is
+/// still honest.
+const List<List<CustomSet>> k531Main = [
+  [
+    CustomSet(reps: 5, percent: 65),
+    CustomSet(reps: 5, percent: 75),
+    CustomSet(reps: 5, percent: 85, amrap: true),
+  ],
+  [
+    CustomSet(reps: 3, percent: 70),
+    CustomSet(reps: 3, percent: 80),
+    CustomSet(reps: 3, percent: 90, amrap: true),
+  ],
+  [
+    CustomSet(reps: 5, percent: 75),
+    CustomSet(reps: 3, percent: 85),
+    CustomSet(reps: 1, percent: 95, amrap: true),
+  ],
+  [
+    CustomSet(reps: 5, percent: 40),
+    CustomSet(reps: 5, percent: 50),
+    CustomSet(reps: 5, percent: 60),
+  ],
+];
+
+/// Boring But Big's supplemental work: five sets of ten off the same training
+/// max, lighter on the deload week so the deload is one.
+const List<List<CustomSet>> k531BigVolume = [
+  _bbbWeek, _bbbWeek, _bbbWeek,
+  [
+    CustomSet(reps: 10, percent: 40),
+    CustomSet(reps: 10, percent: 40),
+    CustomSet(reps: 10, percent: 40),
+    CustomSet(reps: 10, percent: 40),
+    CustomSet(reps: 10, percent: 40),
+  ],
+];
+
+const List<CustomSet> _bbbWeek = [
+  CustomSet(reps: 10, percent: 50),
+  CustomSet(reps: 10, percent: 50),
+  CustomSet(reps: 10, percent: 50),
+  CustomSet(reps: 10, percent: 50),
+  CustomSet(reps: 10, percent: 50),
+];
+
+/// First Set Last: five sets at whatever the week opened on, so the back-off
+/// weight climbs with the week rather than sitting at one percentage. The case
+/// a cycle expresses and a plain back-off scheme cannot.
+const List<List<CustomSet>> k531FirstSetLast = [
+  [
+    CustomSet(reps: 5, percent: 65),
+    CustomSet(reps: 5, percent: 65),
+    CustomSet(reps: 5, percent: 65),
+    CustomSet(reps: 5, percent: 65),
+    CustomSet(reps: 5, percent: 65),
+  ],
+  [
+    CustomSet(reps: 5, percent: 70),
+    CustomSet(reps: 5, percent: 70),
+    CustomSet(reps: 5, percent: 70),
+    CustomSet(reps: 5, percent: 70),
+    CustomSet(reps: 5, percent: 70),
+  ],
+  [
+    CustomSet(reps: 5, percent: 75),
+    CustomSet(reps: 5, percent: 75),
+    CustomSet(reps: 5, percent: 75),
+    CustomSet(reps: 5, percent: 75),
+    CustomSet(reps: 5, percent: 75),
+  ],
+  [
+    CustomSet(reps: 5, percent: 40),
+    CustomSet(reps: 5, percent: 40),
+    CustomSet(reps: 5, percent: 40),
+    CustomSet(reps: 5, percent: 40),
+    CustomSet(reps: 5, percent: 40),
+  ],
+];
+
 /// The library, in the order it is offered: the two splits somebody with a year
-/// of training would recognise, then the beginner barbell programs, then the four
-/// that ask for less than a gym.
-const List<StarterRoutine> kStarterRoutines = [
+/// of training would recognise, then the beginner barbell programs, the four
+/// that ask for less than a gym, and the four 5/3/1 programs.
+final List<StarterRoutine> kStarterRoutines = [
   StarterRoutine(
     key: 'ppl',
     description: 'Three sessions a week, each one a different half of what you do: the muscles you push with, the ones you pull with, and legs. The usual next step once a beginner program stops adding weight every session.',
@@ -447,7 +563,147 @@ const List<StarterRoutine> kStarterRoutines = [
       ]),
     ],
   ),
+  // ---- The 5/3/1 programs -------------------------------------------------
+  //
+  // Four templates over the same four training days and the same main-lift
+  // cycle, differing only in what follows the main lift. The weight on a
+  // cycled slot is a *training max* — nothing in a session is done at it — and
+  // the numbers here are placeholders somebody is expected to replace with 90%
+  // of their own best single, which each description says.
+  StarterRoutine(
+    key: '531-classic',
+    description: 'Four sessions a week, one main lift each: three working sets off a training max, the last of them for as many reps as you have. Two assistance movements follow. Set each training max to 90% of your best single before you start.',
+    name: '5/3/1 Classic',
+    colorHex: '4C8DFF',
+    restSeconds: 180,
+    scheduleDays: _mwfs,
+    days: [
+      StarterDay('Press', [
+        _main('Overhead Press', 45, 2.5),
+        StarterSlot('Chest Dip', sets: 5, repsMin: 12, repsMax: 15),
+        StarterSlot('Chin-Up', sets: 5, repsMin: 8, repsMax: 10),
+      ]),
+      StarterDay('Deadlift', [
+        _main('Deadlift', 120, 5),
+        StarterSlot('Good Morning', sets: 5, repsMin: 12, weightKg: 40),
+        StarterSlot('Hanging Leg Raise', sets: 5, repsMin: 12, repsMax: 15),
+      ]),
+      StarterDay('Bench', [
+        _main('Bench Press', 70, 2.5),
+        StarterSlot('Dumbbell Bench Press',
+            sets: 5, repsMin: 12, repsMax: 15, weightKg: 24),
+        StarterSlot('Dumbbell Row', sets: 5, repsMin: 10, weightKg: 30),
+      ]),
+      StarterDay('Squat', [
+        _main('Back Squat', 100, 5),
+        StarterSlot('Leg Press', sets: 5, repsMin: 15, weightKg: 160),
+        StarterSlot('Leg Curl', sets: 5, repsMin: 10, weightKg: 40),
+      ]),
+    ],
+  ),
+  StarterRoutine(
+    key: '531-bbb',
+    description: 'The same four sessions, with five sets of ten of the main lift at half the training max after it. The most work of the four and the one that adds size. Set each training max to 90% of your best single before you start.',
+    name: '5/3/1 Boring But Big',
+    colorHex: '7A5CFF',
+    restSeconds: 180,
+    scheduleDays: _mwfs,
+    days: [
+      StarterDay('Press', [
+        _main('Overhead Press', 45, 2.5),
+        _volume('Overhead Press', 45, 2.5),
+        StarterSlot('Chin-Up', sets: 5, repsMin: 8, repsMax: 10),
+      ]),
+      StarterDay('Deadlift', [
+        _main('Deadlift', 120, 5),
+        _volume('Deadlift', 120, 5),
+        StarterSlot('Hanging Leg Raise', sets: 5, repsMin: 12, repsMax: 15),
+      ]),
+      StarterDay('Bench', [
+        _main('Bench Press', 70, 2.5),
+        _volume('Bench Press', 70, 2.5),
+        StarterSlot('Dumbbell Row', sets: 5, repsMin: 10, weightKg: 30),
+      ]),
+      StarterDay('Squat', [
+        _main('Back Squat', 100, 5),
+        _volume('Back Squat', 100, 5),
+        StarterSlot('Leg Curl', sets: 5, repsMin: 10, weightKg: 40),
+      ]),
+    ],
+  ),
+  StarterRoutine(
+    key: '531-fsl',
+    description: "The same four sessions, with five sets of five of the main lift at the week's own opening percentage after it. Less volume than Boring But Big and heavier, because the back-off weight climbs as the week does. Set each training max to 90% of your best single before you start.",
+    name: '5/3/1 First Set Last',
+    colorHex: '18C29C',
+    restSeconds: 180,
+    scheduleDays: _mwfs,
+    days: [
+      StarterDay('Press', [
+        _main('Overhead Press', 45, 2.5),
+        _firstSetLast('Overhead Press', 45, 2.5),
+        StarterSlot('Chin-Up', sets: 5, repsMin: 8, repsMax: 10),
+      ]),
+      StarterDay('Deadlift', [
+        _main('Deadlift', 120, 5),
+        _firstSetLast('Deadlift', 120, 5),
+        StarterSlot('Hanging Leg Raise', sets: 5, repsMin: 12, repsMax: 15),
+      ]),
+      StarterDay('Bench', [
+        _main('Bench Press', 70, 2.5),
+        _firstSetLast('Bench Press', 70, 2.5),
+        StarterSlot('Dumbbell Row', sets: 5, repsMin: 10, weightKg: 30),
+      ]),
+      StarterDay('Squat', [
+        _main('Back Squat', 100, 5),
+        _firstSetLast('Back Squat', 100, 5),
+        StarterSlot('Leg Curl', sets: 5, repsMin: 10, weightKg: 40),
+      ]),
+    ],
+  ),
+  // Three days rather than four, two main lifts a session. Each lift still
+  // comes round once a week, so every slot walks its cycle at the same pace as
+  // the others — which is what keeps the whole program on one week at a time.
+  StarterRoutine(
+    key: '531-beginners',
+    description: 'The four lifts folded into three sessions a week, two of them a session. For somebody whose linear progression has stopped adding weight but who does not want four days in the gym. Set each training max to 90% of your best single before you start.',
+    name: '5/3/1 for Beginners',
+    colorHex: 'FFB020',
+    restSeconds: 180,
+    scheduleDays: _mwf,
+    days: [
+      StarterDay('Workout A', [
+        _main('Back Squat', 100, 5),
+        _main('Bench Press', 70, 2.5),
+        StarterSlot('Chin-Up', sets: 5, repsMin: 8, repsMax: 10),
+      ]),
+      StarterDay('Workout B', [
+        _main('Deadlift', 120, 5),
+        _main('Overhead Press', 45, 2.5),
+        StarterSlot('Chest Dip', sets: 5, repsMin: 12, repsMax: 15),
+      ]),
+      StarterDay('Workout C', [
+        _main('Bench Press', 70, 2.5),
+        _main('Back Squat', 100, 5),
+        StarterSlot('Barbell Row', sets: 5, repsMin: 10, weightKg: 50),
+      ]),
+    ],
+  ),
 ];
+
+/// One main lift on the 5/3/1 cycle, opening at a training max of [tm] and
+/// gaining [step] each time the cycle comes round.
+StarterSlot _main(String exercise, double tm, double step) =>
+    StarterSlot.cycling(exercise, cycle: k531Main, weightKg: tm, increment: step);
+
+/// The Boring But Big supplemental slot for the same lift, off the same max.
+StarterSlot _volume(String exercise, double tm, double step) => StarterSlot.cycling(
+    exercise, cycle: k531BigVolume, weightKg: tm, increment: step);
+
+/// The First Set Last supplemental slot for the same lift, off the same max.
+StarterSlot _firstSetLast(String exercise, double tm, double step) =>
+    StarterSlot.cycling(exercise,
+        cycle: k531FirstSetLast, weightKg: tm, increment: step);
 
 /// The canonical English description of the program whose copies carry
 /// [seedKey], or null for a key no shipped program owns.

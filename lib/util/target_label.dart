@@ -13,6 +13,7 @@
 library;
 
 import '../data/progression.dart';
+import '../data/set_scheme.dart';
 import '../l10n/app_localizations.dart';
 
 /// The rep half of the phrase: a hold in seconds, failure, a count, or a range.
@@ -54,3 +55,20 @@ String setsTargetLabel(
         repsMax: repsMax,
       ),
     );
+
+/// One written-out row's rep target: a count, a range, or a minimum with no
+/// top — "5", "8–12", "5+".
+String rowTargetLabel(AppLocalizations l10n, CustomSet row) {
+  if (row.amrap) return l10n.targetAmrap(row.reps);
+  final top = row.repsMax;
+  if (top == null || top == row.reps) return '${row.reps}';
+  return '${row.reps}–$top';
+}
+
+/// A whole written-out week, in order — "5 · 5 · 5+".
+///
+/// What a slot whose sets differ from one another has instead of "3 × 5": the
+/// sets are the prescription, so listing them is the honest summary and a
+/// single multiplication would have to pick one row to speak for the rest.
+String rowsTargetLabel(AppLocalizations l10n, List<CustomSet> rows) =>
+    rows.map((r) => rowTargetLabel(l10n, r)).join(l10n.itemEditorSchemeSeparator);
