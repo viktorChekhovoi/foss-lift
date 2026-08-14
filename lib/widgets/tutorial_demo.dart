@@ -8,6 +8,8 @@ import '../theme/app_theme.dart';
 import '../util/units.dart';
 import '../util/format.dart';
 import 'board_cells.dart';
+import 'common.dart' show ScreenHeader;
+import 'routine_add_menu.dart' show RoutineAddChoice, RoutineAddRow;
 import 'builder_widgets.dart'
     show
         BuilderField,
@@ -45,8 +47,10 @@ enum TutorialDemoFocus {
   note,
   camera,
   routinesTab,
+  addRoutine,
   library,
   newRoutine,
+  importRoutine,
   name,
   days,
   exercises,
@@ -56,8 +60,8 @@ enum TutorialDemoFocus {
   save,
 }
 
-/// The four screens the builder chapter is drawn on.
-enum _BuilderScreen { routines, routine, day, slot }
+/// The five screens the builder chapter is drawn on.
+enum _BuilderScreen { routines, addMenu, routine, day, slot }
 
 /// Which of them [focus] is about. The routines list is the fallback, so a
 /// focus belonging to the session cannot draw a blank screen.
@@ -72,6 +76,12 @@ _BuilderScreen _screenFor(TutorialDemoFocus focus) => switch (focus) {
       // checkbox under them.
       TutorialDemoFocus.slot || TutorialDemoFocus.superset =>
         _BuilderScreen.slot,
+      // Three steps against one picture: the three rows of the sheet the + in
+      // the corner opens.
+      TutorialDemoFocus.library ||
+      TutorialDemoFocus.newRoutine ||
+      TutorialDemoFocus.importRoutine =>
+        _BuilderScreen.addMenu,
       _ => _BuilderScreen.routines,
     };
 
@@ -87,8 +97,14 @@ const kTutorialDemoWeightKey = ValueKey('tutorial-demo-weight');
 /// The weight cell of a mock set row. One per row, so this matches several.
 const kTutorialDemoSetWeightKey = ValueKey('tutorial-demo-set-weight');
 
-/// The Ready-made routines button on the drawn Routines tab.
+/// The + in the corner of the drawn Routines tab.
+const kTutorialDemoAddKey = ValueKey('tutorial-demo-add');
+
+/// The Ready-made routines row on the drawn add sheet.
 const kTutorialDemoLibraryKey = ValueKey('tutorial-demo-library');
+
+/// The Import a routine row on the same sheet.
+const kTutorialDemoImportKey = ValueKey('tutorial-demo-import');
 
 /// The checkbox that joins a drawn slot to the one above it.
 const kTutorialDemoSupersetKey = ValueKey('tutorial-demo-superset');
@@ -501,6 +517,7 @@ class TutorialBuilderDemo extends ConsumerWidget {
       child: SafeArea(
         child: switch (_screenFor(focus)) {
           _BuilderScreen.routines => _routines(l10n),
+          _BuilderScreen.addMenu => _addMenu(l10n),
           _BuilderScreen.routine => _routine(l10n),
           _BuilderScreen.day => _day(l10n, unit),
           _BuilderScreen.slot => _slot(l10n),
@@ -509,8 +526,8 @@ class TutorialBuilderDemo extends ConsumerWidget {
     );
   }
 
-  /// The Routines tab as a fresh install has it: nothing in the list, and the
-  /// two ways to change that under it, in the order the real screen has them.
+  /// The Routines tab as a fresh install has it: an empty list saying so, and
+  /// the + that changes that.
   ///
   /// It used to draw a routine card, from when the app wrote five programs into
   /// every new install. It no longer does, so a card here would be a picture of
@@ -518,32 +535,99 @@ class TutorialBuilderDemo extends ConsumerWidget {
   /// the reader is looking at.
   Widget _routines(AppLocalizations l10n) => Column(
         children: [
-          _bar(l10n.routinesTitle),
           Expanded(
+            // Scrollable so the header can clip rather than overflow: at the top
+            // of the text scale in the longest language, a two-line title and a
+            // navigation bar are taller than the room a docked callout leaves.
             child: ListView(
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: EdgeInsets.zero,
               children: [
-                _ringed(
-                  on: focus == TutorialDemoFocus.newRoutine,
-                  child: _outlined(l10n.routinesNewRoutine),
+                // The screen's own header widget, so a change to it shows up
+                // here. The + beside it is drawn rather than borrowed: the real
+                // button opens a sheet, and nothing on a picture is wired to
+                // anything.
+                ScreenHeader(
+                  eyebrow: l10n.routinesEyebrow,
+                  title: l10n.routinesTitle,
+                  trailing: _ringed(
+                    on: focus == TutorialDemoFocus.addRoutine,
+                    child: KeyedSubtree(
+                      key: kTutorialDemoAddKey,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(Icons.add, color: AppColors.accent),
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 10),
-                _ringed(
-                  on: focus == TutorialDemoFocus.library,
-                  child: KeyedSubtree(
-                    key: kTutorialDemoLibraryKey,
-                    child: _outlined(l10n.routineLibraryTitle),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    l10n.todayNoRoutinesTitle,
+                    style: TextStyle(color: AppColors.muted),
                   ),
                 ),
               ],
             ),
           ),
-          // The only one of the three screens that has a navigation bar — the
-          // other two are pushed over it — and the reason it is drawn at all:
+          // The only one of the drawn screens that has a navigation bar — the
+          // rest are pushed or laid over it — and the reason it is drawn at all:
           // the chapter arrives from the Today steps with nothing on the phone
           // having moved, so the picture has to say which tab it is.
           _navBar(l10n),
+        ],
+      );
+
+  /// The same tab with the sheet the + opens laid over it, one row ringed.
+  ///
+  /// The rows are the app's own [RoutineAddRow] with no callback behind them,
+  /// so the picture cannot drift from the sheet and cannot be tapped into
+  /// anything either.
+  Widget _addMenu(AppLocalizations l10n) => Stack(
+        fit: StackFit.expand,
+        children: [
+          _routines(l10n),
+          // What a modal sheet puts over the screen behind it, navigation bar
+          // included.
+          const ColoredBox(color: Colors.black54),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              color: AppColors.surface,
+              // A list rather than a column: at the top of the text scale three
+              // rows of wrapped labels are taller than the room a docked callout
+              // leaves, and a picture that clips its last row reads better than
+              // one that overflows.
+              child: ListView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                children: [
+                  for (final (choice, key, on) in [
+                    (
+                      RoutineAddChoice.library,
+                      kTutorialDemoLibraryKey,
+                      TutorialDemoFocus.library
+                    ),
+                    (RoutineAddChoice.build, null, TutorialDemoFocus.newRoutine),
+                    (
+                      RoutineAddChoice.import,
+                      kTutorialDemoImportKey,
+                      TutorialDemoFocus.importRoutine
+                    ),
+                  ])
+                    _ringed(
+                      on: focus == on,
+                      child: KeyedSubtree(
+                        key: key,
+                        child: RoutineAddRow(choice: choice),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ],
       );
 

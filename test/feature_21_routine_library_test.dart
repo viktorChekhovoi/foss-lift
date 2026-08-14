@@ -4,6 +4,9 @@
 //   * your-list-holds-only-what-you-put-there — a fresh install opens on an
 //     empty routine list with no current routine, while the movements, the bars
 //     and the settings row are seeded exactly as before;
+//   * three-ways-to-get-a-routine — the + in the corner of the Routines tab
+//     opens one sheet holding all three, and import asks scan or paste on a
+//     sheet of its own;
 //   * library-holds-the-programs-the-app-ships — the five programs are a table
 //     in the app, listed under the names the app gives them;
 //   * a-program-is-previewed-before-it-is-added — the preview shows every
@@ -29,6 +32,7 @@ import 'package:foss_lift/screens/routine_library_screen.dart';
 import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/util/seed_names.dart';
+import 'package:foss_lift/widgets/routine_add_menu.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
 
 import 'support/harness.dart';
@@ -57,6 +61,17 @@ StarterRoutine _program(String key) {
   final found = starterRoutineByKey(key);
   expect(found, isNotNull, reason: 'the library ships no program keyed $key');
   return found!;
+}
+
+/// The Routines tab, under a router that can show where a tap went: the
+/// library, the empty builder, and the scanner the import sheet offers.
+Future<void> _pumpRoutines(WidgetTester tester, AppDatabase db) async {
+  final container = containerFor(db);
+  addTearDown(container.dispose);
+  await tester.pumpWidget(routedAppUnder(container, const RoutinesScreen(),
+      scaffold: true,
+      alsoRoutes: ['routines/library', 'routine/new', 'scan']));
+  await pumpThroughDatabase(tester);
 }
 
 /// A tall, phone-wide viewport, so a list of training days is on screen rather
@@ -109,7 +124,7 @@ void main() {
           reason: 'the row exists and carries its defaults');
     });
 
-    testWidgets('the routine list draws no cards, and offers the library',
+    testWidgets('the routine list draws no cards, and says so in one line',
         (tester) async {
       _tallPhone(tester);
       final container = containerFor(db);
@@ -119,10 +134,18 @@ void main() {
           scaffold: true, alsoRoutes: ['routines/library']));
       await pumpThroughDatabase(tester);
 
+      final l10n = l10nFor();
       expect(find.byType(RoutineCard), findsNothing,
           reason: 'a fresh install opens on an empty list');
-      expect(find.text(l10nFor().routineLibraryTitle), findsOneWidget,
-          reason: 'the ready-made programs are one of the three ways in');
+      expect(find.text(l10n.todayNoRoutinesTitle), findsOneWidget,
+          reason: 'an empty list says it is empty, in one line');
+      expect(find.byKey(kRoutinesAddKey), findsOneWidget,
+          reason: 'the + in the corner is the way out of an empty list');
+      // The three ways in are behind that button now, not laid out under the
+      // list where every routine added pushed them further down.
+      expect(find.text(l10n.routineLibraryTitle), findsNothing);
+      expect(find.text(l10n.routinesNewRoutine), findsNothing);
+      expect(find.text(l10n.routinesImport), findsNothing);
 
       await stop(tester);
     });
@@ -143,19 +166,88 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('the library row opens the library', (tester) async {
+    testWidgets('the + offers all three ways to get a routine', (tester) async {
       _tallPhone(tester);
-      final container = containerFor(db);
-      addTearDown(container.dispose);
+      final l10n = l10nFor();
+      await _pumpRoutines(tester, db);
 
-      await tester.pumpWidget(routedAppUnder(container, const RoutinesScreen(),
-          scaffold: true, alsoRoutes: ['routines/library']));
+      await tester.tap(find.byKey(kRoutinesAddKey));
       await pumpThroughDatabase(tester);
 
+      expect(find.text(l10n.routineLibraryTitle), findsOneWidget);
+      expect(find.text(l10n.routinesNewRoutine), findsOneWidget);
+      expect(find.text(l10n.routinesImport), findsOneWidget,
+          reason: 'one question with three answers, on one sheet');
+
+      await stop(tester);
+    });
+
+    testWidgets('the library row opens the library', (tester) async {
+      _tallPhone(tester);
+      await _pumpRoutines(tester, db);
+
+      await tester.tap(find.byKey(kRoutinesAddKey));
+      await pumpThroughDatabase(tester);
       await tester.tap(find.text(l10nFor().routineLibraryTitle));
       await pumpThroughDatabase(tester);
 
       expect(find.text('at /routines/library'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('the build row opens an empty routine', (tester) async {
+      _tallPhone(tester);
+      await _pumpRoutines(tester, db);
+
+      await tester.tap(find.byKey(kRoutinesAddKey));
+      await pumpThroughDatabase(tester);
+      await tester.tap(find.text(l10nFor().routinesNewRoutine));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text('at /routine/new'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('the import row asks scan or paste, and then scans',
+        (tester) async {
+      _tallPhone(tester);
+      final l10n = l10nFor();
+      await _pumpRoutines(tester, db);
+
+      await tester.tap(find.byKey(kRoutinesAddKey));
+      await pumpThroughDatabase(tester);
+      await tester.tap(find.text(l10n.routinesImport));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text(l10n.themeScanQr), findsOneWidget);
+      expect(find.text(l10n.themePasteCode), findsOneWidget,
+          reason: 'the second question is which way the code arrives');
+      // And the three of the first sheet are gone with it: one question at a
+      // time.
+      expect(find.text(l10n.routineLibraryTitle), findsNothing);
+
+      await tester.tap(find.text(l10n.themeScanQr));
+      await pumpThroughDatabase(tester);
+      expect(find.text('at /scan'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('and pasting from there opens the paste box', (tester) async {
+      _tallPhone(tester);
+      final l10n = l10nFor();
+      await _pumpRoutines(tester, db);
+
+      await tester.tap(find.byKey(kRoutinesAddKey));
+      await pumpThroughDatabase(tester);
+      await tester.tap(find.text(l10n.routinesImport));
+      await pumpThroughDatabase(tester);
+      await tester.tap(find.text(l10n.themePasteCode));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text(l10n.routinesPasteTitle), findsOneWidget);
 
       await stop(tester);
     });

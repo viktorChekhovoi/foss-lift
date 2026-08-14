@@ -31,22 +31,25 @@ groups:
   - id: your-list-holds-only-what-you-put-there
     t: Your routine list holds only what you put there
     d: >-
-      a fresh install opens on an empty list, because nine programs nobody chose is nine rows to wade past before finding the one you train. What is in the list is what you added: a ready-made program, one you built, or one somebody shared with you.
+      a fresh install opens on an empty list, because nine programs nobody chose is nine rows to wade past before finding the one you train. What is in the list is what you added: a ready-made program, one you built, or one somebody shared with you. An empty list says so in one line — "No routines yet" — and leaves the + in the corner to be the way out of it.
     screen: routines
     uses:
     - template.starter-library
     - template.routine
     - ui.empty-state
+    - ui.routine-add-menu
   - id: three-ways-to-get-a-routine
-    t: There are three ways to get a routine, in one place
+    t: One button adds a routine, and it offers all three ways
     d: >-
-      build your own, add a ready-made one, or import a code somebody sent you.
-      They sit together under the list rather than being scattered — "how do I
-      get a program" is one question with three answers, not three questions.
+      a + in the top right of the Routines tab, above the list rather than below it. It opens a sheet with the three answers to "how do I get a program": a ready-made one, one you build, or one somebody sent you. Import asks the second question — scan a QR or paste a code — on a sheet of its own, so the first one stays three rows long. Where there is no scanner, import opens the paste box directly rather than offering a choice of one. The three used to be full-width buttons under the list, which pushed them further down the screen with every routine added, until the way to add a fourth was below four cards.
     screen: routines
+    defines:
+    - ui.routine-add-menu
     uses:
     - template.starter-library
+    - template.routine
     - share.routine-code
+    - share.qr
   - id: a-program-is-previewed-before-it-is-added
     t: A program is previewed before it is added
     d: >-
@@ -124,11 +127,12 @@ groups:
   - id: add-a-ready-made-routine
     t: Add a ready-made routine
     d: >-
-      Routines → Ready-made routines → tap a program → Add. It lands at the bottom
+      Routines → + → Ready-made routines → tap a program → Add. It lands at the bottom
       of your list and, on an empty install, becomes the one Today is about.
     screen: routine-library
     uses:
     - template.starter-library
+    - ui.routine-add-menu
   - id: browse-without-adding
     t: Look at one without taking it
     d: >-

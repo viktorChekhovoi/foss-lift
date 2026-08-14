@@ -2845,13 +2845,17 @@
   "@routineLibraryAdd": {
     "description": "The button that copies the program being previewed into the user's own routine list."
   },
-  "routinesNewRoutine": "+ New routine",
+  "routinesNewRoutine": "New routine",
   "@routinesNewRoutine": {
-    "description": "Full-width button under the routine list that opens the new-routine editor. The leading '+' is part of the label and should be kept."
+    "description": "Row in the add-a-routine sheet that opens the new-routine editor, and the same label on the picture of that sheet in the tour."
   },
-  "routinesImportSection": "IMPORT A ROUTINE",
-  "@routinesImportSection": {
-    "description": "Heading over the two ways to take in a routine somebody shared, at the bottom of the routine list. Rendered in small capitals by the app — the capitals are the app's styling, not part of the words."
+  "routinesAdd": "Add a routine",
+  "@routinesAdd": {
+    "description": "The + button in the corner of the routine list. Shown as a tooltip and read out by a screen reader, so it is a phrase rather than a symbol."
+  },
+  "routinesImport": "Import a routine",
+  "@routinesImport": {
+    "description": "Row in the add-a-routine sheet for a routine somebody shared. Tapping it asks whether to scan a QR or paste a code."
   },
   "routinesPasteTitle": "Paste a routine",
   "@routinesPasteTitle": {
@@ -4016,17 +4020,33 @@
   "@tutorialBuildOpenTitle": {
     "description": "Title of the step that opens the builder chapter, on a drawn Routines screen with that tab lit in the navigation bar. Two or three words."
   },
-  "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and under them the two ways to get another.",
+  "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and the + in the corner adds another.",
   "@tutorialBuildOpenBody": {
-    "description": "Body of the first step of the routine chapter. The full tour arrives here from the Today step, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines."
+    "description": "Body of the first step of the routine chapter. The full tour arrives here from the Today step, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines. The + is the button in the top right of that screen."
+  },
+  "tutorialBuildAddTitle": "Adding one",
+  "@tutorialBuildAddTitle": {
+    "description": "Title of the tour step ringing the + button in the corner of the drawn Routines tab. Two or three words."
+  },
+  "tutorialBuildAddBody": "The + is where a routine comes from. It offers three: take a ready-made program, build your own, or bring in one somebody sent you.",
+  "@tutorialBuildAddBody": {
+    "description": "Body of the step ringing the + on the Routines tab. It has to say what the button opens, because every step after it is on the sheet the + opened. Three lines."
   },
   "tutorialBuildLibraryTitle": "Take a ready-made one",
   "@tutorialBuildLibraryTitle": {
-    "description": "Title of the tour step ringing the Ready-made routines button on the drawn Routines tab. One line."
+    "description": "Title of the tour step ringing the Ready-made routines row on the drawn sheet. One line."
   },
-  "tutorialBuildLibraryBody": "Ready-made routines holds the programs the app ships — Push / Pull / Legs, StrongLifts 5×5 and three more. Open one to read its workouts, then add it to your list. The rest of this builds one instead.",
+  "tutorialBuildLibraryBody": "Ready-made routines holds the programs the app ships — Push / Pull / Legs, StrongLifts 5×5 and three more. Open one to read its workouts, then add it to your list.",
   "@tutorialBuildLibraryBody": {
-    "description": "Body of the step about the routine library. It names the button — see routineLibraryTitle — so use the same words you translated that with. The two programs are names, not to be translated. Four lines."
+    "description": "Body of the step about the routine library. It names the row — see routineLibraryTitle — so use the same words you translated that with. The two programs are names, not to be translated. Three lines."
+  },
+  "tutorialBuildImportTitle": "One somebody sent you",
+  "@tutorialBuildImportTitle": {
+    "description": "Title of the tour step ringing the Import a routine row on the drawn sheet. Three or four words."
+  },
+  "tutorialBuildImportBody": "Import a routine takes a program a friend shared: scan the QR on their phone, or paste the code they sent you. Nothing is added until you have read it.",
+  "@tutorialBuildImportBody": {
+    "description": "Body of the step about importing. It names the row — see routinesImport — so use the same words you translated that with. Three lines."
   },
   "commonDismiss": "Dismiss",
   "@commonDismiss": {

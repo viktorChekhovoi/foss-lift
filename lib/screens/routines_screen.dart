@@ -7,8 +7,8 @@ import '../providers/providers.dart';
 import '../router.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/routine_add_menu.dart';
 import '../widgets/routine_card.dart';
-import '../widgets/share_widgets.dart';
 
 class RoutinesScreen extends ConsumerWidget {
   const RoutinesScreen({super.key});
@@ -23,7 +23,14 @@ class RoutinesScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           ScreenHeader(
-              eyebrow: l10n.routinesEyebrow, title: l10n.routinesTitle),
+            eyebrow: l10n.routinesEyebrow,
+            title: l10n.routinesTitle,
+            // Every way to get a routine is behind this one button. Laid out
+            // under the list, the three of them sank a card further down the
+            // screen with each routine added, until adding a fourth meant
+            // scrolling past three.
+            trailing: const AddRoutineButton(),
+          ),
           const SizedBox(height: 4),
           routines.when(
             loading: () => Padding(
@@ -38,105 +45,32 @@ class RoutinesScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: [
-                  for (final r in list) ...[
-                    RoutineCard(
-                      data: r,
-                      isCurrent: r.routine.id == currentId,
-                      onSetCurrent: () => ref
-                          .read(databaseProvider)
-                          .setActiveRoutineId(r.routine.id),
-                      onTap: () => context.push(
-                          '${branchRoot(context)}/routine/${r.routine.id}'),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  const SizedBox(height: 4),
-                  _NewRoutineButton(),
-                  const SizedBox(height: 10),
-                  // The other way to get one: a program the app ships, copied
-                  // into this list. It sits beside "build your own" rather than
-                  // in the list itself, so five programs nobody chose are not
-                  // five rows to scroll past.
-                  _ReadyMadeButton(),
-                  const SizedBox(height: 18),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: shareSectionLabel(l10n.routinesImportSection),
-                  ),
-                  const SizedBox(height: 10),
-                  shareActionRow([
-                    // Scanning needs camera frames one at a time, which a
-                    // browser does not offer. Pasting is the way in that never
-                    // needed a permission, so it is the only one left there.
-                    if (ref.watch(capabilitiesProvider).scanning)
-                      (
-                        Icons.qr_code_scanner,
-                        l10n.themeScanQr,
-                        () => context.push('/scan?for=routine')
+                  if (list.isEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        l10n.todayNoRoutinesTitle,
+                        style: TextStyle(color: AppColors.muted),
                       ),
-                    (
-                      Icons.content_paste,
-                      l10n.themePasteCode,
-                      () => _pasteRoutine(context)
-                    ),
-                  ]),
+                    )
+                  else
+                    for (final r in list) ...[
+                      RoutineCard(
+                        data: r,
+                        isCurrent: r.routine.id == currentId,
+                        onSetCurrent: () => ref
+                            .read(databaseProvider)
+                            .setActiveRoutineId(r.routine.id),
+                        onTap: () => context.push(
+                            '${branchRoot(context)}/routine/${r.routine.id}'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                 ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Takes a pasted routine code or link to the import screen — the only place a
-/// shared routine is ever added.
-Future<void> _pasteRoutine(BuildContext context) async {
-  final l10n = AppLocalizations.of(context);
-  final text = await promptForCode(context,
-      title: l10n.routinesPasteTitle, hint: l10n.routinesPasteHint);
-  if (text == null || !context.mounted) return;
-  context.push('/routine/import?code=${Uri.encodeQueryComponent(text)}');
-}
-
-class _NewRoutineButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => _WideButton(
-        label: AppLocalizations.of(context).routinesNewRoutine,
-        onPressed: () => context.push('/routine/new'),
-      );
-}
-
-/// The way into the programs the app ships — see `data/starter_routines.dart`.
-class _ReadyMadeButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => _WideButton(
-        label: AppLocalizations.of(context).routineLibraryTitle,
-        onPressed: () => context.push('/routines/library'),
-      );
-}
-
-/// One of the full-width outlined buttons under the routine list.
-class _WideButton extends StatelessWidget {
-  const _WideButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.text,
-          side: BorderSide(color: AppColors.line),
-          padding: const EdgeInsets.symmetric(vertical: 15),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        onPressed: onPressed,
-        child: Text(label),
       ),
     );
   }

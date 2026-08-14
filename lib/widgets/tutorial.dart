@@ -291,8 +291,13 @@ final List<TutorialStep> _kSessionSteps = [
 /// one thing on the full tour and another on the quick one.
 final List<TutorialStep> _kBuilderSteps = [
   _kBuildOpenStep,
+  _kBuildAddStep,
   _kBuildLibraryStep,
   _kBuildNewStep,
+  // The third row of the sheet, named rather than followed: what is behind it
+  // belongs to whoever sent the code, and a phone with no code to import has
+  // nothing to show.
+  _kBuildImportStep,
   _drawn('build-name', TutorialDemoFocus.name, (l) => l.tutorialBuildNameTitle,
       (l) => l.tutorialBuildNameBody),
   _drawn('build-days', TutorialDemoFocus.days, (l) => l.tutorialBuildDaysTitle,
@@ -331,6 +336,9 @@ final List<TutorialStep> _kBuilderSteps = [
 /// want.
 final List<TutorialStep> _kQuickBuilderSteps = [
   _kBuildOpenStep,
+  // The + stays. It is a control in a corner, which is the one piece of
+  // navigation somebody who has used another tracker cannot guess.
+  _kBuildAddStep,
   _kBuildLibraryStep,
   _kBuildNewStep,
   _drawn('build-quick', TutorialDemoFocus.days,
@@ -338,15 +346,25 @@ final List<TutorialStep> _kQuickBuilderSteps = [
   _kBuildSaveStep,
 ];
 
-/// The four steps both versions of the chapter share verbatim: where routines
-/// live, the ready-made ones, where a new one starts, and how it ends.
+/// The five steps both versions of the chapter share verbatim: where routines
+/// live, the + that adds one, the ready-made ones, where a new one starts, and
+/// how it ends.
 final TutorialStep _kBuildOpenStep = _drawn(
     'build-open',
     TutorialDemoFocus.routinesTab,
     (l) => l.tutorialBuildOpenTitle,
     (l) => l.tutorialBuildOpenBody);
 
-/// The library, on the same picture of the Routines tab. Before New routine
+/// The + itself, on the picture of the Routines tab, before anything it opens:
+/// every step after this one is drawn on the sheet it opens, so the picture
+/// would otherwise change with nothing having been tapped.
+final TutorialStep _kBuildAddStep = _drawn(
+    'build-add',
+    TutorialDemoFocus.addRoutine,
+    (l) => l.tutorialBuildAddTitle,
+    (l) => l.tutorialBuildAddBody);
+
+/// The library, on the picture of the sheet the + opens. Before New routine
 /// because it is the answer that has somebody training the same day.
 final TutorialStep _kBuildLibraryStep = _drawn(
     'build-library',
@@ -359,6 +377,12 @@ final TutorialStep _kBuildNewStep = _drawn(
     TutorialDemoFocus.newRoutine,
     (l) => l.tutorialBuildNewTitle,
     (l) => l.tutorialBuildNewBody);
+
+final TutorialStep _kBuildImportStep = _drawn(
+    'build-import',
+    TutorialDemoFocus.importRoutine,
+    (l) => l.tutorialBuildImportTitle,
+    (l) => l.tutorialBuildImportBody);
 
 final TutorialStep _kBuildSaveStep = _drawn('build-save',
     TutorialDemoFocus.save, (l) => l.tutorialBuildSaveTitle,
@@ -879,6 +903,10 @@ class _TutorialOverlayState extends ConsumerState<TutorialOverlay> {
         TutorialDemoFocus.rest,
         TutorialDemoFocus.save,
         TutorialDemoFocus.saveDay,
+        // The add sheet is docked to the foot of its screen, as a sheet is.
+        TutorialDemoFocus.library,
+        TutorialDemoFocus.newRoutine,
+        TutorialDemoFocus.importRoutine,
       }.contains(step.focus);
 
       // **Docked, not floating.** The picture takes the room the callout

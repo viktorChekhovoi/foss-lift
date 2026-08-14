@@ -60,39 +60,60 @@ class SectionLabel extends StatelessWidget {
 }
 
 /// Large screen title with an eyebrow line above it (Today / History / …).
+///
+/// [trailing] is the screen's own action, on the right of the title — the + that
+/// adds a routine is the one there is. It is centred against the two lines
+/// rather than aligned to either, so it reads as belonging to the header at any
+/// text size.
 class ScreenHeader extends StatelessWidget {
-  const ScreenHeader({super.key, required this.eyebrow, required this.title});
+  const ScreenHeader({
+    super.key,
+    required this.eyebrow,
+    required this.title,
+    this.trailing,
+  });
   final String eyebrow;
   final String title;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // The body role, not the muted one. This line names where you are,
-          // and a screen has exactly one of them — there is no column of them
-          // to recede into the background, so nothing is gained by dimming it
-          // and legibility is lost on the paler palettes.
-          Text(
-            eyebrow.toUpperCase(),
-            style: kMono.copyWith(
-              fontSize: AppType.eyebrow,
-              letterSpacing: 1.2,
-              color: AppColors.text,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The body role, not the muted one. This line names where you
+                // are, and a screen has exactly one of them — there is no column
+                // of them to recede into the background, so nothing is gained by
+                // dimming it and legibility is lost on the paler palettes.
+                Text(
+                  eyebrow.toUpperCase(),
+                  style: kMono.copyWith(
+                    fontSize: AppType.eyebrow,
+                    letterSpacing: 1.2,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: AppType.screenTitle,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: AppType.screenTitle,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-            ),
-          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            trailing!,
+          ],
         ],
       ),
     );

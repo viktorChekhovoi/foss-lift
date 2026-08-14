@@ -118,11 +118,13 @@ groups:
       and the decoder needs the frames. So the scanner is absent rather than
       opening to a picture it can never read. Showing a QR still works, and so
       does pasting a code, which was always the way in that needs no
-      permission.
+      permission. Import a routine therefore opens the paste box directly here,
+      rather than a sheet whose only row is the one choice left.
     screen: routine-import
     uses:
     - share.qr
     - platform.web
+    - ui.routine-add-menu
   - id: no-shade-on-web
     t: The live workout does not leave the tab
     d: >-

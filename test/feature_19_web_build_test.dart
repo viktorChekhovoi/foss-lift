@@ -25,8 +25,10 @@ import 'package:foss_lift/data/routine_code.dart';
 import 'package:foss_lift/data/routine_import.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/routine_edit_screen.dart';
+import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/util/capabilities.dart';
+import 'package:foss_lift/widgets/routine_add_menu.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -109,6 +111,50 @@ void main() {
       await pumpBuilder(tester, Capabilities.native);
 
       expect(find.text(l10n.routineEditReminder.toUpperCase()), findsOne);
+      await stop(tester);
+    });
+
+    /// The Routines tab under [caps], with the add sheet already open.
+    Future<void> openAddSheet(WidgetTester tester, Capabilities caps) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(
+        db,
+        overrides: [capabilitiesProvider.overrideWithValue(caps)],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(routedAppUnder(container, const RoutinesScreen(),
+          scaffold: true, alsoRoutes: ['scan']));
+      await pumpThroughDatabase(tester);
+      await tester.tap(find.byKey(kRoutinesAddKey));
+      await pumpThroughDatabase(tester);
+    }
+
+    testWidgets('importing on the web goes straight to the paste box',
+        (tester) async {
+      final l10n = l10nFor();
+      await openAddSheet(tester, Capabilities.web);
+
+      await tester.tap(find.text(l10n.routinesImport));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text(l10n.routinesPasteTitle), findsOneWidget,
+          reason: 'a sheet whose only row is the one choice left is a tap for '
+              'nothing');
+      expect(find.text(l10n.themeScanQr), findsNothing);
+      await stop(tester);
+    });
+
+    testWidgets('and asks scan or paste on a phone', (tester) async {
+      final l10n = l10nFor();
+      await openAddSheet(tester, Capabilities.native);
+
+      await tester.tap(find.text(l10n.routinesImport));
+      await pumpThroughDatabase(tester);
+
+      expect(find.text(l10n.themeScanQr), findsOneWidget);
+      expect(find.text(l10n.themePasteCode), findsOneWidget);
       await stop(tester);
     });
   });

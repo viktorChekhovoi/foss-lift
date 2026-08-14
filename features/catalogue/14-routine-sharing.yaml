@@ -55,13 +55,15 @@ groups:
   - id: import-scanned-qr-tapped-link
     t: Import — a scanned QR, a tapped link or a pasted code
     d: >-
-      Routines → scroll past + New routine to IMPORT A ROUTINE → Scan QR or Paste
+      Routines → + → Import a routine → Scan QR or Paste
       code; a fosslift://routine/… link tapped anywhere on the phone opens the same
       screen. All three land on a confirmation screen, and nothing is written until
       you accept it.
     screen: routine-import
     defines:
     - share.import-review
+    uses:
+    - ui.routine-add-menu
   - id: custom-exercises-travel-routine
     t: Custom exercises travel with the routine
     d: >-

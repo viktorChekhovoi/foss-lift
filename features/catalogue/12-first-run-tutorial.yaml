@@ -186,8 +186,9 @@ groups:
       the four tabs, then the card on Today that gets you a routine, then what
       training one looks like — the board, the weight, the rest timer, the note,
       the clip and the notification — out again to the lifetime totals, and finally
-      into the chapter that gets a routine into the list for real: a ready-made
-      program, or one built from nothing. It assumes no gym vocabulary and defines
+      into the chapter that gets a routine into the list for real: the + that adds
+      one, and behind it a ready-made program, one built from nothing, or one
+      somebody sent. It assumes no gym vocabulary and defines
       each word once.
     points:
     - today
@@ -196,6 +197,8 @@ groups:
     uses:
     - ui.tutorial-track
     - ui.gym-vocabulary
+    - ui.routine-add-menu
+    - share.routine-code
     - template.starter-library
     - template.active-routine
     - history.aggregates
@@ -206,15 +209,17 @@ groups:
     - exercise.notes
     - video.capture
   - id: quick-tour-is-the-four-tabs
-    t: The quick tour is the four tabs and a routine in five steps
+    t: The quick tour is the four tabs and a routine in six steps
     d: >-
       for somebody who has used a tracker before: where the four destinations
-      are, then Routines → the ready-made programs → New routine → name it and add
+      are, then Routines → the + that adds one → the ready-made programs → New routine → name it and add
       its workouts → Save. It skips what the full tour spends steps on — the live
       workout, the per-slot settings and the superset checkbox among them — and
       folds naming a routine, adding a workout and filling it with exercises into
       one callout, because somebody who has used a tracker knows what those are and
-      only needs to be shown where.
+      only needs to be shown where. The + is not one of the cuts: it is the one
+      piece of navigation an experienced gym-goer cannot guess from having used
+      another tracker.
     points:
     - today
     - routines
@@ -224,6 +229,7 @@ groups:
     uses:
     - ui.tutorial-track
     - ui.navigation
+    - ui.routine-add-menu
     - template.routine
     - template.workout
     - template.starter-library
@@ -242,12 +248,13 @@ groups:
   - id: builder-tour-covers-making-a-routine
     t: The routine chapter is drawn, not driven
     d: >-
-      Routines → a ready-made program → New routine → name it → add a workout →
+      Routines → the + that adds one → a ready-made program → New routine → an imported code →
+      name it → add a workout →
       add its exercises → configure one → join two of them → save the workout →
       save the routine, each step against a
       full-size picture of the screen it is about, with the control in question
-      ringed. Four screens are drawn: the Routines tab as a fresh install has it,
-      the routine builder, a
+      ringed. Five screens are drawn: the Routines tab as a fresh install has it,
+      that tab with the add sheet open over it, the routine builder, a
       workout, and one exercise's settings sheet. It is the same treatment the live workout gets, and for the same
       reason: the tour would otherwise have to march you through four screens it
       does not own, waiting on each to mount before it could point at anything,
@@ -262,28 +269,59 @@ groups:
     uses:
     - ui.tutorial-track
     - ui.gym-vocabulary
+    - ui.routine-add-menu
     - template.routine
     - template.workout
     - template.item
     - template.starter-library
     - template.superset
-  - id: builder-tour-offers-a-ready-made-program-first
-    t: It offers a program the app ships before it builds one
+  - id: builder-tour-points-at-the-add-button
+    t: It points at the + before it opens anything
     d: >-
-      the second step of the chapter rings Ready-made routines on the drawn
-      Routines tab: a program copied into your list, which is the shortest path from
-      a fresh install to training today. Everything after it builds one instead, so
-      whichever answer somebody wants they have seen it by the third callout. Both
-      buttons are on the picture, in the order the real screen has them, and the
-      list above them is empty — which is what the Routines tab is on the install
-      the tour is running on.
+      the second step of the chapter rings the + in the corner of the drawn
+      Routines tab, with the list under it empty — which is what the tab is on
+      the install the tour is running on. A control in a corner is the one thing
+      on this screen somebody will not find by scrolling, and every step after it
+      is on a sheet that + opened, so the picture would otherwise change with
+      nothing having been tapped. Both first-run tours keep this step; it is the
+      only piece of navigation the quick one still spells out.
     points:
     - routines
     uses:
     - ui.tutorial-track
+    - ui.routine-add-menu
+    - ui.empty-state
+  - id: builder-tour-offers-a-ready-made-program-first
+    t: It offers a program the app ships before it builds one
+    d: >-
+      the step after the + rings Ready-made routines on the opened sheet: a program copied into your list, which is the shortest path from
+      a fresh install to training today. The two steps after it ring the other
+      answers — one built from nothing, one somebody sent — so whichever of the
+      three somebody wants, they have seen it by the fifth callout. All three rows are
+      on the picture throughout, in the order the real sheet has them, and the
+      steps take them in that order rather than ranking them.
+    points:
+    - routines
+    uses:
+    - ui.tutorial-track
+    - ui.routine-add-menu
     - template.starter-library
     - template.routine
-    - ui.empty-state
+  - id: builder-tour-names-the-import-row
+    t: It names the third row rather than following it
+    d: >-
+      the last step on the sheet rings Import a routine and says what it is for —
+      a routine somebody sent you, scanned as a QR or pasted as a code. It stops
+      there: the screens behind it belong to whoever sent the code, and a tour
+      running on a phone with no code to import cannot show them. The full tour
+      has this step; the quick one goes from New routine straight to the builder.
+    points:
+    - routines
+    uses:
+    - ui.tutorial-track
+    - ui.routine-add-menu
+    - share.routine-code
+    - share.qr
   - id: builder-tour-defines-a-superset
     t: It defines a superset, against the checkbox that offers one
     d: >-
@@ -310,7 +348,8 @@ groups:
       the full tour reaches the chapter from the Today step, so it
       opens on the Routines tab — drawn with the navigation bar under it and that
       tab lit, so the picture is placed in the app rather than appearing from
-      nowhere. Every step after it says what opened the screen it is on: New
+      nowhere. Every step after it says what opened the screen it is on: the +
+      opens the sheet of three, New
       routine opens the builder, tapping a workout opens it, tapping an
       exercise opens its settings, and saving the workout comes back. A drawn chapter
       changes the picture with nothing on the phone having moved, so each change
@@ -332,7 +371,7 @@ groups:
       on a drawn step the callout is docked to the top or the bottom and the
       picture takes the room that is left, rather than floating over it. Floating
       was fine over a board with an empty middle and wrong everywhere else: on
-      the Routines step the card above New routine disappeared under the callout,
+      the Routines step the rows of the add sheet disappeared under the callout,
       which is the one thing a picture of a screen cannot afford. Which end it
       docks to follows the step's subject — the rest bar and the two Save buttons
       are at the foot of their screens, so those steps read from the top.
@@ -363,7 +402,7 @@ groups:
     d: >-
       an empty app is the state every first run is in, so neither tour ends
       without showing the way out of it — the full one walks the whole chapter,
-      the quick one a condensed five steps. The same chapter is still offered by
+      the quick one a condensed six steps. The same chapter is still offered by
       itself from Profile, for somebody coming back on day ten who wants the
       builder and not the tour around it. The steps are one list used by all
       three tracks rather than three descriptions of the same screen. Because it

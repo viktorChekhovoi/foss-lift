@@ -142,10 +142,12 @@ groups:
     d: >-
       Routines → open a routine → edit → name, description, colour, default rest,
       schedule, and the list of workouts: add, delete, and drag by the handle on
-      the left of each row into the order you train them.
+      the left of each row into the order you train them. A new one starts at
+      Routines → + → New routine, on the same screen with nothing filled in.
     screen: routine-edit
     uses:
     - template.routine
+    - ui.routine-add-menu
     - template.workout
     - template.rest
     - template.description

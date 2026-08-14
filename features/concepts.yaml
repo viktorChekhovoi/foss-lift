@@ -516,6 +516,12 @@ concepts:
     what: What a screen says when there is nothing on it yet.
     code: [lib/screens/today_screen.dart, lib/screens/history_screen.dart]
 
+  - id: ui.routine-add-menu
+    area: ui
+    what: >-
+      The single control that puts a routine in the list — the + in the corner of the Routines tab — and the choices behind it: a ready-made program, one built from nothing, or one somebody sent. Import asks scan or paste in a second step, or goes straight to the paste box where there is no scanner.
+    code: [lib/screens/routines_screen.dart]
+
   - id: ui.language
     area: ui
     what: >-

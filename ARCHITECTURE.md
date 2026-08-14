@@ -104,6 +104,9 @@ lib/
 │   ├── exercise_filters.dart     The muscle/equipment chip rows, library+picker
 │   ├── workout_items_editor.dart ItemDraft + the exercise-list editor
 │   ├── routine_card.dart         The routine list-row card
+│   ├── routine_add_menu.dart     The + on the Routines tab and the sheet behind
+│   │                             it: library, build, import (scan or paste).
+│   │                             The tour draws these very rows
 │   ├── share_widgets.dart        QR card, action rows, paste dialog (theme+routine)
 │   ├── plate_line.dart           "30 kg/side · 25 + 5 · bar 20"
 │   ├── resume_workout_bar.dart   Docked resume bar for a collapsed session
@@ -620,7 +623,7 @@ Profile) via `StatefulShellRoute`. Everything else is pushed on top.
 | Route | Screen | Purpose |
 |-------|--------|---------|
 | `/today` | today_screen | The current routine's workouts (or a chooser), lifetime totals |
-| `/routines` | routines_screen | All routines, pick the current one, + "New routine" |
+| `/routines` | routines_screen | All routines, pick the current one, + adds one (library / build / import) |
 | `/routines/library` | routine_library_screen | The programs the app ships; tap one to preview it |
 | `/routines/library/:key` | routine_library_screen | One program in full, and the button that copies it |
 | `/routine/:id` | routine_detail_screen | The routine's workouts; tap one to open it |

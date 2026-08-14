@@ -81,6 +81,24 @@ Widget _anchoredHost({
       ),
     );
 
+/// Runs the standalone builder tour up to the step drawn on [focus], and pumps
+/// the picture into place.
+Future<void> _stepTo(
+  ProviderContainer container,
+  WidgetTester tester,
+  TutorialDemoFocus focus,
+) async {
+  final steps = kTutorialTracks[TutorialTrack.builder]!;
+  final target = steps.indexWhere((s) => s.focus == focus);
+  expect(target, isNot(-1), reason: 'the chapter has no step about $focus');
+  container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
+  for (var i = 0; i < target; i++) {
+    container.read(tutorialProvider.notifier).next();
+  }
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 20));
+}
+
 void main() {
   late AppDatabase db;
   late ProviderContainer container;
@@ -150,17 +168,17 @@ void main() {
       }
     });
 
-    test('the quick tour is the four tabs and a routine in five steps', () {
+    test('the quick tour is the four tabs and a routine in six steps', () {
       final steps = kTutorialTracks[TutorialTrack.quick]!;
       expect(steps.where((s) => s.demo == TutorialDemo.screen), isEmpty,
           reason: 'the quick tour skips the live workout');
       expect(steps.where((s) => s.demo == TutorialDemo.shade), isEmpty);
 
       final builder = steps.where((s) => s.id.startsWith('build-')).toList();
-      expect(builder, hasLength(5),
-          reason: 'condensed: where routines live, the ready-made programs, '
-              'New routine, name and days, Save');
-      expect(steps.length, lessThanOrEqualTo(10));
+      expect(builder, hasLength(6),
+          reason: 'condensed: where routines live, the + that adds one, the '
+              'ready-made programs, New routine, name and days, Save');
+      expect(steps.length, lessThanOrEqualTo(11));
       // And it is genuinely shorter than the full tour's version of the same
       // chapter, which is the whole claim the word "quick" makes.
       final full = kTutorialTracks[TutorialTrack.full]!
@@ -207,9 +225,9 @@ void main() {
             reason: 'the full tour never mentions $subject');
       }
       expect(kTutorialTracks[TutorialTrack.full]!.length,
-          lessThanOrEqualTo(25),
+          lessThanOrEqualTo(27),
           reason: 'still one sitting, not a manual — the full tour now ends by '
-              'getting a routine, which is ten of these');
+              'getting a routine, which is twelve of these');
     });
 
     test('the Today step points at the card that gets you a routine', () {
@@ -236,12 +254,42 @@ void main() {
       }
     });
 
+    test('the chapter points at the + before it opens anything', () {
+      final ids =
+          kTutorialTracks[TutorialTrack.builder]!.map((s) => s.id).toList();
+      expect(ids.indexOf('build-add'), 1,
+          reason: 'straight after the step that says where routines live, and '
+              'before any step drawn on the sheet it opens');
+      expect(ids.indexOf('build-add'), lessThan(ids.indexOf('build-library')));
+      expect(kTutorialTracks[TutorialTrack.quick]!.map((s) => s.id),
+          contains('build-add'),
+          reason: 'a + in a corner is the one piece of navigation an '
+              'experienced gym-goer cannot guess');
+    });
+
     test('the chapter offers a ready-made program before it builds one', () {
       final ids =
           kTutorialTracks[TutorialTrack.builder]!.map((s) => s.id).toList();
-      expect(ids.indexOf('build-library'), 1,
-          reason: 'straight after the step that says where routines live');
+      expect(ids.indexOf('build-library'), 2,
+          reason: 'straight after the + that opens the sheet it is on');
       expect(ids.indexOf('build-library'), lessThan(ids.indexOf('build-new')));
+    });
+
+    test('the three rows are taken in the order the sheet has them', () {
+      final ids =
+          kTutorialTracks[TutorialTrack.builder]!.map((s) => s.id).toList();
+      expect(ids.indexOf('build-new'), lessThan(ids.indexOf('build-import')));
+      expect(ids.indexOf('build-import'), lessThan(ids.indexOf('build-name')),
+          reason: 'the sheet is finished with before the builder is drawn');
+      expect(kTutorialTracks[TutorialTrack.quick]!.map((s) => s.id),
+          isNot(contains('build-import')),
+          reason: 'the quick tour goes from New routine to the builder');
+    });
+
+    test('the full tour says a routine can arrive from somebody else', () {
+      final said = saidBy(TutorialTrack.full);
+      expect(said, contains(_l10n.routinesImport.toLowerCase()),
+          reason: 'the third way to get a routine is never named');
     });
 
     test('the superset step comes after the settings it sits under', () {
@@ -273,7 +321,9 @@ void main() {
       final drawn = steps.where((s) => s.demo == TutorialDemo.builder);
       expect(drawn.map((s) => s.focus).toSet(), {
         TutorialDemoFocus.routinesTab,
+        TutorialDemoFocus.addRoutine,
         TutorialDemoFocus.library,
+        TutorialDemoFocus.importRoutine,
         TutorialDemoFocus.newRoutine,
         TutorialDemoFocus.name,
         TutorialDemoFocus.days,
@@ -337,34 +387,63 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('the drawn Routines tab offers both ways to get a routine',
+    testWidgets('the add step rings the + on an empty drawn Routines tab',
         (tester) async {
       await db.setTutorialSeen(true);
       await tester.pumpWidget(
           appUnder(container, TutorialOverlay(child: _anchoredHost())));
-      final steps = kTutorialTracks[TutorialTrack.builder]!;
-      container.read(tutorialProvider.notifier).start(TutorialTrack.builder);
-      for (var i = 0;
-          i < steps.indexWhere((s) => s.focus == TutorialDemoFocus.library);
-          i++) {
-        container.read(tutorialProvider.notifier).next();
-      }
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 20));
+      await _stepTo(container, tester, TutorialDemoFocus.addRoutine);
+
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoAddKey)),
+          findsOneWidget,
+          reason: 'this step is about the button that adds a routine');
+      // The sheet it opens belongs to the steps after it, and the list under it
+      // is empty — which is what a fresh install's Routines tab is.
+      expect(find.text(_l10n.routineLibraryTitle), findsNothing);
+      expect(find.text(_l10n.seedRoutinePushPullLegs), findsNothing,
+          reason: 'the drawn tab shows a routine nobody has added yet');
+
+      await stop(tester);
+    });
+
+    testWidgets('the drawn sheet offers all three ways to get a routine',
+        (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await _stepTo(container, tester, TutorialDemoFocus.library);
 
       expect(find.text(_l10n.routineLibraryTitle), findsOneWidget);
-      expect(find.text(_l10n.routinesNewRoutine), findsOneWidget,
-          reason: 'both buttons are on the screen, so both are on the picture');
+      expect(find.text(_l10n.routinesNewRoutine), findsOneWidget);
+      expect(find.text(_l10n.routinesImport), findsOneWidget,
+          reason: 'all three rows are on the sheet, so all three are on the '
+              'picture');
       expect(
           find.descendant(
               of: find.byKey(kTutorialDemoRingKey),
               matching: find.byKey(kTutorialDemoLibraryKey)),
           findsOneWidget,
           reason: 'this step is about the ready-made programs');
-      // And the list above them is empty, which is what a fresh install's
-      // Routines tab is.
-      expect(find.text(_l10n.seedRoutinePushPullLegs), findsNothing,
-          reason: 'the drawn tab shows a routine nobody has added yet');
+
+      await stop(tester);
+    });
+
+    testWidgets('the import step rings the row it is about', (tester) async {
+      await db.setTutorialSeen(true);
+      await tester.pumpWidget(
+          appUnder(container, TutorialOverlay(child: _anchoredHost())));
+      await _stepTo(container, tester, TutorialDemoFocus.importRoutine);
+
+      expect(
+          find.descendant(
+              of: find.byKey(kTutorialDemoRingKey),
+              matching: find.byKey(kTutorialDemoImportKey)),
+          findsOneWidget);
+      expect(find.byKey(kTutorialDemoRingKey), findsOneWidget,
+          reason: 'one row at a time');
 
       await stop(tester);
     });
