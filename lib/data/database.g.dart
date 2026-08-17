@@ -158,6 +158,28 @@ class $ExercisesTable extends Exercises
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _unitOverrideMeta = const VerificationMeta(
+    'unitOverride',
+  );
+  @override
+  late final GeneratedColumn<String> unitOverride = GeneratedColumn<String>(
+    'unit_override',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _warmupSetsMeta = const VerificationMeta(
+    'warmupSets',
+  );
+  @override
+  late final GeneratedColumn<int> warmupSets = GeneratedColumn<int>(
+    'warmup_sets',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -173,6 +195,8 @@ class $ExercisesTable extends Exercises
     barWeight,
     extraPrimaryGroups,
     secondaryGroups,
+    unitOverride,
+    warmupSets,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -260,6 +284,21 @@ class $ExercisesTable extends Exercises
         ),
       );
     }
+    if (data.containsKey('unit_override')) {
+      context.handle(
+        _unitOverrideMeta,
+        unitOverride.isAcceptableOrUnknown(
+          data['unit_override']!,
+          _unitOverrideMeta,
+        ),
+      );
+    }
+    if (data.containsKey('warmup_sets')) {
+      context.handle(
+        _warmupSetsMeta,
+        warmupSets.isAcceptableOrUnknown(data['warmup_sets']!, _warmupSetsMeta),
+      );
+    }
     return context;
   }
 
@@ -325,6 +364,14 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}secondary_groups'],
       )!,
+      unitOverride: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit_override'],
+      ),
+      warmupSets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}warmup_sets'],
+      ),
     );
   }
 
@@ -415,6 +462,28 @@ class Exercise extends DataClass implements Insertable<Exercise> {
 
   /// The groups the movement only assists, [kGroupSeparator]-joined.
   final String secondaryGroups;
+
+  /// The unit this one movement is read and typed in — `kg` or `lb` — when the
+  /// app-wide one is wrong for it. Null, the usual case, means it follows the
+  /// app.
+  ///
+  /// Per exercise rather than app-wide because a gym is not one unit: the
+  /// dumbbell rack is stamped in pounds and the bar is loaded in kilograms, and
+  /// which one a lift is counted in is a fact about the lift. Storage is
+  /// unaffected — every weight in this app is kilograms, here as everywhere —
+  /// but the override travels with the movement into everything that reads or
+  /// asks for one of its weights: the board, the builder, the ramp's loadable
+  /// grid and its slots' step rates.
+  final String? unitOverride;
+
+  /// How many warm-up rungs this movement opens with, over
+  /// `Settings.warmupSets`. Null follows the setting; zero is a movement you
+  /// never warm up for.
+  ///
+  /// Consulted only while the app-wide count is above zero — see
+  /// [warmupSetsFor]. None app-wide means the app suggests no ramps at all, and
+  /// a movement's own count is not an exemption from that.
+  final int? warmupSets;
   const Exercise({
     required this.id,
     required this.name,
@@ -429,6 +498,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     this.barWeight,
     required this.extraPrimaryGroups,
     required this.secondaryGroups,
+    this.unitOverride,
+    this.warmupSets,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -462,6 +533,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     }
     map['extra_primary_groups'] = Variable<String>(extraPrimaryGroups);
     map['secondary_groups'] = Variable<String>(secondaryGroups);
+    if (!nullToAbsent || unitOverride != null) {
+      map['unit_override'] = Variable<String>(unitOverride);
+    }
+    if (!nullToAbsent || warmupSets != null) {
+      map['warmup_sets'] = Variable<int>(warmupSets);
+    }
     return map;
   }
 
@@ -488,6 +565,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : Value(barWeight),
       extraPrimaryGroups: Value(extraPrimaryGroups),
       secondaryGroups: Value(secondaryGroups),
+      unitOverride: unitOverride == null && nullToAbsent
+          ? const Value.absent()
+          : Value(unitOverride),
+      warmupSets: warmupSets == null && nullToAbsent
+          ? const Value.absent()
+          : Value(warmupSets),
     );
   }
 
@@ -516,6 +599,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
         json['extraPrimaryGroups'],
       ),
       secondaryGroups: serializer.fromJson<String>(json['secondaryGroups']),
+      unitOverride: serializer.fromJson<String?>(json['unitOverride']),
+      warmupSets: serializer.fromJson<int?>(json['warmupSets']),
     );
   }
   @override
@@ -539,6 +624,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'barWeight': serializer.toJson<double?>(barWeight),
       'extraPrimaryGroups': serializer.toJson<String>(extraPrimaryGroups),
       'secondaryGroups': serializer.toJson<String>(secondaryGroups),
+      'unitOverride': serializer.toJson<String?>(unitOverride),
+      'warmupSets': serializer.toJson<int?>(warmupSets),
     };
   }
 
@@ -556,6 +643,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     Value<double?> barWeight = const Value.absent(),
     String? extraPrimaryGroups,
     String? secondaryGroups,
+    Value<String?> unitOverride = const Value.absent(),
+    Value<int?> warmupSets = const Value.absent(),
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -570,6 +659,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     barWeight: barWeight.present ? barWeight.value : this.barWeight,
     extraPrimaryGroups: extraPrimaryGroups ?? this.extraPrimaryGroups,
     secondaryGroups: secondaryGroups ?? this.secondaryGroups,
+    unitOverride: unitOverride.present ? unitOverride.value : this.unitOverride,
+    warmupSets: warmupSets.present ? warmupSets.value : this.warmupSets,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -594,6 +685,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       secondaryGroups: data.secondaryGroups.present
           ? data.secondaryGroups.value
           : this.secondaryGroups,
+      unitOverride: data.unitOverride.present
+          ? data.unitOverride.value
+          : this.unitOverride,
+      warmupSets: data.warmupSets.present
+          ? data.warmupSets.value
+          : this.warmupSets,
     );
   }
 
@@ -612,7 +709,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('notes: $notes, ')
           ..write('barWeight: $barWeight, ')
           ..write('extraPrimaryGroups: $extraPrimaryGroups, ')
-          ..write('secondaryGroups: $secondaryGroups')
+          ..write('secondaryGroups: $secondaryGroups, ')
+          ..write('unitOverride: $unitOverride, ')
+          ..write('warmupSets: $warmupSets')
           ..write(')'))
         .toString();
   }
@@ -632,6 +731,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     barWeight,
     extraPrimaryGroups,
     secondaryGroups,
+    unitOverride,
+    warmupSets,
   );
   @override
   bool operator ==(Object other) =>
@@ -649,7 +750,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.notes == this.notes &&
           other.barWeight == this.barWeight &&
           other.extraPrimaryGroups == this.extraPrimaryGroups &&
-          other.secondaryGroups == this.secondaryGroups);
+          other.secondaryGroups == this.secondaryGroups &&
+          other.unitOverride == this.unitOverride &&
+          other.warmupSets == this.warmupSets);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -666,6 +769,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<double?> barWeight;
   final Value<String> extraPrimaryGroups;
   final Value<String> secondaryGroups;
+  final Value<String?> unitOverride;
+  final Value<int?> warmupSets;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -680,6 +785,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.barWeight = const Value.absent(),
     this.extraPrimaryGroups = const Value.absent(),
     this.secondaryGroups = const Value.absent(),
+    this.unitOverride = const Value.absent(),
+    this.warmupSets = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -695,6 +802,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.barWeight = const Value.absent(),
     this.extraPrimaryGroups = const Value.absent(),
     this.secondaryGroups = const Value.absent(),
+    this.unitOverride = const Value.absent(),
+    this.warmupSets = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Exercise> custom({
     Expression<int>? id,
@@ -710,6 +819,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<double>? barWeight,
     Expression<String>? extraPrimaryGroups,
     Expression<String>? secondaryGroups,
+    Expression<String>? unitOverride,
+    Expression<int>? warmupSets,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -726,6 +837,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (extraPrimaryGroups != null)
         'extra_primary_groups': extraPrimaryGroups,
       if (secondaryGroups != null) 'secondary_groups': secondaryGroups,
+      if (unitOverride != null) 'unit_override': unitOverride,
+      if (warmupSets != null) 'warmup_sets': warmupSets,
     });
   }
 
@@ -743,6 +856,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<double?>? barWeight,
     Value<String>? extraPrimaryGroups,
     Value<String>? secondaryGroups,
+    Value<String?>? unitOverride,
+    Value<int?>? warmupSets,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -758,6 +873,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       barWeight: barWeight ?? this.barWeight,
       extraPrimaryGroups: extraPrimaryGroups ?? this.extraPrimaryGroups,
       secondaryGroups: secondaryGroups ?? this.secondaryGroups,
+      unitOverride: unitOverride ?? this.unitOverride,
+      warmupSets: warmupSets ?? this.warmupSets,
     );
   }
 
@@ -807,6 +924,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (secondaryGroups.present) {
       map['secondary_groups'] = Variable<String>(secondaryGroups.value);
     }
+    if (unitOverride.present) {
+      map['unit_override'] = Variable<String>(unitOverride.value);
+    }
+    if (warmupSets.present) {
+      map['warmup_sets'] = Variable<int>(warmupSets.value);
+    }
     return map;
   }
 
@@ -825,7 +948,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('notes: $notes, ')
           ..write('barWeight: $barWeight, ')
           ..write('extraPrimaryGroups: $extraPrimaryGroups, ')
-          ..write('secondaryGroups: $secondaryGroups')
+          ..write('secondaryGroups: $secondaryGroups, ')
+          ..write('unitOverride: $unitOverride, ')
+          ..write('warmupSets: $warmupSets')
           ..write(')'))
         .toString();
   }
@@ -7212,6 +7337,8 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<double?> barWeight,
       Value<String> extraPrimaryGroups,
       Value<String> secondaryGroups,
+      Value<String?> unitOverride,
+      Value<int?> warmupSets,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -7228,6 +7355,8 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<double?> barWeight,
       Value<String> extraPrimaryGroups,
       Value<String> secondaryGroups,
+      Value<String?> unitOverride,
+      Value<int?> warmupSets,
     });
 
 final class $$ExercisesTableReferences
@@ -7326,6 +7455,16 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get secondaryGroups => $composableBuilder(
     column: $table.secondaryGroups,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unitOverride => $composableBuilder(
+    column: $table.unitOverride,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7428,6 +7567,16 @@ class $$ExercisesTableOrderingComposer
     column: $table.secondaryGroups,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get unitOverride => $composableBuilder(
+    column: $table.unitOverride,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -7484,6 +7633,16 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get secondaryGroups => $composableBuilder(
     column: $table.secondaryGroups,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get unitOverride => $composableBuilder(
+    column: $table.unitOverride,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get warmupSets => $composableBuilder(
+    column: $table.warmupSets,
     builder: (column) => column,
   );
 
@@ -7554,6 +7713,8 @@ class $$ExercisesTableTableManager
                 Value<double?> barWeight = const Value.absent(),
                 Value<String> extraPrimaryGroups = const Value.absent(),
                 Value<String> secondaryGroups = const Value.absent(),
+                Value<String?> unitOverride = const Value.absent(),
+                Value<int?> warmupSets = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -7568,6 +7729,8 @@ class $$ExercisesTableTableManager
                 barWeight: barWeight,
                 extraPrimaryGroups: extraPrimaryGroups,
                 secondaryGroups: secondaryGroups,
+                unitOverride: unitOverride,
+                warmupSets: warmupSets,
               ),
           createCompanionCallback:
               ({
@@ -7584,6 +7747,8 @@ class $$ExercisesTableTableManager
                 Value<double?> barWeight = const Value.absent(),
                 Value<String> extraPrimaryGroups = const Value.absent(),
                 Value<String> secondaryGroups = const Value.absent(),
+                Value<String?> unitOverride = const Value.absent(),
+                Value<int?> warmupSets = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -7598,6 +7763,8 @@ class $$ExercisesTableTableManager
                 barWeight: barWeight,
                 extraPrimaryGroups: extraPrimaryGroups,
                 secondaryGroups: secondaryGroups,
+                unitOverride: unitOverride,
+                warmupSets: warmupSets,
               ),
           withReferenceMapper: (p0) => p0
               .map(

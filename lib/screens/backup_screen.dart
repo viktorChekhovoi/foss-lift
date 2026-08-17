@@ -78,9 +78,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               title: Text(l10n.backupIncludeVideos,
                   style: const TextStyle(fontSize: 15)),
             ),
-            // The omission, said before the file is made rather than found out
-            // when a restore has no clips in it.
-            if (!_clips) _Note(l10n.backupVideosLeftOut),
             if (_clips && (bytes ?? 0) > kBackupLargeBytes)
               _Note(
                 l10n.backupTooBig(fmtBytes(kBackupLargeBytes)),

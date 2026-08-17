@@ -8,6 +8,7 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/clip_label.dart';
 import '../util/seed_names.dart';
+import '../util/units.dart';
 
 /// Every clip of one movement, newest first.
 ///
@@ -23,9 +24,14 @@ class ExerciseClipsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final clips = ref.watch(exerciseClipsProvider(exerciseId));
-    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final exercise = ref.watch(exerciseLibraryProvider).value?.
         where((e) => e.id == exerciseId).firstOrNull;
+    // Every clip here is the same movement, so every label is read in that
+    // movement's unit — the reel exists to be held against itself.
+    final unit = unitForExercise(
+      ref.watch(weightUnitProvider).value ?? 'kg',
+      exercise?.unitOverride,
+    );
     final name = exercise == null
         ? null
         : seededName(l10n, exercise.seedKey, exercise.name);

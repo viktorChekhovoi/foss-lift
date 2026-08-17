@@ -343,10 +343,15 @@ groups:
     t: Your own notes never travel, and are never overwritten
     d: >-
       including under Replace, which rewrites everything else about the exercise.
+      A unit you pinned to a movement and a warm-up count you set on one stay
+      behind for the same reason: they say how you read that lift at your gym,
+      not what the program is, and the receiver already has an answer to both.
     screen: none
     uses:
     - share.routine-code
     - exercise.notes
+    - load.exercise-unit
+    - session.warmup-count
   - id: exercise-already-exists-reused-never
     t: An exercise that already exists is reused, never duplicated
     d: >-

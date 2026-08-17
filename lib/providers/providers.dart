@@ -123,6 +123,25 @@ final exerciseNoteProvider = Provider.family<String?, int>((ref, id) {
   return null;
 });
 
+/// The unit each movement has been pinned to, by exercise id — the movements
+/// that follow the app-wide setting are simply absent.
+///
+/// For the screens that hold a *weight* without holding the movement it belongs
+/// to: a history row, a session recap, a stat. They have an exercise id, and
+/// this is how they get from one to the unit to read it in — see
+/// `unitForExercise`. A screen that already has the `Exercise` reads
+/// `unitOverride` off it and does not come here.
+///
+/// It rides the library stream that is already in memory, like
+/// [exerciseNoteProvider], so watching it costs no further query.
+final exerciseUnitsProvider = Provider<Map<int, String>>((ref) {
+  final library = ref.watch(exerciseLibraryProvider).value;
+  return {
+    for (final e in library ?? const <Exercise>[])
+      if (e.unitOverride != null) e.id: e.unitOverride!,
+  };
+});
+
 /// Completed sessions, newest first (History tab).
 final historyProvider = StreamProvider<List<Session>>((ref) {
   return ref.watch(databaseProvider).watchHistory();
@@ -278,7 +297,6 @@ final tabAwakeSyncProvider = Provider<void>((ref) {
 /// Watch it somewhere permanent; see `main.dart`.
 final workoutShadeSyncProvider = Provider<void>((ref) {
   final shade = ref.watch(workoutShadeProvider);
-  final unit = ref.watch(weightUnitProvider).value ?? 'kg';
 
   // The buttons come back from the service's own isolate, which holds no
   // session — this is where they land, in the isolate that does.
@@ -294,8 +312,16 @@ final workoutShadeSyncProvider = Provider<void>((ref) {
     return;
   }
   // The one place that pushes state into the shade, so the one place that has
-  // to know what language it is in — the service takes finished text.
-  shade.show(shadeCopy(ref.watch(appLocalizationsProvider), cue, unit));
+  // to know what language it is in — the service takes finished text. The unit
+  // is the cue's movement's: the shade names one set, and a bench pinned to
+  // pounds must not arrive in the pocket in kilograms.
+  shade.show(
+    shadeCopy(
+      ref.watch(appLocalizationsProvider),
+      cue,
+      session!.unitForCue(cue),
+    ),
+  );
 });
 
 /// Raising the board, as the shade's set buttons ask for.

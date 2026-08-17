@@ -1152,11 +1152,15 @@ groups:
     t: How many rungs a ramp opens with is a setting, and none is one of the answers
     d: >-
       Profile → Exercise settings → Warm-ups, none to six, three until it is
-      changed. Every exercise in a session starts its stepper there, and the
-      duration estimate on a training day prices the same number. At none the app
-      stops suggesting warm-ups altogether: no ramp is built, no board shows one,
-      and the estimate prices the working sets alone. A session already running
-      keeps the count it started with, and a stepper moved during it stays moved.
+      changed. Every exercise in a session starts its stepper there unless the
+      movement carries a count of its own, and the duration estimate on a
+      training day prices whatever each of its movements will actually open
+      with. At none the app stops suggesting warm-ups altogether: no ramp is
+      built, no board shows one, the estimate prices the working sets alone, and
+      a movement's own count is not consulted — the app-wide none is the
+      stronger answer, the way a workout with its ramps off is. A session already
+      running keeps the counts it started with, and a stepper moved during it
+      stays moved.
     screen: settings
     defines:
     - session.warmup-count

@@ -8,6 +8,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
+import 'package:foss_lift/data/warmup.dart';
 import 'package:foss_lift/data/exercise_filter.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/exercise_form_screen.dart';
@@ -2281,6 +2282,126 @@ void main() {
       final bars = (await tester.runAsync(() => db.barsFor('kg')))!;
       expect(bars.map((b) => b.name), contains('Junior bar'));
 
+      await stop(tester);
+    });
+  });
+
+  group('a movement of its own unit and its own warm-up count', () {
+    late AppDatabase db;
+    setUp(() => db = memoryDb());
+    tearDown(() async => db.close());
+
+    Future<void> openDetail(WidgetTester tester, int id) async {
+      tester.view.physicalSize = const Size(900, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, ExerciseDetailScreen(exerciseId: id)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the unit chips show the app\'s until one is pinned',
+        (tester) async {
+      final squat =
+          (await tester.runAsync(() => exerciseNamed(db, 'Back Squat')))!;
+      await openDetail(tester, squat.id);
+
+      expect(find.byKey(kUnitChoiceKey), findsOneWidget);
+      expect(find.text('Kilograms'), findsOneWidget);
+      expect(find.text('Pounds'), findsOneWidget);
+
+      // Tapping the other unit asks first, in the same words the settings
+      // screen asks in.
+      await tester.tap(find.text('Pounds'));
+      await tester.pumpAndSettle();
+      expect(find.text('Switch to pounds?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      final untouched =
+          (await tester.runAsync(() => db.exerciseById(squat.id)))!;
+      expect(untouched.unitOverride, isNull, reason: 'cancel pins nothing');
+
+      await tester.tap(find.text('Pounds'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use pounds'));
+      await tester.pumpAndSettle();
+      await pumpThroughDatabase(tester);
+
+      final pinned = (await tester.runAsync(() => db.exerciseById(squat.id)))!;
+      expect(pinned.unitOverride, 'lb');
+
+      await stop(tester);
+    });
+
+    testWidgets('tapping the unit the app is on hands it back', (tester) async {
+      final squat =
+          (await tester.runAsync(() => exerciseNamed(db, 'Back Squat')))!;
+      await tester.runAsync(() => db.setExerciseUnit(squat.id, 'lb'));
+      await openDetail(tester, squat.id);
+
+      await tester.tap(find.text('Kilograms'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use kilograms'));
+      await tester.pumpAndSettle();
+      await pumpThroughDatabase(tester);
+
+      final back = (await tester.runAsync(() => db.exerciseById(squat.id)))!;
+      expect(back.unitOverride, isNull,
+          reason: 'the app\'s own unit is the follow-the-app answer');
+
+      await stop(tester);
+    });
+
+    testWidgets('the warm-up stepper opens on the app-wide count and pins on'
+        ' a move', (tester) async {
+      final squat =
+          (await tester.runAsync(() => exerciseNamed(db, 'Back Squat')))!;
+      await openDetail(tester, squat.id);
+
+      expect(find.byKey(kWarmupCountKey), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(kWarmupCountKey),
+          matching: find.text('$kDefaultWarmupSets'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Use default'), findsNothing,
+          reason: 'nothing to hand back yet');
+
+      await tester.tap(find.descendant(
+        of: find.byKey(kWarmupCountKey),
+        matching: find.byIcon(Icons.add),
+      ));
+      await tester.pumpAndSettle();
+      await pumpThroughDatabase(tester);
+
+      final own = (await tester.runAsync(() => db.exerciseById(squat.id)))!;
+      expect(own.warmupSets, kDefaultWarmupSets + 1);
+      expect(find.text('Use default'), findsOneWidget);
+
+      await tester.tap(find.text('Use default'));
+      await tester.pumpAndSettle();
+      await pumpThroughDatabase(tester);
+
+      final cleared = (await tester.runAsync(() => db.exerciseById(squat.id)))!;
+      expect(cleared.warmupSets, isNull);
+
+      await stop(tester);
+    });
+
+    testWidgets('and the section is absent while the app suggests no ramps',
+        (tester) async {
+      final squat =
+          (await tester.runAsync(() => exerciseNamed(db, 'Back Squat')))!;
+      await tester.runAsync(() => db.setDefaultWarmupSets(0));
+      await openDetail(tester, squat.id);
+
+      expect(find.byKey(kWarmupCountKey), findsNothing);
       await stop(tester);
     });
   });

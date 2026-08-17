@@ -296,6 +296,32 @@ groups:
     screen: exercise-detail
     uses:
     - load.bar-weight
+  - id: unit-optional-unit-own
+    t: Unit — an optional unit of its own
+    d: >-
+      overriding the app-wide one. Open any exercise → Unit → kg, lb, or back to
+      the app's. For the gym whose dumbbells are stamped in pounds and whose bar
+      is loaded in kilograms, and for the lift you have trained in one unit long
+      enough that converting it in your head is the reason you got the number
+      wrong. Tapping the unit the app is already on hands it back to the app
+      rather than pinning it, so an override is always a deliberate difference.
+    screen: exercise-detail
+    defines:
+    - load.exercise-unit
+    uses:
+    - load.units
+  - id: warm-ups-own-count
+    t: Warm-ups — a count of its own
+    d: >-
+      how many rungs this movement opens with, none to six, over the app-wide
+      default. A heavy squat wants five and a lateral raise wants none, and
+      setting either app-wide is wrong for the other. The row is absent while the
+      app-wide count is none: there is nothing to open with, so a per-movement
+      count would be a control that does nothing.
+    screen: exercise-detail
+    uses:
+    - session.warmup-count
+    - session.warmup-ramp
   - id: your-own-note-movement
     t: Your own note on the movement
     d: >-

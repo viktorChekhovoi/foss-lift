@@ -33,17 +33,22 @@ groups:
     t: 'One app-wide setting: kg or lb'
     d: >-
       Profile → Exercise settings → tap kg or lb. Tapping the unit you are already on does
-      nothing — it is not a switch.
+      nothing — it is not a switch. It is what every movement reads in unless
+      that movement has been given a unit of its own.
     defines:
     - load.units
     uses:
     - storage.settings
+    - load.exercise-unit
   - id: every-weight-app-displayed-chosen
     t: Every weight in the app is displayed in the chosen unit
-    d: the plate rack you see follows the unit too.
+    d: >-
+      the plate rack you see follows the unit too. A movement with its own unit
+      is the exception, and it is an exception everywhere at once — see below.
     uses:
     - load.units
     - load.plate-rack
+    - load.exercise-unit
   - id: switching-units-pops-confirm-dialog
     t: Switching units confirms first, and never rewrites what you lifted
     d: >-
@@ -148,3 +153,85 @@ groups:
     uses:
     - load.units
     - load.fine-grid
+- name: A movement with its own unit
+  uses:
+  - load.exercise-unit
+  - load.units
+  items:
+  - id: override-reads-everywhere-at-once
+    t: The override is the movement's unit everywhere the movement appears
+    d: >-
+      the session board and its column heading, the exercise's own screen, its
+      bar row and plate line, the slot in the builder and the step rates on it,
+      the history rows, the progress chart and the clip labels. One movement
+      reading two units on two screens is the failure this exists to avoid, so
+      there is one question — what unit is this exercise in — and every screen
+      asks it.
+    screen: none
+    uses:
+    - load.plate-solver
+    - session.exercise-weight
+    - history.session-record
+  - id: typing-means-overridden-unit
+    t: A number you type into that movement is in its unit
+    d: >-
+      the weight field, the step rate, the training max. Reading in one unit and
+      writing in another is how somebody ends up benching 100 lb.
+    screen: session
+    uses:
+    - session.exercise-weight
+    - progression.rates
+  - id: override-drives-the-arithmetic
+    t: It counts, snaps and warms up in its own unit too
+    d: >-
+      a slot on a movement overridden to pounds gets the 5 lb step and 10 lb
+      back-off as its defaults rather than the metric pair, its computed weights
+      land on the quarter-pound grid, and its warm-up ramp climbs a rack that
+      goes up in 5 lb dumbbells and 5 lb stack pins. A step that lands somewhere
+      unloadable is a step nobody can take, whichever unit the rest of the app is
+      in. The plates and the bars are the exception, and stay app-wide: they are
+      the iron in one gym, weighed once, and a movement being read in another
+      unit does not change what is on the rack.
+    screen: none
+    uses:
+    - load.unit-defaults
+    - load.fine-grid
+    - load.loadable-grid
+    - load.plate-rack
+    - session.warmup-ramp
+  - id: setting-override-moves-that-movement-only
+    t: Giving a movement its own unit moves that movement's targets, and nothing else
+    d: >-
+      the same pass a whole-app switch makes, scoped to the one exercise: its
+      slots' suggested weights are snapped to a weight the new unit can load, and
+      a slot still on the old unit's default step takes the new one's. It asks
+      first, in the same words, because it is the same change to the numbers you
+      are about to act on. Logged sets are not touched here any more than they
+      are there.
+    screen: exercise-detail
+    uses:
+    - load.unit-defaults
+    - template.item
+    - history.session-record
+  - id: totals-over-several-movements-stay-app-wide
+    t: A total that spans movements stays in the app's unit
+    d: >-
+      session volume, the stats on the history tab, the weight moved in a week.
+      They add several exercises together, and a sum of kilograms and pounds is
+      not a number — so they are read in the app-wide unit, which is what a
+      figure with no single movement behind it can honestly be in.
+    screen: history
+    uses:
+    - history.aggregates
+  - id: app-wide-switch-leaves-overrides-alone
+    t: Switching the app's unit leaves an overridden movement where it is
+    d: >-
+      an override is an answer somebody gave about one movement; the app-wide
+      setting is the answer for everything they did not. So a switch to pounds
+      moves every movement that was following the app and leaves the one pinned
+      to kilograms in kilograms — including its step rates and its targets, which
+      are already in the unit they were chosen in.
+    screen: settings
+    uses:
+    - load.unit-defaults
+    - template.item

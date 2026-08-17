@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/database.dart';
+import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../router.dart';
@@ -17,6 +18,12 @@ import '../util/format.dart';
 /// Finds the loading chips in a test — absent on a movement whose equipment
 /// settles how it is loaded, where the loading is stated rather than offered.
 const kLoadingChoiceKey = ValueKey('loading-choice');
+
+/// Finds this movement's unit chips in a test.
+const kUnitChoiceKey = ValueKey('unit-choice');
+
+/// Finds this movement's warm-up count stepper in a test.
+const kWarmupCountKey = ValueKey('exercise-warmup-count');
 
 /// Read-only detail for one library exercise: how to do it + a demo link.
 class ExerciseDetailScreen extends ConsumerWidget {
@@ -172,6 +179,15 @@ class _Body extends ConsumerWidget {
         const SizedBox(height: 22),
         ExerciseLoadingSection(exercise: exercise),
         const SizedBox(height: 22),
+        _UnitSection(exercise: exercise),
+        // Absent while the app is not suggesting warm-ups at all: a count for a
+        // ramp nobody is offered is a control that does nothing.
+        if ((ref.watch(defaultWarmupSetsProvider).value ?? kDefaultWarmupSets) >
+            0) ...[
+          const SizedBox(height: 22),
+          _WarmupSection(exercise: exercise),
+        ],
+        const SizedBox(height: 22),
         ExerciseNoteSection(exercise: exercise),
         if (exercise.videoUrl != null) ...[
           const SizedBox(height: 22),
@@ -290,6 +306,143 @@ class ExerciseLoadingSection extends ConsumerWidget {
   }
 }
 
+/// The unit this one movement is read and typed in.
+///
+/// Two chips, no third for "follow the app": the app's own unit *is* the
+/// follow-the-app answer, so tapping it hands the movement back rather than
+/// pinning it to the same value. An override is then always a visible
+/// difference from the setting, which is the only state worth being able to see.
+class _UnitSection extends ConsumerWidget {
+  const _UnitSection({required this.exercise});
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final appUnit = ref.watch(weightUnitProvider).value ?? 'kg';
+    final unit = unitForExercise(appUnit, exercise.unitOverride);
+
+    /// Pins the movement to [to], or hands it back to the app when [to] is what
+    /// the app is already on. Confirms first, in the settings screen's words:
+    /// it is the same change to the numbers you are about to act on, scoped to
+    /// one movement.
+    Future<void> pick(String to) async {
+      if (to == unit) return;
+      final word = to == 'lb' ? l10n.unitPoundsWord : l10n.unitKilogramsWord;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(l10n.settingsSwitchUnitTitle(word)),
+          content: Text(
+            l10n.exerciseDetailUnitSwitchBody(word),
+            style: TextStyle(color: AppColors.muted, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.commonCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.settingsSwitchUnitConfirm(word)),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      await ref
+          .read(databaseProvider)
+          .setExerciseUnit(exercise.id, to == appUnit ? null : to);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionLabel(l10n.exerciseDetailUnit),
+        const SizedBox(height: 8),
+        Wrap(
+          key: kUnitChoiceKey,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final u in const ['kg', 'lb'])
+              _Chip(
+                u == 'lb' ? l10n.settingsPounds : l10n.settingsKilograms,
+                accent: u == unit,
+                onTap: () => pick(u),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// How many warm-up rungs this movement opens with, over the app-wide count.
+///
+/// The stepper shows the number that will actually be built, whether it is this
+/// movement's or the setting's — that is the question being asked, and a control
+/// showing "—" for "whatever the other screen says" makes you go and look.
+/// Moving it pins the count here; *Use default* hands it back.
+class _WarmupSection extends ConsumerWidget {
+  const _WarmupSection({required this.exercise});
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final appWide =
+        ref.watch(defaultWarmupSetsProvider).value ?? kDefaultWarmupSets;
+    final own = exercise.warmupSets;
+    final db = ref.read(databaseProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionLabel(l10n.exerciseDetailWarmups),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            BuilderField(
+              label: l10n.settingsWarmupSets,
+              // The one state worth naming, as on the settings screen: a
+              // stepper reading 0 has stopped being a count.
+              note: warmupCountFor(appWide, own) == 0
+                  ? l10n.settingsWarmupsOff
+                  : null,
+              child: NumberStepper(
+                key: kWarmupCountKey,
+                value: warmupCountFor(appWide, own),
+                min: 0,
+                max: kMaxWarmupSets,
+                onChanged: (n) => db.setExerciseWarmupSets(exercise.id, n),
+              ),
+            ),
+            const Spacer(),
+            // Only once there is something to hand back. On a movement that
+            // never had a count of its own it would undo nothing.
+            if (own != null)
+              GestureDetector(
+                onTap: () => db.setExerciseWarmupSets(exercise.id, null),
+                child: Text(
+                  l10n.exerciseDetailUseDefault,
+                  style: kMono.copyWith(
+                    fontSize: 11.5,
+                    height: 1.5,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// The personal note on a movement, under its caption. Shared with the
 /// builder's slot sheet for the same reason [ExerciseLoadingSection] is.
 class ExerciseNoteSection extends StatelessWidget {
@@ -383,7 +536,13 @@ class ExerciseBarRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    // This movement's own unit — the bar it stands on is one of its weights,
+    // and a bar reading 20 kg under a board reading pounds is the disagreement
+    // the override exists to stop.
+    final unit = unitForExercise(
+      ref.watch(weightUnitProvider).value ?? 'kg',
+      exercise.unitOverride,
+    );
     final fallback = ref.watch(plateSettingsProvider).barKg;
     final own = exercise.barWeight;
     final u = unitSuffix(l10n, unit);

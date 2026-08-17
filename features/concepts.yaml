@@ -296,8 +296,8 @@ concepts:
 
   - id: session.warmup-count
     area: session
-    what: How many rungs a ramp is asked for — the app-wide default and the live stepper on top of it.
-    code: [lib/data/warmup.dart, lib/data/database.dart, lib/screens/exercise_settings_screen.dart]
+    what: How many rungs a ramp is asked for — the app-wide default, a movement's own count over it, and the live stepper on top of both.
+    code: [lib/data/warmup.dart, lib/data/database.dart, lib/screens/exercise_settings_screen.dart, lib/screens/exercise_detail_screen.dart]
 
   - id: session.abort
     area: session
@@ -344,6 +344,11 @@ concepts:
     area: load
     what: kg or lb. A display concern only — storage is always kilograms.
     code: [lib/util/units.dart]
+
+  - id: load.exercise-unit
+    area: load
+    what: The unit one movement is read and typed in, overriding the app-wide one. Null — the usual case — means it follows the app.
+    code: [lib/util/units.dart, lib/data/database.dart, lib/screens/exercise_detail_screen.dart]
 
   - id: load.unit-defaults
     area: load

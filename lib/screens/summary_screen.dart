@@ -68,6 +68,7 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
             session: d.session,
             sets: d.sets,
             unit: unit,
+            units: ref.watch(exerciseUnitsProvider),
             progression: _progression,
             fromHistory: widget.fromHistory,
           ),
@@ -89,12 +90,20 @@ class _SummaryBody extends StatelessWidget {
     required this.session,
     required this.sets,
     required this.unit,
+    required this.units,
     required this.progression,
     required this.fromHistory,
   });
   final Session session;
   final List<SessionSet> sets;
+
+  /// The app-wide unit. What the totals across the whole session are in — a sum
+  /// over several movements has no one movement's unit to be in.
   final String unit;
+
+  /// The unit each pinned movement reads in, by exercise id — see
+  /// `exerciseUnitsProvider`. What an individual exercise's row is read in.
+  final Map<int, String> units;
   final List<ProgressionOutcome> progression;
   final bool fromHistory;
 
@@ -198,7 +207,6 @@ class _SummaryBody extends StatelessWidget {
                             for (final e in progression.asMap().entries)
                               _ProgressionRow(
                                 outcome: e.value,
-                                unit: unit,
                                 last: e.key == progression.length - 1,
                               ),
                           ],
@@ -226,7 +234,13 @@ class _SummaryBody extends StatelessWidget {
                             _SessionExerciseRow(
                               index: entry.key + 1,
                               sets: entry.value.value,
-                              unit: unit,
+                              // One movement's row, so one movement's unit. The
+                              // id comes off the logged set; a set logged before
+                              // ids were written has none and reads app-wide.
+                              unit: unitForExercise(
+                                unit,
+                                units[entry.value.value.first.exerciseId],
+                              ),
                               date: session.startedAt,
                               last: entry.key == grouped.length - 1,
                             ),
@@ -358,14 +372,13 @@ class _SumCell extends StatelessWidget {
 /// target now sits, and — coloured green up / gold down / muted for a hold —
 /// the change that got it there or how close a held one is to the next move.
 class _ProgressionRow extends StatelessWidget {
-  const _ProgressionRow({
-    required this.outcome,
-    required this.unit,
-    required this.last,
-  });
+  const _ProgressionRow({required this.outcome, required this.last});
   final ProgressionOutcome outcome;
-  final String unit;
   final bool last;
+
+  /// The movement's own unit, carried on the outcome — this row is one
+  /// exercise's numbers.
+  String get unit => outcome.unit;
 
   /// Where the slot now points — the load, reps, or hold the next session opens
   /// at. A weight target driven to zero is the bodyweight movement it always

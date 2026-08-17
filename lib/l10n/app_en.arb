@@ -2693,6 +2693,24 @@
   "@exerciseDetailUseDefault": {
     "description": "Option in the bar dialog that drops this movement's own bar and goes back to the gym default."
   },
+  "exerciseDetailUnit": "UNIT",
+  "@exerciseDetailUnit": {
+    "description": "Section heading over the unit this one movement is read and typed in. Rendered in small capitals; the capitals are the app's styling, not the words'."
+  },
+  "exerciseDetailUnitSwitchBody": "This movement's suggested weights are converted to {unit}. Some conversions may need to be manually adjusted.",
+  "@exerciseDetailUnitSwitchBody": {
+    "description": "Body of the dialog that confirms pinning one movement to a unit. Only that movement's slots move; the rest of the app is untouched.",
+    "placeholders": {
+      "unit": {
+        "type": "String",
+        "example": "pounds"
+      }
+    }
+  },
+  "exerciseDetailWarmups": "WARM-UPS",
+  "@exerciseDetailWarmups": {
+    "description": "Section heading over how many warm-up rungs this movement opens with. Rendered in small capitals; the capitals are the app's styling, not the words'."
+  },
   "exerciseDetailMyNote": "MY NOTE",
   "@exerciseDetailMyNote": {
     "description": "Section heading over the user's private note about this movement — a seat height, a pin number. Rendered in small capitals; the capitals are the app's styling, not the words'."
@@ -2914,10 +2932,6 @@
   "backupIncludeVideos": "Include set videos",
   "@backupIncludeVideos": {
     "description": "Label of the checkbox that adds filmed sets to the backup. 'Set videos' is the same thing videoSettingsTitle configures."
-  },
-  "backupVideosLeftOut": "Set videos are not included.",
-  "@backupVideosLeftOut": {
-    "description": "Shown under the checkbox while it is unticked, so the omission is known before the file is made rather than after it is restored. One sentence."
   },
   "backupTooBig": "Warning: backup exceeds {limit}. Consider excluding set videos.",
   "@backupTooBig": {

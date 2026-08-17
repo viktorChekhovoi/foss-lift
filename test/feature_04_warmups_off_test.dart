@@ -136,6 +136,81 @@ void main() {
     });
   });
 
+  group('A movement can carry a warm-up count of its own', () {
+    /// The first movement of Push, pinned to [count] rungs.
+    Future<Exercise> pin(int? count) async {
+      final wid = await workoutIdNamed(db, 'Push');
+      final first = (await db.itemsForWorkout(wid)).first.exercise;
+      await db.setExerciseWarmupSets(first.id, count);
+      return first;
+    }
+
+    test('its ramp opens at its own count, and the others at the app\'s',
+        () async {
+      await pin(5);
+      await startDay('Push');
+
+      expect(session().exercises[0].warmupCount, 5);
+      expect(session().exercises[1].warmupCount, kDefaultWarmupSets);
+    });
+
+    test('none on a movement means no ramp on that movement alone', () async {
+      await pin(0);
+      await startDay('Push');
+
+      expect(session().exercises[0].warmups, isEmpty);
+      expect(session().exercises[1].warmups, isNotEmpty);
+    });
+
+    test('app-wide none still wins outright', () async {
+      await pin(5);
+      await db.setDefaultWarmupSets(0);
+      await startDay('Push');
+
+      expect(anyRamp(), isFalse,
+          reason: 'a count on a movement is not an exemption from "off"');
+    });
+
+    test('a day with its ramps off wins too', () async {
+      await pin(5);
+      await db.setWorkoutWarmupsEnabled(await workoutIdNamed(db, 'Push'), false);
+      await startDay('Push');
+
+      expect(anyRamp(), isFalse);
+    });
+
+    test('the stepper on the board outranks it for today', () async {
+      await pin(5);
+      final ctl = await startDay('Push');
+
+      ctl.setWarmupCount(0, 2);
+      expect(session().exercises[0].warmupCount, 2);
+      // And a template edit arriving mid-session does not undo that.
+      await ctl.reconfigure(0);
+      expect(session().exercises[0].warmupCount, 2);
+    });
+
+    test('the day\'s estimate prices what each movement will open with',
+        () async {
+      final wid = await workoutIdNamed(db, 'Push');
+      final routine = await routineNamed(db);
+      final items = (await db.itemsForWorkout(wid)).map((v) => v.item).toList();
+      final first = await pin(6);
+
+      final flat = estimateWorkoutDuration(
+        items: items,
+        routineRestSeconds: routine.restSeconds,
+      );
+      final withOwn = estimateWorkoutDuration(
+        items: items,
+        routineRestSeconds: routine.restSeconds,
+        exerciseWarmupSets: {first.id: 6},
+      );
+      expect(withOwn, greaterThan(flat),
+          reason: 'six rungs cost more than three');
+    });
+  });
+
   group('The switch is in the workout builder', () {
     testWidgets('and what it is set to is what the workout stores',
         (tester) async {

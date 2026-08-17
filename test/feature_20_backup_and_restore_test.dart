@@ -8,6 +8,7 @@
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/material.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/backup_archive.dart';
@@ -332,20 +333,22 @@ void main() {
       expect(find.text(l10n.profileBackup), findsNothing);
     });
 
-    testWidgets('it says clips are left out, and stops saying so when they are'
-        ' included', (tester) async {
+    testWidgets('the unticked box is the whole of the telling', (tester) async {
+      // No line under the checkbox repeating what the checkbox says. What is
+      // worth a note is the size, which appears once clips are in.
       final container = containerFor(memory);
       addTearDown(container.dispose);
 
       await tester.pumpWidget(routedAppUnder(container, const BackupScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.backupVideosLeftOut), findsOneWidget);
-
-      await tester.tap(find.text(l10n.backupIncludeVideos));
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.backupVideosLeftOut), findsNothing);
+      final tick =
+          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(tick.value, isFalse, reason: 'clips are out until asked for');
+      expect(
+        find.textContaining(RegExp('videos? are not', caseSensitive: false)),
+        findsNothing,
+      );
     });
 
     testWidgets('a backup big enough to be a nuisance says so', (tester) async {

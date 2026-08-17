@@ -9,6 +9,7 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../util/target_label.dart';
+import '../util/units.dart';
 import '../widgets/plate_line.dart';
 import '../widgets/start_workout.dart';
 import '../widgets/workout_estimate.dart';
@@ -201,7 +202,12 @@ class _ExerciseRow extends StatelessWidget {
   });
   final int index;
   final WorkoutItemView view;
+
+  /// The app-wide unit. What this row actually reads in is [_unit] — the
+  /// movement's own, where it has one.
   final String unit;
+
+  String get _unit => unitForExercise(unit, view.exercise.unitOverride);
   final PlateSettings plates;
   final bool last;
 
@@ -220,7 +226,7 @@ class _ExerciseRow extends StatelessWidget {
       weightKg: w,
       type: view.exercise.weightType,
       settings: plates,
-      unit: unit,
+      unit: _unit,
       barKg: view.exercise.barWeight,
     );
   }

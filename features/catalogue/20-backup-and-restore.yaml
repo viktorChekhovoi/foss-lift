@@ -46,8 +46,9 @@ groups:
     t: Set videos are left out unless you ask for them
     d: >-
       a training log is kilobytes and a reel of clips is hundreds of megabytes, so
-      the useful backup is the one that fits in a message. The row says so rather
-      than leaving you to find out from the file size.
+      the useful backup is the one that fits in a message. The unticked box is the
+      whole of the telling — a line under it repeating that they are left out says
+      what the box already says.
     uses:
     - share.backup-file
     - video.storage

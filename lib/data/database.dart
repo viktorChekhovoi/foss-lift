@@ -132,10 +132,33 @@ class Exercises extends Table {
   /// The groups the movement only assists, [kGroupSeparator]-joined.
   TextColumn get secondaryGroups => text().withDefault(const Constant(''))();
 
-  // The two group columns sit at the end of the table rather than beside
+  /// The unit this one movement is read and typed in — `kg` or `lb` — when the
+  /// app-wide one is wrong for it. Null, the usual case, means it follows the
+  /// app.
+  ///
+  /// Per exercise rather than app-wide because a gym is not one unit: the
+  /// dumbbell rack is stamped in pounds and the bar is loaded in kilograms, and
+  /// which one a lift is counted in is a fact about the lift. Storage is
+  /// unaffected — every weight in this app is kilograms, here as everywhere —
+  /// but the override travels with the movement into everything that reads or
+  /// asks for one of its weights: the board, the builder, the ramp's loadable
+  /// grid and its slots' step rates.
+  TextColumn get unitOverride => text().nullable()();
+
+  /// How many warm-up rungs this movement opens with, over
+  /// `Settings.warmupSets`. Null follows the setting; zero is a movement you
+  /// never warm up for.
+  ///
+  /// Consulted only while the app-wide count is above zero — see
+  /// [warmupCountFor]. None app-wide means the app suggests no ramps at all, and
+  /// a movement's own count is not an exemption from that.
+  IntColumn get warmupSets => integer().nullable()();
+
+  // The group columns sit at the end of the table rather than beside
   // `muscleGroup`, where they read better, because `ALTER TABLE ADD COLUMN`
   // can only append: putting them here is what makes an upgraded database the
-  // same shape as a fresh one.
+  // same shape as a fresh one. The two columns after them are there for the
+  // same reason, and whatever comes next goes below these.
 }
 
 /// The three group columns of an exercise row, read as the one fact they are.
@@ -1609,8 +1632,13 @@ class AppDatabase extends _$AppDatabase {
   ///   with no weeks and on week one of the cycle it has not got, and the switch
   ///   arrives off — so an upgraded install trains exactly what it trained
   ///   before and the builder looks the way it looked.
+  /// - **v13** — `Exercises.unit_override` and `Exercises.warmup_sets`, the unit
+  ///   and the warm-up count a movement can carry of its own. Null on every
+  ///   movement already on a phone, which is what "this one follows the app"
+  ///   means — so nothing reads differently and no ramp changes length until
+  ///   somebody sets one.
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1784,6 +1812,18 @@ class AppDatabase extends _$AppDatabase {
           'CHECK ("advanced_programming" IN (0, 1))',
         );
       }
+      // v13 — a movement can carry its own unit and its own warm-up count. Both
+      // null on every movement already on a phone: null is "follow the app",
+      // which is the only thing a movement classified before either existed can
+      // have meant, and it is what keeps an upgrade reading exactly as it read.
+      if (from < 13) {
+        await m.database.customStatement(
+          'ALTER TABLE "exercises" ADD COLUMN "unit_override" TEXT NULL',
+        );
+        await m.database.customStatement(
+          'ALTER TABLE "exercises" ADD COLUMN "warmup_sets" INTEGER NULL',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -1950,6 +1990,49 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setExerciseBarWeight(int id, double? kg) =>
       (update(exercises)..where((e) => e.id.equals(id))).write(
         ExercisesCompanion(barWeight: Value(kg)),
+      );
+
+  /// Gives one movement a unit of its own, or hands it back to the app's.
+  ///
+  /// The same pass [setWeightUnit] makes over the templates, scoped to this
+  /// exercise's slots: a suggested weight is snapped to something the new unit
+  /// can load, and a slot still sitting on the old unit's default step takes the
+  /// new one's. The reasoning is identical — these are the numbers you are about
+  /// to act on, and 220.46 lb is not a bar anybody sets — and so is what is left
+  /// alone: logged sets keep the kilograms they were lifted at.
+  ///
+  /// The comparison is between *effective* units, not stored ones. Pinning a
+  /// movement to the unit the app is already on changes nothing to convert, and
+  /// clearing an override on a phone that has since switched units is a real
+  /// move from one unit to the other.
+  Future<void> setExerciseUnit(int id, String? unit) {
+    return transaction(() async {
+      final row = await (select(
+        exercises,
+      )..where((e) => e.id.equals(id))).getSingleOrNull();
+      if (row == null) return;
+      final appUnit = await _appUnit();
+      final was = unitForExercise(appUnit, row.unitOverride);
+      final now = unitForExercise(appUnit, unit);
+      await (update(exercises)..where((e) => e.id.equals(id))).write(
+        ExercisesCompanion(unitOverride: Value(unit)),
+      );
+      if (was == now) return;
+      await _reunitItems(
+        await (select(workoutItems)
+              ..where((i) => i.exerciseId.equals(id)))
+            .get(),
+        from: was,
+        to: now,
+      );
+    });
+  }
+
+  /// How many warm-up rungs this movement opens with. Null hands it back to the
+  /// app-wide count; zero is a movement you never warm up for.
+  Future<void> setExerciseWarmupSets(int id, int? sets) =>
+      (update(exercises)..where((e) => e.id.equals(id))).write(
+        ExercisesCompanion(warmupSets: Value(sets)),
       );
 
   // ---- Routines -----------------------------------------------------------
@@ -3049,6 +3132,9 @@ class AppDatabase extends _$AppDatabase {
   /// **Nothing else is rewritten.** Logged sets keep the kilograms they were
   /// lifted at, their goal weights with them, and the bars and plates the gym
   /// owns weigh what they weigh in any unit.
+  /// **A movement pinned to a unit of its own is left where it is**, along with
+  /// its slots: its numbers are already in the unit somebody chose for it, and
+  /// the app-wide setting is the answer for everything nobody chose.
   Future<void> setWeightUnit(String unit) {
     return transaction(() async {
       final row =
@@ -3057,32 +3143,64 @@ class AppDatabase extends _$AppDatabase {
       await _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
       if (was == unit) return;
 
-      for (final item in await select(workoutItems).get()) {
-        final mode = item.progression;
-        var patch = const WorkoutItemsCompanion();
-        var moved = false;
-        if (isDefaultIncrement(item.increment, mode, was)) {
-          patch = patch.copyWith(
-              increment: Value(defaultIncrementFor(mode, unit)));
-          moved = true;
-        }
-        if (isDefaultDeload(item.deload, mode, was)) {
-          patch = patch.copyWith(deload: Value(defaultDeloadFor(mode, unit)));
-          moved = true;
-        }
-        final weight = item.suggestedWeight;
-        if (weight != null && weight > 0) {
-          final snapped = snapToUnitStep(weight, unit);
-          if (snapped != weight) {
-            patch = patch.copyWith(suggestedWeight: Value(snapped));
-            moved = true;
-          }
-        }
-        if (!moved) continue;
-        await (update(workoutItems)..where((i) => i.id.equals(item.id)))
-            .write(patch);
-      }
+      final pinned = {
+        for (final e in await (select(
+          exercises,
+        )..where((e) => e.unitOverride.isNotNull()))
+            .get())
+          e.id,
+      };
+      await _reunitItems(
+        [
+          for (final item in await select(workoutItems).get())
+            if (!pinned.contains(item.exerciseId)) item,
+        ],
+        from: was,
+        to: unit,
+      );
     });
+  }
+
+  /// Moves [items] from one unit to another: the default step rates swap and the
+  /// suggested weights snap. See [setWeightUnit] for why those two and nothing
+  /// else, and [setExerciseUnit] for the other caller.
+  Future<void> _reunitItems(
+    List<WorkoutItem> items, {
+    required String from,
+    required String to,
+  }) async {
+    for (final item in items) {
+      final mode = item.progression;
+      var patch = const WorkoutItemsCompanion();
+      var moved = false;
+      if (isDefaultIncrement(item.increment, mode, from)) {
+        patch = patch.copyWith(increment: Value(defaultIncrementFor(mode, to)));
+        moved = true;
+      }
+      if (isDefaultDeload(item.deload, mode, from)) {
+        patch = patch.copyWith(deload: Value(defaultDeloadFor(mode, to)));
+        moved = true;
+      }
+      final weight = item.suggestedWeight;
+      if (weight != null && weight > 0) {
+        final snapped = snapToUnitStep(weight, to);
+        if (snapped != weight) {
+          patch = patch.copyWith(suggestedWeight: Value(snapped));
+          moved = true;
+        }
+      }
+      if (!moved) continue;
+      await (update(workoutItems)..where((i) => i.id.equals(item.id)))
+          .write(patch);
+    }
+  }
+
+  /// The app-wide unit as stored, for the writers that have to compare against
+  /// it. Screens read `weightUnitProvider` instead.
+  Future<String> _appUnit() async {
+    final row =
+        await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    return row?.weightUnit ?? 'kg';
   }
 
   /// The routine the Today tab is currently about, or null if none is chosen.

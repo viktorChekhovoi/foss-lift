@@ -74,10 +74,17 @@ int setSeconds({int reps = 0, int holdSeconds = 0}) =>
 /// rest of its own and opening each ramp with [warmupSets] rungs — the setting a
 /// session seeds from, so the card and the session agree. [Duration.zero] when
 /// there is nothing to do.
+///
+/// [exerciseWarmupSets] is the count a movement carries of its own, by exercise
+/// id, for the movements that carry one. Resolved against [warmupSets] by
+/// [warmupCountFor], the same way a session resolves it — a card that priced
+/// three rungs where the board will build five is a card nobody can plan an
+/// evening from.
 Duration estimateWorkoutDuration({
   required List<WorkoutItem> items,
   required int routineRestSeconds,
   int warmupSets = kDefaultWarmupSets,
+  Map<int, int> exerciseWarmupSets = const {},
 }) {
   // The day flattened into what it actually is: an effort, then the rest that
   // follows it. Built in order so the trailing rest — the one you never take —
@@ -103,7 +110,10 @@ Duration estimateWorkoutDuration({
     // movement's last rung its own rest, because working sets are what follow.
     for (final at in group) {
       final item = items[at];
-      final rungs = warmupRungsFor(item, sets: warmupSets);
+      final rungs = warmupRungsFor(
+        item,
+        sets: warmupCountFor(warmupSets, exerciseWarmupSets[item.exerciseId]),
+      );
       for (var i = 0; i < rungs; i++) {
         segments.add((
           work: setSeconds(reps: warmupReps(_rungFraction(i, rungs))),

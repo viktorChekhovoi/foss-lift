@@ -147,7 +147,7 @@ has "Upper 1" and "Upper 2".
 
 | Table          | Holds |
 |----------------|-------|
-| `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup (the **lead** group — the one it files under and the one an FLR1 code carries), `extraPrimaryGroups` and `secondaryGroups` (the rest of what it trains and what it only assists, unit-separator-joined; read all three through `Exercise.muscles` as a `MuscleMap`), equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code) |
+| `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup (the **lead** group — the one it files under and the one an FLR1 code carries), `extraPrimaryGroups` and `secondaryGroups` (the rest of what it trains and what it only assists, unit-separator-joined; read all three through `Exercise.muscles` as a `MuscleMap`), equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code), `unitOverride` (nullable `kg`/`lb` — the unit this one movement is read and typed in; null follows the app-wide setting), `warmupSets` (nullable — how many warm-up rungs it opens with; null follows `Settings.warmup_sets`, and neither is consulted while that is zero). Neither of the last two travels in a routine code |
 | `Routines`     | A program. name, `description` (nullable, ≤`kMaxDescriptionLength` — what the program is, in a sentence or two; shipped copies carry the canonical English and read through `seededDescription`), `seedKey` (nullable — which demo program this is; **cleared on rename**, so a routine you have named stops following the language), colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position, `warmupsEnabled` (on by default — off means this day suggests no warm-up ramps at all) |
 | `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom/cycle), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), `cycleBlocks` (nullable — the weeks a cycle rotates through, the same row grammar with `|` between weeks) and `cyclePosition` (which week the next session uses; program state, so it survives a builder edit and does not travel in a share code), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters, `supersetWithPrevious` — trained in the same round as the slot above it, see `data/superset.dart` — and the advanced axis it can be put on: `addWeightAtTopOfRange` (take reps and weight in turn), `repsIncrement`/`repsDeload` (the rep half of its rates, beside the weight half above) and `repsTarget` (nullable — where the climb has got to inside the range; null is the bottom of it, and `WorkoutItemTarget.goalReps` is how it is read), and `sparedRates` (nullable — the step and back-off kept for the axes the slot is *not* on, encoded by `encodeSparedRates` in `data/progression.dart`) |
@@ -839,7 +839,7 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
-  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12**
+  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13**
   (`Settings.warmup_sets`; `Exercises.extra_primary_groups` and
   `secondary_groups`; `WorkoutItems.superset_with_previous`;
   `Routines.description`; the starter movements this build ships that an
@@ -847,7 +847,8 @@ you never looked at.
   and the same starter walk again; `Workouts.warmups_enabled`;
   `WorkoutItems.add_weight_at_top_of_range`; `WorkoutItems.reps_increment`,
   `reps_deload` and `reps_target`; `WorkoutItems.spared_rates`; `WorkoutItems.cycle_blocks` and `cycle_position`
-  beside `Settings.advanced_programming`). The starter walk
+  beside `Settings.advanced_programming`; `Exercises.unit_override` and
+  `Exercises.warmup_sets`). The starter walk
   is generic — it walks the shipped table and inserts what is missing — but each
   rung that runs it runs **once**, so a release that adds more movements needs a
   rung of its own rather than an edit to one that shipped. Each rung spells

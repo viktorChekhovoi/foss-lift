@@ -310,6 +310,15 @@ class ItemDraft {
     return goal < repsMin ? repsMin : (goal > top ? top : goal);
   }
 
+  /// The unit this slot's weights are read and typed in: the movement's own if
+  /// it has been pinned to one, [appUnit] otherwise. See `unitForExercise`.
+  ///
+  /// Every screen that draws a slot resolves it through here, so the summary
+  /// line under a row, the sheet that edits it and the board that runs it all
+  /// name the same number the same way.
+  String unitIn(String appUnit) =>
+      unitForExercise(appUnit, exercise?.unitOverride);
+
   /// What each set is aiming at, given the gym's [unit] and the lightest weight
   /// this slot may be loaded to. The one place the scheme is turned into
   /// numbers on this side of the app — the live session calls the same
@@ -706,7 +715,14 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     final picked = await pickExercise(context);
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
-    _bump(() => _items.add(ItemDraft.forExercise(picked, unit: widget.unit)));
+    // In the movement's own unit, where it has one: a slot on a pounds-pinned
+    // lift opens on the 5 lb step rather than on the metric pair.
+    _bump(() => _items.add(
+          ItemDraft.forExercise(
+            picked,
+            unit: unitForExercise(widget.unit, picked.unitOverride),
+          ),
+        ));
     // Straight into the new slot's settings: an exercise nobody has set the
     // sets, reps and weight on is not finished being added, and landing back on
     // the list makes every add two taps with the second one easy to forget.
@@ -729,7 +745,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     await showItemConfigSheet(
       context,
       draft: _items[i],
-      unit: widget.unit,
+      unit: _items[i].unitIn(widget.unit),
       routineRest: widget.routineRest,
       defaultBarKg: widget.defaultBarKg,
       exerciseAbove: above,
@@ -752,7 +768,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
       rowBuilder: (i, draft) => BuilderReorderRow(
         index: i,
         title: draft.name,
-        subtitle: draftSummary(l10n, draft, widget.unit),
+        subtitle: draftSummary(l10n, draft, draft.unitIn(widget.unit)),
         // The group is tagged once, on the row it starts at, and drawn on all of
         // its rows.
         badge: inSuperset(joins, i) && !joins[i] ? l10n.commonSuperset : null,
@@ -837,6 +853,14 @@ class _ItemConfigSheet extends ConsumerStatefulWidget {
 }
 
 class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
+  /// The unit every weight on this sheet is read and typed in.
+  ///
+  /// Resolved on each build rather than taken once, because the movement behind
+  /// the slot is editable from here: swapping it for one pinned to another unit
+  /// has to move the fields with it, not leave them reading the unit the sheet
+  /// opened in.
+  String get _unit => unitForExercise(widget.unit, d.exercise?.unitOverride);
+
   late final TextEditingController _weight;
 
   /// Whether the Target card's advanced half is open.
@@ -862,7 +886,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     final floor = d.floorKg(widget.defaultBarKg);
     if (floor <= 0) return l10n.itemEditorWeightUnset;
     return l10n.itemEditorWeightFloor(
-      fmtWeight(toDisplayWeight(floor, widget.unit)),
+      fmtWeight(toDisplayWeight(floor, _unit)),
     );
   }
 
@@ -872,7 +896,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     _weight = TextEditingController(
       text: d.weightKg == null
           ? ''
-          : fmtWeight(toDisplayWeight(d.weightKg!, widget.unit)),
+          : fmtWeight(toDisplayWeight(d.weightKg!, _unit)),
     );
   }
 
@@ -894,9 +918,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   double _weightNudge(int sign) {
     final onWeightRates =
         d.progression == ProgressionMode.weight || d.onAdvancedAxis;
-    if (!onWeightRates) return unitStepKg(widget.unit);
+    if (!onWeightRates) return unitStepKg(_unit);
     final rate = sign > 0 || d.deload <= 0 ? d.increment : d.deload;
-    return rate > 0 ? rate : unitStepKg(widget.unit);
+    return rate > 0 ? rate : unitStepKg(_unit);
   }
 
   /// Whether − has anywhere to go: a field nobody has filled in has no number to
@@ -924,9 +948,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   /// Rounded to what the box will actually show, so a rate converted from
   /// pounds cannot leave a tail behind the text on every tap.
   void _setWeight(double kg) {
-    final display = roundStepWeight(toDisplayWeight(kg, widget.unit));
+    final display = roundStepWeight(toDisplayWeight(kg, _unit));
     _weight.text = fmtWeight(display);
-    _bump(() => d.weightKg = toKg(display, widget.unit));
+    _bump(() => d.weightKg = toKg(display, _unit));
   }
 
   /// One of the faint lines this sheet explains itself with — the axis it has
@@ -941,7 +965,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   /// of a climbed range are worth, whichever axis the sentence around it is
   /// about.
   String _weightAmount(AppLocalizations l10n, double amount) =>
-      progressionAmount(l10n, amount, ProgressionMode.weight, widget.unit);
+      progressionAmount(l10n, amount, ProgressionMode.weight, _unit);
 
   void _bump(VoidCallback fn) {
     setState(fn);
@@ -967,7 +991,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   /// that has just been told it carries nothing has no number left to show.
   void _adopt(Exercise e) {
     _bump(() {
-      d.adoptExercise(e, unit: widget.unit);
+      // The unit the *new* movement is read in: swapping a slot onto a
+      // pounds-pinned lift is a move between units for every default it takes.
+      d.adoptExercise(e, unit: unitForExercise(_unit, e.unitOverride));
       if (d.weightKg == null) _weight.text = '';
     });
   }
@@ -1153,7 +1179,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   const SizedBox(height: 18),
                   _SchemeSection(
                     draft: d,
-                    unit: widget.unit,
+                    unit: _unit,
                     defaultBarKg: widget.defaultBarKg,
                     advanced:
                         ref.watch(advancedProgrammingProvider).value ?? false,
@@ -1179,9 +1205,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               builderCard(
                   d.scheme == SetScheme.cycle
                       ? '${l10n.itemEditorTrainingMax} '
-                          '(${unitSuffix(l10n, widget.unit)})'
+                          '(${unitSuffix(l10n, _unit)})'
                       : l10n.itemEditorWeightWithUnit(
-                          unitSuffix(l10n, widget.unit)), [
+                          unitSuffix(l10n, _unit)), [
                 Row(
                   key: kWeightFieldKey,
                   children: [
@@ -1207,7 +1233,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                           final parsed =
                               double.tryParse(v.trim().replaceAll(',', '.'));
                           _bump(() => d.weightKg =
-                              parsed == null ? null : toKg(parsed, widget.unit));
+                              parsed == null ? null : toKg(parsed, _unit));
                         },
                       ),
                     ),
@@ -1232,9 +1258,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                       d.modes.contains(ProgressionMode.reps),
                   advancedEnabled: d.canClimbRange,
                   onChanged: (m) =>
-                      _bump(() => d.setMode(m, unit: widget.unit)),
+                      _bump(() => d.setMode(m, unit: _unit)),
                   onAdvanced: () =>
-                      _bump(() => d.setAdvanced(true, unit: widget.unit)),
+                      _bump(() => d.setAdvanced(true, unit: _unit)),
                 )
               else
                 _note(_soleAxis(l10n, d.modes.first)),
@@ -1252,7 +1278,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     key: kStepUpFieldKey,
                     value: d.increment,
                     mode: d.progression,
-                    unit: widget.unit,
+                    unit: _unit,
                     // A slot that steps up by nothing never progresses, so the
                     // buttons stop at one tap's worth rather than at zero.
                     allowZero: false,
@@ -1266,7 +1292,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                       key: kRepsStepUpFieldKey,
                       value: d.repsIncrement,
                       mode: ProgressionMode.reps,
-                      unit: widget.unit,
+                      unit: _unit,
                       allowZero: false,
                       onChanged: (v) => _bump(() => d.repsIncrement = v),
                     ),
@@ -1279,7 +1305,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     key: kBackOffFieldKey,
                     value: d.deload,
                     mode: d.progression,
-                    unit: widget.unit,
+                    unit: _unit,
                     // Zero is a real answer here: a missed session that never
                     // lightens the load.
                     onChanged: (v) => _bump(() => d.deload = v),
@@ -1292,7 +1318,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                       key: kRepsBackOffFieldKey,
                       value: d.repsDeload,
                       mode: ProgressionMode.reps,
-                      unit: widget.unit,
+                      unit: _unit,
                       onChanged: (v) => _bump(() => d.repsDeload = v),
                     ),
                   ),
@@ -1319,7 +1345,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               // The numbers above, read back as the rule they add up to: one
               // sentence on an ordinary axis, and on the advanced one what the
               // reps do plus what happens at each end of the range.
-              _note(progressionRule(l10n, d, widget.unit)),
+              _note(progressionRule(l10n, d, _unit)),
               if (d.onAdvancedAxis) ...[
                 const SizedBox(height: 6),
                 _note(l10n.itemEditorRuleAtTop(
@@ -1362,7 +1388,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   note: l10n.itemEditorAddWeightAtTopHint,
                   disabledNote: l10n.itemEditorRangeClimbNeedsRange,
                   onChanged: (v) =>
-                      _bump(() => d.setAdvanced(v, unit: widget.unit)),
+                      _bump(() => d.setAdvanced(v, unit: _unit)),
                 ),
               ],
             ]),

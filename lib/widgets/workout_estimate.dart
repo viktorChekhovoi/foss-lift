@@ -56,6 +56,10 @@ class WorkoutEstimate extends ConsumerWidget {
         warmupSets: workout!.warmupsEnabled
             ? ref.watch(defaultWarmupSetsProvider).value ?? kDefaultWarmupSets
             : 0,
+        // And the counts the movements themselves carry, over that.
+        exerciseWarmupSets: {
+          for (final v in items) v.exercise.id: ?v.exercise.warmupSets,
+        },
       ),
     );
     if (minutes <= 0) return const SizedBox.shrink();

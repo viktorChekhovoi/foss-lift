@@ -320,9 +320,15 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _restForSet(ei, wi, warmup: true, wasDone: wasDone);
   }
 
-  /// Asks for a weight in the display unit and hands back kilograms, or null if
-  /// the dialog was dismissed. Never less than [minKg] — see [loadFloorKg].
-  Future<double?> _askWeight({
+  /// Asks for a weight in [e]'s own display unit and hands back kilograms, or
+  /// null if the dialog was dismissed. Never less than [minKg] — see
+  /// [loadFloorKg].
+  ///
+  /// The unit is the exercise's rather than the app's because reading a number
+  /// in one unit and typing the next in another is how somebody ends up
+  /// benching a hundred pounds.
+  Future<double?> _askWeight(
+    ExerciseEntry e, {
     required String title,
     required double weightKg,
     required double minKg,
@@ -335,7 +341,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       subtitle: subtitle,
       weightKg: weightKg,
       minKg: minKg,
-      unit: ref.read(weightUnitProvider).value ?? 'kg',
+      unit: e.unit,
     ),
   );
 
@@ -354,6 +360,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
     final kg = await _askWeight(
+      e,
       title: seededName(AppLocalizations.of(context), e.seedKey, e.name),
       weightKg: e.workingKg ?? 0,
       minKg: _floorFor(e),
@@ -407,16 +414,18 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final exercise = await db.exerciseById(item.exerciseId);
     if (!mounted) return;
 
-    final unit = ref.read(weightUnitProvider).value ?? 'kg';
     final barKg = ref.read(plateSettingsProvider).barKg;
     final draft = ItemDraft.fromView(WorkoutItemView(item, exercise));
     await showItemConfigSheet(
       context,
       draft: draft,
-      unit: unit,
+      // The movement's own unit: the sheet's weight and step fields are this
+      // exercise's numbers, and the board behind it is already reading them
+      // that way.
+      unit: e!.unit,
       // What the rest field shows when the slot names none of its own. The
       // session already resolved it once, and it is the same number.
-      routineRest: e!.restSeconds,
+      routineRest: e.restSeconds,
       defaultBarKg: barKg,
       // No superset checkbox here — see [showItemConfigSheet].
       onChanged: () {},
@@ -472,6 +481,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (e == null) return;
     final l10n = AppLocalizations.of(context);
     final kg = await _askWeight(
+      e,
       title: l10n.sessionSetTitle(si + 1),
       subtitle: l10n.sessionSetOnly,
       weightKg: e.sets[si].weight,
@@ -486,6 +496,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (e == null) return;
     final l10n = AppLocalizations.of(context);
     final kg = await _askWeight(
+      e,
       title: l10n.sessionWarmupTitle(wi + 1),
       subtitle: l10n.sessionWarmupOnly,
       weightKg: e.warmups[wi].weight,
@@ -599,6 +610,21 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     // you are resting *for*.
     final cue = nextUp(session);
     final next = cue == null || cue.kind == CueKind.finished ? null : cue;
+    // The rest bar names one movement's next load, so it reads in that
+    // movement's unit rather than the app's — the same rule the board rows
+    // follow, and the same one the shade and the notification follow. A prompt
+    // only ever carries a weight belonging to the exercise the rest is *for*
+    // (see [ActiveWorkoutController.restAfterSet]); a prompt about the movement
+    // after it names no weight at all, so any unit does there.
+    final restUnit = switch (session.restFor?.exercise) {
+      final int ei when ei < session.exercises.length =>
+        session.exercises[ei].unit,
+      _ => unit,
+    };
+    // The line that replaces the countdown says what is next, which is the cue
+    // — a different movement from the one just rested for, at the end of an
+    // exercise.
+    final cueUnit = cue == null ? unit : session.unitForCue(cue);
 
     return Scaffold(
       body: SafeArea(
@@ -650,7 +676,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                   _ExerciseBlock(
                                     index: ei,
                                     exercise: session.exercises[ei],
-                                    unit: unit,
+                                    unit: session.exercises[ei].unit,
                                     plates: plates,
                                     // Whether the ramp is where you are. Open — as
                                     // it starts — the rung carries the mark; shut,
@@ -686,7 +712,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           ),
                                           number: wi + 1,
                                           entry: entry,
-                                          unit: unit,
+                                          unit: session.exercises[ei].unit,
                                           isNext: marked,
                                           // The ramp changes load every rung, so the
                                           // bar it describes is named on the row —
@@ -699,7 +725,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                                 .exercises[ei]
                                                 .weightType,
                                             settings: plates,
-                                            unit: unit,
+                                            unit: session.exercises[ei].unit,
                                             barKg: session.exercises[ei].barKg,
                                           ),
                                           onEditWeight: () =>
@@ -733,7 +759,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           ei,
                                           si,
                                           entry,
-                                          unit,
+                                          session.exercises[ei].unit,
                                           cardio: session
                                               .exercises[ei]
                                               .cardioMachine,
@@ -743,7 +769,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           ),
                                           number: si + 1,
                                           entry: entry,
-                                          unit: unit,
+                                          unit: session.exercises[ei].unit,
                                           isNext: marked,
                                           onEditWeight: () => _editSetWeight(ei, si),
                                           showWeight: _showsWeight(
@@ -819,9 +845,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                           // where it used to be suppressed for being redundant
                           // — see [restIsOverLine].
                           done: session.restDone
-                              ? restIsOverLine(l10n, cue, unit)
+                              ? restIsOverLine(l10n, cue, cueUnit)
                               : null,
-                          unit: unit,
+                          unit: restUnit,
                           // −15s ends a rest with less than that left: below fifteen the
                           // button's only honest readings are "skip" and "do nothing".
                           onSub: () => ref

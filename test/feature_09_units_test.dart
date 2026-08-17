@@ -721,4 +721,141 @@ void main() {
       await stop(tester);
     });
   });
+
+  group('a movement with its own unit', () {
+    /// Back Squat, pinned to [unit] — or handed back to the app when null.
+    Future<Exercise> pinned(AppDatabase db, String? unit) async {
+      final ex = await exerciseNamed(db, 'Back Squat');
+      await db.setExerciseUnit(ex.id, unit);
+      return exerciseNamed(db, 'Back Squat');
+    }
+
+    test('the override is what the movement is read in, over the app', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      expect(unitForExercise('kg', null), 'kg',
+          reason: 'no override follows the app');
+      final ex = await pinned(db, 'lb');
+      expect(ex.unitOverride, 'lb');
+      expect(unitForExercise('kg', ex.unitOverride), 'lb');
+    });
+
+    test('storage is still kilograms', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100);
+      await pinned(db, 'lb');
+      // 100 kg is 220.46 lb, snapped to the 220 lb a rack can build — and
+      // stored as the kilograms that is.
+      final slot = await _onlySlot(db, wid);
+      expect(toDisplayWeight(slot.suggestedWeight!, 'lb'), closeTo(220, 1e-6));
+    });
+
+    test('pinning moves that movement\'s slots and no others', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final squat = await _slotAt(db, weightKg: 100);
+      final bench = await _slotAt(db, weightKg: 100, exercise: 'Bench Press');
+      await pinned(db, 'lb');
+
+      expect(toDisplayWeight((await _onlySlot(db, squat)).suggestedWeight!, 'lb'),
+          closeTo(220, 1e-6));
+      expect((await _onlySlot(db, bench)).suggestedWeight, closeTo(100, 1e-9),
+          reason: 'the bench was not pinned and must not move');
+    });
+
+    test('a slot on the old unit default takes the new one', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100);
+      expect((await _onlySlot(db, wid)).increment, closeTo(2.5, 1e-9));
+
+      await pinned(db, 'lb');
+      final slot = await _onlySlot(db, wid);
+      expect(toDisplayWeight(slot.increment, 'lb'), closeTo(kPoundStep, 1e-6));
+      expect(toDisplayWeight(slot.deload, 'lb'), closeTo(kPoundStep * 2, 1e-6));
+    });
+
+    test('a rate set on purpose is kept', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100, increment: 1.25);
+      await pinned(db, 'lb');
+      expect((await _onlySlot(db, wid)).increment, closeTo(1.25, 1e-9),
+          reason: '1.25 kg was chosen, not defaulted');
+    });
+
+    test('handing it back moves it back', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final wid = await _slotAt(db, weightKg: 100);
+      await pinned(db, 'lb');
+      await pinned(db, null);
+
+      final slot = await _onlySlot(db, wid);
+      expect((await exerciseNamed(db, 'Back Squat')).unitOverride, isNull);
+      expect(slot.increment, closeTo(2.5, 1e-9));
+    });
+
+    test('an app-wide switch leaves a pinned movement where it is', () async {
+      final db = memoryDb();
+      addTearDown(() async => db.close());
+
+      final squat = await _slotAt(db, weightKg: 100);
+      final bench = await _slotAt(db, weightKg: 100, exercise: 'Bench Press');
+      // Pinned to the unit the app is on: an explicit answer about this one
+      // movement, which the app-wide switch must not overrule.
+      await pinned(db, 'kg');
+      await db.setWeightUnit('lb');
+
+      expect((await _onlySlot(db, squat)).suggestedWeight, closeTo(100, 1e-9));
+      expect((await _onlySlot(db, squat)).increment, closeTo(2.5, 1e-9));
+      expect(toDisplayWeight((await _onlySlot(db, bench)).suggestedWeight!, 'lb'),
+          closeTo(220, 1e-6));
+    });
+
+    test('the live board reads the movement in its own unit', () async {
+      final db = memoryDb();
+      final container = containerFor(db);
+      addTearDown(() async {
+        container.dispose();
+        await db.close();
+      });
+
+      final ex = await exerciseNamed(db, 'Back Squat');
+      await db.setExerciseUnit(ex.id, 'lb');
+      final rid = await db.createRoutine(
+          name: 'Solo', color: 'FF0000', restSeconds: 90);
+      final wid = await db.createWorkout(rid, 'Day');
+      final squat = ItemDraft.forExercise(await exerciseNamed(db, 'Back Squat'))
+        ..sets = 3
+        ..repsMin = 5
+        ..weightKg = toKg(225, 'lb');
+      final bench = ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))
+        ..sets = 3
+        ..repsMin = 5
+        ..weightKg = 100;
+      await db.replaceWorkoutItems(
+          wid, itemCompanions([squat, bench], workoutId: wid));
+
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(workoutId: wid, name: 'Day');
+      final session = container.read(activeWorkoutProvider)!;
+
+      expect(session.unit, 'kg', reason: 'the app itself is still metric');
+      expect(session.exercises[0].unit, 'lb');
+      expect(session.exercises[1].unit, 'kg');
+      // And the arithmetic follows it: the working weight lands on the pounds
+      // grid rather than on a metric one.
+      expect(toDisplayWeight(session.exercises[0].workingKg!, 'lb'),
+          closeTo(225, 1e-6));
+      ctrl.discard();
+    });
+  });
 }

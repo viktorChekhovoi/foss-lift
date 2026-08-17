@@ -74,7 +74,12 @@ class _BodyState extends ConsumerState<_Body> {
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(exerciseHistoryProvider(widget.exercise.id));
-    final unit = ref.watch(weightUnitProvider).value ?? 'kg';
+    // The chart is one movement's history, so it is read in that movement's
+    // unit.
+    final unit = unitForExercise(
+      ref.watch(weightUnitProvider).value ?? 'kg',
+      widget.exercise.unitOverride,
+    );
     final l10n = AppLocalizations.of(context);
 
     return history.when(

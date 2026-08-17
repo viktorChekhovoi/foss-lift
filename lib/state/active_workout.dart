@@ -20,6 +20,7 @@ import '../services/set_video_store.dart';
 import '../services/workout_shade.dart'
     show pendingShadeActionsProvider, restIsOverLine;
 import '../util/cardio_units.dart';
+import '../util/units.dart';
 import 'session_mirror.dart';
 import 'workout_cue.dart';
 
@@ -176,8 +177,17 @@ class ExerciseEntry {
     this.floorKg = 0,
     this.supersetWithPrevious = false,
     this.cardioMachine = false,
+    this.unit = 'kg',
   }) : warmups = warmups ?? <SetEntry>[];
   final int? exerciseId;
+
+  /// The unit *this* movement is read and typed in — the app's, or the one it
+  /// was pinned to, resolved once at start like everything else the session
+  /// snapshots. See `unitForExercise`.
+  ///
+  /// The board reads this rather than [ActiveWorkout.unit], which stays what a
+  /// figure spanning the whole session is in.
+  final String unit;
 
   /// Whether this movement is done on a console that reports speed, incline,
   /// resistance and distance — carried from the library at start, because it is
@@ -491,6 +501,11 @@ class ActiveWorkout {
   /// They live on the session rather than being looked up again because a
   /// warm-up ramp has to be rebuildable the moment a working weight changes,
   /// and the board is not a place to be awaiting a database.
+  ///
+  /// **This is the app-wide unit**, and what belongs in it is a figure that
+  /// spans the session — the volume on the summary, a total. A weight belonging
+  /// to one movement is read in [ExerciseEntry.unit], which is this unless that
+  /// movement was pinned to another.
   final String unit;
   final List<PlateStack> plates;
 
@@ -534,6 +549,17 @@ class ActiveWorkout {
   final bool restDone;
 
   final int rev;
+
+  /// The unit to say a cue's weight in: the unit of the movement it is about.
+  ///
+  /// The shade and the rest notification each name one exercise's next set, so
+  /// they follow that exercise rather than the session — a pounds-pinned bench
+  /// must not arrive in the pocket in kilograms. Falls back to the session's for
+  /// a cue with no exercise behind it any more.
+  String unitForCue(WorkoutCue cue) =>
+      cue.exerciseIndex >= 0 && cue.exerciseIndex < exercises.length
+          ? exercises[cue.exerciseIndex].unit
+          : unit;
 
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
   int get doneSets =>
@@ -1065,9 +1091,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// makes you open the app to find out what for.
   String _whatComesNext(AppLocalizations l10n) {
     final s = state;
-    return s == null
-        ? l10n.restAlarmBackToIt
-        : restIsOverLine(l10n, nextUp(s), s.unit);
+    if (s == null) return l10n.restAlarmBackToIt;
+    final cue = nextUp(s);
+    return restIsOverLine(
+      l10n,
+      cue,
+      cue == null ? s.unit : s.unitForCue(cue),
+    );
   }
 
   // ---- The crash snapshot --------------------------------------------------
@@ -1243,8 +1273,15 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     required double barKg,
     required int warmupSets,
     required int defaultRestSeconds,
+    int? warmupCount,
   }) {
     final mode = v.item.progression;
+    // What this one movement counts in, which is the session's unit unless it
+    // has been pinned to another. Everything below reads it rather than the
+    // argument: the targets, the ramp and the grid they land on all describe
+    // the same bar, and reading half of them in one unit is how a set row and
+    // its header end up disagreeing.
+    final exUnit = unitForExercise(unit, v.exercise.unitOverride);
     // The goal is the hold for a timed exercise, and otherwise whatever the
     // slot's own target works out to — see [WorkoutItemTarget.goalReps], which
     // is where the four kinds of rep target are read in order.
@@ -1266,7 +1303,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       sets: v.item.setCount,
       goalReps: goal,
       topWeightKg: w,
-      unit: unit,
+      unit: exUnit,
       percent: v.item.schemePercent,
       custom: decodeCustomSets(v.item.customSets),
       cycle: v.item.cycleWeeks,
@@ -1285,9 +1322,15 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       restSeconds: v.item.restSeconds ?? defaultRestSeconds,
       // The same grid the set rows above landed on: the working weight and
       // the sets under it are one load, not two readings of it.
-      workingKg: resolveTopWeight(topWeightKg: w, unit: unit, floorKg: warmupBar),
+      workingKg:
+          resolveTopWeight(topWeightKg: w, unit: exUnit, floorKg: warmupBar),
       warmupBarKg: warmupBar,
-      warmupCount: warmupSets,
+      unit: exUnit,
+      // The movement's own ramp depth over the session's, unless the session's
+      // is none — see [warmupCountFor]. A count passed in outranks both: it is
+      // the stepper on the board, which is a decision about today.
+      warmupCount:
+          warmupCount ?? warmupCountFor(warmupSets, v.exercise.warmupSets),
       scheme: v.item.scheme,
       schemePercent: v.item.schemePercent,
       customSets: decodeCustomSets(v.item.customSets),
@@ -1310,7 +1353,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           ),
       ],
     );
-    _rebuildRamp(e, unit: unit, inventory: plates);
+    _rebuildRamp(e, inventory: plates);
     return e;
   }
 
@@ -1557,17 +1600,17 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final e = s.exercises[ei];
     e.workingKg = resolveTopWeight(
       topWeightKg: value < 0 ? 0 : value,
-      unit: s.unit,
+      unit: e.unit,
       floorKg: e.floorKg,
     );
     // Through the scheme, not straight onto every row: on a back-off or a ramp
     // the sets are a ladder, and moving its top has to move the rungs with it
     // rather than flatten them all onto the new number.
-    final targets = e.targetsAt(e.workingKg, s.unit);
+    final targets = e.targetsAt(e.workingKg, e.unit);
     for (var i = 0; i < e.sets.length; i++) {
       if (!e.sets[i].done) e.sets[i].weight = targets[i].weightKg ?? 0;
     }
-    _rebuildRamp(e, unit: s.unit, inventory: s.plates);
+    _rebuildRamp(e, inventory: s.plates);
     _commit(s.copyWith());
   }
 
@@ -1639,9 +1682,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       unit: s.unit,
       plates: s.plates,
       barKg: s.barKg,
-      // The stepper on the board is a decision about today and outranks the
-      // app-wide default a fresh entry would take.
-      warmupSets: old.warmupCount,
+      warmupSets: s.warmupSets,
+      // The stepper on the board is a decision about today and outranks both
+      // the app-wide default and the movement's own count.
+      warmupCount: old.warmupCount,
       defaultRestSeconds: routine.restSeconds,
     );
     _carryLoggedWork(from: old, to: fresh);
@@ -1754,7 +1798,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     e.warmupCount = count < 0
         ? 0
         : (count > kMaxWarmupSets ? kMaxWarmupSets : count);
-    _rebuildRamp(e, unit: s.unit, inventory: s.plates);
+    _rebuildRamp(e, inventory: s.plates);
     _commit(s.copyWith());
   }
 
@@ -1766,9 +1810,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// lifted it; a recompute redraws what is still ahead of you and leaves what
   /// is behind alone, which is the rule the working sets follow too. Rungs the
   /// new ramp no longer has (you asked for fewer) go with it.
+  /// The unit is the exercise's own ([ExerciseEntry.unit]) rather than the
+  /// session's: the rack a dumbbell movement climbs goes up in 5 lb steps at a
+  /// gym that counts its dumbbells in pounds, whatever the rest of the app is
+  /// reading. The plates and the bar stay the session's — they are the iron in
+  /// one gym.
   void _rebuildRamp(
     ExerciseEntry e, {
-    required String unit,
     required List<PlateStack> inventory,
   }) {
     final was = [...e.warmups];
@@ -1779,7 +1827,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     }
     e.warmupLadder = loadLadder(
       type: e.weightType,
-      unit: unit,
+      unit: e.unit,
       maxKg: e.workingKg!,
       barKg: e.warmupBarKg,
       inventory: inventory,
@@ -1937,6 +1985,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
           failures: it.failStreak,
           successThreshold: it.successThreshold,
           failureThreshold: it.failureThreshold,
+          unit: e.unit,
         ),
       );
     }
@@ -2015,7 +2064,14 @@ class ProgressionOutcome {
     required this.failures,
     required this.successThreshold,
     required this.failureThreshold,
+    this.unit = 'kg',
   });
+
+  /// The unit this movement's target and step are read in — carried from the
+  /// session entry, because the banner names one exercise's numbers and a
+  /// pounds-pinned lift must not report its step in kilograms. Meaningless on
+  /// the rep and time axes, which count the same everywhere.
+  final String unit;
 
   /// The canonical English name. The summary renders
   /// `seededName(l10n, seedKey, name)` — see `util/seed_names.dart`.

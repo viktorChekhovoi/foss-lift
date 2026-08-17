@@ -195,7 +195,7 @@ void main() {
       addTearDown(db.close);
 
       final row = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(row.data.values.first, 12);
+      expect(row.data.values.first, db.schemaVersion);
     });
 
     test('and on the same shape a fresh install gets', () async {
@@ -417,7 +417,7 @@ void main() {
       addTearDown(db.close);
 
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.data.values.first, 12);
+      expect(version.data.values.first, db.schemaVersion);
     });
 
     test('and on the same shape a fresh install gets', () async {

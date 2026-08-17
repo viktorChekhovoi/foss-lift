@@ -46,6 +46,17 @@ typedef WarmupSet = ({double weightKg, int reps});
 /// default.
 const kDefaultWarmupSets = 3;
 
+/// How many rungs one movement's ramp opens with: its own count if it has been
+/// given one, the app-wide [appWide] otherwise.
+///
+/// **App-wide none wins outright.** Zero there is not a default to override; it
+/// is the app being told to stop suggesting warm-ups, and a count somebody set
+/// on a movement months ago is not an exemption from that. It is the same
+/// precedence a workout with its ramps switched off has — either "off" is
+/// enough.
+int warmupCountFor(int appWide, int? exerciseOwn) =>
+    appWide <= 0 ? 0 : (exerciseOwn ?? appWide);
+
 /// The most warm-up sets the live session will let you dial up to. Past this a
 /// ramp is warming you down, not up.
 const kMaxWarmupSets = 6;

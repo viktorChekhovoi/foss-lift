@@ -73,6 +73,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'floorKg': e.floorKg,
             'supersetWithPrevious': e.supersetWithPrevious,
             'cardioMachine': e.cardioMachine,
+            'unit': e.unit,
             'warmupCount': e.warmupCount,
             'warmupBarKg': e.warmupBarKg,
             'warmupRestSeconds': e.warmupRestSeconds,
@@ -105,7 +106,10 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
     final done = !resting && (m['restDone'] as bool? ?? false);
     final exercises = [
       for (final e in m['exercises'] as List)
-        _readExercise(e as Map<String, dynamic>),
+        _readExercise(
+          e as Map<String, dynamic>,
+          sessionUnit: m['unit'] as String,
+        ),
     ];
     _backfillLogOrder(exercises);
     return ActiveWorkout(
@@ -240,7 +244,14 @@ SetScheme _readScheme(Object? raw) {
   return SetScheme.flat;
 }
 
-ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
+/// [sessionUnit] is what a movement with no unit of its own in the snapshot
+/// falls back to — which is every movement in a snapshot written before an
+/// exercise could carry one.
+ExerciseEntry _readExercise(
+  Map<String, dynamic> m, {
+  required String sessionUnit,
+}) =>
+    ExerciseEntry(
       exerciseId: m['exerciseId'] as int?,
       itemId: m['itemId'] as int?,
       name: m['name'] as String,
@@ -265,6 +276,9 @@ ExerciseEntry _readExercise(Map<String, dynamic> m) => ExerciseEntry(
       // Likewise absent in a snapshot from a build that had no console readouts:
       // no exercise on that board offered them, so false is what it meant.
       cardioMachine: m['cardioMachine'] as bool? ?? false,
+      // Absent in a snapshot from a build where no movement could be pinned to
+      // a unit — where the session's was every movement's.
+      unit: m['unit'] as String? ?? sessionUnit,
       warmupCount: m['warmupCount'] as int,
       warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
       warmupRestSeconds: m['warmupRestSeconds'] as int,

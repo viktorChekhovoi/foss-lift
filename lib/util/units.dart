@@ -58,6 +58,18 @@ String weightWithUnit(AppLocalizations l10n, double? kg, String unit) {
       : l10n.unitWeightShort(value, unitSuffix(l10n, unit));
 }
 
+/// The unit one movement is read and typed in: its own if it has been given
+/// one, the app's otherwise.
+///
+/// **The only place the two are resolved.** Every screen that shows a weight
+/// belonging to a particular exercise goes through this, so a movement cannot
+/// read as pounds on the board and kilograms in the builder — and the same
+/// answer is what its step rates, its fine grid and its warm-up ladder are
+/// computed in. A screen showing a figure that spans movements (session volume,
+/// the weight moved in a week) has no exercise to ask about and uses the
+/// app-wide unit, which is the only unit a sum of several movements can be in.
+String unitForExercise(String appUnit, String? override) => override ?? appUnit;
+
 /// The three countries that weigh a barbell in pounds. Everywhere else is
 /// metric, so the list is short enough to write down.
 const Set<String> kPoundCountries = {'US', 'LR', 'MM'};
