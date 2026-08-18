@@ -3604,11 +3604,11 @@ void main() {
       await tapCell(tester, repsCell('w0-$last-Bench Press'));
       await tester.pump();
 
-      // The template's 80 kg reads 176.37 lb, put onto the quarter pound the
-      // board works to — the number the ramp then works back from. Not the
-      // 175 a pounds gym counts to: a weight the app was given is kept, and
-      // only a unit *switch* re-plates it onto the coarse step.
-      expect(find.textContaining('Set up 176.25 lb'), findsOneWidget);
+      // The program is written down as 80 kg, which is 176.37 lb — not a bar
+      // anybody sets. A library program added to a pounds phone lands on what
+      // that gym racks on the way in, so the slot is 175 lb and the ramp works
+      // back from there.
+      expect(find.textContaining('Set up 175 lb'), findsOneWidget);
 
       await stopAll(tester);
     });

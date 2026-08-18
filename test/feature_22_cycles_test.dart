@@ -7,10 +7,11 @@
 // the stored slot through `AppDatabase.advanceProgression`, the live board's
 // hydration, the routine code, and the builder's switch.
 import 'package:drift/drift.dart' show Value;
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/data/routine_code.dart';
+import 'package:foss_lift/l10n/app_localizations.dart';
 import 'package:foss_lift/data/routine_import.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/exercise_settings_screen.dart';
@@ -74,6 +75,54 @@ Future<ActiveWorkoutController> startCycle(
   await ctrl.start(workoutId: push.id, name: 'Push');
   return ctrl;
 }
+
+/// The Bench Press slot on [k531] at week [position], opened in the config
+/// sheet — the builder's cycle card, on screen.
+///
+/// Top-level for the reason [startCycle] is: nothing here may close over a
+/// `late` variable a group has not assigned yet.
+Future<ItemDraft> openCycleSheet(
+  WidgetTester tester,
+  AppDatabase db,
+  ProviderContainer container, {
+  int position = 0,
+}) async {
+  final draft = (await tester.runAsync(() async =>
+      ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
+    ..weightKg = 100
+    ..scheme = SetScheme.cycle
+    ..cycle = [for (final week in k531) [...week]]
+    ..cyclePosition = position;
+  // Tall: the sheet is long, and a control below the fold is a control a tap
+  // cannot reach.
+  tester.view.physicalSize = const Size(390, 2600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(appUnder(
+    container,
+    Scaffold(
+      body: ListView(children: [
+        WorkoutItemsEditor(
+          items: [draft],
+          unit: 'kg',
+          routineRest: 90,
+          defaultBarKg: 20,
+        ),
+      ]),
+    ),
+  ));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(draft.name));
+  await tester.pumpAndSettle();
+  return draft;
+}
+
+/// What week [n] of [k531] reads as when it is folded shut.
+String foldedWeek(AppLocalizations l10n, int n) =>
+    l10n.itemEditorCycleWeekSummary(
+      rowsTargetLabel(l10n, k531[n]),
+      joinRowLabels(l10n, k531[n].map((r) => '${r.percent}')),
+    );
 
 void main() {
   // The live-session controller registers itself as a binding observer when
@@ -760,7 +809,9 @@ void main() {
       await tester.pump();
 
       final l10n = l10nFor();
-      final sep = l10n.itemEditorSchemeSeparator;
+      // Joined by a slash, not by the middot that separates a slot's summary
+      // into fields — "5 · 3 · 1+" reads as three fields, not one week.
+      final sep = l10n.targetRowSeparator;
       expect(
         find.text('5${sep}3$sep${l10n.targetAmrap(1)}'),
         findsOneWidget,
@@ -800,6 +851,177 @@ void main() {
         reason: 'the row list, not a multiplication',
       );
       await stop(tester);
+    });
+  });
+
+  // ------------------------------------------------ the builder's cycle card
+
+  group('a week is a card of its own, and it folds', () {
+    testWidgets('the week the next session runs is the one that opens',
+        (tester) async {
+      final l10n = l10nFor();
+      await openCycleSheet(tester, db, container, position: 1);
+
+      // Week two is open, so it is the one week not reading as a single line.
+      expect(find.text(foldedWeek(l10n, 1)), findsNothing);
+      expect(find.text(foldedWeek(l10n, 0)), findsOneWidget);
+      expect(find.text(foldedWeek(l10n, 2)), findsOneWidget,
+          reason: 'a folded week still says what it asks for');
+    });
+
+    testWidgets('tapping a folded week opens it and shuts the other',
+        (tester) async {
+      final l10n = l10nFor();
+      await openCycleSheet(tester, db, container);
+
+      expect(find.text(foldedWeek(l10n, 0)), findsNothing);
+      await tester.tap(find.byKey(cycleWeekKey(2)));
+      await tester.pumpAndSettle();
+
+      expect(find.text(foldedWeek(l10n, 2)), findsNothing,
+          reason: 'week three is the one open now');
+      expect(find.text(foldedWeek(l10n, 0)), findsOneWidget,
+          reason: 'and week one has folded behind it');
+    });
+
+    testWidgets('a week you have just added is open', (tester) async {
+      final l10n = l10nFor();
+      final draft = await openCycleSheet(tester, db, container);
+
+      await tester.tap(find.byKey(kCycleAddWeekKey));
+      await tester.pumpAndSettle();
+
+      expect(draft.cycle.length, 4);
+      expect(find.byKey(cycleWeekKey(3)), findsOneWidget);
+      // The new week is a copy of the last, and it is not the one folded.
+      expect(find.text(foldedWeek(l10n, 2)), findsOneWidget,
+          reason: 'week three folded when week four opened');
+    });
+
+    testWidgets("the slot's one line names the weight a training max",
+        (tester) async {
+      final l10n = l10nFor();
+      // Before the sheet: the row in the exercise list under the movement.
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
+        ..weightKg = 100
+        ..scheme = SetScheme.cycle
+        ..cycle = [for (final week in k531) [...week]];
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: ListView(children: [
+            WorkoutItemsEditor(
+                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
+          ]),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final line = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data)
+          .whereType<String>()
+          .firstWhere((t) => t.contains(rowsTargetLabel(l10n, k531[0])));
+      expect(
+        line,
+        contains(l10n.itemEditorSummaryTrainingMax(
+            l10n.unitWeightShort('100', l10n.unitKgSuffix))),
+        reason: 'the number is a training max, not a weight to lift',
+      );
+      expect(line.split(l10n.itemEditorSchemeSeparator).length, 4,
+          reason: 'target, training max, scheme and step — four fields, and '
+              'the three sets are one of them',
+      );
+    });
+  });
+
+  group('the card says the rates move the training max', () {
+    testWidgets('the rule is read back against the training max',
+        (tester) async {
+      final l10n = l10nFor();
+      await openCycleSheet(tester, db, container);
+
+      expect(
+        find.text(l10n.itemEditorProgressionRuleCycle(
+          l10n.unitWeightShort('2.5', l10n.unitKgSuffix),
+          l10n.unitWeightShort('5', l10n.unitKgSuffix),
+          2,
+        )),
+        findsOneWidget,
+      );
+      expect(find.textContaining(l10n.itemEditorCleanSessions.toUpperCase(),
+          findRichText: true), findsNothing,
+          reason: 'a cycle counts weeks, not a run of clean sessions');
+    });
+
+    testWidgets('the (i) beside Set scheme says what a cycle is',
+        (tester) async {
+      final l10n = l10nFor();
+      await openCycleSheet(tester, db, container);
+
+      expect(find.byKey(kCycleExplainKey), findsOneWidget);
+      await tester.tap(find.byKey(kCycleExplainKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.itemEditorCycleWhat), findsOneWidget);
+      expect(find.text(l10n.itemEditorCycleExplained), findsOneWidget);
+    });
+  });
+
+  group('the gate says it is there', () {
+    testWidgets('with the switch off Cycle is drawn, and dead', (tester) async {
+      final l10n = l10nFor();
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
+        ..weightKg = 100;
+      tester.view.physicalSize = const Size(390, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: ListView(children: [
+            WorkoutItemsEditor(
+                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
+          ]),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(draft.name));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(kAdvancedToggleKey));
+      await tester.pumpAndSettle();
+
+      final cycle = find.widgetWithText(EditorPill, l10n.itemEditorSchemeCycle);
+      expect(cycle, findsOneWidget,
+          reason: 'a gate nothing on screen mentions is a feature nobody finds');
+      expect(tester.widget<EditorPill>(cycle).onTap, isNull);
+
+      // And the (i) beside the label carries the switch.
+      await tester.tap(find.byKey(kCycleExplainKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(kCycleTurnOnKey), findsOneWidget);
+      await tester.tap(find.byKey(kCycleTurnOnKey));
+      await tester.pumpAndSettle();
+
+      expect(await tester.runAsync(() => db.watchAdvancedProgramming().first),
+          isTrue);
+      await tester.pumpAndSettle();
+      expect(tester.widget<EditorPill>(cycle).onTap, isNotNull,
+          reason: 'the picker comes alive where they were already looking');
+    });
+
+    testWidgets('with it on the dialog has nothing to switch', (tester) async {
+      await tester.runAsync(() => db.setAdvancedProgramming(true));
+      await openCycleSheet(tester, db, container);
+
+      await tester.tap(find.byKey(kCycleExplainKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(kCycleTurnOnKey), findsNothing);
     });
   });
 }

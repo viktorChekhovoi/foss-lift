@@ -56,6 +56,17 @@ groups:
     uses:
     - template.set-scheme
     - template.rep-target
+  - id: an-advanced-toggle-is-a-control
+    t: An Advanced toggle is a control the size of the pills it sits under
+    d: >-
+      both cards' toggles are full-width bordered rows, in the type the Weight
+      and Reps pills are set in, because what they open is half a card rather
+      than a footnote to it. A small line of coloured text reads as a caption,
+      and a caption nobody presses is a set scheme nobody finds.
+    screen: workout-edit
+    uses:
+    - template.item
+    - template.set-scheme
   - id: to-failure-greys-the-rep-range
     t: Ticking "to failure" greys the rep range out rather than taking it away
     d: >-
@@ -76,7 +87,10 @@ groups:
       one. It holds one thing so far: <b>Progress by reps, then weight</b>, under
       a line saying what that combination does — climb the reps to the top of the
       range, then add weight. Progression is configured in one place, so the
-      switch is here rather than beside the rep range it needs.
+      switch is here rather than beside the rep range it needs. The toggle is
+      drawn only where that one thing can be taken — on a slot with no rep range
+      to climb it opens onto a dead row, and a toggle whose whole content is
+      greyed out is a control that promises something and then refuses.
     defines:
     - progression.advanced
     uses:
@@ -292,7 +306,8 @@ groups:
     d: >-
       open a slot's config sheet → set a rep range under Target's Advanced →
       scroll to Progression → tap the Advanced pill on the axis row. The tick of
-      the same name, under the card's own Advanced toggle, is the other way in.
+      the same name is the other way in, under the card's own Advanced toggle —
+      which appears once the range it needs exists.
     screen: workout-edit
     uses:
     - progression.double
@@ -349,16 +364,19 @@ groups:
   - id: range-climb-greyed-without-a-range
     t: The advanced rule is greyed out until there is a range to climb
     d: >-
-      the tick stays on the list rather than vanishing, greyed and untickable,
-      under one line saying what it wants: set up a rep range first. The pill on
-      the axis row greys with it and does nothing when tapped. A control that
-      appears and disappears as a field two cards up is filled in teaches nobody
-      where it went, and somebody looking for double progression needs to find it
-      before they can work out what it needs. Set the upper bound and both come
-      alive where they are already looking. The same goes for a slot running to
-      failure, and for a held movement or one that carries no load, which has no
-      second axis to take turns with — those are not offered the pill at all,
-      because the axis row only ever shows axes the exercise allows.
+      the pill on the axis row stays where it is, greyed and doing nothing when
+      tapped, under the card that would hold the tick. A control that appears and
+      disappears as a field two cards up is filled in teaches nobody where it
+      went, and somebody looking for double progression needs to find it before
+      they can work out what it needs — so one surface for it is always on
+      screen. The tick itself, and the Advanced toggle that holds it, are not
+      drawn while the rule cannot be taken: the toggle holds nothing else, and
+      opening it onto a single dead row is worse than not offering to open it.
+      Set the upper bound and all of it comes alive where you are already
+      looking. The same goes for a slot running to failure, and for a held
+      movement or one that carries no load, which has no second axis to take
+      turns with — those are not offered the pill at all, because the axis row
+      only ever shows axes the exercise allows.
     screen: workout-edit
     uses:
     - progression.double

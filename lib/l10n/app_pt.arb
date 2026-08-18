@@ -328,6 +328,10 @@
   "itemEditorBackOffReps": "Recuar reps",
   "itemEditorRuleAtTop": "Com {top} reps, junta {step} e recomeça em {bottom}.",
   "itemEditorRuleAtBottom": "Com {bottom} reps, tira {back} e recomeça em {top}.",
+  "itemEditorProgressionRuleCycle": "Soma {step} ao máximo de treino no fim de um ciclo limpo; tira {back} após {misses, plural, =1{1 sessão falhada} other{{misses} sessões falhadas}} nele.",
+  "itemEditorCycleTurnOn": "Ativar",
+  "itemEditorCycleWhat": "O que é um ciclo?",
+  "itemEditorCycleExplained": "Um conjunto de semanas percorridas por ordem. Cada sessão usa a seguinte, e depois da última volta a primeira. As percentagens são do máximo de treino, e é o máximo de treino que progride: move-se quando o ciclo dá a volta, não sessão a sessão. 5/3/1 são quatro semanas disto.",
   "itemEditorSupersetWhat": "O que é uma supersérie?",
   "itemEditorSupersetExplained": "Dois ou mais exercícios seguidos, sem descanso entre eles; poupa tempo no ginásio",
   "itemEditorSupersetWith": "Supersérie com {exercise}",
@@ -834,5 +838,8 @@
   "seedDayDeadlift": "Levantamento terra",
   "seedDayBench": "Supino",
   "seedDaySquat": "Agachamento",
-  "sessionTrainingMaxShort": "MdT"
+  "sessionTrainingMaxShort": "MdT",
+  "targetRowSeparator": "/",
+  "itemEditorSummaryTrainingMax": "MdT {weight}",
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
 }

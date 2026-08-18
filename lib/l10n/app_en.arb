@@ -1632,6 +1632,35 @@
       }
     }
   },
+  "itemEditorProgressionRuleCycle": "Adds {step} to the training max at the end of a clean cycle; drops {back} after {misses, plural, =1{1 missed session} other{{misses} missed sessions}} in it.",
+  "@itemEditorProgressionRuleCycle": {
+    "description": "The progression numbers of a slot running a cycle, read back as the rule they add up to. Different from itemEditorProgressionRule in two ways: what moves is the training max the sets are percentages of, and it moves only when the cycle comes round rather than after a run of clean sessions. The misses are counted anywhere in the cycle rather than in a row, so no branch of this one says \"in a row\". The amounts arrive already formatted in their own unit.",
+    "placeholders": {
+      "step": {
+        "type": "String",
+        "example": "2.5 kg"
+      },
+      "back": {
+        "type": "String",
+        "example": "5 kg"
+      },
+      "misses": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorCycleTurnOn": "Turn on",
+  "@itemEditorCycleTurnOn": {
+    "description": "Button beside Done in the 'What is a cycle?' dialog, shown only while advanced programming is off. Turns it on. Keep it short — it shares a row with Done."
+  },
+  "itemEditorCycleWhat": "What is a cycle?",
+  "@itemEditorCycleWhat": {
+    "description": "Title of the dialog behind the info tap beside the Set scheme label. A question, as the superset one is."
+  },
+  "itemEditorCycleExplained": "A set of weeks, run in order. Each session takes the next one, and the week after the last is the first again. The percentages are of the training max, and the training max is what progresses — it moves when the cycle comes round, not session by session. 5/3/1 is four weeks of this.",
+  "@itemEditorCycleExplained": {
+    "description": "The body of that dialog: what a cycle is, for somebody who has just been offered one. Keep it to four short sentences. 5/3/1 is the name of a training program and is not translated."
+  },
   "themeDarkGroup": "DARK",
   "@themeDarkGroup": {
     "description": "Heading over the dark presets in the theme picker. Rendered in small capitals; translate as a heading, not a sentence."
@@ -4200,5 +4229,30 @@
   "sessionTrainingMaxShort": "TM",
   "@sessionTrainingMaxShort": {
     "description": "Two-letter marker on the live board, in front of the weight of a slot running a cycle: the number is a training max the sets are percentages of, not a weight to lift. Replaces the '@' that joins a goal to its load. Keep it to two or three characters — it shares a line with the goal and the weight."
+  },
+  "targetRowSeparator": "/",
+  "@targetRowSeparator": {
+    "description": "What joins the written-out sets of one week when they are listed — '5/3/1+'. Deliberately not the middot that separates the fields of a slot's one-line summary, which would make the sets read as more fields."
+  },
+  "itemEditorSummaryTrainingMax": "TM {weight}",
+  "@itemEditorSummaryTrainingMax": {
+    "description": "A cycle slot's weight in its one-line summary in the exercise list. The marker is the same one the live board uses (sessionTrainingMaxShort): the number is a training max, not a weight to lift.",
+    "placeholders": {
+      "weight": {
+        "type": "String"
+      }
+    }
+  },
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%",
+  "@itemEditorCycleWeekSummary": {
+    "description": "A folded week of a cycle, read back on its own heading: the rep targets and the percentages of the training max, each list joined by targetRowSeparator — '5/5/5+ · 65/75/85%'.",
+    "placeholders": {
+      "reps": {
+        "type": "String"
+      },
+      "percents": {
+        "type": "String"
+      }
+    }
   }
 }

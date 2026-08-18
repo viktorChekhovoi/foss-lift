@@ -18,6 +18,7 @@ import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import '../util/format.dart';
 import '../util/seed_names.dart';
+import '../util/target_label.dart';
 import '../util/cardio_units.dart';
 import '../util/units.dart';
 import '../widgets/board_cells.dart';
@@ -1182,10 +1183,19 @@ class _ExerciseBlock extends StatelessWidget {
     // "3 × 5" would be a lie about the week that reads 5/3/1. The rows are the
     // prescription, so they are listed.
     if (!first.timed &&
-        exercise.sets.any((s) => s.goal != first.goal || s.amrap != first.amrap)) {
-      return exercise.sets
-          .map((s) => s.amrap ? l10n.targetAmrap(s.goal) : '${s.goal}')
-          .join(l10n.itemEditorSchemeSeparator);
+        exercise.sets.any((s) =>
+            s.goal != first.goal ||
+            s.goalMin != first.goalMin ||
+            s.amrap != first.amrap)) {
+      return joinRowLabels(
+        l10n,
+        exercise.sets.map((s) => rowLabel(
+              l10n,
+              reps: s.goalMin,
+              repsMax: s.goal,
+              amrap: s.amrap,
+            )),
+      );
     }
     if (!first.timed && first.amrap) {
       return '${l10n.sessionGoalCounted(sets, first.goal)}+';

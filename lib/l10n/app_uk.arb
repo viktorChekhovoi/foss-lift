@@ -328,6 +328,10 @@
   "itemEditorBackOffReps": "Скидати повторень",
   "itemEditorRuleAtTop": "На {top} повтореннях замість цього додати {step} і почати знову з {bottom}.",
   "itemEditorRuleAtBottom": "На {bottom} повтореннях замість цього скинути {back} і почати знову з {top}.",
+  "itemEditorProgressionRuleCycle": "Додає {step} до робочого максимуму наприкінці чистого циклу; знімає {back} після {misses, plural, =1{1 провалене заняття} few{{misses} провалених занять} other{{misses} провалених занять}} у ньому.",
+  "itemEditorCycleTurnOn": "Увімкнути",
+  "itemEditorCycleWhat": "Що таке цикл?",
+  "itemEditorCycleExplained": "Набір тижнів, які проходять по черзі. Кожне заняття бере наступний, а після останнього знову йде перший. Відсотки рахуються від робочого максимуму, і саме робочий максимум прогресує: він змінюється, коли цикл замикається, а не після кожного заняття. 5/3/1 — це чотири такі тижні.",
   "itemEditorSupersetWhat": "Що таке суперсет?",
   "itemEditorSupersetExplained": "Дві або більше вправ поспіль, без відпочинку між ними; це економить час у залі",
   "itemEditorSupersetWith": "Суперсет із {exercise}",
@@ -834,5 +838,8 @@
   "seedDayDeadlift": "Станова",
   "seedDayBench": "Жим лежачи",
   "seedDaySquat": "Присід",
-  "sessionTrainingMaxShort": "РМ"
+  "sessionTrainingMaxShort": "РМ",
+  "targetRowSeparator": "/",
+  "itemEditorSummaryTrainingMax": "РМ {weight}",
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
 }

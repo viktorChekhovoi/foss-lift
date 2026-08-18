@@ -2324,6 +2324,10 @@ class AppDatabase extends _$AppDatabase {
   /// slot is about. A movement that somehow is not there is left out rather than
   /// invented.
   Future<int> addStarterRoutine(StarterRoutine program) async {
+    // The programs are written down in kilograms; the phone may not count in
+    // them. Every load and every rate in the copy is landed on what this gym
+    // racks — see [asLoadedIn].
+    final unit = await watchWeightUnit().first;
     return transaction(() async {
       final routineId = await createRoutine(
         name: program.name,
@@ -2388,10 +2392,16 @@ class AppDatabase extends _$AppDatabase {
                   : const Value.absent(),
               repsMax: Value(slot.repsMax),
               holdSeconds: hold == null ? const Value.absent() : Value(hold),
-              suggestedWeight: Value(slot.weightKg),
+              suggestedWeight: Value(slot.weightKg == null
+                  ? null
+                  : asLoadedIn(slot.weightKg!, unit)),
               progression: Value(mode),
-              increment: Value(slot.increment ?? mode.defaultIncrement),
-              deload: Value(slot.deload ?? mode.defaultDeload),
+              // Only the weight axis has a unit at all — a rep step is a rep in
+              // every gym on earth, and landing one on a plate grid is nonsense.
+              increment: Value(_starterRate(
+                  slot.increment ?? mode.defaultIncrement, mode, unit)),
+              deload: Value(
+                  _starterRate(slot.deload ?? mode.defaultDeload, mode, unit)),
               failureThreshold: Value(program.failureThreshold),
             ),
           );
@@ -2400,6 +2410,11 @@ class AppDatabase extends _$AppDatabase {
       return routineId;
     });
   }
+
+  /// One of a shipped program's progression rates, in the unit this phone
+  /// counts in. See [asLoadedIn]; a rate on any axis but weight is left alone.
+  double _starterRate(double value, ProgressionMode mode, String unit) =>
+      mode == ProgressionMode.weight ? asLoadedIn(value, unit) : value;
 
   /// Rewrites a routine's own settings. The schedule and reminder are written
   /// every time, including back to null: the editor always holds the whole

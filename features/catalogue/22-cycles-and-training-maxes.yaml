@@ -64,6 +64,25 @@ groups:
     - template.cycle
     - progression.rates
     - progression.streak
+  - id: the-progression-card-says-it-moves-the-training-max
+    t: The Progression card says the rates move the training max
+    d: >-
+      the four numbers under Progression are the slot's, and on a cycle they mean something different from what they mean anywhere else: they move the training max, and only when the cycle comes round. So the sentence they are read back as says so — "adds 2.5&nbsp;kg to the training max at the end of a clean cycle; drops 5&nbsp;kg after 2 missed sessions in it". The clean-sessions threshold goes with it, because a cycle counts weeks rather than clean sessions and a stepper that changes nothing is worse than no stepper.
+    screen: workout-edit
+    uses:
+    - template.cycle
+    - template.training-max
+    - progression.rates
+    - progression.streak
+  - id: what-a-cycle-is-sits-behind-an-i
+    t: What a cycle is sits behind an (i), not under the picker
+    d: >-
+      the set-scheme label carries an info tap that opens four sentences: the weeks run in order and wrap, the percentages are of the training max, the training max is what moves and it moves at the wrap, and 5/3/1 is four weeks of that. It is the one thing in this sheet that is a way of training rather than a number, so it is explained on the same terms the superset tick is — behind a tap, once, rather than as a paragraph under a control that everybody reads past for ever. Opened with advanced programming still off, the same dialog carries the switch: turning it on is a button beside Done, so nobody has to be told which settings screen to go and find.
+    screen: workout-edit
+    uses:
+    - template.cycle
+    - template.training-max
+    - template.set-scheme
   - id: a-cycle-weight-is-not-raised-by-what-you-lifted
     t: Loading the bar past the prescription does not move a cycle's weight
     d: >-
@@ -85,8 +104,10 @@ groups:
       "Week 2/4" under the exercise, on the live board and on the day that
       offers it, because 3×3 at 80% and 3×5 at 75% are the same slot on different
       weeks and nothing else on the row says which. The goal beside it is listed
-      set by set — "5 · 3 · 1+" — wherever the week's rows differ, since "3 × 5"
-      would be a claim about two sets that is false of both.
+      set by set wherever the week's rows differ, since "3 × 5" would be a claim
+      about two sets that is false of both. The sets are joined by a slash —
+      "5/3/1+" — rather than by the middot that separates a slot's summary into
+      fields: joined by that, a three-set week reads as three more fields.
     screen: session
     points:
     - workout-detail
@@ -94,6 +115,14 @@ groups:
     - template.cycle
     - template.item
     - session.set-logging
+  - id: a-week-is-a-card-that-folds
+    t: Each week is a card of its own, and it folds
+    d: >-
+      four weeks of four sets is sixteen rep steppers, sixteen percentages and sixteen headings in one scrolling column, and the question somebody is actually holding — how does this week differ from the one before it — cannot be answered in that. So each week is a bordered card with its set rows boxed inside it, and its heading is the tap that opens it. One week is open at a time. Folded, the heading reads the week back in a line — "5/5/5+ · 65/75/85%" — so nothing has to be opened to see what it asks for. The week the next session will run is the one open when the sheet arrives, and it keeps the accent border whether it is open or shut; a week you have just added opens, because you added it to edit it.
+    screen: workout-edit
+    uses:
+    - template.cycle
+    - template.per-set-reps
 - name: What a written-out row can ask for
   items:
   - id: a-row-can-ask-for-a-range-or-for-as-many-as-you-have
@@ -127,9 +156,14 @@ groups:
     t: Cycles, per-set reps and training maxes are off until asked for
     d: >-
       one switch in Settings, off on a fresh install and off on every phone
-      upgrading to this build. With it off the scheme picker offers the four it
-      always did and a written-out row asks for a count, which is the whole of
-      what most programs need. Nothing already configured stops working — the
+      upgrading to this build. With it off a written-out row asks for a count,
+      which is the whole of what most programs need, and the scheme picker's
+      fifth pill is greyed: <b>Cycle</b> stays where it is, does nothing when
+      tapped, and opens the (i) beside it instead — four sentences on what a
+      cycle is, and the way to turn the switch on from where you were looking
+      for it. A gate nothing on screen mentions is a feature nobody finds, and
+      "why can I not pick this" is a worse first experience than one pill in a
+      colour that says not yet. Nothing already configured stops working — the
       switch decides what the builder <i>offers</i>, not what it will run.
     screen: settings
     defines:
@@ -154,10 +188,10 @@ groups:
     d: >-
       it is not a weight the session asks you to lift — every set is a
       percentage of it — so the builder's card is headed "Training max" instead
-      of "Weight", and on the board the "@" that joins a goal to its load
-      becomes "TM": "do 5 · 3 · 1+ at this" would be wrong about all three sets.
-      Editing it moves the whole week at once, which is what adjusting a
-      training max means.
+      of "Weight", and both the board and the slot's one-line summary in the
+      exercise list name it "TM" where an ordinary slot writes "@" or nothing:
+      "do 5/3/1+ at this" would be wrong about all three sets. Editing it moves
+      the whole week at once, which is what adjusting a training max means.
     screen: workout-edit
     points:
     - session

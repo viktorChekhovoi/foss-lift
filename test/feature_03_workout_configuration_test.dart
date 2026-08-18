@@ -1411,18 +1411,36 @@ void main() {
     });
   });
 
+  group('an Advanced toggle is a control the size of the pills above it', () {
+    testWidgets('the Target one is no smaller than a mode pill',
+        (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!;
+      await openSheet(tester, container, [bench]);
+
+      final toggle = tester.getSize(find.byKey(kAdvancedToggleKey));
+      final pill = tester.getSize(find.byKey(kModeWeightKey));
+      expect(toggle.height, greaterThanOrEqualTo(pill.height),
+          reason: 'a line of small coloured text reads as a caption on the '
+              'half above rather than the way into the half below');
+    });
+  });
+
   group('the advanced rule is a pill on the axis row and a tick', () {
     /// A Bench Press draft opened in the config sheet, [configure]d first.
     Future<ItemDraft> openDraft(
       WidgetTester tester,
       ProviderContainer container, {
       String exercise = 'Bench Press',
+      Size size = const Size(390, 1400),
       void Function(ItemDraft)? configure,
     }) async {
       final draft = (await tester.runAsync(() async =>
           ItemDraft.forExercise(await exerciseNamed(db, exercise))))!;
       configure?.call(draft);
-      await openSheet(tester, container, [draft]);
+      await openSheet(tester, container, [draft], size: size);
       return draft;
     }
 
@@ -1516,8 +1534,11 @@ void main() {
     testWidgets('the tick is the other way onto the pill', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
-      final draft =
-          await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+      // Taller than the group's default: ticking it grows the card by two
+      // amount fields and two lines of rule, and the row being tapped has to
+      // stay in the viewport across both taps.
+      final draft = await openDraft(tester, container,
+          size: const Size(390, 1800), configure: (d) => d..repsMax = 8);
       await openProgressionAdvanced(tester);
 
       await tap(tester, kRangeClimbKey);
@@ -1588,12 +1609,13 @@ void main() {
       WidgetTester tester,
       ProviderContainer container, {
       String exercise = 'Bench Press',
+      Size size = const Size(390, 1400),
       void Function(ItemDraft)? configure,
     }) async {
       final draft = (await tester.runAsync(() async =>
           ItemDraft.forExercise(await exerciseNamed(db, exercise))))!;
       configure?.call(draft);
-      await openSheet(tester, container, [draft]);
+      await openSheet(tester, container, [draft], size: size);
       return draft;
     }
 
@@ -1624,7 +1646,7 @@ void main() {
       await openDraft(tester, container, configure: (d) => d..repsMax = 8);
 
       expect(find.byKey(kProgressionAdvancedKey), findsOneWidget,
-          reason: 'every slot has the toggle, whatever it can do');
+          reason: 'this slot has the range the one control behind it wants');
       expect(find.byKey(kRangeClimbKey), findsNothing,
           reason: 'the ways of advancing most slots never use start shut');
 
@@ -1688,47 +1710,38 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a fixed rep count gets it greyed out, not taken away',
+    testWidgets('a fixed rep count gets no toggle, and a greyed pill instead',
         (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
-      final l10n = l10nFor();
-      final draft = await openDraft(tester, container);
+      await openDraft(tester, container);
 
-      await openProgressionAdvanced(tester);
-
-      expect(find.byKey(kRangeClimbKey), findsOneWidget,
-          reason: 'a control that vanishes teaches nobody where it went');
-      expect(climbBox(tester).onChanged, isNull, reason: 'untickable');
-      expect(find.text(l10n.itemEditorAddWeightAtTopHint), findsOneWidget,
-          reason: 'the line saying what it does stays either way');
-      expect(find.text(l10n.itemEditorRangeClimbNeedsRange), findsOneWidget);
-
-      await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(draft.addWeightAtTopOfRange, isFalse,
-          reason: 'tapping a greyed row changes nothing');
+      expect(find.byKey(kProgressionAdvancedKey), findsNothing,
+          reason: 'the toggle holds one control, and it cannot be taken');
+      expect(find.byKey(kRangeClimbKey), findsNothing);
+      expect(find.byKey(kModeAdvancedKey), findsOneWidget,
+          reason: 'a control that vanishes entirely teaches nobody where it '
+              'went — the pill on the axis row is what stays');
+      expect(tester.widget<EditorPill>(find.byKey(kModeAdvancedKey)).onTap,
+          isNull,
+          reason: 'shown, and doing nothing when tapped');
 
       await stop(tester);
     });
 
-    testWidgets('a slot running to failure gets the same line', (tester) async {
+    testWidgets('a slot running to failure loses it the same way',
+        (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       // A range it is not aiming at, which is not a range to climb.
-      final draft = await openDraft(tester, container,
+      await openDraft(tester, container,
           configure: (d) => d
             ..repsMax = 8
             ..toFailure = true);
 
-      await openProgressionAdvanced(tester);
-
-      expect(climbBox(tester).onChanged, isNull);
-      expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsOneWidget);
-
-      await tester.tap(find.byKey(kRangeClimbKey), warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(draft.addWeightAtTopOfRange, isFalse);
+      expect(find.byKey(kProgressionAdvancedKey), findsNothing);
+      expect(tester.widget<EditorPill>(find.byKey(kModeAdvancedKey)).onTap,
+          isNull);
 
       await stop(tester);
     });
@@ -1760,16 +1773,16 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a timed slot lists it, greyed', (tester) async {
+    testWidgets('a timed slot is offered none of it', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await openDraft(tester, container, exercise: 'Plank');
 
-      await openProgressionAdvanced(tester);
-
-      expect(find.byKey(kRangeClimbKey), findsOneWidget);
-      expect(climbBox(tester).onChanged, isNull);
-      expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsOneWidget);
+      // No second axis to take turns with, so not even the pill: the axis row
+      // only ever shows axes the exercise allows.
+      expect(find.byKey(kModeAdvancedKey), findsNothing);
+      expect(find.byKey(kProgressionAdvancedKey), findsNothing);
+      expect(find.byKey(kRangeClimbKey), findsNothing);
 
       await stop(tester);
     });
@@ -1780,20 +1793,11 @@ void main() {
       addTearDown(container.dispose);
       final draft = await openDraft(tester, container);
 
-      // Both halves open: the range is authored in Target, the climb in
-      // Progression, and the second must react to the first.
+      // The range is authored in Target, the climb in Progression, and the
+      // second must react to the first.
       await tester.tap(find.byKey(kAdvancedToggleKey));
       await tester.pumpAndSettle();
-      await openProgressionAdvanced(tester);
-      // Measured from the toggle it sits under, not from the top of the sheet:
-      // filling the upper bound in also gives the Target card its "6–8" note,
-      // which moves every card below it. What matters is that the row does not
-      // move within the half it is in.
-      double climbBelowToggle() =>
-          tester.getTopLeft(find.byKey(kRangeClimbKey)).dy -
-          tester.getTopLeft(find.byKey(kProgressionAdvancedKey)).dy;
-      final before = climbBelowToggle();
-      expect(climbBox(tester).onChanged, isNull);
+      expect(find.byKey(kProgressionAdvancedKey), findsNothing);
 
       // + on the empty rep-range stepper fills the upper bound in.
       await tester.tap(find.descendant(
@@ -1801,11 +1805,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(draft.repsMax, isNotNull);
+      expect(find.byKey(kProgressionAdvancedKey), findsOneWidget,
+          reason: 'the toggle arrives with something behind it to open');
+      await openProgressionAdvanced(tester);
       expect(climbBox(tester).onChanged, isNotNull, reason: 'now tickable');
       expect(find.text(l10nFor().itemEditorRangeClimbNeedsRange), findsNothing,
           reason: 'it has what it wanted');
-      expect(climbBelowToggle(), before,
-          reason: 'it comes alive where they are already looking');
 
       await stop(tester);
     });

@@ -133,6 +133,21 @@ double snapToUnitStep(double kg, String unit) {
   return (kg / step).roundToDouble() * step;
 }
 
+/// A figure the app ships in kilograms, as the number a gym counting in [unit]
+/// would actually load.
+///
+/// The library's programs are written down in kilograms, so every load and
+/// every step in one is a conversion on a pounds phone: a 45 kg training max
+/// arrives as 99.208 lb and a 2.5 kg step as 5.512. Neither is a bar anybody
+/// sets or a pair of plates anybody owns, so both are put on the coarse step —
+/// [snapToUnitStep] — on the way in.
+///
+/// A kilogram phone gets the number exactly as it was written. There is nothing
+/// to convert, and snapping there would only move it: a 12 kg lateral raise is
+/// 12 kg because the program says 12, not because 12.5 was unavailable.
+double asLoadedIn(double kg, String unit) =>
+    unit == 'kg' ? kg : snapToUnitStep(kg, unit);
+
 /// The finest a weight the app was not handed is expressed to: an eighth of a
 /// kilogram, or a quarter of a pound.
 ///

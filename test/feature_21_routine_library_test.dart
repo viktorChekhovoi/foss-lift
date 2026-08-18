@@ -31,6 +31,7 @@ import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/routine_library_screen.dart';
 import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
+import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/util/seed_names.dart';
 import 'package:foss_lift/widgets/routine_add_menu.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
@@ -399,6 +400,42 @@ void main() {
           expect(row!.measure, ExerciseMeasure.time,
               reason: '${slot.exercise} is counted, so it would ignore the '
                   'work period the program gives it');
+        }
+      }
+    });
+
+    test('a pounds phone gets numbers a pounds gym loads', () async {
+      await db.seedWeightUnit('lb');
+      final rid = await db.addStarterRoutine(_program('531-classic'));
+
+      for (final day in await db.workoutsForRoutine(rid)) {
+        for (final view in await db.itemsForWorkout(day.id)) {
+          final it = view.item;
+          // Only the weight axis has a unit to land: a rep step is a rep.
+          if (it.progression != ProgressionMode.weight) continue;
+          for (final kg in [it.suggestedWeight, it.increment, it.deload]) {
+            if (kg == null || kg == 0) continue;
+            final lb = toDisplayWeight(kg, 'lb');
+            expect((lb - lb.roundToDouble()).abs(), lessThan(1e-6),
+                reason: '$lb lb is not a number anybody types');
+            expect(lb.round() % kPoundStep.round(), 0,
+                reason: '$lb lb is not a pair of plates anybody racks');
+          }
+        }
+      }
+    });
+
+    test('a kilogram phone gets the numbers as they were written', () async {
+      await db.seedWeightUnit('kg');
+      final program = _program('ppl');
+      final rid = await db.addStarterRoutine(program);
+
+      final days = await db.workoutsForRoutine(rid);
+      for (final (i, day) in days.indexed) {
+        final items = await db.itemsForWorkout(day.id);
+        for (final (j, view) in items.indexed) {
+          expect(view.item.suggestedWeight, program.days[i].items[j].weightKg,
+              reason: 'nothing to convert, so nothing to round');
         }
       }
     });

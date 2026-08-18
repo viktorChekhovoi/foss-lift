@@ -603,6 +603,16 @@ String progressionAmount(
 /// message, so the phrase lives inside the translation rather than being
 /// stitched on after it.
 String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
+  // A cycle reads its own rule, because the numbers mean something else on
+  // one: what they move is the training max the sets are percentages of, and
+  // they move it at the wrap rather than after a run of clean sessions.
+  if (d.scheme == SetScheme.cycle) {
+    return l10n.itemEditorProgressionRuleCycle(
+      progressionAmount(l10n, d.increment, ProgressionMode.weight, unit),
+      progressionAmount(l10n, d.deload, ProgressionMode.weight, unit),
+      d.failureThreshold,
+    );
+  }
   // On the advanced axis this sentence is the rep half of the rule — what the
   // load does is what happens at either end of the range, which is the two
   // lines under it.
@@ -636,10 +646,16 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
           repsMin: d.goalReps,
           repsMax: d.onAdvancedAxis ? null : d.repsMax,
         );
-  final w = d.weightKg == null
+  final weight = d.weightKg == null
       ? null
       : l10n.unitWeightShort(
           fmtWeight(toDisplayWeight(d.weightKg!, unit)), unitSuffix(l10n, unit));
+  // A cycle's number is a training max rather than a load, and it is named as
+  // one here for the reason the board names it: the sets beside it are
+  // percentages of it, so an unlabelled figure claims to be what you lift.
+  final w = weight != null && d.scheme == SetScheme.cycle
+      ? l10n.itemEditorSummaryTrainingMax(weight)
+      : weight;
   final step = '+${progressionAmount(l10n, d.increment, d.progression, unit)}';
   // A slot whose sets are a ladder must not read in the list exactly like one
   // whose sets are all alike. Flat says nothing, because flat is the default
@@ -1183,6 +1199,8 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     defaultBarKg: widget.defaultBarKg,
                     advanced:
                         ref.watch(advancedProgrammingProvider).value ?? false,
+                    onTurnOnAdvanced: () =>
+                        ref.read(databaseProvider).setAdvancedProgramming(true),
                     onChanged: () => _bump(() {}),
                   ),
                 ],
@@ -1322,15 +1340,19 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                       onChanged: (v) => _bump(() => d.repsDeload = v),
                     ),
                   ),
-                BuilderField(
-                  label: l10n.itemEditorCleanSessions,
-                  child: NumberStepper(
-                    value: d.successThreshold,
-                    min: 1,
-                    max: 10,
-                    onChanged: (v) => _bump(() => d.successThreshold = v),
+                // A cycle steps up when it comes round, not after a run of
+                // clean sessions — so there is no run to count, and a stepper
+                // that changes nothing is worse than no stepper.
+                if (d.scheme != SetScheme.cycle)
+                  BuilderField(
+                    label: l10n.itemEditorCleanSessions,
+                    child: NumberStepper(
+                      value: d.successThreshold,
+                      min: 1,
+                      max: 10,
+                      onChanged: (v) => _bump(() => d.successThreshold = v),
+                    ),
                   ),
-                ),
                 BuilderField(
                   label: l10n.itemEditorMisses,
                   child: NumberStepper(
@@ -1364,19 +1386,23 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               // than beside the rep range one of them reads: how a slot
               // progresses is decided in one place, whatever the rule happens to
               // look at.
-              const SizedBox(height: 14),
-              _AdvancedToggle(
-                rowKey: kProgressionAdvancedKey,
-                open: _progressionAdvanced,
-                onTap: () => setState(
-                    () => _progressionAdvanced = !_progressionAdvanced),
-              ),
-              if (_progressionAdvanced) ...[
+              // The toggle holds exactly one control, so it is drawn only
+              // where that control can be taken: opening it onto a single dead
+              // row is a promise the card then refuses. The greyed pill on the
+              // axis row above is what stays on screen meanwhile, so there is
+              // still somewhere to find double progression and learn what it
+              // wants.
+              if (d.canClimbRange || d.onAdvancedAxis) ...[
                 const SizedBox(height: 14),
-                // Listed whether or not it can be taken. A control that comes
-                // and goes as a field in another card is filled in teaches
-                // nobody where it went, and somebody looking for this has to
-                // find it before they can learn what it needs.
+                _AdvancedToggle(
+                  rowKey: kProgressionAdvancedKey,
+                  open: _progressionAdvanced,
+                  onTap: () => setState(
+                      () => _progressionAdvanced = !_progressionAdvanced),
+                ),
+              ],
+              if (_progressionAdvanced && (d.canClimbRange || d.onAdvancedAxis)) ...[
+                const SizedBox(height: 14),
                 _CheckRow(
                   key: kRangeClimbKey,
                   label: l10n.itemEditorAddWeightAtTop,
@@ -1458,8 +1484,11 @@ const kProgressionAdvancedKey = ValueKey('progression-advanced');
 
 /// The one control that opens the rest of the Target card.
 ///
-/// A row rather than a Material [ExpansionTile]: the card already has its own
-/// padding and its own type, and a tile brings a second set of both.
+/// A pill rather than a Material [ExpansionTile]: the card already has its own
+/// padding and its own type, and a tile brings a second set of both. The same
+/// pill the pickers above it are made of, at the same size — what it opens is
+/// half a card, and a small line of coloured text reads as a caption on the
+/// half above rather than as the way to the half below.
 class _AdvancedToggle extends StatelessWidget {
   const _AdvancedToggle({
     required this.open,
@@ -1477,48 +1506,28 @@ class _AdvancedToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return InkWell(
+    return EditorPill(
       key: rowKey,
+      label: l10n.itemEditorAdvanced,
+      icon: open ? Icons.expand_less : Icons.expand_more,
+      on: open,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Icon(
-              open ? Icons.expand_less : Icons.expand_more,
-              size: 20,
-              color: AppColors.accent,
-            ),
-            const SizedBox(width: 8),
-            // The label gives before the chevron does, as everywhere else.
-            Expanded(
-              child: Text(
-                l10n.itemEditorAdvanced,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: kMono.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: AppColors.accent,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
 
-/// Which schemes the picker puts on offer.
+/// Which schemes the picker will let you pick.
 ///
 /// The four ordinary ones always, and the advanced ones when [advanced] says
 /// so — or when the slot is already on one ([draftUsesCycle]), because a
 /// ready-made program that arrived with a cycle has to stay editable by
 /// somebody who never turned the switch on. A picker that could not show the
 /// scheme a slot is running would have no pill lit at all.
+///
+/// The ones left out are still *drawn*, greyed — see [_SchemePicker]. A gate
+/// nothing on screen mentions is a feature nobody finds, and the question it
+/// produces is "why can I not pick this", which no settings screen answers
+/// from where it is asked.
 List<SetScheme> schemesOffered({
   required bool advanced,
   required bool draftUsesCycle,
@@ -1538,6 +1547,7 @@ class _SchemeSection extends StatelessWidget {
     required this.unit,
     required this.defaultBarKg,
     required this.advanced,
+    required this.onTurnOnAdvanced,
     required this.onChanged,
   });
 
@@ -1548,24 +1558,54 @@ class _SchemeSection extends StatelessWidget {
   /// The app-wide advanced-programming switch — see [schemesOffered].
   final bool advanced;
 
+  /// Turns that switch on, for the dialog behind the (i).
+  final VoidCallback onTurnOnAdvanced;
+
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final d = draft;
+    final offered = schemesOffered(
+      advanced: advanced,
+      draftUsesCycle: d.usesAdvancedProgramming,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(l10n.itemEditorSetScheme, style: sectionLabelStyle()),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                l10n.itemEditorSetScheme,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: sectionLabelStyle(),
+              ),
+            ),
+            // A cycle is the one thing this picker offers that is a way of
+            // training rather than a shape, and somebody can pick it without
+            // knowing what they have asked for. Explained behind a tap, on the
+            // same terms as the superset tick — and only where it is on offer.
+            IconButton(
+              key: kCycleExplainKey,
+              onPressed: () => _explainCycle(
+                context,
+                onTurnOn:
+                    offered.contains(SetScheme.cycle) ? null : onTurnOnAdvanced,
+              ),
+              visualDensity: VisualDensity.compact,
+              tooltip: l10n.itemEditorCycleWhat,
+              icon: Icon(Icons.info_outline, size: 16, color: AppColors.faint),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         _SchemePicker(
           key: kSchemePickerKey,
           scheme: d.scheme,
-          offered: schemesOffered(
-            advanced: advanced,
-            draftUsesCycle: d.usesAdvancedProgramming,
-          ),
+          offered: offered,
           // The rows a custom scheme was given survive a trip through another
           // scheme and back, so trying a ramp does not throw away what was
           // typed. Only a custom slot ever writes them to the database, and a
@@ -1658,6 +1698,92 @@ List<CustomSet> _seedCustomRows(ItemDraft d) => [
         CustomSet(reps: d.goalReps, percent: 100),
     ];
 
+/// One outlined, tappable option: the shape every picker on this sheet is made
+/// of, and the shape the two Advanced disclosures take.
+///
+/// One widget rather than one per picker. They were three copies of the same
+/// Material/InkWell/Ink sandwich, and the third had drifted — a disclosure set
+/// in 12-point coloured text beside 13-point bordered pills reads as a caption
+/// on the card above it rather than as the control that opens half of it.
+class EditorPill extends StatelessWidget {
+  const EditorPill({
+    super.key,
+    required this.label,
+    required this.on,
+    required this.onTap,
+    this.icon,
+    this.centred = false,
+  });
+
+  final String label;
+
+  /// Whether this is the option in force — accent border and accent text.
+  final bool on;
+
+  /// Null is a dead pill: shown, greyed, and not tappable.
+  final VoidCallback? onTap;
+
+  /// Drawn before the label, in the label's own colour.
+  final IconData? icon;
+
+  /// Whether the label sits in the middle. True where the pill is stretched to
+  /// a share of the row; false where it is only as wide as its own text.
+  final bool centred;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = onTap != null;
+    final colour =
+        on ? AppColors.accent : (live ? AppColors.muted : AppColors.faint);
+    final text = Text(
+      label,
+      textAlign: centred ? TextAlign.center : TextAlign.start,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: kMono.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: colour,
+      ),
+    );
+    return Material(
+      color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: on
+                  ? AppColors.accent
+                  : (live
+                      ? AppColors.line
+                      : AppColors.line.withValues(alpha: 0.5)),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: icon == null
+              ? text
+              : Row(
+                  mainAxisSize: centred ? MainAxisSize.min : MainAxisSize.max,
+                  mainAxisAlignment: centred
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
+                  children: [
+                    Icon(icon, size: 18, color: colour),
+                    const SizedBox(width: 8),
+                    // The label gives before the icon does, as everywhere else.
+                    Flexible(child: text),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The scheme as the sets it produces: "100 · 90 · 80 kg", or the rep counts
 /// alone on a movement with no weight to scale.
 String _schemeLine(
@@ -1712,40 +1838,17 @@ class _SchemePicker extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        for (final s in offered)
-          _pill(label: _label(l10n, s), on: s == scheme, onTap: () => onChanged(s)),
+        for (final s in SetScheme.values)
+          EditorPill(
+            label: _label(l10n, s),
+            on: s == scheme,
+            // Dead rather than absent, and the (i) beside the label is where
+            // the answer to "why" — and the switch — lives.
+            onTap: offered.contains(s) ? () => onChanged(s) : null,
+          ),
       ],
     );
   }
-
-  Widget _pill({
-    required String label,
-    required bool on,
-    required VoidCallback onTap,
-  }) =>
-      Material(
-        color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: on ? AppColors.accent : AppColors.line),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Text(
-              label,
-              style: kMono.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: on ? AppColors.accent : AppColors.muted,
-              ),
-            ),
-          ),
-        ),
-      );
 }
 
 /// One written-out set of a custom scheme: which set it is, its reps, and its
@@ -1864,7 +1967,7 @@ class _CustomSetRow extends StatelessWidget {
 /// in the order they are written and a cycle is three or four of them — the
 /// drag handles that earn their place on a list of exercises would be chrome
 /// here.
-class _CycleEditor extends StatelessWidget {
+class _CycleEditor extends StatefulWidget {
   const _CycleEditor({
     required this.draft,
     required this.advanced,
@@ -1876,37 +1979,46 @@ class _CycleEditor extends StatelessWidget {
   final VoidCallback onChanged;
 
   @override
+  State<_CycleEditor> createState() => _CycleEditorState();
+}
+
+class _CycleEditorState extends State<_CycleEditor> {
+  /// The one week showing its rows, or null for all of them folded.
+  ///
+  /// One at a time rather than a set of flags. Four weeks of four sets each is
+  /// sixteen rep steppers, sixteen percentages and sixteen headings in one
+  /// scrolling column, and the question anybody is actually holding — how does
+  /// this week differ from the one before it — is unanswerable in that. Folded,
+  /// a week is one line that answers it.
+  late int? _open = widget.draft.cycle.isEmpty
+      ? null
+      : widget.draft.cyclePosition % widget.draft.cycle.length;
+
+  ItemDraft get _d => widget.draft;
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final d = draft;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var w = 0; w < d.cycle.length; w++) ...[
-          if (w > 0) const SizedBox(height: 18),
-          _WeekHeader(
+        for (var w = 0; w < _d.cycle.length; w++) ...[
+          if (w > 0) const SizedBox(height: 12),
+          _CycleWeekCard(
+            key: cycleWeekKey(w),
             // Counting from one, and marked when it is the week the next
             // session will actually run — the cycle's position is program
             // state the builder shows rather than edits.
             title: l10n.itemEditorCycleWeek(w + 1),
-            current: d.cycle.length > 1 &&
-                w == d.cyclePosition % d.cycle.length,
-            onRemove: d.cycle.length > 1 ? () => _removeWeek(w) : null,
-          ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < d.cycle[w].length; i++) ...[
-            if (i > 0) const SizedBox(height: 10),
-            _CustomSetRow(
-              index: i,
-              advanced: advanced,
-              row: d.cycle[w][i],
-              onChanged: (row) => _setRow(w, i, row),
-            ),
-          ],
-          const SizedBox(height: 10),
-          _CycleActions(
+            rows: _d.cycle[w],
+            advanced: widget.advanced,
+            open: w == _open,
+            current: _d.cycle.length > 1 && w == _d.cyclePosition % _d.cycle.length,
+            onToggle: () => setState(() => _open = w == _open ? null : w),
+            onRemove: _d.cycle.length > 1 ? () => _removeWeek(w) : null,
+            onRowChanged: (i, row) => _setRow(w, i, row),
             onAddSet: () => _addSet(w),
-            onRemoveSet: d.cycle[w].length > 1 ? () => _removeSet(w) : null,
+            onRemoveSet: _d.cycle[w].length > 1 ? () => _removeSet(w) : null,
           ),
         ],
         const SizedBox(height: 14),
@@ -1916,97 +2028,214 @@ class _CycleEditor extends StatelessWidget {
   }
 
   void _setRow(int week, int index, CustomSet row) {
-    final weeks = [for (final w in draft.cycle) [...w]];
+    final weeks = [for (final w in _d.cycle) [...w]];
     weeks[week][index] = row;
-    draft.cycle = weeks;
-    onChanged();
+    _d.cycle = weeks;
+    widget.onChanged();
   }
 
   void _addSet(int week) {
-    final weeks = [for (final w in draft.cycle) [...w]];
+    final weeks = [for (final w in _d.cycle) [...w]];
     // The last row again rather than a blank: a week is written by copying the
     // set above it and changing one number.
     weeks[week].add(weeks[week].isEmpty
-        ? CustomSet(reps: draft.goalReps, percent: 100)
+        ? CustomSet(reps: _d.goalReps, percent: 100)
         : weeks[week].last);
-    draft.cycle = weeks;
-    onChanged();
+    _d.cycle = weeks;
+    widget.onChanged();
   }
 
   void _removeSet(int week) {
-    final weeks = [for (final w in draft.cycle) [...w]];
+    final weeks = [for (final w in _d.cycle) [...w]];
     weeks[week].removeLast();
-    draft.cycle = weeks;
-    onChanged();
+    _d.cycle = weeks;
+    widget.onChanged();
   }
 
   /// A new week is a copy of the last one, for the reason a new set is a copy
   /// of the set above it: week two of a cycle differs from week one by a rep
   /// count and a percentage, not by everything.
   void _addWeek() {
-    draft.cycle = [
-      ...draft.cycle,
-      if (draft.cycle.isEmpty)
-        _seedCustomRows(draft)
+    _d.cycle = [
+      ..._d.cycle,
+      if (_d.cycle.isEmpty)
+        _seedCustomRows(_d)
       else
-        [...draft.cycle.last],
+        [..._d.cycle.last],
     ];
-    onChanged();
+    // A week you just asked for is a week you are about to edit, so it opens —
+    // and the one you were looking at folds, which is the accordion working.
+    setState(() => _open = _d.cycle.length - 1);
+    widget.onChanged();
   }
 
   void _removeWeek(int week) {
-    final weeks = [for (final w in draft.cycle) [...w]]..removeAt(week);
-    draft.cycle = weeks;
+    final weeks = [for (final w in _d.cycle) [...w]]..removeAt(week);
+    _d.cycle = weeks;
     // The position is held inside what is left rather than reset: removing
     // week four must not send a slot on week three back to week one.
-    if (draft.cyclePosition >= weeks.length && weeks.isNotEmpty) {
-      draft.cyclePosition = weeks.length - 1;
+    if (_d.cyclePosition >= weeks.length && weeks.isNotEmpty) {
+      _d.cyclePosition = weeks.length - 1;
     }
-    onChanged();
+    setState(() {
+      if (_open == null) return;
+      // The weeks after the removed one have all moved up one.
+      _open = _open == week
+          ? null
+          : (_open! > week ? _open! - 1 : _open);
+    });
+    widget.onChanged();
   }
 }
 
-/// One week's heading: which week it is, whether it is the one coming up, and
-/// the way to remove it.
-class _WeekHeader extends StatelessWidget {
-  const _WeekHeader({
+/// Finds one week of a cycle in a test.
+ValueKey<String> cycleWeekKey(int week) => ValueKey('cycle-week-$week');
+
+/// One week of a cycle: a card of its own, headed by the tap that folds it.
+///
+/// The card is what keeps four weeks from reading as one long list of steppers.
+/// Its rows are boxed inside it for the same reason one level down — "Set 2" in
+/// small type over a grid is a heading only while nothing else on screen looks
+/// like the grid under it.
+class _CycleWeekCard extends StatelessWidget {
+  const _CycleWeekCard({
+    super.key,
     required this.title,
+    required this.rows,
+    required this.advanced,
+    required this.open,
     required this.current,
+    required this.onToggle,
     required this.onRemove,
+    required this.onRowChanged,
+    required this.onAddSet,
+    required this.onRemoveSet,
   });
 
   final String title;
+  final List<CustomSet> rows;
+  final bool advanced;
+  final bool open;
+
+  /// Whether this is the week the next session will run.
   final bool current;
+
+  final VoidCallback onToggle;
   final VoidCallback? onRemove;
+  final void Function(int index, CustomSet row) onRowChanged;
+  final VoidCallback onAddSet;
+  final VoidCallback? onRemoveSet;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            current ? l10n.itemEditorCycleWeekNext(title) : title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: kMono.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              color: current ? AppColors.accent : AppColors.muted,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: current ? AppColors.accent : AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+              child: Row(
+                children: [
+                  Icon(
+                    open ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: current ? AppColors.accent : AppColors.muted,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      current ? l10n.itemEditorCycleWeekNext(title) : title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: kMono.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: current ? AppColors.accent : AppColors.muted,
+                      ),
+                    ),
+                  ),
+                  // Folded, the heading carries the week read back, so nothing
+                  // has to be opened to see what it asks for.
+                  if (!open) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _summary(l10n),
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: kMono.copyWith(
+                            fontSize: 12, color: AppColors.faint),
+                      ),
+                    ),
+                  ] else
+                    const Spacer(),
+                  if (onRemove != null)
+                    IconButton(
+                      onPressed: onRemove,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: l10n.itemEditorCycleRemoveWeek,
+                      icon: Icon(Icons.close, size: 18, color: AppColors.faint),
+                    )
+                  else
+                    const SizedBox(width: 6),
+                ],
+              ),
             ),
           ),
-        ),
-        if (onRemove != null)
-          IconButton(
-            onPressed: onRemove,
-            visualDensity: VisualDensity.compact,
-            tooltip: l10n.itemEditorCycleRemoveWeek,
-            icon: Icon(Icons.close, size: 18, color: AppColors.faint),
-          ),
-      ],
+          if (open) ...[
+            Divider(height: 1, thickness: 1, color: AppColors.line),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: AppColors.line.withValues(alpha: 0.6)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: _CustomSetRow(
+                          index: i,
+                          advanced: advanced,
+                          row: rows[i],
+                          onChanged: (row) => onRowChanged(i, row),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  _CycleActions(onAddSet: onAddSet, onRemoveSet: onRemoveSet),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
+
+  /// The week in one line — "5/5/5+ · 65/75/85%".
+  String _summary(AppLocalizations l10n) => l10n.itemEditorCycleWeekSummary(
+        rowsTargetLabel(l10n, rows),
+        joinRowLabels(l10n, rows.map((r) => '${r.percent}')),
+      );
 }
 
 /// Add or drop a set inside one week.
@@ -2019,14 +2248,17 @@ class _CycleActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Row(
+    // Wrapped rather than a row: these sit inside a week card inside the
+    // sheet's own padding, so two spelled-out buttons do not fit a narrow
+    // phone's line — and at 2x text they do not fit anybody's.
+    return Wrap(
+      spacing: 8,
       children: [
         TextButton.icon(
           onPressed: onAddSet,
           icon: const Icon(Icons.add, size: 16),
           label: Text(l10n.itemEditorCycleAddSet),
         ),
-        const SizedBox(width: 8),
         if (onRemoveSet != null)
           TextButton.icon(
             onPressed: onRemoveSet,
@@ -2075,6 +2307,47 @@ Future<void> _explainSuperset(BuildContext context) {
           onPressed: () => Navigator.pop(ctx),
           child: Text(l10n.commonDone),
         ),
+      ],
+    ),
+  );
+}
+
+/// Finds the (i) beside the Set scheme label in a test.
+const kCycleExplainKey = ValueKey('cycle-explain');
+
+/// Finds the switch inside that dialog in a test.
+const kCycleTurnOnKey = ValueKey('cycle-turn-on');
+
+/// What a cycle is, for somebody who has just been offered one.
+///
+/// The second thing on this sheet explained rather than labelled, and for the
+/// reason the superset is: it is a way of training rather than a number, and
+/// picking it without knowing what it does gets you a slot whose weight stops
+/// moving for a month. Behind a tap, read once — see [_explainSuperset].
+Future<void> _explainCycle(BuildContext context, {VoidCallback? onTurnOn}) {
+  final l10n = AppLocalizations.of(context);
+  return showAppDialog<void>(
+    context,
+    builder: (ctx) => AppDialog(
+      title: l10n.itemEditorCycleWhat,
+      content: Text(l10n.itemEditorCycleExplained),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(l10n.commonDone),
+        ),
+        // Only where the pill it explains is dead: the switch, from where
+        // somebody went looking for it rather than from a settings screen they
+        // would have to be told the name of.
+        if (onTurnOn != null)
+          TextButton(
+            key: kCycleTurnOnKey,
+            onPressed: () {
+              Navigator.pop(ctx);
+              onTurnOn();
+            },
+            child: Text(l10n.itemEditorCycleTurnOn),
+          ),
       ],
     ),
   );
@@ -2247,9 +2520,10 @@ class _ModePicker extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(right: m == modes.last ? 0 : 8),
-                  child: _pill(
+                  child: EditorPill(
+                    key: _key(m),
                     label: _label(l10n, m),
-                    pillKey: _key(m),
+                    centred: true,
                     on: !advanced && m == mode,
                     onTap: () => onChanged(m),
                   ),
@@ -2259,9 +2533,10 @@ class _ModePicker extends StatelessWidget {
         ),
         if (advancedOffered) ...[
           const SizedBox(height: 8),
-          _pill(
+          EditorPill(
+            key: kModeAdvancedKey,
             label: l10n.itemEditorModeAdvanced,
-            pillKey: kModeAdvancedKey,
+            centred: true,
             on: advanced,
             onTap: advancedEnabled ? onAdvanced : null,
           ),
@@ -2270,46 +2545,6 @@ class _ModePicker extends StatelessWidget {
     );
   }
 
-  Widget _pill({
-    required String label,
-    required Key pillKey,
-    required bool on,
-    required VoidCallback? onTap,
-  }) {
-    final live = onTap != null;
-    return Material(
-      key: pillKey,
-      color: on ? AppColors.accent.withValues(alpha: 0.16) : AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: on
-                    ? AppColors.accent
-                    : (live ? AppColors.line : AppColors.line.withValues(alpha: 0.5))),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: kMono.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: on
-                  ? AppColors.accent
-                  : (live ? AppColors.muted : AppColors.faint),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// One tap of a progression amount, in the display unit of [mode].

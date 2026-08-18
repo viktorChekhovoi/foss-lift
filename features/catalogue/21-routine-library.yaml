@@ -89,6 +89,22 @@ groups:
     - template.item
     - template.rep-target
     - platform.reminders
+  - id: a-program-arrives-in-your-own-unit
+    t: A program's weights arrive as numbers your gym loads
+    d: >-
+      the programs are written down in kilograms, so on a pounds phone every
+      load and every step in them is a conversion: 45&nbsp;kg is 99.208&nbsp;lb
+      and a 2.5&nbsp;kg step is 5.512. Both are rounded on the way in to the
+      nearest pair of plates a pounds gym racks — 100&nbsp;lb, stepping 5 — so
+      the copy opens on numbers somebody can put on a bar. A kilogram phone gets
+      the numbers exactly as they were written, since there is nothing to
+      convert and rounding would only move them.
+    uses:
+    - template.starter-library
+    - load.units
+    - load.unit-defaults
+    - progression.rates
+    - template.item
   - id: library-covers-training-without-a-gym
     t: Four of the programs need no gym
     d: >-
