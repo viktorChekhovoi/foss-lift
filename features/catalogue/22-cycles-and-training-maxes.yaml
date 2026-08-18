@@ -3,7 +3,7 @@ title: Cycles and training maxes
 tagline: >-
   A slot can rotate through a fixed set of weeks — each with its own written-out
   sets — and move the weight they are percentages of when the cycle comes round.
-  The toolbox 5/3/1 is built from, and off by default.
+  The toolbox 5/3/1 is built from.
 screen: workout-edit
 code:
 - lib/data/set_scheme.dart
@@ -16,7 +16,7 @@ where: >-
   <b>Blocks and rows</b> lib/data/set_scheme.dart (CycleBlocks, resolveSetTargets)
   · <b>The wrap</b> lib/data/progression.dart (stepCycle), applied by
   AppDatabase.advanceProgression · <b>Data</b> WorkoutItems.cycle_blocks /
-  cycle_position, Settings.advanced_programming · <b>Builder</b>
+  cycle_position · <b>Builder</b>
   lib/widgets/workout_items_editor.dart (_CycleEditor, _CustomSetRow)
 groups:
 - name: The cycle
@@ -77,7 +77,7 @@ groups:
   - id: what-a-cycle-is-sits-behind-an-i
     t: What a cycle is sits behind an (i), not under the picker
     d: >-
-      the set-scheme label carries an info tap that opens four sentences: the weeks run in order and wrap, the percentages are of the training max, the training max is what moves and it moves at the wrap, and 5/3/1 is four weeks of that. It is the one thing in this sheet that is a way of training rather than a number, so it is explained on the same terms the superset tick is — behind a tap, once, rather than as a paragraph under a control that everybody reads past for ever. Opened with advanced programming still off, the same dialog carries the switch: turning it on is a button beside Done, so nobody has to be told which settings screen to go and find.
+      the set-scheme label carries an info tap, drawn while the slot is on a cycle, that opens four sentences: the weeks run in order and wrap, the percentages are of the training max, the training max is what moves and it moves at the wrap, and 5/3/1 is four weeks of that. It is the one thing in this sheet that is a way of training rather than a number, so it is explained on the same terms the superset tick is — behind a tap, once, rather than as a paragraph under a control that everybody reads past for ever.
     screen: workout-edit
     uses:
     - template.cycle
@@ -150,39 +150,8 @@ groups:
     - template.per-set-reps
     - session.set-logging
     - progression.verdict
-- name: Advanced programming
+- name: The training max
   items:
-  - id: advanced-programming-is-off-until-asked-for
-    t: Cycles, per-set reps and training maxes are off until asked for
-    d: >-
-      one switch in Settings, off on a fresh install and off on every phone
-      upgrading to this build. With it off a written-out row asks for a count,
-      which is the whole of what most programs need, and the scheme picker's
-      fifth pill is greyed: <b>Cycle</b> stays where it is, does nothing when
-      tapped, and opens the (i) beside it instead — four sentences on what a
-      cycle is, and the way to turn the switch on from where you were looking
-      for it. A gate nothing on screen mentions is a feature nobody finds, and
-      "why can I not pick this" is a worse first experience than one pill in a
-      colour that says not yet. Nothing already configured stops working — the
-      switch decides what the builder <i>offers</i>, not what it will run.
-    screen: settings
-    defines:
-    - template.advanced-programming
-    uses:
-    - template.cycle
-    - template.per-set-reps
-  - id: a-slot-already-using-them-shows-its-controls
-    t: A slot already using them shows its controls whatever the switch says
-    d: >-
-      adding a ready-made 5/3/1 program with the switch off must not produce a
-      workout you can look at and not edit. So the cycle card, the per-set rows
-      and the training-max label appear on any slot that has them, the same way
-      the Advanced toggle inside the sheet opens by itself on a slot that is
-      using it.
-    screen: workout-edit
-    uses:
-    - template.advanced-programming
-    - template.cycle
   - id: the-weight-field-says-training-max-on-a-cycle-slot
     t: On a cycle slot the weight field is a training max
     d: >-
@@ -204,14 +173,13 @@ groups:
     t: An upgraded phone trains exactly what it trained before
     d: >-
       the two columns a cycle needs arrive empty on every slot already on a
-      phone, and the switch arrives off. No slot gains a scheme, no weight moves,
-      and the builder looks the way it looked — the whole feature is opt-in and
-      an update is not the opting.
+      phone. No slot gains a scheme, no weight moves, and nothing anybody built
+      trains differently — the builder has a fifth option in a picker, and an
+      option nobody picked changes nothing.
     screen: none
     uses:
     - storage.schema
     - template.cycle
-    - template.advanced-programming
   - id: a-cycle-of-one-week-is-just-a-custom-scheme
     t: A cycle of one week is a custom scheme that steps every session
     d: >-
@@ -236,22 +204,12 @@ groups:
     - progression.streak
 - name: Where to find it
   items:
-  - id: turn-advanced-programming-on
-    t: Turn advanced programming on
-    d: >-
-      Profile → Settings → Advanced programming. The scheme picker in the
-      exercise builder grows a fifth option and written-out rows grow a rep
-      range and a + .
-    screen: settings
-    uses:
-    - template.advanced-programming
   - id: build-a-cycle
     t: Build a cycle
     d: >-
       Routines → a routine → a day → edit → tap a slot → Target → Advanced → Set
       scheme → Cycle. Add a week, then a row per set: reps and the percentage of
-      the training max. Weeks are reordered and removed like the slots
-      themselves.
+      the training max. The (i) beside the label says what a cycle is.
     screen: workout-edit
     uses:
     - template.cycle

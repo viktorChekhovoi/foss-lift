@@ -167,14 +167,6 @@ concepts:
       a number you train off rather than one you lift.
     code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
 
-  - id: template.advanced-programming
-    area: template
-    what: >-
-      The app-wide switch that decides whether the builder offers cycles,
-      per-set reps and training maxes at all, and the rule that a slot already
-      using one shows its controls regardless.
-    code: [lib/data/database.dart, lib/screens/exercise_settings_screen.dart]
-
   - id: template.superset
     area: template
     what: >-

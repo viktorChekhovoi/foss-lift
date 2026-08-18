@@ -14,7 +14,6 @@ import 'package:foss_lift/data/routine_code.dart';
 import 'package:foss_lift/l10n/app_localizations.dart';
 import 'package:foss_lift/data/routine_import.dart';
 import 'package:foss_lift/providers/providers.dart';
-import 'package:foss_lift/screens/exercise_settings_screen.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/util/target_label.dart';
@@ -24,7 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
-import 'support/settle.dart';
 
 /// The 5/3/1 main-lift cycle, written out: three weeks of three sets, the last
 /// of each open-ended. The shape every test below leans on.
@@ -574,74 +572,61 @@ void main() {
     });
   });
 
-  // ------------------------------------------------------- advanced settings
+  // ----------------------------------------------------- picking it, and (i)
 
-  group('advanced programming is off until asked for', () {
-    test('a fresh install has it off', () async {
-      expect(await db.watchAdvancedProgramming().first, isFalse);
-    });
-
-    test('the setting is stored and read back', () async {
-      await db.setAdvancedProgramming(true);
-      expect(await db.watchAdvancedProgramming().first, isTrue);
-      await db.setAdvancedProgramming(false);
-      expect(await db.watchAdvancedProgramming().first, isFalse);
-    });
-
-    test('turning it on does not disturb the rest of the settings row', () async {
-      await db.setWeightUnit('lb');
-      await db.setAdvancedProgramming(true);
-      expect(await db.watchWeightUnit().first, 'lb');
-    });
-
-    testWidgets('the switch is on the training settings screen, and it writes',
-        (tester) async {
-      // Tall enough for the whole settings list: a ListView does not build
-      // what is below the fold, and the switch sits under the plate rows.
-      tester.view.physicalSize = const Size(390, 1800);
+  group('Cycle is a scheme anybody can pick', () {
+    testWidgets('the picker offers all five, live', (tester) async {
+      final l10n = l10nFor();
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
+        ..weightKg = 100;
+      tester.view.physicalSize = const Size(390, 2000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        routedAppUnder(container, const ExerciseSettingsScreen(), scaffold: true),
-      );
-      // Plain pumps rather than a settle: the screen's values come off drift
-      // streams, so the tree is never quiet of its own accord.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byKey(kAdvancedProgrammingKey), findsOneWidget);
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: ListView(children: [
+            WorkoutItemsEditor(
+                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
+          ]),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(draft.name));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(kAdvancedToggleKey));
+      await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(kAdvancedProgrammingKey));
-      // Read back through the provider rather than the stream: awaiting a
-      // drift future under the widget binding's clock never returns.
-      await pumpUntil(
-        tester,
-        () => container.read(advancedProgrammingProvider).value ?? false,
-      );
-      expect(container.read(advancedProgrammingProvider).value, isTrue);
-      await stop(tester);
+      for (final label in [
+        l10n.itemEditorSchemeFlat,
+        l10n.itemEditorSchemeBackOff,
+        l10n.itemEditorSchemeRamp,
+        l10n.itemEditorSchemeCustom,
+        l10n.itemEditorSchemeCycle,
+      ]) {
+        final pill = find.widgetWithText(EditorPill, label);
+        expect(pill, findsOneWidget);
+        expect(tester.widget<EditorPill>(pill).onTap, isNotNull,
+            reason: 'nothing gates the picker');
+      }
+
+      // The (i) is for the scheme that needs one, and only while it is on.
+      expect(find.byKey(kCycleExplainKey), findsNothing);
+      await tester.tap(find.widgetWithText(
+          EditorPill, l10n.itemEditorSchemeCycle));
+      await tester.pumpAndSettle();
+      expect(draft.scheme, SetScheme.cycle);
+      expect(find.byKey(kCycleExplainKey), findsOneWidget);
     });
-  });
 
-  group('the builder offers a cycle only where it should', () {
-    test('the scheme picker hides Cycle with the switch off', () {
-      expect(
-        schemesOffered(advanced: false, draftUsesCycle: false),
-        isNot(contains(SetScheme.cycle)),
-      );
-    });
+    testWidgets('a written-out row asks for a range and an open end',
+        (tester) async {
+      final l10n = l10nFor();
+      await openCycleSheet(tester, db, container);
 
-    test('and offers it with the switch on', () {
-      expect(
-        schemesOffered(advanced: true, draftUsesCycle: false),
-        contains(SetScheme.cycle),
-      );
-    });
-
-    test('a slot already running one shows it whatever the switch says', () {
-      expect(
-        schemesOffered(advanced: false, draftUsesCycle: true),
-        contains(SetScheme.cycle),
-      );
+      expect(find.text(l10n.itemEditorSchemeAmrap), findsWidgets,
+          reason: 'a cycle without an open set cannot be 5/3/1');
     });
   });
 
@@ -969,59 +954,6 @@ void main() {
 
       expect(find.text(l10n.itemEditorCycleWhat), findsOneWidget);
       expect(find.text(l10n.itemEditorCycleExplained), findsOneWidget);
-    });
-  });
-
-  group('the gate says it is there', () {
-    testWidgets('with the switch off Cycle is drawn, and dead', (tester) async {
-      final l10n = l10nFor();
-      final draft = (await tester.runAsync(() async =>
-          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
-        ..weightKg = 100;
-      tester.view.physicalSize = const Size(390, 2000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(appUnder(
-        container,
-        Scaffold(
-          body: ListView(children: [
-            WorkoutItemsEditor(
-                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
-          ]),
-        ),
-      ));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(draft.name));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(kAdvancedToggleKey));
-      await tester.pumpAndSettle();
-
-      final cycle = find.widgetWithText(EditorPill, l10n.itemEditorSchemeCycle);
-      expect(cycle, findsOneWidget,
-          reason: 'a gate nothing on screen mentions is a feature nobody finds');
-      expect(tester.widget<EditorPill>(cycle).onTap, isNull);
-
-      // And the (i) beside the label carries the switch.
-      await tester.tap(find.byKey(kCycleExplainKey));
-      await tester.pumpAndSettle();
-      expect(find.byKey(kCycleTurnOnKey), findsOneWidget);
-      await tester.tap(find.byKey(kCycleTurnOnKey));
-      await tester.pumpAndSettle();
-
-      expect(await tester.runAsync(() => db.watchAdvancedProgramming().first),
-          isTrue);
-      await tester.pumpAndSettle();
-      expect(tester.widget<EditorPill>(cycle).onTap, isNotNull,
-          reason: 'the picker comes alive where they were already looking');
-    });
-
-    testWidgets('with it on the dialog has nothing to switch', (tester) async {
-      await tester.runAsync(() => db.setAdvancedProgramming(true));
-      await openCycleSheet(tester, db, container);
-
-      await tester.tap(find.byKey(kCycleExplainKey));
-      await tester.pumpAndSettle();
-      expect(find.byKey(kCycleTurnOnKey), findsNothing);
     });
   });
 }

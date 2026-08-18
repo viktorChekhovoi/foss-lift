@@ -496,12 +496,6 @@ final defaultWarmupSetsProvider = StreamProvider<int>((ref) {
   return ref.watch(databaseProvider).watchDefaultWarmupSets();
 });
 
-/// Whether the builder offers cycles, per-set rep ranges and training maxes.
-/// Off until asked for — see `Settings.advancedProgramming`.
-final advancedProgrammingProvider = StreamProvider<bool>((ref) {
-  return ref.watch(databaseProvider).watchAdvancedProgramming();
-});
-
 /// The user's chosen weight unit ('kg' or 'lb'). Kilograms until they say
 /// otherwise, including while the first-run question is still on screen.
 final weightUnitProvider = StreamProvider<String>((ref) {

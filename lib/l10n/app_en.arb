@@ -1649,10 +1649,6 @@
       }
     }
   },
-  "itemEditorCycleTurnOn": "Turn on",
-  "@itemEditorCycleTurnOn": {
-    "description": "Button beside Done in the 'What is a cycle?' dialog, shown only while advanced programming is off. Turns it on. Keep it short — it shares a row with Done."
-  },
   "itemEditorCycleWhat": "What is a cycle?",
   "@itemEditorCycleWhat": {
     "description": "Title of the dialog behind the info tap beside the Set scheme label. A question, as the superset one is."
@@ -4148,14 +4144,6 @@
   "itemEditorTrainingMax": "Training max",
   "@itemEditorTrainingMax": {
     "description": "Field label over the weight of a slot running a cycle, where every set is a percentage of it rather than the weight itself. Replaces \"Weight\"."
-  },
-  "settingsAdvancedProgramming": "Advanced programming",
-  "@settingsAdvancedProgramming": {
-    "description": "Switch on the training settings screen."
-  },
-  "settingsAdvancedProgrammingNote": "Cycles, per-set reps and training maxes in the builder.",
-  "@settingsAdvancedProgrammingNote": {
-    "description": "The one line under that switch, saying what turning it on puts on screen. Not a definition of any of the three."
   },
   "sessionCycleWeek": "Week {n}/{total}",
   "@sessionCycleWeek": {

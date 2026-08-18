@@ -19,9 +19,6 @@ import '../util/format.dart';
 /// How the app *looks* — theme, text size, language — is the other half, and
 /// lives on `appearance_screen.dart`. The split is by what a setting is about,
 /// which is the only thing somebody looking for one has to go on.
-/// The advanced-programming switch, for a test that has to find it.
-const kAdvancedProgrammingKey = ValueKey('advanced-programming');
-
 class ExerciseSettingsScreen extends ConsumerWidget {
   const ExerciseSettingsScreen({super.key});
 
@@ -114,23 +111,6 @@ class ExerciseSettingsScreen extends ConsumerWidget {
                 ),
               ]),
             ]),
-            const SizedBox(height: 28),
-            // One line under it, because the label names three things nobody
-            // has to have met before. It says what turning it on puts on the
-            // screen, not what a cycle is.
-            SwitchListTile.adaptive(
-              key: kAdvancedProgrammingKey,
-              contentPadding: EdgeInsets.zero,
-              value: ref.watch(advancedProgrammingProvider).value ?? false,
-              onChanged: db.setAdvancedProgramming,
-              activeThumbColor: AppColors.accent,
-              title: Text(l10n.settingsAdvancedProgramming,
-                  style: const TextStyle(fontSize: 15)),
-              subtitle: Text(
-                l10n.settingsAdvancedProgrammingNote,
-                style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.4),
-              ),
-            ),
             const SizedBox(height: 28),
             builderCard(l10n.settingsDeload, [
               builderGrid([

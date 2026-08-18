@@ -265,14 +265,6 @@ class ItemDraft {
   bool get usesAdvanced =>
       toFailure || repsMax != null || scheme != SetScheme.flat;
 
-  /// Whether this slot is using anything advanced programming gates, and so
-  /// shows those controls however the app-wide switch is set. A ready-made
-  /// 5/3/1 program has to be editable by somebody who never turned it on.
-  bool get usesAdvancedProgramming =>
-      scheme.isAdvanced ||
-      customSets.any((r) => r.amrap || r.repsMax != null) ||
-      cycle.any((week) => week.isNotEmpty);
-
   /// The same question for the Progression card's own Advanced half, which
   /// holds only the range climb so far.
   ///
@@ -1197,10 +1189,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     draft: d,
                     unit: _unit,
                     defaultBarKg: widget.defaultBarKg,
-                    advanced:
-                        ref.watch(advancedProgrammingProvider).value ?? false,
-                    onTurnOnAdvanced: () =>
-                        ref.read(databaseProvider).setAdvancedProgramming(true),
                     onChanged: () => _bump(() {}),
                   ),
                 ],
@@ -1516,27 +1504,6 @@ class _AdvancedToggle extends StatelessWidget {
   }
 }
 
-/// Which schemes the picker will let you pick.
-///
-/// The four ordinary ones always, and the advanced ones when [advanced] says
-/// so — or when the slot is already on one ([draftUsesCycle]), because a
-/// ready-made program that arrived with a cycle has to stay editable by
-/// somebody who never turned the switch on. A picker that could not show the
-/// scheme a slot is running would have no pill lit at all.
-///
-/// The ones left out are still *drawn*, greyed — see [_SchemePicker]. A gate
-/// nothing on screen mentions is a feature nobody finds, and the question it
-/// produces is "why can I not pick this", which no settings screen answers
-/// from where it is asked.
-List<SetScheme> schemesOffered({
-  required bool advanced,
-  required bool draftUsesCycle,
-}) =>
-    [
-      for (final s in SetScheme.values)
-        if (!s.isAdvanced || advanced || draftUsesCycle) s,
-    ];
-
 /// How the sets of this slot differ from one another: the schemes on offer, the
 /// percentage the two ladders are made of, the written-out rows of a custom one
 /// or the weeks of a cycle, and the whole thing read back as the weights it
@@ -1546,8 +1513,6 @@ class _SchemeSection extends StatelessWidget {
     required this.draft,
     required this.unit,
     required this.defaultBarKg,
-    required this.advanced,
-    required this.onTurnOnAdvanced,
     required this.onChanged,
   });
 
@@ -1555,22 +1520,12 @@ class _SchemeSection extends StatelessWidget {
   final String unit;
   final double defaultBarKg;
 
-  /// The app-wide advanced-programming switch — see [schemesOffered].
-  final bool advanced;
-
-  /// Turns that switch on, for the dialog behind the (i).
-  final VoidCallback onTurnOnAdvanced;
-
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final d = draft;
-    final offered = schemesOffered(
-      advanced: advanced,
-      draftUsesCycle: d.usesAdvancedProgramming,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1588,24 +1543,24 @@ class _SchemeSection extends StatelessWidget {
             // training rather than a shape, and somebody can pick it without
             // knowing what they have asked for. Explained behind a tap, on the
             // same terms as the superset tick — and only where it is on offer.
-            IconButton(
-              key: kCycleExplainKey,
-              onPressed: () => _explainCycle(
-                context,
-                onTurnOn:
-                    offered.contains(SetScheme.cycle) ? null : onTurnOnAdvanced,
+            // Only while the slot is on one. A cycle is the one thing this
+            // picker offers that is a way of training rather than a shape, and
+            // somebody can pick it without knowing what they have asked for.
+            if (d.scheme == SetScheme.cycle)
+              IconButton(
+                key: kCycleExplainKey,
+                onPressed: () => _explainCycle(context),
+                visualDensity: VisualDensity.compact,
+                tooltip: l10n.itemEditorCycleWhat,
+                icon:
+                    Icon(Icons.info_outline, size: 16, color: AppColors.faint),
               ),
-              visualDensity: VisualDensity.compact,
-              tooltip: l10n.itemEditorCycleWhat,
-              icon: Icon(Icons.info_outline, size: 16, color: AppColors.faint),
-            ),
           ],
         ),
         const SizedBox(height: 10),
         _SchemePicker(
           key: kSchemePickerKey,
           scheme: d.scheme,
-          offered: offered,
           // The rows a custom scheme was given survive a trip through another
           // scheme and back, so trying a ramp does not throw away what was
           // typed. Only a custom slot ever writes them to the database, and a
@@ -1651,7 +1606,6 @@ class _SchemeSection extends StatelessWidget {
             if (i > 0) const SizedBox(height: 10),
             _CustomSetRow(
               index: i,
-              advanced: advanced || d.usesAdvancedProgramming,
               row: i < d.customSets.length
                   ? d.customSets[i]
                   : CustomSet(reps: d.goalReps, percent: 100),
@@ -1673,7 +1627,6 @@ class _SchemeSection extends StatelessWidget {
           const SizedBox(height: 14),
           _CycleEditor(
             draft: d,
-            advanced: advanced || d.usesAdvancedProgramming,
             onChanged: onChanged,
           ),
         ],
@@ -1813,12 +1766,10 @@ class _SchemePicker extends StatelessWidget {
   const _SchemePicker({
     super.key,
     required this.scheme,
-    required this.offered,
     required this.onChanged,
   });
 
   final SetScheme scheme;
-  final List<SetScheme> offered;
   final ValueChanged<SetScheme> onChanged;
 
   static String _label(AppLocalizations l10n, SetScheme s) => switch (s) {
@@ -1842,9 +1793,7 @@ class _SchemePicker extends StatelessWidget {
           EditorPill(
             label: _label(l10n, s),
             on: s == scheme,
-            // Dead rather than absent, and the (i) beside the label is where
-            // the answer to "why" — and the switch — lives.
-            onTap: offered.contains(s) ? () => onChanged(s) : null,
+            onTap: () => onChanged(s),
           ),
       ],
     );
@@ -1858,17 +1807,11 @@ class _CustomSetRow extends StatelessWidget {
     required this.index,
     required this.row,
     required this.onChanged,
-    this.advanced = false,
   });
 
   final int index;
   final CustomSet row;
   final ValueChanged<CustomSet> onChanged;
-
-  /// Whether the row's upper bound and its open end are on offer. With this
-  /// false the row asks for a count and a percentage, which is what it asked
-  /// for before either existed.
-  final bool advanced;
 
   @override
   Widget build(BuildContext context) {
@@ -1909,9 +1852,8 @@ class _CustomSetRow extends StatelessWidget {
             ),
           ),
         ]),
-        if (advanced) ...[
-          const SizedBox(height: 10),
-          builderGrid([
+        const SizedBox(height: 10),
+        builderGrid([
             BuilderField(
               label: l10n.itemEditorRepRange,
               child: NumberStepper(
@@ -1926,13 +1868,12 @@ class _CustomSetRow extends StatelessWidget {
               ),
             ),
           ]),
-          const SizedBox(height: 10),
-          _CheckRow(
-            label: l10n.itemEditorSchemeAmrap,
-            value: row.amrap,
-            onChanged: (v) => onChanged(_with(amrap: v, clearMax: v)),
-          ),
-        ],
+        const SizedBox(height: 10),
+        _CheckRow(
+          label: l10n.itemEditorSchemeAmrap,
+          value: row.amrap,
+          onChanged: (v) => onChanged(_with(amrap: v, clearMax: v)),
+        ),
       ],
     );
   }
@@ -1970,12 +1911,10 @@ class _CustomSetRow extends StatelessWidget {
 class _CycleEditor extends StatefulWidget {
   const _CycleEditor({
     required this.draft,
-    required this.advanced,
     required this.onChanged,
   });
 
   final ItemDraft draft;
-  final bool advanced;
   final VoidCallback onChanged;
 
   @override
@@ -2011,7 +1950,6 @@ class _CycleEditorState extends State<_CycleEditor> {
             // state the builder shows rather than edits.
             title: l10n.itemEditorCycleWeek(w + 1),
             rows: _d.cycle[w],
-            advanced: widget.advanced,
             open: w == _open,
             current: _d.cycle.length > 1 && w == _d.cyclePosition % _d.cycle.length,
             onToggle: () => setState(() => _open = w == _open ? null : w),
@@ -2102,7 +2040,6 @@ class _CycleWeekCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.rows,
-    required this.advanced,
     required this.open,
     required this.current,
     required this.onToggle,
@@ -2114,7 +2051,6 @@ class _CycleWeekCard extends StatelessWidget {
 
   final String title;
   final List<CustomSet> rows;
-  final bool advanced;
   final bool open;
 
   /// Whether this is the week the next session will run.
@@ -2213,7 +2149,6 @@ class _CycleWeekCard extends StatelessWidget {
                         padding: const EdgeInsets.all(10),
                         child: _CustomSetRow(
                           index: i,
-                          advanced: advanced,
                           row: rows[i],
                           onChanged: (row) => onRowChanged(i, row),
                         ),
@@ -2315,8 +2250,6 @@ Future<void> _explainSuperset(BuildContext context) {
 /// Finds the (i) beside the Set scheme label in a test.
 const kCycleExplainKey = ValueKey('cycle-explain');
 
-/// Finds the switch inside that dialog in a test.
-const kCycleTurnOnKey = ValueKey('cycle-turn-on');
 
 /// What a cycle is, for somebody who has just been offered one.
 ///
@@ -2324,7 +2257,7 @@ const kCycleTurnOnKey = ValueKey('cycle-turn-on');
 /// reason the superset is: it is a way of training rather than a number, and
 /// picking it without knowing what it does gets you a slot whose weight stops
 /// moving for a month. Behind a tap, read once — see [_explainSuperset].
-Future<void> _explainCycle(BuildContext context, {VoidCallback? onTurnOn}) {
+Future<void> _explainCycle(BuildContext context) {
   final l10n = AppLocalizations.of(context);
   return showAppDialog<void>(
     context,
@@ -2336,18 +2269,6 @@ Future<void> _explainCycle(BuildContext context, {VoidCallback? onTurnOn}) {
           onPressed: () => Navigator.pop(ctx),
           child: Text(l10n.commonDone),
         ),
-        // Only where the pill it explains is dead: the switch, from where
-        // somebody went looking for it rather than from a settings screen they
-        // would have to be told the name of.
-        if (onTurnOn != null)
-          TextButton(
-            key: kCycleTurnOnKey,
-            onPressed: () {
-              Navigator.pop(ctx);
-              onTurnOn();
-            },
-            child: Text(l10n.itemEditorCycleTurnOn),
-          ),
       ],
     ),
   );

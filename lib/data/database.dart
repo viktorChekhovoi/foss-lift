@@ -706,17 +706,10 @@ class Settings extends Table {
   IntColumn get warmupSets =>
       integer().withDefault(const Constant(kDefaultWarmupSets))();
 
-  /// Whether the builder offers cycles, per-set rep ranges and training maxes.
-  ///
-  /// Off on a fresh install and off on every phone that upgrades into this
-  /// build. Most programs are a set count and a rep target, and a picker with a
-  /// week-by-week prescription in it is a question those programs never have to
-  /// answer.
-  ///
-  /// It gates what the builder **offers**, never what it runs: a slot that
-  /// already has a cycle — because a ready-made program brought one, or because
-  /// the switch was on last month — shows its controls regardless. A program
-  /// you cannot look at is worse than a picker with a fifth option in it.
+  /// Dormant. It once gated whether the builder offered cycles, per-set rep
+  /// ranges and training maxes; it gates nothing now — those are ordinary
+  /// options, on every install. The column stays because a shipped rung wrote
+  /// it and a rung is never rewritten; nothing reads it.
   ///
   /// **Declared last**, for the reason [warmupSets] gives above; the note moves
   /// to whatever column comes next.
@@ -3238,17 +3231,6 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setTutorialSeen(bool seen) =>
       _writeSettings(SettingsCompanion(tutorialSeen: Value(seen)));
-
-  /// Whether the builder offers cycles, per-set rep ranges and training maxes —
-  /// see [Settings.advancedProgramming]. Off until asked for.
-  Stream<bool> watchAdvancedProgramming() {
-    return (select(settings)..where((s) => s.id.equals(1)))
-        .watchSingleOrNull()
-        .map((s) => s?.advancedProgramming ?? false);
-  }
-
-  Future<void> setAdvancedProgramming(bool on) =>
-      _writeSettings(SettingsCompanion(advancedProgramming: Value(on)));
 
   /// The user's text-size nudge. 1.0 — follow the phone — until they say
   /// otherwise.

@@ -51,8 +51,6 @@ enum SetScheme {
   /// [resolveSetTargets] asks when deciding where the rows come from.
   bool get isWrittenOut => this == SetScheme.custom || this == SetScheme.cycle;
 
-  /// Whether this scheme is one of the ones advanced programming gates.
-  bool get isAdvanced => this == SetScheme.cycle;
 }
 
 /// One row of a written-out prescription: what to aim for, and at what fraction
