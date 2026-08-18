@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/backup_archive.dart';
@@ -96,6 +97,22 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             OutlinedButton(
               onPressed: _busy ? null : () => _restore(l10n),
               child: Text(l10n.backupChooseFile),
+            ),
+            // Last on the screen, under the one thing that would let you undo
+            // it. Nothing that empties the log belongs above the control that
+            // saves it.
+            const SizedBox(height: 36),
+            Text(l10n.backupStartingOver, style: sectionLabelStyle()),
+            const SizedBox(height: 10),
+            _Note(l10n.backupResetReplaces, warn: true),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _busy ? null : () => _reset(l10n),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.gold,
+                side: BorderSide(color: AppColors.gold.withValues(alpha: 0.55)),
+              ),
+              child: Text(l10n.backupResetProfile),
             ),
           ],
         ),
@@ -184,6 +201,63 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         ref.invalidate(databaseProvider);
         _say(l10n.backupRestored);
     }
+  }
+
+  /// Empties the app back to a fresh install, once the user has agreed to it in
+  /// those words.
+  ///
+  /// The running-workout refusal comes first and comes before the dialog, for
+  /// the reason [_restore] is held to the same rule: a live session is memory
+  /// and is not history until Finish, so emptying the database under one would
+  /// throw it away as a side effect of a button that says nothing about
+  /// sessions.
+  ///
+  /// The clips are files rather than rows, so the database cannot take them
+  /// with it — see [AppDatabase.resetEverything]. Unlike a restore nothing is
+  /// invalidated afterwards: it is the same database object, and every screen
+  /// watching it is handed the empty tables by drift's own streams.
+  Future<void> _reset(AppLocalizations l10n) async {
+    if (ref.read(activeWorkoutProvider) != null) {
+      _say(l10n.backupFinishWorkoutFirst);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(l10n.backupResetTitle),
+        content: Text(l10n.backupResetBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(l10n.backupResetConfirm,
+                style: TextStyle(color: AppColors.gold)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref.read(databaseProvider).resetEverything();
+      if (ref.read(capabilitiesProvider).setVideos) {
+        await ref.read(setVideoStoreProvider).deleteEverything();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    // Back to the tabs. This screen is two pushes into a profile that no longer
+    // describes anything, and leaving somebody here after the wipe makes the
+    // first thing they see of their fresh install the button that emptied it.
+    context.go('/today');
+    _say(l10n.backupResetDone);
   }
 }
 

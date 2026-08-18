@@ -255,28 +255,32 @@
       }
     }
   },
-  "settingsStartingOver": "Starting over",
-  "@settingsStartingOver": {
-    "description": "Section label over the reset control, at the very bottom of the settings screen. The only destructive thing on it."
+  "backupResetReplaces": "Everything on this phone, not just what a backup would hold.",
+  "@backupResetReplaces": {
+    "description": "The line under the Starting over heading on Backup & restore, in the warning colour. It sits beside backupRestoreReplaces, which says the same kind of thing about a restore, so it is phrased against that one."
   },
-  "settingsResetProfile": "Reset profile",
-  "@settingsResetProfile": {
-    "description": "The control that empties the app back to a fresh install. Two words, and it names what it acts on rather than what it destroys — the dialog behind it does that."
+  "backupStartingOver": "Starting over",
+  "@backupStartingOver": {
+    "description": "Section label over the reset control, at the very bottom of Backup & restore, under the save and restore sections."
   },
-  "settingsResetTitle": "Reset profile?",
-  "@settingsResetTitle": {
+  "backupResetProfile": "Reset profile",
+  "@backupResetProfile": {
+    "description": "The button that empties the app back to a fresh install, on Backup & restore. It names what it acts on rather than what it destroys — the dialog behind it does that."
+  },
+  "backupResetTitle": "Reset profile?",
+  "@backupResetTitle": {
     "description": "Title of the dialog that confirms the reset, asked before anything is deleted."
   },
-  "settingsResetBody": "Your history, routines, exercises and settings are all deleted and the app starts over. This cannot be undone — save a backup first if you might want any of it back.",
-  "@settingsResetBody": {
+  "backupResetBody": "Your history, routines, exercises and settings are all deleted and the app starts over. This cannot be undone — save a backup first if you might want any of it back.",
+  "@backupResetBody": {
     "description": "Body of the reset confirmation. It names the four things that go, says it is final, and points at the backup while there is still something to back up. Two sentences."
   },
-  "settingsResetConfirm": "Reset everything",
-  "@settingsResetConfirm": {
+  "backupResetConfirm": "Reset everything",
+  "@backupResetConfirm": {
     "description": "The button that goes ahead with the reset, in the confirmation dialog. Deliberately not 'OK' — it is the last thing read before the log goes."
   },
-  "settingsResetDone": "Profile reset.",
-  "@settingsResetDone": {
+  "backupResetDone": "Profile reset.",
+  "@backupResetDone": {
     "description": "Confirmation shown briefly once the reset has run. Two words."
   },
   "settingsSwitchUnitTitle": "Switch to {unit}?",

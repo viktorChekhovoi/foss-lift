@@ -517,6 +517,17 @@ final unitChosenProvider = StreamProvider<bool>((ref) {
 /// wrong for is one tap away from Profile → Exercise settings. See
 /// [AppDatabase.seedWeightUnit] for why the guess is only ever made once.
 final unitSeedProvider = Provider<void>((ref) {
+  // Re-evaluated whenever the stored answer goes missing rather than once at
+  // launch. A fresh install is one way into that state and a profile reset is
+  // the other, and the second one used to be unrecoverable: `main.dart` holds a
+  // blank frame until the unit is known, nothing else ever writes it, and a
+  // Provider that ran at launch does not run again. The app came back from a
+  // reset to an empty screen and stayed there.
+  //
+  // Still write-once where it counts — [AppDatabase.seedWeightUnit] refuses an
+  // install that already has an answer, so this cannot re-unit a log somebody
+  // has been keeping.
+  if (ref.watch(unitChosenProvider).value == true) return;
   final unit =
       localeDefaultUnit(WidgetsBinding.instance.platformDispatcher.locales);
   unawaited(ref.watch(databaseProvider).seedWeightUnit(unit));

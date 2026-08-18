@@ -13,8 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
-import 'package:foss_lift/screens/exercise_settings_screen.dart';
-import 'package:foss_lift/util/capabilities.dart';
+import 'package:foss_lift/screens/backup_screen.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -107,7 +106,8 @@ void main() {
       await db.resetEverything();
 
       expect(await db.watchUnitChosen().first, isFalse,
-          reason: 'the unit question is triggered by exactly this being blank');
+          reason: 'the wipe itself leaves no unit; re-guessing it is the '
+              'app root\'s job, and is covered on its own below');
       expect(await db.watchTutorialSeen().first, isFalse);
       expect(await db.watchRoutines().first, isEmpty);
       expect(await db.watchActiveRoutineId().first, isNull);
@@ -145,6 +145,26 @@ void main() {
       await pumpEventQueue();
       expect(seen, isNotEmpty, reason: 'the watchers were never delivered to');
       expect(await db.watchRoutines().first, isEmpty);
+    });
+
+    test('the app finds a unit again, rather than holding a blank frame',
+        () async {
+      // `main.dart` paints nothing at all until a unit is stored — a holding
+      // frame meant for the moment on a fresh install before the region guess
+      // lands. A reset puts the database back into exactly that state, so if
+      // the guess is only ever made once, the app comes back from a reset to
+      // an empty screen and stays there. It did.
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      container.listen(unitSeedProvider, (_, _) {}, fireImmediately: true);
+      await pumpEventQueue();
+      expect(await db.watchUnitChosen().first, isTrue,
+          reason: 'the fresh install never got a unit, so this proves nothing');
+
+      await db.resetEverything();
+      await pumpEventQueue();
+
+      expect(await db.watchUnitChosen().first, isTrue);
     });
 
     test('resetting a database that is already fresh changes nothing',
@@ -191,33 +211,19 @@ void main() {
     });
     tearDown(() => db.close());
 
-    /// The settings screen, scrolled down to the reset row.
+    /// Backup & restore, scrolled down to the reset button at the bottom.
     Future<void> openSettings(WidgetTester tester, ProviderContainer c) async {
-      await tester
-          .pumpWidget(routedAppUnder(c, const ExerciseSettingsScreen()));
+      await tester.pumpWidget(routedAppUnder(c, const BackupScreen()));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text(l10n.settingsResetProfile), 200);
+      await tester.scrollUntilVisible(find.text(l10n.backupResetProfile), 200);
     }
 
-    /// Taps [button] and lets the work behind it actually run.
-    ///
-    /// A `testWidgets` body runs in a fake-async zone, where a drift future
-    /// never completes: the tap would return with the wipe still pending and
-    /// the assertion after it would read the database as it was. `runAsync`
-    /// puts the tap on the real event loop, and the settle afterwards is what
-    /// paints the result.
+    /// Opening the dialog and dismissing it are ordinary taps: neither does
+    /// async work, so neither needs the real event loop. The confirm path is
+    /// the one that does, and it is not driven from a widget test — see the
+    /// note further down.
     Future<void> tapAndRun(WidgetTester tester, Finder button) async {
-      // The tap itself stays on the fake clock. Calling pump() inside
-      // runAsync is unsupported and deadlocks — the zone waits on a frame the
-      // fake clock is no longer driving, and nothing, including the test
-      // timeout, gets a chance to fire.
       await tester.tap(button);
-      await tester.pump();
-      // runAsync is only for waiting: the handler carries on after the dialog
-      // is popped, and the wipe behind it is a real future that the fake clock
-      // will never complete.
-      await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)));
       await tester.pumpAndSettle();
     }
 
@@ -225,13 +231,14 @@ void main() {
     Future<T> read<T>(WidgetTester tester, Future<T> Function() query) async =>
         (await tester.runAsync(query)) as T;
 
-    testWidgets('sits at the bottom of Settings', (tester) async {
+    testWidgets('sits at the bottom of Backup & restore', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
 
       await openSettings(tester, container);
 
-      expect(find.text(l10n.settingsResetProfile), findsOneWidget);
+      expect(find.text(l10n.backupResetProfile), findsOneWidget);
+      await stop(tester);
     });
 
     testWidgets('says what it will destroy, and does nothing until confirmed',
@@ -240,15 +247,16 @@ void main() {
       addTearDown(container.dispose);
 
       await openSettings(tester, container);
-      await tapAndRun(tester, find.text(l10n.settingsResetProfile));
+      await tapAndRun(tester, find.text(l10n.backupResetProfile));
 
-      expect(find.text(l10n.settingsResetTitle), findsOneWidget);
-      expect(find.text(l10n.settingsResetBody), findsOneWidget);
+      expect(find.text(l10n.backupResetTitle), findsOneWidget);
+      expect(find.text(l10n.backupResetBody), findsOneWidget);
 
       await tapAndRun(tester, find.text(l10n.commonCancel));
 
       expect(await read(tester, () => db.watchRoutines().first), isNotEmpty,
           reason: 'backing out of the dialog is not a reset');
+      await stop(tester);
     });
 
     // There is deliberately no test driving the confirm button all the way
@@ -273,25 +281,15 @@ void main() {
       });
 
       await openSettings(tester, container);
-      await tapAndRun(tester, find.text(l10n.settingsResetProfile));
+      await tapAndRun(tester, find.text(l10n.backupResetProfile));
 
       expect(find.text(l10n.backupFinishWorkoutFirst), findsOneWidget);
-      expect(find.text(l10n.settingsResetTitle), findsNothing,
+      expect(find.text(l10n.backupResetTitle), findsNothing,
           reason: 'the refusal comes before the dialog, not after it');
       expect(await read(tester, () => db.watchRoutines().first), isNotEmpty);
       container.read(activeWorkoutProvider.notifier).discard();
+      await stop(tester);
     });
 
-    testWidgets('is offered on a build with no filesystem too', (tester) async {
-      final container = containerFor(db, overrides: [
-        capabilitiesProvider.overrideWithValue(Capabilities.web),
-      ]);
-      addTearDown(container.dispose);
-
-      await openSettings(tester, container);
-
-      expect(find.text(l10n.settingsResetProfile), findsOneWidget,
-          reason: 'the wipe is rows, so a browser can do all of it');
-    });
   });
 }

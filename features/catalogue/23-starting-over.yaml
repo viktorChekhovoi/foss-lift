@@ -4,17 +4,19 @@ tagline: >-
   One button that puts the app back where it was the first time it was opened —
   for a phone handed on, a trial run that filled the log with nonsense, or a
   program you would rather rebuild than untangle.
-screen: settings
+screen: backup
 code:
 - lib/data/database.dart
-- lib/screens/exercise_settings_screen.dart
+- lib/screens/backup_screen.dart
+- lib/providers/providers.dart
 test:
 - test/feature_23_starting_over_test.dart
 where: >-
   <b>The wipe</b> AppDatabase.resetEverything — every table emptied and the
   first-launch seed written again, in one transaction ·
-  <b>Screen</b> lib/screens/exercise_settings_screen.dart (the last row, and the
-  dialog behind it) · <b>Clips</b> lib/services/set_video_store.dart
+  <b>Screen</b> lib/screens/backup_screen.dart (the last section, under save and
+  restore) · <b>Clips</b> lib/services/set_video_store.dart · <b>The unit
+  afterwards</b> unitSeedProvider
 groups:
 - name: What it does
   items:
@@ -71,11 +73,7 @@ groups:
   - id: reset-hands-back-the-first-run
     t: Afterwards the app behaves as if it had never been opened
     d: >-
-      the unit question comes back, because the settings row it is triggered by
-      is blank again, and so does the first-run tour. Today has no routine to be
-      about and the routine list is empty, which is what a fresh install looks
-      like — the library is where a program comes from, exactly as it was the
-      first time.
+      the weight unit is guessed from the phone's region again, the first-run tour comes back, Today has no routine to be about and the routine list is empty — the library is where a program comes from, exactly as it was the first time. The unit is a guess re-made rather than a question re-asked, because the app has never asked one: a country weighs a barbell one way and the phone says which country it is in. Re-making it is the whole of what stands between a reset and a blank screen, since the app paints nothing at all until a unit is stored, so the guess is re-evaluated whenever the stored answer goes missing rather than once at launch.
     screen: today
     uses:
     - storage.reset
@@ -109,23 +107,19 @@ groups:
     uses:
     - storage.reset
     - storage.schema
-  - id: reset-works-in-a-browser-too
-    t: It works on the web build as well
+  - id: reset-is-absent-where-backup-is
+    t: The browser build does not offer it
     d: >-
-      the wipe is rows rather than the database file, so it needs nothing the
-      browser lacks — unlike backup, which is absent there for want of a
-      filesystem. A tab resets exactly as a phone does, minus the clips it never
-      had.
+      the wipe itself is rows rather than the database file, so a tab could run it — but it sits on Backup &amp; restore, and that screen is absent on the web for want of a filesystem to write a backup to. So the reset goes with it. Putting it somewhere else to keep it reachable there would separate it from the one control that makes it survivable, which is a worse trade than a browser tab having no reset button.
     uses:
     - storage.reset
     - platform.web
+    - share.backup-file
 - name: Where to find it
   items:
   - id: reset-your-profile
     t: Reset your profile
     d: >-
-      Profile → Exercise settings → scroll to the bottom → Reset profile →
-      confirm. The app comes back on the unit question, with an empty routine
-      list behind it.
+      Profile → Backup &amp; restore → scroll to the bottom → Reset profile → confirm. It lands you back on Today, with an empty routine list and the tour offering itself again.
     uses:
     - storage.reset
