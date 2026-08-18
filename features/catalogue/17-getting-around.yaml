@@ -74,11 +74,17 @@ groups:
   - id: empty-screen-offers-next-step-where-one
     t: An empty screen offers the next step only where there is one
     d: >-
-      Today with no routines offers to build one, because that is the whole of
-      what to do next. History before the first session has nothing to offer but
-      the sentence, and does not invent a button.
+      Today with no routines offers a ready-made program and, under it, building your own — that is the whole of what to do next. History before the first session has nothing to offer but the sentence, and does not invent a button.
     uses:
     - ui.empty-state
+  - id: an-empty-screens-way-out-is-the-width-of-its-card
+    t: Where there is a next step, it is the width of the card offering it
+    d: >-
+      the button runs the full width rather than shrink-wrapping its label. A card that fills the screen with a small pill floating in the middle of it reads as a caption with a link in it, not as the one thing to do — and on a fresh install this is the one thing to do, since nothing else on Today is reachable until a routine exists. The second way out stays plain text beneath it, because two buttons of equal weight is a choice rather than a next step.
+    screen: today
+    uses:
+    - ui.empty-state
+    - theme.type-scale
   - id: tab-bar-belongs-shell-not-screens
     t: The navigation bar belongs to the shell, and the resume-workout bar rides above it
     d: >-

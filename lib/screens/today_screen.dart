@@ -342,7 +342,17 @@ class _EmptyCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 14),
-          FilledButton(onPressed: onAction, child: Text(action)),
+          // Full width, not shrink-wrapped to the label. This is the one thing
+          // to do on a fresh install — nothing else on Today is reachable
+          // until a routine exists — and a small pill adrift in the middle of
+          // a card reads as a link in a caption rather than as the way on.
+          FilledButton(
+            onPressed: onAction,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+            ),
+            child: Text(action, textAlign: TextAlign.center),
+          ),
           if (secondAction case final second?) ...[
             const SizedBox(height: 4),
             TextButton(
