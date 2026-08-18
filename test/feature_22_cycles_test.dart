@@ -611,13 +611,15 @@ void main() {
             reason: 'nothing gates the picker');
       }
 
-      // The (i) is for the scheme that needs one, and only while it is on.
-      expect(find.byKey(kCycleExplainKey), findsNothing);
+      // The (i) rides on the Cycle option and is there before it is taken —
+      // "what would I be picking" is asked ahead of the pick.
+      expect(find.byKey(kCycleExplainKey), findsOneWidget);
       await tester.tap(find.widgetWithText(
           EditorPill, l10n.itemEditorSchemeCycle));
       await tester.pumpAndSettle();
       expect(draft.scheme, SetScheme.cycle);
-      expect(find.byKey(kCycleExplainKey), findsOneWidget);
+      expect(find.byKey(kCycleExplainKey), findsOneWidget,
+          reason: 'taking the option does not take its explanation away');
     });
 
     testWidgets('a written-out row asks for a range and an open end',
@@ -943,7 +945,7 @@ void main() {
           reason: 'a cycle counts weeks, not a run of clean sessions');
     });
 
-    testWidgets('the (i) beside Set scheme says what a cycle is',
+    testWidgets('the (i) on the Cycle option says what a cycle is',
         (tester) async {
       final l10n = l10nFor();
       await openCycleSheet(tester, db, container);
@@ -954,6 +956,9 @@ void main() {
 
       expect(find.text(l10n.itemEditorCycleWhat), findsOneWidget);
       expect(find.text(l10n.itemEditorCycleExplained), findsOneWidget);
+      // A cycle is a shape, and the explanation of a shape does not lean on
+      // one program built from it.
+      expect(l10n.itemEditorCycleExplained, isNot(contains('5/3/1')));
     });
   });
 }

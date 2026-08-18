@@ -253,3 +253,20 @@ flutter analyze          # lints — must be clean
 flutter test             # pure-logic unit tests
 flutter run              # see RUNNING.md for device setup
 ```
+
+## Running the tests
+
+**One invocation, covering every file you touched.** The suite executes in about two seconds; everything else is compilation. `flutter test` starts a fresh `frontend_server` each time, and while it reuses an incremental kernel cache (`build/test_cache/build/*.dill.track.dill`, around 90 MB), every run still deserialises that cache, re-resolves the package graph and writes it back. That fixed cost dwarfs execution, nothing stays warm between runs, and there is no `test --watch`. Iterating one file at a time pays it over and over for no benefit.
+
+Add `--no-pub` once the dependencies are resolved, and do not regenerate the l10n or edit `lib/data/database.dart` while the only broken thing is test code — `database.g.dart` and the generated `app_localizations*.dart` are imported by nearly everything, so touching either turns an incremental build into most of a full one.
+
+**Never pipe test output through `tail` or `head`.** Both buffer, so the run prints nothing until it ends and a slow compile is indistinguishable from a hang. Redirect to a file and read that, or use `--reporter expanded`.
+
+### Writing a widget test
+
+**Read `test/support/harness.dart` and an existing feature test before writing a new one.** The idioms below are already solved there, and finding them one failed run at a time is what makes a test suite feel slow.
+
+- A `testWidgets` body runs in a fake-async zone, where a drift future never completes. Awaiting `db.watchRoutines().first` inside one hangs until the framework times out, which reads as a deadlocked widget and is not. Wrap database reads in `tester.runAsync`.
+- For a tap whose handler does async work, tap inside `runAsync`, `pump()`, then wait on the real event loop before settling outside it. A bare `pump()` returns with the write still pending, and the assertion after it reads the state that was there before.
+- The test runner has no `path_provider`, so anything that reaches `SetVideoStore` needs `setVideoStoreProvider` overridden with a store pointed at a temp directory.
+- A live session ticks every second, so a tree containing one never goes quiet: use plain `pump()`s and never `pumpAndSettle`.

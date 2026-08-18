@@ -75,9 +75,9 @@ groups:
     - progression.rates
     - progression.streak
   - id: what-a-cycle-is-sits-behind-an-i
-    t: What a cycle is sits behind an (i), not under the picker
+    t: What a cycle is sits behind an (i) on the Cycle option itself
     d: >-
-      the set-scheme label carries an info tap, drawn while the slot is on a cycle, that opens four sentences: the weeks run in order and wrap, the percentages are of the training max, the training max is what moves and it moves at the wrap, and 5/3/1 is four weeks of that. It is the one thing in this sheet that is a way of training rather than a number, so it is explained on the same terms the superset tick is — behind a tap, once, rather than as a paragraph under a control that everybody reads past for ever.
+      the info tap rides on the Cycle pill rather than on the section label above it, and it is there whether or not the slot is on one — the question it answers is "what would I be picking", which is asked before the pick and not after. On the label it was a footnote about the picker as a whole, next to four other options it said nothing about; on the pill it is attached to the one thing it explains. It opens three sentences: the weeks run in order and wrap, the percentages are of the training max, and the training max is what moves, at the wrap. It names no particular program — a cycle is a shape, and 5/3/1 is one thing built from it rather than what it is for. It is the one option in this picker that is a way of training rather than a shape, so it is explained on the same terms the superset tick is — behind a tap, once, rather than as a paragraph under a control that everybody reads past for ever.
     screen: workout-edit
     uses:
     - template.cycle
@@ -209,7 +209,8 @@ groups:
     d: >-
       Routines → a routine → a day → edit → tap a slot → Target → Advanced → Set
       scheme → Cycle. Add a week, then a row per set: reps and the percentage of
-      the training max. The (i) beside the label says what a cycle is.
+      the training max. The (i) on the Cycle option itself says what a cycle is,
+      before you take it.
     screen: workout-edit
     uses:
     - template.cycle

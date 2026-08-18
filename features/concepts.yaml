@@ -693,6 +693,13 @@ concepts:
     what: The version ladder an installed database climbs on open, one rung per schema change.
     code: [lib/data/database.dart]
 
+  - id: storage.reset
+    area: platform
+    what: >-
+      Emptying the database back to what a first launch writes: which rows go,
+      what asks before they do, and what the app is on the other side of it.
+    code: [lib/data/database.dart, lib/screens/exercise_settings_screen.dart]
+
   - id: privacy.offline
     area: platform
     what: The promise that nothing leaves the phone, and what upholds it.

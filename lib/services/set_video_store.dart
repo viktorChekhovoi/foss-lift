@@ -138,6 +138,17 @@ class SetVideoStore {
     }
   }
 
+  /// Removes the clip folder and everything in it.
+  ///
+  /// For the profile reset, which empties the rows that point at these files:
+  /// without this the phone would keep hundreds of megabytes belonging to
+  /// nothing, with no screen left that could reach them. The folder itself goes
+  /// rather than being emptied — [directory] makes it again on the next clip.
+  Future<void> deleteEverything() async {
+    final dir = await directory();
+    if (await dir.exists()) await dir.delete(recursive: true);
+  }
+
   /// Total bytes held by clips. What Settings shows, and what the threshold
   /// notice is measured against.
   Future<int> bytesUsed() async {

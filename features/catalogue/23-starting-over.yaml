@@ -1,0 +1,131 @@
+id: "23"
+title: Starting over
+tagline: >-
+  One button that puts the app back where it was the first time it was opened —
+  for a phone handed on, a trial run that filled the log with nonsense, or a
+  program you would rather rebuild than untangle.
+screen: settings
+code:
+- lib/data/database.dart
+- lib/screens/exercise_settings_screen.dart
+test:
+- test/feature_23_starting_over_test.dart
+where: >-
+  <b>The wipe</b> AppDatabase.resetEverything — every table emptied and the
+  first-launch seed written again, in one transaction ·
+  <b>Screen</b> lib/screens/exercise_settings_screen.dart (the last row, and the
+  dialog behind it) · <b>Clips</b> lib/services/set_video_store.dart
+groups:
+- name: What it does
+  items:
+  - id: reset-empties-the-app-back-to-a-fresh-install
+    t: Reset puts the app back to a fresh install
+    d: >-
+      every session and set you have logged, every routine, workout and slot,
+      the exercises you added, the bars and plates you keep, the themes you
+      wrote and every setting you chose. What is left is what a first launch
+      writes and nothing else: the starter movements, the racked bars, and a
+      settings row with no answers in it. Not a partial clear with exceptions
+      somebody has to remember — the phone is the phone you had before you
+      opened the app.
+    defines:
+    - storage.reset
+    uses:
+    - storage.schema
+    - exercise.seed
+  - id: reset-says-what-goes-before-it-goes
+    t: It says what it is about to destroy, and asks
+    d: >-
+      a button that empties the log cannot be a button you can hit on the way
+      past. The dialog names what goes in the words above — the history, the
+      routines, the exercises and the settings — says it cannot be undone, and
+      keeps the destructive answer off the default: dismissing it, backing out
+      of it or missing it entirely all leave the phone alone. Confirming is the
+      only path through.
+    uses:
+    - storage.reset
+    - ui.dialog
+  - id: reset-points-at-the-backup-first
+    t: It offers the backup before it takes the log
+    d: >-
+      the one thing that makes this recoverable is a file the app cannot make
+      for you after the fact, so the dialog names it while there is still
+      something to save. A mention rather than a step: somebody resetting a
+      phone they are handing on does not want to be marched through a backup
+      they will delete, and somebody who wanted one is now holding the sentence
+      that says so.
+    uses:
+    - storage.reset
+    - share.backup-file
+  - id: reset-takes-the-clips-off-the-disk-too
+    t: The set videos go with it
+    d: >-
+      a clip is a file in app storage that a set row points at, so emptying the
+      rows without deleting the files would leave hundreds of megabytes on the
+      phone belonging to nothing, and no screen left that could reach them. They
+      are deleted with everything else. On a build with no filesystem to hold
+      them there are none to take.
+    uses:
+    - storage.reset
+    - video.storage
+  - id: reset-hands-back-the-first-run
+    t: Afterwards the app behaves as if it had never been opened
+    d: >-
+      the unit question comes back, because the settings row it is triggered by
+      is blank again, and so does the first-run tour. Today has no routine to be
+      about and the routine list is empty, which is what a fresh install looks
+      like — the library is where a program comes from, exactly as it was the
+      first time.
+    screen: today
+    uses:
+    - storage.reset
+    - load.unit-defaults
+    - ui.tutorial
+    - template.starter-library
+- name: What it refuses
+  items:
+  - id: reset-refuses-during-a-workout
+    t: It will not run over a running workout
+    d: >-
+      the live session is in memory and is not history until Finish, so emptying
+      the database under it would throw the session away as a side effect of a
+      button that says nothing about sessions. Finish or abandon it first; the
+      screen says which. The same rule restore is held to, for the same reason.
+    uses:
+    - storage.reset
+    - session.live-state
+- name: Behaviour &amp; edge cases
+  items:
+  - id: reset-is-one-transaction
+    t: It happens all at once or not at all
+    d: >-
+      the tables are emptied and the seed is written back inside a single
+      transaction, so a reset interrupted half way — the process killed, the
+      screen closed — leaves the database as it was rather than as a set of
+      tables that disagree about what exists. The list of tables to empty is
+      taken from the schema rather than written out, so a table added in a later
+      release is cleared by this without anybody remembering to add it.
+    screen: none
+    uses:
+    - storage.reset
+    - storage.schema
+  - id: reset-works-in-a-browser-too
+    t: It works on the web build as well
+    d: >-
+      the wipe is rows rather than the database file, so it needs nothing the
+      browser lacks — unlike backup, which is absent there for want of a
+      filesystem. A tab resets exactly as a phone does, minus the clips it never
+      had.
+    uses:
+    - storage.reset
+    - platform.web
+- name: Where to find it
+  items:
+  - id: reset-your-profile
+    t: Reset your profile
+    d: >-
+      Profile → Exercise settings → scroll to the bottom → Reset profile →
+      confirm. The app comes back on the unit question, with an empty routine
+      list behind it.
+    uses:
+    - storage.reset

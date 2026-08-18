@@ -478,6 +478,36 @@ class _NoteDialogState extends State<_NoteDialog> {
   }
 }
 
+/// The chrome every settings row shares: the tap target, the surface it sits
+/// on, the rounded border and the padding inside it.
+///
+/// Pulled out so that a row saying something other than "label, value,
+/// chevron" — the destructive one at the bottom of Settings, say — is the same
+/// shape as its neighbours by construction rather than by two copies of these
+/// numbers agreeing for now. [border] is the one thing a row is allowed to
+/// differ on, because that is what marks one as destructive.
+Widget settingRowShell({
+  required VoidCallback onTap,
+  required Widget child,
+  Color? border,
+}) =>
+    Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border ?? AppColors.line),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: child,
+        ),
+      ),
+    );
+
 /// A settings row that states a value and opens something when tapped.
 class SettingRow extends StatelessWidget {
   const SettingRow({
@@ -496,19 +526,9 @@ class SettingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.line),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
+    return settingRowShell(
+      onTap: onTap,
+      child: Row(
             children: [
               Expanded(
                 child: Column(
@@ -555,8 +575,6 @@ class SettingRow extends StatelessWidget {
               Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
             ],
           ),
-        ),
-      ),
     );
   }
 }

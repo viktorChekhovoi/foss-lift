@@ -153,11 +153,104 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               style: TextStyle(
                   color: AppColors.muted, fontSize: 13, height: 1.5),
             ),
+            // Last on the screen, and the only destructive thing on it. Nothing
+            // that empties the log belongs beside a stepper somebody is
+            // adjusting.
+            const SizedBox(height: 36),
+            Text(l10n.settingsStartingOver, style: sectionLabelStyle()),
+            const SizedBox(height: 10),
+            _DangerRow(
+              label: l10n.settingsResetProfile,
+              onTap: () => _resetProfile(context, ref, l10n),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Empties the app back to a fresh install, once the user has agreed to it in
+/// those words.
+///
+/// The running-workout refusal comes first and comes before the dialog: a
+/// session lives in memory until Finish, so wiping the database under one would
+/// throw it away as a side effect of a button that says nothing about sessions.
+/// The same refusal restore is held to, in the same sentence.
+///
+/// The clips are files rather than rows, so the database cannot take them with
+/// it — see [AppDatabase.resetEverything]. A build that cannot film has none to
+/// remove, and no store to ask.
+Future<void> _resetProfile(
+    BuildContext context, WidgetRef ref, AppLocalizations l10n) async {
+  void say(String message) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+
+  if (ref.read(activeWorkoutProvider) != null) {
+    say(l10n.backupFinishWorkoutFirst);
+    return;
+  }
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(l10n.settingsResetTitle),
+      content: Text(
+        l10n.settingsResetBody,
+        style: TextStyle(color: AppColors.muted, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog, false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialog, true),
+          child: Text(l10n.settingsResetConfirm,
+              style: TextStyle(color: AppColors.gold)),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+
+  await ref.read(databaseProvider).resetEverything();
+  if (ref.read(capabilitiesProvider).setVideos) {
+    await ref.read(setVideoStoreProvider).deleteEverything();
+  }
+  if (!context.mounted) return;
+  say(l10n.settingsResetDone);
+}
+
+/// A settings row that destroys something. The gold the app warns in, and no
+/// value beside the label — there is nothing this one is currently set to.
+class _DangerRow extends StatelessWidget {
+  const _DangerRow({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => settingRowShell(
+        onTap: onTap,
+        border: AppColors.gold.withValues(alpha: 0.55),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.gold,
+                ),
+              ),
+            ),
+            Icon(Icons.delete_outline, size: 20, color: AppColors.gold),
+          ],
+        ),
+      );
 }
 
 /// The deepest a layoff can ever cut, given the per-period rate — the periods

@@ -255,6 +255,30 @@
       }
     }
   },
+  "settingsStartingOver": "Starting over",
+  "@settingsStartingOver": {
+    "description": "Section label over the reset control, at the very bottom of the settings screen. The only destructive thing on it."
+  },
+  "settingsResetProfile": "Reset profile",
+  "@settingsResetProfile": {
+    "description": "The control that empties the app back to a fresh install. Two words, and it names what it acts on rather than what it destroys — the dialog behind it does that."
+  },
+  "settingsResetTitle": "Reset profile?",
+  "@settingsResetTitle": {
+    "description": "Title of the dialog that confirms the reset, asked before anything is deleted."
+  },
+  "settingsResetBody": "Your history, routines, exercises and settings are all deleted and the app starts over. This cannot be undone — save a backup first if you might want any of it back.",
+  "@settingsResetBody": {
+    "description": "Body of the reset confirmation. It names the four things that go, says it is final, and points at the backup while there is still something to back up. Two sentences."
+  },
+  "settingsResetConfirm": "Reset everything",
+  "@settingsResetConfirm": {
+    "description": "The button that goes ahead with the reset, in the confirmation dialog. Deliberately not 'OK' — it is the last thing read before the log goes."
+  },
+  "settingsResetDone": "Profile reset.",
+  "@settingsResetDone": {
+    "description": "Confirmation shown briefly once the reset has run. Two words."
+  },
   "settingsSwitchUnitTitle": "Switch to {unit}?",
   "@settingsSwitchUnitTitle": {
     "description": "Dialog title when changing the weight unit. `unit` is the word for the unit being switched to — see unitKilogramsWord and unitPoundsWord.",
@@ -1653,9 +1677,9 @@
   "@itemEditorCycleWhat": {
     "description": "Title of the dialog behind the info tap beside the Set scheme label. A question, as the superset one is."
   },
-  "itemEditorCycleExplained": "A set of weeks, run in order. Each session takes the next one, and the week after the last is the first again. The percentages are of the training max, and the training max is what progresses — it moves when the cycle comes round, not session by session. 5/3/1 is four weeks of this.",
+  "itemEditorCycleExplained": "A set of weeks, run in order. Each session takes the next one, and the week after the last is the first again. The percentages are of the training max, and the training max is what progresses — it moves when the cycle comes round, not session by session.",
   "@itemEditorCycleExplained": {
-    "description": "The body of that dialog: what a cycle is, for somebody who has just been offered one. Keep it to four short sentences. 5/3/1 is the name of a training program and is not translated."
+    "description": "The body of that dialog: what a cycle is, for somebody deciding whether to pick one. Keep it to three short sentences, and keep it about the shape — naming a particular program here would make the general tool read as that program's setting."
   },
   "themeDarkGroup": "DARK",
   "@themeDarkGroup": {
@@ -3014,7 +3038,7 @@
   },
   "backupFinishWorkoutFirst": "Finish or abandon the workout first.",
   "@backupFinishWorkoutFirst": {
-    "description": "Shown when a restore is asked for while a workout is running. The live workout is only written to history when it is finished, so replacing the database under it would throw it away. 'Finish' and 'abandon' are the two words the session screen uses — sessionFinish and sessionAbort."
+    "description": "Shown when a restore or a profile reset is asked for while a workout is running. The live workout is only written to history when it is finished, so replacing the database under it would throw it away. One string for both, because it is the same refusal for the same reason. 'Finish' and 'abandon' are the two words the session screen uses — sessionFinish and sessionAbort."
   },
   "aboutTitle": "About Foss Lift",
   "@aboutTitle": {

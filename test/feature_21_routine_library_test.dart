@@ -404,26 +404,33 @@ void main() {
       }
     });
 
-    test('a pounds phone gets numbers a pounds gym loads', () async {
-      await db.seedWeightUnit('lb');
-      final rid = await db.addStarterRoutine(_program('531-classic'));
+    // Every program, not one of them: the conversion is done where a copy is
+    // written rather than per program, but "the 5/3/1 one is right" is the
+    // claim a reader of a single-program test would take away, and the
+    // catalogue entry is about all of them.
+    for (final program in kStarterRoutines) {
+      test('a pounds phone gets numbers a pounds gym loads — ${program.key}',
+          () async {
+        await db.seedWeightUnit('lb');
+        final rid = await db.addStarterRoutine(program);
 
-      for (final day in await db.workoutsForRoutine(rid)) {
-        for (final view in await db.itemsForWorkout(day.id)) {
-          final it = view.item;
-          // Only the weight axis has a unit to land: a rep step is a rep.
-          if (it.progression != ProgressionMode.weight) continue;
-          for (final kg in [it.suggestedWeight, it.increment, it.deload]) {
-            if (kg == null || kg == 0) continue;
-            final lb = toDisplayWeight(kg, 'lb');
-            expect((lb - lb.roundToDouble()).abs(), lessThan(1e-6),
-                reason: '$lb lb is not a number anybody types');
-            expect(lb.round() % kPoundStep.round(), 0,
-                reason: '$lb lb is not a pair of plates anybody racks');
+        for (final day in await db.workoutsForRoutine(rid)) {
+          for (final view in await db.itemsForWorkout(day.id)) {
+            final it = view.item;
+            // Only the weight axis has a unit to land: a rep step is a rep.
+            if (it.progression != ProgressionMode.weight) continue;
+            for (final kg in [it.suggestedWeight, it.increment, it.deload]) {
+              if (kg == null || kg == 0) continue;
+              final lb = toDisplayWeight(kg, 'lb');
+              expect((lb - lb.roundToDouble()).abs(), lessThan(1e-6),
+                  reason: '$lb lb is not a number anybody types');
+              expect(lb.round() % kPoundStep.round(), 0,
+                  reason: '$lb lb is not a pair of plates anybody racks');
+            }
           }
         }
-      }
-    });
+      });
+    }
 
     test('a kilogram phone gets the numbers as they were written', () async {
       await db.seedWeightUnit('kg');

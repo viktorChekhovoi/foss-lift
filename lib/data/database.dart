@@ -3565,6 +3565,35 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  // ---- Starting over ------------------------------------------------------
+
+  /// Empties the database and writes the first-launch seed back into it, so
+  /// what is left is indistinguishable from a fresh install: the starter
+  /// movements, the racked bars, and a settings row with no answers in it.
+  ///
+  /// **The table list is the schema's, not a list written out here.** A table
+  /// added in a later release is cleared by this without anybody remembering
+  /// to come back — which is the failure mode a hand-written list has, and it
+  /// fails silently, leaving rows behind on a phone somebody has just been
+  /// told was wiped.
+  ///
+  /// Rows rather than the database file, which is what lets the browser build
+  /// offer this at all: it has no file to delete. It is also why the clips are
+  /// not this method's business — they are files beside the database, and the
+  /// caller that has a filesystem deletes them (see [SetVideoStore.deleteEverything]).
+  Future<void> resetEverything() => transaction(() async {
+        // `allTables` is in declaration order, not dependency order, so a
+        // parent can be reached before its children and trip the foreign keys.
+        // Deferring the checks to the commit makes the order irrelevant while
+        // still enforcing them on the database that comes out — unlike turning
+        // them off, which would let an inconsistent result through.
+        await customStatement('PRAGMA defer_foreign_keys = ON');
+        for (final table in allTables) {
+          await delete(table).go();
+        }
+        await _seed();
+      });
+
   // ---- Seed ---------------------------------------------------------------
 
   Future<void> _seed() async {

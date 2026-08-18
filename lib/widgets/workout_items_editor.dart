@@ -1529,33 +1529,11 @@ class _SchemeSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                l10n.itemEditorSetScheme,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: sectionLabelStyle(),
-              ),
-            ),
-            // A cycle is the one thing this picker offers that is a way of
-            // training rather than a shape, and somebody can pick it without
-            // knowing what they have asked for. Explained behind a tap, on the
-            // same terms as the superset tick — and only where it is on offer.
-            // Only while the slot is on one. A cycle is the one thing this
-            // picker offers that is a way of training rather than a shape, and
-            // somebody can pick it without knowing what they have asked for.
-            if (d.scheme == SetScheme.cycle)
-              IconButton(
-                key: kCycleExplainKey,
-                onPressed: () => _explainCycle(context),
-                visualDensity: VisualDensity.compact,
-                tooltip: l10n.itemEditorCycleWhat,
-                icon:
-                    Icon(Icons.info_outline, size: 16, color: AppColors.faint),
-              ),
-          ],
+        Text(
+          l10n.itemEditorSetScheme,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: sectionLabelStyle(),
         ),
         const SizedBox(height: 10),
         _SchemePicker(
@@ -1783,6 +1761,14 @@ class _SchemePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // One definition of a pill, whether or not it is the one carrying the (i).
+    // Written twice, the two would agree until somebody changed one of them.
+    EditorPill pill(SetScheme s) => EditorPill(
+          label: _label(l10n, s),
+          on: s == scheme,
+          onTap: () => onChanged(s),
+        );
+
     // Wrapped rather than four equal columns: "Back-off" in a language that
     // spells it out does not fit a quarter of a phone at 2× text.
     return Wrap(
@@ -1790,11 +1776,34 @@ class _SchemePicker extends StatelessWidget {
       runSpacing: 8,
       children: [
         for (final s in SetScheme.values)
-          EditorPill(
-            label: _label(l10n, s),
-            on: s == scheme,
-            onTap: () => onChanged(s),
-          ),
+          if (s == SetScheme.cycle)
+            // The (i) rides on the option it explains rather than on the
+            // section label, and it is there whether or not the slot is on a
+            // cycle: the question it answers — what would I be picking — is
+            // asked before the pick. On the label it was a footnote about a
+            // picker of five options that said nothing about the other four.
+            //
+            // The pair is one child of the Wrap so they break onto a new line
+            // together; an (i) that wrapped away from its pill would be an
+            // info button belonging to nothing.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                pill(s),
+                IconButton(
+                  key: kCycleExplainKey,
+                  onPressed: () => _explainCycle(context),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.only(left: 4),
+                  tooltip: l10n.itemEditorCycleWhat,
+                  icon: Icon(Icons.info_outline,
+                      size: 16, color: AppColors.faint),
+                ),
+              ],
+            )
+          else
+            pill(s),
       ],
     );
   }
