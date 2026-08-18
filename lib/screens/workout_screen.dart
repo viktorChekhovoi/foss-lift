@@ -1460,13 +1460,25 @@ class _ExerciseHeading extends ConsumerWidget {
 }
 
 /// The warm-up ramp for one exercise: a labelled group above the working sets,
-/// **open from the start**, because the ramp is the first thing you do and a
-/// group you have to open first is one more tap between arriving at the rack
-/// and logging. Tapping the header shuts it again — the rows, the stepper and
-/// the one-line disclaimer fold away to a summary line — and that stays shut
-/// for the rest of the session. The state is per group, so shutting one
-/// exercise's ramp leaves the next exercise's open: a lifter who skips the
-/// warm-up on the second movement has not said anything about the third.
+/// **open from the start wherever a ramp was asked for**, because it is the
+/// first thing you do and a group you have to open first is one more tap
+/// between arriving at the rack and logging. Tapping the header shuts it again
+/// — the rows, the stepper and the one-line disclaimer fold away to a summary
+/// line — and that stays shut for the rest of the session. The state is per
+/// group, so shutting one exercise's ramp leaves the next exercise's open: a
+/// lifter who skips the warm-up on the second movement has not said anything
+/// about the third.
+///
+/// A movement asking for **no** rungs starts shut instead. The group still has
+/// to be there — it is where the stepper is, and adding a rung today has to
+/// stay one tap away — but open it is a stepper reading none over a disclaimer
+/// about rungs that do not exist, three lines of furniture above every movement
+/// on the board of somebody who has said they do not warm up here. Note that
+/// this is the *request*, not what the ladder managed to build from it: a ramp
+/// asked for and come back empty opens, because there the group has something
+/// to say. And it is only the starting state — stepping down to none during a
+/// session leaves the group however you had it, rather than folding away under
+/// the finger still on the minus.
 ///
 /// Visually quieter than the working block (dimmer label, no plate breakdowns)
 /// so the eye goes to the work. **The block is never lit up as a whole.** The
@@ -1500,7 +1512,7 @@ class _WarmupGroup extends StatefulWidget {
 }
 
 class _WarmupGroupState extends State<_WarmupGroup> {
-  bool _open = true;
+  late bool _open = widget.exercise.warmupCount > 0;
 
   @override
   Widget build(BuildContext context) {

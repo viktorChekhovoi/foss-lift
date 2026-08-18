@@ -131,10 +131,10 @@ groups:
     d: >-
       for barbell/weighted lifts — an ascending ramp toward the working weight,
       landing only on loads the gym can actually be set to. The group sits above
-      the working sets and starts open, since the ramp is the first thing you do;
-      its stepper changes the number of rungs. Shutting one is remembered for the
-      rest of the session, and per exercise — shutting Bench's ramp leaves the
-      one on Overhead Press open.
+      the working sets and starts open where there is a ramp to see, since it is
+      the first thing you do; its stepper changes the number of rungs. Shutting
+      one is remembered for the rest of the session, and per exercise — shutting
+      Bench's ramp leaves the one on Overhead Press open.
     defines:
     - session.warmup-ramp
     uses:
@@ -1140,6 +1140,20 @@ groups:
     - history.aggregates
     - session.finish
     - progression.verdict
+  - id: an-empty-ramp-starts-shut
+    t: A ramp with no rungs in it starts shut
+    d: >-
+      a movement asking for no warm-up still keeps its group, because that is
+      where the stepper is and adding a rung today has to stay one tap away. It
+      opens folded to its one header line rather than to a stepper reading none
+      over a disclaimer about rungs that are not there — three lines of furniture
+      above every movement on a board belonging to somebody who has said they do
+      not warm up here. A ramp that was asked for but could not be built opens as
+      it always did: there the group has something to say, and says it. Shut is
+      only the starting state — the header toggles either way, and stepping down
+      to none mid-session leaves the group as you had it.
+    uses:
+    - session.warmup-count
   - id: moving-weight-rebuilds-warm-up
     t: Moving the weight rebuilds the warm-up
     d: >-

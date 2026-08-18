@@ -1927,6 +1927,79 @@ void main() {
     });
   });
 
+  group('A ramp with no rungs in it starts shut', () {
+    // The group is on the board whatever the count, because that is where the
+    // stepper is. What it costs when the count is none is what this is about:
+    // folded to its header, not a stepper reading none over a disclaimer about
+    // rungs that do not exist.
+
+    /// A barbell lift on a board where the app-wide warm-up count is [rungs].
+    Future<void> pumpAsking(WidgetTester tester, int rungs,
+        {double weightKg = 100}) async {
+      await tester.runAsync(() async {
+        await db.setDefaultWarmupSets(rungs);
+        final wid = await buildBarbellWorkout(db, weightKg: weightKg);
+        container = containerFor(db);
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Squat Day');
+      });
+      await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+      await tester.pump();
+    }
+
+    testWidgets('asking for none leaves the header and nothing else',
+        (tester) async {
+      await pumpAsking(tester, 0);
+      expect(session().exercises[0].warmupCount, 0);
+
+      expect(find.text(l10nFor().sessionWarmupLabel), findsOneWidget,
+          reason: 'the group stays: it is where the stepper lives');
+      expect(find.byKey(const ValueKey('warmup-count-0')), findsNothing);
+      expect(find.text(l10nFor().sessionWarmupDisclaimer), findsNothing,
+          reason: 'nothing is being suggested, so there is nothing to '
+              'disclaim');
+
+      await stopAll(tester);
+    });
+
+    testWidgets('and one tap on the header is still all it takes to add one',
+        (tester) async {
+      await pumpAsking(tester, 0);
+
+      await tester.tap(find.text(l10nFor().sessionWarmupLabel));
+      await tester.pump();
+      await tester.tap(find.text('+'));
+      await tester.pump();
+
+      expect(session().exercises[0].warmups, hasLength(1));
+
+      await stopAll(tester);
+    });
+
+    testWidgets('a ramp that was asked for opens as it always did',
+        (tester) async {
+      await pumpAsking(tester, 3);
+
+      expect(session().exercises[0].warmups, isNotEmpty);
+      expect(find.byKey(const ValueKey('warmup-count-0')), findsOneWidget);
+
+      await stopAll(tester);
+    });
+
+    testWidgets('so does one that was asked for and could not be built',
+        (tester) async {
+      // Nothing under an empty bar to warm up with: the group has a reason to
+      // give, and giving it means being open.
+      await pumpAsking(tester, 3, weightKg: 20);
+      expect(session().exercises[0].warmups, isEmpty);
+
+      expect(find.text(l10nFor().sessionWarmupTooLight), findsOneWidget);
+
+      await stopAll(tester);
+    });
+  });
+
   group('A ramp with nothing to build says why', () {
     // Never "add some above": the stepper above is not what is wrong, and
     // adding rungs cannot conjure a load between the bar and a working weight
