@@ -33,6 +33,7 @@ import 'package:foss_lift/screens/routines_screen.dart';
 import 'package:foss_lift/screens/today_screen.dart';
 import 'package:foss_lift/util/units.dart';
 import 'package:foss_lift/util/seed_names.dart';
+import 'package:foss_lift/util/target_label.dart';
 import 'package:foss_lift/widgets/routine_add_menu.dart';
 import 'package:foss_lift/widgets/routine_card.dart';
 
@@ -616,6 +617,37 @@ void main() {
           findsWidgets,
         );
       }
+
+      await stop(tester);
+    });
+
+    testWidgets('a cycled slot lists the week it opens on', (tester) async {
+      await pumpPreview(tester, '531-classic');
+      final l10n = l10nFor();
+
+      // Week one of the main lift, written out the way every other screen
+      // writes it: a cycle has no one set count to multiply.
+      expect(
+        find.text(rowsTargetLabel(l10n, k531Main.first)),
+        findsWidgets,
+        reason: 'the main lift reads as the week it opens on',
+      );
+      expect(
+        find.text(l10n.targetSetsReps(0, '0')),
+        findsNothing,
+        reason: 'a cycled slot has no set count of its own to show',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('so does a cycled supplemental slot', (tester) async {
+      await pumpPreview(tester, '531-bbb');
+      final l10n = l10nFor();
+
+      expect(
+          find.text(rowsTargetLabel(l10n, k531BigVolume.first)), findsWidgets);
+      expect(find.text(l10n.targetSetsReps(0, '0')), findsNothing);
 
       await stop(tester);
     });

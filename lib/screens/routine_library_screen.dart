@@ -136,6 +136,32 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
   }
 }
 
+/// What one slot of a shipped program is aiming at, in words.
+///
+/// A cycled slot has no set count of its own — its week is written out in full,
+/// so how many rows it has is how many sets there are — and its rep targets
+/// differ from one another. So the week it opens on is listed the way the day
+/// screen and the builder list it, rather than multiplied: "5/5/5+". A
+/// multiplication here has to read the two numbers a cycled slot does not
+/// carry, and did, as "0 × 0".
+String _slotTarget(AppLocalizations l10n, StarterSlot slot) {
+  if (slot.cycle.isNotEmpty) return rowsTargetLabel(l10n, slot.cycle.first);
+  return setsTargetLabel(
+    l10n,
+    sets: slot.sets,
+    // The axis is not settled until the copy is written — it comes from the
+    // exercise's own measure. A work period is only ever put on a movement the
+    // library measures in time, so it is what says which of the two this slot
+    // is: an interval program reads in seconds and everything else in reps.
+    progression:
+        slot.holdSeconds == null ? ProgressionMode.reps : ProgressionMode.time,
+    toFailure: false,
+    holdSeconds: slot.holdSeconds ?? 0,
+    repsMin: slot.repsMin,
+    repsMax: slot.repsMax,
+  );
+}
+
 /// One training day of a shipped program: its exercises and what each is aiming
 /// at, in the same shape the day screen draws.
 class _DayCard extends StatelessWidget {
@@ -175,23 +201,7 @@ class _DayCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    setsTargetLabel(
-                      l10n,
-                      sets: slot.sets,
-                      // The axis is not settled until the copy is written — it
-                      // comes from the exercise's own measure. A work period is
-                      // only ever put on a movement the library measures in
-                      // time, so it is what says which of the two this slot is:
-                      // an interval program reads in seconds and everything
-                      // else in reps.
-                      progression: slot.holdSeconds == null
-                          ? ProgressionMode.reps
-                          : ProgressionMode.time,
-                      toFailure: false,
-                      holdSeconds: slot.holdSeconds ?? 0,
-                      repsMin: slot.repsMin,
-                      repsMax: slot.repsMax,
-                    ),
+                    _slotTarget(l10n, slot),
                     style: kMono.copyWith(
                       fontSize: 13,
                       color: AppColors.accent,

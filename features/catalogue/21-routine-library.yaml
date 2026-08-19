@@ -53,13 +53,14 @@ groups:
   - id: a-program-is-previewed-before-it-is-added
     t: A program is previewed before it is added
     d: >-
-      tapping one in the library opens every training day it holds and every
-      exercise in each, with its sets and target — what you are agreeing to,
-      before anything is written. Add is on that screen; backing out adds nothing.
+      tapping one in the library opens every training day it holds and every exercise in each, with its sets and target — what you are agreeing to, before anything is written. A slot the program runs as a cycle has no single set count to multiply, so the preview lists the week it opens on the way the rest of the app does: the main lift of a 5/3/1 program reads "5/5/5+", not "0 × 0". Add is on that screen; backing out adds nothing.
     screen: routine-preview
     uses:
     - template.starter-library
     - template.item
+    - template.cycle
+    - template.per-set-reps
+    - template.rep-target
   - id: added-program-is-yours
     t: An added program is a copy, and it is yours
     d: >-
