@@ -231,13 +231,32 @@ void main() {
     Future<T> read<T>(WidgetTester tester, Future<T> Function() query) async =>
         (await tester.runAsync(query)) as T;
 
-    testWidgets('sits at the bottom of Backup & restore', (tester) async {
+    testWidgets('sits at the bottom of Backup & restore, under Reset',
+        (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
 
       await openSettings(tester, container);
 
+      expect(find.text(l10n.backupResetHeading), findsOneWidget);
       expect(find.text(l10n.backupResetProfile), findsOneWidget);
+      await stop(tester);
+    });
+
+    testWidgets('and the heading and the button are the whole of the section',
+        (tester) async {
+      // No standing caption between them. What a reset costs is said in the
+      // dialog, where it is read by somebody who is about to press the thing;
+      // said on the screen it is read by everybody who is not.
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await openSettings(tester, container);
+
+      final heading = tester.getBottomLeft(find.text(l10n.backupResetHeading));
+      final button = tester.getTopLeft(find.text(l10n.backupResetProfile));
+      expect(button.dy - heading.dy, lessThan(40),
+          reason: 'a line of prose has been let in between the two');
       await stop(tester);
     });
 

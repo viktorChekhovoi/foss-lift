@@ -102,9 +102,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             // it. Nothing that empties the log belongs above the control that
             // saves it.
             const SizedBox(height: 36),
-            Text(l10n.backupStartingOver, style: sectionLabelStyle()),
-            const SizedBox(height: 10),
-            _Note(l10n.backupResetReplaces, warn: true),
+            Text(l10n.backupResetHeading, style: sectionLabelStyle()),
+            // No caption under this heading. What a reset costs is in the
+            // dialog, where it is read by somebody about to press the thing;
+            // standing on the screen it was read by everybody who was not.
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _busy ? null : () => _reset(l10n),

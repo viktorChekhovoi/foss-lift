@@ -50,15 +50,19 @@ groups:
   - id: reset-points-at-the-backup-first
     t: It offers the backup before it takes the log
     d: >-
-      the one thing that makes this recoverable is a file the app cannot make
-      for you after the fact, so the dialog names it while there is still
-      something to save. A mention rather than a step: somebody resetting a
-      phone they are handing on does not want to be marched through a backup
-      they will delete, and somebody who wanted one is now holding the sentence
-      that says so.
+      the one thing that makes this recoverable is a file the app cannot make for you after the fact, so the dialog names it while there is still something to save. A mention rather than a step: somebody resetting a phone they are handing on does not want to be marched through a backup they will delete, and somebody who wanted one is now holding the sentence that says so. That dialog is the only place any of this is said. The section on the screen is a heading reading Reset and the button under it, with no standing caption between them — a warning read on the way past the control is a warning read by somebody who was not going to press it.
     uses:
     - storage.reset
     - share.backup-file
+  - id: a-backup-holds-everything-a-reset-takes
+    t: A backup taken with its clips holds everything a reset takes
+    d: >-
+      the file is the database itself plus the clips when they were ticked, and the reset empties that same database and deletes those same clips — so restoring one puts back everything the other took, down to the settings. The single exception is the clips on a backup saved without them: nothing else on the phone belongs to the app, so nothing else can be lost. This is why the reset does not claim to reach further than a backup does.
+    screen: none
+    uses:
+    - storage.reset
+    - share.backup-file
+    - video.storage
   - id: reset-takes-the-clips-off-the-disk-too
     t: The set videos go with it
     d: >-

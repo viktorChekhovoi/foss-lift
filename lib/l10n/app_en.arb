@@ -255,13 +255,9 @@
       }
     }
   },
-  "backupResetReplaces": "Everything on this phone, not just what a backup would hold.",
-  "@backupResetReplaces": {
-    "description": "The line under the Starting over heading on Backup & restore, in the warning colour. It sits beside backupRestoreReplaces, which says the same kind of thing about a restore, so it is phrased against that one."
-  },
-  "backupStartingOver": "Starting over",
-  "@backupStartingOver": {
-    "description": "Section label over the reset control, at the very bottom of Backup & restore, under the save and restore sections."
+  "backupResetHeading": "Reset",
+  "@backupResetHeading": {
+    "description": "Small heading over the last section of the backup screen, the one holding the reset button. One word, matching the verb used in backupResetProfile."
   },
   "backupResetProfile": "Reset profile",
   "@backupResetProfile": {
