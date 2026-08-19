@@ -415,10 +415,20 @@ class WorkoutItems extends Table {
   /// and it survives a builder edit. It does **not** travel in a routine code —
   /// where the sender had got to is not part of the program.
   ///
+  IntColumn get cyclePosition => integer().withDefault(const Constant(0))();
+
+  /// What this slot's weeks are called, encoded — see [encodeCycleNames]. Null
+  /// on every slot whose weeks are still "Week 1", "Week 2", which is most of
+  /// them.
+  ///
+  /// Beside [cycleBlocks] rather than inside it: the row grammar is on phones
+  /// and a name can hold any character, so widening that column would mean
+  /// every installed cycle re-reading itself against a new parser.
+  ///
   /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
-  IntColumn get cyclePosition => integer().withDefault(const Constant(0))();
+  TextColumn get cycleNames => text().nullable()();
 }
 
 /// What one slot's sets are actually aiming at, and by which rule.
@@ -474,6 +484,16 @@ extension WorkoutItemTarget on WorkoutItem {
   /// board and the training day say. Zero for a slot with no cycle.
   int get cycleWeekNumber =>
       runsCycle ? (cyclePosition % cycleWeeks.length) + 1 : 0;
+
+  /// What the weeks are called, decoded — empty for a cycle nobody has named,
+  /// and shorter than the cycle wherever only the later weeks are blank.
+  List<String> get cycleWeekNameList => decodeCycleNames(cycleNames);
+
+  /// What the week the next session runs is called, or the empty string where
+  /// it has no name of its own and "Week 3" is the answer.
+  String get cycleWeekName => runsCycle
+      ? cycleNameAt(cycleWeekNameList, cyclePosition % cycleWeeks.length)
+      : '';
 
   /// How many working sets the next session of this slot has.
   ///
@@ -1170,6 +1190,9 @@ _Starter _s(
 final Map<String, Map<String, _Starter>> _starterLibrary = {
   'Chest': {
     'Bench Press': _s('Barbell', also: ['Arms'], assists: ['Shoulders']),
+    // The competition bench held on the chest. Same bar, same muscles, its own
+    // history — a paused single at 70% says nothing about a touch-and-go one.
+    'Paused Bench Press': _s('Barbell', also: ['Arms'], assists: ['Shoulders']),
     'Incline Bench Press': _s(
       'Barbell',
       also: ['Shoulders'],
@@ -1218,6 +1241,7 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
   },
   'Back': {
     'Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    'Pause Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
     'Barbell Row': _s('Barbell', also: ['Arms'], assists: ['Core']),
     'Barbell Shrug': _s('Barbell', assists: ['Arms']),
     'Dumbbell Row': _s('Dumbbell', also: ['Arms'], assists: ['Core']),
@@ -1274,6 +1298,7 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
   },
   'Legs': {
     'Back Squat': _s('Barbell', assists: ['Core', 'Back']),
+    'Pause Squat': _s('Barbell', assists: ['Core', 'Back']),
     'Front Squat': _s('Barbell', assists: ['Core', 'Back']),
     'Sumo Deadlift': _s('Barbell', also: ['Back'], assists: ['Core', 'Arms']),
     'Romanian Deadlift': _s(
@@ -1630,8 +1655,12 @@ class AppDatabase extends _$AppDatabase {
   ///   movement already on a phone, which is what "this one follows the app"
   ///   means — so nothing reads differently and no ramp changes length until
   ///   somebody sets one.
+  /// - **v14** — `WorkoutItems.cycle_names`, what a cycle's weeks are called,
+  ///   and the three paused competition lifts inserted into the starter
+  ///   library. The column is null on every slot already on a phone, which is
+  ///   what "nobody has named these" means — every week still reads "Week 3".
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1816,6 +1845,18 @@ class AppDatabase extends _$AppDatabase {
         await m.database.customStatement(
           'ALTER TABLE "exercises" ADD COLUMN "warmup_sets" INTEGER NULL',
         );
+      }
+      // v14 — a cycle's weeks can be named, and the paused competition lifts
+      // join the starter library. The column arrives null on every slot already
+      // on a phone, which is what "nobody has named these" means: every week
+      // still reads "Week 3" and nothing trains differently. The starter walk
+      // runs again for the three new movements, a rung of its own rather than
+      // an edit to v6 or v7, for the reason stated on those.
+      if (from < 14) {
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "cycle_names" TEXT NULL',
+        );
+        await _insertMissingStarterExercises(m.database);
       }
     },
     beforeOpen: (details) async {
@@ -2395,6 +2436,12 @@ class AppDatabase extends _$AppDatabase {
                   slot.increment ?? mode.defaultIncrement, mode, unit)),
               deload: Value(
                   _starterRate(slot.deload ?? mode.defaultDeload, mode, unit)),
+              // A lift the program deliberately moves slower than the ones
+              // beside it waits this many clean sessions for its step. Absent
+              // where the program says nothing, which is the app's own one.
+              successThreshold: slot.successThreshold == null
+                  ? const Value.absent()
+                  : Value(slot.successThreshold!),
               failureThreshold: Value(program.failureThreshold),
             ),
           );

@@ -172,6 +172,7 @@ class ExerciseEntry {
     this.schemePercent = kDefaultSchemePercent,
     this.customSets = const [],
     this.cycle = const [],
+    this.cycleNames = const [],
     this.cyclePosition = 0,
     this.goalReps = 0,
     this.floorKg = 0,
@@ -264,10 +265,18 @@ class ExerciseEntry {
   final List<List<CustomSet>> cycle;
   final int cyclePosition;
 
+  /// What those weeks are called, where anybody has named them.
+  final List<String> cycleNames;
+
   /// Which week of how many this session is, counting from one, for the line
   /// under the exercise. Zero when there is no cycle to say anything about.
   int get cycleWeek => cycle.isEmpty ? 0 : (cyclePosition % cycle.length) + 1;
   int get cycleWeeks => cycle.length;
+
+  /// What that week is called, or the empty string where it goes by its number.
+  String get cycleWeekName => cycle.isEmpty
+      ? ''
+      : cycleNameAt(cycleNames, cyclePosition % cycle.length);
 
   /// The slot's own rep target, which every scheme but a custom one repeats.
   final int goalReps;
@@ -1335,6 +1344,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       schemePercent: v.item.schemePercent,
       customSets: decodeCustomSets(v.item.customSets),
       cycle: v.item.cycleWeeks,
+      cycleNames: v.item.cycleWeekNameList,
       cyclePosition: v.item.cyclePosition,
       goalReps: goal,
       floorKg: warmupBar,

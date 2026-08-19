@@ -151,6 +151,9 @@ extension RoutineSharing on AppDatabase {
           // The weeks travel; where the slot has got to in them does not, for
           // the reason repsTarget does not — see below.
           cycle: it.cycleWeeks,
+          // And what they are called, which is part of the program in the way
+          // the day's own name is.
+          cycleNames: it.cycleWeekNameList,
           // Which slots are trained back to back is the program too, and so is
           // whether a slot climbs its range before its load moves.
           supersetWithPrevious: it.supersetWithPrevious,
@@ -291,6 +294,9 @@ extension RoutineSharing on AppDatabase {
                       : null),
                   cycleBlocks: Value(it.scheme == SetScheme.cycle
                       ? encodeCycleBlocks(it.cycle)
+                      : null),
+                  cycleNames: Value(it.scheme == SetScheme.cycle
+                      ? encodeCycleNames(it.cycleNames)
                       : null),
                   // An imported copy opens on week one: cyclePosition takes its
                   // column default rather than the sender's progress.

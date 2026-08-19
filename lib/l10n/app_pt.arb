@@ -844,5 +844,21 @@
   "sessionTrainingMaxShort": "MdT",
   "targetRowSeparator": "/",
   "itemEditorSummaryTrainingMax": "MdT {weight}",
-  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%",
+  "exercisePausedBenchPress": "Supino com pausa",
+  "exercisePauseSquat": "Agachamento com pausa",
+  "exercisePauseDeadlift": "Peso morto com pausa",
+  "itemEditorCycleNameWeek": "Dar nome a esta semana",
+  "itemEditorCycleWeekNameHint": "Descarga",
+  "sessionCycleWeekNamed": "{name} {n}/{total}",
+  "seedRoutineCanditoControl": "Candito Linear — Força/Controlo",
+  "seedRoutineCanditoHypertrophy": "Candito Linear — Força/Hipertrofia",
+  "seedRoutineDescCanditoControl": "Quatro sessões por semana: dois dias pesados de agachamento, peso morto e supino, e dois com versões em pausa dos mesmos movimentos, seis séries de quatro. Acrescenta um pouco a cada levantamento todas as semanas enquanto isso resultar. Para quem deixou de progredir de sessão para sessão mas ainda progride de semana para semana.",
+  "seedRoutineDescCanditoHypertrophy": "Os mesmos dois dias pesados, com os outros dois dedicados a cinco séries de oito de uma variante em vez do trabalho em pausa. Mais volume e mais escolha de exercícios do que o Força/Controlo, com a mesma progressão semanal.",
+  "seedDayHeavyLower": "Pesado inferior",
+  "seedDayHeavyUpper": "Pesado superior",
+  "seedDayControlLower": "Controlo inferior",
+  "seedDayControlUpper": "Controlo superior",
+  "seedDayVariationLower": "Variante inferior",
+  "seedDayVariationUpper": "Variante superior"
 }

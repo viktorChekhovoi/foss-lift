@@ -39,9 +39,10 @@ class StarterSlot {
     this.repsMax,
     this.weightKg,
     this.holdSeconds,
-  })  : increment = null,
-        deload = null,
-        cycle = const [];
+    this.increment,
+    this.deload,
+    this.successThreshold,
+  }) : cycle = const [];
 
   /// A slot on one of the lifts a linear-progression program moves 5 kg a
   /// session — the squat, the deadlift and their variants — rather than the
@@ -51,10 +52,11 @@ class StarterSlot {
     required this.sets,
     required this.repsMin,
     required this.weightKg,
+    this.deload = 10,
   })  : repsMax = null,
         holdSeconds = null,
         increment = 5,
-        deload = 10,
+        successThreshold = null,
         cycle = const [];
 
   /// A slot that rotates through [cycle] — a week of written-out sets at a
@@ -74,6 +76,7 @@ class StarterSlot {
         repsMin = 0,
         repsMax = null,
         holdSeconds = null,
+        successThreshold = null,
         deload = null;
 
   /// The canonical English name of a movement in the starter library.
@@ -96,6 +99,13 @@ class StarterSlot {
   /// The program's own step up and back-off, or null to take the axis's.
   final double? increment;
   final double? deload;
+
+  /// How many clean sessions this slot takes before it steps, or null for the
+  /// app's own — one. Three is where a program puts a lift it wants moving once
+  /// a month rather than once a week: the shoulder press and the chin-up on
+  /// Candito's linear program, which are trained weekly and progressed far
+  /// slower than the lifts beside them.
+  final int? successThreshold;
 
   /// The weeks this slot rotates through, or empty for a slot that does not —
   /// see [StarterSlot.cycling] and `data/set_scheme.dart`.
@@ -180,6 +190,10 @@ const int _tf = 1 << 1 | 1 << 4;
 /// Tuesday and Saturday, so a conditioning program falls between the sessions of
 /// a Monday/Wednesday/Friday one rather than on top of them.
 const int _ts = 1 << 1 | 1 << 5;
+
+/// Monday, Tuesday, Thursday and Friday — the four-day upper/lower week, each
+/// heavy day followed by its variation day and the weekend clear.
+const int _mtthf = 1 << 0 | 1 << 1 | 1 << 3 | 1 << 4;
 
 /// Monday, Wednesday, Friday and Saturday — the four-day 5/3/1 week, with one
 /// pair of days back to back rather than a session on a Sunday.
@@ -273,7 +287,8 @@ const List<List<CustomSet>> k531FirstSetLast = [
 
 /// The library, in the order it is offered: the two splits somebody with a year
 /// of training would recognise, then the beginner barbell programs, the four
-/// that ask for less than a gym, and the four 5/3/1 programs.
+/// that ask for less than a gym, the four 5/3/1 programs, and the two Candito
+/// Linear programs.
 final List<StarterRoutine> kStarterRoutines = [
   StarterRoutine(
     key: 'ppl',
@@ -689,6 +704,106 @@ final List<StarterRoutine> kStarterRoutines = [
       ]),
     ],
   ),
+  // ---- Candito Linear -----------------------------------------------------
+  //
+  // Jonnie Candito's four-day upper/lower split. Both variants share the two
+  // heavy days and differ only in what the other two do, which is why the days
+  // below are built from one pair of helpers rather than written twice.
+  //
+  // **The progression is the program.** Candito adds a little to each lift
+  // every week for as long as that works, drops the lift that missed by 15 lb
+  // — 7.5 kg — and leaves the rest of the program alone. So the back-off is
+  // stated per slot rather than taken from the axis, and the routine's failure
+  // threshold is one: the reset is on the next session after a miss, not after
+  // a second one.
+  //
+  // One rule of Candito's does **not** fit and is not pretended to: after the
+  // same lift has been reset three times he slows its progression from weekly
+  // to fortnightly, which is a rule about a counter the app does not keep.
+  // Somebody who has reset three times can halve the step by hand.
+  StarterRoutine(
+    key: 'candito-linear-control',
+    description: 'Four sessions a week: two heavy days on the squat, deadlift and bench, and two on paused versions of the same lifts for six sets of four. Add a little to each lift every week for as long as that works. For somebody whose sessions have stopped going up but whose weeks still do.',
+    name: 'Candito Linear — Strength/Control',
+    colorHex: 'D64550',
+    restSeconds: 180,
+    scheduleDays: _mtthf,
+    // The reset is on the session after the miss. See the note above.
+    failureThreshold: 1,
+    days: [
+      StarterDay('Heavy Lower', _canditoHeavyLower),
+      StarterDay('Heavy Upper', _canditoHeavyUpper),
+      StarterDay('Control Lower', [
+        // Six sets of four at roughly 70% of the heavy day's bar — control
+        // work, so the step is the small one on both lifts rather than the
+        // 5 kg the heavy squat and deadlift take.
+        StarterSlot('Pause Squat',
+            sets: 6, repsMin: 4, weightKg: 70, deload: 7.5),
+        StarterSlot('Pause Deadlift',
+            sets: 3, repsMin: 4, weightKg: 85, deload: 7.5),
+        StarterSlot('Hanging Leg Raise', sets: 3, repsMin: 10, repsMax: 15),
+      ]),
+      StarterDay('Control Upper', [
+        StarterSlot('Paused Bench Press',
+            sets: 6, repsMin: 4, weightKg: 50, deload: 7.5),
+        // The controlled upper-back work of the same day, at the same shape.
+        StarterSlot('Chest-Supported Row',
+            sets: 6, repsMin: 4, weightKg: 45, deload: 7.5),
+        StarterSlot('Lateral Raise', sets: 3, repsMin: 15, weightKg: 10),
+        StarterSlot('Barbell Curl', sets: 3, repsMin: 10, repsMax: 12, weightKg: 25),
+      ]),
+    ],
+  ),
+  StarterRoutine(
+    key: 'candito-linear-hypertrophy',
+    description: "The same two heavy days, with the other two spent on five sets of eight of a variation instead of paused work. More volume and more exercise choice than Strength/Control, and the same weekly progression.",
+    name: 'Candito Linear — Strength/Hypertrophy',
+    colorHex: 'E07A5F',
+    restSeconds: 150,
+    scheduleDays: _mtthf,
+    failureThreshold: 1,
+    days: [
+      StarterDay('Heavy Lower', _canditoHeavyLower),
+      StarterDay('Heavy Upper', _canditoHeavyUpper),
+      StarterDay('Variation Lower', [
+        StarterSlot('Front Squat',
+            sets: 5, repsMin: 8, weightKg: 60, deload: 7.5),
+        StarterSlot('Romanian Deadlift',
+            sets: 5, repsMin: 8, weightKg: 80, deload: 7.5),
+        StarterSlot('Leg Curl', sets: 3, repsMin: 12, weightKg: 40),
+      ]),
+      StarterDay('Variation Upper', [
+        StarterSlot('Incline DB Press',
+            sets: 5, repsMin: 8, weightKg: 24, deload: 7.5),
+        StarterSlot('Dumbbell Row',
+            sets: 5, repsMin: 8, weightKg: 28, deload: 7.5),
+        StarterSlot('Lateral Raise', sets: 3, repsMin: 15, weightKg: 10),
+        StarterSlot('Triceps Pushdown',
+            sets: 3, repsMin: 12, repsMax: 15, weightKg: 30),
+      ]),
+    ],
+  ),
+];
+
+/// Candito's heavy lower day, shared by both variants: the squat and the
+/// deadlift at six reps a set, moving 5 kg a week and dropping 7.5 on the lift
+/// that missed.
+const List<StarterSlot> _canditoHeavyLower = [
+  StarterSlot.heavy('Back Squat', sets: 3, repsMin: 6, weightKg: 100, deload: 7.5),
+  StarterSlot.heavy('Deadlift', sets: 2, repsMin: 6, weightKg: 120, deload: 7.5),
+  StarterSlot('Leg Curl', sets: 3, repsMin: 12, weightKg: 40),
+];
+
+/// The heavy upper day, likewise. The bench and the row move together — a
+/// horizontal upper-back movement progresses at the pace the bench does — and
+/// the overhead press and the chin-up wait three clean sessions for a step,
+/// which at one session a week is Candito's "about once every three weeks".
+const List<StarterSlot> _canditoHeavyUpper = [
+  StarterSlot('Bench Press', sets: 3, repsMin: 6, weightKg: 70, deload: 7.5),
+  StarterSlot('Barbell Row', sets: 3, repsMin: 6, weightKg: 60, deload: 7.5),
+  StarterSlot('Overhead Press',
+      sets: 3, repsMin: 8, weightKg: 40, deload: 7.5, successThreshold: 3),
+  StarterSlot('Chin-Up', sets: 3, repsMin: 8, repsMax: 10, successThreshold: 3),
 ];
 
 /// One main lift on the 5/3/1 cycle, opening at a training max of [tm] and

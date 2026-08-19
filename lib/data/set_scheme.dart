@@ -238,6 +238,54 @@ List<List<CustomSet>> decodeCycleBlocks(String? encoded) {
   ];
 }
 
+/// The longest a week's name may be. A heading, not a sentence: the name shares
+/// a line with the week read back in the builder and with the cycle count on
+/// the board, and either of those wins an argument with a paragraph.
+const int kCycleNameMaxLength = 24;
+
+/// The names of a cycle's weeks as one column value, in the same order as the
+/// weeks and joined by the same separator.
+///
+/// A column of its own rather than a field inside [encodeCycleBlocks], because
+/// that grammar is on phones: a name has to be able to hold any character
+/// somebody types, and widening the row grammar to carry one would mean every
+/// installed cycle re-reading itself against a new parser. Two columns cost one
+/// migration rung and nothing else.
+///
+/// Null when no week has a name, so "nobody has named these" is one value in the
+/// database rather than a string of separators — the rule [encodeCycleBlocks]
+/// follows for a cycle with nothing in it.
+String? encodeCycleNames(List<String> names) {
+  if (names.every((n) => n.trim().isEmpty)) return null;
+  return names.map(_escapeCycleName).join(kCycleBlockSeparator);
+}
+
+/// The inverse. Forgiving on the same terms as the rows: anything unreadable
+/// comes back as no names, because a week headed "Week 3" is a week and a
+/// workout that will not open is not.
+List<String> decodeCycleNames(String? encoded) {
+  if (encoded == null || encoded.isEmpty) return const [];
+  return [
+    for (final part in encoded.split(kCycleBlockSeparator))
+      _unescapeCycleName(part),
+  ];
+}
+
+/// The name of week [index], or the empty string where there is none — a cycle
+/// nobody has named, a name list shorter than the cycle, or a week left blank.
+String cycleNameAt(List<String> names, int index) =>
+    index >= 0 && index < names.length ? names[index].trim() : '';
+
+/// A name as the column holds it: the separator and the escape character itself
+/// are the only two things that cannot travel literally.
+String _escapeCycleName(String name) => name
+    .trim()
+    .replaceAll('%', '%25')
+    .replaceAll(kCycleBlockSeparator, '%7C');
+
+String _unescapeCycleName(String stored) =>
+    stored.replaceAll('%7C', kCycleBlockSeparator).replaceAll('%25', '%');
+
 /// The week [position] names, wrapping — the week after the last is the first.
 ///
 /// Also the answer to a position left past the end by an edit that shortened

@@ -481,7 +481,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   /// never warm up for.
   ///
   /// Consulted only while the app-wide count is above zero — see
-  /// [warmupSetsFor]. None app-wide means the app suggests no ramps at all, and
+  /// [warmupCountFor]. None app-wide means the app suggests no ramps at all, and
   /// a movement's own count is not an exemption from that.
   final int? warmupSets;
   const Exercise({
@@ -2316,6 +2316,17 @@ class $WorkoutItemsTable extends WorkoutItems
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _cycleNamesMeta = const VerificationMeta(
+    'cycleNames',
+  );
+  @override
+  late final GeneratedColumn<String> cycleNames = GeneratedColumn<String>(
+    'cycle_names',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2347,6 +2358,7 @@ class $WorkoutItemsTable extends WorkoutItems
     sparedRates,
     cycleBlocks,
     cyclePosition,
+    cycleNames,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2562,6 +2574,12 @@ class $WorkoutItemsTable extends WorkoutItems
         ),
       );
     }
+    if (data.containsKey('cycle_names')) {
+      context.handle(
+        _cycleNamesMeta,
+        cycleNames.isAcceptableOrUnknown(data['cycle_names']!, _cycleNamesMeta),
+      );
+    }
     return context;
   }
 
@@ -2691,6 +2709,10 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.int,
         data['${effectivePrefix}cycle_position'],
       )!,
+      cycleNames: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cycle_names'],
+      ),
     );
   }
 
@@ -2848,10 +2870,20 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
   /// and it survives a builder edit. It does **not** travel in a routine code —
   /// where the sender had got to is not part of the program.
   ///
+  final int cyclePosition;
+
+  /// What this slot's weeks are called, encoded — see [encodeCycleNames]. Null
+  /// on every slot whose weeks are still "Week 1", "Week 2", which is most of
+  /// them.
+  ///
+  /// Beside [cycleBlocks] rather than inside it: the row grammar is on phones
+  /// and a name can hold any character, so widening that column would mean
+  /// every installed cycle re-reading itself against a new parser.
+  ///
   /// **Declared last**, because `ALTER TABLE … ADD COLUMN` appends and an
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
-  final int cyclePosition;
+  final String? cycleNames;
   const WorkoutItem({
     required this.id,
     required this.workoutId,
@@ -2882,6 +2914,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     this.sparedRates,
     this.cycleBlocks,
     required this.cyclePosition,
+    this.cycleNames,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2937,6 +2970,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       map['cycle_blocks'] = Variable<String>(cycleBlocks);
     }
     map['cycle_position'] = Variable<int>(cyclePosition);
+    if (!nullToAbsent || cycleNames != null) {
+      map['cycle_names'] = Variable<String>(cycleNames);
+    }
     return map;
   }
 
@@ -2985,6 +3021,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ? const Value.absent()
           : Value(cycleBlocks),
       cyclePosition: Value(cyclePosition),
+      cycleNames: cycleNames == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cycleNames),
     );
   }
 
@@ -3031,6 +3070,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       sparedRates: serializer.fromJson<String?>(json['sparedRates']),
       cycleBlocks: serializer.fromJson<String?>(json['cycleBlocks']),
       cyclePosition: serializer.fromJson<int>(json['cyclePosition']),
+      cycleNames: serializer.fromJson<String?>(json['cycleNames']),
     );
   }
   @override
@@ -3070,6 +3110,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'sparedRates': serializer.toJson<String?>(sparedRates),
       'cycleBlocks': serializer.toJson<String?>(cycleBlocks),
       'cyclePosition': serializer.toJson<int>(cyclePosition),
+      'cycleNames': serializer.toJson<String?>(cycleNames),
     };
   }
 
@@ -3103,6 +3144,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     Value<String?> sparedRates = const Value.absent(),
     Value<String?> cycleBlocks = const Value.absent(),
     int? cyclePosition,
+    Value<String?> cycleNames = const Value.absent(),
   }) => WorkoutItem(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -3135,6 +3177,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     sparedRates: sparedRates.present ? sparedRates.value : this.sparedRates,
     cycleBlocks: cycleBlocks.present ? cycleBlocks.value : this.cycleBlocks,
     cyclePosition: cyclePosition ?? this.cyclePosition,
+    cycleNames: cycleNames.present ? cycleNames.value : this.cycleNames,
   );
   WorkoutItem copyWithCompanion(WorkoutItemsCompanion data) {
     return WorkoutItem(
@@ -3207,6 +3250,9 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       cyclePosition: data.cyclePosition.present
           ? data.cyclePosition.value
           : this.cyclePosition,
+      cycleNames: data.cycleNames.present
+          ? data.cycleNames.value
+          : this.cycleNames,
     );
   }
 
@@ -3241,7 +3287,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('repsTarget: $repsTarget, ')
           ..write('sparedRates: $sparedRates, ')
           ..write('cycleBlocks: $cycleBlocks, ')
-          ..write('cyclePosition: $cyclePosition')
+          ..write('cyclePosition: $cyclePosition, ')
+          ..write('cycleNames: $cycleNames')
           ..write(')'))
         .toString();
   }
@@ -3277,6 +3324,7 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     sparedRates,
     cycleBlocks,
     cyclePosition,
+    cycleNames,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3310,7 +3358,8 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.repsTarget == this.repsTarget &&
           other.sparedRates == this.sparedRates &&
           other.cycleBlocks == this.cycleBlocks &&
-          other.cyclePosition == this.cyclePosition);
+          other.cyclePosition == this.cyclePosition &&
+          other.cycleNames == this.cycleNames);
 }
 
 class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
@@ -3343,6 +3392,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<String?> sparedRates;
   final Value<String?> cycleBlocks;
   final Value<int> cyclePosition;
+  final Value<String?> cycleNames;
   const WorkoutItemsCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -3373,6 +3423,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.sparedRates = const Value.absent(),
     this.cycleBlocks = const Value.absent(),
     this.cyclePosition = const Value.absent(),
+    this.cycleNames = const Value.absent(),
   });
   WorkoutItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -3404,6 +3455,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.sparedRates = const Value.absent(),
     this.cycleBlocks = const Value.absent(),
     this.cyclePosition = const Value.absent(),
+    this.cycleNames = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId);
   static Insertable<WorkoutItem> custom({
@@ -3436,6 +3488,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<String>? sparedRates,
     Expression<String>? cycleBlocks,
     Expression<int>? cyclePosition,
+    Expression<String>? cycleNames,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3469,6 +3522,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (sparedRates != null) 'spared_rates': sparedRates,
       if (cycleBlocks != null) 'cycle_blocks': cycleBlocks,
       if (cyclePosition != null) 'cycle_position': cyclePosition,
+      if (cycleNames != null) 'cycle_names': cycleNames,
     });
   }
 
@@ -3502,6 +3556,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<String?>? sparedRates,
     Value<String?>? cycleBlocks,
     Value<int>? cyclePosition,
+    Value<String?>? cycleNames,
   }) {
     return WorkoutItemsCompanion(
       id: id ?? this.id,
@@ -3534,6 +3589,7 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       sparedRates: sparedRates ?? this.sparedRates,
       cycleBlocks: cycleBlocks ?? this.cycleBlocks,
       cyclePosition: cyclePosition ?? this.cyclePosition,
+      cycleNames: cycleNames ?? this.cycleNames,
     );
   }
 
@@ -3635,6 +3691,9 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     if (cyclePosition.present) {
       map['cycle_position'] = Variable<int>(cyclePosition.value);
     }
+    if (cycleNames.present) {
+      map['cycle_names'] = Variable<String>(cycleNames.value);
+    }
     return map;
   }
 
@@ -3669,7 +3728,8 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('repsTarget: $repsTarget, ')
           ..write('sparedRates: $sparedRates, ')
           ..write('cycleBlocks: $cycleBlocks, ')
-          ..write('cyclePosition: $cyclePosition')
+          ..write('cyclePosition: $cyclePosition, ')
+          ..write('cycleNames: $cycleNames')
           ..write(')'))
         .toString();
   }
@@ -5889,17 +5949,10 @@ class Setting extends DataClass implements Insertable<Setting> {
   /// upgraded one on exactly the same table, right down to the column order.
   final int warmupSets;
 
-  /// Whether the builder offers cycles, per-set rep ranges and training maxes.
-  ///
-  /// Off on a fresh install and off on every phone that upgrades into this
-  /// build. Most programs are a set count and a rep target, and a picker with a
-  /// week-by-week prescription in it is a question those programs never have to
-  /// answer.
-  ///
-  /// It gates what the builder **offers**, never what it runs: a slot that
-  /// already has a cycle — because a ready-made program brought one, or because
-  /// the switch was on last month — shows its controls regardless. A program
-  /// you cannot look at is worse than a picker with a fifth option in it.
+  /// Dormant. It once gated whether the builder offered cycles, per-set rep
+  /// ranges and training maxes; it gates nothing now — those are ordinary
+  /// options, on every install. The column stays because a shipped rung wrote
+  /// it and a rung is never rewritten; nothing reads it.
   ///
   /// **Declared last**, for the reason [warmupSets] gives above; the note moves
   /// to whatever column comes next.
@@ -8650,6 +8703,7 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<String?> sparedRates,
       Value<String?> cycleBlocks,
       Value<int> cyclePosition,
+      Value<String?> cycleNames,
     });
 typedef $$WorkoutItemsTableUpdateCompanionBuilder =
     WorkoutItemsCompanion Function({
@@ -8682,6 +8736,7 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<String?> sparedRates,
       Value<String?> cycleBlocks,
       Value<int> cyclePosition,
+      Value<String?> cycleNames,
     });
 
 final class $$WorkoutItemsTableReferences
@@ -8866,6 +8921,11 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<int> get cyclePosition => $composableBuilder(
     column: $table.cyclePosition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cycleNames => $composableBuilder(
+    column: $table.cycleNames,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9060,6 +9120,11 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get cycleNames => $composableBuilder(
+    column: $table.cycleNames,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutsTableOrderingComposer get workoutId {
     final $$WorkoutsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9236,6 +9301,11 @@ class $$WorkoutItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get cycleNames => $composableBuilder(
+    column: $table.cycleNames,
+    builder: (column) => column,
+  );
+
   $$WorkoutsTableAnnotationComposer get workoutId {
     final $$WorkoutsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -9340,6 +9410,7 @@ class $$WorkoutItemsTableTableManager
                 Value<String?> sparedRates = const Value.absent(),
                 Value<String?> cycleBlocks = const Value.absent(),
                 Value<int> cyclePosition = const Value.absent(),
+                Value<String?> cycleNames = const Value.absent(),
               }) => WorkoutItemsCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -9370,6 +9441,7 @@ class $$WorkoutItemsTableTableManager
                 sparedRates: sparedRates,
                 cycleBlocks: cycleBlocks,
                 cyclePosition: cyclePosition,
+                cycleNames: cycleNames,
               ),
           createCompanionCallback:
               ({
@@ -9402,6 +9474,7 @@ class $$WorkoutItemsTableTableManager
                 Value<String?> sparedRates = const Value.absent(),
                 Value<String?> cycleBlocks = const Value.absent(),
                 Value<int> cyclePosition = const Value.absent(),
+                Value<String?> cycleNames = const Value.absent(),
               }) => WorkoutItemsCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -9432,6 +9505,7 @@ class $$WorkoutItemsTableTableManager
                 sparedRates: sparedRates,
                 cycleBlocks: cycleBlocks,
                 cyclePosition: cyclePosition,
+                cycleNames: cycleNames,
               ),
           withReferenceMapper: (p0) => p0
               .map(

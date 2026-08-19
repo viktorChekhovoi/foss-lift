@@ -7,6 +7,7 @@
 // the stored slot through `AppDatabase.advanceProgression`, the live board's
 // hydration, the routine code, and the builder's switch.
 import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
@@ -22,6 +23,7 @@ import 'package:foss_lift/widgets/workout_items_editor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'support/harness.dart';
+import 'support/schema_v1.dart';
 import 'support/seeded.dart';
 
 /// The 5/3/1 main-lift cycle, written out: three weeks of three sets, the last
@@ -84,12 +86,14 @@ Future<ItemDraft> openCycleSheet(
   AppDatabase db,
   ProviderContainer container, {
   int position = 0,
+  List<String> names = const [],
 }) async {
   final draft = (await tester.runAsync(() async =>
       ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
     ..weightKg = 100
     ..scheme = SetScheme.cycle
     ..cycle = [for (final week in k531) [...week]]
+    ..cycleNames = [...names]
     ..cyclePosition = position;
   // Tall: the sheet is long, and a control below the fold is a control a tap
   // cannot reach.
@@ -923,6 +927,274 @@ void main() {
           reason: 'target, training max, scheme and step — four fields, and '
               'the three sets are one of them',
       );
+    });
+  });
+
+
+  // ------------------------------------------------------------- week names
+
+  group('a week of a cycle can be called what it is', () {
+    test('the names round-trip through a column of their own', () {
+      const names = ['Volume', '', 'Peak'];
+      expect(decodeCycleNames(encodeCycleNames(names)), names);
+    });
+
+    test('a cycle nobody has named is null in the column', () {
+      expect(encodeCycleNames(const []), isNull);
+      expect(encodeCycleNames(const ['', '  ', '']), isNull,
+          reason: 'blanks are not names');
+      expect(decodeCycleNames(null), isEmpty);
+    });
+
+    test('a name holding the separator survives it', () {
+      const names = ['Heavy|Light', '100% week'];
+      expect(decodeCycleNames(encodeCycleNames(names)), names);
+    });
+
+    test('a week past the end of the list has no name', () {
+      expect(cycleNameAt(const ['Volume'], 0), 'Volume');
+      expect(cycleNameAt(const ['Volume'], 1), '');
+      expect(cycleNameAt(const [], 0), '');
+      expect(cycleNameAt(const ['  Deload  '], 0), 'Deload',
+          reason: 'the name is what was typed, trimmed');
+    });
+
+    test('a named week is headed by its name and an unnamed one by its number',
+        () {
+      final l10n = l10nFor();
+      expect(cycleWeekTitle(l10n, 'Deload', 3), 'Deload');
+      expect(cycleWeekTitle(l10n, '', 3), l10n.itemEditorCycleWeek(4));
+    });
+
+    test('the line under the exercise says the name and keeps the count', () {
+      final l10n = l10nFor();
+      expect(cycleWeekLine(l10n, '', 2, 4), l10n.sessionCycleWeek(2, 4));
+      expect(cycleWeekLine(l10n, 'Deload', 4, 4),
+          l10n.sessionCycleWeekNamed('Deload', 4, 4));
+    });
+
+    test('a stored slot reads back the name of the week it is on', () async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          scheme: const Value(SetScheme.cycle),
+          cycleBlocks: Value(encodeCycleBlocks(k531)),
+          cycleNames: Value(encodeCycleNames(const ['Volume', '', 'Peak'])),
+          cyclePosition: const Value(2),
+        ),
+      ]);
+      final item = (await db.itemsForWorkout(push.id)).single.item;
+      expect(item.cycleWeekName, 'Peak');
+      expect(item.cycleWeekNumber, 3);
+    });
+
+    test('a slot whose weeks are unnamed says so rather than throwing',
+        () async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          scheme: const Value(SetScheme.cycle),
+          cycleBlocks: Value(encodeCycleBlocks(k531)),
+        ),
+      ]);
+      final item = (await db.itemsForWorkout(push.id)).single.item;
+      expect(item.cycleWeekNameList, isEmpty);
+      expect(item.cycleWeekName, '');
+    });
+  });
+
+  group('a named week is named everywhere the week is shown', () {
+    testWidgets('the board writes the name where it wrote "Week"',
+        (tester) async {
+      late final ActiveWorkoutController ctrl;
+      await tester.runAsync(() async {
+        final ex = await exerciseNamed(db, 'Bench Press');
+        final push = await workoutNamed(db, 'Push');
+        await db.replaceWorkoutItems(push.id, [
+          WorkoutItemsCompanion.insert(
+            workoutId: push.id,
+            exerciseId: ex.id,
+            targetSets: const Value(3),
+            repsMin: const Value(5),
+            suggestedWeight: const Value(100),
+            scheme: const Value(SetScheme.cycle),
+            cycleBlocks: Value(encodeCycleBlocks(k531)),
+            cycleNames: Value(encodeCycleNames(const ['Volume', 'Peak', ''])),
+            cyclePosition: const Value(1),
+          ),
+        ]);
+        ctrl = container.read(activeWorkoutProvider.notifier);
+        await ctrl.start(workoutId: push.id, name: 'Push');
+      });
+      await tester.pumpWidget(appUnder(container, const WorkoutScreen()));
+      await tester.pump();
+
+      final l10n = l10nFor();
+      expect(find.text(l10n.sessionCycleWeekNamed('Peak', 2, 3)), findsOneWidget);
+      expect(find.text(l10n.sessionCycleWeek(2, 3)), findsNothing);
+
+      ctrl.discard();
+      await stop(tester);
+    });
+
+    testWidgets('the builder heads the card with the name', (tester) async {
+      final l10n = l10nFor();
+      await openCycleSheet(tester, db, container,
+          names: const ['Volume', 'Peak', 'Deload']);
+
+      expect(find.textContaining('Volume'), findsWidgets);
+      expect(find.text('Deload'), findsOneWidget);
+      expect(find.text(l10n.itemEditorCycleWeek(3)), findsNothing,
+          reason: 'week three is called Deload now');
+    });
+
+    testWidgets('the pencil names a week, and clearing it puts the number back',
+        (tester) async {
+      final draft = await openCycleSheet(tester, db, container);
+
+      // The pencil inside week one's card — the week that opens.
+      await tester.tap(find.descendant(
+        of: find.byKey(cycleWeekKey(0)),
+        matching: find.byKey(cycleWeekRenameKey),
+      ));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(cycleWeekNameFieldKey), 'Volume');
+      await tester.tap(find.byKey(cycleWeekNameSaveKey));
+      await tester.pumpAndSettle();
+
+      expect(draft.cycleNameOf(0), 'Volume');
+      expect(find.textContaining('Volume'), findsWidgets);
+
+      await tester.tap(find.descendant(
+        of: find.byKey(cycleWeekKey(0)),
+        matching: find.byKey(cycleWeekRenameKey),
+      ));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(cycleWeekNameFieldKey), '');
+      await tester.tap(find.byKey(cycleWeekNameSaveKey));
+      await tester.pumpAndSettle();
+
+      expect(draft.cycleNameOf(0), '');
+      expect(draft.cycleNames, isEmpty,
+          reason: 'a list of nothing but blanks is stored as no names at all');
+    });
+
+    testWidgets('removing a week takes its name with it', (tester) async {
+      final draft = await openCycleSheet(tester, db, container,
+          names: const ['Volume', 'Peak', 'Deload']);
+
+      await tester.tap(find.descendant(
+        of: find.byKey(cycleWeekKey(0)),
+        matching: find.byIcon(Icons.close),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(draft.cycle, hasLength(2));
+      expect(draft.cycleNames, const ['Peak', 'Deload'],
+          reason: 'week two is still called Peak, not Volume');
+    });
+
+    test('the names travel in a routine code', () async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          scheme: const Value(SetScheme.cycle),
+          cycleBlocks: Value(encodeCycleBlocks(k531)),
+          cycleNames: Value(encodeCycleNames(const ['Volume', '', 'Peak'])),
+        ),
+      ]);
+      final routine = await routineNamed(db);
+      final code = RoutineCode.encode(await db.sharedRoutine(routine.id));
+      final back = (RoutineCode.decode(code) as RoutineCodeOk).routine;
+      final slot =
+          back.workouts.firstWhere((w) => w.name == 'Push').items.single;
+      expect(slot.cycle, k531);
+      expect(slot.cycleNames, const ['Volume', '', 'Peak']);
+    });
+
+    test('a cycle nobody has named costs the code no bytes', () async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      Future<int> lengthWith(String? names) async {
+        await db.replaceWorkoutItems(push.id, [
+          WorkoutItemsCompanion.insert(
+            workoutId: push.id,
+            exerciseId: ex.id,
+            scheme: const Value(SetScheme.cycle),
+            cycleBlocks: Value(encodeCycleBlocks(k531)),
+            cycleNames: Value(names),
+          ),
+        ]);
+        final routine = await routineNamed(db);
+        return RoutineCode.encode(await db.sharedRoutine(routine.id)).length;
+      }
+
+      expect(await lengthWith(null),
+          lessThan(await lengthWith(encodeCycleNames(const ['Volume']))));
+    });
+  });
+
+
+  group('an upgraded phone finds its weeks unnamed', () {
+    /// A database at the shipped v1 shape with one ordinary slot in it, climbed
+    /// all the way up by opening it — see `support/schema_v1.dart`.
+    AppDatabase v1Database() => AppDatabase.forTesting(
+          NativeDatabase.memory(
+            setup: (raw) {
+              for (final stmt in kSchemaV1) {
+                raw.execute(stmt);
+              }
+              raw.execute(
+                'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+                "equipment) VALUES (1, 'Bench Press', 'bench_press', 'Chest', "
+                "'Barbell')",
+              );
+              raw.execute(
+                'INSERT INTO routines (id, name, color_hex, position, '
+                "rest_seconds) VALUES (1, 'Mine', 'FF6A3D', 0, 120)",
+              );
+              raw.execute(
+                'INSERT INTO workouts (id, routine_id, name, position) '
+                "VALUES (1, 1, 'Push', 0)",
+              );
+              raw.execute(
+                'INSERT INTO workout_items (id, workout_id, exercise_id, '
+                'position, target_sets, reps_min, suggested_weight) '
+                'VALUES (1, 1, 1, 0, 3, 5, 80.0)',
+              );
+              raw.execute('PRAGMA user_version = 1');
+            },
+          ),
+        );
+
+    test('the column arrives empty, and no slot gains a name', () async {
+      final upgraded = v1Database();
+      addTearDown(upgraded.close);
+
+      final slot = (await upgraded.itemsForWorkout(1)).single.item;
+      expect(slot.cycleNames, isNull);
+      expect(slot.cycleWeekNameList, isEmpty);
+      expect(slot.cycleWeekName, '');
+      expect(slot.runsCycle, isFalse, reason: 'and it gains no cycle either');
+    });
+
+    test('and the movements this build ships arrive with it', () async {
+      final upgraded = v1Database();
+      addTearDown(upgraded.close);
+
+      final names =
+          (await upgraded.watchExercises().first).map((e) => e.name).toSet();
+      expect(names, containsAll(
+          const ['Pause Squat', 'Paused Bench Press', 'Pause Deadlift']));
     });
   });
 

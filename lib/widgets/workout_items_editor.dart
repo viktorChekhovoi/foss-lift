@@ -64,6 +64,7 @@ class ItemDraft {
     this.schemePercent = kDefaultSchemePercent,
     this.customSets = const [],
     this.cycle = const [],
+    this.cycleNames = const [],
     this.cyclePosition = 0,
     this.measure = ExerciseMeasure.reps,
     this.weightType = WeightType.machine,
@@ -130,6 +131,7 @@ class ItemDraft {
         schemePercent: v.item.schemePercent,
         customSets: decodeCustomSets(v.item.customSets),
         cycle: v.item.cycleWeeks,
+        cycleNames: v.item.cycleWeekNameList,
         cyclePosition: v.item.cyclePosition,
         // The library has the final say on the axis: an exercise that changed
         // measure — or lost its loading — must not leave a saved workout
@@ -239,6 +241,14 @@ class ItemDraft {
   /// — a cycle somebody wrote out is far more work than a ramp, and switching
   /// away for a session must not cost it.
   List<List<CustomSet>> cycle;
+
+  /// What those weeks are called, in the same order. Shorter than [cycle] —
+  /// empty, usually — wherever the later weeks have no name: a week nobody has
+  /// named is "Week 3", so a missing entry and a blank one mean the same thing.
+  List<String> cycleNames;
+
+  /// The name of week [week], or the empty string where it has none.
+  String cycleNameOf(int week) => cycleNameAt(cycleNames, week);
 
   /// Where the slot has got to in that cycle. **Carried, not edited**: fixing a
   /// typo in week three cannot send the slot back to week one, any more than
@@ -508,6 +518,9 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
             : null),
         // The same rule one level up: only a cycle spends the column, and the
         // position rides along untouched — see [ItemDraft.cyclePosition].
+        cycleNames: Value(drafts[i].scheme == SetScheme.cycle
+            ? encodeCycleNames(drafts[i].cycleNames)
+            : null),
         cycleBlocks: Value(drafts[i].scheme == SetScheme.cycle
             ? encodeCycleBlocks(drafts[i].cycle)
             : null),
@@ -555,6 +568,8 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       customSets: Value(d.scheme.isCustom ? encodeCustomSets(d.customSets) : null),
       cycleBlocks:
           Value(d.scheme == SetScheme.cycle ? encodeCycleBlocks(d.cycle) : null),
+      cycleNames:
+          Value(d.scheme == SetScheme.cycle ? encodeCycleNames(d.cycleNames) : null),
       cyclePosition: Value(d.cyclePosition),
       progression: Value(d.progression),
       holdSeconds: Value(d.holdSeconds),
@@ -1954,14 +1969,16 @@ class _CycleEditorState extends State<_CycleEditor> {
           if (w > 0) const SizedBox(height: 12),
           _CycleWeekCard(
             key: cycleWeekKey(w),
-            // Counting from one, and marked when it is the week the next
-            // session will actually run — the cycle's position is program
-            // state the builder shows rather than edits.
-            title: l10n.itemEditorCycleWeek(w + 1),
+            // The name it was given, or — counting from one — where it sits in
+            // the order. Marked when it is the week the next session will
+            // actually run: the cycle's position is program state the builder
+            // shows rather than edits.
+            title: cycleWeekTitle(l10n, _d.cycleNameOf(w), w),
             rows: _d.cycle[w],
             open: w == _open,
             current: _d.cycle.length > 1 && w == _d.cyclePosition % _d.cycle.length,
             onToggle: () => setState(() => _open = w == _open ? null : w),
+            onRename: () => _renameWeek(w),
             onRemove: _d.cycle.length > 1 ? () => _removeWeek(w) : null,
             onRowChanged: (i, row) => _setRow(w, i, row),
             onAddSet: () => _addSet(w),
@@ -1999,6 +2016,29 @@ class _CycleEditorState extends State<_CycleEditor> {
     widget.onChanged();
   }
 
+  /// Asks what this week is called and keeps the answer, or drops it when the
+  /// box comes back empty — a week with nothing typed in it is "Week 3", which
+  /// is what it was before anybody opened the box.
+  Future<void> _renameWeek(int week) async {
+    final typed = await showCycleWeekNameDialog(
+      context,
+      current: _d.cycleNameOf(week),
+    );
+    if (typed == null || !mounted) return;
+    // Padded to the week being named rather than to the whole cycle: the list
+    // is read through [cycleNameAt], which answers "no name" for anything past
+    // its end, so trailing blanks would be stored for nothing.
+    final names = [
+      for (var i = 0; i < _d.cycle.length; i++)
+        i == week ? typed : _d.cycleNameOf(i),
+    ];
+    while (names.isNotEmpty && names.last.isEmpty) {
+      names.removeLast();
+    }
+    setState(() => _d.cycleNames = names);
+    widget.onChanged();
+  }
+
   /// A new week is a copy of the last one, for the reason a new set is a copy
   /// of the set above it: week two of a cycle differs from week one by a rep
   /// count and a percentage, not by everything.
@@ -2019,6 +2059,11 @@ class _CycleEditorState extends State<_CycleEditor> {
   void _removeWeek(int week) {
     final weeks = [for (final w in _d.cycle) [...w]]..removeAt(week);
     _d.cycle = weeks;
+    // The name goes with the week it was typed on, rather than staying at its
+    // index and re-labelling the week that moved up into it.
+    if (week < _d.cycleNames.length) {
+      _d.cycleNames = [..._d.cycleNames]..removeAt(week);
+    }
     // The position is held inside what is left rather than reset: removing
     // week four must not send a slot on week three back to week one.
     if (_d.cyclePosition >= weeks.length && weeks.isNotEmpty) {
@@ -2038,6 +2083,90 @@ class _CycleEditorState extends State<_CycleEditor> {
 /// Finds one week of a cycle in a test.
 ValueKey<String> cycleWeekKey(int week) => ValueKey('cycle-week-$week');
 
+/// Finds the pencil inside whichever week card a test has already reached.
+const ValueKey<String> cycleWeekRenameKey = ValueKey('cycle-week-rename');
+
+/// Finds the field inside the box that pencil opens, and the Save beside it —
+/// the sheet under the box has a Save of its own, so the two need telling
+/// apart.
+const ValueKey<String> cycleWeekNameFieldKey = ValueKey('cycle-week-name-field');
+const ValueKey<String> cycleWeekNameSaveKey = ValueKey('cycle-week-name-save');
+
+/// What week [index] is headed — the name it carries, or "Week 3".
+///
+/// One function rather than a conditional at each of the four places a week is
+/// named: the builder card, the live board, the training day and the library
+/// preview all have to agree, and a fifth reader will too.
+String cycleWeekTitle(AppLocalizations l10n, String name, int index) =>
+    name.trim().isEmpty ? l10n.itemEditorCycleWeek(index + 1) : name.trim();
+
+/// Asks what a week is called. Returns the typed name, the empty string for a
+/// week whose name was cleared, or null when the box was dismissed.
+Future<String?> showCycleWeekNameDialog(
+  BuildContext context, {
+  required String current,
+}) async {
+  final typed = await showDialog<String>(
+    context: context,
+    builder: (context) => _CycleWeekNameDialog(current: current),
+  );
+  return typed?.trim();
+}
+
+/// The box itself. A widget of its own rather than a closure round a
+/// controller, so the controller is disposed when the route holding its field
+/// goes — disposing it beside the `await` tears it out from under a field that
+/// is still animating away.
+class _CycleWeekNameDialog extends StatefulWidget {
+  const _CycleWeekNameDialog({required this.current});
+
+  final String current;
+
+  @override
+  State<_CycleWeekNameDialog> createState() => _CycleWeekNameDialogState();
+}
+
+class _CycleWeekNameDialogState extends State<_CycleWeekNameDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.current);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.itemEditorCycleNameWeek),
+      content: TextField(
+        key: cycleWeekNameFieldKey,
+        controller: _controller,
+        autofocus: true,
+        maxLength: kCycleNameMaxLength,
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(hintText: l10n.itemEditorCycleWeekNameHint),
+        onSubmitted: (_) => _save(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          key: cycleWeekNameSaveKey,
+          onPressed: _save,
+          child: Text(l10n.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
 /// One week of a cycle: a card of its own, headed by the tap that folds it.
 ///
 /// The card is what keeps four weeks from reading as one long list of steppers.
@@ -2052,6 +2181,7 @@ class _CycleWeekCard extends StatelessWidget {
     required this.open,
     required this.current,
     required this.onToggle,
+    required this.onRename,
     required this.onRemove,
     required this.onRowChanged,
     required this.onAddSet,
@@ -2066,6 +2196,10 @@ class _CycleWeekCard extends StatelessWidget {
   final bool current;
 
   final VoidCallback onToggle;
+
+  /// Opens the box that asks what this week is called.
+  final VoidCallback onRename;
+
   final VoidCallback? onRemove;
   final void Function(int index, CustomSet row) onRowChanged;
   final VoidCallback onAddSet;
@@ -2126,6 +2260,14 @@ class _CycleWeekCard extends StatelessWidget {
                     ),
                   ] else
                     const Spacer(),
+                  IconButton(
+                    key: cycleWeekRenameKey,
+                    onPressed: onRename,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: l10n.itemEditorCycleNameWeek,
+                    icon: Icon(Icons.edit_outlined,
+                        size: 16, color: AppColors.faint),
+                  ),
                   if (onRemove != null)
                     IconButton(
                       onPressed: onRemove,

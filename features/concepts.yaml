@@ -160,6 +160,13 @@ concepts:
       what their percentages are of.
     code: [lib/data/set_scheme.dart, lib/data/database.dart]
 
+  - id: template.cycle-week-name
+    area: template
+    what: >-
+      What one week of a cycle is called — the name a slot carries per week, and
+      the "Week 3" a week nobody has named falls back to.
+    code: [lib/data/set_scheme.dart, lib/widgets/workout_items_editor.dart]
+
   - id: template.training-max
     area: template
     what: >-

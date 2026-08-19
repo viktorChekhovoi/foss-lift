@@ -11,6 +11,7 @@ library;
 /// movement is a deliberate edit here rather than a silent re-key.
 const Map<String, String> kSeedExerciseKeys = {
   'Bench Press': 'bench_press',
+  'Paused Bench Press': 'paused_bench_press',
   'Incline Bench Press': 'incline_bench_press',
   'Decline Bench Press': 'decline_bench_press',
   'Dumbbell Bench Press': 'dumbbell_bench_press',
@@ -22,6 +23,7 @@ const Map<String, String> kSeedExerciseKeys = {
   'Push-Up': 'push_up',
   'Chest Dip': 'chest_dip',
   'Deadlift': 'deadlift',
+  'Pause Deadlift': 'pause_deadlift',
   'Barbell Row': 'barbell_row',
   'Barbell Shrug': 'barbell_shrug',
   'Dumbbell Row': 'dumbbell_row',
@@ -47,6 +49,7 @@ const Map<String, String> kSeedExerciseKeys = {
   'Reverse Pec Deck': 'reverse_pec_deck',
   'Cable Lateral Raise': 'cable_lateral_raise',
   'Back Squat': 'back_squat',
+  'Pause Squat': 'pause_squat',
   'Front Squat': 'front_squat',
   'Sumo Deadlift': 'sumo_deadlift',
   'Romanian Deadlift': 'romanian_deadlift',
@@ -177,6 +180,8 @@ const Map<String, String> kSeedRoutineKeys = {
   '5/3/1 Boring But Big': 'five_three_one_bbb',
   '5/3/1 First Set Last': 'five_three_one_fsl',
   '5/3/1 for Beginners': 'five_three_one_beginners',
+  'Candito Linear — Strength/Control': 'candito_linear_control',
+  'Candito Linear — Strength/Hypertrophy': 'candito_linear_hypertrophy',
 };
 
 /// The same, for their training days. The three barbell programs all name
@@ -196,5 +201,11 @@ const Map<String, String> kSeedWorkoutKeys = {
   'Deadlift': 'deadlift_day',
   'Bench': 'bench',
   'Squat': 'squat',
+  'Heavy Lower': 'heavy_lower',
+  'Heavy Upper': 'heavy_upper',
+  'Control Lower': 'control_lower',
+  'Control Upper': 'control_upper',
+  'Variation Lower': 'variation_lower',
+  'Variation Upper': 'variation_upper',
 };
 

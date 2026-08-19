@@ -276,7 +276,7 @@ class _ExerciseRow extends StatelessWidget {
                 // and for the same reason.
                 if (view.item.runsCycle)
                   Text(
-                    l10n.sessionCycleWeek(
+                    cycleWeekLine(l10n, view.item.cycleWeekName,
                         view.item.cycleWeekNumber, view.item.cycleWeeks.length),
                     style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
                   ),

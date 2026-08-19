@@ -844,5 +844,21 @@
   "sessionTrainingMaxShort": "MdE",
   "targetRowSeparator": "/",
   "itemEditorSummaryTrainingMax": "MdE {weight}",
-  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%",
+  "exercisePausedBenchPress": "Press de banca con pausa",
+  "exercisePauseSquat": "Sentadilla con pausa",
+  "exercisePauseDeadlift": "Peso muerto con pausa",
+  "itemEditorCycleNameWeek": "Nombrar esta semana",
+  "itemEditorCycleWeekNameHint": "Descarga",
+  "sessionCycleWeekNamed": "{name} {n}/{total}",
+  "seedRoutineCanditoControl": "Candito Linear — Fuerza/Control",
+  "seedRoutineCanditoHypertrophy": "Candito Linear — Fuerza/Hipertrofia",
+  "seedRoutineDescCanditoControl": "Cuatro sesiones por semana: dos días pesados de sentadilla, peso muerto y press de banca, y dos de versiones con pausa de los mismos ejercicios, seis series de cuatro. Añade un poco a cada levantamiento cada semana mientras funcione. Para quien ya no progresa sesión a sesión pero sí semana a semana.",
+  "seedRoutineDescCanditoHypertrophy": "Los mismos dos días pesados, con los otros dos dedicados a cinco series de ocho de una variante en lugar del trabajo con pausa. Más volumen y más elección de ejercicios que Fuerza/Control, con la misma progresión semanal.",
+  "seedDayHeavyLower": "Pesado inferior",
+  "seedDayHeavyUpper": "Pesado superior",
+  "seedDayControlLower": "Control inferior",
+  "seedDayControlUpper": "Control superior",
+  "seedDayVariationLower": "Variante inferior",
+  "seedDayVariationUpper": "Variante superior"
 }

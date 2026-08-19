@@ -203,9 +203,11 @@ class SharedItem {
     double? repsIncrement,
     double? repsDeload,
     List<List<CustomSet>> cycle = const [],
+    List<String> cycleNames = const [],
   }) =>
       SharedItem._(
         cycle: cycle,
+        cycleNames: cycleNames,
         supersetWithPrevious: supersetWithPrevious,
         addWeightAtTopOfRange: addWeightAtTopOfRange,
         repsIncrement: repsIncrement ?? ProgressionMode.reps.defaultIncrement,
@@ -248,6 +250,7 @@ class SharedItem {
     this.repsIncrement = 1,
     this.repsDeload = 2,
     this.cycle = const [],
+    this.cycleNames = const [],
   });
 
   /// Index into [SharedRoutine.exercises].
@@ -283,6 +286,11 @@ class SharedItem {
   /// opens on week one.
   final List<List<CustomSet>> cycle;
 
+  /// What those weeks are called, in the same order — empty for a cycle whose
+  /// weeks go by their numbers, which is most of them. Carried in a trailing
+  /// section of its own, after the weeks it names.
+  final List<String> cycleNames;
+
   /// The same slot with one of the trailing-section flags set.
   ///
   /// Both sections are applied after the slots have been read, so each needs a
@@ -294,6 +302,7 @@ class SharedItem {
     double? repsIncrement,
     double? repsDeload,
     List<List<CustomSet>>? cycle,
+    List<String>? cycleNames,
     SetScheme? scheme,
   }) =>
       SharedItem._(
@@ -317,6 +326,7 @@ class SharedItem {
         repsIncrement: repsIncrement ?? this.repsIncrement,
         repsDeload: repsDeload ?? this.repsDeload,
         cycle: cycle ?? this.cycle,
+        cycleNames: cycleNames ?? this.cycleNames,
       );
 
   /// The same slot, joined to the one above it. How the supersets section is
@@ -335,6 +345,10 @@ class SharedItem {
   /// older reader has to see, and only this section can correct it.
   SharedItem cycling(List<List<CustomSet>> weeks) =>
       _flagged(cycle: weeks, scheme: SetScheme.cycle);
+
+  /// The same slot with its weeks named. Applied after [cycling], from the
+  /// section that follows the one that carried the weeks.
+  SharedItem namingWeeks(List<String> names) => _flagged(cycleNames: names);
 
   final int targetSets;
   final int repsMin;
@@ -505,6 +519,9 @@ abstract final class RoutineCode {
   /// The weeks of the slots that run a cycle.
   static const int _sectionCycles = 4;
 
+  /// What those weeks are called, where anybody has named them.
+  static const int _sectionCycleNames = 5;
+
   // -- Envelope flag bits ---------------------------------------------------
   // The one byte in front of the body. **Frozen**, like everything else here.
 
@@ -607,6 +624,7 @@ abstract final class RoutineCode {
     );
     _writeRepRates(body, routine.workouts);
     _writeCycles(body, routine.workouts);
+    _writeCycleNames(body, routine.workouts);
 
     final raw = body.take();
     // Compress only when it actually helps: a short routine of common words
@@ -860,6 +878,8 @@ abstract final class RoutineCode {
           _readRepRates(r, workouts);
         case _sectionCycles:
           _readCycles(r, workouts);
+        case _sectionCycleNames:
+          _readCycleNames(r, workouts);
         default:
           return;
       }
@@ -982,6 +1002,54 @@ abstract final class RoutineCode {
         }
         if (at >= 0 && at < w.items.length) {
           w.items[at] = w.items[at].cycling(weeks);
+        }
+      }
+    }
+  }
+
+  /// Writes the names of the weeks of every slot that has any, in the shape
+  /// the other sections use: per workout, how many of its slots have named
+  /// weeks, then each slot's index followed by one string per week.
+  ///
+  /// A section of its own rather than more varints inside [_writeCycles],
+  /// because that section has shipped: a build that predates this one has to
+  /// read the weeks and then stop, and it can only do that at a section
+  /// boundary. Nothing at all when no week anywhere has a name, which is what
+  /// keeps a 5/3/1 code exactly the length it was.
+  static void _writeCycleNames(ByteWriter body, List<SharedWorkout> workouts) {
+    bool named(SharedItem it) =>
+        it.scheme == SetScheme.cycle &&
+        it.cycle.isNotEmpty &&
+        it.cycleNames.any((n) => n.trim().isNotEmpty);
+    final labelled = [
+      for (final w in workouts)
+        [for (final (i, it) in w.items.indexed) if (named(it)) (i, it)],
+    ];
+    if (labelled.every((l) => l.isEmpty)) return;
+    body.varint(_sectionCycleNames);
+    for (final list in labelled) {
+      body.varint(list.length);
+      for (final (at, it) in list) {
+        body.varint(at);
+        // One name per week, blanks included, so a name cannot slide onto the
+        // week beside it when only the middle week is named.
+        body.varint(it.cycle.length);
+        for (var w = 0; w < it.cycle.length; w++) {
+          body.string(_clampName(cycleNameAt(it.cycleNames, w)));
+        }
+      }
+    }
+  }
+
+  /// Reads one [_writeCycleNames] section onto the slots it names, dropping an
+  /// index outside its day exactly as [_readCycles] does.
+  static void _readCycleNames(ByteReader r, List<SharedWorkout> workouts) {
+    for (final w in workouts) {
+      for (var n = r.varint(); n > 0; n--) {
+        final at = r.varint();
+        final names = [for (var week = r.varint(); week > 0; week--) r.string()];
+        if (at >= 0 && at < w.items.length) {
+          w.items[at] = w.items[at].namingWeeks(names);
         }
       }
     }

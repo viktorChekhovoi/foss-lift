@@ -41,8 +41,8 @@ void main() {
       final all = await db.watchExercises().first;
       final starters = all.where((e) => !e.isCustom).toList();
 
-      // 133 curated movements. Exactly the seeded set is custom-free.
-      expect(starters.length, 133);
+      // 136 curated movements. Exactly the seeded set is custom-free.
+      expect(starters.length, 136);
       expect(all.every((e) => !e.isCustom), isTrue);
     });
 

@@ -95,3 +95,19 @@ String joinRowLabels(AppLocalizations l10n, Iterable<String> labels) =>
 /// single multiplication would have to pick one row to speak for the rest.
 String rowsTargetLabel(AppLocalizations l10n, List<CustomSet> rows) =>
     joinRowLabels(l10n, rows.map((r) => rowTargetLabel(l10n, r)));
+
+/// Where in its cycle a slot is, for the line under the exercise — "Week 2/4",
+/// or "Deload 4/4" once that week has been given a name.
+///
+/// The name takes the place of the word rather than being added to it, and the
+/// count stays either way: the name says what the week is and the count says
+/// how much of the block is left, and neither answers the other.
+String cycleWeekLine(
+  AppLocalizations l10n,
+  String name,
+  int week,
+  int weeks,
+) =>
+    name.trim().isEmpty
+        ? l10n.sessionCycleWeek(week, weeks)
+        : l10n.sessionCycleWeekNamed(name.trim(), week, weeks);

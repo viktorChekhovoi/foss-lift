@@ -16,7 +16,7 @@ where: >-
   <b>Blocks and rows</b> lib/data/set_scheme.dart (CycleBlocks, resolveSetTargets)
   · <b>The wrap</b> lib/data/progression.dart (stepCycle), applied by
   AppDatabase.advanceProgression · <b>Data</b> WorkoutItems.cycle_blocks /
-  cycle_position · <b>Builder</b>
+  cycle_names / cycle_position · <b>Builder</b>
   lib/widgets/workout_items_editor.dart (_CycleEditor, _CustomSetRow)
 groups:
 - name: The cycle
@@ -115,6 +115,27 @@ groups:
     - template.cycle
     - template.item
     - session.set-logging
+  - id: a-week-of-a-cycle-can-be-named
+    t: A week of a cycle can be called what it is
+    d: >-
+      "Week 4" says where in the order a week sits and nothing about what it asks for, which on a four-week block is most of the question: three of them are work and the fourth is a deload, and only the percentages say which. So a week takes a name of its own — Deload, Peak, Volume, Heavy Single — typed on the week's own card in the builder, capped at the length of a heading rather than a sentence. A week nobody has named is "Week 4", which is what every week was before this and what a cycle built by somebody who does not want to name anything stays.
+    screen: workout-edit
+    defines:
+    - template.cycle-week-name
+    uses:
+    - template.cycle
+  - id: a-named-week-is-named-everywhere-the-week-is-shown
+    t: A named week is named everywhere the week is shown
+    d: >-
+      the live board and the day that offers it write the name where they wrote "Week" and keep the count beside it — "Deload 4/4" rather than "Week 4/4" — because the name says what the week is and the count says how much of the cycle is left, and neither answers the other. The builder's folded card heads itself with the name in place of "Week 4". Emptying the field puts "Week 4" back rather than leaving a blank heading.
+    screen: session
+    points:
+    - workout-detail
+    - workout-edit
+    uses:
+    - template.cycle-week-name
+    - template.cycle
+    - template.item
   - id: a-week-is-a-card-that-folds
     t: Each week is a card of its own, and it folds
     d: >-
@@ -191,6 +212,35 @@ groups:
     screen: none
     uses:
     - template.cycle
+  - id: names-follow-the-week-they-were-typed-on
+    t: Removing a week takes its name with it
+    d: >-
+      the names are held one per week rather than as a list beside the weeks, so
+      deleting week two leaves week three called what week three was called
+      instead of shifting every name up one. A cycle that gains a week gains an
+      unnamed one.
+    screen: workout-edit
+    uses:
+    - template.cycle-week-name
+    - template.cycle
+  - id: week-names-travel-with-a-shared-routine
+    t: The names travel with a shared routine
+    d: >-
+      a code carries them in a trailing section of its own, written after the weeks it names and only when some week has a name, so a routine whose weeks are called Volume and Deload arrives called that. A build older than the section stops reading where it starts and gets the routine with its weeks unnamed — which is the same training, since a name is what a week is called rather than what it asks for.
+    screen: none
+    uses:
+    - template.cycle-week-name
+    - share.routine-code
+  - id: an-upgraded-phone-has-no-week-names
+    t: An upgraded phone finds its weeks unnamed
+    d: >-
+      the column arrives empty on every slot already on a phone, which is exactly
+      what "nobody has named these" means: every week still reads "Week 3" and
+      nothing trains differently.
+    screen: none
+    uses:
+    - template.cycle-week-name
+    - storage.schema
   - id: editing-the-weeks-does-not-restart-the-cycle
     t: Editing the weeks does not send the slot back to week one
     d: >-
@@ -214,3 +264,12 @@ groups:
     screen: workout-edit
     uses:
     - template.cycle
+  - id: name-a-week
+    t: Name a week
+    d: >-
+      In the same editor, tap the pencil on a week's card → type a name → Save. It
+      takes the place of "Week 3" on that card, on the live board and on the day
+      that offers it. Saving it empty puts "Week 3" back.
+    screen: workout-edit
+    uses:
+    - template.cycle-week-name

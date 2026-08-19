@@ -56,6 +56,8 @@ const _kLibraryOrder = [
   '531-bbb',
   '531-fsl',
   '531-beginners',
+  'candito-linear-control',
+  'candito-linear-hypertrophy',
 ];
 
 /// The languages a shipped program has to read in.
@@ -260,7 +262,7 @@ void main() {
   });
 
   group('the library holds the programs the app ships', () {
-    test('thirteen of them, each with its own key', () {
+    test('fifteen of them, each with its own key', () {
       expect(kStarterRoutines, hasLength(_kLibraryOrder.length));
       expect(kStarterRoutines.map((p) => p.key).toSet(),
           hasLength(_kLibraryOrder.length),
@@ -323,6 +325,109 @@ void main() {
       // because looking at a const table is not a database operation.
       expect(kStarterRoutines, hasLength(_kLibraryOrder.length));
       expect(await db.watchRoutines().first, isEmpty);
+    });
+  });
+
+
+  // ------------------------------------------------------------- Candito
+
+  group('two of the programs are Candito linear progression', () {
+    List<StarterRoutine> candito() =>
+        kStarterRoutines.where((r) => r.key.startsWith('candito-')).toList();
+
+    /// The slots of the day named [day] in the program keyed [key].
+    List<StarterSlot> dayOf(String key, String day) =>
+        _program(key).days.firstWhere((d) => d.name == day).items;
+
+    test('both are there, four days each, on the same two heavy days', () {
+      expect(candito(), hasLength(2));
+      for (final p in candito()) {
+        expect(p.days, hasLength(4));
+        expect(p.days.map((d) => d.name).take(2),
+            ['Heavy Lower', 'Heavy Upper']);
+      }
+      // Literally the same slots, so a change to one cannot drift from the
+      // other — the variants differ in their other two days and nowhere else.
+      expect(dayOf('candito-linear-control', 'Heavy Lower'),
+          same(dayOf('candito-linear-hypertrophy', 'Heavy Lower')));
+      expect(dayOf('candito-linear-control', 'Heavy Upper'),
+          same(dayOf('candito-linear-hypertrophy', 'Heavy Upper')));
+    });
+
+    test('the heavy days are the prescription Candito writes', () {
+      final lower = dayOf('candito-linear-control', 'Heavy Lower');
+      expect(lower[0].exercise, 'Back Squat');
+      expect((lower[0].sets, lower[0].repsMin), (3, 6));
+      expect(lower[1].exercise, 'Deadlift');
+      expect((lower[1].sets, lower[1].repsMin), (2, 6));
+
+      final upper = dayOf('candito-linear-control', 'Heavy Upper');
+      expect(upper[0].exercise, 'Bench Press');
+      expect((upper[0].sets, upper[0].repsMin), (3, 6));
+    });
+
+    test('the control day is six sets of four of the paused lifts', () {
+      final day = dayOf('candito-linear-control', 'Control Lower');
+      expect(day.first.exercise, 'Pause Squat');
+      expect((day.first.sets, day.first.repsMin), (6, 4));
+
+      final upper = dayOf('candito-linear-control', 'Control Upper');
+      expect(upper.first.exercise, 'Paused Bench Press');
+      expect((upper.first.sets, upper.first.repsMin), (6, 4));
+    });
+
+    test('the hypertrophy day is five sets of eight of a variation', () {
+      for (final day in ['Variation Lower', 'Variation Upper']) {
+        final first = dayOf('candito-linear-hypertrophy', day).first;
+        expect((first.sets, first.repsMin), (5, 8),
+            reason: '$day does not open on 5 × 8');
+      }
+    });
+
+    test('a missed lift is reset on the next session, not the one after', () {
+      for (final p in candito()) {
+        expect(p.failureThreshold, 1, reason: '${p.key} waits for a second miss');
+      }
+    });
+
+    test('the main work drops 7.5 kg on the lift that missed', () async {
+      await db.seedWeightUnit('kg');
+      final rid = await db.addStarterRoutine(_program('candito-linear-control'));
+      final days = await db.workoutsForRoutine(rid);
+      final heavy = await db.itemsForWorkout(days.first.id);
+
+      expect(heavy.first.exercise.name, 'Back Squat');
+      expect(heavy.first.item.increment, 5);
+      expect(heavy.first.item.deload, 7.5);
+      expect(heavy.first.item.failureThreshold, 1);
+    });
+
+    test('the overhead press and the chin-up wait three clean sessions',
+        () async {
+      await db.seedWeightUnit('kg');
+      final rid = await db.addStarterRoutine(_program('candito-linear-control'));
+      final days = await db.workoutsForRoutine(rid);
+      final upper = await db.itemsForWorkout(days[1].id);
+      final slow = {
+        for (final v in upper) v.exercise.name: v.item.successThreshold,
+      };
+
+      expect(slow['Overhead Press'], 3);
+      expect(slow['Chin-Up'], 3);
+      expect(slow['Bench Press'], 1,
+          reason: 'the bench moves every week, which is the program');
+    });
+
+    test('the three paused lifts are in the starter library', () async {
+      final library = {
+        for (final e in await db.watchExercises().first) e.name: e,
+      };
+      for (final name in ['Pause Squat', 'Paused Bench Press', 'Pause Deadlift']) {
+        expect(library[name], isNotNull, reason: '$name is not seeded');
+        expect(library[name]!.isCustom, isFalse);
+        expect(library[name]!.seedKey, isNotNull,
+            reason: '$name has to follow the language');
+      }
     });
   });
 

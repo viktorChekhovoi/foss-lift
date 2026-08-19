@@ -26,7 +26,7 @@ groups:
 - name: What it does
   items:
   - id: ships-85-starter-exercises
-    t: Ships 133 starter exercises
+    t: Ships 136 starter exercises
     d: >-
       most of them with a demo-video link, in the canonical
       https://youtu.be/&lt;id&gt; short form.
@@ -34,6 +34,19 @@ groups:
     - exercise.seed
     uses:
     - exercise.video-url
+  - id: the-paused-competition-lifts-are-in-the-starter-set
+    t: The three paused competition lifts are in the starter set
+    d: >-
+      the pause squat, the paused bench press and the pause deadlift — the same
+      three bars held still mid-rep, which is how most intermediate powerlifting
+      programs write a variation day. They file with the lifts they are versions
+      of, load off the same bar, and carry their own history, because a paused
+      squat at 70% is not a squat and averaging the two would tell you nothing
+      about either.
+    uses:
+    - exercise.seed
+    - exercise.taxonomy
+    - exercise.muscle-map
   - id: covers-bodyweight-dumbbells-conditioning
     t: Enough of it to train with nothing, with dumbbells alone, or for conditioning
     d: >-

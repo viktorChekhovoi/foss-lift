@@ -844,5 +844,21 @@
   "sessionTrainingMaxShort": "РМ",
   "targetRowSeparator": "/",
   "itemEditorSummaryTrainingMax": "РМ {weight}",
-  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%",
+  "exercisePausedBenchPress": "Жим лежачи з паузою",
+  "exercisePauseSquat": "Присідання з паузою",
+  "exercisePauseDeadlift": "Станова тяга з паузою",
+  "itemEditorCycleNameWeek": "Назвати цей тиждень",
+  "itemEditorCycleWeekNameHint": "Розвантаження",
+  "sessionCycleWeekNamed": "{name} {n}/{total}",
+  "seedRoutineCanditoControl": "Candito Linear — Сила/Контроль",
+  "seedRoutineCanditoHypertrophy": "Candito Linear — Сила/Гіпертрофія",
+  "seedRoutineDescCanditoControl": "Чотири тренування на тиждень: два важкі дні присідань, станової тяги та жиму лежачи і два дні тих самих рухів із паузою, шість підходів по чотири. Додавайте потроху до кожної вправи щотижня, поки це працює. Для того, хто перестав прогресувати від тренування до тренування, але ще прогресує від тижня до тижня.",
+  "seedRoutineDescCanditoHypertrophy": "Ті самі два важкі дні, а решта два — п’ять підходів по вісім у варіації замість роботи з паузою. Більше обсягу та більше вибору вправ, ніж у Сила/Контроль, з тією самою тижневою прогресією.",
+  "seedDayHeavyLower": "Важкий низ",
+  "seedDayHeavyUpper": "Важкий верх",
+  "seedDayControlLower": "Контроль низ",
+  "seedDayControlUpper": "Контроль верх",
+  "seedDayVariationLower": "Варіація низ",
+  "seedDayVariationUpper": "Варіація верх"
 }

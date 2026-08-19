@@ -393,6 +393,18 @@
   "@exerciseBenchPress": {
     "description": "Name of a movement in the starter exercise library."
   },
+  "exercisePausedBenchPress": "Paused Bench Press",
+  "@exercisePausedBenchPress": {
+    "description": "Name of a movement in the starter exercise library: the bench press held still on the chest before pressing."
+  },
+  "exercisePauseSquat": "Pause Squat",
+  "@exercisePauseSquat": {
+    "description": "Name of a movement in the starter exercise library: the back squat held still at the bottom."
+  },
+  "exercisePauseDeadlift": "Pause Deadlift",
+  "@exercisePauseDeadlift": {
+    "description": "Name of a movement in the starter exercise library: the deadlift stopped and held partway up."
+  },
   "exerciseInclineBenchPress": "Incline Bench Press",
   "@exerciseInclineBenchPress": {
     "description": "Name of a movement in the starter exercise library."
@@ -4157,6 +4169,14 @@
   "@itemEditorCycleRemoveWeek": {
     "description": "Tooltip on the × beside a week of a cycle."
   },
+  "itemEditorCycleNameWeek": "Name this week",
+  "@itemEditorCycleNameWeek": {
+    "description": "Tooltip on the pencil beside a week of a cycle, and the title of the box it opens."
+  },
+  "itemEditorCycleWeekNameHint": "Deload",
+  "@itemEditorCycleWeekNameHint": {
+    "description": "Example week name shown in the empty naming field. Any short label for one week of a training block will do."
+  },
   "itemEditorCycleAddSet": "Add set",
   "@itemEditorCycleAddSet": {
     "description": "Button that appends a set to one week of a cycle."
@@ -4173,6 +4193,21 @@
   "@sessionCycleWeek": {
     "description": "Line under an exercise on the live board and the training day, saying which week of its cycle this session is.",
     "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionCycleWeekNamed": "{name} {n}/{total}",
+  "@sessionCycleWeekNamed": {
+    "description": "The same line for a week that has been given a name — the name takes the place of the word \"Week\" and the count stays.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
       "n": {
         "type": "int"
       },
@@ -4206,6 +4241,14 @@
   "@seedRoutine531Beginners": {
     "description": "Name of a shipped program: the four lifts folded into three sessions a week."
   },
+  "seedRoutineCanditoControl": "Candito Linear — Strength/Control",
+  "@seedRoutineCanditoControl": {
+    "description": "Name of a shipped program. \"Candito\" is the author's surname and stays as it is; \"Linear\" and \"Strength/Control\" are the published names of the program and its variant."
+  },
+  "seedRoutineCanditoHypertrophy": "Candito Linear — Strength/Hypertrophy",
+  "@seedRoutineCanditoHypertrophy": {
+    "description": "Name of a shipped program: the same split with more volume on its variation days."
+  },
   "seedRoutineDesc531Classic": "Four sessions a week, one main lift each: three working sets off a training max, the last of them for as many reps as you have. Two assistance movements follow. Set each training max to 90% of your best single before you start.",
   "@seedRoutineDesc531Classic": {
     "description": "The description shown on that program's preview and copied onto the routine."
@@ -4220,6 +4263,14 @@
   },
   "seedRoutineDesc531Beginners": "The four lifts folded into three sessions a week, two of them a session. For somebody whose linear progression has stopped adding weight but who does not want four days in the gym. Set each training max to 90% of your best single before you start.",
   "@seedRoutineDesc531Beginners": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDescCanditoControl": "Four sessions a week: two heavy days on the squat, deadlift and bench, and two on paused versions of the same lifts for six sets of four. Add a little to each lift every week for as long as that works. For somebody whose sessions have stopped going up but whose weeks still do.",
+  "@seedRoutineDescCanditoControl": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDescCanditoHypertrophy": "The same two heavy days, with the other two spent on five sets of eight of a variation instead of paused work. More volume and more exercise choice than Strength/Control, and the same weekly progression.",
+  "@seedRoutineDescCanditoHypertrophy": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
   "seedDayPress": "Press",
@@ -4237,6 +4288,30 @@
   "seedDaySquat": "Squat",
   "@seedDaySquat": {
     "description": "Name of a shipped training day: the session built round the squat."
+  },
+  "seedDayHeavyLower": "Heavy Lower",
+  "@seedDayHeavyLower": {
+    "description": "Name of a shipped training day: the heavy squat and deadlift session of an upper/lower split."
+  },
+  "seedDayHeavyUpper": "Heavy Upper",
+  "@seedDayHeavyUpper": {
+    "description": "Name of a shipped training day: the heavy bench and row session of an upper/lower split."
+  },
+  "seedDayControlLower": "Control Lower",
+  "@seedDayControlLower": {
+    "description": "Name of a shipped training day: the lower-body session spent on paused, controlled versions of the heavy lifts."
+  },
+  "seedDayControlUpper": "Control Upper",
+  "@seedDayControlUpper": {
+    "description": "Name of a shipped training day: the upper-body session spent on paused, controlled versions of the heavy lifts."
+  },
+  "seedDayVariationLower": "Variation Lower",
+  "@seedDayVariationLower": {
+    "description": "Name of a shipped training day: the lower-body session spent on higher-rep variations of the heavy lifts."
+  },
+  "seedDayVariationUpper": "Variation Upper",
+  "@seedDayVariationUpper": {
+    "description": "Name of a shipped training day: the upper-body session spent on higher-rep variations of the heavy lifts."
   },
   "sessionTrainingMaxShort": "TM",
   "@sessionTrainingMaxShort": {

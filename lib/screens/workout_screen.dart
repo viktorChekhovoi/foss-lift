@@ -1220,7 +1220,8 @@ class _ExerciseBlock extends StatelessWidget {
             // the block says which one you are looking at.
             subtitle: exercise.cycleWeeks == 0
                 ? null
-                : l10n.sessionCycleWeek(exercise.cycleWeek, exercise.cycleWeeks),
+                : cycleWeekLine(l10n, exercise.cycleWeekName,
+                    exercise.cycleWeek, exercise.cycleWeeks),
             exerciseId: exercise.exerciseId,
             onSettings: onSettings,
           ),
