@@ -75,12 +75,12 @@ class ProfileScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.tune_rounded,
             label: l10n.settingsTitle,
-            onTap: () => context.push('${branchRoot(context)}/settings'),
+            onTap: () => context.push(linkPath(context, '/settings')),
           ),
           _SettingsTile(
             icon: Icons.list_alt_rounded,
             label: l10n.profileExerciseLibrary,
-            onTap: () => context.push('${branchRoot(context)}/library'),
+            onTap: () => context.push(linkPath(context, '/library')),
           ),
           // Replays a tour on demand. It asks which one and then starts where
           // you are: every tour opens on the navigation bar, which is under
@@ -93,7 +93,7 @@ class ProfileScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.brightness_6_outlined,
             label: l10n.profileAppearance,
-            onTap: () => context.push('${branchRoot(context)}/settings/appearance'),
+            onTap: () => context.push(linkPath(context, '/settings/appearance')),
           ),
           // Absent where there is no filesystem to write a file to: the browser
           // build has no database file to copy and nowhere to put one.
@@ -101,12 +101,12 @@ class ProfileScreen extends ConsumerWidget {
             _SettingsTile(
               icon: Icons.save_alt_rounded,
               label: l10n.profileBackup,
-              onTap: () => context.push('${branchRoot(context)}/backup'),
+              onTap: () => context.push(linkPath(context, '/backup')),
             ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             label: l10n.aboutTitle,
-            onTap: () => context.push('${branchRoot(context)}/about'),
+            onTap: () => context.push(linkPath(context, '/about')),
             last: true,
           ),
         ],

@@ -83,116 +83,181 @@ String _rootOf(String location) {
   return kBranchRoots.contains(root) ? root : kBranchRoots.first;
 }
 
-/// A routine, as browsed from a tab. Registered under every branch that can
-/// reach one, so opening it keeps you in the tab you were in.
-GoRoute _routineRoute() => GoRoute(
-      path: 'routine/:id',
-      builder: (c, s) =>
-          RoutineDetailScreen(routineId: int.parse(s.pathParameters['id']!)),
-    );
-
-/// A workout — one training day inside a routine — as browsed from a tab.
-GoRoute _workoutRoute() => GoRoute(
-      path: 'workout/:id',
-      builder: (c, s) =>
-          WorkoutDetailScreen(workoutId: int.parse(s.pathParameters['id']!)),
-    );
-
-/// Everything reachable from Profile: the library, an exercise, and the
-/// settings pages. All of it is browsing, so all of it keeps the tabs.
-List<RouteBase> _profileRoutes() => [
-      GoRoute(path: 'library', builder: (c, s) => const LibraryScreen()),
-      GoRoute(
-        path: 'exercise/:id/clips',
-        builder: (c, s) =>
-            ExerciseClipsScreen(exerciseId: int.parse(s.pathParameters['id']!)),
-      ),
-      GoRoute(
-        path: 'exercise/:id/progress',
-        builder: (c, s) => ExerciseProgressScreen(
-            exerciseId: int.parse(s.pathParameters['id']!)),
-      ),
-      GoRoute(
-        path: 'exercise/:id',
-        builder: (c, s) =>
-            ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
-      ),
-      GoRoute(path: 'about', builder: (c, s) => const AboutScreen()),
-      GoRoute(path: 'backup', builder: (c, s) => const BackupScreen()),
-      GoRoute(path: 'settings/bar', builder: (c, s) => const BarSettingsScreen()),
-      GoRoute(
-        path: 'settings/plates',
-        builder: (c, s) => const PlateInventoryScreen(),
-      ),
-      GoRoute(
-        path: 'settings/videos',
-        builder: (c, s) => const VideoSettingsScreen(),
-      ),
-      GoRoute(path: 'settings/language', builder: (c, s) => const LanguageScreen()),
-      // No id builds a new theme; an id edits (and renames, and deletes) that
-      // one. `?from=<slug>` seeds a new one from a preset — the pencil on a
-      // preset row, which copies rather than edits.
-      GoRoute(
-        path: 'settings/appearance/custom/:id',
-        builder: (c, s) => CustomThemeEditorScreen(
-          themeId: int.parse(s.pathParameters['id']!),
-        ),
-      ),
-      GoRoute(
-        path: 'settings/appearance/custom',
-        builder: (c, s) =>
-            CustomThemeEditorScreen(fromPresetId: s.uri.queryParameters['from']),
-      ),
-      GoRoute(
-        path: 'settings/appearance',
-        builder: (c, s) => const AppearanceScreen(),
-      ),
-      GoRoute(path: 'settings', builder: (c, s) => const ExerciseSettingsScreen()),
-    ];
-
-/// The paths the browse screens answered to before they moved inside the tabs.
+/// Every screen you browse to: which tabs host it, and how it is built.
 ///
-/// Each still resolves: anything holding one — a link, a path saved by an older
-/// build — lands where it always did, now with the navigation bar under it.
+/// One table because the same two facts are wanted in three places — the
+/// sub-routes under each tab, the prefix a link to the screen wears, and the
+/// tab-less route the bare path resolves to — and three lists kept in step by
+/// hand are three lists that stop being in step. That is what this is fixing:
+/// a link that wore the tab it was tapped from resolved to nothing whenever
+/// that tab had not got the screen.
 ///
-/// The value is the tabs that host that screen, because not every screen hangs
-/// off every tab: a workout is reachable from Today and from Routines, the
-/// library only from Profile. The forward keeps you in the tab you are on when
-/// that tab has the screen, and goes to a tab that does when it has not.
-const _movedPaths = <String, List<String>>{
-  '/routine/:id': ['/today', '/routines'],
-  '/workout/:id': ['/today', '/routines'],
-  '/library': ['/profile'],
-  '/exercise/:id/clips': ['/profile'],
-  '/exercise/:id/progress': ['/profile'],
-  '/exercise/:id': ['/profile'],
-  '/about': ['/profile'],
-  '/backup': ['/profile'],
-  '/settings/bar': ['/profile'],
-  '/settings/plates': ['/profile'],
-  '/settings/videos': ['/profile'],
-  '/settings/language': ['/profile'],
-  '/settings/appearance/custom/:id': ['/profile'],
-  '/settings/appearance/custom': ['/profile'],
-  '/settings/appearance': ['/profile'],
-  '/settings': ['/profile'],
+/// Not every screen hangs off every tab. A workout is reachable from Today and
+/// from Routines; the library, an exercise and the settings pages only from
+/// Profile. Order matters the way it does in any route table: a static path
+/// comes before the `:id` that would swallow it.
+typedef _Browsable = ({List<String> tabs, GoRouterWidgetBuilder build});
+
+final _browsable = <String, _Browsable>{
+  '/routine/:id': (
+    tabs: ['/today', '/routines'],
+    build: (c, s) =>
+        RoutineDetailScreen(routineId: int.parse(s.pathParameters['id']!)),
+  ),
+  '/workout/:id': (
+    tabs: ['/today', '/routines'],
+    build: (c, s) =>
+        WorkoutDetailScreen(workoutId: int.parse(s.pathParameters['id']!)),
+  ),
+  '/library': (tabs: ['/profile'], build: (c, s) => const LibraryScreen()),
+  '/exercise/:id/clips': (
+    tabs: ['/profile'],
+    build: (c, s) =>
+        ExerciseClipsScreen(exerciseId: int.parse(s.pathParameters['id']!)),
+  ),
+  '/exercise/:id/progress': (
+    tabs: ['/profile'],
+    build: (c, s) =>
+        ExerciseProgressScreen(exerciseId: int.parse(s.pathParameters['id']!)),
+  ),
+  '/exercise/:id': (
+    tabs: ['/profile'],
+    build: (c, s) =>
+        ExerciseDetailScreen(exerciseId: int.parse(s.pathParameters['id']!)),
+  ),
+  '/about': (tabs: ['/profile'], build: (c, s) => const AboutScreen()),
+  '/backup': (tabs: ['/profile'], build: (c, s) => const BackupScreen()),
+  '/settings/bar': (
+    tabs: ['/profile'],
+    build: (c, s) => const BarSettingsScreen(),
+  ),
+  '/settings/plates': (
+    tabs: ['/profile'],
+    build: (c, s) => const PlateInventoryScreen(),
+  ),
+  '/settings/videos': (
+    tabs: ['/profile'],
+    build: (c, s) => const VideoSettingsScreen(),
+  ),
+  '/settings/language': (
+    tabs: ['/profile'],
+    build: (c, s) => const LanguageScreen(),
+  ),
+  // No id builds a new theme; an id edits (and renames, and deletes) that one.
+  // `?from=<slug>` seeds a new one from a preset — the pencil on a preset row,
+  // which copies rather than edits.
+  '/settings/appearance/custom/:id': (
+    tabs: ['/profile'],
+    build: (c, s) => CustomThemeEditorScreen(
+      themeId: int.parse(s.pathParameters['id']!),
+    ),
+  ),
+  '/settings/appearance/custom': (
+    tabs: ['/profile'],
+    build: (c, s) =>
+        CustomThemeEditorScreen(fromPresetId: s.uri.queryParameters['from']),
+  ),
+  '/settings/appearance': (
+    tabs: ['/profile'],
+    build: (c, s) => const AppearanceScreen(),
+  ),
+  '/settings': (
+    tabs: ['/profile'],
+    build: (c, s) => const ExerciseSettingsScreen(),
+  ),
 };
 
-/// One of those, forwarded into a tab that has it, with its query intact.
-GoRoute _movedRoute(String path, List<String> hosts) => GoRoute(
+/// The browsable screens [tab] hosts, as its sub-routes — which is what keeps
+/// the navigation bar under them and keeps the tab's stack its own.
+List<RouteBase> _tabRoutes(String tab) => [
+      for (final entry in _browsable.entries)
+        if (entry.value.tabs.contains(tab))
+          GoRoute(path: entry.key.substring(1), builder: entry.value.build),
+    ];
+
+/// [path] under a tab that has the screen: the tab you are in where that tab
+/// has it, the first tab that does where it has not.
+///
+/// The fallback is the whole point. Prefixing the tab you happen to be in
+/// composes `/today/settings/plates`, which no route matches, and the tap lands
+/// on Page Not Found.
+///
+/// A path no tab claims is left to whatever [branchRoot] prefixes it with,
+/// which is how it behaved before there was a table to consult.
+String tabPath(BuildContext context, String path) {
+  final tabs = _tabsFor(path);
+  final here = branchRoot(context);
+  if (tabs.isEmpty) return '$here$path';
+  return '${tabs.contains(here) ? here : tabs.first}$path';
+}
+
+/// Where a link to [path] goes from here.
+///
+/// Inside the tabs, [tabPath] — the screen opens in a tab, keeping the bar.
+/// Stacked over them it is the bare path, which is the same screen with no tabs
+/// under it, over the task you are in the middle of. The builder's slot sheet
+/// links to the plate inventory that way: it sits three screens above any tab,
+/// and pushing a tab's route from up there would rebuild that tab's pages
+/// underneath a stack that already holds them, which go_router refuses.
+String linkPath(BuildContext context, String path) =>
+    _overTabShell(GoRouter.maybeOf(context) ?? appRouter)
+        ? path
+        : tabPath(context, path);
+
+/// Whether what is on top is a task stacked over the tabs rather than a screen
+/// inside them.
+///
+/// Not the negation of [insideTabShell]: a router with no configuration yet —
+/// the cold start, still resolving the location the app was launched with — is
+/// over nothing, and a link resolved then belongs in a tab.
+bool _overTabShell(GoRouter go) =>
+    go.routerDelegate.currentConfiguration.matches.isNotEmpty &&
+    !insideTabShell(go);
+
+/// The tabs that host [path], matching it against the table's patterns so a
+/// concrete `/exercise/7` finds the `/exercise/:id` that describes it. Empty
+/// for a path the table does not name.
+List<String> _tabsFor(String path) {
+  final segments = Uri.parse(path).pathSegments;
+  for (final entry in _browsable.entries) {
+    final pattern = Uri.parse(entry.key).pathSegments;
+    if (pattern.length != segments.length) continue;
+    var matches = true;
+    for (var i = 0; i < segments.length && matches; i++) {
+      matches = pattern[i].startsWith(':') || pattern[i] == segments[i];
+    }
+    if (matches) return entry.value.tabs;
+  }
+  return const [];
+}
+
+/// A browsable screen at its bare path — the one the browse screens answered to
+/// before they moved inside the tabs.
+///
+/// From inside the tabs it forwards into one that has the screen, with its
+/// query intact, so anything holding an old path — a link, a location saved by
+/// an earlier build — lands where it always did, now with the navigation bar
+/// under it. Never to itself, which would be a redirect loop: every path here
+/// is one the table names, so [tabPath] always finds a tab to put in front of
+/// it.
+///
+/// From over the tabs it builds the screen where it is, tab-less, over the task
+/// rather than pushed into a branch beneath it.
+GoRoute _bareRoute(String path, _Browsable screen) => GoRoute(
       path: path,
-      redirect: (context, state) {
-        // hosts.first rather than the empty root, so a path always forwards
-        // somewhere: forwarding to itself would be a redirect loop.
-        final here = branchRoot(context);
-        final root = hosts.contains(here) ? here : hosts.first;
-        return state.uri.replace(path: '$root${state.uri.path}').toString();
-      },
+      redirect: (context, state) => _overTabShell(
+              GoRouter.maybeOf(context) ?? appRouter)
+          ? null
+          : state.uri.replace(path: tabPath(context, state.uri.path)).toString(),
+      builder: screen.build,
     );
 
 final appRouter = GoRouter(
   initialLocation: '/today',
   routes: [
+    // The root is not a screen — the app opens on a tab — but it is where the
+    // not-found page's way home points, so it has to lead somewhere.
+    GoRoute(path: '/', redirect: (context, state) => kBranchRoots.first),
     // The tab shell. A screen you browse to is a sub-route of the tab that
     // reaches it, which is what keeps the navigation bar under it and keeps
     // each tab's stack its own. A screen you are finishing — a session, an
@@ -205,7 +270,7 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/today',
               builder: (c, s) => const TodayScreen(),
-              routes: [_routineRoute(), _workoutRoute()],
+              routes: _tabRoutes('/today'),
             ),
           ],
         ),
@@ -215,8 +280,7 @@ final appRouter = GoRouter(
               path: '/routines',
               builder: (c, s) => const RoutinesScreen(),
               routes: [
-                _routineRoute(),
-                _workoutRoute(),
+                ..._tabRoutes('/routines'),
                 // Inside the branch, so browsing what the app ships keeps the
                 // navigation bar under it: the library is somewhere you look
                 // around, not something you are in the middle of finishing.
@@ -244,7 +308,7 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/profile',
               builder: (c, s) => const ProfileScreen(),
-              routes: _profileRoutes(),
+              routes: _tabRoutes('/profile'),
             ),
           ],
         ),
@@ -335,7 +399,6 @@ final appRouter = GoRouter(
     // Last, so a path that is still a screen of its own — /routine/new,
     // /library/new, /settings/appearance/import — is matched before the
     // forwarding rule that shares its shape.
-    for (final moved in _movedPaths.entries)
-      _movedRoute(moved.key, moved.value),
+    for (final entry in _browsable.entries) _bareRoute(entry.key, entry.value),
   ],
 );

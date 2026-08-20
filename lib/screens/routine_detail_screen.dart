@@ -128,7 +128,7 @@ class RoutineDetailScreen extends ConsumerWidget {
                       accent: routine?.colorHex,
                       isNext: list[i].workout.id == nextId,
                       onTap: () => context.push(
-                          '${branchRoot(context)}/workout/${list[i].workout.id}'),
+                          linkPath(context, '/workout/${list[i].workout.id}')),
                     ),
                   ),
             ],

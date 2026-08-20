@@ -566,6 +566,14 @@ concepts:
       noun per thing: nothing here teaches a word a screen does not itself use.
     code: [lib/widgets/tutorial.dart, lib/widgets/workout_items_editor.dart]
 
+  - id: ui.tab-hosting
+    area: ui
+    what: >-
+      Which tabs host each browsable screen, and how a link to one is prefixed
+      so it opens in a tab that has it rather than in a location no route
+      matches.
+    code: [lib/router.dart]
+
   - id: ui.empty-state
     area: ui
     what: What a screen says when there is nothing on it yet.

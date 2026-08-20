@@ -99,6 +99,23 @@ groups:
     - ui.navigation
     - session.resume-bar
     - ui.system-insets
+  - id: link-opens-in-a-tab-that-has-the-screen
+    t: A link opens in the tab you are in, or in one that has the screen
+    d: >-
+      not every screen hangs off every tab: a workout is reachable from Today and from Routines, the library and the settings pages only from Profile. A link keeps you in the tab you are on where that tab has the screen, and goes to a tab that has it where it has not — including from a screen stacked over the tabs, which is in no tab at all. That is what makes the plate inventory open from the builder's slot sheet, three screens above any tab, rather than landing on Page Not Found. The paths the browse screens answered to before they moved inside the tabs resolve by the same rule, so a link saved by an older build still lands.
+    screen: workout-edit
+    defines:
+    - ui.tab-hosting
+    uses:
+    - ui.navigation
+    - load.plate-rack
+  - id: unknown-location-has-a-way-back
+    t: A location the app has no screen for has a way back
+    d: >-
+      the not-found page's way home opens Today, the app's first tab, rather than a second not-found page.
+    uses:
+    - ui.navigation
+    - ui.tab-hosting
   - id: system-bars-never-cover-a-control
     t: The phone's own bars never cover a control
     d: >-

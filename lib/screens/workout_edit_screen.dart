@@ -123,7 +123,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
     await ref.read(databaseProvider).deleteWorkout(widget.workoutId);
     if (!mounted) return;
     // Pop past the (now-deleted) workout detail screen to its routine.
-    context.go('${branchRoot(context)}/routine/$_routineId');
+    context.go(tabPath(context, '/routine/$_routineId'));
   }
 
   void _toast(String m) =>

@@ -69,13 +69,13 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               value: l10n.unitWeightShort(
                   fmtWeight(toDisplayWeight(plates.barKg, unit)),
                   unitSuffix(l10n, unit)),
-              onTap: () => context.push('${branchRoot(context)}/settings/bar'),
+              onTap: () => context.push(linkPath(context, '/settings/bar')),
             ),
             const SizedBox(height: 10),
             SettingRow(
               label: l10n.settingsAvailablePlates,
               value: l10n.settingsPlateSizes(plates.plates.length),
-              onTap: () => context.push('${branchRoot(context)}/settings/plates'),
+              onTap: () => context.push(linkPath(context, '/settings/plates')),
             ),
             // Nothing to size or cap on a build that cannot film. The whole
             // section goes rather than showing 0 B and a quality picker for a
@@ -88,7 +88,7 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               SettingRow(
                 label: l10n.settingsStorage,
                 value: fmtBytes(ref.watch(videoUsageProvider).value ?? 0),
-                onTap: () => context.push('${branchRoot(context)}/settings/videos'),
+                onTap: () => context.push(linkPath(context, '/settings/videos')),
               ),
             ],
             const SizedBox(height: 28),

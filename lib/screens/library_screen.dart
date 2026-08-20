@@ -122,7 +122,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     exercise: entry.value[i],
                                     last: i == entry.value.length - 1,
                                     onTap: () => context.push(
-                                        '${branchRoot(context)}/exercise/${entry.value[i].id}'),
+                                        linkPath(context, '/exercise/${entry.value[i].id}')),
                                   ),
                               ],
                             ),

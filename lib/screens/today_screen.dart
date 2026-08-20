@@ -162,7 +162,7 @@ class _CurrentRoutineSectionState
                       accent: hexColor(routine.colorHex),
                       isNext: w.workout.id == nextId,
                       onTap: () => context.push(
-                          '${branchRoot(context)}/workout/${w.workout.id}'),
+                          linkPath(context, '/workout/${w.workout.id}')),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -237,7 +237,7 @@ class _RoutineChooserSection extends ConsumerWidget {
                           .read(databaseProvider)
                           .setActiveRoutineId(r.routine.id),
                       onTap: () => context.push(
-                          '${branchRoot(context)}/routine/${r.routine.id}'),
+                          linkPath(context, '/routine/${r.routine.id}')),
                     ),
                     const SizedBox(height: 12),
                   ],

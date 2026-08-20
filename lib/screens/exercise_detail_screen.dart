@@ -151,7 +151,7 @@ class _Body extends ConsumerWidget {
             icon: Icon(Icons.show_chart, color: AppColors.accent),
             label: Text(l10n.commonProgress),
             onPressed: () => context.push(
-                '${branchRoot(context)}/exercise/${exercise.id}/progress'),
+                linkPath(context, '/exercise/${exercise.id}/progress')),
           ),
         ),
         // Only once there is something to watch. An empty reel is a button
@@ -172,7 +172,7 @@ class _Body extends ConsumerWidget {
               icon: Icon(Icons.videocam_rounded, color: AppColors.accent),
               label: Text(l10n.commonClipCount(clipCount)),
               onPressed: () => context.push(
-                  '${branchRoot(context)}/exercise/${exercise.id}/clips'),
+                  linkPath(context, '/exercise/${exercise.id}/clips')),
             ),
           ),
         ],
@@ -290,7 +290,7 @@ class ExerciseLoadingSection extends ConsumerWidget {
           ExerciseBarRow(exercise: exercise),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () => context.push('${branchRoot(context)}/settings/plates'),
+            onTap: () => context.push(linkPath(context, '/settings/plates')),
             child: Text(
               l10n.exerciseDetailAvailablePlates,
               style: kMono.copyWith(

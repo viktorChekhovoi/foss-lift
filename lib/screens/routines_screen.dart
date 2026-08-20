@@ -62,7 +62,7 @@ class RoutinesScreen extends ConsumerWidget {
                             .read(databaseProvider)
                             .setActiveRoutineId(r.routine.id),
                         onTap: () => context.push(
-                            '${branchRoot(context)}/routine/${r.routine.id}'),
+                            linkPath(context, '/routine/${r.routine.id}')),
                       ),
                       const SizedBox(height: 12),
                     ],

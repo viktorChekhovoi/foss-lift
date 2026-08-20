@@ -66,7 +66,7 @@ class AppearanceScreen extends ConsumerWidget {
             SettingRow(
               label: l10n.settingsLanguage,
               value: kLanguageNames[localeTag(ref.watch(activeLocaleProvider))]!,
-              onTap: () => context.push('${branchRoot(context)}/settings/language'),
+              onTap: () => context.push(linkPath(context, '/settings/language')),
             ),
             const SizedBox(height: 28),
             // Presets grouped by brightness so light and dark are easy to
@@ -91,7 +91,7 @@ class AppearanceScreen extends ConsumerWidget {
                   // the editor with no row behind it, seeded from this preset.
                   onEdit: () =>
                       context.push(
-                          '${branchRoot(context)}/settings/appearance/custom?from=${preset.id}'),
+                          linkPath(context, '/settings/appearance/custom?from=${preset.id}')),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -109,7 +109,7 @@ class AppearanceScreen extends ConsumerWidget {
                 selected: selectedId == palette.id,
                 onTap: () => db.setThemePreset(palette.id),
                 onEdit: () => context.push(
-                    '${branchRoot(context)}/settings/appearance/custom/${customThemeRowId(palette.id)}'),
+                    linkPath(context, '/settings/appearance/custom/${customThemeRowId(palette.id)}')),
                 // Your own can be edited in place, so copying needs a control
                 // of its own — the pencil is already spoken for. A preset has
                 // no copy icon: its pencil already means "copy and edit".
@@ -121,7 +121,7 @@ class AppearanceScreen extends ConsumerWidget {
             ],
             _NewThemeRow(
               onTap: () => context.push(
-                  '${branchRoot(context)}/settings/appearance/custom'),
+                  linkPath(context, '/settings/appearance/custom')),
             ),
             // Only your own themes are shareable. The presets ship with every
             // copy of the app, so sending someone a code for one is sending

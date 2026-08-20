@@ -34,6 +34,7 @@ import 'package:foss_lift/router.dart';
 import 'package:foss_lift/screens/clip_player_screen.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart';
 import 'package:foss_lift/screens/history_screen.dart';
+import 'package:foss_lift/screens/plate_inventory_screen.dart';
 import 'package:foss_lift/screens/library_screen.dart';
 import 'package:foss_lift/screens/routine_detail_screen.dart';
 import 'package:foss_lift/screens/routine_import_screen.dart';
@@ -651,6 +652,50 @@ void main() {
       await tester.pump();
       expect(styleOf(tester, 'ONE').fontSize, styleOf(tester, 'TWO').fontSize);
       expect(styleOf(tester, 'ONE').color, styleOf(tester, 'TWO').color);
+      await stop(tester);
+    });
+  });
+
+  group('a link lands in a tab that has the screen', () {
+    testWidgets('the plate inventory opens from the builder\'s slot sheet',
+        (tester) async {
+      // The sheet is three screens above any tab — the editor stacks over the
+      // shell — so the tab it was reached from does not host the settings
+      // pages. The link still has to land on them.
+      tester.view.physicalSize = const Size(390, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final id = await pushDayId(tester);
+      await openOverToday(tester, '/workout/$id/edit');
+      expect(find.byType(WorkoutEditScreen), findsOneWidget);
+
+      await tester.tap(find.text('Bench Press').first);
+      await tester.pumpAndSettle();
+
+      final link = find.text(l10nFor().exerciseDetailAvailablePlates);
+      await tester.ensureVisible(link);
+      await tester.pumpAndSettle();
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlateInventoryScreen), findsOneWidget,
+          reason: 'the link goes to a tab that has the screen, not to the '
+              'tab the editor was opened from');
+      await stop(tester);
+    });
+
+    testWidgets('a location with no screen behind it goes home to Today',
+        (tester) async {
+      await tester.pumpWidget(wholeApp(container));
+      await pumpThroughDatabase(tester);
+
+      // Where the not-found page's way home points.
+      appRouter.go('/');
+      await pumpThroughDatabase(tester);
+
+      expect(find.byType(TodayScreen), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
       await stop(tester);
     });
   });
