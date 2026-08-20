@@ -401,6 +401,18 @@
   "@exercisePauseSquat": {
     "description": "Name of a movement in the starter exercise library: the back squat held still at the bottom."
   },
+  "exerciseDeadliftToKnees": "Deadlift to Knees",
+  "@exerciseDeadliftToKnees": {
+    "description": "Name of a movement in the starter exercise library: the deadlift pulled only to the knees and set down."
+  },
+  "exerciseBlockDeadlift": "Block Deadlift",
+  "@exerciseBlockDeadlift": {
+    "description": "Name of a movement in the starter exercise library: the deadlift started with the bar raised on blocks or boxes."
+  },
+  "exerciseDeficitDeadlift": "Deficit Deadlift",
+  "@exerciseDeficitDeadlift": {
+    "description": "Name of a movement in the starter exercise library: the deadlift pulled while standing on a raised platform, so the bar starts lower."
+  },
   "exercisePauseDeadlift": "Pause Deadlift",
   "@exercisePauseDeadlift": {
     "description": "Name of a movement in the starter exercise library: the deadlift stopped and held partway up."
@@ -561,6 +573,10 @@
   "@exerciseRomanianDeadlift": {
     "description": "Name of a movement in the starter exercise library."
   },
+  "exerciseSeatedGoodMorning": "Seated Good Morning",
+  "@exerciseSeatedGoodMorning": {
+    "description": "Name of a movement in the starter exercise library: the good morning done sitting down, which takes the legs out of it."
+  },
   "exerciseGoodMorning": "Good Morning",
   "@exerciseGoodMorning": {
     "description": "Name of a movement in the starter exercise library."
@@ -636,6 +652,10 @@
   "exerciseCloseGripBenchPress": "Close-Grip Bench Press",
   "@exerciseCloseGripBenchPress": {
     "description": "Name of a movement in the starter exercise library."
+  },
+  "exerciseFrenchPress": "French Press",
+  "@exerciseFrenchPress": {
+    "description": "Name of a movement in the starter exercise library: the barbell overhead triceps extension. Not a coffee pot, and not the skull crusher."
   },
   "exerciseSkullCrusher": "Skull Crusher",
   "@exerciseSkullCrusher": {
@@ -4185,6 +4205,68 @@
   "@itemEditorCycleRemoveSet": {
     "description": "Button that drops the last set from one week of a cycle."
   },
+  "trainingMaxTitle": "Training maxes",
+  "@trainingMaxTitle": {
+    "description": "Title of the screen that sets one training max per lift across a whole routine."
+  },
+  "trainingMaxLead": "What this routine's percentages are of. One number per lift, written onto every slot that takes its percentages from it.",
+  "@trainingMaxLead": {
+    "description": "The one-paragraph lead at the top of the training-max screen, above the fields."
+  },
+  "trainingMaxOpen": "Training maxes",
+  "@trainingMaxOpen": {
+    "description": "Tooltip on the button that opens the training-max screen from a routine, and the label of the row that opens it from the routine builder."
+  },
+  "trainingMaxCovers": "{movements}",
+  "@trainingMaxCovers": {
+    "description": "The line under one training-max field, naming the movements the field writes and how many slots each has. `movements` is already joined — see trainingMaxCoversOne and trainingMaxCoversSeparator.",
+    "placeholders": {
+      "movements": {
+        "type": "String",
+        "example": "Back Squat \u00d7 31 \u00b7 Front Squat \u00d7 2"
+      }
+    }
+  },
+  "trainingMaxCoversOne": "{movement} \u00d7 {count}",
+  "@trainingMaxCoversOne": {
+    "description": "One movement and its slot count in the line under a training-max field. The \u00d7 is a multiplication sign, not a word.",
+    "placeholders": {
+      "movement": {
+        "type": "String",
+        "example": "Back Squat"
+      },
+      "count": {
+        "type": "int",
+        "example": "31"
+      }
+    }
+  },
+  "trainingMaxCoversSeparator": " \u00b7 ",
+  "@trainingMaxCoversSeparator": {
+    "description": "What joins two movements in the line under a training-max field. A middot with a space either side in English."
+  },
+  "trainingMaxMixed": "These slots differ. Type a number to make them agree.",
+  "@trainingMaxMixed": {
+    "description": "Shown under a training-max field whose slots do not all carry the same weight, so the field opens empty."
+  },
+  "trainingMaxEmpty": "Nothing in this routine trains off percentages.",
+  "@trainingMaxEmpty": {
+    "description": "Shown on the training-max screen for a routine with no written-out slot in it."
+  },
+  "trainingMaxSaved": "Saved.",
+  "@trainingMaxSaved": {
+    "description": "Confirmation after the training-max screen writes its fields."
+  },
+  "todayShowAllWorkouts": "Show all {n}",
+  "@todayShowAllWorkouts": {
+    "description": "The link under a long routine's workouts on Today, which opens the rest of them in place. `n` is how many the routine has in total.",
+    "placeholders": {
+      "n": {
+        "type": "int",
+        "example": "48"
+      }
+    }
+  },
   "itemEditorTrainingMax": "Training max",
   "@itemEditorTrainingMax": {
     "description": "Field label over the weight of a slot running a cycle, where every set is a percentage of it rather than the weight itself. Replaces \"Weight\"."
@@ -4245,6 +4327,10 @@
   "@seedRoutineCanditoControl": {
     "description": "Name of a shipped program. \"Candito\" is the author's surname and stays as it is; \"Linear\" and \"Strength/Control\" are the published names of the program and its variant."
   },
+  "seedRoutineSheiko2932": "Sheiko #29–32",
+  "@seedRoutineSheiko2932": {
+    "description": "Name of a shipped program: Boris Sheiko's numbered blocks #29 to #32, run as one sixteen-week sequence. A published program's name, so it stays as it is in most languages."
+  },
   "seedRoutineCanditoHypertrophy": "Candito Linear — Strength/Hypertrophy",
   "@seedRoutineCanditoHypertrophy": {
     "description": "Name of a shipped program: the same split with more volume on its variation days."
@@ -4267,6 +4353,10 @@
   },
   "seedRoutineDescCanditoControl": "Four sessions a week: two heavy days on the squat, deadlift and bench, and two on paused versions of the same lifts for six sets of four. Add a little to each lift every week for as long as that works. For somebody whose sessions have stopped going up but whose weeks still do.",
   "@seedRoutineDescCanditoControl": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDescSheiko2932": "Sheiko's #29, #30, #31 and #32 back to back: sixteen weeks, three sessions a week, every set of every competition lift written out at its own percentage, finishing on a max test. For somebody peaking for a meet. Set each training max to your current best single, not to 90% of it.",
+  "@seedRoutineDescSheiko2932": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
   "seedRoutineDescCanditoHypertrophy": "The same two heavy days, with the other two spent on five sets of eight of a variation instead of paused work. More volume and more exercise choice than Strength/Control, and the same weekly progression.",

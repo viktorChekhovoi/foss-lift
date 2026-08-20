@@ -1277,13 +1277,14 @@ class _ExerciseBlock extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
-                      // A cycle's weight is not a weight the session asks for —
-                      // every set below is a percentage of it — so it is named
-                      // rather than joined to the goal by an "@" that would
-                      // read as "do the goal at this".
-                      exercise.cycleWeeks == 0
-                          ? '@'
-                          : l10n.sessionTrainingMaxShort,
+                      // A written-out slot's weight is not a weight the
+                      // session asks for — every set below is a percentage of
+                      // it — so it is named rather than joined to the goal by
+                      // an "@" that would read as "do the goal at this". True
+                      // of a custom slot as much as of a cycle.
+                      exercise.runsPercentages
+                          ? l10n.sessionTrainingMaxShort
+                          : '@',
                       style: kMono.copyWith(
                         fontSize: 13,
                         color: AppColors.faint,

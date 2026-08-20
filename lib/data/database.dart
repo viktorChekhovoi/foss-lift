@@ -8,6 +8,7 @@ import 'db_open.dart';
 import 'exercise_stats.dart';
 import 'exercise_taxonomy.dart';
 import 'layoff.dart';
+import 'percentage_base.dart';
 import 'plates.dart';
 import 'progression.dart';
 import 'schedule.dart';
@@ -19,6 +20,7 @@ import 'warmup.dart';
 export 'exercise_stats.dart';
 export 'exercise_taxonomy.dart';
 export 'layoff.dart';
+export 'percentage_base.dart';
 export 'plates.dart';
 export 'progression.dart';
 export 'schedule.dart';
@@ -471,6 +473,20 @@ extension WorkoutItemTarget on WorkoutItem {
   bool get runsCycle =>
       scheme == SetScheme.cycle && cycleBlocks != null && cycleWeeks.isNotEmpty;
 
+  /// Whether this slot's sets are written out as percentages of its weight —
+  /// either scheme, and only where there are rows to be percentages.
+  ///
+  /// What decides that the weight is a *training max* rather than a load: named
+  /// as one in the builder and on the board, gathered by the training-max
+  /// screen, and never raised by what happened to be on the bar. A written-out
+  /// scheme with nothing written into it trains flat, so it is not one.
+  bool get runsPercentages =>
+      runsCycle || (scheme == SetScheme.custom && customRows.isNotEmpty);
+
+  /// The rows of a custom slot, decoded — empty for a slot on any other scheme.
+  List<CustomSet> get customRows =>
+      scheme == SetScheme.custom ? decodeCustomSets(customSets) : const [];
+
   /// The weeks, decoded. Cheap enough to read where it is needed rather than
   /// cached — the column is a few dozen characters and this is not a query.
   List<List<CustomSet>> get cycleWeeks => decodeCycleBlocks(cycleBlocks);
@@ -860,6 +876,37 @@ class WorkoutWithCount {
   final int exerciseCount;
 }
 
+/// The slots of one routine that share a percentage base, as one row of the
+/// training-max screen.
+///
+/// [base] is the lift the percentages are of — see `data/percentage_base.dart`
+/// — and is a movement name rather than an id, because that is what the mapping
+/// is keyed on and what a slot on a variation resolves to.
+///
+/// [members] is every movement under that base and how many slots each has, in
+/// the order the routine holds them. It is what the field names on screen: a
+/// control that writes further than its label says is worse than no control.
+///
+/// [weightKg] is what those slots already carry, or null where they disagree —
+/// one edited by hand, or a program that ships two different bases for one
+/// lift. Null is "these differ", not "these are unset": a slot with no weight at
+/// all cannot be under a percentage base, since there would be nothing to take
+/// a percentage of.
+class TrainingMaxGroup {
+  const TrainingMaxGroup({
+    required this.base,
+    required this.members,
+    required this.weightKg,
+  });
+
+  final String base;
+  final Map<String, int> members;
+  final double? weightKg;
+
+  /// How many slots this one field writes.
+  int get slotCount => members.values.fold(0, (a, b) => a + b);
+}
+
 /// A workout item joined with its exercise (for the detail/builder screens).
 class WorkoutItemView {
   WorkoutItemView(this.item, this.exercise);
@@ -1242,6 +1289,13 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
   'Back': {
     'Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
     'Pause Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    // The same pull over part of its range: stopped at the knees, started from
+    // blocks, started from a platform. Each is its own movement with its own
+    // history, and each is prescribed as a percentage of the whole deadlift —
+    // see `data/percentage_base.dart`.
+    'Deadlift to Knees': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    'Block Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    'Deficit Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
     'Barbell Row': _s('Barbell', also: ['Arms'], assists: ['Core']),
     'Barbell Shrug': _s('Barbell', assists: ['Arms']),
     'Dumbbell Row': _s('Dumbbell', also: ['Arms'], assists: ['Core']),
@@ -1307,6 +1361,9 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
       assists: ['Core', 'Arms'],
     ),
     'Good Morning': _s('Barbell', also: ['Back'], assists: ['Core']),
+    // Sitting down takes the legs out of it and leaves the work to the back,
+    // which is why the programs that write both write both.
+    'Seated Good Morning': _s('Barbell', also: ['Back'], assists: ['Core']),
     'Goblet Squat': _s('Dumbbell', assists: ['Core', 'Arms']),
     'Bulgarian Split Squat': _s('Dumbbell', assists: ['Core']),
     'Walking Lunge': _s('Dumbbell', assists: ['Core']),
@@ -1382,6 +1439,11 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
       assists: ['Shoulders'],
     ),
     'Skull Crusher': _s('Barbell'),
+    // The barbell overhead triceps extension, which is not the skull crusher
+    // above it: the bar goes behind the head rather than to the forehead, and
+    // the long head takes the stretch. The classic powerlifting programs write
+    // it by this name.
+    'French Press': _s('Barbell'),
     'Dumbbell Curl': _s('Dumbbell'),
     'Hammer Curl': _s('Dumbbell'),
     'Incline Dumbbell Curl': _s('Dumbbell'),
@@ -1659,8 +1721,13 @@ class AppDatabase extends _$AppDatabase {
   ///   and the three paused competition lifts inserted into the starter
   ///   library. The column is null on every slot already on a phone, which is
   ///   what "nobody has named these" means — every week still reads "Week 3".
+  /// - **v15** — the five movements the classic powerlifting programs write by
+  ///   name, inserted: the deadlift to the knees, the block deadlift, the
+  ///   deficit deadlift, the seated good morning and the French press. No column
+  ///   changes and nothing already on a phone is touched — a rung of its own
+  ///   rather than an edit to v14, for the reason stated on v6.
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1858,6 +1925,10 @@ class AppDatabase extends _$AppDatabase {
         );
         await _insertMissingStarterExercises(m.database);
       }
+      // v15 — the five movements Sheiko #29–32 writes by name join the starter
+      // library. No column changes: the starter walk is the whole rung, and it
+      // leaves every movement already there exactly as it is.
+      if (from < 15) await _insertMissingStarterExercises(m.database);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -2116,6 +2187,94 @@ class AppDatabase extends _$AppDatabase {
           )
           .toList(),
     );
+  }
+
+  /// The percentage bases of one routine, each with the slots it covers and the
+  /// weight they agree on — what the training-max screen is a list of.
+  ///
+  /// **Only the slots whose sets are written out.** A flat slot's weight is a
+  /// weight the session asks you to lift, not a number its sets are fractions
+  /// of, and gathering those under a "training max" would offer to overwrite
+  /// every working weight in the routine from one field.
+  ///
+  /// Empty for a routine with no such slot, which is what the screen's absence
+  /// from that routine means.
+  Stream<List<TrainingMaxGroup>> watchTrainingMaxGroups(int routineId) {
+    return _routineSlots(routineId).watch().map((rows) {
+      // Insertion-ordered, so the screen lists the bases in the order the
+      // routine first reaches them — which on a program written to be trained
+      // in order is the order it trains them in.
+      final counts = <String, Map<String, int>>{};
+      final weights = <String, List<double?>>{};
+      for (final row in rows) {
+        final item = row.readTable(workoutItems);
+        if (!item.scheme.isWrittenOut) continue;
+        final name = row.readTable(exercises).name;
+        final base = percentageBaseFor(name);
+        counts.putIfAbsent(base, () => <String, int>{});
+        counts[base]![name] = (counts[base]![name] ?? 0) + 1;
+        weights.putIfAbsent(base, () => <double?>[]).add(item.suggestedWeight);
+      }
+      return [
+        for (final entry in counts.entries)
+          TrainingMaxGroup(
+            base: entry.key,
+            members: entry.value,
+            weightKg: _agreedWeight(weights[entry.key]!),
+          ),
+      ];
+    });
+  }
+
+  /// Every slot of one routine, joined to the movement it is on, in the order
+  /// the routine trains them. Read by both halves of the training-max screen —
+  /// what it lists, and what it writes — so the two cannot disagree about which
+  /// slots belong to a routine.
+  JoinedSelectStatement<HasResultSet, dynamic> _routineSlots(int routineId) =>
+      select(workoutItems).join([
+        innerJoin(workouts, workouts.id.equalsExp(workoutItems.workoutId)),
+        innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
+      ])
+        ..where(workouts.routineId.equals(routineId))
+        ..orderBy([
+          OrderingTerm(expression: workouts.position),
+          OrderingTerm(expression: workoutItems.position),
+        ]);
+
+  /// The one weight every slot under a base carries, or null where they differ.
+  ///
+  /// Compared on the fine grid rather than exactly, so two slots seeded from the
+  /// same number in kilograms and landed in pounds still read as agreeing.
+  static double? _agreedWeight(List<double?> found) {
+    final first = found.first;
+    if (first == null) return null;
+    for (final w in found) {
+      if (w == null || (w - first).abs() > 0.001) return null;
+    }
+    return first;
+  }
+
+  /// Puts [kg] on every written-out slot in [routineId] whose percentages come
+  /// from [baseExercise] — the back squats and the front squats alike.
+  ///
+  /// One statement per slot rather than one over a join, because the set of ids
+  /// is decided in Dart: which movements resolve to a base lives in
+  /// `data/percentage_base.dart`, and SQL cannot ask it.
+  Future<void> setTrainingMax(
+    int routineId,
+    String baseExercise,
+    double kg,
+  ) async {
+    final rows = await _routineSlots(routineId).get();
+    final ids = [
+      for (final row in rows)
+        if (row.readTable(workoutItems).scheme.isWrittenOut &&
+            percentageBaseFor(row.readTable(exercises).name) == baseExercise)
+          row.readTable(workoutItems).id,
+    ];
+    if (ids.isEmpty) return;
+    await (update(workoutItems)..where((i) => i.id.isIn(ids)))
+        .write(WorkoutItemsCompanion(suggestedWeight: Value(kg)));
   }
 
   Future<List<Workout>> workoutsForRoutine(int routineId) {
@@ -2403,11 +2562,16 @@ class AppDatabase extends _$AppDatabase {
           // program has a rep count. `holdSeconds` keeps the column's default
           // where the program named none.
           final hold = slot.holdSeconds;
-          // A slot on a cycle states its sets a week at a time rather than as a
-          // count, so the stored count is the opening week's — what the slot
-          // falls back to if the cycle is ever emptied.
+          // A slot whose sets are written out states them one at a time rather
+          // than as a count, so the stored count is how many rows there are —
+          // the opening week's for a cycle, and the whole prescription for a
+          // custom slot. It is what the slot falls back to if the rows are ever
+          // emptied.
           final cycling = slot.cycle.isNotEmpty;
-          final sets = cycling ? slot.cycle.first.length : slot.sets;
+          final written = slot.customSets.isNotEmpty;
+          final sets = cycling
+              ? slot.cycle.first.length
+              : (written ? slot.customSets.length : slot.sets);
           await into(workoutItems).insert(
             WorkoutItemsCompanion.insert(
               workoutId: workoutId,
@@ -2416,9 +2580,14 @@ class AppDatabase extends _$AppDatabase {
               targetSets: Value(sets),
               scheme: cycling
                   ? const Value(SetScheme.cycle)
-                  : const Value.absent(),
+                  : (written
+                      ? const Value(SetScheme.custom)
+                      : const Value.absent()),
               cycleBlocks:
                   cycling ? Value(encodeCycleBlocks(slot.cycle)) : const Value.absent(),
+              customSets: written
+                  ? Value(encodeCustomSets(slot.customSets))
+                  : const Value.absent(),
               // A timed slot has no rep target at all, so the column keeps its
               // default rather than being written down to zero.
               repsMin: slot.repsMin > 0
@@ -2657,7 +2826,16 @@ class AppDatabase extends _$AppDatabase {
           // is applied to what you actually carried, not to a number the
           // template has been left behind by. Only upwards — coming down
           // mid-session is a deload, and the failure path is what answers it.
-          final base = performedWeight != null && performedWeight > stored
+          //
+          // Except where the sets are percentages of this number rather than
+          // this number: a heavy week, or a max test that finishes on a single
+          // at 105%, would read as the training max having gone up, and the
+          // next session's percentages would be taken from it. A cycle never
+          // reaches here at all; a custom slot does, and is held to the same
+          // rule for the same reason.
+          final base = performedWeight != null &&
+                  performedWeight > stored &&
+                  !it.runsPercentages
               ? performedWeight
               : stored;
           final climb = _climbStep(it, step.delta);

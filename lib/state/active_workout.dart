@@ -273,6 +273,13 @@ class ExerciseEntry {
   int get cycleWeek => cycle.isEmpty ? 0 : (cyclePosition % cycle.length) + 1;
   int get cycleWeeks => cycle.length;
 
+  /// Whether this exercise's sets are percentages of its working weight rather
+  /// than of nothing — which is what makes that weight a training max on the
+  /// board. Both written-out schemes, and only where there are rows.
+  bool get runsPercentages => scheme == SetScheme.cycle
+      ? cycle.isNotEmpty
+      : (scheme == SetScheme.custom && customSets.isNotEmpty);
+
   /// What that week is called, or the empty string where it goes by its number.
   String get cycleWeekName => cycle.isEmpty
       ? ''

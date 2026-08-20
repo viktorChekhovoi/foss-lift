@@ -116,6 +116,16 @@ groups:
     uses:
     - template.active-routine
     - ui.text-scale
+  - id: a-long-routine-offers-the-next-session-rather-than-all-of-them
+    t: A long routine offers the session you are on, not all of them
+    d: >-
+      a split has three or four days and listing them is the whole screen; a sixteen-week program written out session by session has forty-eight, and listing those buries everything under them and answers a question nobody asked. So past a week's worth of days, Today shows the one you are on with the one before and the two after it, and a line underneath opens the rest in place — "Show all 48". Opened, it is the plain list it always was. Nothing is hidden from the routine's own screen, which is where you go to look at the program rather than to train.
+    screen: today
+    defines:
+    - template.long-routine
+    uses:
+    - template.active-routine
+    - template.workout
   - id: pick-change-current-routine
     t: Pick / change the current routine
     d: >-

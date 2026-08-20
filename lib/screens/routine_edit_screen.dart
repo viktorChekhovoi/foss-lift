@@ -12,6 +12,7 @@ import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/common.dart';
 import '../widgets/workout_items_editor.dart';
+import 'training_max_screen.dart';
 
 /// Swatches offered for a routine's accent colour.
 const _palette = ['FF6A3D', '3ED598', 'FFC24B', '4B9BFF', 'B06AFF', 'FF5D8F'];
@@ -103,6 +104,16 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
   String _shownDescription = '';
 
   bool get _isEdit => widget.routineId != null;
+
+  /// Whether this routine has a percentage base to set. False on a routine
+  /// being created, which has no slots yet — and on every routine of flat sets,
+  /// which has no training max at all.
+  bool get _hasTrainingMaxes {
+    final id = widget.routineId;
+    if (id == null) return false;
+    return (ref.watch(trainingMaxGroupsProvider(id)).value ?? const [])
+        .isNotEmpty;
+  }
 
   @override
   void initState() {
@@ -477,6 +488,21 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                                 _edit(() => _workouts.removeAt(i)),
                           ),
                         ),
+                        // The routine's percentage bases, one number each.
+                        // Here as well as on the routine itself because this is
+                        // where a routine of your own is built, and a program
+                        // you wrote in percentages needs the same one tap a
+                        // shipped one does. Absent until there is one to set.
+                        if (_hasTrainingMaxes) ...[
+                          const SizedBox(height: 16),
+                          SettingRow(
+                            key: trainingMaxButtonKey,
+                            label: l10n.trainingMaxOpen,
+                            value: '',
+                            onTap: () => context.push(
+                                '/routine/${widget.routineId}/training-maxes'),
+                          ),
+                        ],
                       ],
                     ),
                   ),

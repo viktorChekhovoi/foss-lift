@@ -57,6 +57,14 @@ screens:
     route: /workout/:id/edit
     reach: Open a workout → edit.
 
+  - id: routine-training-maxes
+    title: Training maxes
+    route: /routine/:id/training-maxes
+    reach: >-
+      Routines → a routine → the % button. Also from the routine builder, under
+      Training maxes. Only there when some slot in the routine trains off
+      percentages.
+
   # ------------------------------------------------------------- the library
   - id: library
     title: Exercise library

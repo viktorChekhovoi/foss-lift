@@ -23,7 +23,7 @@ groups:
   - id: library-holds-the-programs-the-app-ships
     t: The library holds the programs the app ships
     d: >-
-      fifteen of them. Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three beginner barbell programs, Starting Strength, StrongLifts 5x5 and Full Body 3x, for somebody with a gym. Four for everybody else: Bodyweight Basics, Dumbbell Full Body, Interval Conditioning, and Two-Day Full Body for a week with two sessions in it. Four 5/3/1 programs for somebody past a linear progression, and two Candito Linear programs for somebody not past it yet — see below for both. They are a table in the app rather than rows in your database, so the list is the same on every phone and nothing you do to a copy can change it.
+      sixteen of them. Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three beginner barbell programs, Starting Strength, StrongLifts 5x5 and Full Body 3x, for somebody with a gym. Four for everybody else: Bodyweight Basics, Dumbbell Full Body, Interval Conditioning, and Two-Day Full Body for a week with two sessions in it. Four 5/3/1 programs for somebody past a linear progression, two Candito Linear programs for somebody not past it yet, and Sheiko #29–32 for somebody peaking for a meet — see below for all three. They are a table in the app rather than rows in your database, so the list is the same on every phone and nothing you do to a copy can change it.
     defines:
     - template.starter-library
     uses:
@@ -157,6 +157,63 @@ groups:
     - progression.rates
     - progression.streak
     - template.item
+  - id: library-ships-sheiko-29-32
+    t: One of the programs is Sheiko's sixteen-week #29–32
+    d: >-
+      Boris Sheiko's four numbered blocks, run as the one sixteen-week sequence they were written to be rather than as four programs that happen to follow each other. Three sessions a week for sixteen weeks, every set of every competition lift written out at its own percentage, and the last session of #32 a max test that opens the same way the first fifteen weeks did and finishes above the max it started from. It is not a program that decides anything week to week: what makes week eleven harder than week two is that week eleven says so.
+    uses:
+    - template.starter-library
+    - template.set-scheme
+    - template.per-set-reps
+    - template.training-max
+  - id: sheiko-is-forty-eight-explicit-sessions
+    t: Sheiko arrives as forty-eight sessions in order, not as a rotation
+    d: >-
+      the program does not keep a fixed set of slots whose numbers rotate — the order of the lifts changes, a lift comes round twice inside one session, variations appear for a fortnight and go, and no two sessions ask for the same thing. So each of the forty-eight is a training day of its own, named for where it sits — "#29 · W1 · Mon" through "#32 · W4 · Meet". A cycle would have to claim they were forty-eight versions of one week, and they are not.
+    uses:
+    - template.starter-library
+    - template.workout
+    - template.cycle
+  - id: sheikos-repeated-lifts-stay-separate-slots
+    t: A lift that comes round twice in a session is two slots
+    d: >-
+      the first session benches, squats, then benches again, and the second bench is not the first one with more sets bolted on: it happens after the squats, at its own percentages, and that is the point of writing it there. The copy keeps the order the program is written in, so the day reads bench, squat, bench.
+    uses:
+    - template.starter-library
+    - template.item
+    - template.workout
+  - id: sheikos-percentages-are-of-your-actual-max
+    t: Sheiko's percentages are of your real max, not 90% of it
+    d: >-
+      the 5/3/1 programs open at a training max the copy asks you to replace with 90% of your best single, because that is what 5/3/1 is written against. Sheiko is not: its percentages are calculated from the competition max itself, so the number to put in is your current best squat, bench and deadlift — actual or honestly estimated. A program that asks for the same number in different terms has to say which terms, and this one says its own.
+    screen: routine-preview
+    uses:
+    - template.starter-library
+    - template.training-max
+    - template.percentage-base
+  - id: sheiko-does-not-move-its-own-max
+    t: Sheiko does not move the max it is percentages of
+    d: >-
+      the overload is already written into the sixteen weeks; adding a step on top of it would be a second program running underneath the first. So every percentage slot in the copy steps by nothing and backs off by nothing, and the max stays where you put it until you change it — including through the final max test, whose single at 105% is a lift to attempt rather than a new number for the fifteen weeks behind it to be recalculated against. The rates are the ordinary ones on the slot, set to zero, not a rule of the program's own.
+    uses:
+    - template.starter-library
+    - template.training-max
+    - progression.rates
+  - id: sheikos-accessories-carry-no-percentage
+    t: Sheiko's accessory work carries sets and reps and no weight
+    d: >-
+      the source prescribes five sets of ten flyes and five sets of five good mornings and says nothing about the load, so neither does the copy: those slots arrive as ordinary sets and reps with no suggested weight, for you to fill in. Inventing a percentage for them would be putting words in the program's mouth on the one part of it that was deliberately left to the lifter.
+    uses:
+    - template.starter-library
+    - template.item
+  - id: sheikos-variations-train-off-the-competition-lift
+    t: Sheiko's variations train off the competition lift's max
+    d: >-
+      the front squats are percentages of the squat, and the deadlifts to the knees, from blocks and from a deficit are percentages of the deadlift. That is not a rule this program is given: it is what those movements carry in the library, so setting the routine's three maxes reaches all of them and the front squat slots never ask for a max of their own.
+    uses:
+    - template.starter-library
+    - template.percentage-base
+    - template.training-max
   - id: a-531-copy-is-an-ordinary-routine
     t: A 5/3/1 copy is an ordinary routine
     d: >-
@@ -171,7 +228,7 @@ groups:
   - id: program-says-what-it-is
     t: A program says what it is before you take it
     d: >-
-      the preview opens with the program's own description — who it is for, how often it is trained, what it is trying to do — so choosing between thirteen of them is not a matter of guessing from a name. The copy keeps it, so the routine still explains itself a month later, and rewriting it is one more thing a copy of yours can do.
+      the preview opens with the program's own description — who it is for, how often it is trained, what it is trying to do — so choosing between sixteen of them is not a matter of guessing from a name. The copy keeps it, so the routine still explains itself a month later, and rewriting it is one more thing a copy of yours can do.
     screen: routine-preview
     uses:
     - template.starter-library

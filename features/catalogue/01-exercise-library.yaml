@@ -26,7 +26,7 @@ groups:
 - name: What it does
   items:
   - id: ships-85-starter-exercises
-    t: Ships 136 starter exercises
+    t: Ships 141 starter exercises
     d: >-
       most of them with a demo-video link, in the canonical
       https://youtu.be/&lt;id&gt; short form.
@@ -43,6 +43,22 @@ groups:
       of, load off the same bar, and carry their own history, because a paused
       squat at 70% is not a squat and averaging the two would tell you nothing
       about either.
+    uses:
+    - exercise.seed
+    - exercise.taxonomy
+    - exercise.muscle-map
+  - id: the-partial-range-deadlifts-are-in-the-starter-set
+    t: The deadlifts that change where the bar starts and stops are in the starter set
+    d: >-
+      the deadlift to the knees, the block deadlift and the deficit deadlift — the same pull cut short, started high or started low, which is how a powerlifting program trains the part of it that is failing. Each is its own movement with its own history, and each takes its percentages from the deadlift, because that is the max the programs that use them are written against.
+    uses:
+    - exercise.seed
+    - exercise.taxonomy
+    - template.percentage-base
+  - id: the-seated-good-morning-and-the-french-press-are-in-the-starter-set
+    t: The seated good morning and the French press are in the starter set
+    d: >-
+      two accessory movements the classic powerlifting programs write by name. Sitting down for a good morning takes the legs out of it and leaves the work to the back; the French press is the barbell overhead triceps extension, which is not the skull crusher lying down beside it in the library.
     uses:
     - exercise.seed
     - exercise.taxonomy

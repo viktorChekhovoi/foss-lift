@@ -860,5 +860,22 @@
   "seedDayControlLower": "Контроль низ",
   "seedDayControlUpper": "Контроль верх",
   "seedDayVariationLower": "Варіація низ",
-  "seedDayVariationUpper": "Варіація верх"
+  "seedDayVariationUpper": "Варіація верх",
+  "exerciseDeadliftToKnees": "Станова тяга до колін",
+  "exerciseBlockDeadlift": "Станова тяга з плінтів",
+  "exerciseDeficitDeadlift": "Станова тяга з підвищення",
+  "exerciseSeatedGoodMorning": "Нахили зі штангою сидячи",
+  "exerciseFrenchPress": "Французький жим стоячи",
+  "seedRoutineSheiko2932": "Sheiko #29–32",
+  "seedRoutineDescSheiko2932": "Блоки Шейка #29, #30, #31 і #32 поспіль: шістнадцять тижнів, три тренування на тиждень, кожен підхід кожної змагальної вправи розписаний своїм відсотком, а наприкінці — вихід на максимум. Для того, хто підводиться до змагань. Робочим максимумом став свій поточний найкращий одноповторний, а не 90% від нього.",
+  "trainingMaxTitle": "Робочі максимуми",
+  "trainingMaxLead": "Від чого рахуються відсотки цієї програми. По одному числу на вправу — воно запишеться в кожен слот, який бере від нього відсотки.",
+  "trainingMaxOpen": "Робочі максимуми",
+  "trainingMaxCovers": "{movements}",
+  "trainingMaxCoversOne": "{movement} × {count}",
+  "trainingMaxCoversSeparator": " · ",
+  "trainingMaxMixed": "У цих слотах різні значення. Введіть число, щоб зрівняти їх.",
+  "trainingMaxEmpty": "У цій програмі ніщо не тренується за відсотками.",
+  "trainingMaxSaved": "Збережено.",
+  "todayShowAllWorkouts": "Показати всі {n}"
 }

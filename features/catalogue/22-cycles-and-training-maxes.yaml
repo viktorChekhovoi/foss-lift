@@ -8,8 +8,10 @@ screen: workout-edit
 code:
 - lib/data/set_scheme.dart
 - lib/data/progression.dart
+- lib/data/percentage_base.dart
 - lib/data/database.dart
 - lib/widgets/workout_items_editor.dart
+- lib/screens/training_max_screen.dart
 test:
 - test/feature_22_cycles_test.dart
 where: >-
@@ -17,7 +19,10 @@ where: >-
   · <b>The wrap</b> lib/data/progression.dart (stepCycle), applied by
   AppDatabase.advanceProgression · <b>Data</b> WorkoutItems.cycle_blocks /
   cycle_names / cycle_position · <b>Builder</b>
-  lib/widgets/workout_items_editor.dart (_CycleEditor, _CustomSetRow)
+  lib/widgets/workout_items_editor.dart (_CycleEditor, _CustomSetRow) · <b>The
+  base a variation trains off</b> lib/data/percentage_base.dart, gathered per
+  routine by AppDatabase.watchTrainingMaxGroups and set on
+  lib/screens/training_max_screen.dart
 groups:
 - name: The cycle
   items:
@@ -84,18 +89,14 @@ groups:
     - template.training-max
     - template.set-scheme
   - id: a-cycle-weight-is-not-raised-by-what-you-lifted
-    t: Loading the bar past the prescription does not move a cycle's weight
+    t: Loading the bar past the prescription does not move a training max
     d: >-
-      on an ordinary weight slot, working above the suggestion is itself
-      progression and the target follows the bar. On a cycle it cannot be: every
-      set is a percentage of the slot's weight rather than the weight itself, so
-      a heavy week would read as a target that had gone up and the next week's
-      percentages would be taken from it. A cycle's weight moves at the wrap and
-      nowhere else.
+      on an ordinary weight slot, working above the suggestion is itself progression and the target follows the bar. On a slot whose sets are written out as percentages it cannot be: every set is a fraction of the slot's weight rather than the weight itself, so a heavy week would read as a target that had gone up and the next week's percentages would be taken from it. The rule covers both written-out schemes, because both are percentages of one number — a program that finishes on a single at 105% must not leave the max it was 105% of standing five percent higher. A cycle's weight moves at the wrap; a custom slot's moves by its own step, or not at all where its step is nothing.
     screen: none
     uses:
     - template.cycle
     - template.training-max
+    - template.set-scheme
     - session.exercise-weight
     - progression.verdict
   - id: the-week-is-on-screen
@@ -174,20 +175,63 @@ groups:
 - name: The training max
   items:
   - id: the-weight-field-says-training-max-on-a-cycle-slot
-    t: On a cycle slot the weight field is a training max
+    t: On a slot whose sets are written out, the weight field is a training max
     d: >-
-      it is not a weight the session asks you to lift — every set is a
-      percentage of it — so the builder's card is headed "Training max" instead
-      of "Weight", and both the board and the slot's one-line summary in the
-      exercise list name it "TM" where an ordinary slot writes "@" or nothing:
-      "do 5/3/1+ at this" would be wrong about all three sets. Editing it moves
-      the whole week at once, which is what adjusting a training max means.
+      it is not a weight the session asks you to lift — every set is a percentage of it — so the builder's card is headed "Training max" instead of "Weight", and both the board and the slot's one-line summary in the exercise list name it "TM" where an ordinary slot writes "@" or nothing: "do 5/3/1+ at this" would be wrong about all three sets. Editing it moves the whole week at once, which is what adjusting a training max means. The rule is the scheme rather than the cycle: a custom slot's rows are percentages of the slot's weight exactly as a cycle's are, so a routine that writes out one session of ramps and back-offs names its base the same way a four-week block does.
     screen: workout-edit
     points:
     - session
     uses:
     - template.training-max
+    - template.set-scheme
     - session.exercise-weight
+  - id: a-movement-can-take-its-percentages-from-another-lift
+    t: A variation takes its percentages from the lift it is a version of
+    d: >-
+      a front squat is prescribed at a percentage of the squat, not of the front squat, and a deficit deadlift, a deadlift to the knees and a deadlift from blocks are all percentages of the deadlift. So a movement can name the lift its percentages are of, and the ones that ship naming one do — the squat variations off Back Squat, the pulling variations off Deadlift. A movement that names none, which is nearly all of them and every movement you build, is its own base.
+    screen: none
+    defines:
+    - template.percentage-base
+    uses:
+    - template.training-max
+    - exercise.seed
+  - id: one-screen-sets-every-training-max-in-a-routine
+    t: One screen sets every training max in a routine
+    d: >-
+      a program written in percentages puts the same three numbers on dozens of slots, and typing your squat max into thirty-one of them one at a time is not a setup step, it is a reason not to run the program. So a routine gathers its written-out slots by the lift their percentages come from and offers one field per lift. Filling in Squat writes that number onto every slot in the routine whose base is the squat — the back squats and the front squats alike — and the fields you leave alone change nothing.
+    screen: routine-training-maxes
+    uses:
+    - template.percentage-base
+    - template.training-max
+    - template.routine
+  - id: the-screen-says-what-each-field-will-touch
+    t: Each field names the slots it will write
+    d: >-
+      under "Squat", the movements it covers and how many slots each has — "Back Squat × 31 · Front Squat × 2". A field that quietly reached further than its label would be worse than no field, and a lifter whose front squat is not 100% of their squat needs to see that this screen is about to say it is, before it does. The individual slot is still editable afterwards, and the screen does not undo that.
+    screen: routine-training-maxes
+    uses:
+    - template.percentage-base
+    - template.training-max
+  - id: a-field-opens-on-what-the-slots-already-say
+    t: A field opens on the number its slots already carry
+    d: >-
+      filled in where every slot under it agrees, so the screen reads back what the routine is set to rather than asking again. Where they disagree — one slot edited by hand, or a program that ships two different bases for one lift — the field opens empty and says the slots differ, and typing a number is what makes them agree. Leaving it empty leaves every one of them where it is.
+    screen: routine-training-maxes
+    uses:
+    - template.percentage-base
+    - template.training-max
+  - id: the-screen-is-for-any-routine-with-percentages-in-it
+    t: It is there for a routine you built, not only a shipped one
+    d: >-
+      the grouping is over the slots the routine actually holds, so a routine you wrote yourself with three custom-scheme slots on the bench gets one Bench Press field and the same one tap. The button appears on a routine as soon as some slot in it trains off percentages and is not there at all otherwise — a routine of flat sets has no training max to set, and an action that opens onto nothing is worse than an action that is missing.
+    screen: routine-detail
+    points:
+    - routine-edit
+    - routine-training-maxes
+    uses:
+    - template.percentage-base
+    - template.training-max
+    - template.routine
 - name: Behaviour & edge cases
   items:
   - id: an-upgraded-phone-changes-nothing
@@ -264,6 +308,14 @@ groups:
     screen: workout-edit
     uses:
     - template.cycle
+  - id: set-the-training-maxes-of-a-routine
+    t: Set a routine's training maxes
+    d: >-
+      Routines → a routine → the % in the app bar → type a number per lift → Save. The same screen is under Training maxes in the routine builder. What you type lands on every slot in that routine whose percentages come from that lift.
+    screen: routine-training-maxes
+    uses:
+    - template.percentage-base
+    - template.training-max
   - id: name-a-week
     t: Name a week
     d: >-

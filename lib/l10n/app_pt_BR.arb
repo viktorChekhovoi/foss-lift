@@ -860,5 +860,22 @@
   "seedDayControlLower": "Controle inferior",
   "seedDayControlUpper": "Controle superior",
   "seedDayVariationLower": "Variação inferior",
-  "seedDayVariationUpper": "Variação superior"
+  "seedDayVariationUpper": "Variação superior",
+  "exerciseDeadliftToKnees": "Levantamento terra até os joelhos",
+  "exerciseBlockDeadlift": "Levantamento terra a partir de blocos",
+  "exerciseDeficitDeadlift": "Levantamento terra em déficit",
+  "exerciseSeatedGoodMorning": "Good morning sentado",
+  "exerciseFrenchPress": "Tríceps francês em pé",
+  "seedRoutineSheiko2932": "Sheiko #29–32",
+  "seedRoutineDescSheiko2932": "Os blocos #29, #30, #31 e #32 de Sheiko em sequência: dezesseis semanas, três sessões por semana, cada série de cada levantamento de competição escrita com sua própria porcentagem, terminando num teste de máximo. Para quem está se preparando para uma competição. Defina cada máximo de treino como seu melhor single atual, não 90% dele.",
+  "trainingMaxTitle": "Máximos de treino",
+  "trainingMaxLead": "De que são as porcentagens desta rotina. Um número por levantamento, escrito em cada série que tira dele suas porcentagens.",
+  "trainingMaxOpen": "Máximos de treino",
+  "trainingMaxCovers": "{movements}",
+  "trainingMaxCoversOne": "{movement} × {count}",
+  "trainingMaxCoversSeparator": " · ",
+  "trainingMaxMixed": "Estas séries não coincidem. Digite um número para igualá-las.",
+  "trainingMaxEmpty": "Nada nesta rotina treina com porcentagens.",
+  "trainingMaxSaved": "Salvo.",
+  "todayShowAllWorkouts": "Ver todos os {n}"
 }

@@ -60,14 +60,67 @@ class TodayScreen extends ConsumerWidget {
   }
 }
 
+/// Finds the line that opens the rest of a long routine's workouts.
+const ValueKey<String> kTodayShowAllWorkoutsKey =
+    ValueKey('today-show-all-workouts');
+
+/// How many training days a routine may hold before Today folds it.
+///
+/// A week's worth. A split has three or four days and listing them is the whole
+/// screen; past seven, the routine is a program written out session by session
+/// rather than a week to pick from, and listing it buries everything under it.
+const int kTodayWorkoutsShownWhole = 7;
+
+/// How many of the folded routine's days are shown around the one you are on:
+/// the one before it, and the two after.
+///
+/// Asymmetric on purpose. What is behind you is context — one day of it is
+/// enough to see where you are — and what is ahead is the thing you might
+/// actually want to look at next.
+const int kTodayWorkoutsBefore = 1;
+const int kTodayWorkoutsAfter = 2;
+
 /// The workouts of the current routine — pick one and you are one tap from
 /// starting it.
-class _CurrentRoutineSection extends ConsumerWidget {
+class _CurrentRoutineSection extends ConsumerStatefulWidget {
   const _CurrentRoutineSection({required this.current});
   final RoutineWithCount current;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CurrentRoutineSection> createState() =>
+      _CurrentRoutineSectionState();
+}
+
+class _CurrentRoutineSectionState
+    extends ConsumerState<_CurrentRoutineSection> {
+  /// Whether the fold has been opened. Held here rather than stored: it is a
+  /// look at the rest of the program, not a preference about it, and coming
+  /// back to Today should come back to the session you are on.
+  bool _showAll = false;
+
+  /// Whether this routine is long enough to fold, and still folded.
+  bool _isFolded(List<WorkoutWithCount> list) =>
+      !_showAll && list.length > kTodayWorkoutsShownWhole;
+
+  /// The days to draw: all of them, or a window around the one you are on.
+  ///
+  /// The window is measured from the session you are on and shrinks at the ends
+  /// rather than sliding to keep its width. On the first session of a program
+  /// there is nothing behind you, and filling the gap with a fourth day ahead
+  /// would put the day you are on at the top of a list that is not a window on
+  /// anything.
+  List<WorkoutWithCount> _shown(List<WorkoutWithCount> list, int? nextId) {
+    if (!_isFolded(list)) return list;
+    var at = list.indexWhere((w) => w.workout.id == nextId);
+    if (at < 0) at = 0;
+    final from = (at - kTodayWorkoutsBefore).clamp(0, list.length);
+    final to = (at + kTodayWorkoutsAfter + 1).clamp(from, list.length);
+    return list.sublist(from, to);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = widget.current;
     final l10n = AppLocalizations.of(context);
     final routine = current.routine;
     final routineName = seededName(l10n, routine.seedKey, routine.name);
@@ -102,8 +155,8 @@ class _CurrentRoutineSection extends ConsumerWidget {
                     action: l10n.todayEditRoutine,
                     onAction: () => context.push('/routine/${routine.id}/edit'),
                   )
-                else
-                  for (final w in list) ...[
+                else ...[
+                  for (final w in _shown(list, nextId)) ...[
                     _WorkoutCard(
                       data: w,
                       accent: hexColor(routine.colorHex),
@@ -113,6 +166,19 @@ class _CurrentRoutineSection extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  // Only while something is folded. Opened, this is the plain
+                  // list it always was, and a link that undoes nothing is a
+                  // control with no state to be in.
+                  if (_isFolded(list))
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _TextLink(
+                        key: kTodayShowAllWorkoutsKey,
+                        label: l10n.todayShowAllWorkouts(list.length),
+                        onTap: () => setState(() => _showAll = true),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
@@ -280,7 +346,7 @@ class _WorkoutCard extends StatelessWidget {
 
 /// A small text action in a section header.
 class _TextLink extends StatelessWidget {
-  const _TextLink({required this.label, required this.onTap});
+  const _TextLink({super.key, required this.label, required this.onTap});
   final String label;
   final VoidCallback onTap;
   @override

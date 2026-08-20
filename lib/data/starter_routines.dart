@@ -42,7 +42,8 @@ class StarterSlot {
     this.increment,
     this.deload,
     this.successThreshold,
-  }) : cycle = const [];
+  })  : cycle = const [],
+        customSets = const [];
 
   /// A slot on one of the lifts a linear-progression program moves 5 kg a
   /// session — the squat, the deadlift and their variants — rather than the
@@ -56,6 +57,34 @@ class StarterSlot {
   })  : repsMax = null,
         holdSeconds = null,
         increment = 5,
+        successThreshold = null,
+        cycle = const [],
+        customSets = const [];
+
+  /// A slot whose sets are written out one at a time, each at its own
+  /// percentage of [weightKg] — the shape a program that prescribes every set
+  /// of every session is made of.
+  ///
+  /// **It steps by nothing.** A program written out session by session already
+  /// carries its own overload in the sessions; a step on top of it would be a
+  /// second program running underneath the first. So the rates are zero rather
+  /// than absent — the ordinary rates on the slot, set to nothing — and the max
+  /// stays where it is put until somebody moves it. Where a program does want
+  /// its written-out slots to climb, [increment] says so.
+  ///
+  /// The set count comes from the rows for the same reason a cycle's does: the
+  /// prescription is written out in full, so how many rows it has is how many
+  /// sets there are.
+  const StarterSlot.custom(
+    this.exercise, {
+    required this.customSets,
+    required this.weightKg,
+    this.increment = 0,
+    this.deload = 0,
+  })  : sets = 0,
+        repsMin = 0,
+        repsMax = null,
+        holdSeconds = null,
         successThreshold = null,
         cycle = const [];
 
@@ -77,7 +106,8 @@ class StarterSlot {
         repsMax = null,
         holdSeconds = null,
         successThreshold = null,
-        deload = null;
+        deload = null,
+        customSets = const [];
 
   /// The canonical English name of a movement in the starter library.
   final String exercise;
@@ -110,6 +140,11 @@ class StarterSlot {
   /// The weeks this slot rotates through, or empty for a slot that does not —
   /// see [StarterSlot.cycling] and `data/set_scheme.dart`.
   final List<List<CustomSet>> cycle;
+
+  /// The rows this slot is written out as, or empty for a slot that is not —
+  /// see [StarterSlot.custom]. A slot never has both these and [cycle]: one
+  /// prescription is written out once, the other a week at a time.
+  final List<CustomSet> customSets;
 }
 
 /// One training day of a shipped program.
@@ -287,8 +322,8 @@ const List<List<CustomSet>> k531FirstSetLast = [
 
 /// The library, in the order it is offered: the two splits somebody with a year
 /// of training would recognise, then the beginner barbell programs, the four
-/// that ask for less than a gym, the four 5/3/1 programs, and the two Candito
-/// Linear programs.
+/// that ask for less than a gym, the four 5/3/1 programs, the two Candito
+/// Linear programs, and Sheiko #29–32.
 final List<StarterRoutine> kStarterRoutines = [
   StarterRoutine(
     key: 'ppl',
@@ -783,6 +818,47 @@ final List<StarterRoutine> kStarterRoutines = [
       ]),
     ],
   ),
+  // ---- Sheiko #29–32 ------------------------------------------------------
+  //
+  // Boris Sheiko's four numbered blocks, run as the one sixteen-week sequence
+  // they were written to be. Transcribed from the classic spreadsheet — the
+  // copy distributed by PowerliftingToWin — rather than reconciled across the
+  // Sheiko variants that circulate online.
+  //
+  // **Forty-eight sessions, not a rotation.** The program does not keep a fixed
+  // set of slots whose numbers change week to week: the order of the lifts
+  // moves, a lift comes round twice inside one session, variations appear for a
+  // fortnight and go. A cycle would have to claim these were forty-eight
+  // versions of one week, so each is a training day of its own.
+  //
+  // **The percentages are of the competition max itself**, not of 90% of it as
+  // the 5/3/1 programs above are. The opening numbers are the same placeholders
+  // those use, and the description says what to replace them with.
+  //
+  // **Nothing steps.** The overload is already written into the sixteen weeks —
+  // see [StarterSlot.custom] — so every percentage slot carries a rate of
+  // nothing and the max stays where it is put, including through the max test
+  // that closes #32 above 100%.
+  //
+  // The variations are prescribed off the competition lift's max: the front
+  // squats off the squat, the partial deadlifts off the deadlift. That is not
+  // stated here — it is what those movements carry in
+  // `data/percentage_base.dart`, which is what lets the routine's three maxes
+  // be set once each.
+  //
+  // The days are not keyed for translation. "#29 · W1 · Mon" is the program's
+  // own notation rather than a word, and forty-eight keys in five languages
+  // would translate three weekday abbreviations at the cost of the other
+  // forty-five names saying nothing.
+  StarterRoutine(
+    key: 'sheiko-29-32',
+    description: 'Sheiko\'s #29, #30, #31 and #32 back to back: sixteen weeks, three sessions a week, every set of every competition lift written out at its own percentage, finishing on a max test. For somebody peaking for a meet. Set each training max to your current best single, not to 90% of it.',
+    name: 'Sheiko #29–32',
+    colorHex: 'C2185B',
+    restSeconds: 240,
+    scheduleDays: _mwf,
+    days: _sheikoDays,
+  ),
 ];
 
 /// Candito's heavy lower day, shared by both variants: the squat and the
@@ -805,6 +881,674 @@ const List<StarterSlot> _canditoHeavyUpper = [
       sets: 3, repsMin: 8, weightKg: 40, deload: 7.5, successThreshold: 3),
   StarterSlot('Chin-Up', sets: 3, repsMin: 8, repsMax: 10, successThreshold: 3),
 ];
+
+/// Sheiko #29–32's forty-eight sessions, in the order they are trained.
+///
+/// A table of its own rather than an inline literal, because it is longer than
+/// the rest of the library put together and burying the other fifteen programs
+/// under it would make the list unreadable. The program that uses it is above,
+/// where the other fifteen are, and it says what these are.
+final List<StarterDay> _sheikoDays = [
+  StarterDay('#29 · W1 · Mon', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 75), _r(3, 75), _r(3, 75), _r(3, 75),
+            _r(3, 75)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(4, 70), _r(4, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W1 · Wed', [
+    StarterSlot.custom('Deadlift to Knees', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(3, 70),
+            _r(3, 70), _r(3, 75), _r(3, 75), _r(3, 75), _r(3, 75)]),
+    StarterSlot('Incline Bench Press', sets: 4, repsMin: 6),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 5),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 55), _r(4, 65), _r(4, 75), _r(4, 75),
+            _r(3, 85), _r(3, 85), _r(3, 85), _r(3, 85)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#29 · W1 · Fri', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(4, 70), _r(3, 75),
+            _r(3, 75), _r(2, 80), _r(2, 80), _r(3, 75), _r(3, 75),
+            _r(4, 70), _r(6, 60), _r(8, 50)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 75), _r(3, 75), _r(3, 75), _r(3, 75),
+            _r(3, 75)]),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W2 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Push-Up', sets: 5, repsMin: 10),
+    StarterSlot.custom('Front Squat', weightKg: 100.0,
+        customSets: [_r(3, 45), _r(3, 45), _r(3, 55), _r(3, 55),
+            _r(2, 60), _r(2, 60), _r(2, 60), _r(2, 60)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W2 · Wed', [
+    StarterSlot.custom('Deadlift to Knees', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 75), _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(6, 50), _r(6, 60), _r(6, 60), _r(6, 65),
+            _r(6, 65), _r(6, 65), _r(6, 65)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 55), _r(4, 65), _r(4, 75), _r(4, 75),
+            _r(4, 80), _r(4, 80), _r(4, 80), _r(4, 80)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W2 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(3, 75), _r(5, 65), _r(7, 55)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(4, 70),
+            _r(4, 70), _r(4, 70), _r(4, 70)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W3 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 55), _r(4, 65), _r(3, 75), _r(3, 75),
+            _r(2, 85), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Push-Up', sets: 5, repsMin: 10),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 80),
+            _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W3 · Wed', [
+    StarterSlot.custom('Deficit Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 50), _r(3, 60), _r(3, 60),
+            _r(3, 65), _r(3, 65), _r(3, 65), _r(3, 65)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 85), _r(2, 85),
+            _r(3, 80), _r(3, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 60), _r(4, 70), _r(4, 70), _r(3, 80),
+            _r(3, 80), _r(2, 90), _r(2, 90), _r(2, 90)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W3 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80), _r(3, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Overhead Press', sets: 5, repsMin: 4),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W4 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(4, 75), _r(4, 75),
+            _r(4, 75), _r(4, 75), _r(4, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot.custom('Front Squat', weightKg: 100.0,
+        customSets: [_r(5, 40), _r(5, 40), _r(4, 50), _r(4, 50),
+            _r(3, 60), _r(3, 60), _r(3, 60)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#29 · W4 · Wed', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85),
+            _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 70), _r(5, 70),
+            _r(5, 70), _r(5, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+  ]),
+  StarterDay('#29 · W4 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(6, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(3, 80),
+            _r(3, 80), _r(4, 70), _r(6, 60), _r(8, 50)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#30 · W1 · Mon', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 70), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 55), _r(4, 65), _r(3, 75), _r(3, 75),
+            _r(3, 75), _r(3, 75), _r(3, 75)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W1 · Wed', [
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(3, 75), _r(3, 75), _r(2, 80), _r(2, 80), _r(1, 85),
+            _r(1, 85), _r(2, 80), _r(2, 80), _r(3, 75), _r(3, 75),
+            _r(4, 70), _r(6, 65), _r(8, 60), _r(10, 55), _r(12, 50)]),
+    StarterSlot('Dumbbell Fly', sets: 6, repsMin: 4),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(5, 60), _r(4, 70), _r(4, 70), _r(3, 80),
+            _r(3, 80), _r(3, 80), _r(2, 90), _r(2, 90), _r(2, 90),
+            _r(2, 90)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#30 · W1 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80),
+            _r(2, 80), _r(2, 80)]),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 6),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(4, 70),
+            _r(4, 70), _r(4, 70), _r(4, 70)]),
+    StarterSlot('French Press', sets: 5, repsMin: 10),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W2 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(2, 80), _r(2, 80), _r(1, 90), _r(1, 90),
+            _r(1, 90)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80),
+            _r(2, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Push-Up', sets: 5, repsMin: 10),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W2 · Wed', [
+    StarterSlot.custom('Deadlift to Knees', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 75), _r(3, 75), _r(3, 75), _r(3, 75)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(3, 75), _r(3, 75), _r(2, 80), _r(2, 80), _r(3, 75),
+            _r(3, 75), _r(5, 70), _r(5, 70), _r(7, 60), _r(9, 50)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W2 · Fri', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80),
+            _r(2, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(4, 55), _r(3, 65), _r(2, 75), _r(2, 75),
+            _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot('Leg Press', sets: 5, repsMin: 6),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 6),
+  ]),
+  StarterDay('#30 · W3 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(6, 50), _r(6, 60), _r(6, 65), _r(6, 65),
+            _r(6, 65), _r(6, 65)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(5, 65), _r(4, 75),
+            _r(4, 75), _r(4, 75), _r(4, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W3 · Wed', [
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85),
+            _r(2, 85)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(6, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(3, 75), _r(3, 75), _r(2, 80), _r(2, 80), _r(1, 85),
+            _r(1, 85), _r(2, 80), _r(2, 80), _r(3, 75), _r(3, 75),
+            _r(5, 70), _r(7, 65), _r(9, 60), _r(11, 55), _r(13, 50)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(5, 65), _r(5, 75), _r(5, 75), _r(4, 85),
+            _r(4, 85), _r(4, 85), _r(4, 85)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#30 · W3 · Fri', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85),
+            _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W4 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(1, 90),
+            _r(1, 90)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W4 · Wed', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(4, 75), _r(4, 75),
+            _r(4, 75), _r(4, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#30 · W4 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 70), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#31 · W1 · Mon', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85),
+            _r(2, 85)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(2, 70),
+            _r(4, 70), _r(6, 70), _r(8, 70), _r(7, 70), _r(5, 70),
+            _r(3, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(6, 50), _r(6, 60), _r(6, 60), _r(6, 65),
+            _r(6, 65), _r(6, 65), _r(6, 65)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(4, 65),
+            _r(4, 65), _r(4, 65), _r(4, 65)]),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#31 · W1 · Wed', [
+    StarterSlot.custom('Deadlift to Knees', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(4, 60), _r(4, 70),
+            _r(4, 70), _r(4, 70), _r(4, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(3, 75), _r(3, 75), _r(2, 80), _r(2, 80), _r(1, 85),
+            _r(1, 85), _r(2, 80), _r(2, 80), _r(3, 75), _r(3, 75),
+            _r(4, 70), _r(6, 65), _r(8, 60), _r(10, 55), _r(12, 50)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(5, 60), _r(4, 70), _r(3, 80), _r(3, 80),
+            _r(2, 90), _r(2, 90), _r(2, 90), _r(2, 90)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#31 · W1 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(4, 60), _r(3, 70),
+            _r(3, 70), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80),
+            _r(2, 80), _r(2, 80)]),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 6),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(4, 75), _r(4, 75),
+            _r(4, 75), _r(4, 75)]),
+    StarterSlot('French Press', sets: 5, repsMin: 10),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#31 · W2 · Mon', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(1, 90), _r(1, 90), _r(1, 90)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(5, 75), _r(5, 75),
+            _r(5, 75), _r(5, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Leg Press', sets: 5, repsMin: 6),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#31 · W2 · Wed', [
+    StarterSlot.custom('Deficit Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(3, 65),
+            _r(3, 65), _r(3, 65), _r(3, 65)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(6, 50), _r(5, 60), _r(4, 70), _r(4, 70),
+            _r(3, 75), _r(3, 75), _r(2, 80), _r(2, 80), _r(1, 85),
+            _r(1, 85), _r(3, 75), _r(5, 65), _r(7, 55)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 55), _r(3, 65), _r(3, 65), _r(3, 75),
+            _r(3, 75), _r(2, 85), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 4, repsMin: 10),
+  ]),
+  StarterDay('#31 · W2 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 85), _r(2, 85), _r(2, 85),
+            _r(2, 85)]),
+    StarterSlot('Incline Bench Press', sets: 6, repsMin: 4),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(6, 50), _r(6, 60), _r(6, 65), _r(6, 65),
+            _r(6, 65), _r(6, 65)]),
+    StarterSlot('Triceps Pushdown', sets: 5, repsMin: 10),
+    StarterSlot('Back Extension', sets: 4, repsMin: 10),
+  ]),
+  StarterDay('#31 · W3 · Mon', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 70), _r(8, 70),
+            _r(3, 70), _r(6, 70), _r(2, 70), _r(7, 70), _r(4, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(5, 70), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#31 · W3 · Wed', [
+    StarterSlot.custom('Deadlift to Knees', weightKg: 120.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(8, 50), _r(7, 55), _r(6, 60), _r(5, 65),
+            _r(4, 70), _r(3, 75), _r(3, 75), _r(2, 80), _r(2, 80),
+            _r(1, 85), _r(1, 85), _r(2, 80), _r(2, 80), _r(3, 75),
+            _r(4, 70), _r(6, 65), _r(8, 60), _r(10, 55), _r(12, 50)]),
+    StarterSlot.custom('Block Deadlift', weightKg: 120.0,
+        customSets: [_r(4, 60), _r(4, 70), _r(3, 80), _r(3, 80),
+            _r(2, 90), _r(2, 90), _r(2, 90)]),
+    StarterSlot('Leg Press', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#31 · W3 · Fri', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85),
+            _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 60), _r(5, 70),
+            _r(5, 70), _r(5, 70), _r(5, 70), _r(5, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#31 · W4 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(1, 90), _r(1, 90), _r(1, 90),
+            _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85),
+            _r(2, 85)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot('Walking Lunge', sets: 5, repsMin: 5),
+    StarterSlot('Back Extension', sets: 4, repsMin: 10),
+  ]),
+  StarterDay('#31 · W4 · Wed', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(1, 90), _r(1, 90), _r(1, 90),
+            _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(1, 90), _r(1, 90)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Leg Press', sets: 6, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#31 · W4 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(4, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(5, 55), _r(5, 65), _r(4, 75), _r(4, 75),
+            _r(4, 75), _r(4, 75), _r(4, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Chest Dip', sets: 5, repsMin: 8),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(5, 50), _r(5, 60), _r(5, 70), _r(5, 70),
+            _r(5, 70), _r(5, 70)]),
+    StarterSlot('Seated Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#32 · W1 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#32 · W1 · Wed', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(2, 70),
+            _r(2, 70), _r(2, 80), _r(1, 90), _r(1, 95)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(2, 70), _r(2, 70),
+            _r(2, 80), _r(1, 90), _r(1, 95)]),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(2, 60), _r(2, 70), _r(2, 70),
+            _r(1, 80), _r(1, 90), _r(1, 95)]),
+  ]),
+  StarterDay('#32 · W1 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(3, 70),
+            _r(3, 70), _r(2, 75), _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 55), _r(3, 65), _r(3, 65), _r(3, 75),
+            _r(3, 75), _r(3, 75), _r(3, 75), _r(3, 75), _r(3, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#32 · W2 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(3, 70),
+            _r(3, 70), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 55), _r(3, 65), _r(3, 65), _r(3, 75),
+            _r(3, 75), _r(3, 75), _r(3, 75)]),
+    StarterSlot('Dumbbell Fly', sets: 4, repsMin: 8),
+  ]),
+  StarterDay('#32 · W2 · Wed', [
+    StarterSlot.custom('Deadlift to Knees', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(2, 60), _r(2, 60), _r(2, 65),
+            _r(2, 65), _r(1, 70), _r(1, 70), _r(1, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(2, 85), _r(2, 85), _r(2, 85)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot('Crunch', sets: 3, repsMin: 10),
+  ]),
+  StarterDay('#32 · W2 · Fri', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(3, 70),
+            _r(3, 70), _r(3, 80), _r(3, 80), _r(3, 80), _r(3, 80),
+            _r(3, 80), _r(3, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(4, 50), _r(4, 60), _r(4, 70), _r(4, 70),
+            _r(4, 70), _r(4, 70)]),
+    StarterSlot('Dumbbell Fly', sets: 5, repsMin: 10),
+    StarterSlot('Good Morning', sets: 5, repsMin: 5),
+  ]),
+  StarterDay('#32 · W3 · Mon', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(1, 85), _r(1, 85),
+            _r(1, 85)]),
+    StarterSlot('Dumbbell Fly', sets: 4, repsMin: 8),
+    StarterSlot('Crunch', sets: 5, repsMin: 4),
+  ]),
+  StarterDay('#32 · W3 · Wed', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80), _r(2, 80)]),
+    StarterSlot('Dumbbell Fly', sets: 4, repsMin: 8),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(3, 70),
+            _r(3, 70), _r(2, 75), _r(2, 75), _r(2, 75), _r(2, 75),
+            _r(2, 75)]),
+    StarterSlot('Good Morning', sets: 4, repsMin: 5),
+  ]),
+  StarterDay('#32 · W3 · Fri', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(2, 70),
+            _r(2, 70), _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 70), _r(3, 70),
+            _r(2, 75), _r(2, 75), _r(2, 75), _r(2, 75)]),
+    StarterSlot('Crunch', sets: 3, repsMin: 8),
+  ]),
+  StarterDay('#32 · W4 · Mon', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(2, 70),
+            _r(2, 70), _r(1, 75), _r(1, 75), _r(1, 75), _r(1, 75)]),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(2, 60), _r(2, 60), _r(2, 70),
+            _r(2, 70), _r(2, 70), _r(2, 70)]),
+    StarterSlot('Crunch', sets: 2, repsMin: 8),
+  ]),
+  StarterDay('#32 · W4 · Wed', [
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(2, 70),
+            _r(2, 70), _r(2, 70)]),
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(3, 60), _r(2, 70),
+            _r(2, 70), _r(2, 70)]),
+  ]),
+  StarterDay('#32 · W4 · Meet', [
+    StarterSlot.custom('Bench Press', weightKg: 70.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(2, 70), _r(2, 70),
+            _r(1, 80), _r(1, 80), _r(1, 90), _r(1, 95), _r(1, 105)]),
+    StarterSlot.custom('Back Squat', weightKg: 100.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(2, 70), _r(2, 70),
+            _r(1, 80), _r(1, 80), _r(1, 90), _r(1, 95), _r(1, 105)]),
+    StarterSlot.custom('Deadlift', weightKg: 120.0,
+        customSets: [_r(3, 50), _r(3, 60), _r(2, 70), _r(2, 70),
+            _r(1, 80), _r(1, 80), _r(1, 90), _r(1, 95), _r(1, 105)]),
+  ]),
+];
+
+/// One written-out row: [reps] reps at [percent]% of the slot's training max.
+///
+/// A two-letter name because Sheiko is nine hundred of these and the shape of a
+/// session — where the reps drop and the percentage climbs — is only legible if
+/// a row fits on part of a line.
+CustomSet _r(int reps, int percent) =>
+    CustomSet(reps: reps, percent: percent);
 
 /// One main lift on the 5/3/1 cycle, opening at a training max of [tm] and
 /// gaining [step] each time the cycle comes round.

@@ -1175,4 +1175,90 @@ void main() {
       await stop(tester);
     });
   });
+
+  group('a long routine offers the session you are on, not all of them', () {
+    /// A routine of [days] training days, made current — the shape a program
+    /// written out session by session arrives in.
+    Future<int> longRoutine(WidgetTester tester, int days) async {
+      return (await tester.runAsync(() async {
+        final rid = await db.createRoutine(
+            name: 'Long', color: 'FF6A3D', restSeconds: 90);
+        for (var i = 1; i <= days; i++) {
+          await db.createWorkout(rid, 'Day $i');
+        }
+        await db.setActiveRoutineId(rid);
+        return rid;
+      }))!;
+    }
+
+    Future<void> pumpToday(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+          routedAppUnder(container, const TodayScreen(), scaffold: true));
+      await pumpThroughDatabase(tester);
+    }
+
+    testWidgets('a week of days is listed whole', (tester) async {
+      await longRoutine(tester, 7);
+      await pumpToday(tester);
+
+      for (var i = 1; i <= 7; i++) {
+        expect(find.text('Day $i'), findsOneWidget, reason: 'Day $i is hidden');
+      }
+      expect(find.byKey(kTodayShowAllWorkoutsKey), findsNothing,
+          reason: 'nothing is folded, so nothing offers to unfold it');
+
+      await stop(tester);
+    });
+
+    testWidgets('past that, it shows the one you are on and its neighbours',
+        (tester) async {
+      await longRoutine(tester, 10);
+      await pumpToday(tester);
+
+      // Nothing has been trained, so the session you are on is the first: no
+      // day before it, and the two after it.
+      for (final name in const ['Day 1', 'Day 2', 'Day 3']) {
+        expect(find.text(name), findsOneWidget, reason: '$name is not offered');
+      }
+      for (final name in const ['Day 4', 'Day 10']) {
+        expect(find.text(name), findsNothing,
+            reason: '$name buries the day you are on');
+      }
+      expect(find.byKey(kTodayShowAllWorkoutsKey), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('and the line underneath opens the rest in place',
+        (tester) async {
+      await longRoutine(tester, 10);
+      await pumpToday(tester);
+
+      await tester.tap(find.byKey(kTodayShowAllWorkoutsKey));
+      await pumpThroughDatabase(tester);
+
+      for (var i = 1; i <= 10; i++) {
+        expect(find.text('Day $i'), findsOneWidget,
+            reason: 'Day $i is still folded away');
+      }
+      expect(find.byKey(kTodayShowAllWorkoutsKey), findsNothing,
+          reason: 'opened, it is the plain list it always was');
+
+      await stop(tester);
+    });
+
+    testWidgets('the link says how many there are', (tester) async {
+      await longRoutine(tester, 10);
+      await pumpToday(tester);
+
+      expect(find.text(l10nFor().todayShowAllWorkouts(10)), findsOneWidget);
+
+      await stop(tester);
+    });
+  });
 }

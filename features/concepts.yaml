@@ -170,9 +170,17 @@ concepts:
   - id: template.training-max
     area: template
     what: >-
-      The one weight a cycle's percentages are taken from, and what moves it —
-      a number you train off rather than one you lift.
+      The one weight a written-out slot's percentages are taken from, and what
+      moves it — a number you train off rather than one you lift.
     code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
+
+  - id: template.percentage-base
+    area: template
+    what: >-
+      Which lift a movement takes its percentages from — a front squat off the
+      squat, a deficit deadlift off the deadlift — and the grouping that lets
+      one number reach every slot in a routine that shares a base.
+    code: [lib/data/percentage_base.dart, lib/screens/training_max_screen.dart]
 
   - id: template.superset
     area: template
@@ -212,6 +220,13 @@ concepts:
     area: template
     what: Which routine is the current one, and so what Today offers.
     code: [lib/screens/today_screen.dart, lib/providers/providers.dart]
+
+  - id: template.long-routine
+    area: template
+    what: >-
+      How a routine with more days than a week has is offered — the next session
+      first, the rest behind a tap — rather than listed in full.
+    code: [lib/screens/today_screen.dart]
 
   # ----------------------------------------------------------------- session
   - id: session.live-state

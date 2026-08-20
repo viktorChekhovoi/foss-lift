@@ -41,8 +41,8 @@ void main() {
       final all = await db.watchExercises().first;
       final starters = all.where((e) => !e.isCustom).toList();
 
-      // 136 curated movements. Exactly the seeded set is custom-free.
-      expect(starters.length, 136);
+      // 141 curated movements. Exactly the seeded set is custom-free.
+      expect(starters.length, 141);
       expect(all.every((e) => !e.isCustom), isTrue);
     });
 
@@ -191,6 +191,87 @@ void main() {
         all.map((e) => e.name),
         containsAll(['Zercher Squat', 'Bench Press']),
       );
+    });
+  });
+
+  group('the movements a percentage program writes by name', () {
+    /// The starter called [name] — named in the failure rather than left as a
+    /// "No element" from inside a `firstWhere`.
+    Future<Exercise> starter(String name) async {
+      final match =
+          (await db.watchExercises().first).where((e) => e.name == name);
+      expect(match, hasLength(1), reason: '$name is not in the library');
+      return match.single;
+    }
+
+    test('the deadlifts that change where the bar starts and stops are seeded',
+        () async {
+      for (final name in const [
+        'Deadlift to Knees',
+        'Block Deadlift',
+        'Deficit Deadlift',
+      ]) {
+        final e = await starter(name);
+        expect(e.isCustom, isFalse, reason: name);
+        expect(e.seedKey, isNotNull,
+            reason: '$name has to follow the language');
+        expect(e.equipment, 'Barbell', reason: name);
+      }
+    });
+
+    test('each of them takes its percentages from the deadlift', () {
+      for (final name in const [
+        'Deadlift to Knees',
+        'Block Deadlift',
+        'Deficit Deadlift',
+      ]) {
+        expect(percentageBaseFor(name), 'Deadlift', reason: name);
+      }
+    });
+
+    test('each is its own movement, with its own history', () async {
+      final rows = await db.watchExercises().first;
+      final ids = {
+        for (final name in const [
+          'Deadlift',
+          'Deadlift to Knees',
+          'Block Deadlift',
+          'Deficit Deadlift',
+        ])
+          name: rows.firstWhere((e) => e.name == name).id,
+      };
+      expect(ids.values.toSet(), hasLength(4),
+          reason: 'a variation that shares a row shares a history');
+    });
+
+    test('the seated good morning and the French press are seeded', () async {
+      for (final name in const ['Seated Good Morning', 'French Press']) {
+        final e = await starter(name);
+        expect(e.isCustom, isFalse, reason: name);
+        expect(e.seedKey, isNotNull, reason: name);
+      }
+    });
+
+    test('the French press is not the skull crusher beside it', () async {
+      final french = await starter('French Press');
+      final skull = await starter('Skull Crusher');
+      expect(french.id, isNot(skull.id));
+      expect(french.muscles.trains('Arms'), isTrue);
+    });
+
+    test('the seated good morning leaves the work to the back', () async {
+      final e = await starter('Seated Good Morning');
+      expect(e.muscles.trains('Back'), isTrue);
+      expect(e.equipment, 'Barbell');
+    });
+
+    test('and none of the five names a base of its own', () {
+      // A movement that names no base is its own — which is what the seated
+      // good morning and the French press are, being accessories rather than
+      // versions of a competition lift.
+      for (final name in const ['Seated Good Morning', 'French Press']) {
+        expect(percentageBaseFor(name), name, reason: name);
+      }
     });
   });
 
@@ -1831,6 +1912,12 @@ void main() {
     }
 
     testWidgets('the library filters to what the chips say', (tester) async {
+      // Tall enough to hold the whole Legs + Barbell list without scrolling —
+      // the assertions below are about what the filter leaves, not about what
+      // fits on a phone.
+      tester.view.physicalSize = const Size(390, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       final container = containerFor(db);
       addTearDown(container.dispose);
       await tester.pumpWidget(routedAppUnder(container, const LibraryScreen()));

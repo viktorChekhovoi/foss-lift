@@ -9,6 +9,7 @@ import '../router.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/common.dart';
+import 'training_max_screen.dart';
 
 /// A routine's training days. You start a workout from here, never the routine
 /// itself — a routine is a container, not a session.
@@ -22,6 +23,11 @@ class RoutineDetailScreen extends ConsumerWidget {
     final routines = ref.watch(routinesProvider).value;
     final workouts = ref.watch(routineWorkoutsProvider(routineId));
     final isCurrent = ref.watch(currentRoutineProvider)?.routine.id == routineId;
+    // Only where there is one to set. A routine of flat sets has no training
+    // max, and an action that opens onto nothing is worse than a missing one.
+    final hasTrainingMaxes =
+        (ref.watch(trainingMaxGroupsProvider(routineId)).value ?? const [])
+            .isNotEmpty;
     final nextId = ref.watch(nextWorkoutIdProvider(routineId));
 
     Routine? routine;
@@ -57,6 +63,14 @@ class RoutineDetailScreen extends ConsumerWidget {
                     .read(databaseProvider)
                     .setActiveRoutineId(routineId),
           ),
+          if (hasTrainingMaxes)
+            IconButton(
+              key: trainingMaxButtonKey,
+              tooltip: l10n.trainingMaxOpen,
+              icon: const Icon(Icons.percent),
+              onPressed: () =>
+                  context.push('/routine/$routineId/training-maxes'),
+            ),
           IconButton(
             tooltip: l10n.routineDetailShare,
             icon: const Icon(Icons.ios_share),

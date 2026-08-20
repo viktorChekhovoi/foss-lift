@@ -51,6 +51,14 @@ final routineWorkoutsProvider =
       return ref.watch(databaseProvider).watchWorkoutsForRoutine(routineId);
     });
 
+/// The percentage bases of one routine, each with the slots it covers — what the
+/// training-max screen is a list of, and what decides whether that screen is
+/// offered on a routine at all.
+final trainingMaxGroupsProvider =
+    StreamProvider.family<List<TrainingMaxGroup>, int>((ref, routineId) {
+      return ref.watch(databaseProvider).watchTrainingMaxGroups(routineId);
+    });
+
 /// One routine gathered into the shape it travels in — see `routine_code.dart`.
 ///
 /// Watches the routine's workouts as well as reading it, so the code on the

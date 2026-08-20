@@ -58,6 +58,7 @@ const _kLibraryOrder = [
   '531-beginners',
   'candito-linear-control',
   'candito-linear-hypertrophy',
+  'sheiko-29-32',
 ];
 
 /// The languages a shipped program has to read in.
@@ -85,7 +86,7 @@ Future<void> _pumpRoutines(WidgetTester tester, AppDatabase db) async {
 /// A tall, phone-wide viewport, so a list of training days is on screen rather
 /// than below the fold.
 void _tallPhone(WidgetTester tester) {
-  tester.view.physicalSize = const Size(390, 2400);
+  tester.view.physicalSize = const Size(390, 3000);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 }
@@ -262,7 +263,7 @@ void main() {
   });
 
   group('the library holds the programs the app ships', () {
-    test('fifteen of them, each with its own key', () {
+    test('sixteen of them, each with its own key', () {
       expect(kStarterRoutines, hasLength(_kLibraryOrder.length));
       expect(kStarterRoutines.map((p) => p.key).toSet(),
           hasLength(_kLibraryOrder.length),
@@ -427,6 +428,212 @@ void main() {
         expect(library[name]!.isCustom, isFalse);
         expect(library[name]!.seedKey, isNotNull,
             reason: '$name has to follow the language');
+      }
+    });
+  });
+
+  // -------------------------------------------------------------- Sheiko
+
+  group('one of the programs is Sheiko #29–32', () {
+    StarterRoutine sheiko() => _program('sheiko-29-32');
+
+    /// The slots of the session named [day].
+    List<StarterSlot> session(String day) {
+      final match = sheiko().days.where((d) => d.name == day);
+      expect(match, hasLength(1), reason: 'Sheiko has no session called $day');
+      return match.single.items;
+    }
+
+    /// Every slot of the program whose sets are written out as percentages.
+    Iterable<StarterSlot> percentageSlots() => sheiko()
+        .days
+        .expand((d) => d.items)
+        .where((s) => s.customSets.isNotEmpty);
+
+    test('it is in the library, named as the program is named', () {
+      expect(sheiko().name, 'Sheiko #29–32');
+      expect(sheiko().seedKey, kSeedRoutineKeys['Sheiko #29–32'],
+          reason: 'a shipped row follows the language');
+      expect(sheiko().description, isNotEmpty);
+    });
+
+    test('it arrives as forty-eight sessions in order', () {
+      final days = sheiko().days;
+      expect(days, hasLength(48));
+      expect(days.first.name, '#29 · W1 · Mon');
+      expect(days.last.name, '#32 · W4 · Meet');
+      expect(days.map((d) => d.name).toSet(), hasLength(48),
+          reason: 'two sessions sharing a name are two sessions you cannot '
+              'tell apart on Today');
+    });
+
+    test('and not as a rotation — no session is empty', () {
+      for (final day in sheiko().days) {
+        expect(day.items, isNotEmpty, reason: '${day.name} prescribes nothing');
+      }
+      expect(sheiko().exerciseCount,
+          sheiko().days.fold<int>(0, (sum, d) => sum + d.items.length));
+    });
+
+    test('the first session runs bench, squat, bench, fly, good morning', () {
+      expect(
+        session('#29 · W1 · Mon').map((s) => s.exercise),
+        const [
+          'Bench Press',
+          'Back Squat',
+          'Bench Press',
+          'Dumbbell Fly',
+          'Good Morning',
+        ],
+      );
+    });
+
+    test('a lift that comes round twice in a session is two slots', () {
+      final day = session('#29 · W1 · Mon');
+      final benches = day.where((s) => s.exercise == 'Bench Press').toList();
+      expect(benches, hasLength(2));
+      expect(benches[0], isNot(same(benches[1])),
+          reason: 'the second bench is not the first with more sets on it');
+      expect(
+        benches[0].customSets.map((r) => (r.reps, r.percent)),
+        isNot(benches[1].customSets.map((r) => (r.reps, r.percent))),
+        reason: 'the second bench is at its own percentages',
+      );
+    });
+
+    /// The working half of [session]'s first squat: the rows at 70%, which is
+    /// where these two sessions put their irregular ladder. The lighter rows
+    /// above them are the ramp up to it.
+    List<int> workingReps(String day) {
+      final squat =
+          session(day).firstWhere((s) => s.exercise == 'Back Squat');
+      return [
+        for (final row in squat.customSets)
+          if (row.percent == 70) row.reps,
+      ];
+    }
+
+    test("#31 W1 Mon's squat keeps the rep order it is written in", () {
+      expect(workingReps('#31 · W1 · Mon'), const [2, 4, 6, 8, 7, 5, 3]);
+    });
+
+    test("and so does #31 W3 Mon's", () {
+      expect(workingReps('#31 · W3 · Mon'), const [5, 8, 3, 6, 2, 7, 4]);
+    });
+
+    test('every percentage slot carries a max and a written-out week', () {
+      expect(percentageSlots(), isNotEmpty);
+      for (final slot in percentageSlots()) {
+        expect(slot.weightKg, isNotNull,
+            reason: '${slot.exercise} has percentages of nothing');
+        expect(slot.customSets.every((r) => r.percent > 0), isTrue,
+            reason: '${slot.exercise} has a row at no percentage');
+      }
+    });
+
+    test('none of them steps, and none of them backs off', () {
+      for (final slot in percentageSlots()) {
+        expect(slot.increment, 0,
+            reason: '${slot.exercise} adds to a max the program already moves');
+        expect(slot.deload, 0, reason: '${slot.exercise} backs a max off');
+      }
+    });
+
+    test('and the copy carries those zeroes onto the slots', () async {
+      await db.seedWeightUnit('kg');
+      final rid = await db.addStarterRoutine(sheiko());
+      final days = await db.workoutsForRoutine(rid);
+      expect(days, hasLength(48));
+
+      var written = 0;
+      for (final day in days) {
+        for (final v in await db.itemsForWorkout(day.id)) {
+          if (!v.item.scheme.isWrittenOut) continue;
+          written++;
+          expect(v.item.increment, 0, reason: v.exercise.name);
+          expect(v.item.deload, 0, reason: v.exercise.name);
+          expect(v.item.suggestedWeight, isNotNull, reason: v.exercise.name);
+        }
+      }
+      expect(written, greaterThan(100),
+          reason: 'the competition lifts are written out set by set');
+    });
+
+    test('the max test finishes above the max it opened at', () {
+      final meet = session('#32 · W4 · Meet');
+      final tops = meet
+          .expand((s) => s.customSets)
+          .map((r) => r.percent)
+          .toList();
+      expect(tops, isNotEmpty);
+      expect(tops.reduce((a, b) => a > b ? a : b), greaterThan(100),
+          reason: 'the meet session finishes on a single above the max');
+    });
+
+    test('a 100 kg bench max makes an 80% row 80 kg', () {
+      final slot = percentageSlots().firstWhere(
+        (s) =>
+            s.exercise == 'Bench Press' &&
+            s.customSets.any((r) => r.percent == 80),
+        orElse: () => throw StateError('no bench row at 80%'),
+      );
+      final targets = resolveSetTargets(
+        scheme: SetScheme.custom,
+        sets: slot.customSets.length,
+        goalReps: 0,
+        topWeightKg: 100,
+        unit: 'kg',
+        custom: slot.customSets,
+      );
+      final at80 = [
+        for (var i = 0; i < slot.customSets.length; i++)
+          if (slot.customSets[i].percent == 80) targets[i].weightKg,
+      ];
+      expect(at80, everyElement(80.0));
+    });
+
+    test('the accessories carry sets and reps and no weight', () {
+      final accessories = sheiko()
+          .days
+          .expand((d) => d.items)
+          .where((s) => const ['Dumbbell Fly', 'Good Morning', 'Crunch']
+              .contains(s.exercise));
+
+      expect(accessories, isNotEmpty);
+      for (final slot in accessories) {
+        expect(slot.customSets, isEmpty,
+            reason: '${slot.exercise} was given a percentage the source '
+                'deliberately left to the lifter');
+        expect(slot.weightKg, isNull, reason: slot.exercise);
+        expect(slot.sets, greaterThan(0), reason: slot.exercise);
+        expect(slot.repsMin, greaterThan(0), reason: slot.exercise);
+      }
+    });
+
+    test('its variations train off the competition lift', () {
+      final bases = {
+        for (final slot in percentageSlots())
+          slot.exercise: percentageBaseFor(slot.exercise),
+      };
+      expect(bases['Front Squat'], 'Back Squat',
+          reason: 'the front squats are percentages of the squat');
+      for (final entry in bases.entries) {
+        expect(
+          entry.value,
+          isIn(const ['Back Squat', 'Bench Press', 'Deadlift']),
+          reason: '${entry.key} asks for a max of its own',
+        );
+      }
+    });
+
+    test('every movement it names is in the starter library', () async {
+      final library =
+          (await db.watchExercises().first).map((e) => e.name).toSet();
+      for (final day in sheiko().days) {
+        for (final slot in day.items) {
+          expect(library, contains(slot.exercise),
+              reason: '${day.name} names ${slot.exercise}');
+        }
       }
     });
   });

@@ -24,6 +24,9 @@ const Map<String, String> kSeedExerciseKeys = {
   'Chest Dip': 'chest_dip',
   'Deadlift': 'deadlift',
   'Pause Deadlift': 'pause_deadlift',
+  'Deadlift to Knees': 'deadlift_to_knees',
+  'Block Deadlift': 'block_deadlift',
+  'Deficit Deadlift': 'deficit_deadlift',
   'Barbell Row': 'barbell_row',
   'Barbell Shrug': 'barbell_shrug',
   'Dumbbell Row': 'dumbbell_row',
@@ -54,6 +57,7 @@ const Map<String, String> kSeedExerciseKeys = {
   'Sumo Deadlift': 'sumo_deadlift',
   'Romanian Deadlift': 'romanian_deadlift',
   'Good Morning': 'good_morning',
+  'Seated Good Morning': 'seated_good_morning',
   'Goblet Squat': 'goblet_squat',
   'Bulgarian Split Squat': 'bulgarian_split_squat',
   'Walking Lunge': 'walking_lunge',
@@ -73,6 +77,7 @@ const Map<String, String> kSeedExerciseKeys = {
   'Preacher Curl': 'preacher_curl',
   'Close-Grip Bench Press': 'close_grip_bench_press',
   'Skull Crusher': 'skull_crusher',
+  'French Press': 'french_press',
   'Dumbbell Curl': 'dumbbell_curl',
   'Hammer Curl': 'hammer_curl',
   'Incline Dumbbell Curl': 'incline_dumbbell_curl',
@@ -182,6 +187,7 @@ const Map<String, String> kSeedRoutineKeys = {
   '5/3/1 for Beginners': 'five_three_one_beginners',
   'Candito Linear — Strength/Control': 'candito_linear_control',
   'Candito Linear — Strength/Hypertrophy': 'candito_linear_hypertrophy',
+  'Sheiko #29–32': 'sheiko_29_32',
 };
 
 /// The same, for their training days. The three barbell programs all name

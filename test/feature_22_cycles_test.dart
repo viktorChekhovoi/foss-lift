@@ -14,6 +14,8 @@ import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/data/routine_code.dart';
 import 'package:foss_lift/l10n/app_localizations.dart';
 import 'package:foss_lift/data/routine_import.dart';
+import 'package:foss_lift/screens/routine_detail_screen.dart';
+import 'package:foss_lift/screens/training_max_screen.dart';
 import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/screens/workout_detail_screen.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
@@ -1231,6 +1233,497 @@ void main() {
       // A cycle is a shape, and the explanation of a shape does not lean on
       // one program built from it.
       expect(l10n.itemEditorCycleExplained, isNot(contains('5/3/1')));
+    });
+  });
+
+  // ------------------------------------------------- the percentage base
+
+  group('a movement takes its percentages from the lift it is a version of',
+      () {
+    test('the squat variations come off the back squat', () {
+      expect(percentageBaseFor('Front Squat'), 'Back Squat');
+    });
+
+    test('the pulling variations come off the deadlift', () {
+      for (final name in const [
+        'Deadlift to Knees',
+        'Block Deadlift',
+        'Deficit Deadlift',
+      ]) {
+        expect(percentageBaseFor(name), 'Deadlift', reason: name);
+      }
+    });
+
+    test('a movement that names none is its own base', () {
+      expect(percentageBaseFor('Back Squat'), 'Back Squat');
+      expect(percentageBaseFor('Bench Press'), 'Bench Press');
+      expect(percentageBaseFor('Deadlift'), 'Deadlift');
+      expect(percentageBaseFor('Zercher Squat'), 'Zercher Squat',
+          reason: 'a movement you built is its own base');
+    });
+
+    test('no base is itself a variation', () {
+      for (final base in kPercentageBases.values.toSet()) {
+        expect(percentageBaseFor(base), base,
+            reason: '$base is a base and a variation at once');
+      }
+      for (final base in kPercentageBases.values.toSet()) {
+        expect(kPercentageBases.keys, isNot(contains(base)),
+            reason: '$base is a key and a value at once');
+      }
+    });
+
+    test('every movement the table names is in the starter library', () async {
+      final library =
+          (await db.watchExercises().first).map((e) => e.name).toSet();
+      for (final entry in kPercentageBases.entries) {
+        expect(library, contains(entry.key));
+        expect(library, contains(entry.value));
+      }
+    });
+  });
+
+  // --------------------------------------------- one screen, every max
+
+  group('one screen sets every training max in a routine', () {
+    /// Three written-out slots — two on the squat, one on the front squat —
+    /// beside a flat bench slot that has no training max at all.
+    ///
+    /// [frontSquatKg] is the front squat's own base, so a test can make the
+    /// slots under one lift disagree.
+    Future<int> percentageRoutine({double frontSquatKg = 100}) async {
+      final rid = await db.createRoutine(
+          name: 'Percentages', color: 'FF6A3D', restSeconds: 90);
+      final squat = await exerciseNamed(db, 'Back Squat');
+      final front = await exerciseNamed(db, 'Front Squat');
+      final bench = await exerciseNamed(db, 'Bench Press');
+
+      final one = await db.createWorkout(rid, 'Day 1');
+      await db.replaceWorkoutItems(one, [
+        WorkoutItemsCompanion.insert(
+          workoutId: one,
+          exerciseId: squat.id,
+          targetSets: const Value(3),
+          repsMin: const Value(5),
+          suggestedWeight: const Value(100),
+          scheme: const Value(SetScheme.custom),
+          customSets: Value(encodeCustomSets(const [
+            CustomSet(reps: 5, percent: 70),
+            CustomSet(reps: 5, percent: 80),
+          ])),
+        ),
+        WorkoutItemsCompanion.insert(
+          workoutId: one,
+          exerciseId: front.id,
+          targetSets: const Value(2),
+          repsMin: const Value(5),
+          suggestedWeight: Value(frontSquatKg),
+          scheme: const Value(SetScheme.custom),
+          customSets: Value(encodeCustomSets(const [
+            CustomSet(reps: 5, percent: 60),
+          ])),
+        ),
+        WorkoutItemsCompanion.insert(
+          workoutId: one,
+          exerciseId: bench.id,
+          targetSets: const Value(3),
+          repsMin: const Value(5),
+          suggestedWeight: const Value(60),
+        ),
+      ]);
+
+      final two = await db.createWorkout(rid, 'Day 2');
+      await db.replaceWorkoutItems(two, [
+        WorkoutItemsCompanion.insert(
+          workoutId: two,
+          exerciseId: squat.id,
+          targetSets: const Value(3),
+          repsMin: const Value(5),
+          suggestedWeight: const Value(100),
+          scheme: const Value(SetScheme.cycle),
+          cycleBlocks: Value(encodeCycleBlocks(k531)),
+        ),
+      ]);
+      return rid;
+    }
+
+    /// Every slot of [rid], by the movement it is on, in day order.
+    Future<Map<String, List<WorkoutItem>>> slotsOf(int rid) async {
+      final out = <String, List<WorkoutItem>>{};
+      for (final w in await db.workoutsForRoutine(rid)) {
+        for (final v in await db.itemsForWorkout(w.id)) {
+          out.putIfAbsent(v.exercise.name, () => []).add(v.item);
+        }
+      }
+      return out;
+    }
+
+    test('the routine is gathered by the lift the percentages come from',
+        () async {
+      final rid = await percentageRoutine();
+      final groups = await db.watchTrainingMaxGroups(rid).first;
+
+      expect(groups, hasLength(1),
+          reason: 'the flat bench slot has no training max to set');
+      expect(groups.single.base, 'Back Squat');
+      expect(groups.single.members, {'Back Squat': 2, 'Front Squat': 1});
+    });
+
+    test('a flat slot is not a training max', () async {
+      final rid = await db.createRoutine(
+          name: 'Flat', color: 'FF6A3D', restSeconds: 90);
+      final wid = await db.createWorkout(rid, 'Day 1');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      await db.replaceWorkoutItems(wid, [
+        WorkoutItemsCompanion.insert(
+          workoutId: wid,
+          exerciseId: bench.id,
+          targetSets: const Value(3),
+          repsMin: const Value(5),
+          suggestedWeight: const Value(60),
+        ),
+      ]);
+
+      expect(await db.watchTrainingMaxGroups(rid).first, isEmpty,
+          reason: 'a routine of flat sets has no training max to set');
+    });
+
+    test('a field opens on the number its slots already carry', () async {
+      final rid = await percentageRoutine();
+      final groups = await db.watchTrainingMaxGroups(rid).first;
+      expect(groups.single.weightKg, 100);
+    });
+
+    test('and on nothing where they disagree', () async {
+      final rid = await percentageRoutine(frontSquatKg: 80);
+      final groups = await db.watchTrainingMaxGroups(rid).first;
+
+      expect(groups.single.weightKg, isNull,
+          reason: 'the slots differ, so the field cannot claim a number');
+      expect(groups.single.members, {'Back Squat': 2, 'Front Squat': 1},
+          reason: 'they are still one lift');
+    });
+
+    test('setting one lift writes every slot whose base it is', () async {
+      final rid = await percentageRoutine(frontSquatKg: 80);
+      await db.setTrainingMax(rid, 'Back Squat', 120);
+
+      final slots = await slotsOf(rid);
+      expect(slots['Back Squat']!.map((s) => s.suggestedWeight), [120, 120]);
+      expect(slots['Front Squat']!.single.suggestedWeight, 120,
+          reason: 'the front squat trains off the squat');
+      expect(slots['Bench Press']!.single.suggestedWeight, 60,
+          reason: 'a lift the field does not name is left alone');
+    });
+
+    test('and the field then reads back what it wrote', () async {
+      final rid = await percentageRoutine(frontSquatKg: 80);
+      await db.setTrainingMax(rid, 'Back Squat', 120);
+
+      expect((await db.watchTrainingMaxGroups(rid).first).single.weightKg, 120);
+    });
+
+    test('a routine you built yourself is gathered the same way', () async {
+      final rid = await db.createRoutine(
+          name: 'Mine', color: 'FF6A3D', restSeconds: 90);
+      final wid = await db.createWorkout(rid, 'Bench');
+      final bench = await exerciseNamed(db, 'Bench Press');
+      await db.replaceWorkoutItems(wid, [
+        for (var i = 0; i < 3; i++)
+          WorkoutItemsCompanion.insert(
+            workoutId: wid,
+            exerciseId: bench.id,
+            position: Value(i),
+            targetSets: const Value(3),
+            repsMin: const Value(5),
+            suggestedWeight: const Value(90),
+            scheme: const Value(SetScheme.custom),
+            customSets: Value(encodeCustomSets(const [
+              CustomSet(reps: 5, percent: 75),
+            ])),
+          ),
+      ]);
+
+      final groups = await db.watchTrainingMaxGroups(rid).first;
+      expect(groups, hasLength(1));
+      expect(groups.single.base, 'Bench Press');
+      expect(groups.single.members, {'Bench Press': 3});
+
+      await db.setTrainingMax(rid, 'Bench Press', 105);
+      final after = await db.itemsForWorkout(wid);
+      expect(after.map((v) => v.item.suggestedWeight), [105, 105, 105]);
+    });
+
+    test('a lift in another routine is not touched', () async {
+      final mine = await percentageRoutine();
+      final theirs = await percentageRoutine();
+      await db.setTrainingMax(mine, 'Back Squat', 130);
+
+      final untouched = await slotsOf(theirs);
+      expect(untouched['Back Squat']!.map((s) => s.suggestedWeight),
+          [100, 100]);
+    });
+
+    testWidgets('the routine page offers the screen when there is one to set',
+        (tester) async {
+      final rid = (await tester.runAsync(percentageRoutine))!;
+      tester.view.physicalSize = const Size(390, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(routedAppUnder(
+        container,
+        RoutineDetailScreen(routineId: rid),
+        alsoRoutes: ['routine/$rid/training-maxes'],
+      ));
+      await pumpThroughDatabase(tester);
+
+      final button = find.byKey(const ValueKey('routine-training-maxes'));
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await pumpThroughDatabase(tester);
+      expect(find.text('at /routine/$rid/training-maxes'), findsOneWidget);
+
+      await stop(tester);
+    });
+
+    testWidgets('and does not offer it on a routine of flat sets',
+        (tester) async {
+      final rid = (await tester.runAsync(() async {
+        final id = await db.createRoutine(
+            name: 'Flat', color: 'FF6A3D', restSeconds: 90);
+        final wid = await db.createWorkout(id, 'Day 1');
+        final bench = await exerciseNamed(db, 'Bench Press');
+        await db.replaceWorkoutItems(wid, [
+          WorkoutItemsCompanion.insert(
+            workoutId: wid,
+            exerciseId: bench.id,
+            targetSets: const Value(3),
+            repsMin: const Value(5),
+            suggestedWeight: const Value(60),
+          ),
+        ]);
+        return id;
+      }))!;
+      tester.view.physicalSize = const Size(390, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(routedAppUnder(
+          container, RoutineDetailScreen(routineId: rid)));
+      await pumpThroughDatabase(tester);
+
+      expect(find.byKey(const ValueKey('routine-training-maxes')), findsNothing,
+          reason: 'an action that opens onto nothing is worse than none');
+
+      await stop(tester);
+    });
+
+    /// The text of the field keyed on [base].
+    String fieldText(WidgetTester tester, String base) => tester
+        .widget<EditableText>(find.descendant(
+          of: find.byKey(ValueKey('tm-field-$base')),
+          matching: find.byType(EditableText),
+          matchRoot: true,
+        ))
+        .controller
+        .text;
+
+    Future<void> pumpScreen(WidgetTester tester, int rid) async {
+      tester.view.physicalSize = const Size(390, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+          routedAppUnder(container, TrainingMaxScreen(routineId: rid)));
+      await pumpThroughDatabase(tester);
+    }
+
+    testWidgets('the screen offers one field per lift, filled in',
+        (tester) async {
+      final rid = (await tester.runAsync(percentageRoutine))!;
+      await pumpScreen(tester, rid);
+
+      expect(find.byKey(const ValueKey('tm-field-Back Squat')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tm-field-Front Squat')), findsNothing,
+          reason: 'the front squat trains off the squat and gets no field');
+      expect(find.byKey(const ValueKey('tm-field-Bench Press')), findsNothing);
+      expect(fieldText(tester, 'Back Squat'), '100');
+
+      await stop(tester);
+    });
+
+    testWidgets('each field names the movements it will write, and how many',
+        (tester) async {
+      final rid = (await tester.runAsync(percentageRoutine))!;
+      await pumpScreen(tester, rid);
+
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is Text &&
+            (w.data ?? '').contains('Back Squat') &&
+            (w.data ?? '').contains('Front Squat') &&
+            (w.data ?? '').contains('2') &&
+            (w.data ?? '').contains('1')),
+        findsOneWidget,
+        reason: 'a field that reached further than its label would be worse '
+            'than no field',
+      );
+
+      await stop(tester);
+    });
+
+    testWidgets('a field whose slots disagree opens empty and says so',
+        (tester) async {
+      final rid =
+          (await tester.runAsync(() => percentageRoutine(frontSquatKg: 80)))!;
+      await pumpScreen(tester, rid);
+
+      expect(fieldText(tester, 'Back Squat'), '');
+
+      await stop(tester);
+    });
+
+    testWidgets('typing a number and saving writes every slot under it',
+        (tester) async {
+      final rid =
+          (await tester.runAsync(() => percentageRoutine(frontSquatKg: 80)))!;
+      await pumpScreen(tester, rid);
+
+      await tester.enterText(
+          find.byKey(const ValueKey('tm-field-Back Squat')), '125');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('tm-save')));
+      await pumpThroughDatabase(tester);
+
+      final slots = (await tester.runAsync(() => slotsOf(rid)))!;
+      expect(slots['Back Squat']!.map((s) => s.suggestedWeight), [125, 125]);
+      expect(slots['Front Squat']!.single.suggestedWeight, 125);
+      expect(slots['Bench Press']!.single.suggestedWeight, 60);
+
+      await stop(tester);
+    });
+
+    testWidgets('a field left alone changes nothing', (tester) async {
+      final rid = (await tester.runAsync(percentageRoutine))!;
+      await pumpScreen(tester, rid);
+
+      await tester.tap(find.byKey(const ValueKey('tm-save')));
+      await pumpThroughDatabase(tester);
+
+      final slots = (await tester.runAsync(() => slotsOf(rid)))!;
+      expect(slots['Back Squat']!.map((s) => s.suggestedWeight), [100, 100]);
+      expect(slots['Front Squat']!.single.suggestedWeight, 100);
+
+      await stop(tester);
+    });
+  });
+
+  // ------------------------------------ a written-out slot is a training max
+
+  group('a written-out slot is a training max, cycle or not', () {
+    const rows = [
+      CustomSet(reps: 5, percent: 70),
+      CustomSet(reps: 3, percent: 80),
+      CustomSet(reps: 1, percent: 90),
+    ];
+
+    Future<WorkoutItem> customSlot({double tm = 100}) async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          targetSets: const Value(3),
+          repsMin: const Value(5),
+          suggestedWeight: Value(tm),
+          scheme: const Value(SetScheme.custom),
+          customSets: Value(encodeCustomSets(rows)),
+          increment: const Value(2.5),
+          deload: const Value(5),
+          progression: const Value(ProgressionMode.weight),
+        ),
+      ]);
+      return (await db.itemsForWorkout(push.id)).single.item;
+    }
+
+    test('loading the bar past the prescription does not move a custom max',
+        () async {
+      // Every set is a fraction of this number, so a heavy session must not be
+      // read as the number itself having gone up.
+      final it = await customSlot();
+      await db.advanceProgression(
+        it.id,
+        verdict: SessionVerdict.success,
+        performedWeight: 140,
+      );
+      final after = (await db.workoutItemById(it.id))!;
+      expect(after.suggestedWeight, 102.5,
+          reason: 'it steps by its own step, not by what was on the bar');
+    });
+
+    test('a custom slot whose step is nothing holds its max', () async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          targetSets: const Value(3),
+          repsMin: const Value(5),
+          suggestedWeight: const Value(100),
+          scheme: const Value(SetScheme.custom),
+          customSets: Value(encodeCustomSets(rows)),
+          increment: const Value(0),
+          deload: const Value(0),
+          progression: const Value(ProgressionMode.weight),
+        ),
+      ]);
+      final it = (await db.itemsForWorkout(push.id)).single.item;
+      await db.advanceProgression(
+        it.id,
+        verdict: SessionVerdict.success,
+        performedWeight: 140,
+      );
+      expect((await db.workoutItemById(it.id))!.suggestedWeight, 100);
+    });
+
+    testWidgets("a custom slot's one line names the weight a training max",
+        (tester) async {
+      final l10n = l10nFor();
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final draft = (await tester.runAsync(() async =>
+          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
+        ..weightKg = 100
+        ..scheme = SetScheme.custom
+        ..customSets = [...rows];
+      await tester.pumpWidget(appUnder(
+        container,
+        Scaffold(
+          body: ListView(children: [
+            WorkoutItemsEditor(
+                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
+          ]),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final line = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data)
+          .whereType<String>()
+          .firstWhere((t) => t.contains(rowsTargetLabel(l10n, rows)));
+      expect(
+        line,
+        contains(l10n.itemEditorSummaryTrainingMax(
+            l10n.unitWeightShort('100', l10n.unitKgSuffix))),
+        reason: 'a custom slot is percentages of its weight exactly as a '
+            'cycle is',
+      );
+
+      await stop(tester);
     });
   });
 }

@@ -269,6 +269,13 @@ class ItemDraft {
       ? cycleBlockAt(cycle, cyclePosition)
       : const [];
 
+  /// Whether this slot's sets are written out as percentages of its weight —
+  /// which is what makes that weight a training max rather than a load. The
+  /// draft's answer to `WorkoutItemTarget.runsPercentages`.
+  bool get runsPercentages => scheme == SetScheme.cycle
+      ? cycleRows.isNotEmpty
+      : (scheme == SetScheme.custom && customSets.isNotEmpty);
+
   /// Whether anything in the Advanced half of the Target card is in use. The
   /// card opens expanded when it is, so nothing a slot actually does is hidden
   /// behind a toggle somebody has to think to press.
@@ -637,11 +644,14 @@ String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
 /// Compact target/weight/progression summary for a draft item, e.g.
 /// "4 × 6–8 · 80 kg · +2.5 kg".
 String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
-  // A cycle's week is written out a set at a time, so the summary lists the
-  // rows rather than multiplying one of them — the same choice the training
-  // day makes.
-  final target = d.cycleRows.isNotEmpty
-      ? rowsTargetLabel(l10n, d.cycleRows)
+  // A written-out slot states its sets one at a time, so the summary lists the
+  // rows rather than multiplying one of them — the same choice the training day
+  // makes, and for the same reason: "3 × 5" over rows reading 5, 3 and 1 is a
+  // claim about all three that is false of two of them. A cycle shows the week
+  // it is on; a custom slot has only the one prescription.
+  final rows = d.scheme == SetScheme.cycle ? d.cycleRows : d.customSets;
+  final target = d.scheme.isWrittenOut && rows.isNotEmpty
+      ? rowsTargetLabel(l10n, rows)
       : setsTargetLabel(
           l10n,
           sets: d.sets,
@@ -657,10 +667,12 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
       ? null
       : l10n.unitWeightShort(
           fmtWeight(toDisplayWeight(d.weightKg!, unit)), unitSuffix(l10n, unit));
-  // A cycle's number is a training max rather than a load, and it is named as
-  // one here for the reason the board names it: the sets beside it are
-  // percentages of it, so an unlabelled figure claims to be what you lift.
-  final w = weight != null && d.scheme == SetScheme.cycle
+  // A written-out slot's number is a training max rather than a load, and it
+  // is named as one here for the reason the board names it: the sets beside it
+  // are percentages of it, so an unlabelled figure claims to be what you lift.
+  // True of a custom slot as much as of a cycle — both are fractions of one
+  // number.
+  final w = weight != null && d.runsPercentages
       ? l10n.itemEditorSummaryTrainingMax(weight)
       : weight;
   final step = '+${progressionAmount(l10n, d.increment, d.progression, unit)}';
@@ -1224,7 +1236,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ])
             else
               builderCard(
-                  d.scheme == SetScheme.cycle
+                  d.runsPercentages
                       ? '${l10n.itemEditorTrainingMax} '
                           '(${unitSuffix(l10n, _unit)})'
                       : l10n.itemEditorWeightWithUnit(

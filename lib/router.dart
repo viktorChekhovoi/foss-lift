@@ -20,6 +20,7 @@ import 'screens/routine_edit_screen.dart';
 import 'screens/routine_import_screen.dart';
 import 'screens/routine_library_screen.dart';
 import 'screens/routine_share_screen.dart';
+import 'screens/training_max_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/set_video_screen.dart';
 import 'screens/exercise_settings_screen.dart';
@@ -268,6 +269,11 @@ final appRouter = GoRouter(
       path: '/routine/:id/edit',
       builder: (c, s) =>
           RoutineEditScreen(routineId: int.parse(s.pathParameters['id']!)),
+    ),
+    GoRoute(
+      path: '/routine/:id/training-maxes',
+      builder: (c, s) =>
+          TrainingMaxScreen(routineId: int.parse(s.pathParameters['id']!)),
     ),
     GoRoute(
       path: '/workout/:id/edit',
