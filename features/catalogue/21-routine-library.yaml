@@ -1,9 +1,8 @@
 id: "21"
 title: The routine library
 tagline: >-
-  The programs the app ships live in a library you add from, rather than in your
-  routine list. Your list holds what you put there — a ready-made program, one
-  you built, or one somebody shared.
+  Shipped programs are immutable library templates. Your routine list contains
+  only routines you add, build, or import.
 screen: routine-library
 code:
 - lib/data/starter_routines.dart
@@ -23,7 +22,12 @@ groups:
   - id: library-holds-the-programs-the-app-ships
     t: The library holds the programs the app ships
     d: >-
-      sixteen of them. Two hypertrophy splits — Push / Pull / Legs and Upper / Lower — and three beginner barbell programs, Starting Strength, StrongLifts 5x5 and Full Body 3x, for somebody with a gym. Four for everybody else: Bodyweight Basics, Dumbbell Full Body, Interval Conditioning, and Two-Day Full Body for a week with two sessions in it. Four 5/3/1 programs for somebody past a linear progression, two Candito Linear programs for somebody not past it yet, and Sheiko #29–32 for somebody peaking for a meet — see below for all three. They are a table in the app rather than rows in your database, so the list is the same on every phone and nothing you do to a copy can change it.
+      The library contains sixteen templates: Push / Pull / Legs, Upper / Lower,
+      Starting Strength, StrongLifts 5x5, Full Body 3x, Bodyweight Basics,
+      Dumbbell Full Body, Interval Conditioning, Two-Day Full Body, four 5/3/1
+      variants, two Candito Linear variants, and Sheiko #29–32. Templates are
+      defined in code rather than stored as database rows, so every build has the
+      same immutable library.
     defines:
     - template.starter-library
     uses:
@@ -31,7 +35,9 @@ groups:
   - id: your-list-holds-only-what-you-put-there
     t: Your routine list holds only what you put there
     d: >-
-      a fresh install opens on an empty list, because fifteen programs nobody chose is fifteen rows to wade past before finding the one you train. What is in the list is what you added: a ready-made program, one you built, or one somebody shared with you. An empty list says so in one line — "No routines yet" — and leaves the + in the corner to be the way out of it.
+      A fresh install has an empty routine list. The list contains only ready-made
+      templates you add, routines you build, or routines you import. Empty state
+      text is "No routines yet" and the + action remains available.
     screen: routines
     uses:
     - template.starter-library
@@ -41,7 +47,10 @@ groups:
   - id: three-ways-to-get-a-routine
     t: One button adds a routine, and it offers all three ways
     d: >-
-      a + in the top right of the Routines tab, above the list rather than below it. It opens a sheet with the three answers to "how do I get a program": a ready-made one, one you build, or one somebody sent you. Import asks the second question — scan a QR or paste a code — on a sheet of its own, so the first one stays three rows long. Where there is no scanner, import opens the paste box directly rather than offering a choice of one. The three used to be full-width buttons under the list, which pushed them further down the screen with every routine added, until the way to add a fourth was below four cards.
+      The Routines tab has a + action above the list. Its sheet offers a ready-made
+      template, a new routine, or an imported routine. Import then offers QR
+      scanning or code pasting; on builds without a scanner it opens the paste
+      field directly.
     screen: routines
     defines:
     - ui.routine-add-menu
@@ -53,7 +62,10 @@ groups:
   - id: a-program-is-previewed-before-it-is-added
     t: A program is previewed before it is added
     d: >-
-      tapping one in the library opens every training day it holds and every exercise in each, with its sets and target — what you are agreeing to, before anything is written. A slot the program runs as a cycle has no single set count to multiply, so the preview lists the week it opens on the way the rest of the app does: the main lift of a 5/3/1 program reads "5/5/5+", not "0 × 0". Add is on that screen; backing out adds nothing.
+      Selecting a template previews its training days, exercises, sets, and
+      targets before writing anything. Cycle slots show the initial week's
+      targets (for example, 5/5/5+) rather than an aggregate count. Add commits
+      the copy; back navigation does not.
     screen: routine-preview
     uses:
     - template.starter-library
@@ -64,25 +76,20 @@ groups:
   - id: added-program-is-yours
     t: An added program is a copy, and it is yours
     d: >-
-      rename it, re-order its days, change every slot in it, delete it — it is an
-      ordinary routine from the moment it lands, and none of that reaches the
-      library or any other copy. Adding the same program twice gives two
-      independent routines rather than being refused.
+      An added template becomes an ordinary independent routine. Renaming,
+      reordering, editing, or deleting it does not change the template or other
+      copies. Adding the same template twice creates two independent routines.
     uses:
     - template.starter-library
     - template.routine
   - id: added-program-carries-its-prescription
     t: A program arrives set up the way the program is actually run
     d: >-
-      Not one shape copied five times. Starting Strength opens on 3&nbsp;&times;&nbsp;5
-      with the deadlift a single set and the power clean 5&nbsp;&times;&nbsp;3;
-      StrongLifts is 5&nbsp;&times;&nbsp;5 with the deadlift 1&nbsp;&times;&nbsp;5.
-      The linear-progression programs step the squat and the deadlift 5&nbsp;kg a
-      session and the presses 2.5&nbsp;kg, and back off 10% only after
-      <b>three</b> failed sessions rather than the usual two. Rest defaults follow
-      the program too — five minutes on Starting Strength, three on StrongLifts —
-      and so do the training days it is meant to be trained on, and the loads it
-      opens at.
+      Templates preserve their published prescriptions. Starting Strength uses
+      3 × 5, deadlift 1 × 5, and power clean 5 × 3; StrongLifts uses 5 × 5 and
+      deadlift 1 × 5. Linear programs step squat/deadlift by 5 kg and presses by
+      2.5 kg per session, backing off 10% after three failed sessions. Rest
+      defaults, training days, and starting loads also come from each program.
     uses:
     - template.starter-library
     - template.rest
@@ -93,13 +100,10 @@ groups:
   - id: a-program-arrives-in-your-own-unit
     t: A program's weights arrive as numbers your gym loads
     d: >-
-      the programs are written down in kilograms, so on a pounds phone every
-      load and every step in them is a conversion: 45&nbsp;kg is 99.208&nbsp;lb
-      and a 2.5&nbsp;kg step is 5.512. Both are rounded on the way in to the
-      nearest pair of plates a pounds gym racks — 100&nbsp;lb, stepping 5 — so
-      the copy opens on numbers somebody can put on a bar. A kilogram phone gets
-      the numbers exactly as they were written, since there is nothing to
-      convert and rounding would only move them.
+      Template loads and progression steps are authored in kilograms. On a pounds
+      device they are converted and rounded to the nearest plate-pair increments
+      (45 kg → 100 lb; 2.5 kg → 5 lb). Kilogram devices retain the authored
+      values.
     uses:
     - template.starter-library
     - load.units
@@ -109,14 +113,19 @@ groups:
   - id: library-covers-training-without-a-gym
     t: Four of the programs need no gym
     d: >-
-      Bodyweight Basics needs a floor and something to hang from; Dumbbell Full Body needs one pair of dumbbells; Interval Conditioning needs a rope and room to sprint. The fourth is for the constraint that is not equipment — Two-Day Full Body covers a squat, a hinge, a press and a pull in each of two sessions, for a week that has two in it rather than four.
+      Bodyweight Basics requires a floor and hanging point; Dumbbell Full Body
+      requires one pair of dumbbells; Interval Conditioning requires a rope and
+      sprint space. Two-Day Full Body covers squat, hinge, press, and pull across
+      two sessions.
     uses:
     - template.starter-library
     - template.routine
   - id: interval-programs-prescribe-seconds
     t: An interval program prescribes seconds, not reps
     d: >-
-      a conditioning day is rounds of work against the clock, so its slots carry a work period — thirty seconds of jump rope, twenty of sprinting — and both the preview and the copy show the seconds where a strength program shows a rep count. The axis is the movement's own, not the program's claim about it: the library only ever puts a work period on a movement the app measures in time, and a counted movement ignores one.
+      Conditioning slots carry a work period in seconds, shown in the preview and
+      copied routine instead of a rep count. A work period is applied only to
+      exercises measured in time; counted exercises ignore it.
     uses:
     - template.starter-library
     - template.item
@@ -124,14 +133,11 @@ groups:
   - id: library-ships-four-531-programs
     t: Four of the programs run 5/3/1 cycles
     d: >-
-      the same four training days — press, deadlift, bench, squat — under four
-      different amounts of work. <b>5/3/1 Classic</b> is the main lift and two
-      assistance movements a day. <b>Boring But Big</b> adds five sets of ten at
-      half the training max. <b>First Set Last</b> adds five sets at the week's
-      own opening percentage, so its back-off weight moves with the week.
-      <b>5/3/1 for Beginners</b> folds the four lifts into three days a week, two
-      main lifts a day. All four open at a training max the copy asks you to
-      replace with 90% of your own best single.
+      The four 5/3/1 templates use press, deadlift, bench, and squat days. Classic
+      adds two assistance movements; Boring But Big adds 5 × 10 at 50% of the
+      training max; First Set Last adds five sets at the week's opening
+      percentage; Beginners combines the lifts into three days. Each opens with
+      a training max to replace with 90% of a best single.
     uses:
     - template.starter-library
     - template.cycle
@@ -140,18 +146,12 @@ groups:
   - id: library-ships-two-candito-programs
     t: Two of the programs are Candito's linear progression
     d: >-
-      Jonnie Candito's four-day upper/lower split, in the two variants a
-      week-to-week progression can be run as. Both share the same two heavy days
-      — squat 3&nbsp;&times;&nbsp;6 and deadlift 2&nbsp;&times;&nbsp;6 on the
-      lower, bench 3&nbsp;&times;&nbsp;6 and a row on the upper — and differ in
-      what the other two days do with them. <b>Strength / Control</b> repeats the
-      same movement patterns paused, six sets of four at about 70% of the heavy
-      day's weight. <b>Strength / Hypertrophy</b> spends those days on five sets
-      of eight of a variation instead. Every lift moves on its own: the main work
-      steps a session and backs off 7.5&nbsp;kg on the lift that missed rather
-      than on the program, and the shoulder press and the chin-up wait three
-      clean sessions before stepping, which is the slower cadence Candito puts
-      them on.
+      The two Candito variants use a four-day upper/lower split. Both include
+      heavy lower days (squat 3 × 6, deadlift 2 × 6) and upper days (bench 3 × 6
+      and a row). Strength / Control uses paused patterns at 6 × 4 and about 70%;
+      Strength / Hypertrophy uses variations at 5 × 8. Lifts progress
+      independently, backing off 7.5 kg only for the lift that missed; shoulder
+      press and chin-up step after three clean sessions.
     uses:
     - template.starter-library
     - progression.rates
@@ -160,7 +160,10 @@ groups:
   - id: library-ships-sheiko-29-32
     t: One of the programs is Sheiko's sixteen-week #29–32
     d: >-
-      Boris Sheiko's four numbered blocks, run as the one sixteen-week sequence they were written to be rather than as four programs that happen to follow each other. Three sessions a week for sixteen weeks, every set of every competition lift written out at its own percentage, and the last session of #32 a max test that opens the same way the first fifteen weeks did and finishes above the max it started from. It is not a program that decides anything week to week: what makes week eleven harder than week two is that week eleven says so.
+      Sheiko #29–32 is one sixteen-week sequence: three sessions per week, every
+      competition-lift set written at its own percentage. The final #32 session is
+      a max test. Workload is explicit in each week; the program does not generate
+      progression dynamically.
     uses:
     - template.starter-library
     - template.set-scheme
@@ -169,7 +172,9 @@ groups:
   - id: sheiko-is-forty-eight-explicit-sessions
     t: Sheiko arrives as forty-eight sessions in order, not as a rotation
     d: >-
-      the program does not keep a fixed set of slots whose numbers rotate — the order of the lifts changes, a lift comes round twice inside one session, variations appear for a fortnight and go, and no two sessions ask for the same thing. So each of the forty-eight is a training day of its own, named for where it sits — "#29 · W1 · Mon" through "#32 · W4 · Meet". A cycle would have to claim they were forty-eight versions of one week, and they are not.
+      The sequence has 48 ordered training days rather than rotating slots. Lift
+      order, repeated lifts, and variations change between sessions; days are
+      named by block, week, and day (for example, "#29 · W1 · Mon").
     uses:
     - template.starter-library
     - template.workout
@@ -177,7 +182,8 @@ groups:
   - id: sheikos-repeated-lifts-stay-separate-slots
     t: A lift that comes round twice in a session is two slots
     d: >-
-      the first session benches, squats, then benches again, and the second bench is not the first one with more sets bolted on: it happens after the squats, at its own percentages, and that is the point of writing it there. The copy keeps the order the program is written in, so the day reads bench, squat, bench.
+      Repeated lifts remain separate slots in their prescribed order. For example,
+      bench, squat, bench remains three slots with independent percentages.
     uses:
     - template.starter-library
     - template.item
@@ -185,7 +191,9 @@ groups:
   - id: sheikos-percentages-are-of-your-actual-max
     t: Sheiko's percentages are of your real max, not 90% of it
     d: >-
-      the 5/3/1 programs open at a training max the copy asks you to replace with 90% of your best single, because that is what 5/3/1 is written against. Sheiko is not: its percentages are calculated from the competition max itself, so the number to put in is your current best squat, bench and deadlift — actual or honestly estimated. A program that asks for the same number in different terms has to say which terms, and this one says its own.
+      5/3/1 uses a training max initialized to 90% of a best single. Sheiko
+      percentages use the competition max itself, so enter the current squat,
+      bench, and deadlift maxes.
     screen: routine-preview
     uses:
     - template.starter-library
@@ -194,7 +202,9 @@ groups:
   - id: sheiko-does-not-move-its-own-max
     t: Sheiko does not move the max it is percentages of
     d: >-
-      the overload is already written into the sixteen weeks; adding a step on top of it would be a second program running underneath the first. So every percentage slot in the copy steps by nothing and backs off by nothing, and the max stays where you put it until you change it — including through the final max test, whose single at 105% is a lift to attempt rather than a new number for the fifteen weeks behind it to be recalculated against. The rates are the ordinary ones on the slot, set to zero, not a rule of the program's own.
+      Sheiko's overload is encoded in its sixteen weeks, so percentage slots have
+      zero step and back-off rates. The max remains unchanged, including after the
+      final 105% test, until edited manually.
     uses:
     - template.starter-library
     - template.training-max
@@ -202,14 +212,17 @@ groups:
   - id: sheikos-accessories-carry-no-percentage
     t: Sheiko's accessory work carries sets and reps and no weight
     d: >-
-      the source prescribes five sets of ten flyes and five sets of five good mornings and says nothing about the load, so neither does the copy: those slots arrive as ordinary sets and reps with no suggested weight, for you to fill in. Inventing a percentage for them would be putting words in the program's mouth on the one part of it that was deliberately left to the lifter.
+      Accessory slots such as flyes (5 × 10) and good mornings (5 × 5) specify
+      sets and reps but no load. Copies leave their weight unset for manual entry.
     uses:
     - template.starter-library
     - template.item
   - id: sheikos-variations-train-off-the-competition-lift
     t: Sheiko's variations train off the competition lift's max
     d: >-
-      the front squats are percentages of the squat, and the deadlifts to the knees, from blocks and from a deficit are percentages of the deadlift. That is not a rule this program is given: it is what those movements carry in the library, so setting the routine's three maxes reaches all of them and the front squat slots never ask for a max of their own.
+      Front squats use the squat max; deadlift variations use the deadlift max.
+      These percentage bases come from the movement definitions, so setting the
+      three competition-lift maxes covers the variations.
     uses:
     - template.starter-library
     - template.percentage-base
@@ -217,10 +230,9 @@ groups:
   - id: a-531-copy-is-an-ordinary-routine
     t: A 5/3/1 copy is an ordinary routine
     d: >-
-      the weeks arrive as an editable cycle on the slot, not as a program the
-      library keeps a hold of: open any main lift in the builder and its weeks
-      are there to change, remove or add to. Every scheme the copy uses is one
-      you could have picked yourself.
+      Main lifts arrive as editable cycle slots. Their weeks can be changed,
+      removed, or extended in the builder; the library retains no reference to
+      the copy.
     screen: workout-edit
     uses:
     - template.starter-library
@@ -228,7 +240,9 @@ groups:
   - id: program-says-what-it-is
     t: A program says what it is before you take it
     d: >-
-      the preview opens with the program's own description — who it is for, how often it is trained, what it is trying to do — so choosing between sixteen of them is not a matter of guessing from a name. The copy keeps it, so the routine still explains itself a month later, and rewriting it is one more thing a copy of yours can do.
+      The preview and copied routine retain the template's description, including
+      intended user, schedule, and purpose. The copied description remains
+      editable.
     screen: routine-preview
     uses:
     - template.starter-library
@@ -236,10 +250,8 @@ groups:
   - id: first-program-added-becomes-the-current-one
     t: The first program you add becomes the routine Today is about
     d: >-
-      an empty install has no current routine, so the first thing to arrive takes
-      that place and Today has something to offer straight away. Anything added
-      after it leaves the current routine alone — that choice is already made, and
-      adding a program to look at is not the same as switching to it.
+      When no current routine exists, the first added routine becomes current.
+      Later additions do not change the current routine.
     uses:
     - template.active-routine
     - template.starter-library
@@ -248,8 +260,8 @@ groups:
   - id: add-a-ready-made-routine
     t: Add a ready-made routine
     d: >-
-      Routines → + → Ready-made routines → tap a program → Add. It lands at the bottom
-      of your list and, on an empty install, becomes the one Today is about.
+      Routines → + → Ready-made routines → select a program → Add. It is appended
+      to the list and becomes current when the list was empty.
     screen: routine-library
     uses:
     - template.starter-library
@@ -257,8 +269,7 @@ groups:
   - id: browse-without-adding
     t: Look at one without taking it
     d: >-
-      open a program, read its days, and back out. The library is also the place
-      to steal an idea for a routine of your own.
+      Open a template, inspect its days, and back out. No routine is added.
     screen: routine-preview
     uses:
     - template.starter-library
@@ -267,11 +278,9 @@ groups:
   - id: update-keeps-the-programs-already-in-your-list
     t: An update leaves the programs already in your list alone
     d: >-
-      the original five used to be written into every new install, so a phone that has been
-      running the app has them as ordinary routines — with its history, its edits
-      and its weights on them. They stay exactly where they are: this changes what
-      a *fresh* install opens with, and adds the library everyone can pull one from
-      later. Nothing is removed from anybody's list.
+      Existing installs retain their ordinary routines, history, edits, and
+      weights. The library changes only fresh-install defaults and adds templates;
+      it removes nothing from a user's list.
     screen: none
     uses:
     - template.starter-library
@@ -279,10 +288,8 @@ groups:
   - id: library-is-code-not-rows
     t: The library is code, not rows
     d: >-
-      nothing about it is stored, so there is nothing to migrate, nothing to keep
-      in step with a backup, and no way for a phone to end up with a library
-      different from the build it is running. It is the same argument the colour
-      presets are settled by.
+      Because templates are code, they require no database migration or backup
+      entry and cannot diverge between devices running the same build.
     screen: none
     uses:
     - template.starter-library
@@ -290,7 +297,8 @@ groups:
   - id: adding-copies-the-movements-you-already-have
     t: A program points at the movements already in your library
     d: >-
-      every exercise every program names is in the starter library, so adding one creates a routine, its days and its slots and no exercises at all — the history you already have on Bench Press is the history the new program's bench slot is about.
+      Adding a template creates its routine, days, and slots but no exercises.
+      Slots reference the existing exercise rows, preserving shared history.
     screen: none
     uses:
     - template.starter-library
@@ -298,7 +306,9 @@ groups:
   - id: library-names-follow-the-language
     t: The library reads in the app's language
     d: >-
-      the programs, their training days and the descriptions they ship with are shipped strings like any other row's name, so both the library and the copy it makes resolve all three through their seed keys — and a copy you rename, or whose description you rewrite, stops following the language for the part you changed, exactly as a seeded routine always has.
+      Template names, training days, and descriptions resolve through seed keys in
+      the selected locale. Renamed routines or edited descriptions retain the
+      custom value instead of following locale changes.
     uses:
     - template.starter-library
     - template.description

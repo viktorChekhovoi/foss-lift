@@ -14,7 +14,6 @@ import '../widgets/plate_line.dart';
 import '../widgets/start_workout.dart';
 import '../widgets/workout_estimate.dart';
 
-/// One training day: the exercises it contains, and the button that starts it.
 class WorkoutDetailScreen extends ConsumerWidget {
   const WorkoutDetailScreen({super.key, required this.workoutId});
   final int workoutId;
@@ -92,9 +91,6 @@ class WorkoutDetailScreen extends ConsumerWidget {
                             for (final group in supersetGroups(normaliseJoins([
                               for (final v in list) v.item.supersetWithPrevious,
                             ])))
-                              // A group of one is an ordinary exercise and says
-                              // nothing about itself; a real group is tagged
-                              // once, above the rows it holds.
                               for (final i in group) ...[
                                 if (group.length > 1 && i == group.first)
                                   _SupersetTag(),
@@ -116,11 +112,6 @@ class WorkoutDetailScreen extends ConsumerWidget {
             ),
             _StartBar(
               enabled: workout != null && (items.value ?? const []).isNotEmpty,
-              // The *stored* name, not the one in the app bar: it is written to
-              // history as the session's name, and history holds English plus a
-              // key so a logged session follows the language like everything
-              // else. The key rides along so the dialogs on the way in can
-              // still say the day's name in the language on screen.
               onStart: () => startWorkout(context, ref, workoutId,
                   workout!.name, seedKey: workout.seedKey),
             ),
@@ -131,9 +122,6 @@ class WorkoutDetailScreen extends ConsumerWidget {
   }
 }
 
-/// One small rounded fact about the day — how many exercises, how long it will
-/// take. [value] is the number picked out from the [label] beside it; a pill
-/// that is all label leaves it out.
 class _Pill extends StatelessWidget {
   const _Pill({this.value, required this.label});
   final String? value;
@@ -166,9 +154,6 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// Says that the rows under it are trained back to back. One line, above the
-/// group — the rows themselves keep their own targets, because a group is a way
-/// of performing exercises rather than an exercise of its own.
 class _SupersetTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -203,21 +188,14 @@ class _ExerciseRow extends StatelessWidget {
   final int index;
   final WorkoutItemView view;
 
-  /// The app-wide unit. What this row actually reads in is [_unit] — the
-  /// movement's own, where it has one.
   final String unit;
 
   String get _unit => unitForExercise(unit, view.exercise.unitOverride);
   final PlateSettings plates;
   final bool last;
 
-  /// Whether this row belongs to a superset, which draws the accent down its
-  /// left edge so the group reads as a block.
   final bool grouped;
 
-  /// "31.25/side" beside the muscle group, so a barbell day can be read as the
-  /// bars it will be. The full breakdown waits for the session — this screen is
-  /// a glance at the day, not a loading chart.
   String? _perSide(AppLocalizations l10n) {
     final w = view.item.suggestedWeight;
     if (w == null || w <= 0) return null;
@@ -271,9 +249,6 @@ class _ExerciseRow extends StatelessWidget {
                   perSide == null ? muscle : '$muscle · $perSide',
                   style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
-                // Which week of its cycle the next session of this slot is, on
-                // the day that offers it — the same line the live board shows,
-                // and for the same reason.
                 if (view.item.runsCycle)
                   Text(
                     cycleWeekLine(l10n, view.item.cycleWeekName,
@@ -284,8 +259,6 @@ class _ExerciseRow extends StatelessWidget {
             ),
           ),
           Text(
-            // A cycle's week is written out a set at a time, so it is listed
-            // rather than multiplied — see [rowsTargetLabel].
             view.item.runsCycle
                 ? rowsTargetLabel(l10n, view.item.cycleRows)
                 : setsTargetLabel(
@@ -294,9 +267,6 @@ class _ExerciseRow extends StatelessWidget {
                     progression: view.item.progression,
                     toFailure: view.item.toFailure,
                     holdSeconds: view.item.holdSeconds,
-                    // What the next session will actually ask for: a slot
-                    // climbing its range is aiming at one number, not at the
-                    // whole range.
                     repsMin: view.item.goalReps,
                     repsMax: view.item.climbsRange ? null : view.item.repsMax,
                   ),

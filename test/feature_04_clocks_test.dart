@@ -1,20 +1,5 @@
-// Feature 04 — the live session's two clocks, and what happens to them when the
-// app does not get to run.
-//
-// Covers, from features/catalogue/04-live-session.yaml:
-//   clocks-read-the-time-rather-than-count
-//   a-rest-that-ends-unwatched-ends-once
-//   recorded-duration-is-real-time
-// and, from 19-web-build.yaml, the keepalive that stops a browser slowing the
-// tab down in the first place:
-//   workout-keeps-the-tab-awake
-//
-// The point of all of it is a gap: a machine asleep, a phone busy, a browser
-// tab throttled to one tick a minute. A tick-counting clock loses that gap for
-// good; a clock that reads the time does not. So the tests move a *fake* clock
-// forward under a session and then let one real tick arrive, which is exactly
-// the shape of the bug — the timer fires late, and everything has to be worked
-// out from the time rather than from how many times it fired.
+// Integration tests for live-session clocks and browser tab keepalive (features/index.html#sec04 and #sec19).
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;

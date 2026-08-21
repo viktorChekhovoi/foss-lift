@@ -1,9 +1,5 @@
-// Integration tests for features/index.html#sec07 — the plate solver, the bars
-// it stands on, and the line it feeds. The solver (`solvePlates`) is a pure
-// function and is where the combinatorial truth lives, so most of this file
-// drives it directly across the spec's edge cases; the bar list goes through the
-// real database and the real settings screen, and a handful of widget tests
-// confirm the line reads back the green / gold / below-bar states.
+// Integration tests for plate solving, bar inventory, and load display (features/index.html#sec07).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

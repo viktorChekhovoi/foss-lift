@@ -11,23 +11,6 @@ import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 
-/// One field per lift, writing every slot in the routine that trains off it.
-///
-/// A program written in percentages puts the same two or three numbers on
-/// dozens of slots. Typing each of them one slot at a time is not a setup step,
-/// it is a reason not to run the program — so the routine's written-out slots
-/// are gathered by the lift their percentages come from
-/// (`data/percentage_base.dart`) and each group gets one number.
-///
-/// **Nothing here is about any particular program.** The grouping is over the
-/// slots the routine actually holds, so a routine of your own with three
-/// written-out bench slots in it gets one Bench Press field and the same one
-/// tap. A routine with no such slot never reaches this screen — see
-/// [trainingMaxButtonKey], which is not drawn for one.
-///
-/// A field left empty writes nothing. That is what makes the screen safe to
-/// open on a routine whose slots disagree: the ones you do not answer stay
-/// exactly as they are.
 class TrainingMaxScreen extends ConsumerStatefulWidget {
   const TrainingMaxScreen({super.key, required this.routineId});
   final int routineId;
@@ -36,26 +19,17 @@ class TrainingMaxScreen extends ConsumerStatefulWidget {
   ConsumerState<TrainingMaxScreen> createState() => _TrainingMaxScreenState();
 }
 
-/// Finds the button that opens this screen from a routine.
 const ValueKey<String> trainingMaxButtonKey =
     ValueKey('routine-training-maxes');
 
-/// Finds one lift's field, by the base movement it writes.
 ValueKey<String> trainingMaxFieldKey(String base) =>
     ValueKey('tm-field-$base');
 
-/// Finds the save button.
 const ValueKey<String> trainingMaxSaveKey = ValueKey('tm-save');
 
 class _TrainingMaxScreenState extends ConsumerState<TrainingMaxScreen> {
-  /// One controller per base lift, built the first time that lift is seen and
-  /// kept afterwards — so a rebuild caused by the write does not throw away
-  /// what is being typed into the field beside it.
   final Map<String, TextEditingController> _fields = {};
 
-  /// The bases whose controllers have been filled in from the database. A field
-  /// is seeded once: the stream fires again after a save, and re-seeding would
-  /// mean the number you typed being replaced by the number you typed.
   final Set<String> _seeded = {};
 
   @override
@@ -66,8 +40,6 @@ class _TrainingMaxScreenState extends ConsumerState<TrainingMaxScreen> {
     super.dispose();
   }
 
-  /// The controller for [group], filled in with what its slots agree on — or
-  /// left empty where they do not, which is the field saying so.
   TextEditingController _controllerFor(TrainingMaxGroup group, String unit) {
     final field = _fields.putIfAbsent(group.base, TextEditingController.new);
     if (_seeded.add(group.base)) {
@@ -82,8 +54,6 @@ class _TrainingMaxScreenState extends ConsumerState<TrainingMaxScreen> {
     final l10n = AppLocalizations.of(context);
     for (final group in groups) {
       final typed = _fields[group.base]?.text.trim() ?? '';
-      // An empty field is not a zero. It is a lift this visit had nothing to
-      // say about, and its slots keep the numbers they had.
       if (typed.isEmpty) continue;
       final value = double.tryParse(typed.replaceAll(',', '.'));
       if (value == null || value <= 0) continue;
@@ -150,7 +120,6 @@ class _TrainingMaxScreenState extends ConsumerState<TrainingMaxScreen> {
   }
 }
 
-/// One lift's number, over the movements it will be written onto.
 class _TrainingMaxField extends StatelessWidget {
   const _TrainingMaxField({
     required this.group,
@@ -165,10 +134,6 @@ class _TrainingMaxField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // The movements this field reaches, named and counted. A control that
-    // writes further than its label says is worse than no control — and a
-    // lifter whose front squat is not their squat needs to see that this field
-    // is about to say it is, before it does.
     final covers = l10n.trainingMaxCovers(
       group.members.entries
           .map((e) => l10n.trainingMaxCoversOne(
@@ -192,8 +157,6 @@ class _TrainingMaxField extends StatelessWidget {
           covers,
           style: kMono.copyWith(fontSize: 11.5, color: AppColors.muted),
         ),
-        // Only where they disagree. On a routine whose slots already agree the
-        // field is filled in and there is nothing to explain.
         if (group.weightKg == null) ...[
           const SizedBox(height: 6),
           Text(

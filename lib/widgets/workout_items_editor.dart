@@ -17,34 +17,22 @@ import '../util/units.dart';
 import 'builder_widgets.dart';
 import 'common.dart' show AppDialog, sectionLabelStyle, showAppDialog;
 
-/// Finds the progression-amount fields in a test. The first two are the pair
-/// every axis has; on the axis that takes reps and weight in turn they are its
-/// weight pair, and the rep pair below is beside them.
 const kWeightFieldKey = ValueKey('slot-weight');
 const kStepUpFieldKey = ValueKey('amount-step-up');
 const kBackOffFieldKey = ValueKey('amount-back-off');
 const kRepsStepUpFieldKey = ValueKey('amount-reps-step-up');
 const kRepsBackOffFieldKey = ValueKey('amount-reps-back-off');
 
-/// Finds the rep range's stepper, which is greyed rather than gone on a slot
-/// whose sets run to failure.
 const kRepRangeFieldKey = ValueKey('rep-range');
 
-/// Finds the axis pills.
 const kModeWeightKey = ValueKey('mode-weight');
 const kModeRepsKey = ValueKey('mode-reps');
 const kModeTimeKey = ValueKey('mode-time');
 const kModeAdvancedKey = ValueKey('mode-advanced');
 
-/// Finds the checkbox that joins a slot to the one above it as a superset, and
-/// the icon beside it that says what one is.
 const kSupersetCheckKey = ValueKey('superset-with-previous');
 const kSupersetHintKey = ValueKey('superset-hint');
 
-/// A mutable working copy of one workout item while editing.
-///
-/// Lives outside any screen so the exercise list can be edited both against a
-/// saved workout and against a routine that has not been written yet.
 class ItemDraft {
   ItemDraft({
     required this.exerciseId,
@@ -86,11 +74,9 @@ class ItemDraft {
             _startingMode(measure, weightType, progression).defaultIncrement,
         deload = deload ??
             _startingMode(measure, weightType, progression).defaultDeload,
-        // A movement that carries nothing has no load to suggest, so a number
-        // left over from before it was reclassified goes with the loading.
+        // Exercises without a load must not retain a stale weight.
         weightKg = weightType.carriesWeight ? weightKg : null;
 
-  /// The axis a draft opens on: what was asked for, if the slot allows it.
   static ProgressionMode _startingMode(
     ExerciseMeasure measure,
     WeightType weightType,
@@ -101,9 +87,6 @@ class ItemDraft {
     return allowed.contains(asked) ? asked : allowed.first;
   }
 
-  /// The axes a slot may progress on: what the measure permits, less load for a
-  /// movement that carries none. Adding 2.5 kg a week to a push-up is an
-  /// instruction nobody can follow.
   static List<ProgressionMode> _axesFor(
           ExerciseMeasure measure, WeightType weightType) =>
       [
@@ -111,7 +94,6 @@ class ItemDraft {
           if (m != ProgressionMode.weight || weightType.carriesWeight) m,
       ];
 
-  /// Rehydrates a draft from a stored item.
   factory ItemDraft.fromView(WorkoutItemView v) => ItemDraft(
         exercise: v.exercise,
         exerciseId: v.exercise.id,
@@ -133,9 +115,6 @@ class ItemDraft {
         cycle: v.item.cycleWeeks,
         cycleNames: v.item.cycleWeekNameList,
         cyclePosition: v.item.cyclePosition,
-        // The library has the final say on the axis: an exercise that changed
-        // measure — or lost its loading — must not leave a saved workout
-        // counting reps against a hold or kilograms against a pull-up.
         measure: v.exercise.measure,
         weightType: v.exercise.weightType,
         barKg: v.exercise.barWeight,
@@ -151,8 +130,6 @@ class ItemDraft {
         sparedRates: decodeSparedRates(v.item.sparedRates),
       );
 
-  /// A brand-new slot for [e], on whichever axis it can actually move along,
-  /// stepping by whatever [unit] counts by — 2.5 kg, or 5 lb.
   factory ItemDraft.forExercise(Exercise e, {String unit = 'kg'}) {
     final mode = e.measure.defaultMode;
     return ItemDraft(
@@ -171,31 +148,15 @@ class ItemDraft {
 
   final int exerciseId;
 
-  /// The library row this slot points at, as of the last [adoptExercise], or
-  /// null for a draft built without one.
-  ///
-  /// Carried rather than looked up so the slot sheet can show the movement's
-  /// own properties on its first frame: reading them off a stream instead means
-  /// a card that arrives late and shoves everything under it down the sheet.
   Exercise? exercise;
 
-  /// The library's copy of the movement, as of the last [adoptExercise]. Not
-  /// edited through the draft — a rename happens to the exercise, and this
-  /// follows it.
   String name;
   String muscle;
 
-  /// Whether the movement is counted or held. Fixed by the library, not the
-  /// program — it is what limits which axes [setMode] will accept.
   ExerciseMeasure measure;
 
-  /// What the movement's weight column means, [WeightType.none] included. Also
-  /// fixed by the library, and the other half of what [modes] allows: there is
-  /// no load to add to a movement that carries none.
   WeightType weightType;
 
-  /// The exercise's own bar, if it has one. Null means the app-wide default,
-  /// which the draft cannot see — callers pass it to [floorKg].
   double? barKg;
 
   int sets;
@@ -203,113 +164,56 @@ class ItemDraft {
   int? repsMax;
   bool toFailure;
 
-  /// Double progression: take the reps and the load in turn, climbing
-  /// [repsTarget] to the top of the rep range before the load moves. Kept while
-  /// [canClimbRange] is false rather than cleared, so taking a rep range off and
-  /// putting it back does not silently change how the slot progresses — see the
-  /// column of the same name.
   bool addWeightAtTopOfRange;
 
-  /// The rep half of the rates the advanced axis advances by. The weight half
-  /// is [increment] and [deload], which every other axis uses for whatever it
-  /// moves.
   double repsIncrement;
   double repsDeload;
 
-  /// Where inside the range the climb has got to. Carried, not edited: it is
-  /// where the program stands rather than something the builder sets, and a
-  /// draft that dropped it would restart everybody's climb on a rename.
   int? repsTarget;
 
   int? restSeconds;
 
-  /// The top of every ladder [scheme] produces, not the weight of set one —
-  /// see `data/set_scheme.dart`.
   double? weightKg;
 
-  /// How the sets differ from one another.
   SetScheme scheme;
 
-  /// One rung of a back-off or a ramp, as a whole percentage.
   int schemePercent;
 
-  /// The written-out rows of a custom scheme. Kept across a switch to another
-  /// scheme and back, so trying a ramp does not throw away what was typed.
   List<CustomSet> customSets;
 
-  /// The weeks a cycle rotates through, kept on the same terms as [customSets]
-  /// — a cycle somebody wrote out is far more work than a ramp, and switching
-  /// away for a session must not cost it.
   List<List<CustomSet>> cycle;
 
-  /// What those weeks are called, in the same order. Shorter than [cycle] —
-  /// empty, usually — wherever the later weeks have no name: a week nobody has
-  /// named is "Week 3", so a missing entry and a blank one mean the same thing.
   List<String> cycleNames;
 
-  /// The name of week [week], or the empty string where it has none.
   String cycleNameOf(int week) => cycleNameAt(cycleNames, week);
 
-  /// Where the slot has got to in that cycle. **Carried, not edited**: fixing a
-  /// typo in week three cannot send the slot back to week one, any more than
-  /// opening the builder can forgive a pending back-off.
   int cyclePosition;
 
-  /// How many working sets this slot has — the current week's row count on a
-  /// cycle, and [sets] everywhere else. The draft's copy of
-  /// [WorkoutItemTarget.setCount].
   int get setCount {
     final rows = cycleRows;
     return rows.isEmpty ? sets : rows.length;
   }
 
-  /// The rows the next session of this slot would be prescribed, or empty when
-  /// it is not on a cycle.
   List<CustomSet> get cycleRows => scheme == SetScheme.cycle
       ? cycleBlockAt(cycle, cyclePosition)
       : const [];
 
-  /// Whether this slot's sets are written out as percentages of its weight —
-  /// which is what makes that weight a training max rather than a load. The
-  /// draft's answer to `WorkoutItemTarget.runsPercentages`.
   bool get runsPercentages => scheme == SetScheme.cycle
       ? cycleRows.isNotEmpty
       : (scheme == SetScheme.custom && customSets.isNotEmpty);
 
-  /// Whether anything in the Advanced half of the Target card is in use. The
-  /// card opens expanded when it is, so nothing a slot actually does is hidden
-  /// behind a toggle somebody has to think to press.
   bool get usesAdvanced =>
       toFailure || repsMax != null || scheme != SetScheme.flat;
 
-  /// The same question for the Progression card's own Advanced half, which
-  /// holds only the range climb so far.
-  ///
-  /// Asks the tick alone rather than [canClimbRange] as well: a slot that is
-  /// ticked but has lost its range is exactly the slot whose owner needs to see
-  /// the greyed row and the line saying what it wants.
   bool get usesProgressionAdvanced => addWeightAtTopOfRange;
 
-  /// Whether the advanced axis is on offer: a rep range to climb, and a load to
-  /// wait at the top of it. Sets taken to failure are not aiming at a range, and
-  /// a movement that is held or carries nothing has no second axis to take turns
-  /// with.
-  ///
-  /// Asks what the exercise *allows* rather than which axis the slot is on:
-  /// picking Advanced while the slot sits on the reps pill is a legal move, and
-  /// it is the move that puts it on the weight axis.
   bool get canClimbRange =>
       !toFailure &&
       repsMax != null &&
       modes.contains(ProgressionMode.weight);
 
-  /// Whether the slot is actually running that rule — ticked, and able to.
   bool get onAdvancedAxis => addWeightAtTopOfRange && canClimbRange;
 
-  /// The rep goal a set of this slot aims at: the number to beat when the sets
-  /// run to failure, wherever the climb has got to on the advanced axis, and
-  /// otherwise the top of the range or the fixed count. The draft's copy of
-  /// [WorkoutItemTarget.goalReps], which is what the board reads.
   int get goalReps {
     if (toFailure) return repsMin;
     final top = repsMax;
@@ -319,19 +223,9 @@ class ItemDraft {
     return goal < repsMin ? repsMin : (goal > top ? top : goal);
   }
 
-  /// The unit this slot's weights are read and typed in: the movement's own if
-  /// it has been pinned to one, [appUnit] otherwise. See `unitForExercise`.
-  ///
-  /// Every screen that draws a slot resolves it through here, so the summary
-  /// line under a row, the sheet that edits it and the board that runs it all
-  /// name the same number the same way.
   String unitIn(String appUnit) =>
       unitForExercise(appUnit, exercise?.unitOverride);
 
-  /// What each set is aiming at, given the gym's [unit] and the lightest weight
-  /// this slot may be loaded to. The one place the scheme is turned into
-  /// numbers on this side of the app — the live session calls the same
-  /// function with the session's own unit and bar.
   List<SetTarget> targets({required String unit, double defaultBarKg = 0}) =>
       resolveSetTargets(
         scheme: scheme,
@@ -353,36 +247,19 @@ class ItemDraft {
   int successThreshold;
   int failureThreshold;
 
-  /// Carried, not edited. Saving a workout rewrites its items wholesale, so a
-  /// draft that dropped these would reset a pending back-off every time the
-  /// user renamed the day.
   int successStreak;
   int failStreak;
 
-  /// Whether this slot is trained in the same round as the one above it — the
-  /// join that makes a run of slots a superset. Mutable: it is a checkbox, and
-  /// dragging a joined row to the top of the list takes it off again.
   bool supersetWithPrevious;
 
-  /// The axes this slot may be put on, per the exercise's measure and loading.
   List<ProgressionMode> get modes => _axesFor(measure, weightType);
 
-  /// The lightest weight this slot may suggest, given the app-wide default bar.
-  ///
-  /// The board clamps the same way while a session runs; this stops a template
-  /// being *authored* under the bar, which is where the nonsense used to get in.
   double floorKg(double defaultBarKg) => loadFloorKg(
         type: weightType,
         barKg: barKg,
         defaultBarKg: defaultBarKg,
       );
 
-  /// [weightKg] as it may be stored: nothing at all for a movement that carries
-  /// no load, and never below [floorKg] for one over a bar.
-  ///
-  /// The constructor drops a weight the loading cannot justify, but the field is
-  /// mutable and the loading is not — so the invariant is enforced here, at the
-  /// one point every draft passes through on its way to the database.
   double? clampedWeightKg(double defaultBarKg) {
     final w = weightKg;
     if (w == null || !weightType.carriesWeight) return null;
@@ -390,23 +267,8 @@ class ItemDraft {
     return w < floor ? floor : w;
   }
 
-  /// The step and back-off last set on each axis this slot is *not* on, so
-  /// switching away and back does not throw away numbers somebody typed — the
-  /// same keeping as [customSets]. The axis in use keeps its own pair in
-  /// [increment] and [deload], and is never a key here.
-  ///
-  /// Stored, as `WorkoutItems.spared_rates`: the sheet closes, the app is shut
-  /// and the numbers are still what they were. Read through [sparedRates],
-  /// which is what the two write paths put in the column.
-  ///
-  /// The advanced axis is a key of its own rather than the weight axis it runs
-  /// on: its step is what to add at the top of a rep range, which is not
-  /// necessarily what the same slot adds every session on the plain rule. Its
-  /// rep rates need no keeping — [repsIncrement] and [repsDeload] are fields
-  /// nothing else writes.
   final Map<RateAxis, ProgressionRates> _rates;
 
-  /// The set-aside pairs as the column holds them, or null when none are.
   String? get sparedRates => encodeSparedRates(_rates);
 
   RateAxis get _rateAxis => onAdvancedAxis
@@ -417,13 +279,6 @@ class ItemDraft {
           ProgressionMode.time => RateAxis.time,
         };
 
-  /// Switches the axis, bringing back the rates last set on it, or that mode's
-  /// defaults in [unit] on an axis this slot has not been on: 2.5 of anything
-  /// is a sane step in kilograms and nonsense in reps. An axis the exercise
-  /// does not allow is ignored.
-  ///
-  /// Picking one of the plain axes leaves the advanced one, which is what the
-  /// pills mean: they are four ways for this slot to advance and it is on one.
   void setMode(ProgressionMode mode, {String unit = 'kg'}) {
     if (!modes.contains(mode)) return;
     if (mode == progression && !onAdvancedAxis) return;
@@ -433,9 +288,6 @@ class ItemDraft {
     });
   }
 
-  /// Puts the slot on — or takes it off — the axis that climbs the rep range
-  /// before the load moves. Going on brings the weight axis with it: it is the
-  /// load that waits at the top of the range.
   void setAdvanced(bool on, {String unit = 'kg'}) {
     if (on == onAdvancedAxis || (on && !canClimbRange)) return;
     _switchAxis(unit, () {
@@ -444,20 +296,11 @@ class ItemDraft {
     });
   }
 
-  /// Runs [change] between putting the rates of the axis being left aside and
-  /// bringing back those of the axis being joined.
   void _switchAxis(String unit, VoidCallback change) {
     final from = _rateAxis;
     _rates[from] = (increment: increment, deload: deload);
     change();
     final to = _rateAxis;
-    // The axis being joined comes out of the map on the way in: what is left
-    // there is exactly the axes the slot is not on, which is what gets stored.
-    // The advanced axis, entered for the first time, opens on the slot's own
-    // weight rates rather than on the defaults: it is the same load it was
-    // about to move, and a 5 kg step nobody has changed their mind about should
-    // not silently become 2.5 for having been asked to wait for the top of a
-    // range.
     final kept = _rates.remove(to) ??
         (to == RateAxis.advanced ? _rates[RateAxis.weight] : null);
     if (to == from) return;
@@ -466,13 +309,6 @@ class ItemDraft {
     deload = kept?.deload ?? defaultDeloadFor(mode, unit);
   }
 
-  /// Takes the library's word for what this movement now is.
-  ///
-  /// The exercise is editable while a slot on it is open — from the slot sheet
-  /// itself — and everything the draft copied off it can change underneath:
-  /// a rename, a different measure, a loading that has gone. So the copy is
-  /// refreshed, and anything the new facts no longer permit is pulled back into
-  /// line rather than left to reach the database as nonsense.
   void adoptExercise(Exercise e, {String unit = 'kg'}) {
     exercise = e;
     name = e.name;
@@ -485,16 +321,8 @@ class ItemDraft {
   }
 }
 
-/// Turns drafts into insertable rows, in list order.
-///
-/// [defaultBarKg] is the app-wide bar, needed to hold a bar-loaded slot at or
-/// above the bar it is over. Zero means "no floor", which is what a caller with
-/// no bar-loaded drafts can pass.
 List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
     {int workoutId = 0, double defaultBarKg = 0}) {
-  // The one join a workout cannot hold: the first slot has nothing above it. A
-  // row keeps its join as it is dragged, so this is how a list that has been
-  // reordered stops asserting it — see [normaliseJoins].
   final joined = normaliseJoins([for (final d in drafts) d.supersetWithPrevious]);
   return [
     for (var i = 0; i < drafts.length; i++)
@@ -504,9 +332,6 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         position: Value(i),
         targetSets: Value(drafts[i].sets),
         repsMin: Value(drafts[i].repsMin),
-        // Kept as it stands under a slot run to failure: the range is not what
-        // those sets aim at, and taking the number away would make trying
-        // failure for a week cost the range somebody set.
         repsMax: Value(drafts[i].repsMax),
         toFailure: Value(drafts[i].toFailure),
         addWeightAtTopOfRange: Value(drafts[i].addWeightAtTopOfRange),
@@ -518,13 +343,9 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         suggestedWeight: Value(drafts[i].clampedWeightKg(defaultBarKg)),
         scheme: Value(drafts[i].scheme),
         schemePercent: Value(drafts[i].schemePercent),
-        // Only a custom slot spends a column on rows: a back-off that was once
-        // a custom keeps them in the draft, not in the database.
         customSets: Value(drafts[i].scheme.isCustom
             ? encodeCustomSets(drafts[i].customSets)
             : null),
-        // The same rule one level up: only a cycle spends the column, and the
-        // position rides along untouched — see [ItemDraft.cyclePosition].
         cycleNames: Value(drafts[i].scheme == SetScheme.cycle
             ? encodeCycleNames(drafts[i].cycleNames)
             : null),
@@ -545,18 +366,6 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
   ];
 }
 
-/// One draft as an update to the slot it came from — everything the config
-/// sheet edits, and nothing else.
-///
-/// [itemCompanions] is for saving a *list*: the builder rewrites the lot,
-/// because position and the superset joins are facts about the order. This is
-/// for the one slot the live board's settings sheet changed, written through
-/// [AppDatabase.updateWorkoutItem] so the row keeps its id — the session is
-/// holding it, and the streaks live on it.
-///
-/// Position, workout and the superset join are deliberately absent: the sheet
-/// opened from the board does not offer them, and a companion that named them
-/// would write today's guess over what the builder set.
 WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
     WorkoutItemsCompanion(
       targetSets: Value(d.sets),
@@ -586,13 +395,9 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       failureThreshold: Value(d.failureThreshold),
     );
 
-/// The decimals [fmtWeight] will show, as a rounding: what the field puts back
-/// must be what the field says.
 double roundStepWeight(double display) =>
     double.parse(display.toStringAsFixed(3));
 
-/// Formats a progression amount in its mode's own unit: "2.5 kg", "1 rep",
-/// "5s". Weight is converted to the display unit like every other weight.
 String progressionAmount(
   AppLocalizations l10n,
   double amount,
@@ -608,18 +413,7 @@ String progressionAmount(
   };
 }
 
-/// The four progression numbers read back as the rule they add up to: "Add
-/// 2.5 kg after 2 clean sessions; drop 5 kg after 2 missed sessions in a row."
-///
-/// "in a row" only when there is more than one to be in a row with — a rule that
-/// backs off on the first miss says so in the singular, and a threshold of one
-/// is the default for a weight slot. Both halves are plural branches of the
-/// message, so the phrase lives inside the translation rather than being
-/// stitched on after it.
 String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
-  // A cycle reads its own rule, because the numbers mean something else on
-  // one: what they move is the training max the sets are percentages of, and
-  // they move it at the wrap rather than after a run of clean sessions.
   if (d.scheme == SetScheme.cycle) {
     return l10n.itemEditorProgressionRuleCycle(
       progressionAmount(l10n, d.increment, ProgressionMode.weight, unit),
@@ -627,9 +421,6 @@ String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
       d.failureThreshold,
     );
   }
-  // On the advanced axis this sentence is the rep half of the rule — what the
-  // load does is what happens at either end of the range, which is the two
-  // lines under it.
   final mode = d.onAdvancedAxis ? ProgressionMode.reps : d.progression;
   final step = d.onAdvancedAxis ? d.repsIncrement : d.increment;
   final back = d.onAdvancedAxis ? d.repsDeload : d.deload;
@@ -641,14 +432,7 @@ String progressionRule(AppLocalizations l10n, ItemDraft d, String unit) {
   );
 }
 
-/// Compact target/weight/progression summary for a draft item, e.g.
-/// "4 × 6–8 · 80 kg · +2.5 kg".
 String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
-  // A written-out slot states its sets one at a time, so the summary lists the
-  // rows rather than multiplying one of them — the same choice the training day
-  // makes, and for the same reason: "3 × 5" over rows reading 5, 3 and 1 is a
-  // claim about all three that is false of two of them. A cycle shows the week
-  // it is on; a custom slot has only the one prescription.
   final rows = d.scheme == SetScheme.cycle ? d.cycleRows : d.customSets;
   final target = d.scheme.isWrittenOut && rows.isNotEmpty
       ? rowsTargetLabel(l10n, rows)
@@ -658,8 +442,6 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
           progression: d.progression,
           toFailure: d.toFailure,
           holdSeconds: d.holdSeconds,
-          // The same phrase the training day shows, and for the same reason: a
-          // slot climbing its range aims at one number rather than at the range.
           repsMin: d.goalReps,
           repsMax: d.onAdvancedAxis ? null : d.repsMax,
         );
@@ -667,28 +449,16 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
       ? null
       : l10n.unitWeightShort(
           fmtWeight(toDisplayWeight(d.weightKg!, unit)), unitSuffix(l10n, unit));
-  // A written-out slot's number is a training max rather than a load, and it
-  // is named as one here for the reason the board names it: the sets beside it
-  // are percentages of it, so an unlabelled figure claims to be what you lift.
-  // True of a custom slot as much as of a cycle — both are fractions of one
-  // number.
   final w = weight != null && d.runsPercentages
       ? l10n.itemEditorSummaryTrainingMax(weight)
       : weight;
   final step = '+${progressionAmount(l10n, d.increment, d.progression, unit)}';
-  // A slot whose sets are a ladder must not read in the list exactly like one
-  // whose sets are all alike. Flat says nothing, because flat is the default
-  // and naming it on every row would be noise on nearly every row.
   final scheme = d.scheme == SetScheme.flat
       ? null
       : _SchemePicker._label(l10n, d.scheme).toLowerCase();
   return [target, ?w, ?scheme, step].join(' · ');
 }
 
-/// The ordered exercise list of one workout: add, reorder, configure, remove.
-///
-/// Edits [items] in place and reports via [onChanged], so the owner can hold
-/// the list as its own draft state and decide when to persist it.
 class WorkoutItemsEditor extends StatefulWidget {
   const WorkoutItemsEditor({
     super.key,
@@ -702,10 +472,8 @@ class WorkoutItemsEditor extends StatefulWidget {
   final List<ItemDraft> items;
   final String unit;
 
-  /// The app-wide bar, so a bar-loaded slot can say what it may not go below.
   final double defaultBarKg;
 
-  /// The routine's default rest, shown when an item has no override.
   final int routineRest;
   final VoidCallback? onChanged;
 
@@ -733,36 +501,21 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         _normalise();
       });
 
-  /// Drops a join the list can no longer hold. A row keeps its join as it moves,
-  /// so dragging a joined row to the top — or deleting the row it was joined to,
-  /// leaving it at the top — is where a list would otherwise claim that the
-  /// first exercise is supersetted with the one above it.
   void _normalise() {
     if (_items.isNotEmpty) _items.first.supersetWithPrevious = false;
   }
 
   Future<void> _addExercise() async {
-    // Dismissing a sheet hands focus back to whatever had it, which pops the
-    // keyboard open on the name field above. Nobody asked to rename anything.
-    // Dropping focus before opening leaves nothing to hand back, which beats
-    // racing the restore on the way in.
     FocusManager.instance.primaryFocus?.unfocus();
     final picked = await pickExercise(context);
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
-    // In the movement's own unit, where it has one: a slot on a pounds-pinned
-    // lift opens on the 5 lb step rather than on the metric pair.
     _bump(() => _items.add(
           ItemDraft.forExercise(
             picked,
             unit: unitForExercise(widget.unit, picked.unitOverride),
           ),
         ));
-    // Straight into the new slot's settings: an exercise nobody has set the
-    // sets, reps and weight on is not finished being added, and landing back on
-    // the list makes every add two taps with the second one easy to forget.
-    // Backing out keeps it at its defaults — it is already in the workout, and
-    // the sheet is for tuning it rather than for confirming it.
     if (!mounted) return;
     await _configure(_items.length - 1);
   }
@@ -770,9 +523,6 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   Future<void> _configure(int i) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final l10n = AppLocalizations.of(context);
-    // The movement directly above, as the screen names it — what the superset
-    // checkbox is offering to join to. Null on the first row, which has nothing
-    // above it.
     final above = i == 0
         ? null
         : seededName(
@@ -804,8 +554,6 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
         index: i,
         title: draft.name,
         subtitle: draftSummary(l10n, draft, draft.unitIn(widget.unit)),
-        // The group is tagged once, on the row it starts at, and drawn on all of
-        // its rows.
         badge: inSuperset(joins, i) && !joins[i] ? l10n.commonSuperset : null,
         grouped: inSuperset(joins, i),
         onTap: () => _configure(i),
@@ -815,16 +563,6 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   }
 }
 
-/// Opens the slot editor over [draft], editing it in place and reporting each
-/// change through [onChanged].
-///
-/// Public because the builder is no longer the only screen that configures a
-/// slot: the live board opens the same sheet from the settings control beside an
-/// exercise's name, so a progression rule can be changed where somebody notices
-/// it is wrong. Passing no [exerciseAbove] leaves out the superset checkbox,
-/// which is what the board does — what is trained in the same round is the shape
-/// of the day, and re-shaping it around sets already logged is the one edit a
-/// running session refuses.
 Future<void> showItemConfigSheet(
   BuildContext context, {
   required ItemDraft draft,
@@ -837,17 +575,11 @@ Future<void> showItemConfigSheet(
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      // Without this the sheet grows behind the status bar and the camera
-      // cut-out takes a bite out of the exercise name at the top of it.
       useSafeArea: true,
       backgroundColor: AppColors.ground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      // The keyboard inset is taken here, outside the sheet's own scroll view:
-      // that is what ends the viewport above the keyboard, so a field tapped
-      // near the bottom of the sheet can be scrolled clear of it rather than
-      // left underneath it.
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _ItemConfigSheet(
@@ -861,8 +593,6 @@ Future<void> showItemConfigSheet(
       ),
     );
 
-/// Bottom-sheet editor for a single item's sets / reps / rest / weight, plus
-/// the library properties of the movement it stands for.
 class _ItemConfigSheet extends ConsumerStatefulWidget {
   const _ItemConfigSheet({
     required this.draft,
@@ -877,9 +607,6 @@ class _ItemConfigSheet extends ConsumerStatefulWidget {
   final int routineRest;
   final double defaultBarKg;
 
-  /// The movement directly above this slot in the workout, named the way the
-  /// screens name it — what the superset checkbox offers to join to. Null on the
-  /// first slot, which has nothing above it and so gets no checkbox.
   final String? exerciseAbove;
   final VoidCallback onChanged;
 
@@ -888,35 +615,18 @@ class _ItemConfigSheet extends ConsumerStatefulWidget {
 }
 
 class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
-  /// The unit every weight on this sheet is read and typed in.
-  ///
-  /// Resolved on each build rather than taken once, because the movement behind
-  /// the slot is editable from here: swapping it for one pinned to another unit
-  /// has to move the fields with it, not leave them reading the unit the sheet
-  /// opened in.
   String get _unit => unitForExercise(widget.unit, d.exercise?.unitOverride);
 
   late final TextEditingController _weight;
 
-  /// Whether the Target card's advanced half is open.
-  ///
-  /// Shut on a slot that only uses the three fields above it, and open on one
-  /// that does not — a setting a slot is actually using must not be hidden
-  /// behind a toggle somebody has to think to press. Once open it stays open
-  /// for the life of the sheet, including after the last advanced setting is
-  /// turned back off: closing the panel out from under the tap that emptied it
-  /// is the app arguing with you.
   late bool _advanced = widget.draft.usesAdvanced;
 
-  /// The same, for the Progression card's own half.
   late bool _progressionAdvanced = widget.draft.usesProgressionAdvanced;
 
   ItemDraft get d => widget.draft;
 
-  /// True when [d] is measured in seconds rather than reps.
   bool get _timed => d.progression.timed;
 
-  /// What an empty weight field says: over a bar, the lightest it can be.
   String _weightHint(AppLocalizations l10n) {
     final floor = d.floorKg(widget.defaultBarKg);
     if (floor <= 0) return l10n.itemEditorWeightUnset;
@@ -941,15 +651,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     super.dispose();
   }
 
-  /// What one tap of the weight field's − or + is worth.
-  ///
-  /// The slot's own rates, because they are what a session would do to this
-  /// weight: + adds the step up and − takes off the back off, and on a slot
-  /// climbing 2.5 and dropping 5 the two taps are deliberately different sizes.
-  /// A back-off of zero is a slot that never lightens on a miss, which is a real
-  /// answer for progression and a dead button here, so − borrows the step
-  /// instead. Where the slot progresses by reps or by seconds there is no weight
-  /// rate to borrow at all and the unit's own step stands in.
   double _weightNudge(int sign) {
     final onWeightRates =
         d.progression == ProgressionMode.weight || d.onAdvancedAxis;
@@ -958,8 +659,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     return rate > 0 ? rate : unitStepKg(_unit);
   }
 
-  /// Whether − has anywhere to go: a field nobody has filled in has no number to
-  /// take anything off, and one already at the bar is at the floor.
   bool get _canNudgeWeightDown {
     final w = d.weightKg;
     return w != null && w > d.floorKg(widget.defaultBarKg) + 1e-9;
@@ -969,8 +668,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     final floor = d.floorKg(widget.defaultBarKg);
     final current = d.weightKg;
     if (current == null) {
-      // + on an empty field fills in the lightest the movement can be — the bar
-      // it is loaded on, or one tap's worth where there is no bar.
       if (sign > 0) _setWeight(floor > 0 ? floor : _weightNudge(1));
       return;
     }
@@ -978,27 +675,18 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     _setWeight(next < floor ? floor : next);
   }
 
-  /// Writes a nudged weight to the draft and to the box at once.
-  ///
-  /// Rounded to what the box will actually show, so a rate converted from
-  /// pounds cannot leave a tail behind the text on every tap.
   void _setWeight(double kg) {
     final display = roundStepWeight(toDisplayWeight(kg, _unit));
     _weight.text = fmtWeight(display);
     _bump(() => d.weightKg = toKg(display, _unit));
   }
 
-  /// One of the faint lines this sheet explains itself with — the axis it has
-  /// no choice about, and the rule its numbers add up to.
   Widget _note(String text) => Text(
         text,
         style: kMono.copyWith(
             fontSize: 11, height: 1.5, color: AppColors.faint),
       );
 
-  /// A progression amount in the display unit, as a weight — what the two ends
-  /// of a climbed range are worth, whichever axis the sentence around it is
-  /// about.
   String _weightAmount(AppLocalizations l10n, double amount) =>
       progressionAmount(l10n, amount, ProgressionMode.weight, _unit);
 
@@ -1007,9 +695,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     widget.onChanged();
   }
 
-  /// Opens the same form the library edits a movement you made with, and takes
-  /// what comes back — the name at the top of this sheet is one of the things
-  /// it may have changed.
   Future<void> _editExercise() async {
     FocusManager.instance.primaryFocus?.unfocus();
     final saved = await Navigator.of(context, rootNavigator: true)
@@ -1022,12 +707,8 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     _adopt(saved);
   }
 
-  /// Takes the library's new facts, and the weight field with them: a movement
-  /// that has just been told it carries nothing has no number left to show.
   void _adopt(Exercise e) {
     _bump(() {
-      // The unit the *new* movement is read in: swapping a slot onto a
-      // pounds-pinned lift is a move between units for every default it takes.
       d.adoptExercise(e, unit: unitForExercise(_unit, e.unitOverride));
       if (d.weightKg == null) _weight.text = '';
     });
@@ -1038,8 +719,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     final l10n = AppLocalizations.of(context);
     final mq = MediaQuery.of(context);
     final ex = d.exercise;
-    // The exercise is editable from this sheet, and from the library while a
-    // builder sits behind it. Either way the slot above has to hear about it.
     ref.listen(exerciseLibraryProvider, (_, next) {
       final all = next.value;
       if (all == null || !mounted) return;
@@ -1071,9 +750,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     ],
                   ),
                 ),
-                // Dragging the sheet down closes it too, but only if your
-                // thumb lands somewhere that is not the scrolling content.
-                // A close button is always where you left it.
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
@@ -1092,11 +768,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     value: d.setCount,
                     min: 1,
                     max: 12,
-                    // A cycle writes its week out a row at a time, so how many
-                    // rows the week has *is* how many sets there are. The
-                    // stepper reads it and goes dead rather than disappearing —
-                    // the count is still a fact about the slot, it is just not
-                    // this control's to set any more.
                     enabled: d.scheme != SetScheme.cycle,
                     onChanged: (v) => _bump(() => d.sets = v),
                   ),
@@ -1130,9 +801,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 BuilderField(
                   label: l10n.itemEditorRest,
-                  // Editing rest here creates an explicit per-exercise
-                  // override; the caption is where that gets said, so the
-                  // stepper stays the same width as its neighbours.
                   note: d.restSeconds == null
                       ? l10n.itemEditorRestDefault
                       : l10n.itemEditorRestCustom,
@@ -1146,9 +814,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 ),
               ]),
-              // How this slot is performed against the one above it. In the
-              // basic half rather than behind Advanced: a superset changes what
-              // you do in the gym far more than a rep range does.
               if (widget.exerciseAbove case final above?) ...[
                 const SizedBox(height: 16),
                 _CheckRow(
@@ -1156,17 +821,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   label: l10n.itemEditorSupersetWith(above),
                   value: d.supersetWithPrevious,
                   onChanged: (v) => _bump(() => d.supersetWithPrevious = v),
-                  // The one word on this sheet that is a training method rather
-                  // than a number, and the only one somebody can tick without
-                  // knowing what they have asked for. Behind a tap, not under the
-                  // control: a paragraph nobody needs would sit there for ever,
-                  // and this is read once.
                   onExplain: () => _explainSuperset(context),
                 ),
               ],
-              // A hold has no rep range, no failure and no ladder, so it has no
-              // advanced half either — and a toggle that opens onto nothing is
-              // worse than no toggle.
               if (!_timed) ...[
                 const SizedBox(height: 14),
                 _AdvancedToggle(
@@ -1175,25 +832,14 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 ),
                 if (_advanced) ...[
                   const SizedBox(height: 14),
-                  // Sets taken to failure are not aiming at a range, so the
-                  // stepper goes dead — and keeps what it is holding. Taking
-                  // the field away would take the number with it, and trying
-                  // failure for a week would cost the range you had.
                   builderGrid([
                     BuilderField(
                       label: l10n.itemEditorRepRange,
-                      // The range it currently produces, so the caption says
-                      // what the number does rather than where it goes. The
-                      // Reps field it extends is in the basic half above, out
-                      // of sight of this one.
                       note: d.repsMax == null
                           ? null
                           : l10n.itemEditorRepRangeSpan(d.repsMin, d.repsMax!),
                       child: NumberStepper(
                         key: kRepRangeFieldKey,
-                        // Stepping down past the lower bound drops the upper
-                        // one entirely — no stray clear button to knock the
-                        // row out of line with the rest of the grid.
                         value: d.repsMax ?? d.repsMin,
                         isEmpty: d.repsMax == null,
                         emptyLabel: l10n.itemEditorNoUpper,
@@ -1222,8 +868,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ],
             ]),
             const SizedBox(height: 14),
-            // A movement that carries nothing gets the word, not a field: there
-            // is no number to type, and an empty box does not say so.
             if (!d.weightType.carriesWeight)
               builderCard(l10n.itemEditorWeight, [
                 Text(
@@ -1256,11 +900,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                             decimal: true),
                         style: kMono.copyWith(
                             fontSize: 16, fontWeight: FontWeight.w600),
-                        // Blank on a loaded movement is a number nobody has
-                        // filled in yet, not bodyweight — the loading says which
-                        // it is, and this one carries a weight. Over a bar, the
-                        // hint is the bar: it is the floor the value is held at
-                        // on the way to the database.
                         decoration: builderInput(_weightHint(l10n)),
                         onChanged: (v) {
                           final parsed =
@@ -1277,16 +916,11 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ]),
             const SizedBox(height: 14),
             builderCard(l10n.itemEditorProgression, [
-              // One axis available is no choice to present; the caption names it
-              // instead of showing a picker of one.
               if (d.modes.length > 1)
                 _ModePicker(
                   modes: d.modes,
                   mode: d.progression,
                   advanced: d.onAdvancedAxis,
-                  // Offered wherever the two axes it takes in turn exist, and
-                  // dead until there is a range for them to take turns inside —
-                  // the tick below is where the sentence saying so fits.
                   advancedOffered: d.modes.contains(ProgressionMode.weight) &&
                       d.modes.contains(ProgressionMode.reps),
                   advancedEnabled: d.canClimbRange,
@@ -1298,10 +932,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               else
                 _note(_soleAxis(l10n, d.modes.first)),
               const SizedBox(height: 16),
-              // Two amounts on an ordinary axis; four on the one that takes reps
-              // and weight in turn, because a rep is not a kilogram. The two
-              // thresholds are not doubled with them: a session is clean or
-              // missed for the slot, not for one of its axes.
               builderGrid([
                 BuilderField(
                   label: d.onAdvancedAxis
@@ -1312,8 +942,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     value: d.increment,
                     mode: d.progression,
                     unit: _unit,
-                    // A slot that steps up by nothing never progresses, so the
-                    // buttons stop at one tap's worth rather than at zero.
                     allowZero: false,
                     onChanged: (v) => _bump(() => d.increment = v),
                   ),
@@ -1339,8 +967,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                     value: d.deload,
                     mode: d.progression,
                     unit: _unit,
-                    // Zero is a real answer here: a missed session that never
-                    // lightens the load.
                     onChanged: (v) => _bump(() => d.deload = v),
                   ),
                 ),
@@ -1355,9 +981,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                       onChanged: (v) => _bump(() => d.repsDeload = v),
                     ),
                   ),
-                // A cycle steps up when it comes round, not after a run of
-                // clean sessions — so there is no run to count, and a stepper
-                // that changes nothing is worse than no stepper.
                 if (d.scheme != SetScheme.cycle)
                   BuilderField(
                     label: l10n.itemEditorCleanSessions,
@@ -1379,9 +1002,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 ),
               ]),
               const SizedBox(height: 14),
-              // The numbers above, read back as the rule they add up to: one
-              // sentence on an ordinary axis, and on the advanced one what the
-              // reps do plus what happens at each end of the range.
               _note(progressionRule(l10n, d, _unit)),
               if (d.onAdvancedAxis) ...[
                 const SizedBox(height: 6),
@@ -1397,16 +1017,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   d.repsMax!,
                 )),
               ],
-              // The ways of advancing most slots never use. In this card rather
-              // than beside the rep range one of them reads: how a slot
-              // progresses is decided in one place, whatever the rule happens to
-              // look at.
-              // The toggle holds exactly one control, so it is drawn only
-              // where that control can be taken: opening it onto a single dead
-              // row is a promise the card then refuses. The greyed pill on the
-              // axis row above is what stays on screen meanwhile, so there is
-              // still somewhere to find double progression and learn what it
-              // wants.
               if (d.canClimbRange || d.onAdvancedAxis) ...[
                 const SizedBox(height: 14),
                 _AdvancedToggle(
@@ -1423,9 +1033,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   label: l10n.itemEditorAddWeightAtTop,
                   value: d.onAdvancedAxis,
                   enabled: d.canClimbRange,
-                  // What the combination does, said once under the one control
-                  // that offers it — this is the tick somebody meets without
-                  // knowing what they have been offered.
                   note: l10n.itemEditorAddWeightAtTopHint,
                   disabledNote: l10n.itemEditorRangeClimbNeedsRange,
                   onChanged: (v) =>
@@ -1433,8 +1040,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 ),
               ],
             ]),
-            // Last, and in a card of its own: everything above belongs to this
-            // slot, everything here belongs to the movement.
             if (ex != null) ...[
               const SizedBox(height: 14),
               builderCard(l10n.itemEditorExercise, [
@@ -1447,10 +1052,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 ExerciseLoadingSection(exercise: ex),
                 const SizedBox(height: 18),
                 ExerciseNoteSection(exercise: ex),
-                // The name and the classification of a movement the app
-                // shipped are shared vocabulary — a routine code that says
-                // "Bench Press" has to mean what everyone else calls that — so
-                // the form that changes them is offered only for your own.
                 if (ex.isCustom) ...[
                   const SizedBox(height: 18),
                   OutlinedButton.icon(
@@ -1481,14 +1082,12 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   }
 }
 
-/// The one axis a slot has no choice about, named.
 String _soleAxis(AppLocalizations l10n, ProgressionMode m) => switch (m) {
       ProgressionMode.time => l10n.itemEditorAxisTime,
       ProgressionMode.reps => l10n.itemEditorAxisReps,
       ProgressionMode.weight => l10n.itemEditorAxisWeight,
     };
 
-/// Finds the Target card's advanced half in a test.
 const kAdvancedToggleKey = ValueKey('target-advanced');
 const kSchemePickerKey = ValueKey('set-scheme');
 const kSchemePercentKey = ValueKey('scheme-percent');
@@ -1497,13 +1096,6 @@ const kCycleAddWeekKey = ValueKey('cycle-add-week');
 const kRangeClimbKey = ValueKey('add-weight-at-top-of-range');
 const kProgressionAdvancedKey = ValueKey('progression-advanced');
 
-/// The one control that opens the rest of the Target card.
-///
-/// A pill rather than a Material [ExpansionTile]: the card already has its own
-/// padding and its own type, and a tile brings a second set of both. The same
-/// pill the pickers above it are made of, at the same size — what it opens is
-/// half a card, and a small line of coloured text reads as a caption on the
-/// half above rather than as the way to the half below.
 class _AdvancedToggle extends StatelessWidget {
   const _AdvancedToggle({
     required this.open,
@@ -1514,8 +1106,6 @@ class _AdvancedToggle extends StatelessWidget {
   final bool open;
   final VoidCallback onTap;
 
-  /// Which half of the sheet this one opens — there is one per card, and a test
-  /// tapping "Advanced" has to be able to say which.
   final Key rowKey;
 
   @override
@@ -1531,10 +1121,6 @@ class _AdvancedToggle extends StatelessWidget {
   }
 }
 
-/// How the sets of this slot differ from one another: the schemes on offer, the
-/// percentage the two ladders are made of, the written-out rows of a custom one
-/// or the weeks of a cycle, and the whole thing read back as the weights it
-/// produces.
 class _SchemeSection extends StatelessWidget {
   const _SchemeSection({
     required this.draft,
@@ -1566,10 +1152,6 @@ class _SchemeSection extends StatelessWidget {
         _SchemePicker(
           key: kSchemePickerKey,
           scheme: d.scheme,
-          // The rows a custom scheme was given survive a trip through another
-          // scheme and back, so trying a ramp does not throw away what was
-          // typed. Only a custom slot ever writes them to the database, and a
-          // cycle's weeks are kept on exactly the same terms.
           onChanged: (s) {
             d.scheme = s;
             if (s.isCustom && d.customSets.isEmpty) {
@@ -1605,8 +1187,6 @@ class _SchemeSection extends StatelessWidget {
         ],
         if (d.scheme.isCustom) ...[
           const SizedBox(height: 14),
-          // One row per set the slot asks for, so adding a set adds a row
-          // rather than leaving the two lists to disagree.
           for (var i = 0; i < d.sets; i++) ...[
             if (i > 0) const SizedBox(height: 10),
             _CustomSetRow(
@@ -1636,8 +1216,6 @@ class _SchemeSection extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 14),
-        // The scheme read back as the sets it adds up to — the same trick the
-        // progression card plays with its four numbers.
         Text(
           key: kSchemePreviewKey,
           _schemeLine(l10n, d, unit, defaultBarKg),
@@ -1649,20 +1227,11 @@ class _SchemeSection extends StatelessWidget {
   }
 }
 
-/// What a fresh custom scheme opens on: the slot as it already is, one row per
-/// set. Editing from what you have beats editing from blanks.
 List<CustomSet> _seedCustomRows(ItemDraft d) => [
       for (var i = 0; i < d.sets; i++)
         CustomSet(reps: d.goalReps, percent: 100),
     ];
 
-/// One outlined, tappable option: the shape every picker on this sheet is made
-/// of, and the shape the two Advanced disclosures take.
-///
-/// One widget rather than one per picker. They were three copies of the same
-/// Material/InkWell/Ink sandwich, and the third had drifted — a disclosure set
-/// in 12-point coloured text beside 13-point bordered pills reads as a caption
-/// on the card above it rather than as the control that opens half of it.
 class EditorPill extends StatelessWidget {
   const EditorPill({
     super.key,
@@ -1675,17 +1244,12 @@ class EditorPill extends StatelessWidget {
 
   final String label;
 
-  /// Whether this is the option in force — accent border and accent text.
   final bool on;
 
-  /// Null is a dead pill: shown, greyed, and not tappable.
   final VoidCallback? onTap;
 
-  /// Drawn before the label, in the label's own colour.
   final IconData? icon;
 
-  /// Whether the label sits in the middle. True where the pill is stretched to
-  /// a share of the row; false where it is only as wide as its own text.
   final bool centred;
 
   @override
@@ -1732,7 +1296,6 @@ class EditorPill extends StatelessWidget {
                   children: [
                     Icon(icon, size: 18, color: colour),
                     const SizedBox(width: 8),
-                    // The label gives before the icon does, as everywhere else.
                     Flexible(child: text),
                   ],
                 ),
@@ -1742,8 +1305,6 @@ class EditorPill extends StatelessWidget {
   }
 }
 
-/// The scheme as the sets it produces: "100 · 90 · 80 kg", or the rep counts
-/// alone on a movement with no weight to scale.
 String _schemeLine(
   AppLocalizations l10n,
   ItemDraft d,
@@ -1755,8 +1316,6 @@ String _schemeLine(
   if (targets.every((t) => t.weightKg == null)) {
     return targets.map((t) => '${t.reps}').join(sep);
   }
-  // Reps only when they differ set to set, so a back-off does not repeat the
-  // same number three times beside the weights that are the point of it.
   final varyingReps = targets.map((t) => t.reps).toSet().length > 1;
   final body = targets
       .map((t) => varyingReps
@@ -1766,7 +1325,6 @@ String _schemeLine(
   return '$body ${unitSuffix(l10n, unit)}';
 }
 
-/// The four schemes as one row of pills.
 class _SchemePicker extends StatelessWidget {
   const _SchemePicker({
     super.key,
@@ -1788,31 +1346,18 @@ class _SchemePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // One definition of a pill, whether or not it is the one carrying the (i).
-    // Written twice, the two would agree until somebody changed one of them.
     EditorPill pill(SetScheme s) => EditorPill(
           label: _label(l10n, s),
           on: s == scheme,
           onTap: () => onChanged(s),
         );
 
-    // Wrapped rather than four equal columns: "Back-off" in a language that
-    // spells it out does not fit a quarter of a phone at 2× text.
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         for (final s in SetScheme.values)
           if (s == SetScheme.cycle)
-            // The (i) rides on the option it explains rather than on the
-            // section label, and it is there whether or not the slot is on a
-            // cycle: the question it answers — what would I be picking — is
-            // asked before the pick. On the label it was a footnote about a
-            // picker of five options that said nothing about the other four.
-            //
-            // The pair is one child of the Wrap so they break onto a new line
-            // together; an (i) that wrapped away from its pill would be an
-            // info button belonging to nothing.
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1836,8 +1381,6 @@ class _SchemePicker extends StatelessWidget {
   }
 }
 
-/// One written-out set of a custom scheme: which set it is, its reps, and its
-/// percentage of the slot's weight.
 class _CustomSetRow extends StatelessWidget {
   const _CustomSetRow({
     required this.index,
@@ -1852,10 +1395,6 @@ class _CustomSetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // A row with no ceiling has no upper bound to set, so the bound goes dead
-    // rather than away — the same rule the slot's own range follows under
-    // "to failure", and for the same reason: taking the field away takes the
-    // number with it.
     final capped = !row.amrap;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1914,8 +1453,6 @@ class _CustomSetRow extends StatelessWidget {
     );
   }
 
-  /// The row with one thing changed. Written out because [CustomSet] is
-  /// immutable and every control here changes exactly one of its four fields.
   CustomSet _with({
     int? reps,
     int? percent,
@@ -1928,8 +1465,6 @@ class _CustomSetRow extends StatelessWidget {
     final bottom = reps ?? row.reps;
     return CustomSet(
       reps: bottom,
-      // Raising the bottom past the top would ask for a range that runs
-      // backwards; the top comes with it instead.
       repsMax: top == null ? null : (top < bottom ? bottom : top),
       amrap: open,
       percent: percent ?? row.percent,
@@ -1937,13 +1472,6 @@ class _CustomSetRow extends StatelessWidget {
   }
 }
 
-/// The weeks of a cycle: each one a list of written-out rows, added, edited and
-/// removed a week at a time.
-///
-/// Deliberately a plain column rather than anything reorderable. Weeks are read
-/// in the order they are written and a cycle is three or four of them — the
-/// drag handles that earn their place on a list of exercises would be chrome
-/// here.
 class _CycleEditor extends StatefulWidget {
   const _CycleEditor({
     required this.draft,
@@ -1958,13 +1486,6 @@ class _CycleEditor extends StatefulWidget {
 }
 
 class _CycleEditorState extends State<_CycleEditor> {
-  /// The one week showing its rows, or null for all of them folded.
-  ///
-  /// One at a time rather than a set of flags. Four weeks of four sets each is
-  /// sixteen rep steppers, sixteen percentages and sixteen headings in one
-  /// scrolling column, and the question anybody is actually holding — how does
-  /// this week differ from the one before it — is unanswerable in that. Folded,
-  /// a week is one line that answers it.
   late int? _open = widget.draft.cycle.isEmpty
       ? null
       : widget.draft.cyclePosition % widget.draft.cycle.length;
@@ -1981,10 +1502,6 @@ class _CycleEditorState extends State<_CycleEditor> {
           if (w > 0) const SizedBox(height: 12),
           _CycleWeekCard(
             key: cycleWeekKey(w),
-            // The name it was given, or — counting from one — where it sits in
-            // the order. Marked when it is the week the next session will
-            // actually run: the cycle's position is program state the builder
-            // shows rather than edits.
             title: cycleWeekTitle(l10n, _d.cycleNameOf(w), w),
             rows: _d.cycle[w],
             open: w == _open,
@@ -2012,8 +1529,6 @@ class _CycleEditorState extends State<_CycleEditor> {
 
   void _addSet(int week) {
     final weeks = [for (final w in _d.cycle) [...w]];
-    // The last row again rather than a blank: a week is written by copying the
-    // set above it and changing one number.
     weeks[week].add(weeks[week].isEmpty
         ? CustomSet(reps: _d.goalReps, percent: 100)
         : weeks[week].last);
@@ -2028,18 +1543,12 @@ class _CycleEditorState extends State<_CycleEditor> {
     widget.onChanged();
   }
 
-  /// Asks what this week is called and keeps the answer, or drops it when the
-  /// box comes back empty — a week with nothing typed in it is "Week 3", which
-  /// is what it was before anybody opened the box.
   Future<void> _renameWeek(int week) async {
     final typed = await showCycleWeekNameDialog(
       context,
       current: _d.cycleNameOf(week),
     );
     if (typed == null || !mounted) return;
-    // Padded to the week being named rather than to the whole cycle: the list
-    // is read through [cycleNameAt], which answers "no name" for anything past
-    // its end, so trailing blanks would be stored for nothing.
     final names = [
       for (var i = 0; i < _d.cycle.length; i++)
         i == week ? typed : _d.cycleNameOf(i),
@@ -2051,9 +1560,6 @@ class _CycleEditorState extends State<_CycleEditor> {
     widget.onChanged();
   }
 
-  /// A new week is a copy of the last one, for the reason a new set is a copy
-  /// of the set above it: week two of a cycle differs from week one by a rep
-  /// count and a percentage, not by everything.
   void _addWeek() {
     _d.cycle = [
       ..._d.cycle,
@@ -2062,8 +1568,6 @@ class _CycleEditorState extends State<_CycleEditor> {
       else
         [..._d.cycle.last],
     ];
-    // A week you just asked for is a week you are about to edit, so it opens —
-    // and the one you were looking at folds, which is the accordion working.
     setState(() => _open = _d.cycle.length - 1);
     widget.onChanged();
   }
@@ -2071,19 +1575,14 @@ class _CycleEditorState extends State<_CycleEditor> {
   void _removeWeek(int week) {
     final weeks = [for (final w in _d.cycle) [...w]]..removeAt(week);
     _d.cycle = weeks;
-    // The name goes with the week it was typed on, rather than staying at its
-    // index and re-labelling the week that moved up into it.
     if (week < _d.cycleNames.length) {
       _d.cycleNames = [..._d.cycleNames]..removeAt(week);
     }
-    // The position is held inside what is left rather than reset: removing
-    // week four must not send a slot on week three back to week one.
     if (_d.cyclePosition >= weeks.length && weeks.isNotEmpty) {
       _d.cyclePosition = weeks.length - 1;
     }
     setState(() {
       if (_open == null) return;
-      // The weeks after the removed one have all moved up one.
       _open = _open == week
           ? null
           : (_open! > week ? _open! - 1 : _open);
@@ -2092,28 +1591,16 @@ class _CycleEditorState extends State<_CycleEditor> {
   }
 }
 
-/// Finds one week of a cycle in a test.
 ValueKey<String> cycleWeekKey(int week) => ValueKey('cycle-week-$week');
 
-/// Finds the pencil inside whichever week card a test has already reached.
 const ValueKey<String> cycleWeekRenameKey = ValueKey('cycle-week-rename');
 
-/// Finds the field inside the box that pencil opens, and the Save beside it —
-/// the sheet under the box has a Save of its own, so the two need telling
-/// apart.
 const ValueKey<String> cycleWeekNameFieldKey = ValueKey('cycle-week-name-field');
 const ValueKey<String> cycleWeekNameSaveKey = ValueKey('cycle-week-name-save');
 
-/// What week [index] is headed — the name it carries, or "Week 3".
-///
-/// One function rather than a conditional at each of the four places a week is
-/// named: the builder card, the live board, the training day and the library
-/// preview all have to agree, and a fifth reader will too.
 String cycleWeekTitle(AppLocalizations l10n, String name, int index) =>
     name.trim().isEmpty ? l10n.itemEditorCycleWeek(index + 1) : name.trim();
 
-/// Asks what a week is called. Returns the typed name, the empty string for a
-/// week whose name was cleared, or null when the box was dismissed.
 Future<String?> showCycleWeekNameDialog(
   BuildContext context, {
   required String current,
@@ -2125,10 +1612,6 @@ Future<String?> showCycleWeekNameDialog(
   return typed?.trim();
 }
 
-/// The box itself. A widget of its own rather than a closure round a
-/// controller, so the controller is disposed when the route holding its field
-/// goes — disposing it beside the `await` tears it out from under a field that
-/// is still animating away.
 class _CycleWeekNameDialog extends StatefulWidget {
   const _CycleWeekNameDialog({required this.current});
 
@@ -2179,12 +1662,6 @@ class _CycleWeekNameDialogState extends State<_CycleWeekNameDialog> {
   }
 }
 
-/// One week of a cycle: a card of its own, headed by the tap that folds it.
-///
-/// The card is what keeps four weeks from reading as one long list of steppers.
-/// Its rows are boxed inside it for the same reason one level down — "Set 2" in
-/// small type over a grid is a heading only while nothing else on screen looks
-/// like the grid under it.
 class _CycleWeekCard extends StatelessWidget {
   const _CycleWeekCard({
     super.key,
@@ -2204,12 +1681,10 @@ class _CycleWeekCard extends StatelessWidget {
   final List<CustomSet> rows;
   final bool open;
 
-  /// Whether this is the week the next session will run.
   final bool current;
 
   final VoidCallback onToggle;
 
-  /// Opens the box that asks what this week is called.
   final VoidCallback onRename;
 
   final VoidCallback? onRemove;
@@ -2256,8 +1731,6 @@ class _CycleWeekCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Folded, the heading carries the week read back, so nothing
-                  // has to be opened to see what it asks for.
                   if (!open) ...[
                     const SizedBox(width: 10),
                     Expanded(
@@ -2329,14 +1802,12 @@ class _CycleWeekCard extends StatelessWidget {
     );
   }
 
-  /// The week in one line — "5/5/5+ · 65/75/85%".
   String _summary(AppLocalizations l10n) => l10n.itemEditorCycleWeekSummary(
         rowsTargetLabel(l10n, rows),
         joinRowLabels(l10n, rows.map((r) => '${r.percent}')),
       );
 }
 
-/// Add or drop a set inside one week.
 class _CycleActions extends StatelessWidget {
   const _CycleActions({required this.onAddSet, required this.onRemoveSet});
 
@@ -2346,9 +1817,6 @@ class _CycleActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // Wrapped rather than a row: these sit inside a week card inside the
-    // sheet's own padding, so two spelled-out buttons do not fit a narrow
-    // phone's line — and at 2x text they do not fit anybody's.
     return Wrap(
       spacing: 8,
       children: [
@@ -2385,14 +1853,6 @@ class _AddWeekButton extends StatelessWidget {
   }
 }
 
-/// What a superset is, for somebody who has just been offered one.
-///
-/// The screens label their controls and leave the vocabulary to the tour — but a
-/// superset is the one thing on this sheet that is a training method rather than a
-/// number, and it is the one a user can switch on without knowing what they have
-/// asked for. So it is explained, in two sentences, behind a tap: an icon nobody
-/// has to press, rather than a paragraph under the checkbox that everybody has to
-/// read past for ever.
 Future<void> _explainSuperset(BuildContext context) {
   final l10n = AppLocalizations.of(context);
   return showAppDialog<void>(
@@ -2410,16 +1870,9 @@ Future<void> _explainSuperset(BuildContext context) {
   );
 }
 
-/// Finds the (i) beside the Set scheme label in a test.
 const kCycleExplainKey = ValueKey('cycle-explain');
 
 
-/// What a cycle is, for somebody who has just been offered one.
-///
-/// The second thing on this sheet explained rather than labelled, and for the
-/// reason the superset is: it is a way of training rather than a number, and
-/// picking it without knowing what it does gets you a slot whose weight stops
-/// moving for a month. Behind a tap, read once — see [_explainSuperset].
 Future<void> _explainCycle(BuildContext context) {
   final l10n = AppLocalizations.of(context);
   return showAppDialog<void>(
@@ -2437,10 +1890,6 @@ Future<void> _explainCycle(BuildContext context) {
   );
 }
 
-/// A label with a checkbox, tappable across its whole width.
-///
-/// [onExplain] hangs an info icon on the end of the row — for a setting whose
-/// label names something the user may not know.
 class _CheckRow extends StatelessWidget {
   const _CheckRow({
     super.key,
@@ -2457,18 +1906,10 @@ class _CheckRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final VoidCallback? onExplain;
 
-  /// Whether the option can be taken at all. A row that cannot is greyed and
-  /// untickable rather than absent — see [disabledNote].
   final bool enabled;
 
-  /// The one line under the row saying what the option does, shown whether or
-  /// not it can be taken. For a setting whose label names a training method
-  /// rather than a number — where the alternative is a word nobody can act on.
   final String? note;
 
-  /// The one line under a disabled row saying what it wants before it can be
-  /// ticked. Not a caption explaining the option: it is what somebody has to do
-  /// next, which is the one thing a helper line under a control is for.
   final String? disabledNote;
 
   @override
@@ -2481,9 +1922,6 @@ class _CheckRow extends StatelessWidget {
           height: 24,
           child: Checkbox(
             value: value,
-            // Null is what makes Flutter draw the box as disabled, and it is
-            // also what stops the tap: one signal rather than a grey paint job
-            // over a control that still works.
             onChanged: enabled ? (v) => onChanged(v ?? false) : null,
             activeColor: AppColors.accent,
             checkColor: const Color(0xFF1A0E07),
@@ -2492,7 +1930,6 @@ class _CheckRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        // The label gives; the checkbox is the control and stays whole.
         Expanded(
           child: Text(label,
               maxLines: 2,
@@ -2515,16 +1952,10 @@ class _CheckRow extends StatelessWidget {
       ],
     );
 
-    // What the option does, then — while it cannot be taken — what it wants
-    // first. Both indented to the label rather than to the row, so they read as
-    // belonging to this option and not to the next one down.
     final lines = [
       ?note,
       if (!enabled) ?disabledNote,
     ];
-    // The lines are inside the tap target, not under it: they are part of what
-    // is being offered, and a row that stops reacting halfway down its own
-    // explanation is a row that looks broken.
     return InkWell(
       onTap: enabled ? () => onChanged(!value) : null,
       borderRadius: BorderRadius.circular(10),
@@ -2547,14 +1978,6 @@ class _CheckRow extends StatelessWidget {
   }
 }
 
-/// The ways an exercise may be set to advance, as pills.
-///
-/// Only ever shows [modes] — the axes its measure allows. Offering to progress
-/// a deadlift by time is offering a choice with no right answer in it. The
-/// advanced rule is a pill like the others because it is a fourth answer to the
-/// same question, and it sits on a row of its own: it is the one whose name is
-/// not the number it moves, and three pills abreast leaves no room to say so in
-/// any language.
 class _ModePicker extends StatelessWidget {
   const _ModePicker({
     required this.modes,
@@ -2569,13 +1992,8 @@ class _ModePicker extends StatelessWidget {
   final ProgressionMode mode;
   final ValueChanged<ProgressionMode> onChanged;
 
-  /// Whether the slot is on the axis that takes reps and weight in turn — which
-  /// is also what makes none of [modes] the selected one.
   final bool advanced;
 
-  /// Whether that pill is shown at all, and whether it can be pressed. Shown
-  /// wherever the two axes it combines exist, and dead until there is a rep
-  /// range for them to take turns inside.
   final bool advancedOffered;
   final bool advancedEnabled;
   final VoidCallback? onAdvanced;
@@ -2631,25 +2049,12 @@ class _ModePicker extends StatelessWidget {
 
 }
 
-/// One tap of a progression amount, in the display unit of [mode].
-///
-/// A weight moves by the smallest pair of plates a gym actually racks — 1.25 kg
-/// in a metric gym, 2.5 lb in a pounds one — rather than by the same number in
-/// whichever unit happens to be on. Reps move by one and a hold by five
-/// seconds, matching the hold stepper above.
 double amountStep(ProgressionMode mode, String unit) => switch (mode) {
       ProgressionMode.weight => unit == 'lb' ? 2.5 : 1.25,
       ProgressionMode.reps => 1,
       ProgressionMode.time => 5,
     };
 
-/// A compact decimal entry for a progression amount, in the mode's own unit,
-/// with a − and a + either side of it.
-///
-/// Weight is typed and shown in the display unit and stored in kilograms like
-/// every other weight; reps and seconds are unitless and pass straight through.
-/// Typing is not rounded to the tap: 3 kg is a step somebody may want, and only
-/// the buttons move in [amountStep]s.
 class _AmountField extends StatefulWidget {
   const _AmountField({
     super.key,
@@ -2663,8 +2068,6 @@ class _AmountField extends StatefulWidget {
   final ProgressionMode mode;
   final String unit;
 
-  /// Whether the value may be taken all the way down to nothing. False on the
-  /// step-up, where zero is a slot that never progresses.
   final bool allowZero;
   final ValueChanged<double> onChanged;
 
@@ -2676,28 +2079,19 @@ class _AmountFieldState extends State<_AmountField> {
   late final TextEditingController _c = TextEditingController(text: _shown);
   final _focus = FocusNode();
 
-  /// The value in the unit it is typed in: the display unit for a weight,
-  /// itself for anything else.
   double get _display => widget.mode == ProgressionMode.weight
       ? toDisplayWeight(widget.value, widget.unit)
       : widget.value;
 
-  /// The value as the box shows it.
   String get _shown => fmtWeight(_display);
 
   double get _step => amountStep(widget.mode, widget.unit);
 
-  /// The lowest this may be driven from the buttons.
   double get _floor => widget.allowZero ? 0 : _step;
 
   @override
   void initState() {
     super.initState();
-    // Leaving the field settles it: a half-typed entry stops disagreeing with
-    // the value behind it, and a number below the floor is raised to it. The
-    // check waits for the field to be left rather than firing per keystroke,
-    // because 1.25 is typed through 1, and refusing that would make the floor
-    // impossible to type.
     _focus.addListener(() {
       if (_focus.hasFocus) return;
       if (_display < _floor) {
@@ -2711,9 +2105,6 @@ class _AmountFieldState extends State<_AmountField> {
   @override
   void didUpdateWidget(_AmountField old) {
     super.didUpdateWidget(old);
-    // Switching the axis swaps the amount underneath the field, and so does a
-    // button press; typing does not, and rewriting the text mid-edit would
-    // fight the cursor.
     if (widget.mode != old.mode || (!_focus.hasFocus && _shown != _c.text)) {
       _c.text = _shown;
     }
@@ -2726,15 +2117,12 @@ class _AmountFieldState extends State<_AmountField> {
     super.dispose();
   }
 
-  /// Moves the value one tap, held at [_floor] on the way down.
   void _nudge(int sign) {
     final next = _display + sign * _step;
     _commit(next < _floor ? _floor : next);
   }
 
   void _commit(double display) {
-    // Rounded to what the box will actually show, so a converted pound cannot
-    // leave a tail behind the text on every tap.
     final tidy = widget.mode == ProgressionMode.weight
         ? roundStepWeight(display)
         : display;

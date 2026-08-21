@@ -14,14 +14,8 @@ import '../widgets/common.dart';
 import '../widgets/workout_items_editor.dart';
 import 'training_max_screen.dart';
 
-/// Swatches offered for a routine's accent colour.
 const _palette = ['FF6A3D', '3ED598', 'FFC24B', '4B9BFF', 'B06AFF', 'FF5D8F'];
 
-/// A mutable working copy of one workout while editing the routine. A null
-/// [id] is a workout that does not exist yet.
-///
-/// [items] is null until the user opens the workout — a saved workout whose
-/// exercises were never loaded must be written back untouched, not blanked.
 class _WorkoutDraft {
   _WorkoutDraft({
     this.id,
@@ -33,29 +27,17 @@ class _WorkoutDraft {
   });
   final int? id;
 
-  /// The name as it will be stored — English, for a day the app shipped.
   String name;
 
-  /// The name on screen: [name] translated for as long as [seedKey] survives.
   String shown;
 
-  /// Which day of a demo program this is, until you rename it.
   String? seedKey;
 
-  /// Exercise count as stored, used until [items] is loaded.
   final int storedCount;
   List<ItemDraft>? items;
 
   int get exerciseCount => items?.length ?? storedCount;
 
-  /// Takes [typed] as the day's new name — unless it is the name already on
-  /// screen.
-  ///
-  /// That equality is what "I did not touch it" looks like on a demo day, whose
-  /// field was pre-filled with a *translation*. Writing that back would store
-  /// the Ukrainian words in the name column and drop the seed key, quietly
-  /// turning a day that follows the language into one that no longer can —
-  /// for nothing more than opening the editor.
   void rename(String typed) {
     if (typed == shown) return;
     name = typed;
@@ -64,9 +46,6 @@ class _WorkoutDraft {
   }
 }
 
-/// Create ([routineId] == null) or edit an existing routine: its name, colour,
-/// default rest, and the ordered list of workouts (training days) it contains.
-/// The exercises inside each workout are edited on [WorkoutEditScreen].
 class RoutineEditScreen extends ConsumerStatefulWidget {
   const RoutineEditScreen({super.key, this.routineId});
   final int? routineId;
@@ -87,27 +66,16 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
   bool _loaded = false;
   bool _saving = false;
 
-  /// Which demo program this routine is, until the name is changed.
   String? _seedKey;
 
-  /// The name as stored, and the name put in the field — the same string unless
-  /// this is a demo routine being shown in another language. See
-  /// [_WorkoutDraft.rename] for why both are kept.
   String _storedName = '';
   String _shownName = '';
 
-  /// The same pair for the description, and for the same reason: a copy of a
-  /// shipped program opens with the *translated* paragraph in the field, and
-  /// handing that back untouched must not store the Spanish words over the
-  /// canonical English. See [_WorkoutDraft.rename].
   String? _storedDescription;
   String _shownDescription = '';
 
   bool get _isEdit => widget.routineId != null;
 
-  /// Whether this routine has a percentage base to set. False on a routine
-  /// being created, which has no slots yet — and on every routine of flat sets,
-  /// which has no training max at all.
   bool get _hasTrainingMaxes {
     final id = widget.routineId;
     if (id == null) return false;
@@ -161,8 +129,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
             )));
       _loaded = true;
     });
-    // Filling the field moved the controller, which is not an edit — see the
-    // same note in exercise_form_screen.dart.
     markSaved();
   }
 
@@ -173,10 +139,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     super.dispose();
   }
 
-  /// Applies a change the user made, and records that there is now something to
-  /// lose if the page goes away. Every control on this screen is one, so the
-  /// mark is taken here rather than repeated at each of them — and `_load`
-  /// deliberately does not go through it.
   void _edit(VoidCallback change) {
     markEdited();
     setState(change);
@@ -190,17 +152,11 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     final name =
         await _promptName(AppLocalizations.of(context).routineEditNewWorkout);
     if (name == null) return;
-    // Yours from the first keystroke: a day you named has no seed key to lose.
     final draft = _WorkoutDraft(name: name, shown: name, items: []);
     _edit(() => _workouts.add(draft));
-    // Go straight into it — naming a day and then adding its exercises is one
-    // continuous thought.
     await _editWorkout(draft);
   }
 
-  /// Opens a workout for editing. Its exercises are loaded from the database
-  /// the first time it is opened, then kept in memory until the routine is
-  /// saved, so a brand-new routine can be built exercises-and-all in one go.
   Future<void> _editWorkout(_WorkoutDraft draft) async {
     if (draft.items == null && draft.id != null) {
       final views = await ref.read(databaseProvider).itemsForWorkout(draft.id!);
@@ -209,11 +165,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     draft.items ??= [];
     if (!mounted) return;
 
-    // Popping a route restores focus to whatever held it before, which would
-    // reopen the keyboard on the routine name. Coming back from a workout is
-    // not an invitation to rename the routine. Drop focus on the way *out* —
-    // then there is nothing to restore, which does not depend on when the
-    // restore happens relative to this await.
     FocusManager.instance.primaryFocus?.unfocus();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -224,16 +175,10 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
       ),
     );
     FocusManager.instance.primaryFocus?.unfocus();
-    // The day editor writes straight into the draft this screen holds, so
-    // coming back from it is an edit of this screen even though nothing here
-    // moved.
     if (mounted) _edit(() {});
   }
 
-  /// A single-field dialog; returns null if cancelled or left blank.
   Future<String?> _promptName(String title) async {
-    // Same story as _editWorkout: the dialog's own field takes focus, and
-    // cancelling it must not hand focus back to the routine name.
     FocusManager.instance.primaryFocus?.unfocus();
     final result = await showAppDialog<String>(
       context,
@@ -259,14 +204,9 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     setState(() => _saving = true);
     final db = ref.read(databaseProvider);
 
-    // The field was pre-filled with the routine's *translated* name. Handing
-    // that back untouched is not a rename, so the English original and the key
-    // it hangs on both stay — see [_WorkoutDraft.rename].
     final keepsSeed = _seedKey != null && typed == _shownName;
     final name = keepsSeed ? _storedName : typed;
 
-    // The same reading for the description: blank means there is nothing to say,
-    // and the translated paragraph handed back untouched is not a rewrite.
     final typedDescription = _description.text.trim();
     final description = typedDescription.isEmpty
         ? null
@@ -306,7 +246,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
           (
             id: w.id,
             name: w.name,
-            // Untouched workouts pass null so their exercises are left alone.
             items: w.items == null
                 ? null
                 : itemCompanions(w.items!, defaultBarKg: defaultBarKg),
@@ -341,24 +280,18 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
     if (ok != true) return;
     await ref.read(databaseProvider).deleteRoutine(widget.routineId!);
     if (!mounted) return;
-    // Pop back past the (now-deleted) detail screen to the routines list.
     context.go('/routines');
   }
 
   void _toast(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
-  /// Turns the reminder on or off. Switching it on is the moment to ask for the
-  /// notification permission — the system prompt then arrives with the reason
-  /// for it still on screen, rather than on first launch out of nowhere.
   Future<void> _toggleReminder(bool on) async {
     if (!on) {
       _edit(() => _reminderMinutes = null);
       return;
     }
     final reminders = ref.read(reminderServiceProvider);
-    // On a platform that has nothing to ask (the desktop test bench), the
-    // setting is still worth storing — it just will not fire there.
     final granted = !reminders.supported || await reminders.requestPermission();
     if (!mounted) return;
     if (!granted) {
@@ -407,9 +340,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                         builderLabel(l10n.commonName),
                         TextField(
                           controller: _name,
-                          // Naming it is the first thing you do on a new
-                          // routine — but never grab focus when editing one
-                          // that already has a name.
                           autofocus: !_isEdit,
                           textCapitalization: TextCapitalization.sentences,
                           maxLength: kMaxNameLength,
@@ -441,8 +371,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                         builderLabel(l10n.routineEditDefaultRest),
                         NumberStepper(
                           value: _restSeconds,
-                          // The same abbreviation the rest stepper inside a
-                          // slot uses — one string, so the two cannot drift.
                           suffix: l10n.itemEditorSecondsSuffix,
                           step: 15,
                           min: 0,
@@ -456,10 +384,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                           onToggle: (d) => _edit(
                               () => _scheduleDays = toggleDay(_scheduleDays, d)),
                         ),
-                        // The days stay on every build — they are part of the
-                        // programme and they travel in a share code. Only the
-                        // reminder goes, on a build with nothing to post one
-                        // with.
                         if (ref.watch(capabilitiesProvider).reminders) ...[
                           const SizedBox(height: 18),
                           builderLabel(l10n.routineEditReminder),
@@ -470,8 +394,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                           ),
                         ],
                         const SizedBox(height: 16),
-                        // The same list the exercises inside a day get, so a
-                        // day is dragged into place exactly the way a slot is.
                         BuilderReorderList<_WorkoutDraft>(
                           caption: l10n.routineEditWorkouts,
                           items: _workouts,
@@ -488,11 +410,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
                                 _edit(() => _workouts.removeAt(i)),
                           ),
                         ),
-                        // The routine's percentage bases, one number each.
-                        // Here as well as on the routine itself because this is
-                        // where a routine of your own is built, and a program
-                        // you wrote in percentages needs the same one tap a
-                        // shipped one does. Absent until there is one to set.
                         if (_hasTrainingMaxes) ...[
                           const SizedBox(height: 16),
                           SettingRow(
@@ -527,11 +444,6 @@ class _RoutineEditScreenState extends ConsumerState<RoutineEditScreen>
   }
 }
 
-/// Edits one workout draft — its name and exercises — entirely in memory.
-///
-/// Nothing here touches the database: the routine builder owns the draft and
-/// commits the whole tree when the routine is saved. That is what lets you add
-/// exercises to a workout of a routine that does not exist yet.
 class _WorkoutDraftScreen extends ConsumerStatefulWidget {
   const _WorkoutDraftScreen({required this.draft, required this.routineRest});
   final _WorkoutDraft draft;
@@ -543,9 +455,6 @@ class _WorkoutDraftScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
-  // Pre-filled with what the routine builder is showing for this day, which on
-  // a demo day is a translation — hence [_WorkoutDraft.rename] rather than a
-  // plain assignment on the way out.
   late final TextEditingController _name =
       TextEditingController(text: widget.draft.shown);
 
@@ -555,7 +464,6 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
     super.dispose();
   }
 
-  /// Keep the draft in step on the way out, whether by button or back gesture.
   void _commitName() {
     final trimmed = _name.text.trim();
     if (trimmed.isNotEmpty) widget.draft.rename(trimmed);
@@ -624,9 +532,6 @@ class _WorkoutDraftScreenState extends ConsumerState<_WorkoutDraftScreen> {
   }
 }
 
-/// A one-field name prompt. The dialog owns its controller: disposing it from
-/// the caller the moment `showDialog` returns tears it down while the route is
-/// still animating out, and the still-mounted TextField trips an assertion.
 class _NameDialog extends StatefulWidget {
   const _NameDialog({required this.title});
   final String title;
@@ -671,15 +576,10 @@ class _NameDialogState extends State<_NameDialog> {
   }
 }
 
-/// The seven day toggles, Monday first.
-///
-/// A row of round buttons rather than a list of checkboxes: a week is a shape
-/// people recognise at a glance, and Mon/Wed/Fri should be readable as one.
 class _DayToggles extends StatelessWidget {
   const _DayToggles({required this.mask, required this.onToggle});
   final int mask;
 
-  /// Called with a `DateTime.weekday` value (1 = Monday).
   final ValueChanged<int> onToggle;
 
   @override
@@ -738,7 +638,6 @@ class _DayToggle extends StatelessWidget {
   }
 }
 
-/// The reminder switch, with the time beside it once it is on.
 class _ReminderRow extends StatelessWidget {
   const _ReminderRow({
     required this.minutes,
@@ -822,7 +721,6 @@ class _ColorRow extends StatelessWidget {
   }
 }
 
-/// What a day's row says under its name.
 String _exerciseCountLabel(AppLocalizations l10n, _WorkoutDraft draft) {
   final n = draft.exerciseCount;
   return n == 0

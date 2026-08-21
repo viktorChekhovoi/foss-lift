@@ -7,15 +7,6 @@ import '../util/schedule_labels.dart';
 import '../util/seed_names.dart';
 import 'common.dart';
 
-/// A tappable routine row: colour swatch, name, workout count.
-///
-/// When [onSetCurrent] is given the row also offers a "make this the current
-/// routine" control, and marks itself when [isCurrent].
-///
-/// It takes the fields rather than the row so the routine library can draw a
-/// program it has not written yet — see [RoutineCard.program]. A program in the
-/// library and a routine in your list are the same thing to look at; what
-/// separates them is only that one of them is not yours yet.
 class RoutineCard extends StatelessWidget {
   RoutineCard({
     super.key,
@@ -30,8 +21,6 @@ class RoutineCard extends StatelessWidget {
         scheduleDays = data.routine.scheduleDays,
         hasReminder = data.routine.reminderMinutes != null;
 
-  /// A program out of the routine library, which has no row and no reminder, is
-  /// nobody's current routine, and cannot be made one until it is added.
   const RoutineCard.program({
     super.key,
     required this.name,
@@ -44,16 +33,12 @@ class RoutineCard extends StatelessWidget {
         onSetCurrent = null,
         hasReminder = false;
 
-  /// The canonical English name, rendered through [seedKey] — see
-  /// `util/seed_names.dart`.
   final String name;
   final String? seedKey;
   final String colorHex;
   final int workoutCount;
   final int scheduleDays;
 
-  /// Whether the schedule line should say a reminder is set rather than only
-  /// which days the routine is trained on.
   final bool hasReminder;
 
   final VoidCallback onTap;
@@ -97,9 +82,6 @@ class RoutineCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             seededName(l10n, seedKey, name),
-                            // Wraps rather than being cut, for the same reason
-                            // the headings do: a routine name is how you tell
-                            // one program from another.
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -121,9 +103,6 @@ class RoutineCard extends StatelessWidget {
                         color: AppColors.muted,
                       ),
                     ),
-                    // Only when there is one: a line reading "No fixed days" on
-                    // every unscheduled routine is noise about a setting most
-                    // of them will never use.
                     if (scheduleDays != kNoScheduleMask) ...[
                       const SizedBox(height: 3),
                       Row(

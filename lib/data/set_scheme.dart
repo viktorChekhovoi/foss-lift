@@ -1,4 +1,4 @@
-/// How the sets of one slot differ from one another.
+/// Set prescription schemes for a workout slot.
 ///
 /// A slot has a weight, a rep target and a set count, and for most of the app's
 /// history every set it produced was a copy of the other two. That is still the

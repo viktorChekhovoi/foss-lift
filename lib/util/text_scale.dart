@@ -1,19 +1,5 @@
-/// How big the app's text ends up, given the phone's setting and the user's.
-///
-/// **The phone comes first.** Android's text size is system-wide, discoverable
-/// and the control people already know; the app follows it by default and adds
-/// nothing of its own. The in-app nudge exists for the gap that leaves —
-/// wanting *this* app larger without enlarging everything else, or smaller to
-/// fit more of a workout on screen — so it multiplies the system scale rather
-/// than replacing it.
-///
-/// **And the product is clamped.** Two multiplied scales reach sizes nobody has
-/// looked at: the phone at 2.0 and the app at 1.3 is 2.6, well past the largest
-/// layout anyone has checked. A control that can produce a layout nobody has
-/// seen is not an accessibility feature, so the ceiling is [kMaxTextScale] —
-/// the largest scale the feature tests sweep every screen at — and the floor is
-/// [kMinTextScale], below which the numbers stop being readable at arm's
-/// length mid-set.
+/// Combines the system and in-app text scales, clamped to the tested range.
+
 library;
 
 import '../l10n/app_localizations.dart';

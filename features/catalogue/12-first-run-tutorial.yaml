@@ -1,6 +1,6 @@
 id: "12"
 title: First-run tutorial
-tagline: Tours of the app you can tap through for real, offered on first launch and replayable from Profile.
+tagline: First-launch tours with a replay option in Profile.
 screen: tutorial
 code:
 - lib/widgets/tutorial.dart
@@ -15,44 +15,37 @@ groups:
 - name: What it does
   items:
   - id: opens-welcome-card
-    t: Opens on a choice of two tours
+    t: Opens with a choice of two tours
     d: >-
-      the first time the app is opened: what the app is, and which tour to take —
-      the full walk-through, the quick one, or neither. The card has no anchor at
-      all, a plain dimmed screen with a card in the middle of it.
+      On first launch it offers the full tour, quick tour, or no tour. The opening
+      card has no anchor and appears centered over a dimmed screen.
     defines:
     - ui.tutorial-track
     uses:
     - ui.tutorial
   - id: overlays-guided-coach-mark-tour
-    t: Overlays a coach-mark tour anchored to real widgets
+    t: Overlays coach marks on real widgets
     d: >-
-      each callout is attached to an on-screen anchor rather than to a hard-coded
-      position, and the anchor is spotlighted by cutting a hole in the dimmed
-      backdrop.
+      Each callout references an on-screen anchor and spotlights it through a hole
+      in the dimmed backdrop.
     defines:
     - ui.tutorial
     uses:
     - ui.navigation
   - id: you-tap-the-real-control
-    t: You tap the real tabs, and look at everything else
+    t: Tab steps use real controls; other steps use mock screens
     d: >-
-      the four tab steps are the ones you walk: the hole in the scrim is a hole
-      in its hit test too, the tap reaches the tab underneath, and the tour moves
-      on with you. Every other step draws what it is describing instead, and the
-      scrim absorbs the tap so a stray touch cannot poke the app mid-sentence.
-      The split is not arbitrary — a tab is one button that is always mounted in
-      the same place, and everything else the tour has to say lives on a screen
-      the tour would first have to get you to.
+      Tab steps pass taps through the spotlight to the real tab, then advance. Other
+      steps use a mock and the scrim absorbs taps. Tabs are always mounted; other
+      targets require navigation that the tour does not perform.
     uses:
     - ui.tutorial
     - ui.navigation
   - id: starts-with-the-four-tabs
-    t: Starts at the four tabs
+    t: The tour starts with the four tabs
     d: >-
-      Today, Routines, History and Profile in turn, before any one screen is
-      described — the shape of the app first, then what is inside it. Each step
-      spotlights that tab's button and you tap it to go there.
+      The first steps cover Today, Routines, History, and Profile. Each spotlights
+      the tab button and requires the user to tap it.
     points:
     - today
     - routines
@@ -65,26 +58,20 @@ groups:
     - history.session-record
     - ui.tutorial
   - id: explains-gym-words
-    t: Explains the gym words where they first matter
+    t: Defines gym terms at first use
     d: >-
-      routine, workout, push workout, set, rep, rest and superset each get one
-      plain sentence, at the step where the word first appears, so the tour is
-      followable by somebody who has never trained before without reading as a
-      glossary.
+      Routine, workout, push workout, set, rep, rest, and superset are each defined
+      once at the step where the term first appears.
     defines:
     - ui.gym-vocabulary
     uses:
     - template.superset
   - id: today-step-points-at-getting-a-routine
-    t: On Today it points at the way to get a routine
+    t: The Today step points to routine creation or the current routine
     d: >-
-      a fresh install opens with an empty routine list, so the only card Today has
-      is the one that fills it — a ready-made program, or one you build — and that
-      card is what the step spotlights. It is the step that used to point at the
-      routine you were following and the workout you were due next, neither of
-      which a new phone has. On a phone that does have a current routine — a replay
-      on day ten — the same step points at its name on Today instead, and the
-      callout reads the same way.
+      On a fresh install, Today spotlights the card for adding a ready-made or
+      custom routine. If a current routine already exists, it spotlights that
+      routine's name instead.
     points:
     - today
     uses:
@@ -94,21 +81,12 @@ groups:
     - template.active-routine
     - template.starter-library
   - id: shows-mock-board-rest-bar
-    t: Draws the live workout it cannot show you, at full size
+    t: Draws the live workout at full size
     d: >-
-      the steps about a running session fill the screen with a stand-in for it —
-      the session's own header, two exercises, their set rows with a note icon
-      and a camera on each, and the rest bar docked across the foot of it when
-      the step is about resting — edge to edge, as the real bar is, while the
-      board above it keeps its own inset. It is a whole screen rather than a card in the middle of
-      one because that is what somebody is about to be looking at, and a
-      thumbnail of a screen teaches the thumbnail. The callout sits over it, at
-      whichever end leaves the thing being described uncovered. The board's
-      column headers, its cells and the pulse on the cell that logs the set are
-      the real board's own widgets rather than a second copy of them — the goal
-      line's weight box included. Change how the board looks and the tour
-      follows, which is the only way a picture of a screen stays a picture of
-      that screen.
+      Session steps use a full-screen mock with the session header, two exercises,
+      set rows, note and camera icons, and the rest bar when relevant. Board headers,
+      cells, and the goal weight use the live board widgets; callouts dock at the
+      end that leaves the subject visible.
     points:
     - session
     uses:
@@ -117,7 +95,7 @@ groups:
     - session.progress-mark
     - session.rest-timer
   - id: session-chapter-follows-the-today-step
-    t: The live workout comes straight after the Today step
+    t: The live-workout chapter follows the Today step
     d: >-
       the step about getting a routine is followed by the one that says what
       training it looks like, and then by the whole live-workout chapter — the
@@ -137,7 +115,7 @@ groups:
     - session.live-state
     - session.exercise-weight
   - id: shade-step-keeps-its-own-picture
-    t: The notification step keeps a notification-sized picture
+    t: The notification step uses a notification-sized mock
     d: >-
       it is the one step in the chapter that is not about the screen, so it does
       not borrow the screen's frame: a shade card in the middle of a dimmed
@@ -148,7 +126,7 @@ groups:
     - ui.tutorial
     - session.shade
   - id: explains-note-and-clip
-    t: Explains the note and the clip on their own steps
+    t: Note and clip controls have separate steps
     d: >-
       what the note icon beside an exercise opens and where that note is kept,
       and what the camera on a set records — one step each, both against the mock
@@ -159,7 +137,7 @@ groups:
     - exercise.notes
     - video.capture
   - id: explains-which-weight-a-tap-moves
-    t: Says which weight a tap moves
+    t: Explains which weight a tap changes
     d: >-
       one step between the set rows and the rest timer: tapping the weight on an
       exercise's goal line changes every set still to be logged, and tapping a
@@ -173,7 +151,7 @@ groups:
     - session.exercise-weight
     - session.set-logging
   - id: runs-once
-    t: Runs once
+    t: Runs automatically once
     d: Settings.tutorialSeen records that it has run, so it never reappears on its own.
     uses:
     - ui.tutorial
@@ -181,7 +159,7 @@ groups:
 - name: The tracks
   items:
   - id: full-tour-walks-the-app
-    t: The full tour walks the whole app
+    t: The full tour covers the app's main workflows
     d: >-
       the four tabs, then the card on Today that gets you a routine, then what
       training one looks like — the board, the weight, the rest timer, the note,
@@ -209,7 +187,7 @@ groups:
     - exercise.notes
     - video.capture
   - id: quick-tour-is-the-four-tabs
-    t: The quick tour is the four tabs and a routine in six steps
+    t: The quick tour covers the tabs and routine creation in six steps
     d: >-
       for somebody who has used a tracker before: where the four destinations
       are, then Routines → the + that adds one → the ready-made programs → New routine → name it and add
@@ -235,7 +213,7 @@ groups:
     - template.starter-library
     - history.session-record
   - id: track-choice-is-not-a-judgement
-    t: Neither track is presented as the lesser one
+    t: The two tour tracks are presented without ranking
     d: >-
       the two are offered side by side with one line each saying who it is for —
       "explain everything, including gym terms" and "a brief tour for an
@@ -246,7 +224,7 @@ groups:
 - name: The builder tour
   items:
   - id: builder-tour-covers-making-a-routine
-    t: The routine chapter is drawn, not driven
+    t: The routine chapter uses screen drawings
     d: >-
       Routines → the + that adds one → a ready-made program → New routine → an imported code →
       name it → add a workout →
@@ -276,7 +254,7 @@ groups:
     - template.starter-library
     - template.superset
   - id: builder-tour-points-at-the-add-button
-    t: It points at the + before it opens anything
+    t: The builder chapter points at + before opening the add sheet
     d: >-
       the second step of the chapter rings the + in the corner of the drawn
       Routines tab, with the list under it empty — which is what the tab is on
@@ -292,7 +270,7 @@ groups:
     - ui.routine-add-menu
     - ui.empty-state
   - id: builder-tour-offers-a-ready-made-program-first
-    t: It offers a program the app ships before it builds one
+    t: The builder chapter presents the shipped program first
     d: >-
       the step after the + rings Ready-made routines on the opened sheet: a program copied into your list, which is the shortest path from
       a fresh install to training today. The two steps after it ring the other
@@ -308,7 +286,7 @@ groups:
     - template.starter-library
     - template.routine
   - id: builder-tour-names-the-import-row
-    t: It names the third row rather than following it
+    t: The builder chapter names the import row without opening it
     d: >-
       the last step on the sheet rings Import a routine and says what it is for —
       a routine somebody sent you, scanned as a QR or pasted as a code. It stops
@@ -323,7 +301,7 @@ groups:
     - share.routine-code
     - share.qr
   - id: builder-tour-defines-a-superset
-    t: It defines a superset, against the checkbox that offers one
+    t: The builder chapter defines supersets at their checkbox
     d: >-
       one step after the per-slot settings, on the same drawn sheet — which grows
       the checkbox at the foot of its Target card for this step, ringed, the way
@@ -343,7 +321,7 @@ groups:
     - template.rest
     - session.superset-round
   - id: builder-chapter-starts-from-today
-    t: It starts where you are standing, and names every screen it moves to
+    t: The builder chapter identifies each screen transition
     d: >-
       the full tour reaches the chapter from the Today step, so it
       opens on the Routines tab — drawn with the navigation bar under it and that
@@ -366,7 +344,7 @@ groups:
     - template.workout
     - template.item
   - id: callout-never-covers-the-screen-it-describes
-    t: A callout never covers the screen it is describing
+    t: Callouts do not cover the described screen
     d: >-
       on a drawn step the callout is docked to the top or the bottom and the
       picture takes the room that is left, rather than floating over it. Floating
@@ -378,7 +356,7 @@ groups:
     uses:
     - ui.tutorial
   - id: builder-tour-explains-each-slot-setting
-    t: It says what each per-exercise setting does, against the sheet they are on
+    t: The builder chapter describes each per-exercise setting beside its sheet
     d: >-
       sets, the rep target, rest, step up by and back off by — one clause each,
       in the words the config sheet uses, against a drawing of that sheet with
@@ -398,7 +376,7 @@ groups:
     - progression.rates
     - progression.axis
   - id: builder-tour-starts-on-its-own
-    t: Both first-run tours end by building a routine, and it is also a tour on its own
+    t: Both first-run tours end with routine creation; the chapter is also replayable
     d: >-
       an empty app is the state every first run is in, so neither tour ends
       without showing the way out of it — the full one walks the whole chapter,
@@ -419,7 +397,7 @@ groups:
 - name: How to use it
   items:
   - id: replay-any-time
-    t: Replay any of them any time
+    t: Replay any tour from Profile
     d: >-
       Profile → Help &amp; tour asks which one — the full tour, the quick tour, or
       the routine builder — and starts it from its first step.
@@ -428,7 +406,7 @@ groups:
     - ui.tutorial
     - ui.tutorial-track
   - id: skipping-says-where-to-replay
-    t: Skipping says where to find it again
+    t: Skipping identifies the replay location
     d: >-
       one line at the bottom of the screen naming Profile → Help &amp; tour, which
       fades on its own. No button, no second card to dismiss.
@@ -438,7 +416,7 @@ groups:
 - name: Behaviour & edge cases
   items:
   - id: covers-live-workout-which-cannot
-    t: It covers the live workout, which it cannot point at
+    t: The tour covers the live workout with a mock
     d: >-
       the board, the rest timer and the shade are where the app is least like
       every other tracker — and none of them exists until a session is running.
@@ -455,7 +433,7 @@ groups:
     - session.rest-timer
     - session.shade
   - id: mock-shows-only-what-the-step-is-about
-    t: The mock highlights one thing at a time
+    t: Each mock highlights the current subject
     d: >-
       each board step rings its own subject and leaves the rest of the board in
       its default state: the note step rings the note, the clip step rings one
@@ -474,7 +452,7 @@ groups:
     - video.capture
     - session.exercise-weight
   - id: mock-is-a-picture-not-the-board
-    t: A mock is a picture, not the screen
+    t: A mock is non-interactive
     d: >-
       it takes no taps of its own: a tap anywhere, the mock included, advances
       the tour. Nothing on one is wired to anything — no session is started,
@@ -485,7 +463,7 @@ groups:
     - session.live-state
     - template.routine
   - id: mock-follows-the-live-display-rules
-    t: The mock follows the same display rules as the real screen
+    t: Mocks use the real screen's display rules
     d: >-
       the current theme's colours and the chosen weight unit, so what the tour
       shows is what the app will look like — a tour in pounds does not demonstrate
@@ -501,14 +479,14 @@ groups:
     - load.unit-defaults
     - load.fine-grid
   - id: shade-step-named-for-the-shade
-    t: The shade step is named for the shade
+    t: The notification step is named for the notification shade
     d: >-
       the title names the notification the step is describing, rather than saying
       where the phone was.
     uses:
     - session.shade
   - id: full-screen-mock-still-takes-no-taps
-    t: A full-screen mock is still a picture
+    t: A full-screen mock remains non-interactive
     d: >-
       filling the screen does not make it the app: nothing on it is wired to a
       session, no session is started or resumed, and a tap anywhere on it
@@ -520,7 +498,7 @@ groups:
     - ui.tutorial
     - session.live-state
   - id: every-anchored-step-today-tab
-    t: An anchored step scrolls its target into view
+    t: Anchored steps scroll their targets into view
     d: >-
       the tour scrolls until the anchor is on screen before spotlighting it, so a
       step can point at something below the fold — the lifetime card on a routine
@@ -531,7 +509,7 @@ groups:
     - ui.tutorial
     - ui.navigation
   - id: anchor-off-screen-falls-back-to-the-middle
-    t: A step whose anchor is not on screen still reads
+    t: Missing anchors use a centered callout
     d: >-
       tapping Next instead of the control a step asked for leaves the following
       step pointing at a widget that is not mounted, or is mounted on a tab that
@@ -541,7 +519,7 @@ groups:
     - ui.tutorial
     - ui.navigation
   - id: greeting-stacks-two-answers
-    t: The opening card stacks its answers
+    t: The opening card stacks its choices
     d: >-
       the tours one above the other and "Not now" under them, rather than side by
       side: they are long labels in a callout narrower than either the phone or
@@ -551,7 +529,7 @@ groups:
     - ui.tutorial
     - ui.tutorial-track
   - id: declining-ends-cleanly
-    t: Declining ends it cleanly
+    t: Declining exits the tour cleanly
     d: >-
       the same path as skipping mid-tour, including recording that the tour has
       been seen.

@@ -1,23 +1,5 @@
-/// Stored English → the words on screen.
-///
-/// Several things in this app are stored in English and shown in whatever
-/// language the app is rendering in: the muscle-group and equipment vocabulary,
-/// which is also a wire format (a routine code sends an index into
-/// `kMuscleGroups`, so translating the stored value would make the same code
-/// mean different things on different phones), the names of the rows the app
-/// shipped with, and the names of the shipped colour presets.
-///
-/// A seeded row keeps its English name in the `name` column like any other row
-/// and carries a `seedKey` beside it. The key is what a screen renders from, so
-/// the whole starter library follows a language switch rather than being frozen
-/// at whatever the phone was set to on install day. A row you added yourself
-/// has no key and keeps the name you gave it — and renaming a seeded routine or
-/// training day clears the key, which is how "Chest & Tris" stays yours.
-///
-/// A shipped program has two such strings on one key: its name and the
-/// description under it. The name follows the rule above; the description cannot,
-/// because rewriting it must not cost the routine the key its name hangs on — see
-/// [seededDescription].
+/// Resolves stored English seed keys to localized labels while preserving user-entered names; seed keys also keep routine-share data language-neutral.
+
 library;
 
 import '../data/database.dart';

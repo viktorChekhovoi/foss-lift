@@ -1,14 +1,5 @@
-// Integration tests for the exercise filter control — the one line of buttons
-// shared by the library screen and the builder's exercise picker.
-//
-// The control has been wrong twice. First it was two strips that scrolled
-// sideways, which read as text cut off at the edge of the phone rather than as
-// something you could drag. Then it was every chip laid out in the open: fifteen
-// identical pills in two unlabelled blocks, four lines of the screen spent
-// saying what two buttons say in one. What is asserted here is the third shape —
-// a Muscle button and an Equipment button that name what they are narrowed to,
-// each opening a sheet of its own vocabulary, and a Clear that appears only
-// while something is on.
+// Integration tests for the exercise filters shared by the library and builder picker (features/index.html#sec01).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

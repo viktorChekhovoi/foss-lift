@@ -1,9 +1,5 @@
-// Integration tests for features/index.html#sec02 — the estimated duration.
-//
-// A training day says how long it will take, worked out from the template
-// alone: working sets, the warm-up rungs before them, the rest after every set
-// but the last, and time under the bar scaled by the reps or the hold. Shown
-// rounded to five minutes on the training day and on its Today card.
+// Integration tests for estimated training-day duration (features/index.html#sec02).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart' show Value;

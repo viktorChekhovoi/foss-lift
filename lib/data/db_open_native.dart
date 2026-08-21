@@ -1,7 +1,4 @@
-/// The phone's database: a file in the app's own documents directory.
-///
-/// Reached through `db_open.dart` — never imported directly, or the web build
-/// gets `dart:ffi` in its import graph and stops compiling.
+/// Opens the native database in the app's documents directory.
 library;
 
 import 'dart:io';
@@ -12,10 +9,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 /// Opens `foss_lift.sqlite` on a background isolate.
-///
-/// The directory is resolved at open time and never stored: the iOS container
-/// path contains a UUID that changes on reinstall, so a remembered absolute
-/// path dangles there while working perfectly on Android.
 QueryExecutor openAppDatabase() {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();

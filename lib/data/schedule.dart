@@ -1,4 +1,4 @@
-/// When a routine is meant to be trained, and when to nudge about it.
+/// Weekly routine schedule and reminder calculations.
 ///
 /// The days live in a bitmask: bit 0 is Monday, bit 6 is Sunday, matching
 /// `DateTime.weekday - 1`. One integer rather than a table of its own, because
@@ -11,11 +11,10 @@
 /// weekday names, so that lives in `util/schedule_labels.dart` instead.
 library;
 
-/// All seven days set.
+/// Mask containing all seven days.
 const kEveryDayMask = 0x7F;
 
-/// Nothing scheduled — the default, and what "train it when you feel like it"
-/// looks like.
+/// Empty schedule mask.
 const kNoScheduleMask = 0;
 
 /// Whether [mask] includes [weekday], given as a `DateTime.weekday` (1–7).
@@ -35,8 +34,7 @@ String timeLabel(int minutes) {
   return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 }
 
-/// Everything scheduling one routine's reminder needs: what to say, when it is
-/// due, and when the routine was last actually trained.
+/// Data needed to schedule one routine's reminder.
 ///
 /// A plain class rather than a drift row so the reminder service can be handed
 /// one — and tested — without a database anywhere near it.
@@ -77,7 +75,7 @@ class RoutineReminder {
   }
 }
 
-/// When the next reminder for this schedule should fire, or null if none can.
+/// Returns the next scheduled reminder after [from], or null when none applies.
 ///
 /// Strictly after [from], so a slot that has already passed today rolls to the
 /// next scheduled day — a missed workout is not worth a notification about a
@@ -100,8 +98,7 @@ DateTime? nextReminderAt({
       lastTrainedAt.month == from.month &&
       lastTrainedAt.day == from.day;
 
-  // Eight candidates, not seven: today's slot may already have passed, and on
-  // a once-a-week schedule the next one is this same weekday a week out.
+  // Include the same weekday next week when today's slot is unavailable.
   for (var offset = 0; offset <= 7; offset++) {
     final day = DateTime(from.year, from.month, from.day + offset);
     if (!scheduledOn(mask, day.weekday)) continue;

@@ -1,8 +1,7 @@
 id: "04"
 title: Live workout session
 tagline: >-
-  Start a workout, log each set, run the rest timer, and finish — all in memory
-  until you're done.
+  Run a workout in memory, log sets, manage rest, and finish to save history.
 screen: session
 code:
 - lib/state/active_workout.dart
@@ -55,34 +54,24 @@ groups:
   - id: logs-sets-tapping
     t: Logs sets by tapping
     d: >-
-      each row shows a goal (reps or seconds) and a weight; tapping the result cell
-      cycles the logged value — goal → one fewer → … → 0 → untouched — and holding
-      it types an exact one in.
+      Each row shows a rep or time goal and weight. Tapping the result cycles
+      goal → one fewer → … → 0 → untouched; holding the cell enters an exact value.
     defines:
     - session.set-logging
   - id: result-cell-is-the-obvious-target
     t: The cell that logs a set is the one that looks like a button
     d: >-
-      it is the widest thing on the row and the only one filled in, where the
-      weight beside it is an outline on the background. The two are tapped at
-      wildly different rates — every set is logged, almost none change weight —
-      so they do not look alike: reaching for the right one is a glance, not a
-      reading of the headings. The headings sit centred over the cells they
-      name, the trailing camera column included.
+      The result cell is the widest filled control; weight is an outlined control.
+      Column headings are centered over their cells, including the camera column.
     uses:
     - session.set-logging
     - session.exercise-weight
   - id: next-set-logging-cell-pulses
     t: The cell to tap next pulses
     d: >-
-      the accent breathes in and out of the result cell on the working set you
-      are on, roughly once a second, so where to tap is something you notice
-      rather than something you work out. A warm-up rung pulses on exactly the
-      same terms — the ramp is where you are before the work is, and it is found
-      the same way. Exactly one cell on the board ever pulses, and it stops the
-      moment the set is logged. A hold that is running does not pulse — that
-      cell is a stop button and already says so. Where the phone is set to
-      reduce motion the cell rests at the top of the pulse instead of moving.
+      The current working-set or warm-up result cell pulses at about 1 Hz and
+      stops when logged. Only one cell pulses. Running holds do not pulse; reduced
+      motion displays the accent at the pulse maximum.
     uses:
     - session.set-logging
     - session.progress-mark
@@ -90,33 +79,24 @@ groups:
   - id: carries-one-weight-per-exercise
     t: Carries one weight per exercise
     d: >-
-      the load is set once, above the working sets, and every set follows it: tap
-      that weight to move the whole exercise, or a single row's weight to move only
-      that set.
+      The exercise weight is set above the working sets. Editing it changes future
+      sets; editing a row changes only that set.
     defines:
     - session.exercise-weight
   - id: tracks-duration-set-count-live
     t: Tracks duration and set count live
-    d: >-
-      the elapsed time is refreshed every second off the clock, so it says how
-      long you have been training rather than how long the app has been
-      counting; the set counter updates as you log.
+    d: The elapsed duration is refreshed from the clock each second; the set counter updates on logging.
     uses:
     - session.live-state
     - session.rest-timer
   - id: runs-rest-timer
     t: Runs a rest timer
     d: >-
-      logging a set starts it, using that slot's configured rest, with shorter /
-      longer / skip controls, captioned with what to do with the rest, and sounding
-      when it ends. Un-logging a set takes *its own* rest back, silently: the rest
-      knows which set started it, so clearing that set stops the clock — a rest is
-      only running because a set was logged — while clearing some earlier set you
-      had already moved on from leaves the rest you are actually taking to run out
-      on its own. That holds on every route back to untouched — tapping the cycle
-      round, clearing the type-in dialog, clearing a logged hold — and on a warm-up
-      rung as on a working set. Correcting the number on a set that stays logged
-      leaves the clock alone.
+      Logging a set starts its configured rest with shorter, longer, and skip
+      controls and an end alert. Clearing the set that started the rest stops that
+      rest; clearing an earlier set does not. This applies to cycle edits, typed
+      values, holds, warm-up rungs, and working sets. Changing a logged value does
+      not restart the clock.
     defines:
     - session.rest-timer
     uses:
@@ -129,12 +109,9 @@ groups:
   - id: suggests-warm-up-sets
     t: Suggests warm-up sets
     d: >-
-      for barbell/weighted lifts — an ascending ramp toward the working weight,
-      landing only on loads the gym can actually be set to. The group sits above
-      the working sets and starts open where there is a ramp to see, since it is
-      the first thing you do; its stepper changes the number of rungs. Shutting
-      one is remembered for the rest of the session, and per exercise — shutting
-      Bench's ramp leaves the one on Overhead Press open.
+      Weighted lifts receive an ascending ramp of loadable weights. The ramp is
+      above working sets, starts open when it has rungs, and has a rung-count
+      stepper. Collapse state is remembered per exercise for the session.
     defines:
     - session.warmup-ramp
     uses:
@@ -144,10 +121,8 @@ groups:
   - id: walks-a-superset-a-round-at-a-time
     t: Walks a superset a round at a time
     d: >-
-      the mark crosses the group's movements instead of running down one of them:
-      first set of each, then second set of each, and so on. A movement with fewer
-      sets than the one beside it drops out of the later rounds rather than holding
-      them up.
+      The mark advances across a group's movements by round: first set of each,
+      then second set of each. A movement with fewer sets leaves later rounds.
     defines:
     - session.superset-round
     uses:
@@ -156,29 +131,24 @@ groups:
   - id: no-rest-inside-a-superset
     t: There is no rest inside a superset
     d: >-
-      logging a set of one movement in a group starts no clock at all — the next
-      movement is what you do now, and the mark is already on it. The rest comes
-      once every movement in the group has had its set, and it is the rest of the
-      slot whose set ended the round.
+      Logging one member does not start rest; the next member is current. Rest
+      starts after every member completes its set, using the ending slot's rest.
     uses:
     - session.superset-round
     - session.rest-timer
     - template.rest
   - id: survives-being-collapsed
     t: Survives being collapsed
-    d: >-
-      the down-arrow collapses the session and it keeps running: a resume bar sits
-      at the bottom of every other screen, one tap from getting back to it.
+    d: The down arrow collapses the running session; a resume bar appears on other screens.
     screen: resume-bar
     defines:
     - session.resume-bar
   - id: lives-notification-shade
     t: Lives in the notification shade
     d: >-
-      for as long as it is running: the exercise on the bold line, the set counter
-      and the load under it, with Done and Missed — or how long is left of the rest,
-      with Skip, −15s and +15s. It walks an exercise's warm-up rungs before its
-      working sets, and counts the rest down live.
+      While running, shows the current exercise, set counter, load, and Done/Missed
+      actions. During rest it shows remaining time and Skip/−15s/+15s. It follows
+      warm-up rungs and counts rest down live.
     screen: shade
     defines:
     - session.shade
@@ -190,16 +160,16 @@ groups:
   - id: can-aborted
     t: Can be aborted
     d: >-
-      for the session started by a misplaced tap: the bin icon beside Finish, then
-      Abort on the confirmation, throws it away without writing anything or moving
-      a target.
+      Finish → bin → Abort discards the session without writing history or changing
+      progression targets.
     defines:
     - session.abort
   - id: finish-writes-only-completed-sets
     t: On Finish, writes only the completed sets
     d: >-
-      tap Finish: it advances progression and opens the post-session recap. With
-      working sets still unlogged it asks first, saying how many.
+      Finish writes completed sets, advances progression, and opens the recap. If
+      working sets remain unlogged, it first reports their count and asks for
+      confirmation.
     defines:
     - session.finish
     uses:
@@ -214,23 +184,16 @@ groups:
   - id: live-session-memory
     t: The live session is in memory
     d: >-
-      and only writes its history to the DB on Finish, so editing sets is instant
-      and a mid-session crash can't leave half-saved rows.
+      Writes session history to the database only on Finish. Set edits remain
+      in-memory until then.
     defines:
     - session.live-state
   - id: exercise-added-mid-session-joins-the-end
     t: An exercise added to the workout while it is running joins the end of the session
     d: >-
-      edit the workout you are training and add a movement, and the live session
-      picks it up on the end of the board rather than making you finish, edit and
-      start again — with its warm-up ramp built from the weights and plates the
-      session started with, not from whatever the settings say now, so a ramp
-      nobody is halfway up is the only kind that appears. It joins at the tail
-      and only at the tail: the sets you have already logged are held by their
-      position in the list, so a movement arriving in the middle would quietly
-      re-file this exercise's logged sets under that one. That is a corrupted
-      training log rather than a wrong screen, and it is why the tail is the only
-      place a session takes.
+      Adding an exercise to the active workout appends it to the session. Its ramp
+      uses the session's initial weight and plate settings. Append-only insertion
+      preserves logged set positions.
     screen: session
     defines:
     - session.template-drift
@@ -241,18 +204,10 @@ groups:
   - id: other-edits-wait-for-the-next-session
     t: Every other edit made in the builder waits for the next session
     d: >-
-      removing an exercise, reordering the list, renaming a movement or changing
-      a slot's sets or target <i>from the workout builder</i> leaves the running
-      session alone, and takes effect the next time you start it. The session is
-      a snapshot on purpose — it is what lets the board be edited instantly and a
-      crash mid-workout leave no half-written rows — and a snapshot that silently
-      re-arranged itself under somebody mid-set would be worse than one that is
-      honestly out of date. Rest is the exception, and the reason it can be one
-      is that it names no row — see the entry below. The board's own settings
-      sheet is the other, and it is not one: it knows which exercise on the board
-      it was opened from, so it can change that one without guessing. Finishing
-      writes what you actually did, including the sets of an exercise that has
-      since been deleted from the template.
+      Builder changes to removal, order, name, sets, and targets apply on the next
+      session. Rest changes and board settings can affect the running session.
+      Finish preserves logged sets, including those whose template exercise was
+      later deleted.
     screen: none
     uses:
     - session.template-drift
@@ -263,18 +218,9 @@ groups:
   - id: rest-changed-in-the-builder-reaches-the-session
     t: A rest time changed mid-workout reaches the session you are training
     d: >-
-      lengthen a slot's rest in the workout builder, or the routine's default
-      rest under a slot that names none of its own, and the session already
-      running takes the new number: the next rest you start is the one you have
-      just asked for. Rest can be taken where sets and order cannot, because it
-      names no row — there is nothing for it to re-file, and nothing already
-      logged changes. A rest already counting down keeps the length it started
-      at. You are resting on a decision you have already made, and a clock that
-      grew while you watched it is worse than one that ends and lets the next
-      rest be the longer one; the running rest's own −15s and +15s are still
-      there for today. Slots are matched to the board by movement, in order, the
-      same way an added exercise is found, so a day reordered and re-timed in one
-      save hands its rests out in board order.
+      Builder changes to slot or default rest affect the next rest in the active
+      session. A rest already counting down keeps its original duration; its
+      −15s/+15s controls still apply. Rest values match board exercises by order.
     screen: session
     uses:
     - session.template-drift
@@ -284,26 +230,18 @@ groups:
   - id: recorded-duration-is-real-time
     t: The duration a workout is filed under is the time it really took
     d: >-
-      what Finish writes down is the session's own clock, and that clock follows
-      the time of day rather than a count of the seconds the app was awake for.
-      So a workout you left the app during is recorded at its true length, not
-      at the shorter one a stalled counter would have reached.
+      Finish records elapsed wall-clock time from the session clock, including time
+      while the app is backgrounded.
     uses:
     - session.live-state
     - history.session-record
   - id: session-survives-being-killed
     t: A workout survives the app being killed
     d: >-
-      beside the in-memory session sits a snapshot, rewritten on every change and
-      thrown away on Finish or Abort. Reopening after Android has reclaimed the
-      app — or after a force-stop — brings back the logged sets and their weights,
-      the elapsed clock advanced by however long you were gone, and the rest either
-      still counting down or gone if its time passed while you were away. The order
-      you logged those sets in comes back with them, so the mark is still on the
-      exercise you were working; so does the set the running rest belongs to. It is
-      not history until you finish: nothing about it reaches the tables a session
-      writes. A snapshot written by an older build is still read — what it does not
-      carry is taken as absent, not as a reason to lose the session.
+      A snapshot is rewritten on every change and removed on Finish or Abort.
+      Restore recovers logged sets, weights, logging order, progress mark, and rest
+      state with elapsed time advanced while the app was stopped. It is not history
+      until Finish. Missing fields in older snapshots are treated as absent.
     screen: none
     uses:
     - session.live-state
@@ -314,30 +252,24 @@ groups:
   - id: note-one-exception-goes-both
     t: The note is the one exception, and it goes both ways
     d: >-
-      mid-workout is when you learn the thing worth noting, so a note can be written
-      and edited from the board — the note icon beside an exercise opens it ready to
-      change, and on an un-noted movement it writes the first one — and it lands in
-      the library at once. One written from the library while a session runs shows up
-      on that session.
+      Notes can be created or edited from the board and update the library
+      immediately. Notes edited in the library while a session runs appear there.
     screen: session
     uses:
     - exercise.notes
   - id: session-ends-finishing-or-aborting
     t: A session ends by finishing it or by aborting it
     d: >-
-      collapsing never discards it, and an abort always asks first — it is the
-      one control on the screen that destroys work.
+      Collapsing preserves the session. Abort requires confirmation and discards it.
     uses:
     - session.abort
     - session.finish
   - id: finish-asks-when-sets-are-unlogged
     t: Finishing with sets unlogged asks first
     d: >-
-      the dialog says how many working sets are still unlogged and what that
-      costs — they are not written, and their exercise is a missed session for
-      progression — then offers Finish anyway against going back to the board,
-      which is the default. A session with every working set logged finishes
-      straight away.
+      The dialog reports unlogged working sets, which are not written and count as
+      misses for progression. Finish anyway is available; returning to the board
+      is the default. A fully logged session finishes immediately.
     screen: session
     uses:
     - session.finish
@@ -345,9 +277,8 @@ groups:
   - id: unlogged-warm-ups-never-ask
     t: An unlogged warm-up never triggers it
     d: >-
-      skipping rungs of the ramp is ordinary — warm-ups are not written to
-      history and do not decide whether a session was clean — so only working
-      sets are counted when deciding whether to ask.
+      Warm-up rungs are not stored or used for the clean-session decision; only
+      working sets trigger the confirmation.
     screen: session
     uses:
     - session.finish
@@ -355,20 +286,16 @@ groups:
   - id: only-one-session-runs-time
     t: Only one session runs at a time, and Start knows it
     d: >-
-      starting the workout already in progress opens it rather than restarting
-      it. Starting a different one asks first — naming the session at risk, how
-      many sets are logged and how long it has been running — and defaults to
-      keeping it. Every entry point goes through the same check, before the layoff
-      offer.
+      Starting the active workout reopens it. Starting another workout asks for
+      confirmation, identifies the active session and its logged-set count, and
+      defaults to keeping it. All entry points check before offering a layoff.
     screen: session
     uses:
     - session.start
     - progression.layoff-offer
   - id: finish-order-matters
     t: Finish order matters
-    d: >-
-      sets are saved before progression advances, so a template never steps up
-      without the history to justify it.
+    d: Sets are saved before progression advances.
     uses:
     - session.finish
     - progression.rates
@@ -380,23 +307,17 @@ groups:
   items:
   - id: has-one-slot-row-directly
     t: 'It has one slot: the row directly above the bottom navigation bar'
-    d: >-
-      where there is no navigation bar — every screen pushed over a tab — it is
-      the last row of the app, which is the same slot with nothing under it.
+    d: It occupies the last row on screens without a bottom navigation bar.
     uses:
     - ui.navigation
   - id: docks-does-not-float
     t: It docks, it does not float
-    d: >-
-      it takes real room rather than lying over the screen, so nothing is ever
-      underneath it and the bottom of every list stays reachable. One line, because
-      it is furniture for as long as the session lasts.
+    d: It occupies layout space instead of overlaying content, keeping list bottoms reachable.
   - id: there-only-ever-one-screen
     t: There is only ever one on screen
     d: >-
-      two mount points draw it and exactly one may be live at a time — including
-      during a navigation, where the tab screen keeps painting for the length
-      of the slide. Ownership follows what is on screen, not what the route says.
+      Two mount points can render it, but only the visible screen owns it, including
+      during tab transitions.
     uses:
     - ui.navigation
 - name: The notification shade
@@ -407,16 +328,16 @@ groups:
   - id: done-logs-outstanding-set-goal
     t: Done logs the outstanding set at its goal
     d: >-
-      starts the rest, and leaves the board in front of you. It asks the session
-      what is outstanding rather than trusting the notification it came from.
+      Logs the outstanding set at its goal, starts rest, and returns to the board.
+      It resolves the current set from session state.
     uses:
     - session.set-logging
     - session.rest-timer
   - id: missed-logs-one-short-goal
     t: Missed logs one short of the goal
     d: >-
-      so it lands gold and the number is already close. It starts the rest, like
-      Done, and leaves the board in front of you so the count can be corrected.
+      Logs one below the goal, marks the set as missed, starts rest, and returns to
+      the board for correction.
     uses:
     - session.set-logging
     - session.rest-timer
@@ -424,27 +345,17 @@ groups:
   - id: buttons-route-they-do-not-raise
     t: A button sends you to the board; it cannot raise the phone
     d: >-
-      a notification button is a broadcast, and a broadcast may not start an
-      activity on Android 12 and up — the trampoline restriction. Raising an app
-      from one would take the "display over other apps" grant, which is far more
-      than the convenience is worth, so the press routes the session to the board
-      instead: unlock the phone and the board is what is there. Tapping the
-      notification itself does raise the app, because that is an activity intent
-      rather than a broadcast.
+      Notification actions route to the board because Android 12+ restricts
+      starting activities from broadcasts. Tapping the notification itself opens
+      the activity.
     uses:
     - session.shade
   - id: press-survives-the-app-dying
     t: A press waits for the app rather than being lost with it
     d: >-
-      every button on the shade is applied by the isolate that holds the session,
-      and Android is free to kill that isolate while the workout is in a pocket —
-      which is the whole reason the crash snapshot exists. So a press is written
-      down before it is announced: the service records it, the session applies it
-      out of the record, and a press made with nothing left to receive it is
-      applied when the app comes back and the snapshot is restored. A set logged
-      from the shade is logged whether or not the app was alive to hear it. The
-      record is dropped when the session ends, so a press cannot land on the next
-      workout.
+      Actions are recorded by the service before being applied to session state.
+      Pending actions are replayed when the app restores the snapshot; the record
+      is removed when the session ends.
     uses:
     - session.shade
     - session.set-logging
@@ -452,24 +363,16 @@ groups:
   - id: rest-offers-30s-skip
     t: A rest in the shade offers Skip, −15s and +15s
     d: >-
-      the same three controls as the banner on the board, so the shade is never a
-      reduced version of the screen. Nothing can be logged during a rest. Skip was
-      left off at first and that was wrong in the gym: unlocking the phone to press
-      Skip costs more, every time, than an accidental press costs once. It sits
-      first, where the board puts its own Skip last, because Android lays the row
-      out from the left and squeezes it from the right: the one control somebody
-      reaches for mid-rest is the one that must not be the one that gets clipped.
+      Provides Skip, −15s, and +15s, matching the board. Sets cannot be logged
+      during rest. Skip is first in the action row.
     uses:
     - session.rest-timer
   - id: says-which-set-how-many
     t: It says which set of how many, on the line under the movement
     d: >-
-      the bold line is the movement and nothing else — "Bulgarian Split Squat",
-      or "Warm-up · Bulgarian Split Squat" for a rung — and the line beneath it
-      carries the counter and the set: "Set 4/5 · 80 kg × 8". They shared the bold
-      line at first, which spent on a counter the room the name needed to be
-      recognisable at a glance; the second line had space going spare. An exercise
-      with a single set counts nothing and reads "80 kg × 8".
+      The bold line contains the exercise (or Warm-up · exercise). The next line
+      contains the set counter and target, such as “Set 4/5 · 80 kg × 8”; single-set
+      exercises omit the counter.
     uses:
     - session.progress-mark
     - session.warmup-ramp
@@ -477,98 +380,74 @@ groups:
   - id: name-gives-so-counter-stays
     t: On the rest line the exercise name gives way so the set counter stays
     d: >-
-      a rest puts the countdown on the bold line, so the movement, its counter and
-      the coming set are all on the one line under it — and "Next: Bulgarian Split
-      Squat · Set 4/5 · 80 kg × 8" is longer than a notification shows collapsed.
-      What ran off the end was the counter, the half that tells four identical sets
-      apart, so the movement is held to a budget and cut with an ellipsis instead:
-      "Next: Bulgarian Split S… · Set 4/5 · 80 kg × 8". The counter is never
-      shortened and never wraps away from the movement it counts.
+      During rest, the exercise name is ellipsized before the set counter so the
+      counter remains complete in a collapsed notification.
     uses:
     - session.progress-mark
     - session.rest-cue
   - id: shade-ranked-to-open-expanded
     t: It is ranked so the shade opens it expanded, as far as Android allows
     d: >-
-      the buttons live in a notification's expanded form, so a shade that opens
-      collapsed is a shade with nothing to press. Android has no API for "post
-      this expanded" — the top-ranked notification is auto-expanded and that
-      ranking is the system's to decide — so what the app can do is rank: the
-      live workout sits on a default-importance channel rather than a low one,
-      which keeps it out of the silent section at the bottom of the shade. It
-      still makes no sound and never takes over the screen: the channel is
-      created with no sound and no vibration, and it alerts only once.
+      Actions require the expanded notification. The live workout uses a default
+      importance, silent channel so Android can rank it for expansion without sound,
+      vibration, or screen takeover.
     uses:
     - session.shade
     - platform.android
     manual: true
   - id: while-resting-second-line-names
     t: While resting, the second line names the exercise
-    d: >-
-      Next: Bench Press · Set 4/5 · 80 kg × 8. A weight and a rep count belonging
-      to nothing is not an instruction.
+    d: The second line identifies the next exercise, set, weight, and reps during rest.
     uses:
     - session.rest-cue
     - load.units
   - id: shade-asks-to-finish-when-done
     t: With the last set logged it asks you to finish
     d: >-
-      the shade used to go the moment nothing was outstanding, which reads as the
-      session having ended when nothing has been written yet — and the one tap left
-      is the one that turns it into history. So it stays, saying the workout is
-      complete and that a tap finishes it, and it carries no buttons: Finish weighs
-      up unlogged sets and opens the recap, neither of which fits in a pocket.
-      Tapping the notification opens the board, where Finish is. It goes when the
-      session does, finished or abandoned.
+      When all working sets are logged, the notification remains and says the
+      workout is complete. It has no Finish action; tapping opens the board, where
+      Finish checks unlogged sets and opens the recap. It is removed when the
+      session finishes or is abandoned.
     uses:
     - session.shade
     - session.finish
   - id: hold-gets-one-button-open
     t: A hold gets one button, "Start", and it logs nothing
     d: >-
-      how long you held something is the measurement itself, so nothing can claim
-      it at the goal or guess it one short — the clock has to be started where you
-      can see it. The button's whole job is to leave the board on screen, at the
-      stopwatch.
+      Duration is the measurement, so the notification cannot infer a result. Start
+      opens the board at the stopwatch.
     uses:
     - session.hold-timer
     - exercise.measure
   - id: foreground-service-not-about-notification
     t: It is a foreground service, and that is not about the notification
     d: >-
-      the session is in memory and untouched until Finish, so a Done press has
-      to reach the isolate holding it — and without a service Android may kill
-      the app once backgrounded. The service is what keeps the session alive to be
-      pressed; the snapshot is what gets it back when Android wins anyway.
+      The foreground service keeps the in-memory session available while
+      backgrounded; the snapshot restores it if Android still kills the process.
     uses:
     - session.live-state
     - platform.android
   - id: declared-specialuse-android-14
     t: Declared as specialUse on Android 14
     d: >-
-      health needs an activity-recognition permission this app has no business
-      asking for, shortService caps at three minutes, dataSync is wrong and capped
-      at six hours a day. The subtype is spelled out, which needs a justification
-      and a demonstration video at Play review — both kept in RELEASING.md, beside
-      the manifest string they have to agree with. Off Android it is a no-op, not
-      a crash.
+      Uses the Android 14 specialUse subtype; other subtypes require unsuitable
+      permissions or impose duration limits. The subtype justification and review
+      video are documented in RELEASING.md. Off Android it is a no-op.
     screen: none
     defines:
     - platform.android
   - id: asks-post-notifications-or-invisible
     t: It asks to post notifications, or it is invisible
     d: >-
-      on Android 13 and up it is a runtime grant, and without it the service starts,
-      reports success and draws nothing. The ask happens at the point the shade
-      is first needed rather than on launch.
+      Android 13+ requires a runtime notification grant. Without it the service
+      starts but renders no shade notification. The request occurs when the shade
+      is first needed.
     screen: system
     defines:
     - platform.permissions
   - id: refusal-not-error
     t: Refusal is not an error
-    d: >-
-      the workout runs exactly as before, just without the shade, and nothing
-      interrupts it to say so. The app asks once and does not badger.
+    d: The workout continues without the shade. The app asks once and does not repeat the prompt.
     screen: system
     uses:
     - platform.permissions
@@ -579,47 +458,31 @@ groups:
   items:
   - id: rest-clock-belongs-session-not
     t: The rest clock belongs to the session, not to the screen
-    d: >-
-      it keeps running while the logging screen is popped, and a countdown a notification
-      can show has to exist somewhere the notification can see. A timer owned
-      by a widget dies with the widget.
+    d: The session owns the rest clock, so it continues when the screen is popped and remains available to notifications.
     uses:
     - session.live-state
   - id: clocks-read-the-time-rather-than-count
     t: Both clocks read the time rather than counting their own ticks
     d: >-
-      a rest knows the moment it is due to end, and the session knows when it
-      began, so each works out where it stands from the clock on every tick
-      instead of taking a second off a number. A minute the app did not get to
-      run — a machine asleep, a phone busy, a browser tab put in the background
-      and slowed down — is a minute that still passed, and both come back
-      reading what they should rather than however far they happened to get.
-      This is the same rule the crash snapshot has always followed on the way
-      back in; it now holds while the app is running too.
+      Both clocks derive elapsed time from timestamps rather than decrementing a
+      counter. They remain correct across sleep, background throttling, and restore.
     uses:
     - session.rest-timer
     - session.live-state
   - id: a-rest-that-ends-unwatched-ends-once
     t: A rest that ends while nothing is watching still ends, once
     d: >-
-      if the tick that should have noticed arrives late, the rest is over as of
-      the moment it was due, not the moment anyone looked — and it announces
-      itself a single time however long the gap was, rather than once for each
-      second nobody counted.
+      A late tick still treats the rest as ended at its due timestamp and emits one
+      alert, regardless of the delay.
     uses:
     - session.rest-timer
     - session.rest-sound
   - id: rest-says-what-between-warm
     t: A rest says what it is for
     d: >-
-      between warm-up rungs the next rung is a different load: "Set up 60 kg, then
-      lift." After the last rung the working weight is different again, and this is
-      the longest rest of the ramp: "Set up 100 kg, rest, then lift." Between working
-      sets there is nothing to change: "Rest, then lift." Between exercises it is a
-      different movement and a different setup: "Set up Overhead Press, rest, then
-      lift." — skipping past any exercise already finished. At the end of a superset
-      round the movement it names is the one that opens the next round, which is
-      normally back at the top of the group.
+      Labels the next action: set up the next warm-up load, set up the working
+      weight, rest before the next set, or set up the next exercise. It skips
+      completed exercises and names the next movement after a superset round.
     defines:
     - session.rest-cue
     uses:
@@ -628,18 +491,9 @@ groups:
   - id: rest-that-ended-says-so-and-waits
     t: A rest that has ended says the next set is up, and waits
     d: >-
-      the banner does not vanish on the stroke of zero. It stays, saying what the
-      rest was for all along — "Bench Press is up", "Set up 100 kg, then lift" —
-      until the thing it is waiting for happens: you log the set it was leading
-      to, a fresh rest replaces it, or you un-log the set that started it. It
-      has no dismiss button of its own, because every way out of it is something
-      you were going to do anyway.
-      A timer that disappears at the moment it matters answers the one question
-      you had, which is whether it went off, by removing the evidence: the tone
-      and the buzz are for the phone in a bag, and the phone in your hand is
-      precisely where neither of them helps. It is the same sentence the shade
-      shows when the app is not in front of you, on the screen, where until now
-      that sentence was suppressed for being redundant.
+      At zero, the banner remains and identifies the next set or setup action. It
+      clears when that set is logged, a new rest starts, or its originating set is
+      cleared. There is no separate dismiss action.
     defines:
     - session.rest-done
     uses:
@@ -649,70 +503,48 @@ groups:
   - id: ending-a-rest-yourself-lands-the-same-way
     t: Skipping a rest lands in the same place as letting it run out
     d: >-
-      Skip and taking the last fifteen seconds off both leave the finished
-      banner, because both mean the same thing — the rest is over and the next
-      set is up. Starting a fresh rest clears it outright rather than layering
-      over it: a banner may say one thing at a time.
+      Skip and reducing the final 15 seconds both produce the finished banner.
+      Starting a new rest replaces it.
     uses:
     - session.rest-done
     - session.rest-timer
   - id: rest-bar-docks-takes-room
     t: The rest bar docks at the bottom and takes real room
     d: >-
-      the board shrinks by its height rather than being covered by it, so the rows
-      underneath scroll clear of it — the same rule the resume bar follows, for the
-      same reason: nothing on this screen may be permanently hidden by furniture.
+      The board reserves the bar's height instead of overlaying rows, so all content
+      remains reachable.
     uses:
     - session.rest-timer
   - id: caption-replaces-word-rest
     t: The caption replaces the word "REST"
-    d: >-
-      a banner counting down is self-evidently a rest. The weight named is the
-      one about to be lifted, in the display unit.
+    d: The countdown identifies the upcoming load in the display unit; it does not repeat “REST”.
     uses:
     - session.rest-cue
     - load.units
   - id: caption-gives-banner-does-not
     t: The caption gets a line of its own, and never a "…"
     d: >-
-      it runs full width above the clock and the three controls, and wraps as far
-      as it needs to. Sharing that row left it about 80 px on a 390 px phone, which
-      is how "Rest, then lift." came to be cut in half — and a caption you cannot
-      read is the one thing the banner is for. The clock and the controls keep their
-      place and their size at any name length and any text scale; the bar is docked,
-      so an extra line costs the board a line and hides nothing.
+      The caption occupies a full-width row above the timer and controls, wraps as
+      needed, and remains readable at all text scales. The timer and controls keep
+      their size.
     uses:
     - session.rest-cue
     - ui.text-scale
     manual: true
   - id: makes-sound-when-ends-one
     t: It makes a sound when it ends
-    d: >-
-      a single pitch with a fast attack and a short decay, under half a second,
-      struck at the top of the scale. The first tone was a two-note figure, which
-      reads as a little melody — and a melody is a thing you notice having heard
-      rather than a thing you act on.
+    d: A single high-pitched tone with fast attack and decay, under 0.5 seconds.
     defines:
     - session.rest-sound
     manual: true
   - id: rest-end-is-felt-as-well-as-heard
     t: The end of a rest is felt as well as heard
     d: >-
-      the phone buzzes as a rest runs out, and as you end one yourself with Skip or by
-      taking the last fifteen seconds off — the same buzz whether the board is in front
-      of you or the phone is in a bag, because the bag is the case a rest timer exists
-      for. It is the vibrator, driven as an alarm: a pulse-gap-pulse pattern at full
-      strength rather than the tick that acknowledges a tap, and it fires with the
-      ringer on silent, since an alarm is what a silenced phone still wakes you for.
-      Touch-feedback haptics are the wrong instrument and were the old one — that
-      switch governs buttons, it is off on plenty of phones, and Android renders the
-      strongest feedback constant as one of its faintest ticks. The buzz belongs to the
-      session rather than to the board, so it needs neither the screen nor the
-      notification to happen: it is made where the tone is made, at the instant the
-      clock reaches zero. A rest that ends without a sound ends without a buzz: starting
-      a hold takes the running rest with it silently, and so does finishing or abandoning
-      the session. Android only, and silent under a Do-Not-Disturb that silences alarms —
-      there is no in-app setting beyond the phone's own.
+      The phone vibrates when rest ends naturally or through Skip/−15s. It uses a
+      full-strength pulse-gap-pulse alarm pattern, works in silent mode, and is
+      session-owned rather than screen- or notification-owned. Starting a hold,
+      finishing, or aborting cancels it. Android only; Do Not Disturb can suppress
+      it and the phone controls the setting.
     defines:
     - session.rest-buzz
     uses:
@@ -724,21 +556,17 @@ groups:
   - id: tone-synthesised-shipped-asset
     t: The tone is synthesised and shipped as an asset
     d: >-
-      no licence attached and nothing to attribute. The generator is committed
-      beside it (tool/make_rest_tone.dart) — a wav is a binary nobody can review,
-      and the frequency, envelope and length are the whole design. Regenerating
-      it must produce the same file byte for byte.
+      The generator is committed at tool/make_rest_tone.dart; it defines frequency,
+      envelope, and length and must reproduce the asset byte-for-byte.
     screen: none
     uses:
     - session.rest-sound
   - id: declared-alarm-android
     t: Declared as an alarm on Android
     d: >-
-      so it follows the phone's own silent and Do-Not-Disturb behaviour rather
-      than overriding it — on screen and off, since both are now the same player.
-      It takes transient focus, so music pauses for the length of the ding and
-      resumes. (Flutter's SystemSound.play is documented as ignored on Android and
-      iOS both.)
+      Uses the alarm audio stream, following the phone's silent and Do Not Disturb
+      settings. It takes transient audio focus, pausing and then resuming other
+      audio.
     screen: system
     uses:
     - session.rest-sound
@@ -747,12 +575,8 @@ groups:
   - id: rest-alert-volume-slider
     t: How loud it is belongs to the phone, not to the app
     d: >-
-      there is no volume control in the app. The tone is declared as an alarm, so
-      the phone's own alarm slider is what sets it — the control people already
-      know, already reachable with the hardware keys, and already respected by
-      silent and Do-Not-Disturb. A second slider in Settings would have been a
-      gain stacked on that one, which is two numbers to get wrong for one
-      question.
+      The alarm volume comes from the phone's alarm control; the app has no separate
+      volume setting.
     screen: none
     uses:
     - session.rest-sound
@@ -760,13 +584,8 @@ groups:
   - id: volume-is-a-gain-because-app-plays-it
     t: The app plays the sound itself, so it sounds the same in a pocket
     d: >-
-      a rest alert that rings from a notification channel is at the mercy of when
-      Android decides to post it. This one does not ring from a channel. The
-      foreground service already keeps the app's process alive to the end of its
-      own countdown, and an app with a foreground service running may play audio
-      while it is in the background — so the same player sounds the same asset
-      whether you are looking at the board or not. The notification off screen is
-      the picture beside it, not the noise.
+      The foreground service keeps the process alive so the app plays the same
+      asset in foreground and background. The notification provides status only.
     screen: none
     uses:
     - session.rest-sound
@@ -775,13 +594,9 @@ groups:
   - id: off-screen-ding-notification-instead
     t: Off screen the sound is joined by a notification, not replaced by one
     d: >-
-      the tone plays either way; what the pocket adds is something to look at
-      when you take the phone out. A silent high-importance notification, with a
-      buzz, naming what is next ("Rest done — Bench Press · 80 kg × 8"); it
-      clears itself, and the next rest starting takes it down. Silent because the
-      sound has already been made — a channel that rang as well would be two
-      dings for one rest. On screen there is no notification at all: the
-      countdown you are already watching is the picture.
+      Off screen, posts a silent high-importance notification with the next action
+      (for example, “Rest done — Bench Press · 80 kg × 8”). It clears itself when
+      the next rest starts. On screen, no notification is posted.
     screen: shade
     uses:
     - session.rest-sound
@@ -791,14 +606,9 @@ groups:
   - id: ding-posted-when-rest-ends
     t: The off-screen ding is posted when the rest ends, by the app
     d: >-
-      not handed to Android in advance. It was, once: a rest timer is a timer in
-      the app's own process, and a process Android has killed plays nothing, so the
-      notification used to be scheduled the moment a rest started off screen. What
-      pays for that instead is the foreground service — the session is alive at the
-      end of its own rest, so it can simply ring. A scheduled alarm would have to be
-      inexact, because Play grants the exact-alarm permission to alarm clocks and
-      calendars and not to a workout tracker, and an inexact ding arriving late is
-      worse than the one that lands on the second.
+      The app posts the notification when its timestamp reaches zero. The
+      foreground service keeps the session alive, avoiding an inexact scheduled
+      alarm and exact-alarm permission.
     screen: shade
     uses:
     - session.rest-sound
@@ -876,25 +686,17 @@ groups:
   - id: warm-ups-count-toward-mark
     t: Warm-ups count toward the mark
     d: >-
-      the rung you are on is marked and pulses like any other row. The group
-      around it is never filled or outlined in the accent — a whole block lit up
-      says "somewhere in here", which is what the row already answers. Shut, the
-      group has no rung to mark, so its header takes the accent instead and the
-      mark moves onto the group.
+      Marks and pulses the current rung. A collapsed ramp marks its header instead;
+      the whole group is never highlighted.
     uses:
     - session.progress-mark
     - session.warmup-ramp
   - id: every-working-set-logged-finishes-the-exercise
     t: An exercise with every working set logged is finished, ramp or no ramp
     d: >-
-      warm-ups are suggestions, so a rung left unticked on a movement you have
-      already worked is not something anybody is going back for: the mark passes
-      the ramp by and lands on the next movement that still owes work, and the
-      shade names that movement too. Ticking one of those rungs afterwards —
-      squaring the board up at the end, or logging a rung late — records it and
-      starts no rest, because there is nothing left on that movement to rest for.
-      Inside a superset the same holds one member at a time: a movement whose
-      sets are all logged drops out of the group's ramps as well as its rounds.
+      Warm-ups do not keep an exercise active after all working sets are logged.
+      Late warm-up logging is recorded without starting rest. In supersets, a
+      completed member leaves both its ramp and later rounds.
     uses:
     - session.progress-mark
     - session.warmup-ramp
@@ -903,19 +705,16 @@ groups:
   - id: board-draws-a-superset-as-one-block
     t: The board draws a superset as one block
     d: >-
-      the group's movements sit inside one bracket tagged SUPERSET, each keeping its
-      own heading, working weight, ramp and set rows. Nothing about a row changes —
-      what the bracket says is that the row marked next will be in the movement
-      below rather than the one you are looking at.
+      A SUPERSET bracket contains each movement's heading, weight, ramp, and sets.
+      The bracket changes grouping only; each row retains its own target.
     uses:
     - session.superset-round
   - id: superset-warms-up-every-movement-first
     t: A superset warms up every movement before the first round
     d: >-
-      each member keeps its own ramp, and the mark walks the group's ramps in order
-      before it opens the first round: you set both movements up, then work them
-      back to back. Rest between rungs stays the short warm-up rest, including from
-      the last rung of one movement to the first of the next.
+      Each member keeps its own ramp. The mark visits all ramps in order before the
+      first work round; warm-up rest applies between all rungs, including between
+      movements.
     uses:
     - session.warmup-ramp
     - session.superset-round
@@ -923,41 +722,29 @@ groups:
   - id: board-opens-where-you-are
     t: The board opens on the exercise you are on
     d: >-
-      coming back to a session in progress scrolls the rows straight to the marked
-      exercise as the screen appears, with no animation to sit through: a workout
-      six movements long opens on the sixth rather than at the top, where the only
-      way on is to scroll past everything already done. It happens once, as the
-      screen opens, and never again — the list may not move under a thumb that is
-      logging sets, so finishing an exercise leaves the scroll exactly where you
-      put it. A session with nothing logged yet is already at the top and is left
-      there.
+      On restore, scrolls once to the marked exercise without animation. It does
+      not auto-scroll again while logging; an untouched session opens at the top.
     uses:
     - session.progress-mark
   - id: tap-log-hint-pinned
     t: The tap-to-log hint is pinned
-    d: >-
-      beside the duration and set count, rather than scrolled with the rows: "how
-      do I log this?" occurs on whichever exercise you are looking at, not only
-      the first.
+    d: The hint remains beside duration and set count while exercise rows scroll.
     uses:
     - session.set-logging
   - id: weight-belongs-exercise-not-each
     t: A logged set keeps the weight it was done at
     d: >-
-      moving the exercise's weight moves the sets still ahead of it, never the ones
-      already logged. Neither weight is a text field sitting open — both are bordered
-      controls you tap to edit. A movement carrying no load has no weight at all:
-      no working weight, no unit heading, and no cell on any row.
+      Changing exercise weight updates future sets, not logged sets. Exercise and
+      row weights are bordered controls. Unloaded movements have no weight field,
+      unit heading, or weight cell.
     uses:
     - session.exercise-weight
     - exercise.weight-type
   - id: held-set-times-itself
     t: A held set times itself
     d: >-
-      its result cell is a stopwatch: tap to start, tap again to stop, and the
-      seconds it ran are what gets logged. It shows the running count in the accent
-      with a heavier border, and sounds the rest tone when it stops. The rest
-      begins then too, not when the hold started.
+      The result cell starts and stops a stopwatch; elapsed seconds are logged.
+      Stopping starts rest and plays the rest tone.
     defines:
     - session.hold-timer
     uses:
@@ -967,9 +754,8 @@ groups:
   - id: only-one-hold-runs-time
     t: Only one hold runs at a time
     d: >-
-      starting a second logs the first rather than losing it. Tapping a logged
-      hold clears it — the same "undo by tapping" the rep cycle ends on. A long
-      press still types an exact duration in.
+      Starting another hold logs the first. Tapping a logged hold clears it; a long
+      press enters an exact duration.
     uses:
     - session.hold-timer
   - id: missed-set-one-fell-short
@@ -987,10 +773,8 @@ groups:
   - id: cardio-set-carries-console-readouts
     t: A set on a cardio machine can carry what the console said
     d: >-
-      speed, incline, resistance level and distance, beside the minutes the set
-      already records. Twenty minutes on a treadmill is not a training record on
-      its own — it is twenty minutes at 9.5 km/h on a 2% incline, and next week's
-      twenty minutes is only progress if you know which of the two it beat.
+      A timed set can store speed, incline, resistance level, and distance in
+      addition to duration.
     defines:
     - session.console-metrics
     uses:
@@ -998,47 +782,32 @@ groups:
   - id: readouts-are-optional-every-one-of-them
     t: Every readout is optional, and none is asked for
     d: >-
-      the row shows the duration and nothing else until you open the details
-      under it; each of the four fields is then blank and stays blank unless you
-      fill it. A machine that has no incline, a session nobody wrote the speed
-      down for, and a set on a bike where the only number worth keeping is the
-      resistance are all ordinary — a set with none of the four filled in is a
-      complete set, not an incomplete one, and nothing warns about it or blocks
-      Finish.
+      Details are collapsed by default. Each field is blank until entered; all
+      four are optional, and an empty details set can still be finished.
     uses:
     - session.console-metrics
   - id: readouts-fold-away-under-the-row
     t: The fields fold away under the set they belong to
     d: >-
-      a details control on the row opens them in place and shuts them again, and
-      the toggle is per set: the interval you ran at 14 km/h and the one you
-      walked at 5 are two rows with two sets of numbers, not one number for the
-      block. A row carrying any readout says so when shut, so a set whose detail
-      is folded away never looks like a set that has none.
+      Details expand per set below its row. A collapsed row indicates when it has
+      readouts, so entered values are distinguishable from an empty set.
     uses:
     - session.console-metrics
     - session.set-logging
   - id: readouts-follow-the-gyms-unit
     t: Speed and distance follow the unit the gym counts in
     d: >-
-      kilometres per hour and kilometres where the app is in kg, miles per hour
-      and miles where it is in lb — the same setting, because a gym that weighs
-      in pounds reads its treadmill in miles. Incline is a percentage and
-      resistance is a level the machine made up, and neither has a unit to
-      convert. Storage is metric throughout, exactly as weight is stored in
-      kilograms: switching units re-reads what is already logged, and never
-      rewrites it.
+      kg mode displays km/h and km; lb mode displays mph and miles. Incline is a
+      percentage and resistance is a unitless level. Readouts are stored in metric
+      units and converted on display; switching units does not rewrite history.
     uses:
     - session.console-metrics
     - load.units
   - id: readouts-are-kept-with-the-session
     t: The readouts are kept with the set, and survive the app dying
     d: >-
-      they go into the crash snapshot with everything else the board holds, and
-      they are written alongside the set when the session is finished — so the
-      recap and the history entry can say what the twenty minutes were spent
-      doing. A set that is never logged takes its readouts with it, as it takes
-      its weight.
+      Readouts are included in the crash snapshot and saved with completed sets.
+      Unlogged set readouts are discarded with the set.
     screen: none
     uses:
     - session.console-metrics
@@ -1048,11 +817,7 @@ groups:
   - id: only-a-cardio-machine-gets-the-details-control
     t: Only a cardio machine gets the details control
     d: >-
-      a bench press row has no speed and a plank has no incline, and four blank
-      fields under every set of every movement would be four things to ignore on
-      a screen whose whole job is one tap per set. So the control appears on the
-      sets of a movement that files under Cardio with Machine equipment, and
-      nowhere else.
+      Appears only for exercises classified as Cardio with Machine equipment.
     uses:
     - exercise.cardio-machine
     - session.console-metrics
@@ -1064,13 +829,9 @@ groups:
   - id: slot-settings-open-from-the-board
     t: An exercise's settings open from the board
     d: >-
-      the settings control beside a movement's name opens the same sheet the
-      workout builder opens — sets, reps, rest, weight, the set scheme, the
-      progression axis and its rates — so a rule you want to change is changed
-      where you noticed it was wrong, rather than remembered until after the
-      session. The one thing the sheet does not offer here is the superset join:
-      what is trained in the same round is the shape of the day, and re-shaping
-      the day around sets already logged is the edit the session refuses.
+      The settings control opens the builder sheet for sets, reps, rest, weight,
+      set scheme, progression axis, and rates. Superset membership is unavailable
+      because it changes workout structure.
     defines:
     - session.slot-settings
     uses:
@@ -1080,33 +841,19 @@ groups:
   - id: board-settings-are-saved-to-the-workout
     t: What you change there is saved to the workout
     d: >-
-      it is the workout's slot being edited, not a copy of it, so next week opens
-      on what you set today — which is the point of changing a progression rule
-      mid-session at all: you have just learned the step is too big. Nothing is
-      written twice and nothing has to be repeated in the builder afterwards.
+      Edits apply to the workout slot itself and are used by future sessions; no
+      duplicate slot is created.
     uses:
     - session.slot-settings
     - template.item
   - id: board-takes-the-change-where-it-can
     t: The board takes the change where it safely can
     d: >-
-      rest, the working weight and the target of every set still to come move at
-      once; a set already logged keeps what it was done at, exactly as it does
-      when the weight alone is edited. Asking for more sets adds them on the end,
-      and asking for fewer drops the ones nobody has logged — a slot cannot be
-      cut below the sets you have already done, so a workout that went further
-      than planned is never asked to lose one. What the console said on a set is
-      never rebuilt away either, logged or not: a readout is not a target, it is
-      something typed off a machine, and losing it because the rest time changed
-      would be losing data. The progression rates are the same edit either way:
-      they are read from the slot when the session is filed, so a rate changed
-      mid-session is the rate the session progresses by. So is the rule the
-      session is <i>judged</i> by, which is the part that could have gone the
-      other way: switch a slot to the advanced axis from the board and this
-      session is already judged against the rep goal inside the range rather than
-      against the number it opened on. The board is rebuilt from the slot
-      rather than patched field by field, so a rule added later is taken without
-      anybody having to remember to add it here.
+      Rest, future weights, and future targets update immediately; logged sets keep
+      their values. Increasing set count appends sets; decreasing it removes only
+      unlogged sets. Console readouts are preserved. Progression uses the rates
+      and verdict rule active when the session is finished. Rebuilding from the
+      slot applies newly added settings consistently.
     uses:
     - session.slot-settings
     - session.live-state
@@ -1119,10 +866,8 @@ groups:
   - id: no-settings-on-an-exercise-with-no-slot
     t: A movement the session is carrying without a slot has no settings to open
     d: >-
-      a session started from a workout has a slot behind every exercise. One that
-      does not — anything the board is holding with no template row of its own —
-      has nowhere for the sheet to write, so the control is absent rather than
-      opening a sheet that would throw the edit away.
+      Exercises without a corresponding workout slot have no writable target, so
+      the settings control is omitted.
     uses:
     - session.slot-settings
 - name: Warm-ups
@@ -1133,9 +878,8 @@ groups:
   - id: warm-ups-never-persisted
     t: Warm-ups are never persisted
     d: >-
-      they're suggestions, not history, so logging them can't distort volume or
-      lifetime totals. They are excluded from every working-set aggregate — verdict,
-      volume, set count. The group carries a liability disclaimer.
+      Warm-ups are excluded from history aggregates, progression verdicts, and
+      working-set counts. The warm-up group displays its liability disclaimer.
     uses:
     - history.aggregates
     - session.finish
@@ -1143,38 +887,26 @@ groups:
   - id: an-empty-ramp-starts-shut
     t: A ramp with no rungs in it starts shut
     d: >-
-      a movement asking for no warm-up still keeps its group, because that is
-      where the stepper is and adding a rung today has to stay one tap away. It
-      opens folded to its one header line rather than to a stepper reading none
-      over a disclaimer about rungs that are not there — three lines of furniture
-      above every movement on a board belonging to somebody who has said they do
-      not warm up here. A ramp that was asked for but could not be built opens as
-      it always did: there the group has something to say, and says it. Shut is
-      only the starting state — the header toggles either way, and stepping down
-      to none mid-session leaves the group as you had it.
+      A zero-rung ramp remains as a collapsed header so its stepper stays available.
+      An unbuildable requested ramp opens normally. Collapse is only the initial
+      state; the header toggles it, and reducing to zero preserves the current state.
     uses:
     - session.warmup-count
   - id: moving-weight-rebuilds-warm-up
     t: Moving the weight rebuilds the warm-up
     d: >-
-      rungs already logged survive the recompute; only the ones still ahead of
-      you are redrawn. Changing the count follows the same rule.
+      Logged rungs are preserved when weight or rung count changes; only future
+      rungs are rebuilt.
     uses:
     - session.exercise-weight
     - session.warmup-count
   - id: default-warm-up-count-is-a-setting
     t: How many rungs a ramp opens with is a setting, and none is one of the answers
     d: >-
-      Profile → Exercise settings → Warm-ups, none to six, three until it is
-      changed. Every exercise in a session starts its stepper there unless the
-      movement carries a count of its own, and the duration estimate on a
-      training day prices whatever each of its movements will actually open
-      with. At none the app stops suggesting warm-ups altogether: no ramp is
-      built, no board shows one, the estimate prices the working sets alone, and
-      a movement's own count is not consulted — the app-wide none is the
-      stronger answer, the way a workout with its ramps off is. A session already
-      running keeps the counts it started with, and a stepper moved during it
-      stays moved.
+      Profile → Exercise settings → Warm-ups sets 0–6 (default 3). Exercise-level
+      counts override it. Zero disables ramps and excludes them from duration
+      estimates; a workout-level off switch has the same effect. Running sessions
+      retain their initial counts and in-session changes.
     screen: settings
     defines:
     - session.warmup-count
@@ -1185,15 +917,9 @@ groups:
   - id: a-workout-can-turn-its-own-ramps-off
     t: A single workout can turn its warm-up ramps off
     d: >-
-      a switch in the workout builder, on until you turn it off. Off, that day
-      starts with no ramps on any of its movements and its estimate prices none —
-      for the day that follows another, or the one you warm up for before you
-      open the app. It belongs to the day, so switching Push off leaves Legs
-      alone, and it is stored on the workout rather than the session: a day
-      trained with no ramps opens with none again next week. The app-wide count
-      at none does the same thing everywhere, and either being off is enough. The
-      stepper on the board still works during the session, because what you have
-      already warmed up for is a decision about today.
+      A workout-level switch disables all ramps for that workout and its estimate,
+      persists on the workout, and leaves other workouts unchanged. App-wide zero
+      also disables ramps. The board stepper remains available during the session.
     screen: workout-edit
     defines:
     - template.warmups-off
@@ -1206,17 +932,16 @@ groups:
   - id: warm-up-rest-shorter-between
     t: Warm-up rest is shorter between rungs, full before the work
     d: >-
-      45 s between rungs — changing plates and catching your breath — but after
-      the last rung the exercise's own rest runs instead.
+      Uses 45 seconds between warm-up rungs; the exercise's configured rest follows
+      the final rung before working sets.
     uses:
     - session.rest-timer
     - template.rest
   - id: barbell-ramps-start-empty-bar
     t: Barbell ramps start on the empty bar
     d: >-
-      each later rung is a weight the plates can make, preferring the fewest plates
-      per side. 225 lb over a 45 lb bar gives 45 → 115 → 185 at three, and 45
-      → 95 → 135 → 185 at four.
+      Starts at the empty bar and selects loadable later rungs, preferring fewer
+      plates per side (225 lb over 45 lb: 45 → 115 → 185 for three rungs).
     defines:
     - load.loadable-grid
     uses:
@@ -1226,73 +951,61 @@ groups:
   - id: dumbbell-rungs-use-increments-gym
     t: Off the bar, a rung snaps to the increments a gym stocks
     d: >-
-      dumbbells in multiples of 5 lb, or 2.5 kg in a metric gym; machine and cable
-      rungs in multiples of 5 in either unit, which is how a stack is labelled.
+      Dumbbell rungs use 5 lb or 2.5 kg increments. Machine and cable rungs use
+      increments of 5 in either unit.
     uses:
     - load.loadable-grid
     - load.units
     - exercise.weight-type
   - id: non-barbell-ramps-start-40
     t: Non-barbell ramps start at ~40% of the work
-    d: a dumbbell has no empty bar to stand on.
+    d: Without an empty bar, the first rung starts near 40% of working weight.
     uses:
     - exercise.weight-type
   - id: 85-work-hard-ceiling
     t: 85% of the work is a hard ceiling
-    d: >-
-      snapping onto a loadable weight rounds down past it, never up, so the last
-      warm-up can't turn into a first working set.
+    d: Snapping rounds down; no warm-up exceeds 85% of working weight.
     uses:
     - load.loadable-grid
   - id: reps-fall-off-load-climbs
     t: Reps fall off as the load climbs
-    d: >-
-      8 → 5 → 3 → 2 by fraction of the work, so an 80 kg bench warms up 20×8,
-      40×5, 60×3.
+    d: Repetition targets decrease as load increases (for example, 8 → 5 → 3 → 2).
   - id: step-will-only-stray-tenth
     t: >-
       A step will only stray a tenth of the working weight to find a cheaper load
     d: >-
-      cheapness breaks a tie between neighbouring loads; it is never worth warming
-      up 50 kg lighter for the sake of one pair of plates.
+      Plate-count cost breaks ties only between neighboring loads; it cannot select
+      a substantially lighter rung.
     uses:
     - load.plate-solver
   - id: duplicates-dropped
     t: Duplicates are dropped, and the stepper says so
     d: >-
-      where a coarse grid puts two steps on the same load, a light lift gets a
-      shorter ramp than asked for rather than one that stalls or steps backward.
-      The stepper then reads the number of rungs actually built, never the
-      number asked for, and + greys out — a ramp that came back short comes back
-      shorter still if you ask for more. − steps down from what is on screen,
-      and where nothing could be built at all it settles the request at none in
-      one press. The number you asked for is what the session keeps, so a ramp
-      the ladder could not build at 25 kg is built in full the moment the
-      working weight goes up.
+      Duplicate loads are removed. The stepper reports the number built; + is
+      disabled when no additional rung exists, − reduces the displayed ramp, and
+      an entirely unbuildable request becomes zero. The requested count is retained
+      for rebuilding after the working weight increases.
     uses:
     - load.loadable-grid
     - session.warmup-count
   - id: one-warm-up-set-middle
     t: One warm-up set is a middle-of-the-road set, not the empty bar
     d: >-
-      a single rung around halfway between the bar and the ceiling — 40 kg for
-      an 80 kg bench, 70 for a 140 kg squat, 115 lb for a 225 lb squat. The "starts
-      on the empty bar" rule resumes at two rungs and up.
+      A one-rung ramp uses roughly half the working weight (for example, 40 kg for
+      an 80 kg bench). The empty-bar start applies from two rungs upward.
     uses:
     - load.loadable-grid
   - id: light-lift-still-collapses-bar
     t: A light lift still collapses to the bar on its own
     d: >-
-      at any set count — a 25 kg lift over a 20 kg bar warms up with the empty
-      bar and nothing else, and its stepper reads 1. At the bar itself there is
-      no ramp to build, and the group says why in one line rather than telling
-      you to add rungs above, which is not something you could do.
+      A 25 kg lift over a 20 kg bar produces only the empty-bar rung. A working
+      weight equal to the bar produces no ramp.
     uses:
     - load.bar-weight
   - id: ramp-s-shape-follows-published
     t: The ramp's shape follows published practice
     d: >-
-      as fractions of the working weight, not of 1RM: three sets by default, 40–50%
-      / 60–70% / 70–80% for the loads, 8–10 / 4–6 / 1–3 for the reps, 45–60 s
-      between rungs. The stepper goes to six, but six is a choice the user makes.
-      Sources cited in lib/data/warmup.dart.
+      Uses working-weight fractions rather than 1RM: default three rungs at
+      40–50%, 60–70%, and 70–80%, with 8–10, 4–6, and 1–3 reps and 45–60 seconds
+      between rungs. The count can reach six. Sources are cited in
+      lib/data/warmup.dart.

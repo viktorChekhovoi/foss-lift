@@ -1,72 +1,8 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
-/// The sound the rest timer makes when it runs out.
-///
-/// A rest that ends silently is a rest you overrun with the phone in your
-/// pocket, which is most of what the timer is for.
-///
-/// **What it plays.** One asset, `assets/sound/rest_done.wav` — one note,
-/// struck and fading, under half a second. It was two notes a fifth
-/// apart to begin with, which reads as "da-dong": a little melody is a thing
-/// you notice having heard, and a rest ending is one event you act on.
-///
-/// It is *synthesised*, not sourced, so there is no licence attached to it and
-/// nothing to attribute. The generator lives in `tool/make_rest_tone.dart` —
-/// beside the asset rather than in a commit message, because a wav is a binary
-/// nobody can review and the pitch, the envelope and the length are the design.
-///
-/// **What it respects.** The audio is declared as an *alarm* on Android, which
-/// is what puts it on the alarm stream rather than the media one: it follows
-/// the phone's own silent and Do-Not-Disturb behaviour instead of overriding
-/// it. It takes *transient* focus for the length of the tone, which pauses
-/// music for a fraction of a second and hands it straight back — the first
-/// version merely asked whatever was playing to duck if it felt like it, and
-/// the answer to that on most players is no, which is half of why this was
-/// reported as too quiet.
-///
-/// **It plays with the phone in a pocket too**, which it did not always. The
-/// off-screen ding used to be a notification channel's own sound, posted
-/// whenever Android got round to it. Both cases take this route now, so the
-/// same asset sounds the same way wherever the phone is.
-///
-/// **How loud it is is not this app's business.** The alarm stream already has
-/// a slider on it, on every phone, reachable with the hardware keys; a gain of
-/// the app's own stacked on top would be a second number to get wrong for one
-/// question.
-///
-/// Three things have to hold for that, and all three do. The countdown is a
-/// timer in the app's own isolate, so the end of a rest is reached here rather
-/// than in the foreground service's isolate. The live session runs behind that
-/// foreground service, so the process is still alive to reach it — and Android
-/// permits background audio to an app running a foreground service that is not
-/// `SHORT_SERVICE`, which `specialUse` is not. And `audioplayers` holds only the
-/// *application* context, so nothing here depends on an activity being up.
-///
-/// What is still silent is the rest that ends with the app not running at all —
-/// a force-stop, or a reclaim the service did not prevent. Nothing is handed to
-/// Android in advance to cover that; see [RestAlarm].
-///
-/// Nothing here needs a network permission, and `audioplayers` is MIT.
-/// Whether [RestTone] has anything to play through, given where it is running.
-///
-/// A free function taking both inputs, rather than a getter reading the two
-/// globals, so the decision is testable off the platform it describes — the VM
-/// test runner is not a browser and `kIsWeb` cannot be moved.
-///
-/// **The web counts.** `audioplayers` has a web implementation and a browser
-/// plays this asset perfectly well; what a browser will not do is play it once
-/// the tab is in the background, where it throttles the timer that would ask.
-/// That is a different promise, and it is `Capabilities.backgroundAlerts` —
-/// which stays false on the web. A rest that ends while you are looking at the
-/// page sounds; a rest that ends while you are reading something else does not.
-///
-/// Audio in a browser also needs the page to have been interacted with before
-/// it will play at all. Nothing here has to arrange that: starting a workout is
-/// a tap, and it unlocks the page's audio for good.
-///
-/// Desktop is excluded because nothing ships there — `audioplayers` supports
-/// Linux and Windows, so this is a scope decision rather than a limit.
+/// Plays the synthesized rest-complete tone through the platform alarm stream; failures are ignored so audio problems never interrupt a workout.
+
 bool restToneSupportedOn({
   required bool isWeb,
   required TargetPlatform platform,

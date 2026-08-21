@@ -1,13 +1,6 @@
-// The shipped v1 database, exactly as it is on a phone that installed the first
-// release — captured from the v1 build's own `sqlite_master`.
-//
-// **Never edit this list.** It is not a description of the current schema; it is
-// the input every migration test starts from. A change here would make the
-// ladder look like it climbs from a shape nobody is actually holding, which is
-// the one thing a migration test exists to catch. When the schema moves, the
-// ladder gains a rung and this file stays where it is.
-//
-// `sqlite_sequence` is missing on purpose — sqlite creates and owns it.
+// Schema captured from the v1 release for migration tests. Keep this snapshot unchanged; add a migration step when the current schema changes.
+// `sqlite_sequence` is omitted because SQLite creates and owns it.
+
 const kSchemaV1 = <String>[
   'CREATE TABLE "bars" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "unit" TEXT NOT NULL, "name" TEXT NOT NULL, "seed_key" TEXT NULL, "weight_kg" REAL NOT NULL, "is_custom" INTEGER NOT NULL DEFAULT 0 CHECK ("is_custom" IN (0, 1)));',
   'CREATE TABLE "custom_themes" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "palette" TEXT NOT NULL);',

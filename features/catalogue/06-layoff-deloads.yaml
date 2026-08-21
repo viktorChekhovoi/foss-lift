@@ -1,8 +1,7 @@
 id: "06"
 title: Layoff deloads
 tagline: >-
-  Come back from a long break and the app offers a lighter start — measured per
-  workout, never applied without asking.
+  After a long break, offers a lighter workout start after confirmation.
 screen: workout-detail
 code:
 - lib/data/layoff.dart
@@ -19,9 +18,7 @@ groups:
   items:
   - id: watches-gap-since-workout-was
     t: Watches the gap since a workout was last trained
-    d: >-
-      not "the routine" — a split where Push comes round weekly but Legs hasn't
-      been touched since spring catches Legs exactly.
+    d: The gap is tracked per workout, not per routine.
     screen: none
     defines:
     - progression.layoff-rules
@@ -31,9 +28,9 @@ groups:
   - id: offers-back-off-before-session
     t: Offers a back-off before the session starts
     d: >-
-      whole periods away, each worth a percentage, stacking up to a cap. Open a
-      workout untrained for a while → Start, and a dialog offers the deload: accept
-      to start lighter, or decline to start at the weight you left.
+      Complete periods of inactivity each apply a configured percentage up to a
+      cap. Starting an overdue workout prompts to accept the deload or retain the
+      previous weights.
     defines:
     - progression.layoff-offer
     uses:
@@ -41,10 +38,8 @@ groups:
   - id: cut-lands-somewhere-trainable
     t: The cut lands somewhere trainable
     d: >-
-      down to the half kilo, never below the mode's floor, and never below the bar
-      the movement stands on — cutting a barbell lift to less than its empty bar
-      does not describe a session anybody can train. The session says why it's
-      lighter.
+      Rounds to the 0.5-unit grid and clamps to the mode floor and the exercise's
+      bar weight. The session displays the reason for the reduced target.
     uses:
     - load.loadable-grid
     - load.units
@@ -55,9 +50,8 @@ groups:
   - id: set-rules
     t: The rules are app-wide, and set in Settings
     d: >-
-      Profile → Exercise settings → the layoff days threshold and percent per period. Unlike
-      per-slot progression rates: a layoff is something that happened to you, not
-      to one exercise.
+      Profile → Exercise settings → configure the inactivity threshold and percent
+      per period. These settings apply app-wide, not per slot.
     screen: settings
     uses:
     - progression.layoff-rules
@@ -67,24 +61,20 @@ groups:
   - id: nothing-applied-without-asking
     t: Nothing is applied without asking
     d: >-
-      accepting moves the template and draws the first set at the new weight;
-      the cut is carried into the session as a notice shown for its whole length.
+      Accepting updates the template and starts the first set at the reduced
+      weight. A notice remains visible throughout the session.
     uses:
     - progression.layoff-offer
     - session.start
     - template.item
   - id: declining-not-recorded
     t: Declining is not recorded
-    d: >-
-      training today resets the gap by itself, so the question can't come back
-      to nag.
+    d: Training the workout resets its inactivity gap; declining does not record a separate decision.
     uses:
     - progression.layoff-offer
   - id: deload-clears-both-progression-streaks
     t: A deload clears both progression streaks
-    d: >-
-      sessions either side of a month off aren't "consecutive" in any sense the
-      progression rules mean.
+    d: A deload breaks both progression success and failure streaks.
     screen: none
     uses:
     - progression.streak

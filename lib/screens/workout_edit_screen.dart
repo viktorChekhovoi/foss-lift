@@ -12,8 +12,6 @@ import '../util/seed_names.dart';
 import '../widgets/builder_widgets.dart';
 import '../widgets/workout_items_editor.dart';
 
-/// Edits one saved workout: its name and the ordered exercises it contains.
-/// New workouts are built inline in the routine builder instead.
 class WorkoutEditScreen extends ConsumerStatefulWidget {
   const WorkoutEditScreen({super.key, required this.workoutId});
   final int workoutId;
@@ -32,10 +30,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
   bool _loaded = false;
   bool _saving = false;
 
-  /// The name put in the field. On a day the app shipped that is a translation
-  /// of the stored English, so handing it back untouched must not count as a
-  /// rename — writing it would store the translation and clear the seed key,
-  /// and the day would stop following the language for good.
   String _shownName = '';
 
   @override
@@ -63,8 +57,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
         ..addAll(items.map(ItemDraft.fromView));
       _loaded = true;
     });
-    // Filling the field moved the controller, which is not an edit — see the
-    // same note in exercise_form_screen.dart.
     markSaved();
   }
 
@@ -82,8 +74,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
     }
     setState(() => _saving = true);
     final db = ref.read(databaseProvider);
-    // Only a name that actually changed is written: renaming is what makes a
-    // day yours, and [AppDatabase.renameWorkout] clears the seed key to say so.
     if (name != _shownName) await db.renameWorkout(widget.workoutId, name);
     await db.setWorkoutWarmupsEnabled(widget.workoutId, _warmupsEnabled);
     await db.replaceWorkoutItems(
@@ -122,7 +112,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
     if (ok != true) return;
     await ref.read(databaseProvider).deleteWorkout(widget.workoutId);
     if (!mounted) return;
-    // Pop past the (now-deleted) workout detail screen to its routine.
     context.go(tabPath(context, '/routine/$_routineId'));
   }
 
@@ -164,9 +153,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
                               fontSize: 16, fontWeight: FontWeight.w600),
                           decoration: builderInput(l10n.workoutEditNameHint),
                         ),
-                        // Above the exercises, with the name: both are facts
-                        // about the day itself, and a switch under a list of
-                        // twelve movements is a switch nobody scrolls to.
                         const SizedBox(height: 18),
                         builderLabel(l10n.settingsWarmups),
                         _WarmupsRow(
@@ -207,9 +193,6 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen>
   }
 }
 
-/// The day's warm-up switch: a row rather than a checkbox inside a slot's
-/// Target card, because it is a fact about the whole day. It sits under the
-/// exercise list, where the day ends.
 class _WarmupsRow extends StatelessWidget {
   const _WarmupsRow({required this.on, required this.onToggle});
   final bool on;

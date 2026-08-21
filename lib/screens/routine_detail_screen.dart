@@ -11,8 +11,6 @@ import '../util/seed_names.dart';
 import '../widgets/common.dart';
 import 'training_max_screen.dart';
 
-/// A routine's training days. You start a workout from here, never the routine
-/// itself — a routine is a container, not a session.
 class RoutineDetailScreen extends ConsumerWidget {
   const RoutineDetailScreen({super.key, required this.routineId});
   final int routineId;
@@ -23,8 +21,6 @@ class RoutineDetailScreen extends ConsumerWidget {
     final routines = ref.watch(routinesProvider).value;
     final workouts = ref.watch(routineWorkoutsProvider(routineId));
     final isCurrent = ref.watch(currentRoutineProvider)?.routine.id == routineId;
-    // Only where there is one to set. A routine of flat sets has no training
-    // max, and an action that opens onto nothing is worse than a missing one.
     final hasTrainingMaxes =
         (ref.watch(trainingMaxGroupsProvider(routineId)).value ?? const [])
             .isNotEmpty;
@@ -95,9 +91,6 @@ class RoutineDetailScreen extends ConsumerWidget {
           data: (list) => ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             children: [
-              // What the program is, where a routine has been described — the
-              // shipped paragraph in the app's language, or the one you typed.
-              // Nothing at all where nobody has said anything.
               if (description != null) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14, top: 2),

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// intl also defines a `TextDirection`; hide it so the dart:ui one (with `.ltr`)
-// that TextPainter needs stays in scope.
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../data/database.dart';
@@ -12,14 +10,6 @@ import '../util/seed_names.dart';
 import '../util/units.dart';
 import '../util/format.dart';
 
-/// A per-exercise progress chart over every finished session. Read-only — it
-/// only ever reads the log.
-///
-/// A weighted movement is plotted as its **top set** — the heaviest weight the
-/// session actually held. An estimated 1RM was offered alongside it and taken
-/// back out: it is a formula's opinion about a lift you did not do, it moves
-/// when the reps move at a constant weight, and two numbers that disagree about
-/// whether you are progressing is one number too many.
 class ExerciseProgressScreen extends ConsumerWidget {
   const ExerciseProgressScreen({super.key, required this.exerciseId});
   final int exerciseId;
@@ -74,8 +64,6 @@ class _BodyState extends ConsumerState<_Body> {
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(exerciseHistoryProvider(widget.exercise.id));
-    // The chart is one movement's history, so it is read in that movement's
-    // unit.
     final unit = unitForExercise(
       ref.watch(weightUnitProvider).value ?? 'kg',
       widget.exercise.unitOverride,
@@ -121,8 +109,6 @@ class _BodyState extends ConsumerState<_Body> {
   }
 }
 
-/// The value the chart and readout show for one session: the top set in the
-/// display unit, or the longest hold in seconds.
 double _valueOf(ExerciseProgressPoint p, bool timed, String unit) =>
     timed ? p.bestSeconds.toDouble() : toDisplayWeight(p.topWeightKg, unit);
 
@@ -160,20 +146,11 @@ class _ChartCard extends StatelessWidget {
   }
 }
 
-/// A hand-rolled line chart: no dependency, no allocation beyond the paints it
-/// needs, so it stays cheap enough to sit in a scrolling list. Points are
-/// placed along x in proportion to their date, and y is scaled to the data's
-/// own range (not zero-based) so a plateau still shows its wobble.
 class _ChartPainter extends CustomPainter {
   _ChartPainter({required this.values, required this.locale});
 
-  /// The language the axis dates are written in — see `_ChartPainter.paint`.
-  /// A painter has no `BuildContext`, so it is handed the name rather than
-  /// reaching for `Intl.defaultLocale`.
   final String locale;
 
-  /// The gridline values carry no unit — the readout below the chart says which
-  /// one, and repeating it on three axis labels only crowds them.
   final List<({DateTime date, double value})> values;
 
   static const _leftPad = 44.0;
@@ -198,7 +175,6 @@ class _ChartPainter extends CustomPainter {
       if (v.value < minV) minV = v.value;
       if (v.value > maxV) maxV = v.value;
     }
-    // A flat series would divide by zero; give it a band to sit inside.
     if (maxV - minV < 1e-9) {
       final pad = maxV.abs() < 1e-9 ? 1.0 : maxV.abs() * 0.1;
       minV -= pad;
@@ -226,7 +202,6 @@ class _ChartPainter extends CustomPainter {
     final grid = Paint()
       ..color = AppColors.line
       ..strokeWidth = 1;
-    // Three gridlines with their values down the left edge.
     for (var g = 0; g <= 2; g++) {
       final t = g / 2;
       final y = plotTop + plotH * t;
@@ -236,7 +211,6 @@ class _ChartPainter extends CustomPainter {
           align: _Align.right, baseline: _Baseline.middle);
     }
 
-    // The line.
     final path = Path();
     for (var i = 0; i < values.length; i++) {
       final o = Offset(xAt(i), yAt(values[i].value));
@@ -256,7 +230,6 @@ class _ChartPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // The dots.
     final dotFill = Paint()..color = AppColors.accent;
     final dotRing = Paint()..color = AppColors.ground;
     for (var i = 0; i < values.length; i++) {
@@ -265,8 +238,6 @@ class _ChartPainter extends CustomPainter {
       canvas.drawCircle(o, 3, dotFill);
     }
 
-    // First and last dates along the bottom. A skeleton rather than a pattern:
-    // "d MMM" is an English ordering, and the locale is entitled to its own.
     final df = DateFormat.MMMd(locale);
     _label(canvas, df.format(values.first.date),
         Offset(plotLeft, plotBottom + 6),
@@ -307,8 +278,6 @@ enum _Align { left, right }
 
 enum _Baseline { top, middle }
 
-/// The most recent session's headline number, and how far it has come from the
-/// first logged session.
 class _LatestReadout extends StatelessWidget {
   const _LatestReadout({
     required this.points,
@@ -339,9 +308,6 @@ class _LatestReadout extends StatelessWidget {
           : l10n.progressNoChangeYet;
       deltaColor = AppColors.muted;
     } else {
-      // Four whole sentences rather than a sign, a magnitude and a trailing
-      // clause glued together: a gain and a loss are not the same sentence
-      // with one character swapped once the language has to agree with them.
       final up = delta > 0;
       final mag = delta.abs();
       deltaText = timed

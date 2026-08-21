@@ -1,4 +1,4 @@
-// The live session, written down.
+// JSON crash snapshot for the in-memory live session.
 //
 // The workout stays in memory and still writes its history only on Finish —
 // that model is deliberate and unchanged. What this adds is a crash snapshot: a
@@ -21,7 +21,7 @@ import '../data/warmup.dart' show kDefaultWarmupSets;
 import '../util/cardio_units.dart';
 import 'active_workout.dart';
 
-/// The live session as one line of JSON.
+/// Encodes the live session as JSON.
 String encodeSession(ActiveWorkout s) => jsonEncode({
       'routineId': s.routineId,
       'workoutId': s.workoutId,
@@ -84,8 +84,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
       ],
     });
 
-/// The session the snapshot describes, aged by [dead] — however long passed
-/// between the snapshot being taken and now.
+/// Decodes a snapshot and advances its timers by [dead], returning null when invalid.
 ///
 /// Both clocks are rebuilt against that gap rather than resumed where they
 /// stopped: a workout that started at nine is an hour old at ten whether or not
@@ -167,7 +166,7 @@ SetEntry _readSet(Map<String, dynamic> m) => SetEntry(
       console: _readConsole(m['console']),
     );
 
-/// What the console said, written down only when somebody wrote it down. Nearly
+/// What the console said, when any readout was recorded. Nearly
 /// every set has nothing here, and a key per set for four nulls is four keys per
 /// set of a blob that is rewritten on every tap.
 Map<String, dynamic> _console(ConsoleMetrics c) => {
@@ -198,7 +197,7 @@ RestSetRef? _readRestFor(Object? raw) {
   );
 }
 
-/// Fills in the order of logging for a snapshot written before there was one.
+/// Backfills log order for snapshots written before the field existed.
 ///
 /// The shipped build recorded what was logged and not when, and read the last
 /// logged set *in list order* as the one you were on. That is what absent means

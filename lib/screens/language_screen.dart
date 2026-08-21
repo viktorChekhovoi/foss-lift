@@ -6,26 +6,12 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/locales.dart';
 
-/// The language picker: the five, one of them always selected.
-///
-/// There is no "follow the phone" row. First run resolves the phone's language
-/// and stores it (see `localeTagProvider`), so by the time anyone opens this
-/// screen the question has already been answered with one of these five.
-///
-/// Every row names its language in that language and nothing else. A row
-/// labelled "Ucraniano" is no use to the person who needs it, and a subtitle
-/// translating it back into the app's current language is a second thing to
-/// read for a decision made from one word.
 class LanguageScreen extends ConsumerWidget {
   const LanguageScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    // The language actually being painted, rather than the raw stored tag: on
-    // the very first launch the write that stores it may still be in flight,
-    // and a picker with nothing ticked would be the one frame where the
-    // "always one selected" rule does not hold.
     final chosen = localeTag(ref.watch(activeLocaleProvider));
     final db = ref.read(databaseProvider);
 

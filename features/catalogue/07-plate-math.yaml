@@ -1,8 +1,7 @@
 id: "07"
 title: Plate math
 tagline: >-
-  For barbell lifts, the app works out which plates go on each side — from the
-  rack you actually own.
+  Calculates per-side plates for barbell lifts from the configured rack.
 screen: session
 code:
 - lib/data/plates.dart
@@ -21,18 +20,15 @@ groups:
   items:
   - id: solves-plate-breakdown-target-weight
     t: Solves the plate breakdown for a target weight
-    d: >-
-      what goes on one side, what the bar will actually come to, and whether that's
-      the weight you asked for.
+    d: Returns the per-side plates, resulting total, and whether it matches the target.
     defines:
     - load.plate-solver
   - id: shows-line-under-exercise
     t: Shows it as a line under an exercise
     d: >-
-      30 kg/side · 25 + 5 · bar 20 kg — re-solving the moment you type a different
-      weight. It appears by itself on the live session for barbell lifts, describing
-      the next set's weight. Every weight on the line carries its unit, the bar
-      included.
+      Displays values such as 30 kg/side · 25 + 5 · bar 20 kg and re-solves on
+      input. The line appears for barbell exercises in a live session and labels
+      every value, including the bar, with its unit.
     uses:
     - load.plate-solver
     - load.units
@@ -40,16 +36,10 @@ groups:
   - id: bars-are-list-you-keep
     t: The bars are a list you keep, one per unit
     d: >-
-      Profile → Exercise settings → Default bar opens the list itself: the six standard bars
-      are the starting set, and they are fixed — an Olympic bar weighs 20 kg
-      everywhere, and the name and weight another phone resolves a shared routine
-      against are not a preference, so no pencil is offered on one. Tap a bar to
-      make it the default, Add a bar for anything your gym has that the list does
-      not, and rename or re-weigh the ones you added. Any bar can be taken off the
-      rack, standard or not, because a gym may simply not have a trap bar — and
-      deleting one leaves nothing pointing at it: the exercises on it fall back to
-      the default, and if it was the default, that falls back to the standard bar
-      for the unit.
+      Profile → Exercise settings → Default bar opens the per-unit bar list. Six
+      standard bars are fixed; custom bars can be added, renamed, reweighed, or
+      deleted. Deleting a bar returns its exercises to the default; deleting the
+      default returns it to the unit's standard bar.
     screen: bar-settings
     defines:
     - load.bar-weight
@@ -58,8 +48,7 @@ groups:
     - share.routine-code
   - id: uses-bar-exercise-rack-you
     t: Uses the bar for the exercise and the rack you own
-    d: >-
-      its own bar, or the app-wide default, or the standard bar for the unit.
+    d: Resolves to the exercise bar, app-wide default, or unit standard bar.
     uses:
     - load.bar-weight
     - load.plate-rack
@@ -67,7 +56,7 @@ groups:
   items:
   - id: edit-rack
     t: Edit the rack
-    d: Profile → Exercise settings → plates — step plate pair counts up and down.
+    d: Profile → Exercise settings → Plates; adjust each plate pair count.
     screen: plate-inventory
     uses:
     - load.plate-rack
@@ -75,22 +64,16 @@ groups:
   items:
   - id: search-exhaustive-not-greedy
     t: The search is exhaustive, not greedy
-    d: >-
-      greedy is only correct when every plate divides the next one up, which a
-      real rack (45/35/25 lb; a lone 1.25 kg) does not.
+    d: Considers all combinations because racks may contain non-divisible sizes such as 45/35/25 lb or a single 1.25 kg plate.
     uses:
     - load.plate-solver
   - id: nothing-snapped
     t: Nothing is snapped, but the bar is a floor
     d: >-
-      a weight the plates can't build is still yours to type; the line goes gold
-      with the nearest buildable load, and green is the weight you asked for. What
-      you cannot type is less than the bar itself — asking for 10 kg over a 20 kg
-      bar is not a load. Every place that sets a weight holds it at the bar: the
-      board while a session runs, the builder on the way to the database, where an
-      empty field reads "20 kg or more", and progression — a back-off and a layoff
-      cut both stop at the empty bar rather than at zero. The belowBar state
-      remains for the weight that got in before a bar was named.
+      Unbuildable targets remain editable; the line shows the nearest buildable
+      load in gold and the requested target in green. Values below the bar are
+      rejected in the board, builder, progression, and layoff paths. Legacy
+      belowBar values remain representable until a bar is assigned.
     uses:
     - load.plate-solver
     - load.bar-weight
@@ -100,24 +83,21 @@ groups:
   - id: ties-break-way-lifter-loads
     t: Ties break the way a lifter loads a bar
     d: >-
-      fewest plates first, then the heaviest — 40 kg/side is 25 + 15, not 20 +
-      20, and never 10 + 5 + 2.5 + 2.5.
+      Tie-breaking minimizes plate count, then prefers heavier plates (40 kg/side
+      becomes 25 + 15).
     uses:
     - load.plate-solver
   - id: rack-pairs
     t: The rack is pairs
     d: >-
-      plates go on two at a time; an odd plate is ignored. The assumed rack is
-      a pair of every size plus a pile of the workhorse plate — 45s in a pounds
-      gym, 20s in a metric one.
+      Plates are stored and loaded in pairs; an odd count is ignored. The default
+      rack has one pair of each size plus extra 45 lb or 20 kg plates.
     screen: plate-inventory
     defines:
     - load.plate-rack
   - id: one-rack-per-unit
     t: One rack per unit
-    d: >-
-      a rack is a set of sizes, not weights; each unit remembers its own, and
-      the standard rack stands in until you edit it.
+    d: Each unit stores a rack of plate sizes; the standard rack is used until edited.
     screen: plate-inventory
     uses:
     - load.plate-rack
@@ -125,20 +105,16 @@ groups:
   - id: warmup-rungs-say-per-side
     t: A warm-up rung on a bar says what goes on each side
     d: >-
-      the ramp is a different load every rung, so there is no single line to draw
-      under it the way the working sets get one: each rung carries "30/side"
-      under its own weight instead. The empty bar carries no label — there is
-      nothing on it — and a rung the plates cannot make exactly is prefixed "≈",
-      the same reading a routine's per-side figure gets. Off a bar there is no
-      label at all.
+      Each barbell warm-up rung shows its own per-side value (for example,
+      “30/side”). The empty bar has no plate label; approximate builds use “≈”.
+      Non-barbell ramps have no plate label.
     uses:
     - session.warmup-ramp
     - load.plate-solver
     - exercise.weight-type
   - id: only-bar-gets-line
     t: Only a bar gets a line
-    d: >-
-      a machine's number is the number; a dumbbell's is whatever's in your hand.
+    d: Machines and dumbbells display their entered load without plate math.
     uses:
     - exercise.weight-type
     - load.plate-solver

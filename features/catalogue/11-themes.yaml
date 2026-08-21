@@ -1,6 +1,6 @@
 id: "11"
 title: Color themes
-tagline: Pick a preset theme, build your own, or bring in one someone shared.
+tagline: Choose a preset, create a custom theme, or import one.
 screen: theme-settings
 code:
 - lib/theme/app_theme.dart
@@ -25,33 +25,30 @@ groups:
 - name: What it does
   items:
   - id: appearance-holds-look-app
-    t: Appearance holds the whole of how the app looks
+    t: Appearance contains visual settings
     d: >-
-      Profile → Appearance is the theme, the text size and the language in one
-      place; Profile → Exercise settings is the training ones — units, bars and
-      plates, the deload rules, set videos. The split is by what a setting is
-      about, not by when it was added.
+      Profile → Appearance contains the theme, text size, and language. Profile →
+      Exercise settings contains units, bars and plates, deload rules, and set
+      videos.
     uses:
     - theme.palette-source
     - ui.text-scale
     - ui.language
     - ui.navigation
   - id: eight-preset-themes-four-dark
-    t: Eight preset themes as four dark/light pairs
+    t: Eight presets in four dark/light pairs
     d: >-
-      Ignition and Daylight are the everyday defaults, dark and light; Graphite and
-      Paper are the second everyday pair; then Solarized dark and light, and a
-      high-contrast option in each brightness.
+      The presets are Ignition/Daylight, Graphite/Paper, Solarized dark/light, and
+      one high-contrast preset for each brightness.
     defines:
     - theme.palette-source
     uses:
     - theme.colour-role
   - id: many-custom-themes-you-like
-    t: As many custom themes as you like
+    t: Custom themes can be created without a fixed limit
     d: >-
-      each named, each edited role by role, with a live preview of the palette
-      you are editing. Tap New theme, name it, and edit each colour role; the
-      preview at the top follows every change.
+      Each custom theme has a name and editable color roles. New theme opens the
+      editor; the preview updates as roles change.
     screen: theme-custom
     defines:
     - theme.colour-role
@@ -60,13 +57,11 @@ groups:
     - theme.picker
     - theme.preview
   - id: editing-preset-saves-copy
-    t: A preset can be edited, and the edit is saved as a copy
+    t: Editing a preset saves a custom copy
     d: >-
-      every preset row carries the same pencil your own themes do. It opens the
-      editor on that preset's colours under "New from Ignition", and saving
-      writes a new theme of your own rather than touching the preset — which is
-      still there, unchanged, in the list above. A copy of a high-contrast preset
-      arrives without the AAA badge, like any theme you can recolour.
+      Editing a preset opens its colors under "New from Ignition". Saving creates a
+      custom theme and leaves the preset unchanged. A copied high-contrast preset
+      does not retain the AAA badge.
     screen: theme-custom
     uses:
     - theme.palette-source
@@ -74,22 +69,19 @@ groups:
     - theme.preview
     - theme.contrast-check
   - id: duplicating-one-your-own
-    t: One of your own can be duplicated from the picker
+    t: Custom themes can be duplicated from the picker
     d: >-
-      the copy icon beside the pencil clones that theme on the spot as "Mine
-      copy" — "Mine copy 2" if that name is taken — and selects it, so recolouring
-      it never costs you the one it came from. A duplicate of an imported theme
-      carries no accessibility claim either, whatever the code it arrived in said.
+      The copy icon creates and selects "Mine copy", adding a numeric suffix when
+      needed. Duplicating an imported theme does not retain an accessibility claim.
     uses:
     - theme.picker
     - theme.palette-source
     - theme.contrast-check
   - id: shares-one-your-own-qr
-    t: Shares one of your own as a QR code or a code you can paste
+    t: Custom themes can be shared as QR or text codes
     d: >-
-      the share sheet sends the bare code, because a chat app will not make a
-      fosslift:// link tappable and an unclickable link is worse than a string
-      nobody expected to click.
+      The share sheet sends the bare code. Chat applications do not generally
+      linkify fosslift:// URLs.
     uses:
     - share.theme-code
     - share.qr
@@ -101,36 +93,26 @@ groups:
   - theme.colour-role
   items:
   - id: preview-workout-board
-    t: The preview is the workout board
+    t: The preview uses a workout board
     d: >-
-      a miniature of the screen the palette has to survive — an exercise heading,
-      three set rows (a hit, a short one, one still to do) and the stat strip —
-      rather than twelve swatches. The set rows are the point: Completed and Missed
-      goal are the palette's hardest job, and a chip of each says nothing about
-      telling them apart at speed, while the untouched third row puts surface2,
-      surface3 and faint on screen doing their real jobs.
+      The preview contains an exercise heading, three set rows (completed, missed,
+      and pending), and a stat strip. It exercises the Completed and Missed goal
+      markers plus surface2, surface3, and faint roles in context.
     defines:
     - theme.preview
   - id: two-warnings-both-binary
-    t: Two warnings, both binary
+    t: The preview reports two binary contrast warnings
     d: >-
-      one when text is too close to its background — comparing the preview's own
-      text against its ground and cards at the same 4.5:1 the presets are held to
-      — and one when the two markers are too close to each other. Guidance, never
-      a running number.
+      One warning compares preview text with its background and cards at 4.5:1.
+      The other compares the two markers. Both are binary; no ratio is displayed.
     defines:
     - theme.contrast-check
   - id: done-short-must-unmistakable-each
-    t: Completed and Missed goal must be unmistakable from each other
+    t: Completed and Missed goal markers must be distinguishable
     d: >-
-      every preset holds them at least kMarkerDistance apart in CIELAB, and both
-      clear 4.5:1 against the ground and a card. Contrast against the background
-      was never the problem — Solarized's green and yellow sit at the same luminance,
-      so their ratio against each other is 1.00 and says nothing. They also differ
-      by more than hue: two colours that differ only in hue are the one pair a
-      colour-blind reader cannot separate at all, so a set that came up short also
-      carries a downward arrow. The colour is the fast read; the arrow is the one
-      that always works.
+      Presets keep the markers at least kMarkerDistance apart in CIELAB, and each
+      marker has 4.5:1 contrast against the ground and a card. A missed set also
+      displays a downward arrow so the state remains distinguishable without color.
     uses:
     - theme.contrast-check
     manual: true
@@ -141,14 +123,10 @@ groups:
   - theme.colour-role
   items:
   - id: speaks-rgb-hsl-because-they
-    t: It speaks RGB, and nothing else
+    t: The picker uses RGB values
     d: >-
-      three channels and six hex digits are how every colour a palette is built
-      from is written down — off a brand guide, out of the Solarized spec, from a
-      screenshot. HSL was offered beside it and taken back out: a second notation
-      for the same six bytes is a toggle to learn, not a colour you could not
-      otherwise reach. Every colour the shipped presets use can be reached by hand,
-      and that is asserted rather than assumed.
+      Colors use three RGB channels represented by six hex digits. HSL is not
+      exposed. Every color in the shipped presets is reachable through the picker.
     defines:
     - theme.picker
     uses:
@@ -163,105 +141,92 @@ groups:
       because building a family by hand starts from the last one's value and retyping
       six digits is what stops people doing it.
   - id: each-slider-track-painted-colours
-    t: Each slider track is painted with the colours it traverses
-    d: so it previews its own effect rather than asking you to imagine it.
+    t: Slider tracks show their traversed colors
+    d: Each track shows the colors produced along its range.
   - id: label-filled-button-measured-not
-    t: The label on a filled button is measured, not assumed
+    t: Filled-button labels use a measured contrast choice
     d: >-
-      whichever of a near-black tint or white reads better on the accent wins,
-      so a custom or imported accent of any lightness still gets a legible label.
+      The button chooses between a near-black tint and white based on contrast with
+      the accent.
     uses:
     - theme.contrast-check
 - name: Presets, accessibility & storage
   items:
   - id: untouched-install-follows-phone
-    t: An untouched install follows the phone
+    t: An untouched install follows the system brightness
     d: >-
-      Ignition on a phone set to dark, Daylight on one set to light, flipping
-      with the system until a theme is picked. A stored choice outranks the system
-      from then on.
+      Ignition is selected when the system is dark and Daylight when it is light.
+      The selection follows system brightness until a theme is chosen.
     uses:
     - theme.palette-source
     - storage.settings
   - id: nothing-painted-until-stored-theme
-    t: Nothing is painted until the stored theme is known
+    t: The app waits for the stored theme before painting
     d: >-
-      the root holds a bare ground-coloured frame rather than painting a frame
-      of the wrong theme and correcting it — which was a flicker on every cold
-      launch.
+      The root shows a neutral frame until the stored theme is loaded, preventing
+      a flash of the wrong theme on cold launch.
     uses:
     - theme.palette-source
     - ui.navigation
   - id: tab-shell-takes-colours-palette
-    t: The tab shell takes its colours from the palette, not from AppColors
+    t: The tab shell uses palette roles
     d: >-
-      go_router holds its branch navigators by GlobalKey, so re-keying MaterialApp
-      moves its elements instead of rebuilding them — which is why a cold launch
-      used to paint the navigation bar in the previous theme.
+      go_router retains branch navigators by GlobalKey. The tab shell reads palette
+      roles directly so changing the MaterialApp key does not preserve stale colors.
     uses:
     - theme.colour-role
     - ui.navigation
   - id: picker-groups-presets-brightness
     t: The picker groups presets by brightness
     d: >-
-      Profile → Appearance, then tap one: dark then light, with each group's
-      high-contrast option last and badged AAA. Long-pressing the badge explains
-      it; so does tapping it, but only on the row already selected.
+      Profile → Appearance lists dark presets followed by light presets. The
+      high-contrast preset is last in each group and has an AAA badge; tapping or
+      long-pressing the selected badge explains it.
     uses:
     - theme.palette-source
   - id: both-accessible-presets-clear-wcag
-    t: Both accessible presets clear WCAG AAA (7:1) for body text
+    t: Both accessible presets meet WCAG AAA (7:1) for body text
     d: >-
-      and AA (4.5:1) for secondary text, the accent, the completed marker and
-      the record marker — over both the ground and a card — with borders above
-      the 3:1 non-text floor. Every other preset clears 4.5:1 for all three of
-      its text tones.
+      They provide 7:1 for body text, 4.5:1 for secondary text, accent, completed
+      marker, and record marker over ground and card, and 3:1 for borders. Other
+      presets provide at least 4.5:1 for their three text tones.
     uses:
     - theme.contrast-check
     - theme.palette-source
     manual: true
   - id: solarized-ships-published-two-documented
-    t: Solarized ships as published, with its text tones lifted to clear AA
+    t: Solarized retains its published colors with adjusted text tones
     d: >-
-      the grounds, the cards and the accent are Schoonover's own. The three text
-      tones are not: Solarized's own mid-tones land between 1.7:1 and 4.9:1 on the
-      palette's backgrounds, too low to carry three text roles at the 4.5:1 floor.
-      So the dark theme's body text takes base2 and its two quieter tones are base1
-      carried toward it, while the light theme keeps base02 for body text and darkens
-      base01 and base00 down their own ramp. The two intermediate surfaces are blends
-      — the palette defines two background tones and the app paints four — held dark
-      enough that the dimmest text still clears the floor on them.
+      Solarized grounds, cards, and accent use Schoonover's colors. Text tones are
+      adjusted to meet 4.5:1 on all four app surfaces: dark body text uses base2
+      with quieter tones toward base1; light body text uses base02 with darker
+      base01 and base00. Intermediate surfaces are blends and retain the same floor.
     uses:
     - theme.palette-source
     - theme.colour-role
     - theme.contrast-check
   - id: custom-theme-never-badged-accessible
-    t: A custom theme is never badged accessible
+    t: Custom themes never receive the accessible badge
     d: >-
-      however it got there. The badge means the palette was designed and checked
-      against WCAG, which is a fact about the two shipped presets. The claim is
-      dropped on import, dropped when a preset is copied into one of your own,
-      and the row refuses to draw the badge whatever is stored.
+      The badge is reserved for the two shipped palettes checked against WCAG. It
+      is removed on import or preset duplication and is not drawn for custom rows.
     screen: theme-custom
     uses:
     - theme.contrast-check
   - id: only-your-own-themes-shareable
-    t: Only your own themes are shareable
+    t: Only custom themes are shareable
     d: >-
-      the share row is hidden unless one of your own is selected: Show QR for
-      someone to scan, or Send code for the system share sheet, which is also where
-      "copy" lives. It sends the one that is selected, not "the custom slot".
+      The share row appears when a custom theme is selected. Show QR displays it;
+      Send code opens the system share sheet, which also provides Copy.
     uses:
     - share.theme-code
     - share.qr
     - theme.palette-source
   - id: shared-theme-always-previewed-never
-    t: A shared theme is always previewed, never applied on arrival
+    t: Imported themes are previewed before application
     d: >-
-      Scan QR uses the camera and Paste code takes a code or a link; a scan, a tapped
-      link and a pasted code all land on the same confirmation screen, and accepting
-      it closes that screen rather than leaving you looking at the offer you just
-      took. A code that will not decode offers nothing to apply.
+      Scan QR, a tapped link, and Paste code all open the same confirmation screen.
+      Accepting closes it; an undecodable code offers no theme to apply.
     screen: theme-import
     uses:
     - share.import-review
@@ -270,32 +235,27 @@ groups:
     - share.theme-code
     - theme.preview
   - id: arriving-theme-added-your-own
-    t: An arriving theme is added to your own, never substituted
+    t: Imported themes are added to custom themes
     d: >-
-      it never claims a preset slot and never overwrites a theme you built — importing
-      four codes leaves you holding four themes.
+      Imports never occupy preset slots or overwrite existing custom themes.
     screen: theme-import
     uses:
     - share.import-review
     - theme.palette-source
   - id: deleting-confirmed-deleting-one-you
-    t: Deleting is confirmed, and deleting the one you are looking at is safe
+    t: Theme deletion requires confirmation and clears the active selection safely
     d: >-
-      open one of your own with the pencil: the name field renames it, and the bin
-      in the app bar deletes it after a confirmation. The app falls back to the
-      system default in the same write that removes the theme, so no selection is
-      ever left pointing at nothing.
+      The editor's name field renames a custom theme. The app-bar bin deletes it
+      after confirmation and selects the system default if it was active.
     screen: theme-custom
     uses:
     - theme.palette-source
   - id: choice-stored-slug-your-themes
-    t: The choice is stored as a slug; your themes are rows
+    t: Preset selection is a slug; custom themes are rows
     d: >-
-      Settings holds themePresetId — a preset slug, custom:&lt;n&gt;, or none
-      — and each of your themes is a row in CustomThemes holding its palette as
-      JSON. The name lives inside that JSON. A slug naming something that no longer
-      exists falls back to the default, as any unknown slug does — including a
-      custom:&lt;n&gt; whose row is gone.
+      Settings.themePresetId stores a preset slug, custom:&lt;n&gt;, or none. CustomThemes
+      stores each custom palette as JSON, including its name. Unknown slugs and
+      missing custom rows fall back to the default.
     screen: none
     uses:
     - theme.palette-source
@@ -305,26 +265,19 @@ groups:
   screen: today
   items:
   - id: every-text-tone-readable-every-palette
-    t: Every text tone is readable in every palette
+    t: Every text tone remains readable in every palette
     d: >-
-      a palette owns three: body text, a secondary tone and a dimmest one. All
-      three clear 4.5:1 in every shipped preset, over all four backgrounds the app
-      paints — the ground, a card, the nested surface inside it and the raised one
-      under the resume bar — so a hint under a field, a column heading or a date
-      over a list is held to the same floor as the words beside it. The dimmest
-      tone is the quietest of the three, never the illegible one.
+      Each palette defines body, secondary, and dimmest text tones. All three meet
+      4.5:1 on the ground, card, nested surface, and resume-bar surface.
     uses:
     - theme.colour-role
     - theme.type-scale
     - theme.contrast-check
   - id: headings-readable-every-palette
-    t: The three tones stay in rank, and headings take the middle one
+    t: Text tones retain their hierarchy across palettes
     d: >-
-      body text reads loudest, the secondary tone next, the dimmest one last, and
-      the gap between each pair is wide enough to see. The small-caps heading over
-      a list takes the secondary tone and the eyebrow over a screen title takes the
-      body one — a rank chosen for how loudly each should read, now that none of the
-      three is held back by its contrast.
+      Body text has the highest contrast, followed by secondary and dimmest. List
+      headings use secondary; screen-title eyebrows use body text.
     uses:
     - theme.colour-role
     - theme.type-scale
@@ -334,45 +287,43 @@ groups:
   - share.theme-code
   items:
   - id: theme-code-flt1-followed-base64url
-    t: A theme code is FLT1. followed by base64url
+    t: A theme code consists of FLT1. and base64url data
     d: >-
-      the whole palette in 65–84 characters. FLT1 is a format version, read first
-      and dispatched on, so a future FLT2 is declined rather than misread.
+      The payload is the whole palette in 65–84 characters. FLT1 is read first;
+      unsupported versions such as FLT2 are rejected.
     defines:
     - share.theme-code
   - id: bytes-between-name-trailing-checksum
-    t: Bytes between the name and the trailing checksum are ignored
-    d: so a later writer can add a field without breaking older readers.
+    t: Readers ignore bytes between the name and trailing checksum
+    d: This permits later writers to add fields without breaking older readers.
   - id: role-order-wire-format
-    t: The role order is a wire format
-    d: reordering it silently changes the meaning of every code already shared.
+    t: Palette role order is part of the wire format
+    d: Reordering roles changes the meaning of existing shared codes.
     uses:
     - theme.colour-role
   - id: crc-16-catches-damage-codes
-    t: A CRC-16 catches the damage codes actually suffer
-    d: a truncated paste, a mistyped character. It is not a security measure.
+    t: CRC-16 detects common code corruption
+    d: It detects truncated or mistyped codes but is not a security measure.
   - id: reading-distinguishes-two-failures
-    t: Reading distinguishes two failures
+    t: Decoding distinguishes invalid and corrupted codes
     d: >-
-      not a theme code at all (which includes any tag that is not FLT1), or damaged
-      in transit.
+      The input is either not a theme code (including a non-FLT1 tag) or damaged in
+      transit.
     screen: theme-import
     uses:
     - share.import-review
   - id: links-fosslift-theme-code
-    t: A link that arrives is fosslift://theme/&lt;code&gt;
+    t: Incoming links use fosslift://theme/&lt;code&gt;
     d: >-
-      a custom scheme rather than an https App Link, so it needs no domain, no
-      hosting and no network. Chat apps will not linkify it, which is why nothing
-      sends one any more — but anything that hands the app one is still read.
+      This custom scheme requires no domain, hosting, or network. Chat apps may not
+      linkify it, but the app still accepts incoming links.
     uses:
     - share.deep-link
   - id: qr-codes-hold-full-link
-    t: QR codes hold the full link
+    t: QR codes contain the full theme link
     d: >-
-      so one image serves both a system camera and the in-app scanner. Decoding
-      is pure Dart via zxing2, not Google's ML Kit, keeping the app free of proprietary
-      binaries.
+      The full link lets both a system camera and the in-app scanner decode it.
+      Decoding uses the pure-Dart zxing2 package.
     uses:
     - share.qr
     - share.deep-link

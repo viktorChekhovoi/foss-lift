@@ -1,27 +1,4 @@
-// Generates `assets/sound/rest_done.wav` — the sound the rest timer makes when
-// it runs out.
-//
-// Run it from the repository root:
-//
-//     dart run tool/make_rest_tone.dart
-//
-// It overwrites the asset in place and prints what it wrote. There is nothing
-// random in here, so re-running it reproduces the same file byte for byte; a
-// diff on the wav that is not preceded by a diff on this script is a mistake.
-//
-// **Why the generator is committed.** The tone is synthesised rather than
-// sourced, which is what keeps it free of any licence and of anything to
-// attribute — but a wav is a binary nobody can review, and the pitch, the
-// envelope and the length *are* the design. They belong somewhere they can be
-// read and argued with. It is deliberately not built in CI either: an asset
-// that only exists in a release is one no developer has ever heard and no test
-// can play.
-//
-// **Why one note.** The first version of this was two notes a fifth apart,
-// which reads as "da-dong". A little melody is a thing you notice having heard;
-// a rest ending is one event you act on, so it gets one strike. The octave
-// underneath the fundamental is not a second note — it shares the single
-// envelope and is there to keep the tone from sounding like a test tone.
+// Generates the deterministic `assets/sound/rest_done.wav` asset. Run from the repository root with `dart run tool/make_rest_tone.dart`.
 
 import 'dart:io';
 import 'dart:math' as math;

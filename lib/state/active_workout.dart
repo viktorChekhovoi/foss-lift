@@ -24,19 +24,7 @@ import '../util/units.dart';
 import 'session_mirror.dart';
 import 'workout_cue.dart';
 
-/// One set row during a live workout. Weights are in kilograms; the UI converts
-/// to the display unit.
-///
-/// A set is measured either in reps done or, when [timed], in seconds held —
-/// [goal] and [logged] carry whichever it is. They are one pair rather than two
-/// because everything around them (did you hit it, what colour is the row, does
-/// it count as a success) is the same question either way.
-///
-/// The goal is fixed by the template and cannot be edited from the logging
-/// screen — it is what you set out to do, and rewriting it after the fact would
-/// erase the only thing worth recording about a set you missed. What you
-/// actually did lives in [logged] (null until the set is logged) and [weight]
-/// (editable, because sometimes you have to deload mid-session).
+/// One set row during a live workout. Weights are stored in kilograms; the UI converts them to the display unit. The template goal is immutable, while [logged] and [weight] record what happened.
 class SetEntry {
   SetEntry({
     required this.goal,
@@ -55,16 +43,10 @@ class SetEntry {
   /// The target from the template — reps, or seconds when [timed]. Immutable.
   final int goal;
 
-  /// The number below which this set counts as short.
-  ///
-  /// [goal] for every set the app has ever had, and the *bottom* of the range
-  /// for a written-out row that carries one: 8–12 asks for 12 and is not a miss
-  /// at 9. A row with no top ([amrap]) asks for its minimum and floors on it, so
-  /// the two are the same number there.
+  /// Minimum result required for this set to count as complete.
   final int goalMin;
 
-  /// Whether this set has no ceiling — do at least [goal] and keep going. The
-  /// board says so; nothing else about the set changes.
+  /// Whether the set has no upper rep limit.
   final bool amrap;
 
   /// True when this set is held for time rather than counted in reps.
@@ -76,43 +58,16 @@ class SetEntry {
   /// The weight actually used, in kg.
   double weight;
 
-  /// What was actually achieved — reps done, or seconds held when [timed].
-  /// Null means the set has not been logged yet; 0 is a logged set where
-  /// nothing was managed at all.
+  /// Reps completed or seconds held. Null means the set is not logged.
   int? logged;
 
-  /// Where this set falls in the order the session's sets were logged in —
-  /// higher is more recent. Null whenever [logged] is.
-  ///
-  /// **A counter, not a clock.** All anything asks of it is which of two sets
-  /// was logged later, and a wall clock answers that at the cost of making
-  /// every test that logs two sets depend on how fast the machine ran them —
-  /// and of being wrong on a phone whose time moved under the session. The
-  /// numbers themselves mean nothing outside the session that handed them out.
-  ///
-  /// See [ActiveWorkout.restamp], which is the only thing that writes it.
+  /// Log order within this session; null for an unlogged set. This is a counter, not a wall-clock timestamp.
   int? loggedOrder;
 
-  /// The clip filmed of this set, relative to the app support directory, or
-  /// null if nobody filmed it.
-  ///
-  /// **The file is on disk from the moment recording stops; only this pointer
-  /// is in memory.** The live session does not touch the database until Finish,
-  /// so a clip filmed mid-session is a file plus a path held here, written
-  /// alongside the set when the session is saved — and deleted again if the
-  /// session is abandoned. A crash in between strands a file, which the orphan
-  /// sweep collects; the ordering is chosen so it can never strand a row
-  /// pointing at nothing.
+  /// Clip path relative to the app support directory, if recorded.
   String? videoPath;
 
-  /// What the machine's console said, on a set done on one — see
-  /// [ConsoleMetrics]. All four readouts are optional and all four are
-  /// ordinarily unset: twenty minutes on a treadmill is a complete set whether
-  /// or not anybody wrote the speed down.
-  ///
-  /// Held per set rather than per exercise, because that is the grain the
-  /// numbers have: the interval you ran at 14 km/h and the one you walked at 5
-  /// are two rows with two answers, not one answer for the block.
+  /// Optional metrics recorded by a cardio console for this set.
   ConsoleMetrics console;
 
   /// Whether any readout has been filled in on this set.
@@ -129,14 +84,7 @@ class SetEntry {
   /// coming down in weight to finish the set is a miss whatever the reps did.
   bool get underWeight => done && weight < (goalWeight ?? 0) - 1e-9;
 
-  /// The tap cycle: untouched → the goal → one rep fewer → … → 0 → untouched.
-  ///
-  /// The first tap claims the goal, which is the common case and costs one tap.
-  /// Every tap after that is you admitting you fell a rep short.
-  ///
-  /// A timed set has no useful middle — nobody taps a plank down one second at
-  /// a time — so it toggles between the goal and untouched, and leaves an
-  /// exact duration to the type-in dialog.
+  /// Cycles the quick-log value. Timed sets toggle between goal and untouched; rep sets count down from the goal.
   void cycle() {
     final v = logged;
     if (v == null) {
@@ -149,7 +97,7 @@ class SetEntry {
   }
 }
 
-/// One exercise (with its sets) during a live workout.
+/// One exercise and its sets during a live workout.
 class ExerciseEntry {
   ExerciseEntry({
     required this.exerciseId,

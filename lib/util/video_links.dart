@@ -1,11 +1,5 @@
-/// Reducing a video link to the only part of it that means anything.
-///
-/// A YouTube URL as pasted carries a timestamp, a playlist, an index, a
-/// tracking parameter and a `www.` — none of which identify the video. The id
-/// does, in eleven characters, and eleven characters is a size a share code can
-/// afford where a full URL is not.
-///
-/// Pure, and free of Flutter and drift, so the rules are testable on their own.
+/// Extracts the canonical video id from a pasted YouTube link.
+
 library;
 
 /// The eleven-character video id in a YouTube [url], or null if there is not

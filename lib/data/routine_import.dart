@@ -1,4 +1,4 @@
-/// Getting a routine out of the database and back into one.
+/// Converts shared routines to and from database rows.
 ///
 /// The wire format (`routine_code.dart`) knows nothing about drift, and the
 /// database knows nothing about sharing. This is the seam: an extension that

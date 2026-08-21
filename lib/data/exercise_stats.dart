@@ -1,15 +1,7 @@
-/// Per-exercise progress maths.
-///
-/// Deliberately free of Flutter and drift: the aggregation is pure functions
-/// over plain data, so it is unit-tested without a database and reused by the
-/// chart screen. Weights in here are canonical kilograms — convert to the
-/// display unit at the view boundary, exactly like the rest of the app.
+/// Pure per-exercise progress aggregation. Weights are canonical kilograms.
 library;
 
-/// One logged set of a single exercise, flattened with the date and name of the
-/// session it belongs to. Built from a `SessionSets` row joined to its session
-/// by [AppDatabase.watchExerciseSetHistory]; kept drift-free so the maths below
-/// can be tested against plain constructions.
+/// One logged set, flattened with its session metadata.
 class ExerciseSetEntry {
   const ExerciseSetEntry({
     required this.setId,
@@ -24,7 +16,7 @@ class ExerciseSetEntry {
     this.videoPath,
   });
 
-  /// The `SessionSets` row this came from — what a clip is deleted by.
+  /// The source `SessionSets` row, used when deleting a clip.
   final int setId;
   final int sessionId;
   final DateTime date;
@@ -46,10 +38,7 @@ class ExerciseSetEntry {
   bool get timed => seconds != null;
 }
 
-/// One point on the progress chart: the best set of a single session.
-///
-/// A session contributes at most one point, so a chart reads one dot per time
-/// you trained the movement rather than one per set. All weights are kilograms.
+/// One progress-chart point representing a session's best set.
 class ExerciseProgressPoint {
   const ExerciseProgressPoint({
     required this.date,
@@ -71,12 +60,7 @@ class ExerciseProgressPoint {
   final int bestSeconds;
 }
 
-/// Collapses a flat set history into one point per session, keeping only
-/// completed sets. Sessions whose sets were all skipped contribute nothing.
-///
-/// Input may be in any order; output is sorted oldest-first so a chart reads
-/// left to right in time. Grouping is by session id, not by date, so two
-/// sessions on the same day stay two points.
+/// Collapses set history into one point per session, keeping completed sets and sorting the result oldest first.
 List<ExerciseProgressPoint> progressPoints(List<ExerciseSetEntry> sets) {
   final bySession = <int, List<ExerciseSetEntry>>{};
   for (final s in sets) {

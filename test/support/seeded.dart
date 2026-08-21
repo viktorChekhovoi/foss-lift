@@ -1,17 +1,5 @@
-// Lookups over the shipped programs, shared by the progression, layoff and
-// live-session feature tests so none of them hard-codes an autoincrement id or
-// writes a program of its own.
-//
-// **The programs are no longer seeded.** A fresh install opens on an empty
-// routine list; the five the app ships live in the routine library until somebody
-// adds one — see `data/starter_routines.dart` and section 21. A test about
-// progression or a live session still wants a real program to work against, and
-// the library's own is the most honest one to use, so [routineWithCountNamed]
-// installs the program it is asked for the first time it is asked. Every lookup
-// below goes through it, which is why they all read exactly as they did.
-//
-// A test *about* the empty list, the library, or what adding a program does uses
-// `memoryDb()` on its own and never comes here.
+// Shared lookups for tests that need a routine from the built-in library; they avoid hard-coded database ids and install a program on first use.
+
 import 'package:foss_lift/data/database.dart';
 
 /// The demo routine every seed lookup defaults to.

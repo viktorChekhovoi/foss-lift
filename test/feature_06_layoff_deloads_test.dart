@@ -1,11 +1,5 @@
-// Feature 06 — Layoff deloads (features/index.html#sec06).
-//
-// Come back to a workout after a long enough break and the app offers a lighter
-// start — measured per workout, never applied without asking. These tests drive
-// that behaviour through its public surface: the pure rules in `layoff.dart`,
-// the `AppDatabase.layoffFor` offer (deterministic via its `now` parameter), the
-// `applyLayoffDeload` that moves the template and clears streaks, and the
-// app-wide threshold settings.
+// Integration tests for layoff deload offers and application (features/index.html#sec06).
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

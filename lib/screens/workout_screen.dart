@@ -28,44 +28,20 @@ import '../widgets/plate_line.dart';
 import '../widgets/workout_items_editor.dart'
     show ItemDraft, itemUpdate, showItemConfigSheet;
 
-/// Marks the set to do now, and the collapsed warm-up group standing in for a
-/// rung of one. Exactly one of the two is on the board at a time, and neither
-/// is once every set is logged.
-///
-/// Keys rather than a colour test: what the mark *is* is a design decision that
-/// will move, and where it is is not.
 const kNextSetKey = ValueKey('next-set');
 const kNextWarmupKey = ValueKey('next-warmup');
 
-/// Cache extent enough to build a whole session's rows at once — far more than
-/// the tallest board any workout produces. What the screen hands the list for
-/// the one frame it opens on, so that the row it is opening on exists to be
-/// measured and scrolled to.
 const _wholeBoard = ScrollCacheExtent.pixels(100000);
 
-/// The one place an exercise's goal is stated — beside the weight you can edit.
-/// One per exercise on the board, and nowhere on a set row.
 const kExerciseGoalKey = ValueKey('exercise-goal');
 const kCycleWeekKey = ValueKey('cycle-week');
 
-/// The control beside an exercise's name that opens its slot settings — the
-/// builder's own sheet, reached from the board.
 const kSlotSettingsKey = ValueKey('slot-settings');
 
-/// The details control on a cardio-machine set row, the panel of four fields it
-/// opens, and the one-line summary that stands in for the panel while it is shut.
 const kConsoleToggleKey = ValueKey('console-toggle');
 const kConsoleFieldsKey = ValueKey('console-fields');
 const kConsoleSummaryKey = ValueKey('console-summary');
 
-/// Whether the board says anything about weight for this exercise at all — the
-/// working weight, the plate breakdown, the unit column and every row's weight
-/// cell, all off the one answer.
-///
-/// Two ways to have no weight, and neither gets an empty box with a unit
-/// hanging off it: the movement carries nothing at all ([WeightType.none] — a
-/// push-up, a plank), or it is a hold with nothing on it yet. A cell nobody can
-/// fill in is worse than no column, because it invites a number.
 bool _showsWeight(ExerciseEntry e) =>
     e.weightType.carriesWeight && e.carriesLoad;
 
@@ -76,39 +52,25 @@ class WorkoutScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
-  /// The timed set being held right now, and how long it has been held. A hold
-  /// is a stopwatch the user starts and stops, so unlike every other set the
-  /// screen owns state for it while it runs.
   ({int exercise, int set})? _holding;
   int _held = 0;
   Timer? _holdTimer;
 
-  /// The resume-overlay's visibility flag, captured up front so `dispose` need
-  /// not touch `ref` (unsafe once the element is deactivating).
+  // Capture the notifier before dispose; reading ref during teardown is unsafe.
   late final WorkoutScreenVisible _visibility = ref.read(
     workoutScreenVisibleProvider.notifier,
   );
 
-  /// The row the board is opening on. A [GlobalKey] rather than the [ValueKey]
-  /// the mark carries: `ensureVisible` measures an element, and a value key has
-  /// none to offer.
-  ///
-  /// It is hung on the marked row only while [_opening] — see [_openOnRow]. A
-  /// key that stayed would travel from row to row as the mark moved, which is a
-  /// subtree reparented for nothing.
+  // ensureVisible needs a renderable element, so this key is attached only while the initial scroll target is being built.
   final _openOn = GlobalKey();
 
-  /// Whether the board is still opening. While it is, the list builds every row
-  /// instead of only the ones in view: it is a lazy list, and a row that has
-  /// not been built cannot be scrolled to — which is every row worth opening on.
+  // Build every row for the initial ensureVisible call, then return to lazy list construction.
   bool _opening = true;
 
   @override
   void initState() {
     super.initState();
-    // Tell the resume overlay this screen is up, so it holds its pill. Deferred
-    // off the build frame: flipping the provider synchronously here would mark
-    // the overlay (an ancestor, already built this frame) dirty mid-build.
+    // Defer the provider update until the first build has completed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _visibility.set(true);
@@ -116,34 +78,17 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     });
   }
 
-  /// Hangs [_openOn] on the row the board is opening on, and only while it is
-  /// opening — see [_openWhereYouAre].
   Widget _openOnRow(Widget row, {required bool marked}) =>
       _opening && marked ? KeyedSubtree(key: _openOn, child: row) : row;
 
-  /// Puts the board where you are as it appears.
-  ///
-  /// Coming back to a session five movements in, the whole top of the list is
-  /// work already done. So the rows open scrolled to the marked set — without
-  /// an animation, because the board is meant to be already there rather than
-  /// to be watched travelling — and a set already on screen is left where it
-  /// is, which is what keeps a fresh session at the top.
-  ///
-  /// **Once, as the screen opens, and never again.** The mark moves every time
-  /// a set is logged, and a list that chased it would take the rows out from
-  /// under the thumb doing the logging.
   void _openWhereYouAre() {
     final ctx = _openOn.currentContext;
-    // No mark at all: a finished session, or one already gone.
     if (ctx != null && !_onScreen(ctx)) {
-      // A little above centre: the set to do next, with the exercise it belongs
-      // to still above it.
       Scrollable.ensureVisible(ctx, alignment: 0.35);
     }
     setState(() => _opening = false);
   }
 
-  /// Whether the row at [ctx] is wholly inside the board's viewport already.
   bool _onScreen(BuildContext ctx) {
     final row = ctx.findRenderObject() as RenderBox?;
     final viewport =
@@ -155,43 +100,21 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   @override
   void dispose() {
-    // The rest clock is not ours to cancel — it belongs to the session and
-    // keeps running while this screen is popped. Only the stopwatch is local.
     _holdTimer?.cancel();
-    // Leaving — collapsed or finished — lets the pill come back. Deferred so it
-    // never notifies listeners while the tree is being torn down.
     final visibility = _visibility;
     Future.microtask(() => visibility.set(false));
     super.dispose();
   }
 
-  /// The rest clock lives on the session — see [ActiveWorkoutController]. These
-  /// are the screen's three buttons, forwarded.
   void _startRest(int seconds, RestPrompt? prompt, RestSetRef forSet) => ref
       .read(activeWorkoutProvider.notifier)
       .startRest(seconds, prompt, forSet: forSet);
 
-  /// Ends the rest the way the Skip button does: it sounds, and so it buzzes.
   void _skipRest() => ref.read(activeWorkoutProvider.notifier).stopRest();
 
-  /// Ends the rest without announcing it — a hold starting, or a set taken back
-  /// to untouched. Neither is a rest you have finished, so neither sounds and
-  /// neither buzzes.
   void _dropRest() =>
       ref.read(activeWorkoutProvider.notifier).stopRest(tone: false);
 
-  /// The rest that belongs to a set just tapped, started or taken back.
-  ///
-  /// Logging a set for the first time starts its rest. Taking that same set
-  /// back to untouched stops it: a rest is only running because a set was
-  /// logged, and a countdown left to ring for a set that no longer happened
-  /// rings for nothing. Correcting the number on a set that stays logged
-  /// leaves the clock alone — you are still resting on it.
-  ///
-  /// **Its own rest, not whichever one is running.** One rest runs at a time,
-  /// and it records the set that started it — so going back to clear a set you
-  /// had already moved on from leaves the rest you are actually taking to run
-  /// out on its own.
   void _restForSet(
     int ei,
     int index, {
@@ -208,23 +131,13 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       if (session.restFor == at) _dropRest();
       return;
     }
-    // Nothing at all inside a superset: the next movement of the group is what
-    // you do now, and it is already the marked row. See [ActiveWorkout.restAfter].
     final rest = session.restAfter(ei, index, warmup: warmup);
     if (rest.seconds == 0) return;
     _startRest(rest.seconds, rest.prompt, at);
   }
 
-  /// The tone that ends a hold. Always the tone rather than the notification:
-  /// this screen being built is what "the app is on screen" means.
   void _tone() => ref.read(restToneProvider).play();
 
-  /// What one tap on a timed set's result cell does.
-  ///
-  /// A hold is not a count you claim, it is a duration you measure — so the
-  /// cell is a stopwatch: tap to start, tap again to stop, and the seconds it
-  /// ran are what gets logged. Tapping a hold that is already logged clears it,
-  /// which is the same "undo by tapping" the rep cycle ends on.
   void _tapTimed(int ei, int si, SetEntry entry) {
     final h = _holding;
     if (h != null && h.exercise == ei && h.set == si) {
@@ -240,12 +153,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _startHold(ei, si);
   }
 
-  /// Starts the stopwatch on one held set.
-  ///
-  /// Any hold already running is stopped and logged first: you cannot be in two
-  /// planks at once, and the one you were in did happen. A rest running when a
-  /// hold starts is over — but silently, because the tone means "stop holding"
-  /// here and sounding it as you begin would say the opposite.
   void _startHold(int ei, int si) {
     if (_holding != null) _stopHold();
     _dropRest();
@@ -260,7 +167,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     });
   }
 
-  /// Stops the stopwatch, logs what it read, and starts the rest.
   void _stopHold() {
     final h = _holding;
     _holdTimer?.cancel();
@@ -289,10 +195,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     }
   }
 
-  /// The escape hatch for high rep counts, where tapping down from a goal of 20
-  /// is absurd, and for timed sets, where the tap cycle only claims the whole
-  /// hold. Returns the set to untouched if the field is cleared, taking that
-  /// set's rest with it — see [_restForSet].
   Future<void> _editResult(int ei, int si, SetEntry entry) async {
     final result = await showAppDialog<({int? value})>(
       context,
@@ -305,8 +207,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _restForSet(ei, si, warmup: false, wasDone: wasDone);
   }
 
-  /// The same escape hatch for a warm-up row, on the warm-up list and with the
-  /// ramp's own rest — see [ExerciseEntry.restAfterWarmup].
   Future<void> _editWarmupResult(int ei, int wi, SetEntry entry) async {
     final result = await showAppDialog<({int? value})>(
       context,
@@ -321,13 +221,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _restForSet(ei, wi, warmup: true, wasDone: wasDone);
   }
 
-  /// Asks for a weight in [e]'s own display unit and hands back kilograms, or
-  /// null if the dialog was dismissed. Never less than [minKg] — see
-  /// [loadFloorKg].
-  ///
-  /// The unit is the exercise's rather than the app's because reading a number
-  /// in one unit and typing the next in another is how somebody ends up
-  /// benching a hundred pounds.
   Future<double?> _askWeight(
     ExerciseEntry e, {
     required String title,
@@ -346,17 +239,12 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ),
   );
 
-  /// The lightest this exercise can be loaded: its own bar, or nothing at all
-  /// where there is no bar under it.
   double _floorFor(ExerciseEntry e) => loadFloorKg(
     type: e.weightType,
     defaultBarKg: ref.read(plateSettingsProvider).barKg,
     barKg: e.barKg,
   );
 
-  /// The exercise's weight for today. Every set still to come follows it and
-  /// the warm-up ramp is rebuilt around it — see
-  /// [ActiveWorkoutController.setWorkingWeight].
   Future<void> _editWorkingWeight(int ei) async {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
@@ -370,8 +258,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setWorkingWeight(ei, kg);
   }
 
-  /// [row] with its console readouts folded under it, on a cardio machine, and
-  /// [row] untouched on everything else.
   Widget _withConsole(
     int ei,
     int si,
@@ -382,8 +268,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   }) {
     if (!cardio) return row;
     return _ConsoleRow(
-      // Per set and per exercise, so the panel a row was left open on stays
-      // open on that row and nowhere else.
       key: ValueKey('console-$ei-$si'),
       entry: entry,
       unit: unit,
@@ -393,18 +277,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     );
   }
 
-  /// The slot's own settings — the builder's sheet, opened from the board.
-  ///
-  /// **It writes the workout, not a copy of it.** Changing a progression rule
-  /// mid-session is exactly the moment you have learned the step is too big, and
-  /// an edit that expired with the session would have to be made again in the
-  /// builder afterwards. So the slot is updated in place, keeping its id, and
-  /// the running board then takes what it safely can — see
-  /// [ActiveWorkoutController.reconfigure].
-  ///
-  /// The write happens as the sheet closes rather than on every keystroke: the
-  /// sheet edits a draft, and one write at the end is one row rewritten instead
-  /// of one per character typed into the rest field.
   Future<void> _editSlot(int ei) async {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     final itemId = e?.itemId;
@@ -420,15 +292,9 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     await showItemConfigSheet(
       context,
       draft: draft,
-      // The movement's own unit: the sheet's weight and step fields are this
-      // exercise's numbers, and the board behind it is already reading them
-      // that way.
       unit: e!.unit,
-      // What the rest field shows when the slot names none of its own. The
-      // session already resolved it once, and it is the same number.
       routineRest: e.restSeconds,
       defaultBarKg: barKg,
-      // No superset checkbox here — see [showItemConfigSheet].
       onChanged: () {},
     );
     if (!mounted) return;
@@ -436,12 +302,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     await ref.read(activeWorkoutProvider.notifier).reconfigure(ei);
   }
 
-  /// One set's own weight — the deload-to-finish case, and nothing else on the
-  /// exercise moves with it.
-  /// The camera on a set row. With no clip it goes straight to filming — that
-  /// is the whole of what the control is for. With one it offers the two things
-  /// left to do with it, because a second tap must not silently overwrite a
-  /// take somebody meant to keep.
   Future<void> _video(int ei, int si, SetEntry entry) async {
     if (entry.videoPath == null) {
       await context.push('/session/record/$ei/$si');
@@ -507,14 +367,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setWarmupWeight(ei, wi, kg);
   }
 
-  /// Ends the session and writes it, asking first if working sets are still
-  /// unlogged.
-  ///
-  /// Finish is the one tap that turns the session into history and moves next
-  /// session's targets with it, and a forgotten row looks exactly like a set
-  /// deliberately skipped. **Warm-up rungs are not counted**: they are never
-  /// written and never decide whether a session was clean, so leaving them is
-  /// ordinary rather than something to warn about.
   Future<void> _finish() async {
     final session = ref.read(activeWorkoutProvider);
     if (session == null) return;
@@ -530,8 +382,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     }
   }
 
-  /// Asks whether to finish with [unlogged] working sets still open. Going back
-  /// to the board is the default: it is the answer that loses nothing.
   Future<bool> _confirmUnlogged(int unlogged) async {
     final l10n = AppLocalizations.of(context);
     final sure = await showDialog<bool>(
@@ -559,12 +409,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     return sure == true && mounted;
   }
 
-  /// Throws the session away without writing it. For the workout started by a
-  /// misplaced tap — the one whose alternative was finishing a session you
-  /// never did, and having the progression believe it.
-  ///
-  /// Always confirmed, and never the default: it is the one button on this
-  /// screen that destroys work, so it asks even when nothing has been logged.
   Future<void> _abort() async {
     final l10n = AppLocalizations.of(context);
     final sure = await showDialog<bool>(
@@ -604,35 +448,17 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final controller = ref.read(activeWorkoutProvider.notifier);
     final unit = ref.watch(weightUnitProvider).value ?? 'kg';
     final plates = ref.watch(plateSettingsProvider);
-    // Where you are, from the same arithmetic the notification uses — the board
-    // draws every set at once, so without this the only way to find your place
-    // is to scan for the last row that went green. Asked without the rest,
-    // because a rest running does not change which set is next; it is the one
-    // you are resting *for*.
     final cue = nextUp(session);
     final next = cue == null || cue.kind == CueKind.finished ? null : cue;
-    // The rest bar names one movement's next load, so it reads in that
-    // movement's unit rather than the app's — the same rule the board rows
-    // follow, and the same one the shade and the notification follow. A prompt
-    // only ever carries a weight belonging to the exercise the rest is *for*
-    // (see [ActiveWorkoutController.restAfterSet]); a prompt about the movement
-    // after it names no weight at all, so any unit does there.
     final restUnit = switch (session.restFor?.exercise) {
       final int ei when ei < session.exercises.length =>
         session.exercises[ei].unit,
       _ => unit,
     };
-    // The line that replaces the countdown says what is next, which is the cue
-    // — a different movement from the one just rested for, at the end of an
-    // exercise.
     final cueUnit = cue == null ? unit : session.unitForCue(cue);
 
     return Scaffold(
       body: SafeArea(
-        // A column, not a stack: the rest bar is docked at the bottom and takes
-        // real room, so the rows can be scrolled clear of it. Lying over the
-        // board it hid whichever set you were trying to read — the same mistake
-        // the resume bar made, and the same fix.
         child: Column(
           children: [
             _Header(
@@ -641,15 +467,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
               onAbort: _abort,
             ),
             _StatStrip(session: session),
-            // Pinned beside the duration and set count rather than scrolled
-            // with the rows: it answers "how do I log this?", a question
-            // that occurs on whichever exercise you happen to be looking
-            // at, not only on the first one.
             _LoggingHint(anyTimed: session.exercises.any((e) => e.mode.timed)),
-            // The board and the bar share what the header leaves, and the
-            // LayoutBuilder is how the bar's cap gets measured against that
-            // rather than against the whole screen — at the top of the text
-            // scale the header alone takes more than half of it.
             Expanded(
               child: LayoutBuilder(
                 builder: (context, box) => Column(
@@ -657,17 +475,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                        // Every row for the one frame the board opens on, so
-                        // the exercise being scrolled to exists to be scrolled
-                        // to — see [_openWhereYouAre]. Lazy again from the
-                        // frame after.
                         scrollCacheExtent: _opening ? _wholeBoard : null,
                         children: [
                           if (session.notice case final notice?)
                             _SessionNotice(notice: notice),
-                          // By group, not by exercise: a superset is drawn as
-                          // one bracket round the movements it holds. A group of
-                          // one is an ordinary exercise and gets no bracket.
                           for (final group in session.supersetGroupList)
                             _SupersetBracket(
                               first: group.first,
@@ -679,9 +490,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                     exercise: session.exercises[ei],
                                     unit: session.exercises[ei].unit,
                                     plates: plates,
-                                    // Whether the ramp is where you are. Open — as
-                                    // it starts — the rung carries the mark; shut,
-                                    // the group does.
                                     warmupIsNext:
                                         next != null &&
                                         next.warmup &&
@@ -689,11 +497,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                     onWarmupCount: (n) =>
                                         controller.setWarmupCount(ei, n),
                                     onEditWorkingWeight: () => _editWorkingWeight(ei),
-                                    // Null on an exercise with no slot behind
-                                    // it: there is nowhere for the sheet to
-                                    // write, so the control is absent rather
-                                    // than opening one that throws the edit
-                                    // away.
                                     onSettings:
                                         session.exercises[ei].itemId == null
                                         ? null
@@ -715,10 +518,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           entry: entry,
                                           unit: session.exercises[ei].unit,
                                           isNext: marked,
-                                          // The ramp changes load every rung, so the
-                                          // bar it describes is named on the row —
-                                          // the working sets share one load and get
-                                          // one PlateLine for all of them instead.
                                           perSide: perSideLabel(
                                             l10n: l10n,
                                             weightKg: entry.weight,
@@ -776,9 +575,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           showWeight: _showsWeight(
                                             session.exercises[ei],
                                           ),
-                                          // A held set is timed, not counted — see
-                                          // _tapTimed. It owns its own rest, because the
-                                          // rest only starts when the hold stops.
                                           holdingSeconds:
                                               _holding?.exercise == ei &&
                                                   _holding?.set == si
@@ -792,10 +588,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                             final wasDone = entry.done;
                                             controller.cycleSet(ei, si);
                                             HapticFeedback.selectionClick();
-                                            // The rest starts when the set is first
-                                            // logged and ends when it is taken back;
-                                            // correcting the count in between leaves
-                                            // the clock you are resting on alone.
                                             _restForSet(
                                               ei,
                                               si,
@@ -805,9 +597,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           },
                                           onTypeResult: () =>
                                               _editResult(ei, si, entry),
-                                          // Null takes the whole trailing column away
-                                          // — a build that cannot film has no camera
-                                          // to grey out.
                                           onVideo:
                                               ref
                                                   .watch(capabilitiesProvider)
@@ -825,15 +614,6 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                       ),
                     ),
                     if (session.restLeft > 0 || session.restDone)
-                      // Capped, not flexed. A Flexible here claimed an equal
-                      // share of the column beside the board's Expanded, and a
-                      // bar three lines tall used none of the rest of that
-                      // share: the board came out squeezed into the top half of
-                      // the screen with a blank strip under the bar. Capped
-                      // instead, the bar is the height of its own contents and
-                      // the board keeps every pixel it does not take — and
-                      // where the contents want more than half of what the
-                      // header left, the bar stops at the cap and scrolls.
                       ConstrainedBox(
                         constraints: BoxConstraints(
                           maxHeight: box.maxHeight / 2,
@@ -841,16 +621,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                         child: _RestBanner(
                           secondsLeft: session.restLeft,
                           prompt: session.restPrompt,
-                          // The rest is over: the same line the shade posts
-                          // when the app is not in front of you, on the screen
-                          // where it used to be suppressed for being redundant
-                          // — see [restIsOverLine].
                           done: session.restDone
                               ? restIsOverLine(l10n, cue, cueUnit)
                               : null,
                           unit: restUnit,
-                          // −15s ends a rest with less than that left: below fifteen the
-                          // button's only honest readings are "skip" and "do nothing".
                           onSub: () => ref
                               .read(activeWorkoutProvider.notifier)
                               .nudgeRest(-15),
@@ -900,8 +674,6 @@ class _Header extends StatelessWidget {
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
           ),
-          // Deliberately an unfilled icon next to a filled button: the two are
-          // one tap apart, and only one of them should look like the way out.
           IconButton(
             onPressed: onAbort,
             icon: Icon(Icons.delete_outline, color: AppColors.muted),
@@ -1002,16 +774,9 @@ class _Stat extends StatelessWidget {
   }
 }
 
-/// Said once, at the top of the list, rather than as a legend under every
-/// exercise: the tap cycle is quick to demonstrate and tedious to repeat.
-/// Why the numbers are not where you left them. Stays for the whole session:
-/// the question "why is this lighter?" occurs to people mid-set, not on the way
-/// in, and there is nowhere else on this screen to answer it.
 class _SessionNotice extends StatelessWidget {
   const _SessionNotice({required this.notice});
 
-  /// The facts, not a sentence — see [LayoffNotice]. The line is composed here
-  /// so it follows a language switch made mid-workout.
   final LayoffNotice notice;
 
   @override
@@ -1049,9 +814,6 @@ class _SessionNotice extends StatelessWidget {
 class _LoggingHint extends StatelessWidget {
   const _LoggingHint({required this.anyTimed});
 
-  /// Whether this session holds anything for time. A held set is tapped to
-  /// start and tapped to stop, which is a different instruction from the rep
-  /// cycle — and one worth giving only when there is something to use it on.
   final bool anyTimed;
 
   @override
@@ -1077,16 +839,6 @@ class _LoggingHint extends StatelessWidget {
   }
 }
 
-/// The bracket round a superset: its movements, gathered under one label.
-///
-/// **Off for a group of one**, which is nearly every exercise — it then draws its
-/// children and nothing else, so an ordinary board is exactly the board it was.
-///
-/// What the bracket has to say is small: each movement keeps its own heading, its
-/// own weight, its own ramp and its own rows, and none of them changes inside a
-/// group. The one thing that changes is which row is marked next, and that is
-/// already marked. So the bracket is a label and a line down the left — enough to
-/// say "these are done together" and not enough to compete with the rows.
 class _SupersetBracket extends StatelessWidget {
   const _SupersetBracket({
     required this.first,
@@ -1094,7 +846,6 @@ class _SupersetBracket extends StatelessWidget {
     required this.children,
   });
 
-  /// The board index of the group's first exercise, which keys the bracket.
   final int first;
   final bool on;
   final List<Widget> children;
@@ -1151,8 +902,6 @@ class _ExerciseBlock extends StatelessWidget {
     this.onSettings,
   });
 
-  /// Where this exercise sits in the session — only used to key its working
-  /// weight, which is the one control on the block that is not inside a row.
   final int index;
   final ExerciseEntry exercise;
   final String unit;
@@ -1160,28 +909,16 @@ class _ExerciseBlock extends StatelessWidget {
   final Widget Function(int setIndex) rowBuilder;
   final Widget Function(int warmupIndex) warmupRowBuilder;
 
-  /// Whether the next thing to do is one of this exercise's warm-up rungs.
   final bool warmupIsNext;
   final ValueChanged<int> onWarmupCount;
   final VoidCallback onEditWorkingWeight;
 
-  /// Opens this slot's settings. Null on an exercise the session is carrying
-  /// with no template row behind it — there is nothing to write.
   final VoidCallback? onSettings;
 
-  /// What this exercise is aiming at, the way a lifter says it: `3 × 8`, or
-  /// `2 × 45s` for a hold. Null when there are no sets to aim at anything.
-  ///
-  /// The weight is not in here. It is the control beside it, and a goal with an
-  /// editable box wedged into the middle of it reads as neither a goal nor a
-  /// control.
   String? _goal(AppLocalizations l10n) {
     if (exercise.sets.isEmpty) return null;
     final first = exercise.sets.first;
     final sets = exercise.sets.length;
-    // A written-out week whose rows differ has no single goal to multiply —
-    // "3 × 5" would be a lie about the week that reads 5/3/1. The rows are the
-    // prescription, so they are listed.
     if (!first.timed &&
         exercise.sets.any((s) =>
             s.goal != first.goal ||
@@ -1215,9 +952,6 @@ class _ExerciseBlock extends StatelessWidget {
         children: [
           _ExerciseHeading(
             name: seededName(l10n, exercise.seedKey, exercise.name),
-            // Which week of the cycle this session is. 3 × 3 at 80% and 3 × 5
-            // at 75% are the same slot on different weeks, and nothing else on
-            // the block says which one you are looking at.
             subtitle: exercise.cycleWeeks == 0
                 ? null
                 : cycleWeekLine(l10n, exercise.cycleWeekName,
@@ -1225,9 +959,6 @@ class _ExerciseBlock extends StatelessWidget {
             exerciseId: exercise.exerciseId,
             onSettings: onSettings,
           ),
-          // The warm-up ramp, kept in a group of its own above the working sets
-          // so the two are never confused. Only a weight-based slot with a load
-          // gets one.
           if (exercise.hasWarmups)
             _WarmupGroup(
               index: index,
@@ -1237,24 +968,11 @@ class _ExerciseBlock extends StatelessWidget {
               onCount: onWarmupCount,
               rowBuilder: warmupRowBuilder,
             ),
-          // The label, the goal and the one weight the sets below are done at,
-          // on the same line: what the block is, what it is aiming at, and what
-          // it is loaded to. **This is the only place the goal is stated.** It
-          // used to be reprinted on every row, where the weight cell and the
-          // greyed-out result cell beside it were already saying both halves of
-          // it.
-          //
-          // Read across, the line is "three eights at eighty kilos": the goal
-          // is a whole goal, the `@` joins it to the load, and the load is the
-          // one thing here with a border round it, because it is the one thing
-          // you can change.
           Padding(
             padding: const EdgeInsets.only(top: 14, bottom: 2),
             child: Row(
               children: [
                 if (exercise.hasWarmups)
-                  // The label gives, never the weight: the weight is the
-                  // control on this row and has to stay whole and tappable.
                   Flexible(
                     child: Text(
                       l10n.sessionWorkingSets,
@@ -1277,11 +995,6 @@ class _ExerciseBlock extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
-                      // A written-out slot's weight is not a weight the
-                      // session asks for — every set below is a percentage of
-                      // it — so it is named rather than joined to the goal by
-                      // an "@" that would read as "do the goal at this". True
-                      // of a custom slot as much as of a cycle.
                       exercise.runsPercentages
                           ? l10n.sessionTrainingMaxShort
                           : '@',
@@ -1301,9 +1014,6 @@ class _ExerciseBlock extends StatelessWidget {
               ],
             ),
           ),
-          // What to put on the bar for the set you are about to do — it follows
-          // you down the exercise as sets get logged, and re-solves the moment
-          // you type a different weight.
           if (exercise.nextWeight case final w? when _showsWeight(exercise))
             PlateLine(
               weightKg: w,
@@ -1325,20 +1035,6 @@ class _ExerciseBlock extends StatelessWidget {
   }
 }
 
-/// The exercise's name and your own note on it, one tap from the set you are
-/// about to do.
-///
-/// **One icon, one tap, whether or not a note exists.** The note used to expand
-/// in place and grow a pencil beside it, which made the first tap a disclosure
-/// and the second the thing you actually wanted; two icons for one note is one
-/// too many. Now the tap brings the note up, where it can be read and changed
-/// in the same breath.
-///
-/// **It is read and written live.** Mid-workout is exactly when you learn the
-/// thing worth noting — the seat was wrong, the pin is one lower than you
-/// remembered — and by the time you are back on the library screen you have
-/// forgotten. So the note comes off [exerciseNoteProvider] rather than out of
-/// the session's snapshot, and writing one here writes it to the library.
 class _ExerciseHeading extends ConsumerWidget {
   const _ExerciseHeading({
     required this.name,
@@ -1348,19 +1044,12 @@ class _ExerciseHeading extends ConsumerWidget {
   });
   final String name;
 
-  /// One short line under the name — the cycle's week, where there is one.
-  /// Null on every slot that is not on a cycle, which is most of them.
   final String? subtitle;
 
-  /// Null for an ad-hoc entry with no library movement behind it — there is
-  /// nowhere to keep a note, so none is offered.
   final int? exerciseId;
 
-  /// Opens the slot's settings — the same sheet the builder opens. Null when
-  /// there is no slot behind this exercise; see [_ExerciseBlock.onSettings].
   final VoidCallback? onSettings;
 
-  /// Brings the note up, and writes back whatever comes of it.
   Future<void> _open(
     BuildContext context,
     WidgetRef ref,
@@ -1422,8 +1111,6 @@ class _ExerciseHeading extends ConsumerWidget {
               ),
             ),
             if (id != null)
-              // The glyph says whether there is a note to read; the tap does
-              // the same thing either way — brings it up.
               icon(
                 note == null
                     ? Icons.note_add_outlined
@@ -1433,10 +1120,6 @@ class _ExerciseHeading extends ConsumerWidget {
                 lit: note != null,
               ),
             if (onSettings case final open?)
-              // Quiet, and beside the note rather than in a menu: it is reached
-              // once or twice a session, but the moment it is wanted is the
-              // moment the rule is wrong, and a rule you have to remember until
-              // afterwards is a rule that stays wrong.
               icon(
                 Icons.tune,
                 l10n.sessionSlotSettings,
@@ -1447,8 +1130,6 @@ class _ExerciseHeading extends ConsumerWidget {
         ),
         if (subtitle case final line?)
           Padding(
-            // Indented to clear the dot, so it reads as belonging to the name
-            // above it rather than as a row of its own.
             padding: const EdgeInsets.only(left: 18, top: 2),
             child: Text(
               line,
@@ -1461,34 +1142,6 @@ class _ExerciseHeading extends ConsumerWidget {
   }
 }
 
-/// The warm-up ramp for one exercise: a labelled group above the working sets,
-/// **open from the start wherever a ramp was asked for**, because it is the
-/// first thing you do and a group you have to open first is one more tap
-/// between arriving at the rack and logging. Tapping the header shuts it again
-/// — the rows, the stepper and the one-line disclaimer fold away to a summary
-/// line — and that stays shut for the rest of the session. The state is per
-/// group, so shutting one exercise's ramp leaves the next exercise's open: a
-/// lifter who skips the warm-up on the second movement has not said anything
-/// about the third.
-///
-/// A movement asking for **no** rungs starts shut instead. The group still has
-/// to be there — it is where the stepper is, and adding a rung today has to
-/// stay one tap away — but open it is a stepper reading none over a disclaimer
-/// about rungs that do not exist, three lines of furniture above every movement
-/// on the board of somebody who has said they do not warm up here. Note that
-/// this is the *request*, not what the ladder managed to build from it: a ramp
-/// asked for and come back empty opens, because there the group has something
-/// to say. And it is only the starting state — stepping down to none during a
-/// session leaves the group however you had it, rather than folding away under
-/// the finger still on the minus.
-///
-/// Visually quieter than the working block (dimmer label, no plate breakdowns)
-/// so the eye goes to the work. **The block is never lit up as a whole.** The
-/// rung you are on is marked and pulses like any other row, which says where
-/// you are precisely; an accent fill over the whole group only said
-/// "somewhere in here", and competed with the row inside it saying exactly
-/// where. Shut, there is no rung to mark, so the header takes the accent
-/// instead — see [kNextWarmupKey].
 class _WarmupGroup extends StatefulWidget {
   const _WarmupGroup({
     required this.index,
@@ -1499,12 +1152,10 @@ class _WarmupGroup extends StatefulWidget {
     required this.rowBuilder,
   });
 
-  /// Where this exercise sits in the session — only used to key the group.
   final int index;
   final ExerciseEntry exercise;
   final String unit;
 
-  /// Whether the next thing to do is a rung of this ramp.
   final bool isNext;
   final ValueChanged<int> onCount;
   final Widget Function(int warmupIndex) rowBuilder;
@@ -1520,20 +1171,10 @@ class _WarmupGroupState extends State<_WarmupGroup> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final exercise = widget.exercise;
-    // What was asked for, and what the ladder could build from it. They part
-    // company on a light lift — see [computeWarmups] — and it is the second one
-    // that is on screen: the stepper counts rows, so it counts the rows that
-    // exist. The request is still what the session keeps, because it is the
-    // input the ramp is rebuilt from: a ramp the ladder cannot build at 25 kg
-    // is built in full the moment the working weight goes up.
     final count = exercise.warmupCount;
     final built = exercise.warmups.length;
-    // A ramp that came back short comes back shorter still if you ask for more,
-    // so there is nothing left to add. Demonstrated rather than predicted —
-    // this is the last request measured against what it produced.
     final ranOut = built < count;
     final summary = l10n.sessionWarmupSummary(built);
-    // Only a shut group carries the mark: open, the rung inside it does.
     final marked = widget.isNext && !_open;
     return Container(
       key: ValueKey('warmup-${widget.index}'),
@@ -1547,7 +1188,6 @@ class _WarmupGroupState extends State<_WarmupGroup> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The header is one tap target that toggles the ramp open and shut.
           GestureDetector(
             onTap: () => setState(() => _open = !_open),
             behavior: HitTestBehavior.opaque,
@@ -1573,8 +1213,6 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // The summary gives before the label does: "WARM-UP" is what
-                  // identifies the group, "· 3 sets" is a detail.
                   Flexible(
                     child: Text(
                       '· $summary',
@@ -1607,13 +1245,6 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                   _CountStepper(
                     key: ValueKey('warmup-count-${widget.index}'),
                     count: built,
-                    // Both sides step from the number on screen: from an
-                    // achieved 2, − asks for 1, which is what pressing it under
-                    // a box reading 2 means. That it also brings a stale
-                    // request down to something the ladder can serve is the
-                    // point — the two numbers stop disagreeing. With nothing
-                    // built at all the one press left settles the request at
-                    // none, which is how the "too light" line is dismissed.
                     onSub: built > 0 || count > 0
                         ? () => widget.onCount(built > 0 ? built - 1 : 0)
                         : null,
@@ -1624,11 +1255,6 @@ class _WarmupGroupState extends State<_WarmupGroup> {
                 ],
               ),
             ),
-            // A ramp asked for but not built: the working weight is too light
-            // for anything to sit between the bar and it. Said as the reason it
-            // is, because the count above is not the thing to change. It is
-            // also what tells the two zeroes apart — the stepper reads 0 both
-            // when you asked for none and when none can be built.
             if (built == 0 && count > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -1658,9 +1284,6 @@ class _WarmupGroupState extends State<_WarmupGroup> {
   }
 }
 
-/// The compact −/+ that dials the warm-up count. A disabled side (null handler)
-/// greys out: at the ends of the 0..[kMaxWarmupSets] range, and where the load
-/// ladder has nothing left to add.
 class _CountStepper extends StatelessWidget {
   const _CountStepper({
     super.key,
@@ -1713,16 +1336,6 @@ class _CountStepper extends StatelessWidget {
   }
 }
 
-/// One set: a goal it cannot edit, the weight it is being done at, and the tap
-/// target that logs it.
-///
-/// **Neither cell is a text field.** The weight for the exercise is set once
-/// above the rows and these follow it; a row's own weight is the exception —
-/// dropping the last set to finish it — so it opens an editor on tap rather
-/// than sitting open as a box per set. That the row reads its weight straight
-/// off the entry on every build is also what keeps it honest when the ramp
-/// underneath it is recomputed: there is no controller left holding yesterday's
-/// number.
 class _SetRow extends StatelessWidget {
   const _SetRow({
     super.key,
@@ -1742,38 +1355,21 @@ class _SetRow extends StatelessWidget {
   final SetEntry entry;
   final String unit;
 
-  /// What goes on each side of the bar for this row — "30/side" — under the
-  /// weight itself. Only a warm-up rung carries one: the working sets share a
-  /// load, so one [PlateLine] under the block says it once for all of them,
-  /// while the ramp is a different load every rung. Null off a bar, and on the
-  /// empty bar, where there is nothing on either side to name.
   final String? perSide;
 
-  /// Whether this row carries a weight cell — see [_showsWeight]. A movement
-  /// done under no load has none, rather than an empty box under an empty
-  /// heading.
   final bool showWeight;
 
-  /// Whether this is the set to do now — see [kNextSetKey].
   final bool isNext;
   final VoidCallback onEditWeight;
   final VoidCallback onTap;
   final VoidCallback onTypeResult;
 
-  /// Films this set. Null on a warm-up row: warm-ups are suggestions that are
-  /// never saved, so there is no logged set for a clip to belong to. The column
-  /// is still reserved on those rows, so the two sections line up.
   final VoidCallback? onVideo;
 
-  /// Seconds elapsed on this set's stopwatch, or null when it is not running.
-  /// Only a timed set ever has one — see `_tapTimed`.
   final int? holdingSeconds;
 
   SetEntry get _entry => entry;
 
-  /// Green for a set that met its goal, gold for one that came up short —
-  /// including a set finished at a reduced weight. A hold still running is the
-  /// accent: it is neither yet, and it is the thing on screen to look at.
   Color get _tone => holdingSeconds != null
       ? AppColors.accent
       : (_entry.missedGoal ? AppColors.gold : AppColors.good);
@@ -1784,9 +1380,6 @@ class _SetRow extends StatelessWidget {
       key: isNext ? kNextSetKey : null,
       margin: const EdgeInsets.symmetric(vertical: 3),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      // The set you are on, marked where your eye already is rather than in a
-      // margin: the row lifts out of the list on the accent, which is the same
-      // colour the app uses everywhere else for "this one".
       decoration: isNext
           ? BoxDecoration(
               color: AppColors.accent.withValues(alpha: 0.08),
@@ -1822,12 +1415,6 @@ class _SetRow extends StatelessWidget {
     );
   }
 
-  /// Film this set, or deal with the clip it already has.
-  ///
-  /// Filled and in the accent when there is one, hollow and faint when there is
-  /// not — this is also the "a set carrying a clip is visually distinct" marker
-  /// on the live board, because a second badge saying the same thing would be
-  /// one control and one decoration for one fact.
   Widget _cameraCell() {
     final has = _entry.videoPath != null;
     return GestureDetector(
@@ -1866,15 +1453,6 @@ class _SetRow extends StatelessWidget {
     );
   }
 
-  /// This set's own weight. Quieter than the reps cell it sits beside: it is
-  /// normally just the exercise's weight repeated, and only worth touching for
-  /// the set you have to come down on.
-  ///
-  /// **An outline, where the result cell is filled.** The two are tapped at
-  /// wildly different rates, so they are not built to look alike — the filled
-  /// one is the button, this is the field beside it. It is still a bordered
-  /// control rather than bare text, because a weight you can change has to look
-  /// like a weight you can change.
   Widget _weightCell() {
     final done = _entry.done;
     return Padding(
@@ -1894,9 +1472,6 @@ class _SetRow extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Bare, deliberately: the column heading names the unit once for
-              // every cell under it, and repeating it on every row is a word
-              // per set for one fact.
               Text(
                 fmtWeightValue(_entry.weight, unit),
                 style: boardCellTextStyle(
@@ -1919,19 +1494,6 @@ class _SetRow extends StatelessWidget {
     );
   }
 
-  /// Untouched, the cell shows the goal greyed out — the number you are about
-  /// to claim. One tap turns that same number green; further taps count it
-  /// down in gold. Nothing here can change the goal itself.
-  ///
-  /// A set that came up short also gets a downward arrow. **Green and gold
-  /// differing only in hue is the one pair a colour-blind reader cannot see at
-  /// all**, and this column is the app's most-read signal — you glance down it
-  /// to see how the session went. The arrow says the same thing the colour
-  /// does, without asking anyone to tell two hues apart.
-  ///
-  /// **On the working set you are on, it pulses.** That is the whole of how you
-  /// find where to tap without reading anything: one cell on the board is
-  /// breathing, and it is the one that logs the set in front of you.
   Widget _resultBox(AppLocalizations l10n) {
     final holding = holdingSeconds != null;
     final done = _entry.done || holding;
@@ -1947,11 +1509,6 @@ class _SetRow extends StatelessWidget {
         onLongPress: onTypeResult,
         behavior: HitTestBehavior.opaque,
         child: BoardPulse(
-          // Nothing already logged pulses, and neither does a hold that is
-          // running: that cell is a stop button, and it says so already. A
-          // warm-up rung pulses on the same terms as a working set — the ramp
-          // is where you are before the work is, and it is worth finding the
-          // same way.
           on: isNext && !done,
           builder: (context, pulse) => Container(
             alignment: Alignment.center,
@@ -1961,8 +1518,6 @@ class _SetRow extends StatelessWidget {
               done: done,
               tone: _tone,
               pulse: pulse,
-              // A running hold is the one thing on the board actively
-              // happening, so it says so with more than a colour.
               emphasised: holding,
             ),
             child: Row(
@@ -1993,17 +1548,6 @@ class _SetRow extends StatelessWidget {
   }
 }
 
-/// A set row of a cardio machine, with what the console said folded away under
-/// it.
-///
-/// **Shut by default and per set.** The interval you ran at 14 km/h and the one
-/// you walked at 5 are two rows with two answers, so the toggle belongs to the
-/// row rather than to the block — and every one of the four fields is optional,
-/// so a set with none of them filled in is a complete set and reads as one.
-///
-/// Shut, the row is not silent: whatever has been typed stands in for the panel
-/// as a one-line summary, so a folded row never looks like a row with nothing
-/// in it.
 class _ConsoleRow extends StatefulWidget {
   const _ConsoleRow({
     super.key,
@@ -2017,7 +1561,6 @@ class _ConsoleRow extends StatefulWidget {
   final String unit;
   final ValueChanged<ConsoleMetrics> onChanged;
 
-  /// The set row itself, built by the board exactly as any other row is.
   final Widget row;
 
   @override
@@ -2025,8 +1568,6 @@ class _ConsoleRow extends StatefulWidget {
 }
 
 class _ConsoleRowState extends State<_ConsoleRow> {
-  /// Opens on whatever has already been typed: a row you have filled in and
-  /// come back to has nothing to hide.
   late bool _open = widget.entry.hasConsole;
 
   ConsoleMetrics get _m => widget.entry.console;
@@ -2152,12 +1693,6 @@ class _ConsoleRowState extends State<_ConsoleRow> {
   }
 }
 
-/// One optional readout: a label, a narrow number field, and the unit it is in.
-///
-/// Empty is the resting state and means "nobody wrote this down" — clearing the
-/// field hands back null rather than zero, because a 0% incline is a flat
-/// treadmill somebody typed and a different fact from an incline nobody looked
-/// at.
 class _ConsoleField extends StatefulWidget {
   const _ConsoleField({
     required this.label,
@@ -2188,9 +1723,6 @@ class _ConsoleFieldState extends State<_ConsoleField> {
     super.dispose();
   }
 
-  /// Reports on every keystroke rather than on submit: the session is in memory,
-  /// there is no Save on this screen, and a number typed and then walked away
-  /// from has to be the number that was meant.
   void _report(String text) {
     final trimmed = text.trim().replaceAll(',', '.');
     if (trimmed.isEmpty) {
@@ -2198,8 +1730,6 @@ class _ConsoleFieldState extends State<_ConsoleField> {
       return;
     }
     final v = double.tryParse(trimmed);
-    // Not a number yet — a lone "." on the way to "1.5". Left alone rather than
-    // written as null, which would clear what is already stored mid-word.
     if (v == null) return;
     widget.onChanged(v < 0 ? 0 : v);
   }
@@ -2239,16 +1769,6 @@ class _ConsoleFieldState extends State<_ConsoleField> {
   }
 }
 
-/// Types a weight in — the load for a whole exercise, or one set's own
-/// override. Shown and typed in the display unit; the value it returns is
-/// canonical kilograms, or null if the dialog was dismissed.
-///
-/// **A bar-loaded lift has a floor, and the field holds to it.** Fifteen kilos
-/// on a twenty-kilo bar is not a light day, it is a load nobody can build, so
-/// anything under [minKg] comes back as [minKg] rather than being taken at face
-/// value. The floor is named on the way in — see [loadFloorKg], and
-/// [PlateSolution.belowBar] for what the plate line still says about a weight
-/// that arrived from somewhere else.
 class _WeightDialog extends StatefulWidget {
   const _WeightDialog({
     required this.title,
@@ -2259,16 +1779,10 @@ class _WeightDialog extends StatefulWidget {
   });
   final String title;
 
-  /// What this weight covers, where the title does not already say it — "This
-  /// set only" against a set row. Null for the exercise's own weight: the title
-  /// is the exercise name, and the dialog is the only place its weight is
-  /// typed, so there is nothing left to distinguish it from.
   final String? subtitle;
   final double weightKg;
   final String unit;
 
-  /// The lightest weight this exercise can be set to, in kg. Zero for anything
-  /// with no bar under it.
   final double minKg;
 
   @override
@@ -2276,18 +1790,10 @@ class _WeightDialog extends StatefulWidget {
 }
 
 class _WeightDialogState extends State<_WeightDialog> {
-  /// The number alone, and never the dash an empty weight reads as elsewhere:
-  /// this is what is about to be edited, and a field prefilled with something
-  /// unparseable is a field you have to clear before you can type. The unit is
-  /// the field's own suffix, as it is the board's column heading — named once
-  /// beside the value rather than inside it.
   late final TextEditingController _c = TextEditingController(
     text: fmtWeight(toDisplayWeight(widget.weightKg, widget.unit)),
   );
 
-  /// What the field says, with the floor named where there is one: a constraint
-  /// on the control belongs beside the control. Null when there is neither a
-  /// subtitle nor a floor — an empty line under the field is still a line.
   String? _said(AppLocalizations l10n) {
     if (widget.minKg <= 0) return widget.subtitle;
     final said = l10n.sessionWeightFloor(
@@ -2362,10 +1868,6 @@ class _WeightDialogState extends State<_WeightDialog> {
   }
 }
 
-/// Direct entry of what a set actually came to — reps done, or seconds held on
-/// a timed set. For the sets where tapping down from a goal of 20 is absurd,
-/// and for every plank. An empty field means the set never happened, which is
-/// the same thing the Clear button does.
 class _ResultDialog extends StatefulWidget {
   const _ResultDialog({required this.entry});
   final SetEntry entry;
@@ -2452,16 +1954,8 @@ class _ResultDialogState extends State<_ResultDialog> {
   }
 }
 
-/// Finds the rest bar in a test. Its caption is the thing under test in several
-/// of them, so it cannot also be what identifies the bar.
 const kRestBannerKey = ValueKey('rest-banner');
 
-/// The rest clock, docked as the board's last row.
-///
-/// **It takes real room rather than lying over the rows**, like the resume bar
-/// and for the same reason: floating, it covered whichever set you were trying
-/// to read, and the only way to see underneath was to end the rest you were
-/// taking. Docked, the list above it simply scrolls.
 class _RestBanner extends StatelessWidget {
   const _RestBanner({
     required this.secondsLeft,
@@ -2474,27 +1968,14 @@ class _RestBanner extends StatelessWidget {
   });
   final int secondsLeft;
 
-  /// What this rest is for — see [RestPrompt]. Null while a session has not
-  /// said, which the banner reads as the plain case.
   final RestPrompt? prompt;
 
-  /// What the rest that has just ended was for, or null while one is running.
-  ///
-  /// The bar does not vanish on the stroke of zero: a timer that disappears at
-  /// the moment it matters answers "did it go off?" by removing the evidence.
-  /// It stays, saying what is up, with no countdown to show and nothing left to
-  /// nudge — and no dismiss button, because every way out of it (logging the
-  /// set, starting the next rest, taking the set back) is something you were
-  /// going to do anyway.
   final String? done;
   final String unit;
   final VoidCallback onSub;
   final VoidCallback onAdd;
   final VoidCallback onSkip;
 
-  /// One line saying what to do, not what is happening: the clock underneath
-  /// already says that. Names the weight about to be lifted, because "set up"
-  /// is only useful if it says what to set up to.
   String _caption(AppLocalizations l10n) {
     if (done case final line?) return line;
     final p = prompt;
@@ -2510,8 +1991,6 @@ class _RestBanner extends StatelessWidget {
         p.weightKg == null
             ? l10n.sessionRestPlain
             : l10n.sessionRestSetUpThenRest(weight()),
-      // Usually plain — another set of the same thing at the same weight. A
-      // back-off or a ramp changes the bar between sets, and then it says so.
       RestPurpose.anotherSet => p.weightKg == null
           ? l10n.sessionRestPlain
           : l10n.sessionRestSetUp(weight()),
@@ -2532,40 +2011,20 @@ class _RestBanner extends StatelessWidget {
         color: AppColors.surface3,
         border: Border(top: BorderSide(color: AppColors.line)),
       ),
-      // Docked furniture may not grow without limit: at the top of the text
-      // scale a wrapped caption, a stacked clock and a wrapped button row
-      // together want more height than the board has to give, and the board is
-      // what the screen is for. The bar is handed a share of the column by the
-      // Flexible around it and scrolls inside whatever it gets — so nothing is
-      // ellipsised and nothing is out of reach.
       child: SingleChildScrollView(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // A rest that is over has nothing to count and nothing to nudge, so
-            // the line is the whole bar — see [done].
             final over = done != null;
             final pills = [
               if (!over)
                 for (final (label, onTap) in _controls(l10n))
                   _pill(label, onTap),
             ];
-            // The caption takes the whole width, on its own line above the clock
-            // and the controls. Sharing a row with them left it about eighty
-            // pixels on a 390-wide phone, which is not enough for "Rest, then
-            // lift." — and cutting the line off is the one thing that defeats
-            // the point of having it.
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // The caption replaces the word "REST": a banner counting down is
-                // self-evidently a rest, and the line is worth more spent on what
-                // to do with it. It wraps rather than ellipsising — the bar is
-                // docked, so a second line costs the board a second line and
-                // nothing is hidden by it.
                 Text(
                   _caption(l10n),
-                  // Once the rest is over the line is not a caption under a
-                  // clock any more, it is the thing the bar is there to say.
                   style: kMono.copyWith(
                     fontSize: over ? 13 : 11,
                     height: 1.3,
@@ -2575,11 +2034,6 @@ class _RestBanner extends StatelessWidget {
                 ),
                 if (!over) ...[
                   const SizedBox(height: 4),
-                  // Side by side while the clock still has room to be read;
-                  // stacked once the controls have eaten it. At the largest text
-                  // the app renders, three buttons and a countdown do not fit
-                  // across a phone — and a squeezed button is worse than a taller
-                  // bar, because the button is the part you have to hit.
                   if (_controlsWidth(context, l10n) <=
                       constraints.maxWidth - _kClockRoom)
                     Row(
@@ -2595,10 +2049,6 @@ class _RestBanner extends StatelessWidget {
                   else ...[
                     _clock(),
                     const SizedBox(height: 10),
-                    // Wrapped rather than a row: at the top of the scale three
-                    // buttons do not fit across a narrow phone even with the
-                    // whole width to themselves, and one that runs off the edge
-                    // cannot be pressed at all.
                     Wrap(spacing: 8, runSpacing: 8, children: pills),
                   ],
                 ],
@@ -2610,8 +2060,6 @@ class _RestBanner extends StatelessWidget {
     );
   }
 
-  /// How long is left. The one number on the bar, and the reason it needs no
-  /// label.
   Widget _clock() => Text(
     fmtDuration(secondsLeft),
     maxLines: 1,
@@ -2622,20 +2070,12 @@ class _RestBanner extends StatelessWidget {
     ),
   );
 
-  /// What the banner offers, in the order it offers it. Declared once so the
-  /// measurement below and the buttons above cannot drift apart.
   List<(String, VoidCallback)> _controls(AppLocalizations l10n) => [
     (l10n.sessionRestMinus, onSub),
     (l10n.sessionRestPlus, onAdd),
     (l10n.sessionRestSkip, onSkip),
   ];
 
-  /// The width the three controls need, laid out in a row.
-  ///
-  /// Measured rather than guessed: the labels are known and the font is
-  /// monospaced, so this is exact, and the alternative — a breakpoint on the
-  /// text scale — puts a number in the code that has to be re-checked every
-  /// time a label or a padding changes.
   double _controlsWidth(BuildContext context, AppLocalizations l10n) {
     final scaler = MediaQuery.textScalerOf(context);
     var width = 16.0; // the two 8 px gaps between the three buttons
@@ -2645,15 +2085,11 @@ class _RestBanner extends StatelessWidget {
         textDirection: TextDirection.ltr,
         textScaler: scaler,
       )..layout();
-      // The label, its 12 px of padding either side, and the 1 px border.
       width += math.max(painter.width + 26, 64);
     }
     return width;
   }
 
-  /// The room the countdown wants beside the controls before it is worth
-  /// keeping them on one line. Below this the clock is a column of single
-  /// digits and the caption is one word per line.
   static const _kClockRoom = 96.0;
 
   Widget _pill(String label, VoidCallback onTap) {

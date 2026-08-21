@@ -1,20 +1,5 @@
-/// Whether what the app stores will still be there next time.
-///
-/// On a phone this is not a question — app storage is not reclaimed behind your
-/// back, and the answer is [StorageDurability.durable] without asking anyone.
-/// In a browser it is two questions, and they are independent:
-///
-/// 1. **Did the database land somewhere that persists at all?** drift probes
-///    the browser and settles on OPFS, IndexedDB, or — if it can reach neither
-///    — memory. Memory is the bad one: nothing survives a reload, and a user
-///    who logs a session there loses it without ever being told why.
-/// 2. **Will the browser keep it?** Storage for an origin sits in a bucket the
-///    browser may reclaim when the machine runs short of space, taking the
-///    whole bucket at once. A site can ask to be exempt, and the answer is not
-///    guaranteed — see [probeStorageHealth].
-///
-/// The two are separate because a database can be perfectly real and still be
-/// evicted, which is the case this warns about most often.
+/// Describes whether the database is durable, evictable, or in-memory.
+
 library;
 
 import 'package:flutter/foundation.dart';

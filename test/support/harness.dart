@@ -1,6 +1,5 @@
-// Shared test harness. Every feature test builds its world from here so the
-// database wiring, the provider scope, and the live-session pump discipline are
-// written once, not thirteen times.
+// Shared database, provider, router, and widget-test harness.
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';

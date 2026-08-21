@@ -1,12 +1,5 @@
-// Starting over — features/index.html#sec23.
-//
-// One button that puts the app back where a first launch leaves it. The
-// interesting assertion is not "the routines are gone" but "the database is
-// indistinguishable from a fresh one", so most of what is below compares a
-// reset database against a freshly opened one table by table, reading the table
-// list off the schema rather than writing it out. A test that named the tables
-// would pass for ever while a table added next release quietly survived the
-// wipe.
+// Integration tests for resetting the app to a fresh-install database (features/index.html#sec23).
+
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

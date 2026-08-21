@@ -9,12 +9,6 @@ import '../providers/providers.dart';
 import '../services/set_video_recorder.dart';
 import '../theme/app_theme.dart';
 
-/// Films one set of the live workout, and hands the clip to that set.
-///
-/// The camera is opened when this screen opens and released when it closes —
-/// never held between takes. Recording is the only way a clip gets into the
-/// app: there is no import from the gallery, which would mean read access to
-/// shared storage for a path nobody asked for.
 class SetVideoScreen extends ConsumerStatefulWidget {
   const SetVideoScreen({
     super.key,
@@ -71,8 +65,6 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
       _recording = true;
       _elapsed = 0;
     });
-    // The hard stop. A recording nobody stopped is what fills a phone — you
-    // rack the bar, walk off, and the app films the ceiling.
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _elapsed++);
@@ -98,9 +90,6 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
       return;
     }
 
-    // File first, then the pointer. The live session holds the path in memory
-    // until Finish, so nothing is written to the database here at all — see
-    // SetEntry.videoPath.
     final relative = await ref.read(setVideoStoreProvider).adopt(recorded);
     await ref
         .read(activeWorkoutProvider.notifier)
@@ -111,8 +100,7 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
   @override
   void dispose() {
     _tick?.cancel();
-    // Fire and forget: the screen is going either way, and the camera must not
-    // be left open behind it.
+    // The route is gone; finish closing the recorder without blocking teardown.
     unawaited(_recorder?.close());
     super.dispose();
   }
@@ -149,9 +137,6 @@ class _SetVideoScreenState extends ConsumerState<SetVideoScreen> {
     );
   }
 
-  /// Seconds left, and only shouting about it at the end. A countdown running
-  /// the whole time is a stopwatch nobody asked for; a stop that arrives with
-  /// no warning is worse.
   Widget _clock(AppLocalizations l10n, RecordingClock clock) {
     final left = recordingRemaining(clock);
     final closing = recordingCountingDown(clock);

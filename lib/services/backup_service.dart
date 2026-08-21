@@ -1,30 +1,5 @@
-/// Making a backup file, and reading one back.
-///
-/// The format is next door in `data/backup_archive.dart`; this is the half that
-/// touches the disk. Everything it needs from the outside world arrives as a
-/// seam — where the database file is, where clips live, what closes the
-/// database — so the whole of it can be driven over a temporary directory in a
-/// test, which is the only honest way to test a feature whose entire purpose is
-/// that a real file survives the app being uninstalled.
-///
-/// ## Writing
-///
-/// The database is snapshotted rather than copied: see
-/// [AppDatabase.snapshotTo]. Clips are added only when they are asked for, and
-/// the manifest records how many went in — which is what tells a restore
-/// whether the archive is authoritative about clips or silent on them.
-///
-/// ## Reading
-///
-/// **Nothing on the phone is touched until the file has been read and found to
-/// be a backup.** The manifest is checked, the database entry is located and
-/// staged in a working directory, and only then is the live database closed and
-/// replaced. A refusal — a photo, a renamed zip, a file from a newer build —
-/// leaves the phone exactly as it was.
-///
-/// After a restore the caller has to rebuild everything that was reading the
-/// old database; `backup_screen.dart` does that by invalidating
-/// `databaseProvider`.
+/// Creates and restores backup archives with injected dependencies for temporary-directory tests. Restore validates and stages the archive before replacing the live database.
+
 library;
 
 import 'dart:convert';

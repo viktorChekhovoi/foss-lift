@@ -1,16 +1,5 @@
-// Integration tests for features/index.html#sec04 — what a running session does
-// when the workout behind it is edited: `exercise-added-mid-session-joins-the-end`,
-// `other-edits-wait-for-the-next-session` and
-// `rest-changed-in-the-builder-reaches-the-session`.
-//
-// The edit is made the way the workout editor makes it — the whole item list
-// rewritten — while the session is live and its board is on screen. What is
-// asserted is the session itself: the board is one reader of it, and the rule
-// is about the session, not about a widget.
-//
-// Timer discipline is the harness's: a live session is never quiet, so plain
-// `pump()`s, `pumpThroughDatabase` for work that goes through SQLite, and
-// [stopAll] before the tree comes apart.
+// Integration tests for edits made to a workout while its live session is running (features/index.html#sec04).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

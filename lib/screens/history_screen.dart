@@ -73,8 +73,6 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return InkWell(
-      // Tap a past session to see its per-exercise set/rep breakdown — the same
-      // summary the live session ends on, reached read-only from here.
       onTap: () => context.push('/summary/${session.id}?from=history'),
       child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -90,10 +88,6 @@ class _HistoryRow extends StatelessWidget {
                 Text(DateFormat.d(l10n.localeName).format(session.startedAt),
                     style: kMono.copyWith(fontSize: 20, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
-                // Upper-cased for the same reason the eyebrows are: it is a
-                // typographic treatment of a two-glyph label in a monospaced
-                // column, not a claim that the month is a proper noun. Cyrillic
-                // and Latin both case cleanly here ("бер" → "БЕР").
                 Text(DateFormat.MMM(l10n.localeName).format(session.startedAt).toUpperCase(),
                     style: kMono.copyWith(fontSize: 10, letterSpacing: 1.0, color: AppColors.faint)),
               ],
@@ -108,9 +102,6 @@ class _HistoryRow extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
-                  // The time of day, not just the date: whether you train
-                  // mornings or late evenings is the pattern history is being
-                  // read for as often as the date is.
                   '${DateFormat.Hm(l10n.localeName).format(session.startedAt)} · '
                   '${l10n.commonSetCount(session.setsCompleted)}',
                   style: kMono.copyWith(fontSize: 12, color: AppColors.muted),

@@ -1,18 +1,5 @@
-// Integration tests for features/index.html#sec04 — the in-memory live
-// workout: starting a day, logging sets by tapping, the rest timer, the warm-up
-// ramp, surviving a collapse, and what Finish writes.
-//
-// The session is driven through its real public surface: the
-// `activeWorkoutProvider` controller, the `AppDatabase`, and the `WorkoutScreen`
-// widget. Nothing here asserts on generated code or private internals.
-//
-// Timer discipline (see the harness): starting and finishing hit real SQLite
-// and are wrapped in `tester.runAsync`; a live tree is never quiet, so widget
-// tests use plain `pump()`s and end with `stop(tester)`. The session's 1-second
-// duration timer is a *real* timer (created inside runAsync), so it does not
-// advance under a widget test's fake clock — duration ticks are covered by a
-// controller test instead. The rest banner's countdown *is* a fake-zone timer,
-// so it advances with `pump(Duration(...))`.
+// Integration tests for the live workout session (features/index.html#sec04); setup and finish use the real database, and widget tests follow the shared harness's timer conventions.
+
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';

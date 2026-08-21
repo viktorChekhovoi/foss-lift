@@ -10,12 +10,6 @@ import '../util/clip_label.dart';
 import '../util/seed_names.dart';
 import '../util/units.dart';
 
-/// Every clip of one movement, newest first.
-///
-/// This is the view the whole feature is for: your squat over months, in one
-/// place, so today's depth can be held against the same lift at a lighter
-/// weight in March. A clip filed only under the session it happened in would be
-/// a clip nobody ever finds again.
 class ExerciseClipsScreen extends ConsumerWidget {
   const ExerciseClipsScreen({super.key, required this.exerciseId});
   final int exerciseId;
@@ -26,8 +20,6 @@ class ExerciseClipsScreen extends ConsumerWidget {
     final clips = ref.watch(exerciseClipsProvider(exerciseId));
     final exercise = ref.watch(exerciseLibraryProvider).value?.
         where((e) => e.id == exerciseId).firstOrNull;
-    // Every clip here is the same movement, so every label is read in that
-    // movement's unit — the reel exists to be held against itself.
     final unit = unitForExercise(
       ref.watch(weightUnitProvider).value ?? 'kg',
       exercise?.unitOverride,
@@ -86,7 +78,6 @@ class ExerciseClipsScreen extends ConsumerWidget {
       );
 }
 
-/// One clip in the reel: what it was, a frame of it, and a way in.
 class _ClipRow extends StatelessWidget {
   const _ClipRow({
     required this.clipPath,
@@ -130,12 +121,6 @@ class _ClipRow extends StatelessWidget {
   }
 }
 
-/// A frame of the clip, or the play symbol until there is one.
-///
-/// Six squat sets should look like six squats rather than six identical
-/// symbols — picking the session you meant out of the list is what the reel is
-/// for. A clip the decoder will not read keeps the symbol and loses nothing
-/// else.
 class _Still extends ConsumerWidget {
   const _Still({required this.clipPath});
   final String clipPath;
@@ -160,9 +145,6 @@ class _Still extends ConsumerWidget {
                 width: _width,
                 height: _height,
                 fit: BoxFit.cover,
-                // A frame that decoded and then would not draw — a file
-                // truncated by a crash mid-write — is the same to the reader as
-                // one that never decoded.
                 errorBuilder: (_, _, _) => Icon(Icons.play_arrow_rounded,
                     color: AppColors.accent, size: 24),
               ),

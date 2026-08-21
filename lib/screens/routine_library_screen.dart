@@ -11,12 +11,6 @@ import '../util/seed_names.dart';
 import '../util/target_label.dart';
 import '../widgets/routine_card.dart';
 
-/// The programs the app ships, offered rather than installed.
-///
-/// The list is [kStarterRoutines] — code, not rows, so there is nothing to load
-/// and nothing that can differ from one phone to the next. Each program is drawn
-/// with the same card the routine list uses, because it is the same thing: what
-/// separates them is that one of these is not yours until you say so.
 class RoutineLibraryScreen extends StatelessWidget {
   const RoutineLibraryScreen({super.key});
 
@@ -49,11 +43,6 @@ class RoutineLibraryScreen extends StatelessWidget {
   }
 }
 
-/// One shipped program, in full, with the button that makes a copy of it.
-///
-/// Every training day and every exercise in it: what you are agreeing to, before
-/// anything is written. Backing out writes nothing at all, which is the whole
-/// reason this screen is between the library and your routine list.
 class StarterRoutinePreviewScreen extends ConsumerWidget {
   const StarterRoutinePreviewScreen({super.key, required this.routineKey});
 
@@ -63,8 +52,6 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final program = starterRoutineByKey(routineKey);
-    // A key this build does not ship — a link from a build that had a program
-    // this one has dropped. The library is one tap back.
     if (program == null) {
       return Scaffold(
         appBar: AppBar(title: Text(l10n.routineLibraryTitle)),
@@ -82,8 +69,6 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                 children: [
-                  // What the program is, before the days it is made of: the
-                  // preview is where the choice between nine of them is made.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
                     child: Text(
@@ -94,9 +79,6 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
                     ),
                   ),
                   for (final day in program.days) ...[
-                    // The day's own name, not a heading made of it: these are
-                    // "Workout A" and "Upper 1", and the small capitals the
-                    // section headings use would be shouting a proper noun.
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
                       child: Text(
@@ -120,8 +102,6 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
                   onPressed: () async {
                     await ref.read(databaseProvider).addStarterRoutine(program);
                     if (!context.mounted) return;
-                    // Back to the list it just landed in — the row being there
-                    // is the confirmation, so nothing has to say so.
                     context.go('/routines');
                   },
                   icon: const Icon(Icons.add),
@@ -136,23 +116,11 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
   }
 }
 
-/// What one slot of a shipped program is aiming at, in words.
-///
-/// A cycled slot has no set count of its own — its week is written out in full,
-/// so how many rows it has is how many sets there are — and its rep targets
-/// differ from one another. So the week it opens on is listed the way the day
-/// screen and the builder list it, rather than multiplied: "5/5/5+". A
-/// multiplication here has to read the two numbers a cycled slot does not
-/// carry, and did, as "0 × 0".
 String _slotTarget(AppLocalizations l10n, StarterSlot slot) {
   if (slot.cycle.isNotEmpty) return rowsTargetLabel(l10n, slot.cycle.first);
   return setsTargetLabel(
     l10n,
     sets: slot.sets,
-    // The axis is not settled until the copy is written — it comes from the
-    // exercise's own measure. A work period is only ever put on a movement the
-    // library measures in time, so it is what says which of the two this slot
-    // is: an interval program reads in seconds and everything else in reps.
     progression:
         slot.holdSeconds == null ? ProgressionMode.reps : ProgressionMode.time,
     toFailure: false,
@@ -162,8 +130,6 @@ String _slotTarget(AppLocalizations l10n, StarterSlot slot) {
   );
 }
 
-/// One training day of a shipped program: its exercises and what each is aiming
-/// at, in the same shape the day screen draws.
 class _DayCard extends StatelessWidget {
   const _DayCard({required this.day});
 

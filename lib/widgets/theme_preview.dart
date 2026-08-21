@@ -3,37 +3,17 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
-/// A miniature of the app painted in [palette], so a colour is judged in
-/// context rather than as an isolated chip.
-///
-/// It deliberately exercises **every** one of the twelve roles. Some of them —
-/// `surface2`, `surface3`, `accentPress`, `faint` — mean nothing as a swatch in
-/// a list and only make sense once you can see what they do, which is the whole
-/// reason the editor shows this rather than twelve squares.
-///
-/// Nothing here reads [AppColors]: the widget paints from the palette it is
-/// handed, so it can preview a draft being edited or a theme someone just
-/// scanned, neither of which is the active theme.
 class ThemePreview extends StatelessWidget {
   const ThemePreview({super.key, required this.palette});
 
   final AppPalette palette;
 
-  /// The floor below which body text stops being comfortably readable. The same
-  /// 4.5:1 every shipped preset is held to in the feature tests.
   static const double _legibleEnough = 4.5;
 
-  /// Whether this palette paints text too close to the background it sits on.
-  /// Checked against both the ground and a card, since text appears on both.
   bool get _hardToRead =>
       contrastRatio(palette.text, palette.ground) < _legibleEnough ||
       contrastRatio(palette.text, palette.surface) < _legibleEnough;
 
-  /// Whether the two set markers — "Completed" (`good`) and "Missed goal"
-  /// (`gold`) — are too close to tell apart. The other
-  /// warning is about reading text *against* a background; this one is about
-  /// telling two colours apart *from each other*, which no contrast ratio
-  /// answers — see [colourDistance].
   bool get _markersAlike =>
       colourDistance(palette.good, palette.gold) < kMarkerDistance;
 
@@ -68,15 +48,6 @@ class ThemePreview extends StatelessWidget {
     );
   }
 
-  /// The live workout board, which is the screen this palette has to survive:
-  /// an exercise heading with the weight it is being worked at, and three set
-  /// rows — one hit, one short, one still to do.
-  ///
-  /// **The set rows are the point.** `good` and `gold` are the palette's
-  /// hardest job — the fastest read in the app is a glance down this column —
-  /// and a swatch of each says nothing about whether you could tell them apart
-  /// at speed. The untouched third row is what puts `surface2`, `surface3` and
-  /// `faint` on screen doing their actual jobs.
   Widget _card(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -104,8 +75,6 @@ class ThemePreview extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.w700)),
               ),
-              // The working weight, drawn as the board draws it: a value with a
-              // hairline under it, not a filled input.
               Container(
                 padding: const EdgeInsets.fromLTRB(4, 2, 2, 2),
                 decoration: BoxDecoration(
@@ -147,9 +116,6 @@ class ThemePreview extends StatelessWidget {
         children: [
           h(l10n.themePreviewSetHeader, width: 28),
           h(l10n.themePreviewGoalHeader, width: 54),
-          // The mock board is always metric — it is a colour sample, not a
-          // reading of what you lift — but the symbol still has to be the one
-          // the language writes.
           h(l10n.unitKgSuffix),
           h(l10n.themePreviewRepsHeader),
         ],
@@ -157,8 +123,6 @@ class ThemePreview extends StatelessWidget {
     );
   }
 
-  /// One set row. [tone] null means untouched — the state that shows what the
-  /// two raised surfaces and `faint` are for.
   Widget _setRow({
     required int number,
     required String goal,
@@ -240,8 +204,6 @@ class ThemePreview extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: ink)),
-                  // The same arrow the board draws, so a palette is judged with
-                  // the cue that does not depend on hue already in place.
                   if (short) ...[
                     const SizedBox(width: 1),
                     Icon(Icons.arrow_downward_rounded, size: 11, color: ink),
@@ -256,8 +218,6 @@ class ThemePreview extends StatelessWidget {
     );
   }
 
-  /// The stat strip above the sets: the numbers in the accent, their labels in
-  /// `faint`, divided by `line`.
   Widget _statStrip(AppLocalizations l10n) {
     Widget stat(String value, String label, {bool accent = false}) => Expanded(
           child: Column(
@@ -296,10 +256,6 @@ class ThemePreview extends StatelessWidget {
     );
   }
 
-  /// The primary action. Its label is whichever of a dark tint or white the
-  /// palette says reads on the accent, so a bad accent shows up here as a
-  /// washed-out label. The bottom edge is `accentPress` — the tone the button
-  /// takes when held, which is otherwise invisible until you press one.
   Widget _primaryButton(AppLocalizations l10n) {
     return Container(
       width: double.infinity,
@@ -321,13 +277,6 @@ class ThemePreview extends StatelessWidget {
     );
   }
 
-  /// Shown only when the palette fails one of its own checks. Painted in the
-  /// palette's own colours on purpose — if the warning itself is unreadable,
-  /// that is the point being made.
-  ///
-  /// Binary, and only ever guidance: it says a thing is wrong, never how wrong.
-  /// A running number would make this an accessibility workbench, which is what
-  /// the two checked high-contrast presets are for.
   Widget _warning(String message) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

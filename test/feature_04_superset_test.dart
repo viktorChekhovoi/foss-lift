@@ -1,29 +1,5 @@
-// Integration tests for the superset half of features/index.html#sec04:
-//
-//   * walks-a-superset-a-round-at-a-time — the mark crosses the group's
-//     movements instead of running down one of them, and a member with fewer
-//     sets drops out of the later rounds;
-//   * no-rest-inside-a-superset — logging a movement mid-round starts no clock
-//     at all; the rest comes at the end of the round, and it is the rest of the
-//     slot whose set ended it;
-//   * rest-says-what-between-warm — at the end of a round the caption names the
-//     movement that opens the next one;
-//   * superset-warms-up-every-movement-first — every member's ramp is walked
-//     before the first round, and the rest between rungs stays the short one
-//     across the join;
-//   * board-draws-a-superset-as-one-block — one bracket, tagged, around exactly
-//     the group's members;
-//   * session-survives-being-killed — a session with a superset in it comes
-//     back from the crash snapshot still grouped.
-//
-// Driven through the real public surface: the `activeWorkoutProvider`
-// controller, `nextUp`, the `AppDatabase` and the `WorkoutScreen` widget.
-//
-// Timer discipline (see the harness): starting a session hits real SQLite and is
-// wrapped in `tester.runAsync`, so the session's 1-second duration timer is a
-// *real* one and does not advance under the fake clock. A live tree is never
-// quiet — plain `pump()`s only, and every widget test ends by putting the
-// session down and then the tree.
+// Integration tests for supersets in the live session (features/index.html#sec04): round-robin progression, rest timing, warm-ups, rendering, and restoration.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;

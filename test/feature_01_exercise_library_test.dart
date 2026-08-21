@@ -1,9 +1,5 @@
-// Integration tests for features/index.html#sec01
-//
-// The exercise library: a curated starter set (a demo link on every entry),
-// custom exercises alongside it, a weight type seeded from equipment and
-// overridable for any exercise, a measure fixed at creation, and history that
-// survives library edits because logged sets store the name denormalised.
+// Integration tests for the exercise library (features/index.html#sec01): starter and custom exercises, filters, measures, and history preservation.
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

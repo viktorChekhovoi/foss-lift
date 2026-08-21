@@ -1,14 +1,5 @@
-// Integration tests for features/index.html#sec04 — reconfiguring an exercise
-// slot from the live board: `slot-settings-open-from-the-board`,
-// `board-settings-are-saved-to-the-workout`, `board-takes-the-change-where-it-can`
-// and `no-settings-on-an-exercise-with-no-slot`.
-//
-// The sheet is the builder's own, so what it puts in the slot is already covered
-// by section 03. What is particular here is the pair of consequences: the slot is
-// written (so next week opens on it) and the running board takes the change
-// without disturbing a set that is already logged.
-//
-// Timer discipline is the harness's — see feature_04_template_drift_test.dart.
+// Integration tests for editing a workout slot from the live board (features/index.html#sec04), including persistence and applying changes to the current session.
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';

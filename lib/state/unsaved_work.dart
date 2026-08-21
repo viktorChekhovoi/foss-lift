@@ -1,4 +1,4 @@
-/// Work the app is holding that is not written down yet.
+/// Tracks edits and live sessions that have not been persisted.
 ///
 /// Two things in this app live in memory before they live in the database: the
 /// live session, which is only committed on Finish, and the three editors that
@@ -20,7 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../util/leave_guard.dart';
 
-/// The screens currently holding edits that Save has not taken yet.
+/// Screens with edits that have not been saved.
 ///
 /// Keyed by an opaque token rather than counted, because a count cannot survive
 /// a screen that releases twice — a dispose racing a save is exactly the shape
@@ -52,7 +52,7 @@ final pendingEditsProvider = NotifierProvider<PendingEdits, Set<Object>>(
   PendingEdits.new,
 );
 
-/// Whether leaving right now would throw something away.
+/// Whether leaving now would discard unsaved work.
 ///
 /// The live session counts without anyone registering it: it is already a
 /// provider, and it is unsaved by construction from the moment it starts until
@@ -62,7 +62,7 @@ final unsavedWorkProvider = Provider<bool>((ref) {
       ref.watch(pendingEditsProvider).isNotEmpty;
 });
 
-/// The seam the arming decision goes out through.
+/// Provider seam for the leave-guard implementation.
 ///
 /// A provider rather than a direct call to `setLeaveGuard`, so a test can watch
 /// *what the app decided* without a browser to observe it in. The real one is
@@ -73,7 +73,7 @@ final leaveGuardProvider = Provider<void Function(bool)>(
   (ref) => setLeaveGuard,
 );
 
-/// Keeps the browser's question in step with what there is to lose.
+/// Synchronizes the browser leave guard with unsaved work.
 ///
 /// Watch it somewhere permanent; see `main.dart`. Nothing reads its value —
 /// the point is the side effect, in the same shape as `workoutShadeSyncProvider`.
@@ -86,8 +86,7 @@ final leaveGuardSyncProvider = Provider<void>((ref) {
   ref.watch(leaveGuardProvider)(ref.watch(unsavedWorkProvider));
 });
 
-/// The editor half of [pendingEditsProvider], for a screen that holds its
-/// changes until Save.
+/// Helper for editors that hold changes until Save.
 ///
 /// Three screens do — the routine builder, the workout builder and the exercise
 /// form — and the bookkeeping is identical in all three, so it is written here

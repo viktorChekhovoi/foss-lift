@@ -6,42 +6,16 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 
-/// Finds one of the two dimension buttons in a test — `muscle` or `equipment`.
 ValueKey<String> filterButtonKey(String dimension) =>
     ValueKey('filter-button-$dimension');
 
-/// Finds one value inside the sheet a dimension button opens. Keyed by dimension
-/// as well as label for two reasons: the words are also the words under every
-/// exercise in the list behind the sheet, and "Other" is a value in *both*
-/// vocabularies.
 ValueKey<String> filterChipKey(String dimension, String label) =>
     ValueKey('filter-$dimension-$label');
 
-/// Finds the control that lets every filter go.
 const kFilterClearKey = ValueKey('filter-clear');
 
-/// Finds the way out of a dimension sheet.
 const kFilterSheetDoneKey = ValueKey('filter-sheet-done');
 
-/// The filter control: one line — a **Muscle** button, an **Equipment** button,
-/// and a **Clear** while anything is on.
-///
-/// **A button per dimension, not a chip per value.** Fifteen chips laid out in
-/// the open — nine muscle groups over six equipment kinds — cost four lines of a
-/// phone screen and read as two undifferentiated blocks of pills, with nothing
-/// on them saying which block was which. The two buttons say it in one line, and
-/// naming the dimension on the button settles the one collision in the
-/// vocabulary as well: `Other` is both a kind of equipment and a muscle group,
-/// and which is which is written above the ticks.
-///
-/// **The button is the summary.** Until something is ticked it reads "Muscle";
-/// after, it reads the choices themselves — "Legs, Arms" — so what the list is
-/// narrowed to is legible without opening anything. That was the one virtue of
-/// the wall of chips, and it survives.
-///
-/// **The sheet applies as it is ticked.** The list behind it narrows on every
-/// tap rather than on the way out, because the list is the feedback; **Done** is
-/// a way out, not a commit.
 class ExerciseFilterChips extends StatelessWidget {
   const ExerciseFilterChips({
     super.key,
@@ -56,13 +30,9 @@ class ExerciseFilterChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Container(
-      // Full width and left-aligned, or the buttons float in the middle of the
-      // screen under a search box that runs edge to edge.
       width: double.infinity,
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-      // Wrapped rather than a plain row: at 2× text three controls do not fit
-      // across a phone, and a second line is better than a squeezed target.
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -88,8 +58,6 @@ class ExerciseFilterChips extends StatelessWidget {
             chosen: filter.equipment,
             onToggle: (kind) => onChanged(filter.toggleEquipment(kind)),
           ),
-          // Only while there is something to undo, and it undoes the buttons
-          // alone — the search text is not a chip.
           if (filter.facetCount > 0)
             _ClearButton(onTap: () => onChanged(filter.withoutFacets)),
         ],
@@ -98,8 +66,6 @@ class ExerciseFilterChips extends StatelessWidget {
   }
 }
 
-/// One dimension: a button that names what it is narrowed to, and the sheet it
-/// opens.
 class FilterFacetButton extends StatelessWidget {
   const FilterFacetButton({
     super.key,
@@ -112,28 +78,18 @@ class FilterFacetButton extends StatelessWidget {
     required this.onToggle,
   });
 
-  /// `muscle` or `equipment` — what the keys are scoped by.
   final String dimension;
 
-  /// What the button reads while nothing is ticked: the question itself.
   final String fallback;
 
-  /// The heading over the ticks, which is the long form of [fallback].
   final String title;
 
-  /// The vocabulary as stored — English, and an index in a routine code.
   final List<String> values;
 
-  /// One stored value in the words on screen. Kept apart from [values] because
-  /// what is ticked, keyed and toggled is the stored word throughout; only the
-  /// button and the ticks are translated.
   final String Function(String) label;
   final Set<String> chosen;
   final ValueChanged<String> onToggle;
 
-  /// The choices, in the vocabulary's own order rather than the order they were
-  /// tapped in — a button whose words move about as you tick them is a button
-  /// you have to re-read.
   String get _said => chosen.isEmpty
       ? fallback
       : values.where(chosen.contains).map(label).join(', ');
@@ -158,9 +114,6 @@ class FilterFacetButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Ellipsised rather than wrapped: every choice is also visible in
-            // the sheet a tap away, and a button that grows to three lines
-            // costs the list more than the words are worth.
             Flexible(
               child: Text(
                 _said,
@@ -195,11 +148,6 @@ class FilterFacetButton extends StatelessWidget {
   );
 }
 
-/// The ticks behind one dimension button.
-///
-/// Rebuilt from the filter on every tap — it is handed the chosen set and a way
-/// to toggle one value, and owns no copy of its own. So the sheet, the button
-/// under it and the list behind it cannot disagree about what is on.
 class FilterFacetSheet extends StatelessWidget {
   const FilterFacetSheet({
     super.key,
@@ -220,9 +168,6 @@ class FilterFacetSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Half the screen at most, and scrolling inside that: seven ticks fit on
-    // any phone at an ordinary text size, and none of them do at the top of the
-    // scale — where the list behind still has to be worth seeing.
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.6,
@@ -278,7 +223,6 @@ class FilterFacetSheet extends StatelessWidget {
   }
 }
 
-/// One value in a sheet: a box, a word, and the whole row as the target.
 class _Tick extends StatelessWidget {
   const _Tick({
     super.key,
@@ -335,8 +279,6 @@ class _Tick extends StatelessWidget {
   }
 }
 
-/// Letting both dimensions go. Quieter than the two buttons beside it: it is the
-/// way back to no filter at all, not a third thing to narrow by.
 class _ClearButton extends StatelessWidget {
   const _ClearButton({required this.onTap});
   final VoidCallback onTap;

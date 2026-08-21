@@ -1,11 +1,5 @@
-// Feature 22 — Cycles and training maxes (features/index.html#sec22).
-//
-// A slot can rotate through a fixed set of weeks, each a written-out set of
-// rows, and move the weight those rows are percentages of when the cycle comes
-// round. These tests drive it through its real surfaces: the row grammar and
-// the block encoding in `set_scheme.dart`, the wrap rule in `progression.dart`,
-// the stored slot through `AppDatabase.advanceProgression`, the live board's
-// hydration, the routine code, and the builder's switch.
+// Integration tests for training cycles and training maxes (features/index.html#sec22).
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';

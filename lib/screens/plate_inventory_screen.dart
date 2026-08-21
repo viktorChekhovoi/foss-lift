@@ -9,12 +9,6 @@ import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 import '../util/format.dart';
 
-/// The plates in the gym: what every per-side breakdown is built out of.
-///
-/// Edited in the unit the user has chosen — a pounds gym should be typing 45,
-/// not 20.4 — and **kept per unit**, so adding a 30 kg plate here does not turn
-/// into a 66.14 lb plate nobody owns the moment the app is switched to pounds.
-/// The values themselves are stored in kilograms like every other weight.
 class PlateInventoryScreen extends ConsumerWidget {
   const PlateInventoryScreen({super.key});
 
@@ -26,8 +20,6 @@ class PlateInventoryScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final u = unitSuffix(l10n, unit);
 
-    // Every edit writes the whole rack, which is also what turns the standard
-    // set into the user's own the first time they touch it.
     void write(List<PlateStack> plates) => db.setPlateInventory(plates, unit);
 
     Future<void> addPlate() async {
@@ -128,7 +120,6 @@ class PlateInventoryScreen extends ConsumerWidget {
   }
 }
 
-/// One plate size and how many of them the gym has.
 class _PlateRow extends StatelessWidget {
   const _PlateRow({
     required this.plate,
@@ -158,9 +149,6 @@ class _PlateRow extends StatelessWidget {
               style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
-          // Two at a time, because that is how they go on the bar. Taking the
-          // last pair off is the same statement as not owning the size at all,
-          // so − at the bottom removes the row rather than sticking at two.
           NumberStepper(
             value: plate.count,
             min: 2,

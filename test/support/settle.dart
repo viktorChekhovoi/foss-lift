@@ -1,11 +1,5 @@
-// Small provider-polling helper shared by the theme and tutorial feature tests.
-//
-// The synchronous providers (`activePaletteProvider`, and the widgets that read
-// the tutorial-seen flag) are computed off drift streams, which emit
-// asynchronously. After a database write there is a beat before the stream —
-// and anything derived from it — catches up. [readWhen] keeps the provider
-// subscribed and yields the event loop until its value satisfies [test], so a
-// test can assert on the settled value without hard-coding a delay.
+// Polls stream-backed providers until a test condition is met.
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';

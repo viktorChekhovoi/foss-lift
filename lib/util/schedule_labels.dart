@@ -1,15 +1,5 @@
-/// A weekly schedule, in words.
-///
-/// The weekday names come from the calendar rather than from the app's own
-/// catalogue: `intl` already ships every locale's own "Mon" and "M", and a
-/// hand-written list would be seven more strings per language to keep in step
-/// with the ones the phone's own date picker is using.
-///
-/// The locale comes from the `AppLocalizations` the caller already holds, not
-/// from `Intl.defaultLocale`. The global is only ever set by the app root, so
-/// anything rendered under a different `Localizations` — a preview, a test —
-/// would otherwise date itself in the wrong language while every word around it
-/// was right.
+/// Formats weekly schedules using the caller's localized weekday labels.
+
 library;
 
 import 'package:intl/intl.dart';

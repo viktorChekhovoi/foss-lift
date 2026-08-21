@@ -1,8 +1,8 @@
 id: "18"
 title: Language
 tagline: >-
-  The app speaks English, Ukrainian, Spanish and both Portugueses, picks the
-  phone's language on first run and lets you change it.
+  English, Ukrainian, Spanish, European Portuguese, and Brazilian Portuguese;
+  the initial locale comes from the phone and can then be changed in-app.
 screen: language-settings
 code:
 - lib/l10n/app_en.arb
@@ -23,10 +23,8 @@ groups:
   - id: five-languages
     t: Ships in five languages
     d: >-
-      English, Ukrainian, Spanish, Portuguese (Portugal) and Portuguese (Brazil).
-      The two Portugueses are separate translations rather than a base plus a
-      handful of overrides, because the vocabulary a Brazilian lifter uses for
-      the movements is not European Portuguese with a few words swapped.
+      The supported locales are English, Ukrainian, Spanish, pt-PT, and pt-BR.
+      pt-PT and pt-BR use separate catalogues.
     defines:
     - ui.language
     uses:
@@ -34,50 +32,44 @@ groups:
   - id: first-run-picks-the-phone-language
     t: First run picks the phone's language and stores it as a choice
     d: >-
-      A fresh install resolves the phone's language list against the five —
-      language and region first, then the language alone, then English — and
-      writes the answer to <code>Settings.localeTag</code>. It is a real choice
-      from then on, not a standing deference: the phone is consulted once, and
-      changing the phone's language afterwards leaves the app where it is.
-      Nothing asks on first run, because the phone has already answered.
+      On a fresh install, the phone's locale list is matched by language and
+      region, then by language, with English as the fallback. The resolved tag
+      is written to <code>Settings.localeTag</code>; later phone locale changes
+      do not change the app locale.
     uses:
     - ui.language
     - storage.settings
   - id: language-picker-in-settings
     t: The language can be set in the app, independently of the phone
     d: >-
-      Profile → Appearance → Language lists the five, one of them always
-      selected — there is no <i>follow the phone</i> row to fall back to. Each
-      language names itself in its own language, so the row you want is legible
-      from whatever the app is currently rendering in.
+      Profile → Appearance → Language lists the five locales and always has one
+      selected. Each option uses its native language name; there is no follow-
+      the-phone option.
     uses:
     - ui.language
   - id: change-applies-immediately
     t: Changing the language repaints the app at once
     d: >-
-      No restart and no prompt to restart. The choice is a database write like
-      any other setting, and the widget tree rebuilds against it.
+      The setting is persisted and the widget tree rebuilds immediately; no
+      restart or restart prompt is shown.
     uses:
     - ui.language
     - storage.settings
   - id: muscle-and-equipment-translated
     t: Muscle groups and equipment kinds read in the chosen language
     d: >-
-      The filter chips, both rows of chips on the exercise form, and the groups
-      on an exercise's own page. The stored value and the routine-code index stay
-      English — see
-      <i>the vocabulary is still English underneath</i>.
+      Filter chips, exercise-form chips, and exercise-page groups use the
+      selected locale. Stored values and routine-code indexes remain English;
+      see <i>the vocabulary is still English underneath</i>.
     uses:
     - exercise.taxonomy
     - ui.string-catalogue
   - id: seeded-exercises-translated
     t: The starter library reads in the chosen language, and re-reads when it changes
     d: >-
-      Every movement the app ships with carries a <code>seedKey</code>, and the
-      name on screen is looked up from it rather than read out of the row. So
-      switching from Spanish to Ukrainian renames all 133 of them, and switching
-      back renames them again. A movement you added yourself has no key and
-      keeps the name you gave it.
+      Shipped movements carry a <code>seedKey</code>; their displayed names are
+      resolved from that key, so all 133 update when the locale changes. Custom
+      movements have no key and retain their stored names.
     defines:
     - ui.seeded-name
     uses:
@@ -86,10 +78,10 @@ groups:
   - id: demo-routines-translated
     t: The starter programs and their training days read in the chosen language
     d: >-
-      Push / Pull / Legs, Upper / Lower, Full Body 3x and the training days of
-      all five, by the same mechanism — until you rename one. Starting Strength
-      and StrongLifts 5x5 are the names of published programs and stay in
-      English everywhere, the way a book title does.
+      Push / Pull / Legs, Upper / Lower, Full Body 3x, and the training days of
+      all five starter routines resolve through seeded names until renamed.
+      Starting Strength and StrongLifts 5x5 remain English as published program
+      names.
     uses:
     - ui.seeded-name
     - template.routine
@@ -97,11 +89,9 @@ groups:
   - id: history-names-follow
     t: A logged set names its movement in the chosen language
     d: >-
-      History denormalises the exercise name so it survives a library edit, and
-      it stores the seed key beside it for the same reason it stores the name.
-      A session logged in English reads in Ukrainian after the switch, and a
-      custom movement deleted from the library still reads as whatever it was
-      called.
+      History stores both the exercise name and its seed key. Seeded names are
+      re-resolved after a locale change; custom names remain available even if
+      the movement is later deleted.
     screen: history
     uses:
     - ui.seeded-name
@@ -109,8 +99,8 @@ groups:
   - id: dates-and-numbers-follow
     t: Dates and numbers are formatted for the language
     d: >-
-      Weekday and month names, and the decimal separator — a Ukrainian phone
-      showing 82,5 kg rather than 82.5 kg.
+      Weekday and month names and numeric formatting, including the locale's
+      decimal separator (for example, Ukrainian 82,5 kg).
     screen: none
     uses:
     - ui.language
@@ -119,12 +109,10 @@ groups:
   - id: vocabulary-still-english-underneath
     t: The vocabulary is still English underneath
     d: >-
-      Muscle groups, equipment kinds and the canonical exercise names are stored
-      and transmitted in English. A routine shared from a Brazilian phone lands
-      on a Ukrainian one naming the same movements, because the code carries the
-      English name and the recipient's copy of that movement translates itself.
-      Translating the wire format instead would make a share code mean different
-      things depending on who wrote it.
+      Muscle groups, equipment kinds, and canonical exercise names are stored and
+      transmitted in English. A recipient resolves those values into its own
+      locale, so a share code has the same meaning regardless of its source
+      locale.
     screen: none
     uses:
     - share.routine-code
@@ -132,37 +120,33 @@ groups:
   - id: renaming-a-seeded-row-keeps-your-name
     t: Renaming a seeded routine or training day makes the name yours
     d: >-
-      The rename clears the seed key, so a day you called "Chest &amp; Tris"
-      stays that in every language rather than reverting to "Push" on the next
-      switch. Seeded exercises cannot be renamed at all, so the question does not
-      arise for them.
+      Renaming clears a routine or training day's seed key, so the custom name
+      persists across locale changes. Seeded exercises are not renameable.
     screen: routine-edit
     uses:
     - ui.seeded-name
   - id: missing-translation-falls-back-to-english
     t: A string with no translation renders in English rather than as a key
     d: >-
-      A half-finished locale is a mixed-language screen, which is ugly but
-      usable. A screen of <code>settings_language_title</code> is neither.
+      Missing translations fall back to English. The UI never renders a message
+      key such as <code>settings_language_title</code>.
     screen: none
     uses:
     - ui.string-catalogue
   - id: portuguese-region-resolution
     t: A Portuguese phone gets European Portuguese and a Brazilian one gets Brazilian
     d: >-
-      On first run pt-BR resolves to the Brazilian catalogue; every other
-      Portuguese region tag, including a bare pt, resolves to the European one.
-      Either way it is the resolved tag that gets stored.
+      On first run, pt-BR resolves to the Brazilian catalogue. Other Portuguese
+      tags, including bare pt, resolve to pt-PT. The resolved tag is stored.
     screen: none
     uses:
     - ui.language
   - id: every-screen-swept-every-language
     t: Every screen is swept in every language, and overflow fails the build
     d: >-
-      The same sweep the text-size feature runs, over the five locales as well as
-      the three scales. Ukrainian and Portuguese run appreciably longer than
-      English — "Розпочати тренування" against "Start workout" — and a fixed-width
-      button that fits one does not necessarily fit the other.
+      The text-size sweep runs across all five locales and three scales. Longer
+      Ukrainian and Portuguese strings can expose overflow in controls sized for
+      English.
     screen: none
     uses:
     - ui.string-catalogue
@@ -170,19 +154,17 @@ groups:
   - id: no-untranslated-literals-left
     t: No user-facing string is left hard-coded
     d: >-
-      A test walks the widget tree of every screen and fails on any rendered text
-      that is not in the catalogue and is not data — a name, a number, a date.
-      Extraction that is only ever checked by eye regresses on the next screen
-      anybody writes.
+      A widget-tree test fails on rendered text that is neither a catalogue
+      string nor data such as a name, number, or date.
     screen: none
     uses:
     - ui.string-catalogue
   - id: adding-a-language-is-one-file
     t: Adding a sixth language is a file and a list entry
     d: >-
-      Drop <code>app_&lt;tag&gt;.arb</code> into lib/l10n and add the tag to
-      <code>kSupportedLocales</code>. Nothing else knows how many languages there
-      are — the picker, the resolver and the sweep all read that list.
+      Add <code>app_&lt;tag&gt;.arb</code> under lib/l10n and add the tag to
+      <code>kSupportedLocales</code>. The picker, resolver, and locale sweep read
+      that list.
     screen: none
     defines:
     - ui.string-catalogue

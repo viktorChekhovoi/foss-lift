@@ -1,9 +1,8 @@
 id: "22"
 title: Cycles and training maxes
 tagline: >-
-  A slot can rotate through a fixed set of weeks — each with its own written-out
-  sets — and move the weight they are percentages of when the cycle comes round.
-  The toolbox 5/3/1 is built from.
+  A slot can rotate through explicit weekly set schemes and adjust their shared
+  training max when the cycle wraps.
 screen: workout-edit
 code:
 - lib/data/set_scheme.dart
@@ -29,11 +28,10 @@ groups:
   - id: a-slot-can-run-a-cycle
     t: A slot can rotate through a fixed set of weeks
     d: >-
-      <b>Cycle</b> is the fifth set scheme, beside flat, back-off, ramp and
-      custom. Instead of one written-out set of rows it holds several — a week
-      each — and one session uses one of them. The week after the last is the
-      first again. Everything a written-out row already says it says here too: a
-      rep target and a percentage of the slot's weight, per set.
+      <b>Cycle</b> is a set scheme alongside flat, back-off, ramp, and custom. It
+      stores multiple weekly row sets; each session resolves one week, then wraps
+      to the first. Each row has a per-set rep target and percentage of the
+      slot's weight.
     defines:
     - template.cycle
     uses:
@@ -42,12 +40,9 @@ groups:
   - id: the-cycle-advances-on-the-slot-that-ran-it
     t: Each slot advances its own cycle, on the session that trained it
     d: >-
-      where a slot has got to is stored on that slot, not on the routine, and it
-      moves on when the workout holding it is finished. A four-day split where
-      each lift comes round once a week keeps every lift on the same week without
-      anything counting weeks; a lift you train twice a week runs its cycle twice
-      as fast, which is what training it twice a week is. Skipping a day does not
-      skip its week — the week is waiting the next time you train it.
+      Each slot stores its own cycle position and advances when the containing
+      workout is finished. A slot trained twice weekly advances twice as fast as
+      one trained weekly. Skipping a day does not advance its position.
     screen: session
     uses:
     - template.cycle
@@ -55,13 +50,10 @@ groups:
   - id: the-wrap-is-what-moves-the-weight
     t: Coming round to the first week again is what moves the weight
     d: >-
-      the percentages take care of the weeks; the weight they are of is what a
-      cycle progresses. It moves once, on the session that closes the cycle: up
-      by the slot's step if no session in the cycle came up short, down by its
-      back-off if the number that did reaches the slot's miss threshold, and held
-      where it is in between. Both counters then start again with the new cycle.
-      A three-week block that adds 2.5 kg to the press and 5 kg to the squat is
-      the step and the threshold, not a rule of its own.
+      The training max changes once, when the final week completes. It increases
+      by the slot's step when misses are below the threshold, decreases by its
+      back-off when the threshold is reached, and otherwise stays unchanged.
+      Miss and clean counters reset for the next cycle.
     screen: none
     defines:
     - template.training-max
@@ -72,7 +64,10 @@ groups:
   - id: the-progression-card-says-it-moves-the-training-max
     t: The Progression card says the rates move the training max
     d: >-
-      the four numbers under Progression are the slot's, and on a cycle they mean something different from what they mean anywhere else: they move the training max, and only when the cycle comes round. So the sentence they are read back as says so — "adds 2.5&nbsp;kg to the training max at the end of a clean cycle; drops 5&nbsp;kg after 2 missed sessions in it". The clean-sessions threshold goes with it, because a cycle counts weeks rather than clean sessions and a stepper that changes nothing is worse than no stepper.
+      On a cycle slot, Progression rates modify the training max at wrap rather
+      than the prescribed session weight. The UI states the increase, decrease,
+      and miss threshold, for example: "adds 2.5 kg at a clean cycle; drops 5 kg
+      after 2 missed sessions."
     screen: workout-edit
     uses:
     - template.cycle
@@ -82,7 +77,10 @@ groups:
   - id: what-a-cycle-is-sits-behind-an-i
     t: What a cycle is sits behind an (i) on the Cycle option itself
     d: >-
-      the info tap rides on the Cycle pill rather than on the section label above it, and it is there whether or not the slot is on one — the question it answers is "what would I be picking", which is asked before the pick and not after. On the label it was a footnote about the picker as a whole, next to four other options it said nothing about; on the pill it is attached to the one thing it explains. It opens three sentences: the weeks run in order and wrap, the percentages are of the training max, and the training max is what moves, at the wrap. It names no particular program — a cycle is a shape, and 5/3/1 is one thing built from it rather than what it is for. It is the one option in this picker that is a way of training rather than a shape, so it is explained on the same terms the superset tick is — behind a tap, once, rather than as a paragraph under a control that everybody reads past for ever.
+      The (i) action is attached to the Cycle option and is available before or
+      after selection. It states that weeks run in order and wrap, percentages
+      use the training max, and the training max changes at wrap. It describes
+      the scheme without naming a particular program.
     screen: workout-edit
     uses:
     - template.cycle
@@ -91,7 +89,10 @@ groups:
   - id: a-cycle-weight-is-not-raised-by-what-you-lifted
     t: Loading the bar past the prescription does not move a training max
     d: >-
-      on an ordinary weight slot, working above the suggestion is itself progression and the target follows the bar. On a slot whose sets are written out as percentages it cannot be: every set is a fraction of the slot's weight rather than the weight itself, so a heavy week would read as a target that had gone up and the next week's percentages would be taken from it. The rule covers both written-out schemes, because both are percentages of one number — a program that finishes on a single at 105% must not leave the max it was 105% of standing five percent higher. A cycle's weight moves at the wrap; a custom slot's moves by its own step, or not at all where its step is nothing.
+      Percentage-based schemes treat the slot weight as a base, not as a lifted
+      target. Completing a set above its prescription does not change that base;
+      otherwise a 105% set would increase the max it references. Cycle slots
+      update at wrap. Custom slots follow their own step, including zero.
     screen: none
     uses:
     - template.cycle
@@ -102,13 +103,9 @@ groups:
   - id: the-week-is-on-screen
     t: The board says which week of the cycle you are on
     d: >-
-      "Week 2/4" under the exercise, on the live board and on the day that
-      offers it, because 3×3 at 80% and 3×5 at 75% are the same slot on different
-      weeks and nothing else on the row says which. The goal beside it is listed
-      set by set wherever the week's rows differ, since "3 × 5" would be a claim
-      about two sets that is false of both. The sets are joined by a slash —
-      "5/3/1+" — rather than by the middot that separates a slot's summary into
-      fields: joined by that, a three-set week reads as three more fields.
+      The live board and offering day show the position as "Week 2/4". Goals are
+      listed per set when rows differ, such as "5/3/1+"; slashes distinguish set
+      targets from the middot separators used between slot-summary fields.
     screen: session
     points:
     - workout-detail
@@ -119,7 +116,8 @@ groups:
   - id: a-week-of-a-cycle-can-be-named
     t: A week of a cycle can be called what it is
     d: >-
-      "Week 4" says where in the order a week sits and nothing about what it asks for, which on a four-week block is most of the question: three of them are work and the fourth is a deload, and only the percentages say which. So a week takes a name of its own — Deload, Peak, Volume, Heavy Single — typed on the week's own card in the builder, capped at the length of a heading rather than a sentence. A week nobody has named is "Week 4", which is what every week was before this and what a cycle built by somebody who does not want to name anything stays.
+      Each week may have a heading-length name such as Deload, Peak, Volume, or
+      Heavy Single. An unnamed week displays its ordinal label, such as "Week 4".
     screen: workout-edit
     defines:
     - template.cycle-week-name
@@ -128,7 +126,9 @@ groups:
   - id: a-named-week-is-named-everywhere-the-week-is-shown
     t: A named week is named everywhere the week is shown
     d: >-
-      the live board and the day that offers it write the name where they wrote "Week" and keep the count beside it — "Deload 4/4" rather than "Week 4/4" — because the name says what the week is and the count says how much of the cycle is left, and neither answers the other. The builder's folded card heads itself with the name in place of "Week 4". Emptying the field puts "Week 4" back rather than leaving a blank heading.
+      The live board, offering day, and folded builder card use the custom name in
+      place of "Week" while retaining the position, for example "Deload 4/4".
+      Clearing the name restores "Week 4".
     screen: session
     points:
     - workout-detail
@@ -140,7 +140,10 @@ groups:
   - id: a-week-is-a-card-that-folds
     t: Each week is a card of its own, and it folds
     d: >-
-      four weeks of four sets is sixteen rep steppers, sixteen percentages and sixteen headings in one scrolling column, and the question somebody is actually holding — how does this week differ from the one before it — cannot be answered in that. So each week is a bordered card with its set rows boxed inside it, and its heading is the tap that opens it. One week is open at a time. Folded, the heading reads the week back in a line — "5/5/5+ · 65/75/85%" — so nothing has to be opened to see what it asks for. The week the next session will run is the one open when the sheet arrives, and it keeps the accent border whether it is open or shut; a week you have just added opens, because you added it to edit it.
+      Each week is a bordered, collapsible card containing its set rows; only one
+      card is expanded at a time. A collapsed card summarizes its targets, such as
+      "5/5/5+ · 65/75/85%". The next session's week is initially expanded and
+      highlighted; a newly added week opens automatically.
     screen: workout-edit
     uses:
     - template.cycle
@@ -150,10 +153,9 @@ groups:
   - id: a-row-can-ask-for-a-range-or-for-as-many-as-you-have
     t: A written-out row takes a count, a range, or a minimum with no top
     d: >-
-      5, or 8–12, or 5+. The third is the set 5/3/1 is named after — a minimum
-      to beat and no ceiling — and it is per row rather than per slot, so one
-      slot can hold two fixed sets and an open one. Rows belong to the custom
-      scheme as much as to a cycle; both are written out a set at a time.
+      A row accepts a fixed count, a range, or an unbounded minimum (for example,
+      5, 8–12, or 5+). The target is per row, so one slot can mix fixed and open
+      targets. Both custom schemes and cycles use per-set rows.
     defines:
     - template.per-set-reps
     uses:
@@ -162,11 +164,9 @@ groups:
   - id: a-row-is-judged-against-its-own-floor
     t: A row is missed only below its own floor
     d: >-
-      a range asks for its top and is not a miss anywhere inside itself: 8–12 is
-      met at 9. A row with no top asks for its minimum, so beating it is not a
-      different kind of success and falling under it is the only miss there is.
-      A plain count is its own floor, which is what every set was before rows
-      could hold a range.
+      A range is successful at any value within its bounds; 8–12 is met at 9. An
+      unbounded target is successful at or above its minimum. A fixed count is
+      both its minimum and target. A miss is any result below the row's floor.
     screen: session
     uses:
     - template.per-set-reps
@@ -177,7 +177,10 @@ groups:
   - id: the-weight-field-says-training-max-on-a-cycle-slot
     t: On a slot whose sets are written out, the weight field is a training max
     d: >-
-      it is not a weight the session asks you to lift — every set is a percentage of it — so the builder's card is headed "Training max" instead of "Weight", and both the board and the slot's one-line summary in the exercise list name it "TM" where an ordinary slot writes "@" or nothing: "do 5/3/1+ at this" would be wrong about all three sets. Editing it moves the whole week at once, which is what adjusting a training max means. The rule is the scheme rather than the cycle: a custom slot's rows are percentages of the slot's weight exactly as a cycle's are, so a routine that writes out one session of ramps and back-offs names its base the same way a four-week block does.
+      For percentage-based slots, every set is a percentage of the base. The
+      builder labels it "Training max"; the board and exercise summary use "TM".
+      Editing it changes the base for all rows. This applies to custom
+      percentage schemes as well as cycles.
     screen: workout-edit
     points:
     - session
@@ -188,7 +191,9 @@ groups:
   - id: a-movement-can-take-its-percentages-from-another-lift
     t: A variation takes its percentages from the lift it is a version of
     d: >-
-      a front squat is prescribed at a percentage of the squat, not of the front squat, and a deficit deadlift, a deadlift to the knees and a deadlift from blocks are all percentages of the deadlift. So a movement can name the lift its percentages are of, and the ones that ship naming one do — the squat variations off Back Squat, the pulling variations off Deadlift. A movement that names none, which is nearly all of them and every movement you build, is its own base.
+      A movement may reference another lift as its percentage base. Shipped squat
+      variations use Back Squat; deadlift variations use Deadlift. Movements with
+      no reference use their own training max, including all newly created ones.
     screen: none
     defines:
     - template.percentage-base
@@ -198,7 +203,9 @@ groups:
   - id: one-screen-sets-every-training-max-in-a-routine
     t: One screen sets every training max in a routine
     d: >-
-      a program written in percentages puts the same three numbers on dozens of slots, and typing your squat max into thirty-one of them one at a time is not a setup step, it is a reason not to run the program. So a routine gathers its written-out slots by the lift their percentages come from and offers one field per lift. Filling in Squat writes that number onto every slot in the routine whose base is the squat — the back squats and the front squats alike — and the fields you leave alone change nothing.
+      The routine groups percentage slots by their base lift and provides one field
+      per lift. Entering Squat writes to every slot based on Squat, including back
+      and front squats; untouched fields leave their slots unchanged.
     screen: routine-training-maxes
     uses:
     - template.percentage-base
@@ -207,7 +214,9 @@ groups:
   - id: the-screen-says-what-each-field-will-touch
     t: Each field names the slots it will write
     d: >-
-      under "Squat", the movements it covers and how many slots each has — "Back Squat × 31 · Front Squat × 2". A field that quietly reached further than its label would be worse than no field, and a lifter whose front squat is not 100% of their squat needs to see that this screen is about to say it is, before it does. The individual slot is still editable afterwards, and the screen does not undo that.
+      Each field lists covered movements and slot counts, for example "Back Squat ×
+      31 · Front Squat × 2". Individual slots remain editable after the bulk
+      update.
     screen: routine-training-maxes
     uses:
     - template.percentage-base
@@ -215,7 +224,9 @@ groups:
   - id: a-field-opens-on-what-the-slots-already-say
     t: A field opens on the number its slots already carry
     d: >-
-      filled in where every slot under it agrees, so the screen reads back what the routine is set to rather than asking again. Where they disagree — one slot edited by hand, or a program that ships two different bases for one lift — the field opens empty and says the slots differ, and typing a number is what makes them agree. Leaving it empty leaves every one of them where it is.
+      A field is prefilled when all covered slots share a value. If values differ,
+      it is empty and indicates the disagreement; entering a value synchronizes
+      the covered slots. Leaving it empty changes nothing.
     screen: routine-training-maxes
     uses:
     - template.percentage-base
@@ -223,7 +234,9 @@ groups:
   - id: the-screen-is-for-any-routine-with-percentages-in-it
     t: It is there for a routine you built, not only a shipped one
     d: >-
-      the grouping is over the slots the routine actually holds, so a routine you wrote yourself with three custom-scheme slots on the bench gets one Bench Press field and the same one tap. The button appears on a routine as soon as some slot in it trains off percentages and is not there at all otherwise — a routine of flat sets has no training max to set, and an action that opens onto nothing is worse than an action that is missing.
+      The screen groups slots in any routine, including user-created routines. It
+      appears when at least one slot uses percentages and is omitted for routines
+      containing only flat sets.
     screen: routine-detail
     points:
     - routine-edit
@@ -237,10 +250,9 @@ groups:
   - id: an-upgraded-phone-changes-nothing
     t: An upgraded phone trains exactly what it trained before
     d: >-
-      the two columns a cycle needs arrive empty on every slot already on a
-      phone. No slot gains a scheme, no weight moves, and nothing anybody built
-      trains differently — the builder has a fifth option in a picker, and an
-      option nobody picked changes nothing.
+      Existing slots receive empty cycle columns during upgrade. No scheme,
+      position, or weight changes; the new picker option affects only slots where
+      it is selected.
     screen: none
     uses:
     - storage.schema
@@ -248,21 +260,17 @@ groups:
   - id: a-cycle-of-one-week-is-just-a-custom-scheme
     t: A cycle of one week is a custom scheme that steps every session
     d: >-
-      nothing special-cases the count. One week wraps on every session, so the
-      weight moves on every session and the rows never change — which is a
-      written-out slot with ordinary progression, arrived at from the other
-      direction. A cycle with no weeks in it at all trains as flat rather than as
-      nothing.
+      A one-week cycle wraps every session, so its rows remain constant and its
+      training max progresses every session. A cycle with no weeks resolves as a
+      flat scheme.
     screen: none
     uses:
     - template.cycle
   - id: names-follow-the-week-they-were-typed-on
     t: Removing a week takes its name with it
     d: >-
-      the names are held one per week rather than as a list beside the weeks, so
-      deleting week two leaves week three called what week three was called
-      instead of shifting every name up one. A cycle that gains a week gains an
-      unnamed one.
+      Names are stored with their weeks. Deleting week two does not rename week
+      three; adding a week creates an unnamed week.
     screen: workout-edit
     uses:
     - template.cycle-week-name
@@ -270,7 +278,8 @@ groups:
   - id: week-names-travel-with-a-shared-routine
     t: The names travel with a shared routine
     d: >-
-      a code carries them in a trailing section of its own, written after the weeks it names and only when some week has a name, so a routine whose weeks are called Volume and Deload arrives called that. A build older than the section stops reading where it starts and gets the routine with its weeks unnamed — which is the same training, since a name is what a week is called rather than what it asks for.
+      Shared routine codes carry week names in an optional trailing section. Older
+      builds stop before that section and import the same weeks without names.
     screen: none
     uses:
     - template.cycle-week-name
@@ -278,9 +287,8 @@ groups:
   - id: an-upgraded-phone-has-no-week-names
     t: An upgraded phone finds its weeks unnamed
     d: >-
-      the column arrives empty on every slot already on a phone, which is exactly
-      what "nobody has named these" means: every week still reads "Week 3" and
-      nothing trains differently.
+      The upgrade adds an empty name column to existing slots. Weeks display their
+      ordinal labels and training behavior is unchanged.
     screen: none
     uses:
     - template.cycle-week-name
@@ -288,10 +296,9 @@ groups:
   - id: editing-the-weeks-does-not-restart-the-cycle
     t: Editing the weeks does not send the slot back to week one
     d: >-
-      where the slot has got to is kept through a builder edit, the way the
-      progression streaks are: fixing a typo in week three must not cost the two
-      weeks already trained. A position past the end of a shortened cycle is read
-      as the last week rather than as an error.
+      Builder edits preserve the slot's cycle position and progression streaks. If
+      a cycle is shortened below the stored position, the position resolves to its
+      final week.
     screen: workout-edit
     uses:
     - template.cycle
@@ -302,16 +309,17 @@ groups:
     t: Build a cycle
     d: >-
       Routines → a routine → a day → edit → tap a slot → Target → Advanced → Set
-      scheme → Cycle. Add a week, then a row per set: reps and the percentage of
-      the training max. The (i) on the Cycle option itself says what a cycle is,
-      before you take it.
+      scheme → Cycle. Add weeks and one row per set with reps and a percentage of
+      the training max. Use the Cycle option's (i) for its definition.
     screen: workout-edit
     uses:
     - template.cycle
   - id: set-the-training-maxes-of-a-routine
     t: Set a routine's training maxes
     d: >-
-      Routines → a routine → the % in the app bar → type a number per lift → Save. The same screen is under Training maxes in the routine builder. What you type lands on every slot in that routine whose percentages come from that lift.
+      Routines → a routine → % in the app bar → enter a number per lift → Save.
+      The builder also links to Training maxes. Values apply to every slot based
+      on that lift.
     screen: routine-training-maxes
     uses:
     - template.percentage-base
@@ -319,9 +327,9 @@ groups:
   - id: name-a-week
     t: Name a week
     d: >-
-      In the same editor, tap the pencil on a week's card → type a name → Save. It
-      takes the place of "Week 3" on that card, on the live board and on the day
-      that offers it. Saving it empty puts "Week 3" back.
+      In the cycle editor, tap a week's pencil → enter a name → Save. The name
+      replaces "Week 3" on the card, live board, and offering day. Saving empty
+      restores "Week 3".
     screen: workout-edit
     uses:
     - template.cycle-week-name

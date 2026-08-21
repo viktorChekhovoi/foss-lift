@@ -1,8 +1,6 @@
 id: "16"
 title: Set videos
-tagline: >-
-  Film a set, and keep the clip attached to the set it was. Everything stays on
-  the phone.
+tagline: Record clips for sets and store them on-device.
 screen: session
 code:
 - lib/services/set_video_store.dart
@@ -16,7 +14,7 @@ code:
 test:
 - test/feature_16_set_videos_test.dart
 where: >-
-  <b>Storage, naming, sweep</b> lib/services/set_video_store.dart · <b>Camera</b>
+  <b>Storage, naming, cleanup</b> lib/services/set_video_store.dart · <b>Camera</b>
   lib/services/set_video_recorder.dart · <b>Screens</b> set_video_screen.dart,
   clip_player_screen.dart, exercise_clips_screen.dart, video_settings_screen.dart
   · <b>Label &amp; speeds</b> lib/util/clip_label.dart · <b>Stills</b> lib/services/set_video_thumbnails.dart
@@ -25,29 +23,28 @@ groups:
 - name: What it does
   items:
   - id: records-one-clip-per-set
-    t: Records one clip per set
+    t: Records one clip for each set
     d: >-
-      from the live workout board, against the set in front of you: tap the camera
-      on the set's row, then the shutter.
+      From the live workout board, tap the camera on a set row and then the shutter.
     screen: set-video
     defines:
     - video.capture
   - id: marks-set-carries-clip
-    t: Marks a set that carries a clip
-    d: so it can be found again.
+    t: Marks sets that have clips
+    d: The marker makes the clip discoverable from the set.
     uses:
     - video.capture
     - session.set-logging
   - id: plays-one-back-full-screen
-    t: Plays one back full screen
+    t: Plays a clip full-screen
     d: >-
-      on black, with play/pause and a scrubber you can drag — at half or quarter
-      speed, looping on request.
+      The player uses a black background with play/pause, a draggable scrubber,
+      0.5× or 0.25× speed, and optional looping.
     screen: clip-player
     defines:
     - video.playback
   - id: shows-what-clips-cost-offers
-    t: Shows what the clips cost, and offers to reclaim it
+    t: Shows clip storage usage and provides cleanup
     d: Profile → Exercise settings → Storage, under Set videos.
     screen: video-settings
     defines:
@@ -58,86 +55,79 @@ groups:
   - video.capture
   items:
   - id: recording-only-way-clip-gets
-    t: Recording is the only way a clip gets in
+    t: Clips can only be recorded in the app
     d: >-
-      nothing is imported from the gallery: that would mean read access to shared
-      storage, its own permission and its own privacy paragraph, for a path nobody
-      asked for.
+      Gallery imports are not supported, so the app does not request shared-storage
+      read access.
     uses:
     - privacy.offline
   - id: no-audio-ever
-    t: No audio, ever
+    t: Recording never includes audio
     d: >-
-      enableAudio: false. A gym is full of other people's conversations, the track
-      is worth nothing for checking bar path, and leaving it off avoids the microphone
-      permission prompt on both platforms.
+      The recorder sets enableAudio: false. This avoids microphone access and keeps
+      surrounding conversations out of clips.
     uses:
     - privacy.offline
     - platform.permissions
   - id: camera-opened-only-while-filming
-    t: The camera is opened only while filming
+    t: The camera is open only while recording
     d: >-
-      and released the moment the recording screen closes. It is never held open
-      in the background.
+      It is released when the recording screen closes and is not held in background.
     uses:
     - platform.permissions
   - id: recording-stops-itself-max-clip
-    t: Recording stops itself at the max clip length
+    t: Recording stops at the maximum clip length
     d: >-
-      60 seconds by default, 3 minutes if asked for. The failure mode that fills
-      a phone is a recording nobody stopped. The last five seconds count down,
-      so the stop is never a surprise.
+      The default is 60 seconds; the optional maximum is 3 minutes. A five-second
+      countdown precedes automatic stopping.
     uses:
     - video.storage
   - id: 720p-default-480p-request
-    t: 720p by default, 480p on request
+    t: Recording uses 720p by default or 480p
     d: >-
-      1080p is not offered — roughly two and a half times the bytes for a judgement
-      720p already answers.
+      1080p is not offered because it substantially increases file size without
+      improving the supported review workflow.
     screen: video-settings
     uses:
     - video.storage
   - id: warm-ups-cannot-filmed
-    t: Warm-ups cannot be filmed
+    t: Warm-up sets cannot be recorded
     d: >-
-      they are suggestions that are never saved, so there is no logged set for
-      a clip to belong to. The column is still reserved on those rows, so the
-      two sections line up.
+      Warm-ups are suggestions, not logged sets, so they have no clip owner. Their
+      reserved column keeps the warm-up and working-set rows aligned.
     screen: session
     uses:
     - session.warmup-ramp
   - id: clip-filmed-mid-session-file
-    t: A clip filmed mid-session is a file plus a path in memory
+    t: A mid-session clip is a file referenced by live state
     d: >-
-      the live workout does not touch the database until Finish. The path is written
-      alongside the set when the session is saved.
+      The live workout does not write to the database until Finish. The clip path is
+      saved with the set then.
     screen: none
     uses:
     - session.live-state
     - video.storage
   - id: abandoning-workout-takes-clips
-    t: A clip with no saved set goes with it
+    t: Unsaved clips are deleted when their session is abandoned
     d: >-
-      abandoning a workout takes its clips — nothing was written, so nothing points
-      at those files — and at Finish a clip on a set that was never logged goes the
-      same way, because the set is not saved either.
+      Abandoning a workout deletes its clips. At Finish, a clip on an unlogged set
+      is also deleted because its set is not persisted.
     screen: none
     uses:
     - session.abort
     - session.finish
     - video.storage
   - id: deleting-clip-leaves-set-alone
-    t: Deleting a clip leaves the set alone
-    d: a bad take is not a set that did not happen.
+    t: Deleting a clip does not delete its set
+    d: The set remains in history.
     screen: session
     uses:
     - video.storage
   - id: re-filming-replaces
-    t: Re-filming replaces the take
+    t: Re-recording replaces the existing clip
     d: >-
-      tap the camera again on a set that already has a clip to re-film it or delete
-      it. The take it replaces is deleted then and there rather than left for the
-      sweep.
+      Tap the camera on a set with a clip to record a replacement or delete it. The
+      replaced file is deleted immediately.
     screen: session
     uses:
     - video.capture
@@ -148,28 +138,26 @@ groups:
   - video.playback
   items:
   - id: loop-you-switch
-    t: A loop you switch on
+    t: Playback looping is opt-in
     d: >-
       off to begin with, because a clip that plays once and stops is what opening
       one leads you to expect. Looping is what you reach for once you have found
       the rep worth watching again.
   - id: slow-motion-0-5-0
-    t: Slow motion at 0.5× and 0.25×
+    t: Playback supports 0.5× and 0.25× speed
     d: >-
-      on a cycling control. Nothing above 1×: this is for inspecting a rep, not
-      skipping one.
+      Speed is selected with a cycling control. Speeds above 1× are not offered.
   - id: frame-frame-stepping-out-scope
-    t: Frame-by-frame stepping is out of scope, deliberately
+    t: Frame-by-frame stepping is not supported
     d: >-
-      landing on an exact frame means seeking past the nearest keyframe and decoding
-      forward, which the player cannot be relied on to do. Revisit it if the underlying
-      player gains an exact-seek option.
+      Exact-frame seeking would require decoding forward from a keyframe, which the
+      current player does not guarantee. Revisit if the player adds exact seeking.
     screen: none
   - id: clip-whose-file-has-gone
-    t: A clip whose file has gone says so
+    t: Missing clip files are reported
     d: >-
-      rather than sitting at nought seconds. A row can outlive its file if one
-      is removed by hand.
+      The player reports the missing file instead of showing a zero-duration clip.
+      A row can outlive a file removed outside the app.
     uses:
     - video.storage
 - name: Finding one again
@@ -178,60 +166,58 @@ groups:
   - video.playback
   items:
   - id: exercise-s-own-reel
-    t: The exercise's own reel lists every clip of that movement
+    t: An exercise reel lists all clips for that movement
     d: >-
-      a flat list, newest first, each clip labelled with the set it came from — Mar 12 · set 3 · 100 kg × 5, with the date written the way the language writes dates. Your squat over months, in one place. Reach it from Library → the exercise → N clips, or from History → a session → an exercise marked with a play symbol.
+      It is a flat, newest-first list. Each row includes the localized date, set
+      number, and recorded load and reps (for example, Mar 12 · set 3 · 100 kg × 5).
+      Open it from Library → exercise → N clips or History → session → the exercise
+      marked with a play symbol.
     uses:
     - load.units
     - history.session-record
     - ui.language
   - id: row-shows-frame-from-its-clip
-    t: Each row shows a frame from its own clip
+    t: Each reel row shows a frame from its clip
     d: >-
-      the first frame, so a reel of six squat sets is six squats rather than six
-      identical play symbols. Scanning for the session you meant is the thing
-      the reel is for.
+      The first frame identifies each clip and distinguishes sessions with similar
+      sets.
     defines:
     - video.still
     uses:
     - video.storage
   - id: frame-decoded-once-kept-beside-clip
-    t: The frame is decoded once and kept beside the clip
+    t: Clip frames are decoded once and cached beside the clip
     d: >-
-      as &lt;id&gt;.jpg, written the first time the clip is listed rather than
-      when it is filmed — a clip that predates stills gets one the next time you
-      look at it. Decoding on every build of the list is the naive version, and
-      it gets slower the more you film.
+      The still is stored as &lt;id&gt;.jpg when the clip is first listed. Clips made
+      before still generation receive one on their next listing; later listings
+      reuse it.
     screen: none
     uses:
     - video.still
   - id: frame-will-not-decode-falls-back
-    t: A frame that will not decode falls back to the play symbol
+    t: Undecodable frames fall back to the play icon
     d: >-
-      the row still lists what the set was and still plays. A decoder that
-      cannot read one clip is not a reason to hide it.
+      The row still shows the set details and can play the clip.
     uses:
     - video.still
   - id: button-appears-only-once-there
-    t: The button appears only once there is something to watch
+    t: The reel button appears only when clips exist
     d: >-
-      an empty reel is a button that teaches you the feature exists by disappointing
-      you.
+      An empty reel has no button.
     uses:
     - ui.empty-state
   - id: session-recap-marks-filmed-exercise
-    t: The session recap marks a filmed exercise
+    t: The session recap marks exercises with clips
     d: >-
-      with a play symbol and a "N filmed" count. With more than one filmed set
-      of the same movement the choice is offered rather than guessed at.
+      It shows a play symbol and an "N filmed" count. When multiple sets are filmed,
+      the user chooses the clip instead of the app guessing.
     screen: summary
     uses:
     - session.recap
   - id: label-reads-identically-both-places
-    t: The label reads identically in both places
+    t: Clip labels are consistent across both screens
     d: >-
-      one implementation (clipLabelOf), two callers — the same clip must not appear
-      to be two different things.
+      Both callers use clipLabelOf.
     screen: none
 - name: Storage — the policy, stated
   screen: none
@@ -239,35 +225,33 @@ groups:
   - video.storage
   items:
   - id: nothing-ever-deleted-automatically
-    t: Nothing is ever deleted automatically
+    t: Clips are never deleted by retention rules
     d: >-
-      every retention rule deletes the oldest clip first, and the oldest clip
-      is the one the feature exists for. It would optimise the cost by throwing
-      away the point.
+      Clips remain until the user deletes them or cleanup removes an orphan.
   - id: caps-do-work-instead
-    t: The caps do the work instead
-    d: one clip cannot be large, so the library cannot grow surprisingly fast.
+    t: Storage caps limit library growth
+    d: Per-clip and total caps limit storage growth.
     screen: video-settings
   - id: clips-live-app-private-storage
     t: Clips live in app-private storage
     d: >-
-      getApplicationSupportDirectory(), a set_videos/ subfolder — never the shared
-      gallery, never uploaded, and no share sheet.
+      Files use getApplicationSupportDirectory()/set_videos/. They are not in the
+      shared gallery, uploaded, or exposed through a share sheet.
     uses:
     - privacy.offline
   - id: only-relative-paths-stored
-    t: Only relative paths are stored
+    t: Only relative clip paths are stored
     d: >-
-      set_videos/&lt;id&gt;.mp4, joined onto a freshly resolved directory every
-      time. The iOS container path carries a UUID that changes on reinstall and
-      restore.
+      The database stores set_videos/&lt;id&gt;.mp4 and resolves it against the current
+      app directory. This avoids depending on the iOS container UUID, which can
+      change after reinstall or restore.
     defines:
     - platform.portability
   - id: filename-generated-id
-    t: The filename is a generated id
+    t: Clip filenames use generated IDs
     d: >-
-      not a timestamp, which collides, and not the exercise name, which would
-      leak what somebody trains to anything that can list the directory.
+      Names are not timestamps, which can collide, or exercise names, which would
+      expose the user's training to a directory reader.
     uses:
     - privacy.offline
 - name: Never a dead reference
@@ -276,26 +260,24 @@ groups:
   - video.storage
   items:
   - id: sweep-launch-removes-any-file
-    t: Deleting goes row first, then file, and a sweep on launch collects the rest
+    t: Deletion removes the row first; launch cleanup removes orphan files
     d: >-
-      the sweep removes any clip in set_videos/ that no row points at, but leaves
-      files younger than kOrphanGrace (24 hours) alone — without that guard it would
-      delete the clip of the set being filmed right now, which has no row yet by
-      design.
+      Launch cleanup removes unreferenced clips from set_videos/, except files
+      younger than kOrphanGrace (24 hours). A clip being recorded has no database
+      row until its set is saved.
   - id: sweep-judges-clips-not-stills
-    t: The sweep judges clips, and stills follow their clip
+    t: Cleanup evaluates clips separately from cached stills
     d: >-
-      no row points at a still, so a sweep that asked the same question of every
-      file would delete every cached frame on the first launch after one existed,
-      and the reel would silently decode the lot again. A clip that goes takes its
-      still with it, and a second pass collects stills whose clip has already gone.
+      Still files have no database rows. Cleanup deletes a still with its clip and
+      removes remaining stills whose clip is absent in a second pass.
     uses:
     - video.still
   - id: there-no-way-delete-session
-    t: There is no way to delete a session in the app today
+    t: The app has no session-delete action
     d: >-
-      when one exists, the rows go with the session by foreign-key cascade and
-      the files become orphans the sweep collects.
+      No session-delete action is exposed in the app. If a session is removed by
+      database behavior, foreign-key cascade removes its rows and launch cleanup
+      removes the resulting orphan files.
     uses:
     - history.session-record
     - storage.schema

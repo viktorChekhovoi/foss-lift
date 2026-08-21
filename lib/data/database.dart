@@ -33,134 +33,57 @@ part 'database.g.dart';
 // Tables
 // ---------------------------------------------------------------------------
 
-/// The longest a routine, workout or exercise may be named.
-///
-/// The schema enforces it on every one of those tables, which makes an
-/// over-long name a failed write rather than a truncated one — so every field
-/// that feeds them caps typing at this length instead of letting the insert
-/// find out. Long enough for the longest real movement name and short enough
-/// to stay on one line of a card.
+/// Maximum length for routine, workout, and exercise names.
 const int kMaxNameLength = 80;
 
-/// The longest a routine's description may be, in characters.
-///
-/// A paragraph, not an essay: it is read on a card and on the screen that offers
-/// a program, and it travels inside a routine code where every byte is measured
-/// against what a QR can hold. The same cap the exercise note takes, for the same
-/// reason — the field enforces it while typing, so an over-long one is never a
-/// failed write.
+/// Maximum length for routine descriptions.
 const int kMaxDescriptionLength = 300;
 
-/// The exercise library (Bench Press, Squat, …). Ships with a curated set;
-/// users can add their own ([isCustom] == true).
+/// Exercise library, including user-created exercises.
 class Exercises extends Table {
   IntColumn get id => integer().autoIncrement()();
 
-  /// The canonical English name. What a routine code carries, what history
-  /// denormalises, and what an importer matches on — see `seedKey` for what is
-  /// actually rendered.
+  /// Canonical English name used by history and routine codes.
   TextColumn get name => text().withLength(min: 1, max: kMaxNameLength)();
 
-  /// Which movement of the starter library this is, or null for one you added.
-  ///
-  /// A screen renders `seededName(l10n, seedKey, name)` rather than `name`, so
-  /// the whole starter library follows a language switch instead of being
-  /// frozen at whatever the phone was set to on install day. Seeded exercises
-  /// cannot be renamed (see [isCustom]), so unlike a routine or a training day
-  /// this key is never cleared. See `util/seed_names.dart`.
+  /// Starter-library key, or null for a user-created exercise.
   TextColumn get seedKey => text().nullable()();
 
-  /// The lead muscle group — the first of the primaries, and the one the
-  /// library files the movement under. Read [ExerciseMuscles.muscles] rather
-  /// than this column wherever the question is "what does it work"; this is
-  /// where it goes, which is a narrower fact.
-  ///
-  /// It stays a column of its own rather than being the head of the list below
-  /// because it is what `watchExercises` orders by and what an FLR1 routine code
-  /// carries.
+  /// Lead muscle group used for filing and ordering exercises.
   TextColumn get muscleGroup => text().withDefault(const Constant('Other'))();
 
   TextColumn get equipment => text().withDefault(const Constant('Other'))();
   TextColumn get videoUrl => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 
-  /// Whether the movement is counted or held — see [ExerciseMeasure]. Decides
-  /// which progression axes a workout may put it on.
+  /// Whether the movement is counted in reps or held for time.
   TextColumn get measure =>
       textEnum<ExerciseMeasure>().withDefault(const Constant('reps'))();
 
-  /// How the load is arranged — see [WeightType]. Decides what the weight
-  /// column *means*, and so whether it can be broken down into plates.
-  ///
-  /// Defaults to [WeightType.machine]: the number is the number, which is the
-  /// only reading that is never wrong for something that carries a weight. It
-  /// is deliberately not [WeightType.none] — almost every movement is loaded,
-  /// so a movement nobody has classified is loaded too.
-  ///
-  /// [WeightType.none] is stored like any other value, and means the movement
-  /// carries nothing: a push-up, a plank. Nothing downstream offers it a
-  /// weight.
+  /// How the movement is loaded, determining the meaning of its weight.
   TextColumn get weightType =>
       textEnum<WeightType>().withDefault(const Constant('machine'))();
 
-  /// What you need to remember about this movement at your gym: the seat
-  /// setting, the rack pin, how far down you take it, which cable stack sticks.
-  ///
-  /// Personal, and deliberately so. This is not the coaching cue that used to
-  /// live here and was deleted — that was general advice, which travels badly
-  /// because it is long and because the demo link says it better. A note is
-  /// specific to one person at one gym, which is why it never travels at all:
-  /// "seat 4, pin 7" is not merely useless on someone else's machine, it is
-  /// wrong. Nothing puts this in a routine code.
-  ///
-  /// Capped at 300 characters, which is a couple of settings and a reminder —
-  /// past that it stops being something you can read between sets.
+  /// Personal gym note, excluded from shared routine codes.
   TextColumn get notes => text().nullable().withLength(max: 300)();
 
-  /// What *this* movement's bar weighs, in kg, when the gym's default is wrong
-  /// for it. Null — the usual case — means the default from settings.
-  ///
-  /// Per exercise rather than app-wide because a gym is not one bar: the EZ
-  /// curl bar is 10, the trap bar 25, the Smith carriage counterweighted to
-  /// something else again, and every one of them is a fact about the movement
-  /// you do on it. Ignored unless [weightType] is [WeightType.bar].
+  /// Exercise-specific bar weight in kg, or null for the configured default.
   RealColumn get barWeight => real().nullable()();
 
-  /// The primaries after the lead, [kGroupSeparator]-joined, or empty for a
-  /// movement that trains one group.
+  /// Additional primary groups, joined by [kGroupSeparator].
   TextColumn get extraPrimaryGroups =>
       text().withDefault(const Constant(''))();
 
-  /// The groups the movement only assists, [kGroupSeparator]-joined.
+  /// Secondary muscle groups, joined by [kGroupSeparator].
   TextColumn get secondaryGroups => text().withDefault(const Constant(''))();
 
-  /// The unit this one movement is read and typed in — `kg` or `lb` — when the
-  /// app-wide one is wrong for it. Null, the usual case, means it follows the
-  /// app.
-  ///
-  /// Per exercise rather than app-wide because a gym is not one unit: the
-  /// dumbbell rack is stamped in pounds and the bar is loaded in kilograms, and
-  /// which one a lift is counted in is a fact about the lift. Storage is
-  /// unaffected — every weight in this app is kilograms, here as everywhere —
-  /// but the override travels with the movement into everything that reads or
-  /// asks for one of its weights: the board, the builder, the ramp's loadable
-  /// grid and its slots' step rates.
+  /// Display-unit override for this movement, or null for the app unit.
   TextColumn get unitOverride => text().nullable()();
 
-  /// How many warm-up rungs this movement opens with, over
-  /// `Settings.warmupSets`. Null follows the setting; zero is a movement you
-  /// never warm up for.
-  ///
-  /// Consulted only while the app-wide count is above zero — see
-  /// [warmupCountFor]. None app-wide means the app suggests no ramps at all, and
-  /// a movement's own count is not an exemption from that.
+  /// Exercise-specific warm-up count; null follows `Settings.warmupSets`.
   IntColumn get warmupSets => integer().nullable()();
 
-  // The group columns sit at the end of the table rather than beside
-  // `muscleGroup`, where they read better, because `ALTER TABLE ADD COLUMN`
-  // can only append: putting them here is what makes an upgraded database the
-  // same shape as a fresh one. The two columns after them are there for the
-  // same reason, and whatever comes next goes below these.
+  // Keep appended columns at the end so upgrades and fresh databases share the same column order.
 }
 
 /// The three group columns of an exercise row, read as the one fact they are.
@@ -326,7 +249,6 @@ class WorkoutItems extends Table {
   /// Consecutive missed sessions before the target backs off.
   IntColumn get failureThreshold =>
       integer().withDefault(const Constant(defaultFailureThreshold))();
-
 
   /// Clean sessions since the last step up or miss.
   ///

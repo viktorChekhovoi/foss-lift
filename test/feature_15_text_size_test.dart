@@ -1,14 +1,4 @@
-// Integration tests for features/index.html#sec15 — the app at every text size.
-//
-// The app follows the phone's text setting, and the user can nudge it on top of
-// that. Both halves are here: the arithmetic that combines and clamps them, and
-// a sweep that mounts every screen at every scale the pair can produce and
-// fails on any overflow.
-//
-// The sweep is the point. Most of the app's text carries a hard-coded fontSize
-// and several layouts are built from fixed widths, so "it survives a large
-// font" is not something anybody can hold in their head — it has to be checked
-// mechanically, on every screen, every time.
+// Integration tests for text scaling and overflow across the app (features/index.html#sec15).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

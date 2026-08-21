@@ -1,8 +1,7 @@
 id: "02"
 title: Routines & workouts
 tagline: >-
-  A program is three levels deep — routine → workout → exercise slot. You build,
-  edit, reorder and delete at every level.
+  Organize routines, workouts, and exercise slots; edit, reorder, and delete each level.
 screen: routines
 code:
 - lib/screens/routines_screen.dart
@@ -30,8 +29,8 @@ groups:
   - id: routine-whole-programme
     t: A routine is a whole program
     d: >-
-      Push/Pull/Legs, Upper/Lower… It carries a name, a colour, a default rest
-      time and its weekly schedule.
+      A routine such as Push/Pull/Legs or Upper/Lower has a name, colour, default
+      rest time, and weekly schedule.
     defines:
     - template.routine
     uses:
@@ -39,7 +38,8 @@ groups:
   - id: routine-can-describe-itself
     t: A routine can say what it is
     d: >-
-      an optional paragraph on the routine — who the program is for, how often it is trained, what it is trying to do. It is shown on the routine's own page, it travels in a routine code, and it is what every program in the library arrives already carrying. A routine nobody has described shows nothing at all, rather than an empty line where a paragraph would go.
+      An optional description is shown on the routine page, included in routine
+      codes, and supplied for library programs. Empty descriptions are omitted.
     screen: routine-detail
     defines:
     - template.description
@@ -50,11 +50,8 @@ groups:
   - id: workout-one-training-day-inside
     t: A workout is one session's worth of exercises inside a routine
     d: >-
-      this is the thing you actually Start. It is called a workout everywhere —
-      on the screens, in the tour and in here — because a routine is a set of
-      them and picking a second noun for the same thing only ever costs a reader.
-      Names need not be unique inside a routine — Upper/Lower legitimately has
-      "Upper 1" and "Upper 2".
+      A workout is the session started from the app. Workout names need not be
+      unique within a routine.
     defines:
     - template.workout
   - id: exercise-slot-one-exercise-inside
@@ -79,12 +76,10 @@ groups:
   - id: workout-carries-estimated-duration
     t: A workout says how long it will take
     d: >-
-      an estimate read off the template alone — the working sets, the warm-up
-      rungs before them at the count Settings asks for, the rest after every set
-      but the last, and time under the bar scaled by the reps or the hold. A day
-      with its ramps switched off, or a count of none, is priced on its working
-      sets alone. Shown as a single rounded figure next to the exercise count, on
-      the workout and on its Today card.
+      Derived from working sets, configured warm-up rungs, rest after each
+      non-final set, and time under load scaled by reps or hold duration. Disabled
+      ramps and zero warm-ups contribute no warm-up time. The rounded estimate is
+      shown beside the exercise count on the workout and Today card.
     screen: workout-detail
     defines:
     - template.duration-estimate
@@ -98,9 +93,8 @@ groups:
   - id: day-shows-which-exercises-are-supersetted
     t: A workout shows which of its exercises are supersetted
     d: >-
-      the joined rows are bracketed together and the top one tagged, so what is
-      trained back to back is answered before Start rather than discovered on the
-      board.
+      Joined rows are bracketed and the first row is tagged, identifying the
+      back-to-back group before the session starts.
     screen: workout-detail
     uses:
     - template.superset
@@ -109,9 +103,8 @@ groups:
   - id: see-current-routine-s-days
     t: See the current routine's workouts
     d: >-
-      the Today tab lists them directly, under the routine's name in full — it
-      wraps rather than truncating, at any text size. Starting a workout is two
-      taps: tap a workout → Start.
+      Today lists workouts below the full routine name and wraps the name at any
+      text size. Start a workout with tap workout → Start.
     screen: today
     uses:
     - template.active-routine
@@ -119,7 +112,9 @@ groups:
   - id: a-long-routine-offers-the-next-session-rather-than-all-of-them
     t: A long routine offers the session you are on, not all of them
     d: >-
-      a split has three or four days and listing them is the whole screen; a sixteen-week program written out session by session has forty-eight, and listing those buries everything under them and answers a question nobody asked. So past a week's worth of days, Today shows the one you are on with the one before and the two after it, and a line underneath opens the rest in place — "Show all 48". Opened, it is the plain list it always was. Nothing is hidden from the routine's own screen, which is where you go to look at the program rather than to train.
+      For routines longer than one week, Today shows the current workout, the
+      previous workout, and the next two, with Show all N expanding the complete
+      list. The routine page always shows every workout.
     screen: today
     defines:
     - template.long-routine
@@ -129,9 +124,8 @@ groups:
   - id: pick-change-current-routine
     t: Pick / change the current routine
     d: >-
-      Routines → open one → the radio button in its app bar makes it the routine
-      Today is about. It is already filled in on the routine that holds that
-      place, and disabled there.
+      Routines → open a routine → select the app-bar radio button. The current
+      routine is selected and its control is disabled.
     screen: routine-detail
     uses:
     - template.active-routine
@@ -139,10 +133,9 @@ groups:
   - id: open-routine-see-its-days
     t: A routine's page lists its workouts
     d: >-
-      numbered, in the order you train them, each with the exercises it holds
-      and the one you are due next badged. Tapping a workout opens it; the app bar
-      carries share and edit. You start a workout from its own page, never from the
-      routine.
+      Workouts are numbered in training order, show their exercises, and badge the
+      next due workout. Tap a workout to open it; its app bar contains share and
+      edit. Start from the workout page.
     screen: routine-detail
     uses:
     - template.routine
@@ -150,10 +143,9 @@ groups:
   - id: build-edit-routine
     t: Build / edit a routine
     d: >-
-      Routines → open a routine → edit → name, description, colour, default rest,
-      schedule, and the list of workouts: add, delete, and drag by the handle on
-      the left of each row into the order you train them. A new one starts at
-      Routines → + → New routine, on the same screen with nothing filled in.
+      Routines → open → edit to change name, description, colour, default rest,
+      schedule, and workout order. Add or delete workouts and drag their handles.
+      Create with Routines → + → New routine.
     screen: routine-edit
     uses:
     - template.routine
@@ -164,8 +156,8 @@ groups:
   - id: build-edit-day-s-exercises
     t: Build / edit a workout's exercises
     d: >-
-      open a workout → edit → add exercises from the picker, drag them by the
-      handle into order, configure each slot. The same control at both levels.
+      Open a workout → edit → add exercises from the picker, drag handles to
+      reorder them, and configure each slot.
     screen: workout-edit
     uses:
     - template.workout
@@ -175,19 +167,16 @@ groups:
   - id: estimate-rounded-not-precise
     t: The estimate is rounded to five minutes and marked as approximate
     d: >-
-      a workout that comes out at 47 minutes reads <b>~45 min</b>. Anything above
-      zero rounds up to at least five, and a workout with no exercises shows no
-      estimate at all rather than zero.
+      A 47-minute calculation displays <b>~45 min</b>. Positive values round to a
+      five-minute increment; workouts with no exercises omit the estimate.
     screen: workout-detail
     uses:
     - template.duration-estimate
   - id: estimate-follows-template-edits
     t: The estimate moves when the template does
     d: >-
-      add a set, widen the rep range, lengthen the rest or override it on one
-      slot, and the figure on the workout and on the Today card follows.
-      A slot's own rest override is used where it is set; every other slot falls
-      back to the routine's default rest.
+      Set count, rep range, and rest edits update the workout and Today values.
+      A slot-specific rest override takes precedence over the routine default.
     screen: workout-detail
     uses:
     - template.duration-estimate
@@ -195,10 +184,8 @@ groups:
   - id: estimate-prices-a-superset-as-one-rest-a-round
     t: The estimate prices a superset as one rest per round
     d: >-
-      the movements of a group are performed back to back with nothing between
-      them, so the figure counts every member's work and one rest at the end of
-      each round. Joining two exercises therefore shortens the day by as many rests
-      as the group has rounds.
+      Counts each member's work and one rest after each round; no rest is counted
+      between members of a superset.
     screen: workout-detail
     uses:
     - template.duration-estimate
@@ -207,11 +194,9 @@ groups:
   - id: estimate-is-planned-time-not-history
     t: The estimate is what the plan costs, not what past sessions took
     d: >-
-      logged durations are wall-clock from Start to Finish with no pause, so a
-      session left running while you walk home records an hour that was never
-      trained and nothing stored distinguishes it. The estimate is derived from
-      the template alone, which is also what lets a workout that has never been
-      trained carry one.
+      Session duration is wall-clock time from Start to Finish and is not used for
+      estimates. Estimates derive only from the template, including untrained
+      workouts.
     screen: none
     uses:
     - template.duration-estimate
@@ -219,10 +204,10 @@ groups:
   - id: editing-split-match-hierarchy
     t: Editing is split to match the hierarchy
     d: >-
-      the routine editor changes routine meta and its list of workouts; the workout
-      editor changes the exercises inside one workout. Renaming or reordering workouts
-      never disturbs the exercises inside them, and only workouts you actually
-      removed are deleted.
+      The routine editor changes routine metadata and its workout list. The
+      workout editor changes exercises in one workout. Renaming or reordering
+      workouts preserves their exercises; only explicitly removed workouts are
+      deleted.
     screen: routine-edit
     uses:
     - template.routine
@@ -231,7 +216,9 @@ groups:
   - id: description-of-a-shipped-program-follows-the-language
     t: A program's description follows the language until you rewrite it
     d: >-
-      the description a library program arrives with is canonical English on the row, like its name, and is resolved through the program's seed key when it is drawn. Write your own over it and yours is what is shown, in every language — the same bargain renaming a shipped routine strikes.
+      Library descriptions are resolved from the seeded English value and follow
+      the app language. Editing the description stores a custom value shown in all
+      languages.
     screen: routine-detail
     uses:
     - template.description
@@ -241,20 +228,21 @@ groups:
   - id: description-capped-at-a-paragraph
     t: A description is capped at a paragraph
     d: >-
-      300 characters, enforced while typing rather than at the insert, so an over-long one is never a failed write. It is read on the screen that offers a program and it travels inside a routine code, where every byte is measured against what a QR can hold.
+      Limited to 300 characters while typing. The value appears wherever the
+      program is offered and is included in routine codes.
     screen: routine-edit
     uses:
     - template.description
     - share.routine-code
   - id: you-can-build-routine-s
     t: You can build a routine's exercises before saving it
-    d: drafts are held in memory and written on save.
+    d: Draft changes remain in memory until save.
     screen: routine-edit
     uses:
     - template.item
   - id: deleted-current-routine-degrades-none
     t: A deleted current routine degrades to "none"
-    d: rather than dangling — Today falls back to the routine chooser.
+    d: Today falls back to the routine chooser.
     screen: today
     uses:
     - template.active-routine
@@ -262,8 +250,8 @@ groups:
   - id: you-never-train-routine
     t: You never train "a routine"
     d: >-
-      there is no build button next to start a routine; that screen is for working
-      out, not editing.
+      The routine screen has no build button beside Start; editing is done through
+      the routine and workout editors.
     screen: none
     uses:
     - template.routine

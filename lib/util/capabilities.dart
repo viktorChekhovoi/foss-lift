@@ -1,19 +1,5 @@
-/// What the build you are running is actually able to do.
-///
-/// The app ships for Android and for the browser out of one codebase, and a
-/// browser cannot do several of the things a phone can: schedule a
-/// notification, write a video file into app storage, read camera frames one at
-/// a time, or keep a foreground service alive. None of that is a bug to be
-/// worked around — it is a smaller machine, and the honest response is to not
-/// offer the control at all.
-///
-/// **This is a capability list, not a platform check.** Screens ask "can this
-/// build film a set" rather than "is this the web", which is what keeps the
-/// iOS port from having to re-derive the answer at every call site, and what
-/// lets a test mount a screen as if it were in a browser without a browser.
-/// The services that predate it — `ReminderService.supported`,
-/// `WorkoutShade.supported`, `RestAlarm.supported` — already have this shape;
-/// this is the same idea moved somewhere the widgets can reach.
+/// Capabilities available in the current build; screens use this set instead of branching on a specific platform.
+
 library;
 
 import 'package:flutter/foundation.dart';

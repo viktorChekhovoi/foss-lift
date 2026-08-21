@@ -1,14 +1,4 @@
-// Integration tests for features/index.html#sec16 — filming a set.
-//
-// The camera itself is the one part of this a device has to check, and it is
-// deliberately the smallest part. Everything that can be got wrong without one
-// is here: where a clip lands, what it is named, what happens to the file when
-// a workout is abandoned or a set never logged, and the rule the whole storage
-// design turns on — that an ordering can strand a file but never a row pointing
-// at nothing.
-//
-// The recorder is faked (see [_FakeRecorder]); the store is real, pointed at a
-// temporary directory.
+// Integration tests for recording, storing, and displaying set videos (features/index.html#sec16). The recorder is faked; storage uses a temporary directory.
 
 import 'dart:convert';
 import 'dart:io';

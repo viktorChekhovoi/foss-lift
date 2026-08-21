@@ -1,6 +1,6 @@
 id: "13"
 title: Offline & privacy
-tagline: Everything is on-device. No network, no account, no telemetry.
+tagline: All data stays on-device; the app has no network, account, or telemetry.
 screen: about
 code:
 - lib/screens/about_screen.dart
@@ -9,32 +9,28 @@ code:
 test:
 - test/feature_13_offline_and_privacy_test.dart
 where: >-
-  <b>Screens</b> lib/screens/about_screen.dart · <b>Database</b> lib/data/database.dart
-  (drift over SQLite) · <b>Clip storage</b> lib/services/set_video_store.dart
-  · <b>Statement</b> PRIVACY.md
+  <b>About</b> lib/screens/about_screen.dart · <b>Database</b> lib/data/database.dart
+  (drift over SQLite) · <b>Clip storage</b> lib/services/set_video_store.dart · <b>Policy</b> PRIVACY.md
 groups:
 - name: What it does
   items:
   - id: makes-no-network-connections-collects
-    t: Makes no network connections and collects nothing
+    t: Makes no network connections and collects no telemetry
     d: >-
-      no account, no server, no analytics — nothing to sign in to and nothing to
-      configure, and the app works fully offline. Nothing in the app is allowed
-      to so much as import a way of making a request; the two files that reach
-      the browser's own APIs for the web build are named one by one and held to
-      a stricter rule instead, so an exemption is a decision somebody made
-      rather than a gap that opened.
+      The app has no account, server, or analytics and works offline. Request-capable
+      imports are prohibited except for two named browser-API files used by the web
+      build.
     screen: none
     defines:
     - privacy.offline
     uses:
     - platform.web
   - id: stores-all-data-device
-    t: Stores all data on the machine you are using
+    t: Stores all data on the current device
     d: >-
-      in a local SQLite database (drift) — a file in the app's own storage on a
-      phone, and the browser's storage for the page's origin on the web. Same
-      schema, same queries, no server either way.
+      Data is stored in a local drift/SQLite database: app-private phone storage,
+      or the browser storage for the page origin on web. Both use the same schema
+      and queries.
     screen: none
     defines:
     - storage.schema
@@ -42,21 +38,18 @@ groups:
     - storage.database-location
     - privacy.offline
   - id: preferences-live-one-row
-    t: Every app-wide preference lives in one row
+    t: App-wide preferences live in one row
     d: >-
-      the unit, the current routine, the theme, the text-size nudge, the layoff
-      rules, the plate rack, the clip caps, the warm-up rung count and whether
-      the tour has run. A write
-      patches only the columns it names and creates the row if it is missing, so
-      two screens saving different preferences at once cannot overwrite each
-      other's.
+      The row contains the unit, current routine, theme, text-size adjustment,
+      layoff rules, plate rack, clip caps, warm-up count, and tutorial flag. A write
+      updates only named columns and creates the row if absent.
     screen: none
     defines:
     - storage.settings
     uses:
     - storage.schema
   - id: update-keeps-what-is-already-stored
-    t: Installing an update keeps what is already stored
+    t: Updates preserve stored data
     d: >-
       the database climbs a numbered ladder as it opens — one rung per schema
       change, each taking the shape before it to the shape after — so a phone
@@ -70,7 +63,7 @@ groups:
     - storage.schema
     - storage.settings
   - id: existing-workouts-arrive-with-no-supersets
-    t: A workout from before the update has no supersets in it
+    t: Pre-update workouts contain no supersets
     d: >-
       the join between two slots is a new column that defaults to off, so every
       slot on an installed phone keeps standing on its own and no existing day
@@ -81,7 +74,7 @@ groups:
     - storage.migration
     - template.superset
   - id: an-update-brings-the-new-starter-movements
-    t: An update brings the starter movements the phone has never had
+    t: Updates add missing starter movements
     d: >-
       the starter library grows, and a phone that never got the additions cannot
       be given a routine that uses one — so the shipped set is walked on upgrade
@@ -95,7 +88,7 @@ groups:
     - storage.migration
     - exercise.seed
   - id: sets-logged-before-the-update-carry-no-readouts
-    t: A set logged before the update carries no console readouts
+    t: Pre-update sets have no console readouts
     d: >-
       speed, incline, resistance and distance are four nullable columns added to
       the logged-set table, so every set already in the history arrives with all
@@ -107,14 +100,14 @@ groups:
     - session.console-metrics
     - history.session-record
   - id: only-notification-local-one
-    t: The only "notification" is a local one
+    t: Notifications are local only
     d: scheduled on-device; it never leaves the phone.
     screen: shade
     uses:
     - platform.reminders
     - privacy.offline
   - id: says-so-once-about-screen
-    t: Says so, once, on an About screen
+    t: States the privacy model on About
     d: >-
       Profile → About Foss Lift: what the app does with your data, the licence, and
       an address to report a bug to.
@@ -133,7 +126,7 @@ groups:
 - name: Behaviour & edge cases
   items:
   - id: ui-never-touches-sqlite-directly
-    t: The UI never touches SQLite directly
+    t: The UI does not access SQLite directly
     d: >-
       screens watch providers, providers call the single AppDatabase — which is
       why there's one well-defined place all data lives.
@@ -141,7 +134,7 @@ groups:
     uses:
     - storage.schema
   - id: three-outward-hand-offs-all
-    t: The three outward hand-offs are all to another app you can see
+    t: Outward hand-offs open another app
     d: >-
       a demo link to the browser, a share code to the system share sheet, a bug
       report to a mail app. None is the app talking to a server — it holds no
@@ -152,7 +145,7 @@ groups:
     - share.deep-link
     - exercise.video-url
   - id: camera-used-twice-two-uses
-    t: The camera is used twice, and the two uses are not alike
+    t: The camera is used only for scanning and recording
     d: >-
       scanning a QR examines frames and drops them. Filming a set writes a file,
       and it is the first data the app holds that is recognisably a person — so
@@ -164,7 +157,7 @@ groups:
     - video.capture
     - platform.permissions
   - id: plugin-permissions-are-pruned
-    t: A permission a plugin wants and the app does not is taken back out
+    t: Unneeded plugin permissions are removed
     d: >-
       the list a phone shows is the merged manifest, not the one in this
       repository, and plugins add their own — the camera library declares the
@@ -179,7 +172,7 @@ groups:
     - platform.permissions
     - platform.android
   - id: there-no-upload-path-no
-    t: There is no upload path and no share sheet for a clip
+    t: Clips have no upload path or share action
     d: >-
       every other shareable thing in the app has one; this deliberately does not.
     screen: none
@@ -187,7 +180,7 @@ groups:
     - video.storage
     - privacy.offline
   - id: clips-one-thing-can-fill
-    t: Clips are the one thing that can fill a phone
+    t: Clips are the only unbounded local data
     d: >-
       the only data the app holds that grows without bound, which is why what they
       cost is a screen of its own.

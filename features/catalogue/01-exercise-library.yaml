@@ -1,7 +1,7 @@
 id: "01"
 title: Exercise library
 tagline: >-
-  A curated, searchable starter set of exercises, plus custom exercises you create.
+  Search the seeded exercise set or add custom exercises.
 screen: library
 code:
 - lib/screens/library_screen.dart
@@ -28,8 +28,7 @@ groups:
   - id: ships-85-starter-exercises
     t: Ships 141 starter exercises
     d: >-
-      most of them with a demo-video link, in the canonical
-      https://youtu.be/&lt;id&gt; short form.
+      Most include a demo video stored as https://youtu.be/&lt;id&gt;.
     defines:
     - exercise.seed
     uses:
@@ -37,12 +36,9 @@ groups:
   - id: the-paused-competition-lifts-are-in-the-starter-set
     t: The three paused competition lifts are in the starter set
     d: >-
-      the pause squat, the paused bench press and the pause deadlift — the same
-      three bars held still mid-rep, which is how most intermediate powerlifting
-      programs write a variation day. They file with the lifts they are versions
-      of, load off the same bar, and carry their own history, because a paused
-      squat at 70% is not a squat and averaging the two would tell you nothing
-      about either.
+      The pause squat, paused bench press, and pause deadlift are separate
+      exercises. They use the parent lift's bar and percentage base but keep
+      independent history.
     uses:
     - exercise.seed
     - exercise.taxonomy
@@ -50,7 +46,8 @@ groups:
   - id: the-partial-range-deadlifts-are-in-the-starter-set
     t: The deadlifts that change where the bar starts and stops are in the starter set
     d: >-
-      the deadlift to the knees, the block deadlift and the deficit deadlift — the same pull cut short, started high or started low, which is how a powerlifting program trains the part of it that is failing. Each is its own movement with its own history, and each takes its percentages from the deadlift, because that is the max the programs that use them are written against.
+      Deadlift to knees, block deadlift, and deficit deadlift are separate
+      exercises with independent history. Their percentage base is deadlift.
     uses:
     - exercise.seed
     - exercise.taxonomy
@@ -58,45 +55,33 @@ groups:
   - id: the-seated-good-morning-and-the-french-press-are-in-the-starter-set
     t: The seated good morning and the French press are in the starter set
     d: >-
-      two accessory movements the classic powerlifting programs write by name. Sitting down for a good morning takes the legs out of it and leaves the work to the back; the French press is the barbell overhead triceps extension, which is not the skull crusher lying down beside it in the library.
+      These are distinct named accessories: the seated good morning and the
+      barbell overhead triceps extension (French press), separate from the
+      lying skull crusher.
     uses:
     - exercise.seed
     - exercise.taxonomy
     - exercise.muscle-map
   - id: covers-bodyweight-dumbbells-conditioning
-    t: Enough of it to train with nothing, with dumbbells alone, or for conditioning
+    t: Covers bodyweight, dumbbell, and conditioning exercises
     d: >-
-      the starter set began as a gym's set — barbells, machines and cables, with
-      a few bodyweight movements round the edges — which left a routine that
-      needed no equipment with almost nothing to be built out of. It now also
-      carries what an empty room needs (air squats and bodyweight lunges, the
-      pike, diamond, wide and decline push-up, the Nordic curl, the single-leg
-      glute bridge, the bird dog, the sit-up), what a pair of dumbbells needs
-      (the thruster, the clean and press, the snatch, the Romanian and plain
-      deadlift, the front squat, the lunge, the lateral lunge, the floor press,
-      the pullover, the push press and the renegade row — the step-up was already
-      there), and the
-      conditioning work: burpees, jump squats, box jumps, skater jumps and
-      jumping jacks counted, and the wall sit, the superman hold, high knees,
-      mountain climbers, the bear crawl, the sprint, the jump rope, the battle
-      rope and shadow boxing measured as a work period rather than a rep count.
-      The conditioning work files under its own group — see below.
+      The seeded set includes bodyweight and dumbbell movements plus
+      conditioning exercises. Rep-counted conditioning includes burpees, jump
+      squats, box jumps, skater jumps, and jumping jacks. Timed conditioning
+      includes the wall sit, superman hold, high knees, mountain climbers, bear
+      crawl, sprint, jump rope, battle rope, and shadow boxing.
     uses:
     - exercise.seed
     - exercise.taxonomy
     - exercise.measure
     - exercise.muscle-map
   - id: cardio-floor-is-in-the-starter-set
-    t: The cardio machines are in the starter set too
+    t: Includes ten cardio machines in the starter set
     d: >-
-      the conditioning that was there was the kind you do on a mat — burpees,
-      skipping, a sprint — which is not what most people mean by cardio. Ten
-      machines now sit beside it: the treadmill, the elliptical, the stationary
-      and recumbent bike, the rowing machine, the stair climber, the air bike,
-      the ski erg, the arc trainer and Jacob's ladder. Every one is measured as a
-      work period rather than a rep count, and carries no weight — a treadmill
-      has no load to name — so a slot on one progresses by adding minutes. The
-      muscles each leans on are named as assists, as the rest of the group's are.
+      The machines are the treadmill, elliptical, stationary bike, recumbent
+      bike, rowing machine, stair climber, air bike, ski erg, arc trainer, and
+      Jacob's ladder. Each is timed, unweighted, and progresses by duration;
+      its involved muscles are secondary groups.
     uses:
     - exercise.seed
     - exercise.taxonomy
@@ -107,14 +92,10 @@ groups:
   - id: a-cardio-machine-is-cardio-and-a-machine
     t: A movement is a cardio machine when it files under Cardio and its equipment is Machine
     d: >-
-      that pair is what puts the console readouts — speed, incline, resistance,
-      distance — on a set of it during a workout. Derived rather than stored, and
-      deliberately: both halves already travel in a routine code as indexes into
-      frozen lists, so a treadmill shared with somebody arrives as a treadmill
-      without a flag of its own being added to the format. It also means a
-      movement you build for the machine your gym has gets the readouts by
-      classifying it, with nothing else to find and tick. A burpee is Cardio and
-      bodyweight, so it has no console and is offered none.
+      The classification derives console readouts (speed, incline, resistance,
+      and distance) without adding a flag to the routine-code format. It also
+      gives custom machine exercises the same fields. Cardio bodyweight
+      exercises such as burpees do not receive readouts.
     screen: none
     defines:
     - exercise.cardio-machine
@@ -123,19 +104,11 @@ groups:
     - exercise.muscle-map
     - share.routine-code
   - id: conditioning-files-under-cardio
-    t: Conditioning files under Cardio, which is not a muscle
+    t: Files timed conditioning under Cardio
     d: >-
-      a sprint, a burpee and two minutes on a rope are not what a Legs day is
-      looking for, and filing them under the muscles they happen to use put them
-      in the way of somebody narrowing to Legs to pick a squat — while leaving
-      them findable by nobody at all, since nothing filters on how a set is
-      measured. So the group list carries one entry that names what the work is
-      <i>for</i> rather than a muscle, exactly as <b>Other</b> already names the
-      shelf for everything unclassified. Every muscle each movement leans on is
-      still named beside it, as an assist, which is what it is doing — so
-      narrowing to Legs still finds the jump squat, several rows down where it
-      belongs. Kettlebell swings and Turkish get-ups stay where they are: they are
-      loaded lifts people program for strength.
+      Timed and rep-counted conditioning uses Cardio as its primary group while
+      retaining involved muscles as secondary groups. Kettlebell swings and
+      Turkish get-ups remain in their strength classifications.
     defines:
     - exercise.taxonomy
     uses:
@@ -143,13 +116,11 @@ groups:
     - exercise.seed
     - exercise.filter
   - id: cardio-is-appended-not-inserted
-    t: The new group went on the end of the list, and had to
+    t: Appends Cardio to the group list
     d: >-
-      the group vocabulary is a wire format — a shared routine sends the index,
-      not the word — so a group inserted anywhere but the end would silently
-      re-label every movement in every code already written. Appending is the one
-      safe edit, and it is why Cardio sits after Other rather than beside the
-      muscles it reads with on screen.
+      Shared routines encode group indexes rather than names. Appending Cardio
+      preserves the meaning of existing codes; inserting or reordering groups
+      would re-label them.
     screen: none
     uses:
     - exercise.taxonomy
@@ -157,12 +128,8 @@ groups:
   - id: searchable-name
     t: Searchable by name, in your language and in English
     d: >-
-      so "a barbell movement for legs" does not require knowing it is called a
-      squat. The text is matched against the name on screen <i>and</i> against
-      the English the row is stored under, so a Ukrainian lifter finds the bench
-      press by typing <i>жим</i> and still finds it by typing <i>bench</i> —
-      which is what they have in hand when a training partner has sent them a
-      routine.
+      Matches the displayed localized name and the stored English name. For
+      example, both <i>жим</i> and <i>bench</i> find bench press.
     defines:
     - exercise.filter
     uses:
@@ -170,58 +137,36 @@ groups:
   - id: filterable-muscle-group-equipment
     t: Filterable by muscle group and equipment
     d: >-
-      two controls, one line: a Muscle button and an Equipment button, each
-      opening a sheet of its own vocabulary to tick. Within a dimension the
-      choices are alternatives — arms and core is one session's browsing; the two
-      dimensions narrow each other and the search box, and barbell and legs is
-      the pair of facts that finds a squat. A dimension nobody has touched
-      excludes nothing.
+      Muscle and Equipment open separate multi-select sheets. Choices within a
+      dimension are alternatives; the two dimensions and the search query are
+      combined. An untouched dimension matches all values.
     uses:
     - exercise.filter
     - exercise.taxonomy
   - id: muscle-filter-counts-secondaries
     t: The muscle filter counts what a movement assists, not only what it trains
     d: >-
-      ticking Shoulders returns the overhead press and the lateral raise, and also
-      the bench press and the dip, because those train shoulders too even though
-      they file under Chest. The question a lifter is asking of that filter is
-      "what have I got that hits this", and a list that answered with only the
-      movements named after the group would leave out most of what does. Search
-      is the same: the free text matches every group on a movement, primary or
-      secondary, in the chosen language and in English.
+      Matches both primary and secondary groups. For example, Shoulders includes
+      bench press and dips even when their primary group is Chest. Search uses
+      the same complete group map in both the selected language and English.
     uses:
     - exercise.filter
     - exercise.muscle-map
   - id: filter-stays-set-while-you-use-it
     t: A filter you set stays set
     d: >-
-      narrowing to legs and back, opening a movement and coming back leaves the
-      list still narrowed to legs and back rather than showing all 133
-      again. The button says which choices are live without the sheet being
-      opened to check, so a list that is hiding things always says what it is
-      hiding them by — a filter you have forgotten about looks exactly like a
-      library that has lost your exercise. It outlives the screen rather than
-      the visit: leaving the library entirely and coming back finds it as you
-      left it, and the builder's picker — where adding three leg movements means
-      opening it three times — opens on legs again rather than on all
-      133. The library and the picker keep <i>separate</i> choices,
-      because a picker that opened pre-narrowed by something done on another
-      screen reads as a bug. The search text is not kept: it has a box showing
-      it, and a query that outlived the box would narrow the list with nothing
-      on screen saying so. None of it is written down — the choice comes back
-      for as long as the app is running, and a cold launch opens on the whole
-      library.
+      Muscle and equipment selections persist while navigating and reopening the
+      library, and the picker maintains a separate filter state. The active
+      choices are shown on the filter buttons. Search text is cleared when its
+      field is closed; filters are in-memory only and reset on a cold launch.
     uses:
     - exercise.filter
   - id: movement-names-every-group-trains
     t: A movement names every group it trains, and every group it helps with
     d: >-
-      a bench press is Chest and Arms, and it assists Shoulders. One group was
-      never the truth about a compound lift — it was the truth about where to
-      file it — so the two facts are now stored apart: <b>primary</b> groups are
-      what the movement is for, <b>secondary</b> groups are what it works on the
-      way. Every exercise has at least one primary; secondaries are optional and
-      may be none. A group is never both on the same movement.
+      Primary groups describe the movement's purpose; secondary groups describe
+      additional muscles worked. Every exercise has at least one primary, may
+      have no secondaries, and cannot contain the same group in both lists.
     screen: exercise-detail
     defines:
     - exercise.muscle-map
@@ -230,21 +175,17 @@ groups:
   - id: lead-primary-is-where-it-files
     t: The first primary is where the movement files
     d: >-
-      the library lists each movement once, under the first of its primaries, and
-      that same group is what a history rollup counts it under and what an old
-      routine code carries. The bench press sits under Chest and is not repeated
-      under Arms: a library that showed a compound once per group it trains would
-      be half again as long and would show the same row twice on the way to a
-      movement you can already see.
+      The library, history rollups, and legacy routine codes use the first primary
+      group. An exercise appears once, so bench press is listed under Chest and
+      not again under Arms.
     uses:
     - exercise.muscle-map
     - exercise.seed
   - id: each-exercise-opens-detail-page
     t: Each exercise opens a detail page
     d: >-
-      with its facts and its demo link. The groups read as two lines — what it
-      trains, and what it also works — with the second absent when a movement has
-      no secondaries rather than shown empty.
+      Shows the exercise facts, demo link, primary groups, and secondary groups.
+      The secondary row is omitted when it is empty.
     screen: exercise-detail
     uses:
     - exercise.identity
@@ -253,8 +194,8 @@ groups:
   - id: add-your-own-custom-exercises
     t: Add your own custom exercises
     d: >-
-      Library → ＋ → name, muscle groups, equipment, how it is measured, how it is
-      loaded, an optional demo link → Save. They sit alongside the starter set.
+      Library → ＋ → enter the name, groups, equipment, measurement, loading, and
+      optional demo link → Save. Custom exercises appear with the starter set.
     screen: exercise-form
     defines:
     - exercise.identity
@@ -267,37 +208,29 @@ groups:
   - id: form-ticks-primary-then-secondary
     t: The form ticks the primaries first, then the secondaries
     d: >-
-      two rows of the same seven chips, one labelled for what the movement trains
-      and one for what it also works. Ticking a group as primary unticks it as
-      secondary and the other way round, so the same group cannot be claimed
-      twice, and the last primary cannot be unticked — a movement that trains
-      nothing is not a movement. The order you tick the primaries in is the order
-      they are stored, so the first one you pick is the group it files under.
+      The form has separate primary and secondary rows. Selecting a group in one
+      row clears it in the other, and at least one primary is required. Primary
+      selection order is stored; the first selected group determines filing.
     screen: exercise-form
     uses:
     - exercise.muscle-map
   - id: edit-them-afterwards
     t: Edit your own afterwards
     d: >-
-      every fact on the form stays changeable: the pencil in the app bar reopens
-      the creation form on what you stored. The pencil is absent on a starter
-      exercise.
+      The app-bar pencil reopens the form with the saved values. It is available
+      for custom exercises and hidden for starter exercises.
     screen: exercise-form
     uses:
     - exercise.identity
   - id: measure-counted-or-held
     t: Measure — counted or held
     d: >-
-      done for reps, or a timed hold like a plank. Decides which progression axes
-      a slot can ever use. Twenty-four starters are held rather than counted: the
-      four positions you get into and stay in (Plank, Side Plank, Hollow Hold,
-      Superman Hold), the two you hold under load (Dead Hang, Farmer's Carry),
-      the Wall Sit, the seven conditioning movements whose set is a work
-      period rather than a number of reps — High Knees, Mountain Climber, Bear
-      Crawl, Sprint, Jump Rope, Battle Rope and Shadow Boxing — and all ten
-      cardio machines. Counting a mountain climber is not what anyone does with
-      one; running the clock for thirty seconds is, and twenty minutes is what
-      anyone does with a treadmill.
+      Exercises are measured by repetitions or timed holds; this controls the
+      progression axes available to their slots. Timed starters include Plank,
+      Side Plank, Hollow Hold, Superman Hold, Dead Hang, Farmer's Carry, Wall
+      Sit, seven timed conditioning movements (High Knees, Mountain Climber, Bear
+      Crawl, Sprint, Jump Rope, Battle Rope, Shadow Boxing), and all ten cardio
+      machines.
     screen: exercise-form
     defines:
     - exercise.measure
@@ -306,10 +239,9 @@ groups:
   - id: weight-type-barbell-machine-or
     t: Weight type — barbell, machine, dumbbell, or nothing at all
     d: >-
-      it decides whether a plate breakdown is shown (only barbell lifts get one)
-      and whether the movement has a weight to name. A pull-up or a plank carries
-      nothing: tapping the loading it is on clears it, and an unloaded movement
-      then shows no weight field, no bar row and no warm-up ramp.
+      Controls whether plate math is shown (barbell only) and whether the
+      exercise has a load. Clearing the load for a pull-up or plank removes its
+      weight field, bar row, and warm-up ramp.
     screen: exercise-form
     defines:
     - exercise.weight-type
@@ -319,21 +251,18 @@ groups:
   - id: bar-optional-bar-own
     t: Bar — an optional bar of its own
     d: >-
-      overriding the app-wide default. Open any exercise → Bar weight → pick one
-      of the bars you keep, add one there and then, or hand it back to the default.
-      The same list is what Exercise settings → Default bar shows.
+      Overrides the app-wide default. From an exercise, choose Bar weight and
+      select or add a bar, or return to the default. The list is shared with
+      Exercise settings → Default bar.
     screen: exercise-detail
     uses:
     - load.bar-weight
   - id: unit-optional-unit-own
     t: Unit — an optional unit of its own
     d: >-
-      overriding the app-wide one. Open any exercise → Unit → kg, lb, or back to
-      the app's. For the gym whose dumbbells are stamped in pounds and whose bar
-      is loaded in kilograms, and for the lift you have trained in one unit long
-      enough that converting it in your head is the reason you got the number
-      wrong. Tapping the unit the app is already on hands it back to the app
-      rather than pinning it, so an override is always a deliberate difference.
+      Overrides the app-wide unit. From an exercise, choose Unit → kg or lb, or
+      return to the app setting. Selecting the current app unit returns control to
+      the app instead of storing a redundant override.
     screen: exercise-detail
     defines:
     - load.exercise-unit
@@ -342,11 +271,8 @@ groups:
   - id: warm-ups-own-count
     t: Warm-ups — a count of its own
     d: >-
-      how many rungs this movement opens with, none to six, over the app-wide
-      default. A heavy squat wants five and a lateral raise wants none, and
-      setting either app-wide is wrong for the other. The row is absent while the
-      app-wide count is none: there is nothing to open with, so a per-movement
-      count would be a control that does nothing.
+      Overrides the app-wide warm-up count from zero through six rungs. The
+      control is hidden when the app-wide count is zero because no ramp can open.
     screen: exercise-detail
     uses:
     - session.warmup-count
@@ -354,9 +280,8 @@ groups:
   - id: your-own-note-movement
     t: Your own note on the movement
     d: >-
-      the seat setting, the rack pin, how far down you take it. Available on every
-      exercise, starter or custom, capped at 300 characters; a note of only spaces
-      is stored as no note. Personal, and it never leaves the phone.
+      Available on starter and custom exercises, capped at 300 characters. A
+      whitespace-only note is stored as absent and notes are never shared.
     screen: exercise-detail
     defines:
     - exercise.notes
@@ -365,15 +290,15 @@ groups:
   - id: browse-search
     t: Browse / search
     d: >-
-      open the library from Profile, or via the exercise picker while building
-      a workout. Type in the search box, tap chips to narrow, or both.
+      Open the library from Profile or the exercise picker. Search by name and
+      select filter chips as needed.
     uses:
     - exercise.filter
   - id: new-exercise-inside-picker
     t: New exercise from inside the picker
     d: >-
-      the builder's picker offers it at the top of the list, and hands the movement
-      you make straight back to the slot you were filling.
+      The picker places New exercise at the top and returns the saved exercise to
+      the slot being configured.
     screen: workout-edit
     uses:
     - exercise.identity
@@ -381,8 +306,8 @@ groups:
   - id: write-note
     t: Write a note
     d: >-
-      open any exercise → My note → type. During a workout, noted movements show
-      a note icon beside the name; one tap opens it in place.
+      Open an exercise → My note → type. During a workout, a note icon opens the
+      note beside the exercise name.
     screen: exercise-detail
     uses:
     - exercise.notes
@@ -391,25 +316,17 @@ groups:
   - id: note-box-keeps-its-width
     t: The note box keeps its width as you type
     d: >-
-      a dialog sizes itself to what is in it, so a field left to its own devices
-      grew with the longest line and the box stepped wider mid-word. The note field
-      takes the full width of the dialog the moment it opens and stays there, on the
-      library screen and on the board alike.
+      The note field uses the dialog's full width from open and keeps that width
+      while editing, in the library and live-session screens.
     screen: exercise-detail
     uses:
     - exercise.notes
   - id: starter-s-demo-video-not
-    t: A starter's demo is a video, not a search
+    t: A starter demo is a specific video
     d: >-
-      sources picked for a back catalogue with no reason to be deleted — Muscle
-      &amp; Strength, Renaissance Periodization, PureGym, Bodybuilding.com carry
-      most of the set. Every id is listed in one place (_starterDemos) with the
-      video's own title beside it, so a re-check can tell "this is gone" from
-      "this is now something else"; YouTube's oEmbed endpoint makes re-checking
-      the lot a loop. A movement with no demo anybody could stand behind ships
-      with none: the field is nullable and the screen simply omits the row,
-      which is the honest answer where a guessed id would be a link to somebody
-      else's video.
+      Starter video IDs are maintained in _starterDemos with each video's title
+      and can be rechecked through YouTube oEmbed. Missing demonstrations use a
+      null URL and are omitted from the detail page.
     screen: exercise-detail
     defines:
     - exercise.video-url
@@ -418,38 +335,30 @@ groups:
   - id: form-asks-how-movement-measured
     t: The form asks how a movement is measured before how it is loaded
     d: >-
-      counted or held is the more fundamental fact, and it answers the loading
-      question below it: switching to held clears the load, switching back to
-      counted re-seeds it from the equipment. Loading is not hidden for a held
-      movement — a weighted plank is real — but it is demoted to a quieter line
-      that says why it is still being asked, and nothing is on it until you say
-      so.
+      Measurement controls the loading form. Switching to held clears the load;
+      switching back to counted seeds it from equipment. Held exercises may still
+      be loaded, but the load is optional and shown in a secondary control.
     screen: exercise-form
     uses:
     - exercise.measure
     - exercise.weight-type
   - id: muscle-groups-lead-equipment-follows
-    t: Each button says what it is narrowed to, and Clear appears beside them
+    t: Filter buttons show active choices and expose Clear
     d: >-
-      "Muscle" until something is ticked, then the words themselves — Legs, Arms —
-      so the control is its own summary and no chip has to be hunted for to find
-      out what the list is showing. Fifteen chips laid out in the open said the
-      same thing and cost four lines of the screen to say it; two buttons say it in
-      one. Naming the dimension on the button also settles the one collision in the
-      vocabulary: Other is both a kind of equipment and a muscle group, and which
-      is which is now written above the ticks. Clear shows up only while something
-      is on, and lets both dimensions go without touching the search text.
+      Buttons show their dimension name until a choice is active, then show the
+      selected groups or equipment. Clear appears while either dimension is
+      filtered and does not change search text; dimension labels disambiguate the
+      shared Other value.
     uses:
     - exercise.filter
     - exercise.taxonomy
   - id: named-bar-weight-label-way
     t: An exercise remembers its bar's weight, not which row it was
     d: >-
-      so a re-weighed bar carries its exercises with it, a deleted one drops them
-      back to the default, and a shared routine can name a bar the other phone has
-      never heard of. The price is that two bars on one list may not weigh the same
-      — a 20 kg power bar and a 20 kg deadlift bar are one entry. A pounds gym gets
-      the round pounds number (a 45 lb Olympic bar), not a converted kilo.
+      Exercises store the bar weight, not a bar-row ID. Reweighting a bar updates
+      its exercises; deleting it falls back to the default; shared routines can
+      carry a weight unknown to the receiving phone. Values are stored in the
+      exercise's unit (for example, 45 lb rather than a converted kilogram value).
     screen: exercise-form
     uses:
     - load.bar-weight
@@ -458,11 +367,10 @@ groups:
   - id: youtube-demo-link-tidied-way
     t: A YouTube demo link is tidied on the way in
     d: >-
-      watch?v=, youtu.be, /shorts/, /embed/, with timestamps, playlists and tracking
-      parameters — all stored as https://youtu.be/&lt;id&gt;. A link to anywhere else
-      is kept exactly as typed, so someone's own upload still opens from the exercise
-      screen; it just will not travel when the exercise is shared — nor will a
-      YouTube search link, which names no video.
+      YouTube watch, short, embed, and youtu.be URLs are normalized to
+      https://youtu.be/&lt;id&gt; with timestamps, playlists, and tracking parameters
+      removed. Other URLs are preserved locally but are excluded from shared
+      exercises; search URLs are not treated as video IDs.
     screen: exercise-form
     uses:
     - exercise.video-url
@@ -470,13 +378,10 @@ groups:
   - id: seven-groups-and-no-finer
     t: There are seven muscle groups, and no finer
     d: >-
-      Chest, Back, Shoulders, Legs, Arms, Core, Other. Hip thrusts and glute
-      bridges are filed under Legs, wrist curls and carries under Arms, traps
-      under Back — a shrug is something you do on a back day, and nobody goes
-      looking for a Traps heading. Every movement is still in the library; what
-      is gone is a heading to scroll past on the way to the one you wanted. A
-      movement that works several of the seven names several of them rather than
-      needing an eighth.
+      The groups are Chest, Back, Shoulders, Legs, Arms, Core, and Other. Hip
+      thrusts and glute bridges use Legs; wrist curls, carries, and traps use
+      Arms or Back as appropriate. Compound exercises can name multiple groups;
+      there is no finer-grained group vocabulary.
     defines:
     - exercise.taxonomy
     uses:
@@ -484,13 +389,10 @@ groups:
   - id: no-starter-files-under-other
     t: No starter movement files under Other any more
     d: >-
-      the swing, the clean and the get-up were under Other because one group was
-      a lie about them; now they can name the two or three they actually train,
-      they do — the swing is Legs and Back, the clean is Legs, Back and
-      Shoulders, the get-up is Core and Shoulders. Other stays in the list and
-      stays legal: it is where a movement you built that answers to nothing on
-      the list goes, and removing it would break every routine code that names
-      it.
+      Seeded kettlebell swing, clean, and Turkish get-up now use their actual
+      groups (Legs/Back; Legs/Back/Shoulders; Core/Shoulders). Other remains valid
+      for custom exercises and remains in the vocabulary for routine-code
+      compatibility.
     uses:
     - exercise.muscle-map
     - exercise.seed
@@ -498,11 +400,9 @@ groups:
   - id: existing-exercises-keep-their-group
     t: An exercise from before the update keeps its group as its only primary
     d: >-
-      installing over the shipped build leaves every custom movement classified
-      exactly as it was, as one primary and no secondaries, so nothing that was
-      filed under Legs moves. Starter movements are re-mapped in the same step,
-      because their classification is the app's to state rather than yours — what
-      you set on them, the loading, the bar and your note, is untouched.
+      Existing custom exercises retain their single primary group and no
+      secondaries. Starter exercises are remapped during migration; user-set
+      loading, bar, and notes are unchanged.
     screen: none
     uses:
     - exercise.muscle-map
@@ -511,21 +411,19 @@ groups:
   - id: group-equipment-lists-wire-format
     t: The group and equipment lists are a wire format
     d: >-
-      a shared routine sends "muscle group #4" rather than the word, which is
-      most of the reason a routine fits in a QR code. Frozen: new entries go on
-      the end, and reordering one would silently re-label every code already
-      shared.
+      Shared routines encode group and equipment indexes rather than names. The
+      lists are append-only; reordering entries would change the meaning of
+      existing codes.
     screen: none
     uses:
     - exercise.taxonomy
     - share.routine-code
   - id: only-custom-exercise-editable-full
-    t: A starter's name is fixed; how it is loaded is not
+    t: Starter names and classifications are fixed; loading is editable
     d: >-
-      the name and classification are shared vocabulary — a local rename would
-      quietly break a routine code that says "Bench Press" — and that rule is
-      enforced in the database writer, not only by hiding the pencil. Weight type,
-      bar and note stay yours to change on any exercise.
+      Names and classifications are shared vocabulary, so the database writer
+      rejects local changes that would invalidate routine codes. Weight type, bar,
+      and note remain editable for any exercise.
     screen: exercise-detail
     uses:
     - exercise.identity
@@ -534,8 +432,8 @@ groups:
   - id: name-stops-80-characters-where
     t: A name stops at 80 characters where it is typed
     d: >-
-      on exercises, workouts and routines alike. That is the schema's own limit,
-      so a longer name would be a failed write rather than a truncated one.
+      Applies to exercises, workouts, and routines. The schema rejects a longer
+      value rather than truncating it.
     screen: exercise-form
     uses:
     - exercise.identity
@@ -543,27 +441,14 @@ groups:
   - id: weight-type-seeded-equipment
     t: Weight type is seeded from equipment
     d: >-
-      Barbell → bar, Dumbbell → dumbbell, Bodyweight → nothing, everything else
-      → machine, which is the right guess because almost everything is loaded.
-      Fifteen starters are named by hand instead, because their equipment does
-      not settle it: a kettlebell swing and a Turkish get-up load like a
-      dumbbell; an ab wheel, a jump rope and a battle rope load nothing; and
-      neither does any of the ten cardio machines, which are equipment "Machine"
-      and have no weight to name — a treadmill's number is its speed.
-      On a starter it is then **fixed only where the movement's own name states
-      the implement** — Barbell Curl, Dumbbell Row, Incline DB Press: twenty-two
-      of the 133. There the exercise screen states the loading instead of
-      offering chips, and the writer refuses a change rather than trusting the
-      screen, because any other answer leaves the name contradicting the weight
-      column. Everything else stays a choice, and deliberately: how a movement is
-      loaded is specific to the movement and the gym. A skull crusher is done with
-      a bar, a pair of dumbbells or on a machine; a chest-supported row is often a
-      plate-loaded machine, where "Bar" is the useful answer and the plate maths is
-      the reason to say so; a pull-up takes a belt. Equipment "Barbell" is what
-      the seed guessed, not what you own. A movement you made is yours throughout,
-      whatever you called it. The bar's weight is a separate question and stays
-      editable on anything bar-loaded — what a gym's bar weighs is not something a
-      seed can know.
+      Defaults are Barbell → bar, Dumbbell → dumbbell, Bodyweight → unweighted,
+      and all other equipment → machine. Explicit exceptions cover kettlebell
+      swing and Turkish get-up (dumbbell loading), ab wheel, jump rope, and battle
+      rope (unweighted), and all cardio machines (unweighted). Starters whose
+      names specify the implement have fixed loading; the database enforces this
+      independently of the form. Other exercises retain editable loading because
+      equipment classification does not determine what a gym uses. Bar weight is
+      always separately editable.
     screen: exercise-form
     uses:
     - exercise.weight-type

@@ -1,13 +1,5 @@
-// Integration tests for features/index.html#sec09 — the single app-wide kg/lb toggle.
-// The conversion helpers are pure functions and get direct coverage; the
-// end-to-end paths (the stored setting, the per-unit rack that follows the
-// unit, and the confirm dialog) go through the AppDatabase, the providers, and
-// the real ExerciseSettingsScreen.
-//
-// Drift streams emit asynchronously, so provider-derived state is read through
-// the shared settle helpers — `readWhen` in pure-Dart tests, `pumpUntil` under
-// the widget binding — rather than by awaiting `.future` (which never settles
-// for a stream that only fires once the event loop is pumped).
+// Integration tests for the app-wide kg/lb setting (features/index.html#sec09), including conversion, storage, and the settings UI.
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

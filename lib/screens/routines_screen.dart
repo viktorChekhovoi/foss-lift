@@ -25,10 +25,6 @@ class RoutinesScreen extends ConsumerWidget {
           ScreenHeader(
             eyebrow: l10n.routinesEyebrow,
             title: l10n.routinesTitle,
-            // Every way to get a routine is behind this one button. Laid out
-            // under the list, the three of them sank a card further down the
-            // screen with each routine added, until adding a fourth meant
-            // scrolling past three.
             trailing: const AddRoutineButton(),
           ),
           const SizedBox(height: 4),

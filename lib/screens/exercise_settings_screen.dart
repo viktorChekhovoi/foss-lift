@@ -13,12 +13,6 @@ import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 import '../util/format.dart';
 
-/// The settings that are about training: the weight unit, the bar and plates,
-/// the set-video caps, the warm-up rung count and the layoff rules.
-///
-/// How the app *looks* — theme, text size, language — is the other half, and
-/// lives on `appearance_screen.dart`. The split is by what a setting is about,
-/// which is the only thing somebody looking for one has to go on.
 class ExerciseSettingsScreen extends ConsumerWidget {
   const ExerciseSettingsScreen({super.key});
 
@@ -47,8 +41,6 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               label: l10n.settingsKilograms,
               suffix: unitSuffix(l10n, 'kg'),
               selected: unit == 'kg',
-              // Tapping the unit you are already on is not a switch and gets no
-              // dialog about one.
               onTap: () =>
                   unit == 'kg' ? null : _switchUnit(context, l10n, db, 'kg'),
             ),
@@ -77,9 +69,6 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               value: l10n.settingsPlateSizes(plates.plates.length),
               onTap: () => context.push(linkPath(context, '/settings/plates')),
             ),
-            // Nothing to size or cap on a build that cannot film. The whole
-            // section goes rather than showing 0 B and a quality picker for a
-            // camera that is never offered.
             if (ref.watch(capabilitiesProvider).setVideos) ...[
               const SizedBox(height: 28),
               Text(l10n.settingsSetVideos,
@@ -96,14 +85,9 @@ class ExerciseSettingsScreen extends ConsumerWidget {
               builderGrid([
                 BuilderField(
                   label: l10n.settingsWarmupSets,
-                  // The one state worth naming: a stepper reading 0 has stopped
-                  // being a count.
                   note: warmupSets == 0 ? l10n.settingsWarmupsOff : null,
                   child: NumberStepper(
                     value: warmupSets,
-                    // None is an answer: somebody who warms up before the app is
-                    // open wants the app to stop suggesting it, everywhere,
-                    // rather than to shut a group on every exercise.
                     min: 0,
                     max: kMaxWarmupSets,
                     onChanged: db.setDefaultWarmupSets,
@@ -122,8 +106,6 @@ class ExerciseSettingsScreen extends ConsumerWidget {
                     min: 7,
                     max: 120,
                     step: 7,
-                    // Zero is not a threshold, it is the feature switched off,
-                    // so it gets a word rather than a number.
                     isEmpty: layoff.days == 0,
                     emptyLabel: l10n.settingsDeloadOff,
                     onClear: () => db.setLayoffDays(0),
@@ -160,22 +142,11 @@ class ExerciseSettingsScreen extends ConsumerWidget {
   }
 }
 
-/// The deepest a layoff can ever cut, given the per-period rate — the periods
-/// stack only [kMaxLayoffPeriods] deep and stop at [kMaxLayoffCutPercent].
 int _maxCut(int percent) {
   final stacked = kMaxLayoffPeriods * percent;
   return stacked > kMaxLayoffCutPercent ? kMaxLayoffCutPercent : stacked;
 }
 
-/// Changes the unit, once the user has seen what it will do.
-///
-/// History is never rewritten — a set stays the weight it was lifted at. What
-/// does move is the configuration: `AppDatabase.setWeightUnit` snaps each
-/// slot's target to a weight the new unit can be loaded to, and swaps any step
-/// rate still sitting on the old unit's default. The plate rack for the new
-/// unit is whatever was set up for it (a standard gym, until it is edited).
-/// Both are worth going to look at, so the dialog says so rather than letting
-/// them be discovered mid-set.
 Future<void> _switchUnit(BuildContext context, AppLocalizations l10n,
     AppDatabase db, String unit) async {
   final to = unit == 'lb' ? l10n.unitPoundsWord : l10n.unitKilogramsWord;
@@ -203,10 +174,6 @@ Future<void> _switchUnit(BuildContext context, AppLocalizations l10n,
   if (ok == true) await db.setWeightUnit(unit);
 }
 
-/// One of the two unit rows: its label, its suffix, and whether it is the one
-/// in force. Lives here because the settings screen is where the unit normally
-/// changes, and is reused by the first-run question — one row drawn the same
-/// way in both places, so the choice looks like the same choice.
 class UnitOption extends StatelessWidget {
   const UnitOption({
     super.key,

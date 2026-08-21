@@ -1,4 +1,4 @@
-/// Which lift a movement's percentages are taken from.
+/// Maps exercise variations to the lift whose training max supplies their percentages.
 ///
 /// A front squat in a powerlifting program is prescribed at a percentage of the
 /// *squat*, not of the front squat, and a deficit deadlift at a percentage of

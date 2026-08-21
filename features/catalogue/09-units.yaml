@@ -1,8 +1,6 @@
 id: "09"
 title: Units (kg / lb)
-tagline: >-
-  A single global unit toggle. Weights are stored canonically in kilograms and
-  converted on the fly.
+tagline: One app-wide unit setting; stored weights remain kilograms.
 screen: settings
 code:
 - lib/util/units.dart
@@ -11,79 +9,71 @@ code:
 test:
 - test/feature_09_units_test.dart
 where: >-
-  <b>Conversion helpers</b> lib/util/units.dart · <b>Toggle + confirm</b> lib/screens/exercise_settings_screen.dart
-  (_switchUnit) · <b>Read via</b> weightUnitProvider
+  <b>Conversion</b> lib/util/units.dart · <b>Setting and confirmation</b> lib/screens/exercise_settings_screen.dart
+  (_switchUnit) · <b>Provider</b> weightUnitProvider
 groups:
 - name: What it does
   items:
   - id: asks-which-unit-on-first-launch
-    t: A fresh install takes its unit from the phone's region, without asking
+    t: A fresh install infers its unit from the phone's region
     d: >-
-      pounds for the United States, Liberia and Myanmar, kilograms everywhere
-      else. The guess is stored on the first launch and is the user's from then
-      on: changing the phone's language or region later never moves it, because
-      by then it is a setting somebody has trained against rather than a guess.
-      Nothing is painted until it has been stored, so no screen ever opens in the
-      wrong unit and corrects itself.
+      The default is pounds in the United States, Liberia and Myanmar, and
+      kilograms elsewhere. The value is stored on first launch and does not
+      change when the phone's language or region changes. The app waits for the
+      stored value before painting a screen.
     screen: none
     uses:
     - load.units
     - storage.settings
   - id: one-app-wide-setting-kg
-    t: 'One app-wide setting: kg or lb'
+    t: 'The app has one unit setting: kg or lb'
     d: >-
-      Profile → Exercise settings → tap kg or lb. Tapping the unit you are already on does
-      nothing — it is not a switch. It is what every movement reads in unless
-      that movement has been given a unit of its own.
+      Profile → Exercise settings → tap kg or lb. Tapping the current unit has no
+      effect. It applies to every movement without an exercise-specific override.
     defines:
     - load.units
     uses:
     - storage.settings
     - load.exercise-unit
   - id: every-weight-app-displayed-chosen
-    t: Every weight in the app is displayed in the chosen unit
+    t: The chosen unit formats every displayed weight
     d: >-
-      the plate rack you see follows the unit too. A movement with its own unit
-      is the exception, and it is an exception everywhere at once — see below.
+      This includes the plate rack. An exercise-specific unit overrides the app
+      setting everywhere that exercise appears.
     uses:
     - load.units
     - load.plate-rack
     - load.exercise-unit
   - id: switching-units-pops-confirm-dialog
-    t: Switching units confirms first, and never rewrites what you lifted
+    t: Switching units requires confirmation and preserves logged weights
     d: >-
-      logged sets keep the kilograms they were lifted at, for good — a session
-      trained at 100 kg still reads 100 kg after a switch to pounds, whatever the
-      screen now calls it. What does move is the configuration you are about to
-      act on: see the snapping and the per-unit steps below. The dialog says so
-      before anything changes.
+      Logged sets retain their stored kilogram values; a set logged at 100 kg is
+      displayed as the equivalent pounds after switching. Configuration targets
+      and per-unit progression steps are converted as described below, and the
+      dialog explains this before the change.
     uses:
     - load.units
     - load.unit-defaults
     - history.session-record
   - id: converted-targets-are-snapped
-    t: A converted target is snapped to a weight somebody can load
+    t: Converted targets snap to a loadable weight
     d: >-
-      100 kg converts to 220.46 lb, which is not a bar anybody sets. On a switch
-      every slot's suggested weight is snapped to the nearest step in the new
-      unit — 2.5 kg or 5 lb — so it lands on 220 lb. Only that target moves;
-      logged sets, their goal weights and the bars and plates the gym owns are
-      left exactly as they are.
+      On a unit switch, each slot's suggested weight is rounded to the nearest
+      step in the new unit (2.5 kg or 5 lb); 100 kg therefore becomes 220 lb.
+      Logged sets, their goal weights, and the configured bars and plates do not
+      change.
     uses:
     - load.units
     - load.unit-defaults
     - template.item
     - history.session-record
   - id: exercise-weight-and-its-sets-are-one-load
-    t: An exercise's weight and its set rows are the same load
+    t: An exercise weight and its set rows represent one load
     d: >-
-      both sit on the same fine grid, so a header reading 101 kg over rows reading
-      100 is not a state the board can be in. The weight an exercise is worked at
-      goes through the same snap as the weights of its sets — when the session
-      hydrates and again every time the weight is changed — so the rows, the
-      working weight and the plate line under them all describe one bar. A weight
-      already on the grid passes through untouched, which is why a slot set to
-      48.75 kg opens at 48.75 rather than being rounded to a number nobody typed.
+      Both use the same fine grid. The exercise weight is snapped with its set
+      weights when the session hydrates and whenever it changes, keeping the set
+      rows, working weight, and plate line consistent. Values already on the grid
+      are unchanged; 48.75 kg remains 48.75 kg.
     screen: session
     uses:
     - load.units
@@ -91,19 +81,12 @@ groups:
     - session.exercise-weight
     - template.set-scheme
   - id: each-unit-has-its-own-fine-grid
-    t: Each unit has a fine grid, separate from the step it counts by
+    t: Each unit has a fine grid separate from its progression step
     d: >-
-      an eighth of a kilogram in a metric gym, a quarter of a pound in a pounds
-      one. It is not the 2.5 kg or 5 lb a gym loads by and is not what a slot
-      progresses in; it is the resolution a weight the app worked out for itself is
-      expressed to. Three jobs use it: keeping a percentage where the arithmetic
-      put it instead of rounding it to the nearest plate change, killing the tail
-      a conversion leaves on a set row, and repairing the hundredth of a kilogram
-      a step rate loses on its way through a routine code. One grid for all three,
-      because they are one question — how precisely does this app hold a weight it
-      was not handed. Switching units is the one place that still snaps
-      to the coarse step — 100 kg opens at 220 lb, not 220.5 — because re-plating
-      a whole gym is a different question from resolving one set.
+      The grid is 0.125 kg or 0.25 lb. It is distinct from the 2.5 kg or 5 lb
+      loading step and is used for percentage results, conversion tails on set
+      rows, and weight progression rates decoded from routine codes. Unit switches
+      use the coarse loading step: 100 kg becomes 220 lb, not 220.5 lb.
     screen: none
     defines:
     - load.fine-grid
@@ -111,13 +94,12 @@ groups:
     - load.units
     - load.unit-defaults
   - id: each-unit-has-its-own-default-step
-    t: Step up and back off have a default in each unit
+    t: Each unit has default step-up and back-off rates
     d: >-
-      2.5 kg up and 5 kg down in a metric gym, 5 lb up and 10 lb down in a
-      pounds one. A slot still sitting on the old unit's default takes the new
-      unit's default when the unit changes, so a switch to pounds gives 5 lb
-      steps rather than 5.51. A rate you set yourself is yours: it converts, and
-      2.5 kg deliberately chosen stays 2.5 kg.
+      Metric defaults are 2.5 kg up and 5 kg down; pound defaults are 5 lb up and
+      10 lb down. A slot using the old default step adopts the new unit's default
+      after a unit change. A user-defined rate is converted and retained; an
+      explicitly chosen 2.5 kg rate remains 2.5 kg.
     screen: workout-edit
     defines:
     - load.unit-defaults
@@ -125,30 +107,24 @@ groups:
     - load.units
     - progression.rates
   - id: weight-and-unit-read-one-way
-    t: A weight and its unit are joined one way, everywhere
+    t: Weight and unit formatting uses one shared helper
     d: >-
-      one helper puts the two together through the language's own "{amount}
-      {unit}" pattern, so a language that spaces or orders them differently is
-      obeyed on every screen rather than on most of them. The symbol is never
-      re-cased: "kg" reads kg in a column heading and in a shouted plate line
-      alike. A weight nobody has chosen yet reads "—" rather than 0, on the
-      working weight and on the set rows both. Inside the session's set board the
-      unit is named once, in the column heading, and the cells under it are bare
-      numbers.
+      The helper uses the locale's "{amount} {unit}" pattern and preserves the
+      unit's lowercase symbol. An unset weight displays "—", not 0. In the
+      session board the unit appears once in the column heading; cells contain
+      numbers only.
     screen: session
     uses:
     - load.units
     - session.exercise-weight
     - load.plate-solver
   - id: weights-read-to-two-decimals
-    t: A weight reads to three decimals, with trailing zeros dropped
+    t: Weights display up to three decimals, without trailing zeros
     d: >-
-      100 kg is "100", a 1.25 kg plate is "1.25" and not "1.3", and a 2.5 lb step
-      is "2.5". Three rather than two because the fine grid reaches an eighth of a
-      kilogram, and a percentage landing on 48.875 that reads "48.88" is a number
-      the app cannot be asked for again. One helper formats every weight the app
-      shows — a set row, a step rate, a plate breakdown — so the same number never
-      reads two ways on two screens.
+      For example, 100 kg displays as "100", 1.25 kg as "1.25", and 2.5 lb as
+      "2.5". Three decimal places represent the 0.125 kg fine grid and prevent
+      values such as 48.875 from being displayed as a different value. The same
+      formatter handles set rows, progression rates, and plate breakdowns.
     screen: none
     uses:
     - load.units
@@ -159,39 +135,30 @@ groups:
   - load.units
   items:
   - id: override-reads-everywhere-at-once
-    t: The override is the movement's unit everywhere the movement appears
+    t: An exercise override applies everywhere that exercise appears
     d: >-
-      the session board and its column heading, the exercise's own screen, its
-      bar row and plate line, the slot in the builder and the step rates on it,
-      the history rows, the progress chart and the clip labels. One movement
-      reading two units on two screens is the failure this exists to avoid, so
-      there is one question — what unit is this exercise in — and every screen
-      asks it.
+      It controls the session board and column heading, exercise settings, bar
+      and plate displays, builder slot and progression rates, history, progress
+      chart, and clip labels.
     screen: none
     uses:
     - load.plate-solver
     - session.exercise-weight
     - history.session-record
   - id: typing-means-overridden-unit
-    t: A number you type into that movement is in its unit
-    d: >-
-      the weight field, the step rate, the training max. Reading in one unit and
-      writing in another is how somebody ends up benching 100 lb.
+    t: Values entered for an overridden exercise use its unit
+    d: This includes the weight field, step rate, and training max.
     screen: session
     uses:
     - session.exercise-weight
     - progression.rates
   - id: override-drives-the-arithmetic
-    t: It counts, snaps and warms up in its own unit too
+    t: Progression, snapping, and warm-ups use the override unit
     d: >-
-      a slot on a movement overridden to pounds gets the 5 lb step and 10 lb
-      back-off as its defaults rather than the metric pair, its computed weights
-      land on the quarter-pound grid, and its warm-up ramp climbs a rack that
-      goes up in 5 lb dumbbells and 5 lb stack pins. A step that lands somewhere
-      unloadable is a step nobody can take, whichever unit the rest of the app is
-      in. The plates and the bars are the exception, and stay app-wide: they are
-      the iron in one gym, weighed once, and a movement being read in another
-      unit does not change what is on the rack.
+      A pound-denominated exercise uses 5 lb up and 10 lb back-off defaults and a
+      quarter-pound fine grid. Warm-ups use that unit's 5 lb dumbbell and stack-pin
+      increments. Computed weights must remain loadable. Bars and plates are
+      app-wide physical equipment and are not converted by an exercise override.
     screen: none
     uses:
     - load.unit-defaults
@@ -200,37 +167,30 @@ groups:
     - load.plate-rack
     - session.warmup-ramp
   - id: setting-override-moves-that-movement-only
-    t: Giving a movement its own unit moves that movement's targets, and nothing else
+    t: Assigning an exercise unit converts only that exercise's targets
     d: >-
-      the same pass a whole-app switch makes, scoped to the one exercise: its
-      slots' suggested weights are snapped to a weight the new unit can load, and
-      a slot still on the old unit's default step takes the new one's. It asks
-      first, in the same words, because it is the same change to the numbers you
-      are about to act on. Logged sets are not touched here any more than they
-      are there.
+      Its suggested slot weights are snapped to a loadable value in the new unit;
+      slots using the previous default step adopt the new unit's default. The
+      change requires confirmation. Logged sets are unchanged.
     screen: exercise-detail
     uses:
     - load.unit-defaults
     - template.item
     - history.session-record
   - id: totals-over-several-movements-stay-app-wide
-    t: A total that spans movements stays in the app's unit
+    t: Totals spanning multiple exercises use the app-wide unit
     d: >-
-      session volume, the stats on the history tab, the weight moved in a week.
-      They add several exercises together, and a sum of kilograms and pounds is
-      not a number — so they are read in the app-wide unit, which is what a
-      figure with no single movement behind it can honestly be in.
+      Session volume, history statistics, and weekly weight moved combine multiple
+      exercises, so they are displayed in the app-wide unit rather than an
+      exercise-specific override.
     screen: history
     uses:
     - history.aggregates
   - id: app-wide-switch-leaves-overrides-alone
-    t: Switching the app's unit leaves an overridden movement where it is
+    t: Switching the app unit leaves overridden exercises unchanged
     d: >-
-      an override is an answer somebody gave about one movement; the app-wide
-      setting is the answer for everything they did not. So a switch to pounds
-      moves every movement that was following the app and leaves the one pinned
-      to kilograms in kilograms — including its step rates and its targets, which
-      are already in the unit they were chosen in.
+      The app-wide setting affects exercises that follow it. An exercise pinned to
+      kilograms remains in kilograms, including its progression rates and targets.
     screen: settings
     uses:
     - load.unit-defaults

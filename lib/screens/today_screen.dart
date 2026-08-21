@@ -25,8 +25,6 @@ class TodayScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     final current = ref.watch(currentRoutineProvider);
-    // Skeleton constructors rather than a pattern: the language decides both
-    // the words and the order the day and date come out in.
     final eyebrow =
         '${DateFormat.EEEE(l10n.localeName).format(now)} · '
         '${DateFormat.MMMd(l10n.localeName).format(now)}';
@@ -36,9 +34,6 @@ class TodayScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           ScreenHeader(eyebrow: eyebrow, title: l10n.todayTitle),
-          // Above everything a session could be started from, because that is
-          // the point of it: a browser that cannot keep the log has to say so
-          // before somebody trains into it. Nothing off the web.
           const StorageWarning(),
           if (current != null)
             _CurrentRoutineSection(current: current)
@@ -49,7 +44,6 @@ class TodayScreen extends ConsumerWidget {
             child: SectionLabel(l10n.todayLifetime),
           ),
           Padding(
-            // Anchor for the tour's "lifetime totals" coach mark.
             key: tutorialLifetimeKey,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: const _LifetimeCard(),
@@ -60,28 +54,14 @@ class TodayScreen extends ConsumerWidget {
   }
 }
 
-/// Finds the line that opens the rest of a long routine's workouts.
 const ValueKey<String> kTodayShowAllWorkoutsKey =
     ValueKey('today-show-all-workouts');
 
-/// How many training days a routine may hold before Today folds it.
-///
-/// A week's worth. A split has three or four days and listing them is the whole
-/// screen; past seven, the routine is a program written out session by session
-/// rather than a week to pick from, and listing it buries everything under it.
 const int kTodayWorkoutsShownWhole = 7;
 
-/// How many of the folded routine's days are shown around the one you are on:
-/// the one before it, and the two after.
-///
-/// Asymmetric on purpose. What is behind you is context — one day of it is
-/// enough to see where you are — and what is ahead is the thing you might
-/// actually want to look at next.
 const int kTodayWorkoutsBefore = 1;
 const int kTodayWorkoutsAfter = 2;
 
-/// The workouts of the current routine — pick one and you are one tap from
-/// starting it.
 class _CurrentRoutineSection extends ConsumerStatefulWidget {
   const _CurrentRoutineSection({required this.current});
   final RoutineWithCount current;
@@ -93,22 +73,11 @@ class _CurrentRoutineSection extends ConsumerStatefulWidget {
 
 class _CurrentRoutineSectionState
     extends ConsumerState<_CurrentRoutineSection> {
-  /// Whether the fold has been opened. Held here rather than stored: it is a
-  /// look at the rest of the program, not a preference about it, and coming
-  /// back to Today should come back to the session you are on.
   bool _showAll = false;
 
-  /// Whether this routine is long enough to fold, and still folded.
   bool _isFolded(List<WorkoutWithCount> list) =>
       !_showAll && list.length > kTodayWorkoutsShownWhole;
 
-  /// The days to draw: all of them, or a window around the one you are on.
-  ///
-  /// The window is measured from the session you are on and shrinks at the ends
-  /// rather than sliding to keep its width. On the first session of a program
-  /// there is nothing behind you, and filling the gap with a fourth day ahead
-  /// would put the day you are on at the top of a list that is not a window on
-  /// anything.
   List<WorkoutWithCount> _shown(List<WorkoutWithCount> list, int? nextId) {
     if (!_isFolded(list)) return list;
     var at = list.indexWhere((w) => w.workout.id == nextId);
@@ -130,7 +99,6 @@ class _CurrentRoutineSectionState
     return Column(
       children: [
         Padding(
-          // Anchor for the tour's "the routine you are on" coach mark.
           key: tutorialTodayRoutineKey,
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: SectionLabel(
@@ -166,9 +134,6 @@ class _CurrentRoutineSectionState
                     ),
                     const SizedBox(height: 12),
                   ],
-                  // Only while something is folded. Opened, this is the plain
-                  // list it always was, and a link that undoes nothing is a
-                  // control with no state to be in.
                   if (_isFolded(list))
                     Align(
                       alignment: Alignment.centerLeft,
@@ -188,7 +153,6 @@ class _CurrentRoutineSectionState
   }
 }
 
-/// Shown when no routine is current: pick one (or build the first).
 class _RoutineChooserSection extends ConsumerWidget {
   const _RoutineChooserSection();
 
@@ -210,14 +174,6 @@ class _RoutineChooserSection extends ConsumerWidget {
             child: Column(
               children: [
                 if (list.isEmpty)
-                  // The first screen of a fresh install: the routine list is
-                  // empty until somebody puts something in it, so this is where
-                  // both ways to do that are offered. The ready-made one leads,
-                  // because it is the one that has you training today.
-                  //
-                  // It is also the tour's Today anchor, for the same reason:
-                  // there is no routine and no workout card on a first run, and
-                  // this is the card that changes that.
                   KeyedSubtree(
                     key: tutorialTodayEmptyKey,
                     child: _EmptyCard(
@@ -250,8 +206,6 @@ class _RoutineChooserSection extends ConsumerWidget {
   }
 }
 
-/// One training day on the Today screen. The suggested next day is outlined in
-/// the routine's accent and badged; the others stay plain but tappable.
 class _WorkoutCard extends StatelessWidget {
   const _WorkoutCard({
     required this.data,
@@ -318,9 +272,6 @@ class _WorkoutCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    // A Wrap, not a Row: at 2× text the count and the estimate
-                    // no longer share a line, and they take a second one rather
-                    // than overflowing the card.
                     Wrap(
                       spacing: 6,
                       children: [
@@ -344,7 +295,6 @@ class _WorkoutCard extends StatelessWidget {
   }
 }
 
-/// A small text action in a section header.
 class _TextLink extends StatelessWidget {
   const _TextLink({super.key, required this.label, required this.onTap});
   final String label;
@@ -366,7 +316,6 @@ class _TextLink extends StatelessWidget {
   }
 }
 
-/// A centred "nothing here yet" card with a single call to action.
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard({
     required this.title,
@@ -381,10 +330,6 @@ class _EmptyCard extends StatelessWidget {
   final String action;
   final VoidCallback onAction;
 
-  /// A second way out of the same empty state, offered plainly beneath the
-  /// first. The install with no routines at all has two — take a program the app
-  /// ships, or write your own — and naming only one of them would hide the other
-  /// on the one screen where the question is being asked.
   final String? secondAction;
   final VoidCallback? onSecondAction;
 
@@ -408,10 +353,6 @@ class _EmptyCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 14),
-          // Full width, not shrink-wrapped to the label. This is the one thing
-          // to do on a fresh install — nothing else on Today is reachable
-          // until a routine exists — and a small pill adrift in the middle of
-          // a card reads as a link in a caption rather than as the way on.
           FilledButton(
             onPressed: onAction,
             style: FilledButton.styleFrom(

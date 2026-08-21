@@ -13,17 +13,10 @@ import 'common.dart';
 import 'exercise_filters.dart';
 import '../util/format.dart';
 
-/// Shared chrome for the routine and workout builders.
 
 InputDecoration builderInput(String hint) => InputDecoration(
   hintText: hint,
-  // No "12/80" counter under the name fields that cap their length: the cap
-  // stops typing on its own, and a tally of a number nobody is approaching
-  // is a line of noise under every field.
   counterText: '',
-  // Set explicitly, not just via the theme: a field with its own `style`
-  // would otherwise lend the hint its weight and size and make the
-  // placeholder look like entered text.
   hintStyle: TextStyle(
     color: AppColors.faint,
     fontSize: 15,
@@ -43,18 +36,8 @@ InputDecoration builderInput(String hint) => InputDecoration(
   ),
 );
 
-/// What came back from [askWeight]: a weight in kilograms, or a null [kg]
-/// meaning "use the default". A null *result* is a cancelled dialog.
 typedef WeightChoice = ({double? kg});
 
-/// Asks for a weight in the display unit and hands back kilograms.
-///
-/// A dialog rather than a field on the screen: the values it edits are read
-/// from the database, and a live text field over a stream has to decide on
-/// every keystroke whether the user or the database is right.
-///
-/// [defaultLabel] adds a button that clears the setting back to whatever the
-/// app would have assumed — "Standard 20 kg", "Gym default".
 Future<WeightChoice?> askWeight(
   BuildContext context, {
   required String title,
@@ -103,8 +86,6 @@ class _WeightDialogState extends State<_WeightDialog> {
     super.dispose();
   }
 
-  /// Anything unreadable or absurd closes without changing a thing — a plate
-  /// size is not worth an error message.
   void _save() {
     final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
     Navigator.pop<WeightChoice>(
@@ -144,15 +125,6 @@ class _WeightDialogState extends State<_WeightDialog> {
   }
 }
 
-/// Asks *which bar* this is, and hands back what it weighs in kilograms.
-///
-/// A weight is what gets stored, but a weight is not what anybody knows: you
-/// know you curl on the EZ bar and deadlift off the trap bar, and the number
-/// follows from that. So the gym's bars are offered by name, from the `Bars`
-/// table — and a bar the list does not have yet can be added from here.
-///
-/// [defaultLabel] adds a button that hands the setting back to whatever the app
-/// would otherwise assume. Null when it is already on the default.
 Future<WeightChoice?> askBar(
   BuildContext context, {
   required String title,
@@ -171,13 +143,8 @@ Future<WeightChoice?> askBar(
   );
 }
 
-/// A bar as the editor hands it back: a name and a weight in kilograms.
 typedef BarDraft = ({String name, double kg});
 
-/// Asks for a bar's name and what it weighs, in the display unit.
-///
-/// Both at once, because half a bar is not worth storing. Returns null when the
-/// dialog was cancelled or either field was left unusable.
 Future<BarDraft?> askBarEdit(
   BuildContext context, {
   required String title,
@@ -187,8 +154,6 @@ Future<BarDraft?> askBarEdit(
 }) {
   return showAppDialog<BarDraft>(
     context,
-    // The name field is the one that takes focus on a new bar, and on an
-    // existing one nothing does — so the keyboard claimed is the name's.
     keyboard: name == null ? TextInputType.text : null,
     builder: (_) =>
         _BarEditDialog(title: title, unit: unit, name: name, kg: kg),
@@ -228,8 +193,6 @@ class _BarEditDialogState extends State<_BarEditDialog> {
     super.dispose();
   }
 
-  /// An empty name or an unreadable weight closes without changing anything —
-  /// the same silence [askWeight] keeps, for the same reason.
   void _save() {
     final name = _name.text.trim();
     final v = double.tryParse(_weight.text.trim().replaceAll(',', '.'));
@@ -294,13 +257,9 @@ class _BarDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final bars = ref.watch(barsProvider).value ?? const [];
-    // Within a hundred grams is the same bar: a 45 lb bar is 20.41 kg and will
-    // never compare equal to anything typed in kilograms.
     bool isCurrent(double kg) =>
         currentKg != null && (currentKg! - kg).abs() < 0.1;
 
-    /// Adds a bar the list does not have yet, and picks it in the same breath —
-    /// which is the only reason to be adding one from here.
     Future<void> addOne() async {
       final draft = await askBarEdit(
         context,
@@ -308,8 +267,6 @@ class _BarDialog extends ConsumerWidget {
         unit: unit,
       );
       if (draft == null) return;
-      // A refusal means the list already holds a bar of that weight — which is
-      // the bar being described, so picking it is still the right answer.
       await ref
           .read(databaseProvider)
           .addBar(unit: unit, name: draft.name, kg: draft.kg);
@@ -392,16 +349,8 @@ class _BarDialog extends ConsumerWidget {
   }
 }
 
-/// The longest a personal note may be. Matches the column cap in
-/// `database.dart` — a couple of settings and a reminder, not an essay.
 const int kNoteMaxLength = 300;
 
-/// Asks for the personal note on a movement. Returns the text as typed, `''`
-/// to clear it, or null when the dialog was cancelled.
-///
-/// A dialog for the same reason [askWeight] is one: the value it edits comes
-/// off a stream, and a live field over a stream has to decide on every
-/// keystroke whether the user or the database is right.
 Future<String?> askNote(
   BuildContext context, {
   required String title,
@@ -439,10 +388,6 @@ class _NoteDialogState extends State<_NoteDialog> {
     final l10n = AppLocalizations.of(context);
     return AppDialog(
       title: widget.title,
-      // A dialog sizes itself to its content, and a bare field's own idea of how
-      // wide it wants to be is the width of the longest line in it — so the box
-      // stepped wider mid-word as the note grew. Claiming the room up front
-      // makes it the dialog's width from the first character to the last.
       content: SizedBox(
         width: double.maxFinite,
         child: TextField(
@@ -457,8 +402,6 @@ class _NoteDialogState extends State<_NoteDialog> {
         ),
       ),
       actions: [
-        // Only offered when there is something to clear, so the common case —
-        // writing a first note — is two buttons, not three.
         if ((widget.initial ?? '').isNotEmpty)
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppColors.muted),
@@ -478,14 +421,6 @@ class _NoteDialogState extends State<_NoteDialog> {
   }
 }
 
-/// The chrome every settings row shares: the tap target, the surface it sits
-/// on, the rounded border and the padding inside it.
-///
-/// Pulled out so that a row saying something other than "label, value,
-/// chevron" — the destructive one at the bottom of Settings, say — is the same
-/// shape as its neighbours by construction rather than by two copies of these
-/// numbers agreeing for now. [border] is the one thing a row is allowed to
-/// differ on, because that is what marks one as destructive.
 Widget settingRowShell({
   required VoidCallback onTap,
   required Widget child,
@@ -508,7 +443,6 @@ Widget settingRowShell({
       ),
     );
 
-/// A settings row that states a value and opens something when tapped.
 class SettingRow extends StatelessWidget {
   const SettingRow({
     super.key,
@@ -520,7 +454,6 @@ class SettingRow extends StatelessWidget {
   final String label;
   final String value;
 
-  /// A qualifier under the label — "the gym default", "for pounds".
   final String? note;
   final VoidCallback onTap;
 
@@ -554,10 +487,6 @@ class SettingRow extends StatelessWidget {
                   ],
                 ),
               ),
-              // Flexible, because a value can be a name rather than a number —
-              // "Safety squat bar" is as long as some labels. The label above
-              // gives first; this is the backstop for the row that still cannot
-              // fit at a large text size.
               Flexible(
                 child: Text(
                   value,
@@ -579,7 +508,6 @@ class SettingRow extends StatelessWidget {
   }
 }
 
-/// A small uppercase field caption.
 Widget builderLabel(String t) => Padding(
   padding: const EdgeInsets.only(bottom: 8, left: 2),
   child: Text(
@@ -592,12 +520,6 @@ Widget builderLabel(String t) => Padding(
   ),
 );
 
-/// A compact "− value + " stepper.
-///
-/// Pass [onClear] to make the value optional: pressing − at [min] empties it
-/// rather than sticking, and + brings it back. That keeps an optional setting
-/// the same width and shape as a required one — a separate clear button beside
-/// the stepper would push it out of line with every other row.
 class NumberStepper extends StatelessWidget {
   const NumberStepper({
     super.key,
@@ -619,16 +541,11 @@ class NumberStepper extends StatelessWidget {
   final int step;
   final String suffix;
 
-  /// Shows [emptyLabel] instead of [value]; + restores [min].
   final bool isEmpty;
   final String emptyLabel;
 
-  /// Called instead of [onChanged] when − would take the value below [min].
   final VoidCallback? onClear;
 
-  /// Whether the number can be moved at all. A stepper that cannot still shows
-  /// what it holds, greyed, with both buttons dead — the setting is not in use
-  /// today and the number it is holding is still yours.
   final bool enabled;
 
   @override
@@ -639,10 +556,6 @@ class NumberStepper extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         stepperButton(Icons.remove, canGoDown ? _down : null),
-        // The number gives, the two buttons never do: a stepper you cannot
-        // press is not a stepper. At a large font scale in a two-column grid
-        // there is not room for all three at their natural width, and 54 is a
-        // minimum rather than a promise.
         Flexible(
           child: Container(
             constraints: const BoxConstraints(minWidth: 54),
@@ -680,11 +593,6 @@ class NumberStepper extends StatelessWidget {
   int _clamp(int v) => v < min ? min : (v > max ? max : v);
 }
 
-/// One − or + of a stepper. Greyed rather than removed when there is nowhere
-/// left to go, so the control keeps its width and the row keeps its alignment.
-///
-/// Shared with the decimal amount fields in the slot sheet, which are steppers
-/// with a text box in the middle instead of a number.
 Widget stepperButton(IconData icon, VoidCallback? onTap) {
   return Material(
     color: onTap == null ? AppColors.surface : AppColors.surface2,
@@ -706,11 +614,6 @@ Widget stepperButton(IconData icon, VoidCallback? onTap) {
   );
 }
 
-/// A titled group of settings.
-///
-/// A sheet with a dozen controls stacked in one column reads as a dozen
-/// decisions; the same controls in three captioned blocks read as three. Every
-/// setting inside a card is about the same thing.
 Widget builderCard(String caption, List<Widget> children) => Column(
   crossAxisAlignment: CrossAxisAlignment.stretch,
   children: [
@@ -731,7 +634,6 @@ Widget builderCard(String caption, List<Widget> children) => Column(
   ],
 );
 
-/// Lays fields out two to a row, last one half-width if the count is odd.
 Widget builderGrid(List<Widget> fields) {
   final rows = <Widget>[];
   for (var i = 0; i < fields.length; i += 2) {
@@ -759,8 +661,6 @@ Widget builderGrid(List<Widget> fields) {
   );
 }
 
-/// One captioned control inside a [builderGrid] cell. [note] is a qualifier
-/// that belongs to the caption rather than to the value — "REST · DEFAULT".
 class BuilderField extends StatelessWidget {
   const BuilderField({
     super.key,
@@ -802,16 +702,6 @@ class BuilderField extends StatelessWidget {
   }
 }
 
-/// One captioned, ordered list inside a builder: the rows, dragged into order
-/// by their own handles, and the button that appends one.
-///
-/// Both levels of the template hierarchy are edited through this: the training
-/// days of a routine and the exercise slots of a day. They are the same list of
-/// the same rows, so they are one widget — reordering has to feel identical at
-/// both levels, and two copies would drift.
-///
-/// It shrink-wraps and does not scroll: the builders put it inside their own
-/// scroll view, and a list with its own would trap the drag.
 class BuilderReorderList<T> extends StatelessWidget {
   const BuilderReorderList({
     super.key,
@@ -824,21 +714,15 @@ class BuilderReorderList<T> extends StatelessWidget {
     required this.rowBuilder,
   });
 
-  /// The uppercase heading, sans count — "Workouts", "Exercises".
   final String caption;
   final List<T> items;
 
-  /// Shown in place of the rows when there are none. One line.
   final String emptyText;
   final String addLabel;
   final VoidCallback onAdd;
 
-  /// Moves the item at `from` to `to`, an index already corrected for the item
-  /// having been lifted out of the list.
   final void Function(int from, int to) onReorder;
 
-  /// Builds the row for [item], which must be a [BuilderReorderRow] carrying
-  /// the same [index] so its handle knows what it is dragging.
   final Widget Function(int index, T item) rowBuilder;
 
   @override
@@ -859,8 +743,6 @@ class BuilderReorderList<T> extends StatelessWidget {
           buildDefaultDragHandles: false,
           padding: EdgeInsets.zero,
           itemCount: items.length,
-          // onReorderItem, not onReorder: it hands back a destination index
-          // already corrected for the item having been lifted out.
           onReorderItem: onReorder,
           proxyDecorator: (child, _, _) => Material(
             color: Colors.transparent,
@@ -891,8 +773,6 @@ class BuilderReorderList<T> extends StatelessWidget {
   }
 }
 
-/// One row of a [BuilderReorderList]: a grab handle, a name over a summary
-/// line, and a remove button. Tapping it opens whatever it stands for.
 class BuilderReorderRow extends StatelessWidget {
   const BuilderReorderRow({
     super.key,
@@ -905,20 +785,14 @@ class BuilderReorderRow extends StatelessWidget {
     this.grouped = false,
   });
 
-  /// Position in the list, which is what the drag handle moves.
   final int index;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
-  /// A short uppercase tag above the title — "SUPERSET" on the first row of a
-  /// group. Null on a row with nothing to announce, which is most of them.
   final String? badge;
 
-  /// Whether this row is part of a group of rows performed together. Draws the
-  /// accent down its left edge, so a group reads as a block in the list rather
-  /// than as rows that happen to be adjacent.
   final bool grouped;
 
   @override
@@ -933,9 +807,6 @@ class BuilderReorderRow extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.line),
-            // The edge, not the whole border: a group is a run of ordinary rows
-            // with one thing said about it, and four accent boxes in a column
-            // would shout it four times.
             gradient: grouped
                 ? LinearGradient(
                     colors: [AppColors.accent, AppColors.surface],
@@ -946,7 +817,6 @@ class BuilderReorderRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 10, 6, 10),
           child: Row(
             children: [
-              // Grab here to drag the row up or down the list.
               ReorderableDragStartListener(
                 index: index,
                 child: Padding(
@@ -1004,7 +874,6 @@ class BuilderReorderRow extends StatelessWidget {
   }
 }
 
-/// Small round remove buttons used by builder rows.
 Widget builderIconButton(
   IconData icon,
   VoidCallback? onTap, {
@@ -1027,7 +896,6 @@ Widget builderIconButton(
   );
 }
 
-/// Searchable library picker shown as a bottom sheet; pops the chosen exercise.
 class ExercisePicker extends ConsumerStatefulWidget {
   const ExercisePicker({super.key});
   @override
@@ -1035,18 +903,8 @@ class ExercisePicker extends ConsumerStatefulWidget {
 }
 
 class _ExercisePickerState extends ConsumerState<ExercisePicker> {
-  /// The search text, which lives and dies with this sheet. The two dimensions
-  /// outlive it — see [pickerFilterProvider]: adding three legs movements means
-  /// opening the picker three times, and re-ticking Legs each time is the same
-  /// filter set three times.
   String _query = '';
 
-  /// Builds a movement the library does not have, without losing your place.
-  ///
-  /// Leaving the builder to make one and coming back to start again is a dead
-  /// end people work around by picking something close enough. The form goes on
-  /// the root navigator so it covers this sheet rather than fighting it, and
-  /// what it makes is what the picker returns — you asked for that exercise.
   Future<void> _createOne() async {
     final made = await Navigator.of(context, rootNavigator: true)
         .push<Exercise>(
@@ -1094,10 +952,6 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                 data: (all) {
                   final list = filter.apply(all, shown: (e) => shownWords(l10n, e));
                   return ListView.separated(
-                    // The chips ride at the head of the list rather than in a
-                    // band above it: wrapped, they are as tall as the
-                    // vocabulary and the font demand, which no fixed band at
-                    // the top of a sheet can promise.
                     itemCount: list.length + 2,
                     separatorBuilder: (_, i) => i == 0
                         ? const SizedBox(height: 4)
@@ -1113,9 +967,6 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                               ref.read(pickerFilterProvider.notifier).keep,
                         );
                       }
-                      // The new-exercise row rides above the movements, where
-                      // it is found by someone who has already looked and not
-                      // found what they wanted.
                       if (i == 1) {
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1170,7 +1021,6 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
   }
 }
 
-/// The little drag handle at the top of a bottom sheet.
 class SheetGrabber extends StatelessWidget {
   const SheetGrabber({super.key});
   @override
@@ -1189,7 +1039,6 @@ class SheetGrabber extends StatelessWidget {
   }
 }
 
-/// Opens the exercise picker sheet and returns the chosen exercise.
 Future<Exercise?> pickExercise(BuildContext context) {
   return showModalBottomSheet<Exercise>(
     context: context,

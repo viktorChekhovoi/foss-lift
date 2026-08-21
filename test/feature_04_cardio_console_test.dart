@@ -1,15 +1,5 @@
-// Integration tests for features/index.html#sec04 — the console readouts a set
-// on a cardio machine can carry: `cardio-set-carries-console-readouts`,
-// `readouts-are-optional-every-one-of-them`, `readouts-fold-away-under-the-row`,
-// `readouts-follow-the-gyms-unit`, `readouts-are-kept-with-the-session` and
-// `only-a-cardio-machine-gets-the-details-control`.
-//
-// The board is one reader of the session; the readouts are a fact about the
-// session, so most of what is asserted here is the session itself, the snapshot
-// it writes, and the rows Finish files. The two widget tests are about which
-// rows offer the control at all, which is the one part only a screen can answer.
-//
-// Timer discipline is the harness's — see feature_04_template_drift_test.dart.
+// Integration tests for cardio-machine console readouts in the live session (features/index.html#sec04).
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foss_lift/data/database.dart';

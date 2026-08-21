@@ -8,17 +8,6 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/share_widgets.dart';
 
-/// Hands a routine to someone else, as a QR or as a code.
-///
-/// Both carry the same `FLR1.…` string, and that string *is* the routine —
-/// there is no server behind it, nothing to look up and nothing to expire.
-/// Nothing here touches the network; even "Send code" only hands text to the
-/// system share sheet.
-///
-/// The QR wraps it in a `fosslift://routine/…` link, so a phone's own camera
-/// can open the import screen without the recipient knowing this app has a
-/// scanner. The share sheet does not: a chat app leaves a custom scheme as plain
-/// unclickable text, so the link only added a prefix to paste around.
 class RoutineShareScreen extends ConsumerWidget {
   const RoutineShareScreen({super.key, required this.routineId});
   final int routineId;
@@ -46,8 +35,6 @@ class RoutineShareScreen extends ConsumerWidget {
 
   Widget _body(
       BuildContext context, AppLocalizations l10n, SharedRoutine routine) {
-    // Two payloads for the same routine: the symbol carries the link, the share
-    // sheet carries the code. The capacity question is about the longer one.
     final code = RoutineCode.encode(routine);
     final link = RoutineCode.link(routine);
     final scannable = RoutineCode.fitsQr(link);
@@ -66,9 +53,6 @@ class RoutineShareScreen extends ConsumerWidget {
           style: kMono.copyWith(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 22),
-        // No QR on the page as well as behind the button. Two of the same
-        // symbol on one screen is one too many, and the button is the one the
-        // theme screen has.
         shareSectionLabel(l10n.routineShareSendIt),
         const SizedBox(height: 10),
         shareActionRow([
@@ -105,8 +89,6 @@ class RoutineShareScreen extends ConsumerWidget {
     );
   }
 
-  /// Hands the code to the system share sheet — Quick Share, a chat app, the
-  /// clipboard. Nothing is uploaded: the code *is* the routine.
   Future<void> _shareCode(
       AppLocalizations l10n, SharedRoutine routine, String code) {
     return SharePlus.instance.share(

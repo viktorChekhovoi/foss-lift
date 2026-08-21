@@ -1,20 +1,5 @@
-// Feature 19 — The browser build.
-//
-// The build itself cannot be asserted from the Dart VM: `flutter build web` is
-// a separate command, and a headless browser is not a test dependency. What
-// *is* testable from here is everything the build rests on, and that is what
-// this file covers.
-//
-//  - the capability set: which of the phone's abilities a browser has, stated
-//    once so the screens can ask rather than each guessing at `kIsWeb`;
-//  - the screens honouring it, so a control that cannot work is absent rather
-//    than left to fail when tapped;
-//  - the compression under a routine code, which used to come from `dart:io`
-//    and would have thrown in a browser — checked against `dart:io`'s own
-//    inflate, so the wire format is provably the same one Android writes;
-//  - the source-level guards: the database no longer reaches for a native
-//    opener or a file path directly, and the page has the two assets it cannot
-//    run without.
+// Integration tests for browser capabilities and web-safe code paths (features/index.html#sec19).
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';

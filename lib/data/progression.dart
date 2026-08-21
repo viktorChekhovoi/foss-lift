@@ -1,23 +1,17 @@
-/// The progression rules: which number goes up when a session goes well, by
-/// how much, and how many sessions it takes.
-///
-/// Deliberately free of drift and Flutter. Progression is the one part of the
-/// app where a quiet arithmetic bug silently rewrites your training for months,
-/// so the arithmetic lives on its own where it can be read and tested without a
-/// database in the way.
+/// Pure progression rules for weight, reps, and timed holds.
 library;
 
 /// The axis an exercise advances along. A per-exercise choice, because the
 /// three cases genuinely differ: a squat gets heavier, a pull-up gets more
 /// reps, a plank gets longer.
 enum ProgressionMode {
-  /// Add load at a fixed rep target. The squat/bench case.
+  /// Add load at a fixed rep target.
   weight,
 
-  /// Add reps at a fixed load. The pull-up case.
+  /// Add reps at a fixed load.
   reps,
 
-  /// Hold longer. The plank case — sets are measured in seconds, not reps.
+  /// Increase hold duration.
   time;
 
   /// True when sets are measured in seconds held rather than reps done.
@@ -33,9 +27,7 @@ enum ProgressionMode {
         ProgressionMode.time => 5,
       };
 
-  /// Twice the step up. A back-off has to land somewhere you can actually
-  /// train from, and undoing only the last increment puts you straight back
-  /// at the weight that just beat you.
+  /// Default amount to subtract on a deload.
   double get defaultDeload => defaultIncrement * 2;
 
   /// The lowest a target may be driven by repeated back-offs. Zero load is a
@@ -51,14 +43,7 @@ enum ProgressionMode {
 /// A step up and a back-off, in the units of whatever they move.
 typedef ProgressionRates = ({double increment, double deload});
 
-/// The four ways a slot can be set to advance: the three axes, and the advanced
-/// rule that takes weight and reps in turn. Not what a slot stores about itself
-/// — that is an axis and a tick — but what its *rates* are filed under, both in
-/// the open editor and in `WorkoutItems.spared_rates`.
-///
-/// **The names are stored.** They are written into that column, so a value may
-/// be added but none may be renamed or dropped: a phone is holding rows that
-/// name them.
+/// Axis used to store progression rates. Names are persisted in the database.
 enum RateAxis { weight, reps, time, advanced }
 
 /// The rates kept for the axes a slot is not on, as the column holds them:
@@ -73,13 +58,7 @@ String? encodeSparedRates(Map<RateAxis, ProgressionRates> rates) => rates.isEmpt
           '${e.key.name}:${e.value.increment}:${e.value.deload}',
       ].join(';');
 
-/// The inverse, forgiving of anything that is not it.
-///
-/// A pair that will not parse is dropped and the rest are kept: what is at
-/// stake is a convenience, and the worst case of reading it wrong has to be an
-/// axis that opens at its defaults rather than a workout that will not open. An
-/// axis this build does not know is dropped the same way, so a database written
-/// by a later one still reads.
+/// Decodes stored rates, ignoring malformed or unknown entries.
 Map<RateAxis, ProgressionRates> decodeSparedRates(String? encoded) {
   final out = <RateAxis, ProgressionRates>{};
   if (encoded == null || encoded.isEmpty) return out;
@@ -95,12 +74,7 @@ Map<RateAxis, ProgressionRates> decodeSparedRates(String? encoded) {
   return out;
 }
 
-/// How a movement is measured — a property of the exercise itself, not of any
-/// program built on it. A squat is counted; a plank is held.
-///
-/// This is what decides which progression axes an exercise may use at all.
-/// Offering to progress a deadlift by time, or a plank by reps, is offering a
-/// choice with no right answer in it.
+/// How an exercise is measured and which progression axes it permits.
 enum ExerciseMeasure {
   /// Counted in repetitions. Progresses on load or on reps.
   reps,
@@ -127,11 +101,7 @@ enum ExerciseMeasure {
       modes.contains(mode) ? mode : defaultMode;
 }
 
-/// What one session did to the target it was judged against.
-///
-/// Two answers on every slot, the slot taking reps and weight in turn included:
-/// there the rep goal inside the range is a number like any other, and a session
-/// either made it or did not.
+/// Whether a session met its target.
 enum SessionVerdict {
   /// Every planned set logged, none short. Feeds the success streak.
   success,
@@ -140,12 +110,10 @@ enum SessionVerdict {
   miss,
 }
 
-/// One clean session earns a step up: the common case is a program that adds
-/// weight every time you finish the sets it asked for.
+/// Number of consecutive successes required for a step up.
 const defaultSuccessThreshold = 1;
 
-/// Two misses in a row earn a back-off. One bad session is a bad night's sleep;
-/// two is the weight.
+/// Number of consecutive misses required for a deload.
 const defaultFailureThreshold = 2;
 
 /// The consecutive-outcome counters after a session, and how far the target
@@ -159,13 +127,7 @@ typedef ProgressionStep = ({int successes, int failures, double delta});
 /// content of "what happened" — see `AppDatabase.advanceProgression`.
 typedef ProgressionMove = ({double moved, ProgressionMode axis});
 
-/// Folds one session's outcome into an exercise's progression counters.
-///
-/// Consecutive means consecutive: a success zeroes the failure count and a
-/// failure zeroes the success count, so "three good sessions" cannot be
-/// assembled out of three good sessions spread across a bad month. When a
-/// threshold is reached the target moves and *both* counters reset — the next
-/// step has to be earned from scratch rather than firing again every session.
+/// Folds one session outcome into progression counters.
 ProgressionStep stepProgression({
   required SessionVerdict verdict,
   required int successes,
@@ -228,8 +190,7 @@ CycleStep stepCycle({
   final delta = counted == 0
       ? increment
       : (counted >= failureThreshold ? -deload : 0.0);
-  // Both the position and the count start again: the next cycle is judged on
-  // its own weeks, not on the one that has just been paid out.
+  // A new cycle starts with fresh position and miss counts.
   return (position: 0, misses: 0, delta: delta);
 }
 

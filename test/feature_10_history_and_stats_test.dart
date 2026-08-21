@@ -1,8 +1,5 @@
-// Integration tests for features/index.html#sec10 — the post-session
-// recap, the history list, running lifetime totals, and the per-exercise 1RM /
-// chart maths. Driven through the real public surface: the AppDatabase history
-// and aggregate queries, the pure stats functions, the finish→recap controller
-// path, and the summary/history widgets where the behaviour is a screen one.
+// Integration tests for history, recap, lifetime totals, and exercise statistics (features/index.html#sec10).
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

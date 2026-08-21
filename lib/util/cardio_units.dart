@@ -1,18 +1,5 @@
-/// The readouts a set on a cardio machine can carry, and the units they are
-/// shown in.
-///
-/// The same shape as `util/units.dart` and for the same reason: speed and
-/// distance are **stored metric** — kilometres per hour and kilometres — and
-/// converted only for display, exactly as every weight is stored in kilograms.
-/// A unit switch therefore re-reads what is already logged and never rewrites
-/// it.
-///
-/// Which unit is a question already answered: the app-wide kg/lb setting decides
-/// it, because a gym that weighs a barbell in pounds reads its treadmill in
-/// miles. There is no second preference to keep in step with the first.
-///
-/// Incline and resistance have no unit to convert. An incline is a percentage
-/// everywhere, and a resistance level is a number the machine made up.
+/// Cardio console readouts and their display units; speed and distance are stored in metric and converted using the app-wide weight-unit setting.
+
 library;
 
 import '../data/database.dart' show SessionSet;

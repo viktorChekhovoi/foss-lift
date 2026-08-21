@@ -1,12 +1,5 @@
-// Integration tests for features/index.html#sec04 — what a *finished* rest
-// leaves on screen: `rest-that-ended-says-so-and-waits` and
-// `ending-a-rest-yourself-lands-the-same-way`.
-//
-// The rest bar is the subject, so everything here is a widget test over the
-// real `WorkoutScreen`. Timer discipline is the harness's: a live session is
-// never quiet, so plain `pump()`s only, and the session is put down with
-// [stopAll] before the tree comes apart. The countdown is a fake-zone timer, so
-// running a rest out is `pump(Duration(...))`.
+// Integration tests for the finished-rest state in the live session (features/index.html#sec04).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

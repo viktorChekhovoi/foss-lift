@@ -1,15 +1,5 @@
-/// What one exercise slot is aiming at, in words.
-///
-/// "4 × 6–8", "3 × 45s", "3 × Failure" — the same phrase wherever a slot is
-/// summarised: the training day, the editor's one-line summary of a slot, and
-/// the routine on the import confirmation. Those three read from one formatter
-/// so a target cannot say one thing on the screen that offers the import and
-/// another on the screen it lands on.
-///
-/// It lives up here rather than beside the drift row it usually describes
-/// because it is words, and the words are in the catalogue: the data layer
-/// deliberately cannot see the generated localisations, so a target formatted
-/// down there is English on a Ukrainian phone forever.
+/// Formats an exercise target consistently across summaries and import previews.
+
 library;
 
 import '../data/progression.dart';

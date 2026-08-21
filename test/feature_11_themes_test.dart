@@ -1,21 +1,4 @@
-// Integration tests for features/index.html#sec11 — colour themes.
-//
-// The behaviour under test, straight from the spec:
-//   * eight presets ship as four dark/light pairs — two everyday looks,
-//     Solarized, and a high-contrast option, each in both brightnesses;
-//   * a custom theme edits each colour role, with a live preview;
-//   * sharing carries the palette itself — as a code, a QR or JSON — so a
-//     shared theme does not depend on the recipient having the preset. The share
-//     sheet sends the bare code; the QR holds the `fosslift://` link, so a
-//     system camera can act on it;
-//   * a shared theme is previewed and accepted, never applied on arrival;
-//   * the choice is stored as a preset slug OR a full custom palette, and
-//     resolving a stored choice maps it back to a palette, falling back to the
-//     default when nothing (or nothing valid) is chosen.
-//
-// These are exercised through the real public surface: the [AppPalette] value
-// model + [resolvePalette], the [AppDatabase] theme settings, the providers,
-// and the picker widget — never private internals or generated code.
+// Integration tests for preset, custom, and shared colour themes (features/index.html#sec11).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

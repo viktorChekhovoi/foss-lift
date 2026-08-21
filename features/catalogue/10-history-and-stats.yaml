@@ -1,8 +1,6 @@
 id: "10"
 title: History & stats
-tagline: >-
-  A recap when you finish, every past session on record, running lifetime totals,
-  and a per-exercise progress chart.
+tagline: Session recaps, recorded history, lifetime totals, and progress charts.
 screen: history
 code:
 - lib/screens/summary_screen.dart
@@ -13,18 +11,17 @@ code:
 test:
 - test/feature_10_history_and_stats_test.dart
 where: >-
-  <b>Screens</b> lib/screens/summary_screen.dart, history_screen.dart, exercise_progress_screen.dart
-  · <b>Chart maths</b> lib/data/exercise_stats.dart · <b>Data</b> Sessions / SessionSets,
+  <b>Screens</b> summary_screen.dart, history_screen.dart, exercise_progress_screen.dart
+  · <b>Chart calculations</b> lib/data/exercise_stats.dart · <b>Queries</b> Sessions / SessionSets,
   watchLifetimeTotals(), watchExerciseSetHistory() · <b>Formatting</b> lib/util/format.dart
 groups:
 - name: What it does
   items:
   - id: post-session-recap
-    t: Post-session recap
+    t: A recap opens after a session is finished
     d: >-
-      it opens when you tap Finish on a live session: a "Workout logged" headline,
-      the session name, stat tiles (duration, sets done…), a Progression section
-      saying what each exercise's target did, and the sets you logged grouped by
+      It shows a "Workout logged" heading, session name, duration and completed-set
+      tiles, progression results for each exercise, and logged sets grouped by
       exercise.
     screen: summary
     defines:
@@ -34,27 +31,24 @@ groups:
     - history.session-record
     - progression.rates
   - id: session-history
-    t: Session history
+    t: Finished sessions appear in History
     d: >-
-      every finished session, newest first, on the History tab; tap one to reopen
-      its recap, where the button reads Back.
+      Sessions are ordered newest first. Tapping one opens its recap; the action
+      there is Back.
     defines:
     - history.session-record
   - id: lifetime-totals
-    t: Lifetime totals
-    d: running volume, reps and sets, on the Today tab.
+    t: Lifetime totals appear on Today
+    d: The totals are running volume, repetitions, and sets.
     screen: today
     defines:
     - history.aggregates
   - id: recap-repeats-a-cardio-set-s-readouts
-    t: The recap says what a cardio machine was set to
+    t: The recap includes recorded cardio-machine readouts
     d: >-
-      the best set of a movement done on a console reads its speed, incline,
-      resistance and distance under the duration, in the gym's own unit — the
-      whole reason for typing them during the session is that a later reading of
-      "20:00 on the treadmill" can tell a walk from a run. Only the readouts that
-      were filled in are printed; a set carrying none reads exactly as it did
-      before, with no empty labels standing in for numbers nobody wrote down.
+      The best console set shows entered speed, incline, resistance, and distance
+      below its duration, using the gym's unit. Only populated fields are shown;
+      a set with no readouts is unchanged.
     screen: summary
     uses:
     - session.recap
@@ -62,11 +56,10 @@ groups:
     - history.session-record
     - load.units
   - id: per-exercise-progress-chart
-    t: Per-exercise progress chart
+    t: Each exercise has a progress chart
     d: >-
-      open an exercise → progress: its top set over time, one point per session,
-      the heaviest weight it actually held (or the longest hold, for a timed
-      movement).
+      Exercise → Progress plots one top set per session: the heaviest recorded
+      weight, or the longest hold for a timed movement.
     screen: exercise-progress
     defines:
     - history.exercise-chart
@@ -77,38 +70,35 @@ groups:
   - id: progression-banner-belongs-session-just
     t: The progression banner belongs to the session just finished
     d: >-
-      it's read once and cleared, so reopening the same session from History doesn't
-      show it again. Bodyweight slots with no target are omitted.
+      It is read once and cleared, so reopening the session from History does not
+      show it again. Bodyweight slots without a target are omitted.
     screen: summary
     uses:
     - session.recap
     - progression.rates
   - id: lifetime-totals-sum-logged-sets
-    t: Lifetime totals sum the logged sets
+    t: Lifetime totals are calculated from logged sets
     d: >-
-      not a stored tally, so old history counts and no cached number can fall
-      out of step with the sets beneath it.
+      They are not cached, so totals cannot diverge from the underlying history.
     screen: none
     uses:
     - history.aggregates
     - storage.schema
   - id: deleting-template-never-erases-history
-    t: Deleting a template or an exercise never erases the history of having trained it
+    t: Deleting a template or exercise preserves its training history
     d: >-
-      session IDs are deliberately not foreign keys, and set rows store the exercise
-      name denormalised, so renaming or deleting an exercise never rewrites past
-      sessions.
+      Session IDs are not foreign keys, and set rows store the exercise name
+      denormalised. Renaming or deleting an exercise does not rewrite past sessions.
     screen: none
     uses:
     - history.session-record
     - storage.schema
     - exercise.identity
   - id: chart-plots-top-set-only
-    t: The chart plots the top set
+    t: The chart plots only the top set
     d: >-
-      an estimated 1RM was offered beside it and taken back out: it is a formula's
-      opinion about a lift you did not do, and two numbers that disagree about
-      whether you are progressing is one number too many.
+      Estimated 1RM is excluded; it is a formula-derived value rather than a lift
+      recorded in the session.
     screen: exercise-progress
     uses:
     - history.exercise-chart

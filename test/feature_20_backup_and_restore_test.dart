@@ -1,10 +1,5 @@
-// Backup and restore — features/index.html#sec20.
-//
-// The whole phone's training data as one file, and the file read back. The
-// tests here work on real files in a temporary directory rather than on an
-// in-memory database: what this feature is *for* is surviving the app being
-// uninstalled, and a snapshot that is never written to disk proves nothing
-// about that.
+// Integration tests for on-disk backup and restore (features/index.html#sec20).
+
 import 'dart:io';
 
 import 'package:archive/archive.dart';

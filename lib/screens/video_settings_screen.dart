@@ -7,14 +7,6 @@ import '../services/set_video_recorder.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
-/// How set clips are filmed, how much space they take, and how to get it back.
-///
-/// The reclaim controls are the price of the app's retention policy, which is
-/// that **nothing is ever deleted automatically**. Every automatic rule bins
-/// the oldest clip first, and the oldest clip is the one worth keeping — the
-/// whole point of filming a set is to hold it up against the same lift six
-/// months later. So the app shows the number and puts the bin in reach instead
-/// of choosing on the user's behalf.
 class VideoSettingsScreen extends ConsumerWidget {
   const VideoSettingsScreen({super.key});
 
@@ -77,10 +69,6 @@ class VideoSettingsScreen extends ConsumerWidget {
     );
   }
 
-  /// The blunt instrument, behind a confirmation that says the size of what is
-  /// about to go. Per-exercise reclaim lives on the exercise itself, which is
-  /// where somebody deciding they no longer need six months of bench press
-  /// actually is.
   Future<void> _confirmDeleteAll(
     BuildContext context,
     AppLocalizations l10n,
@@ -113,8 +101,6 @@ class VideoSettingsScreen extends ConsumerWidget {
   }
 }
 
-/// What the clips are costing. Read-only, so it is not a [SettingRow]: a row
-/// that looks tappable and is not is worse than a plain one.
 class _UsageRow extends StatelessWidget {
   const _UsageRow({required this.label, required this.value});
   final String label;
@@ -144,7 +130,6 @@ class _UsageRow extends StatelessWidget {
   }
 }
 
-/// A row of exclusive choices, the shape Settings already uses for text size.
 class _Choices extends StatelessWidget {
   const _Choices({
     required this.values,

@@ -1,8 +1,7 @@
 id: "08"
 title: Schedule & reminders
 tagline: >-
-  A routine can name the weekdays it's meant to be trained on, and ask for a local
-  notification on them.
+  Schedule routine weekdays and optional local notifications.
 screen: routine-edit
 code:
 - lib/data/schedule.dart
@@ -21,15 +20,15 @@ groups:
   - id: stores-which-day-week-routine
     t: Stores which day of the week a routine is trained on
     d: >-
-      a day mask, set on the routine editor along with an optional reminder time.
-      Leave the reminder off and no notification is scheduled.
+      Stores a weekday mask and optional reminder time. Disabled reminders schedule
+      nothing.
     defines:
     - platform.reminders
     uses:
     - template.routine
   - id: optionally-fires-one-local-notification
     t: Optionally fires one local notification per routine
-    d: at a chosen time on those days.
+    d: Sends one notification at the selected time on scheduled days.
     screen: shade
     uses:
     - platform.reminders
@@ -38,8 +37,8 @@ groups:
   - id: next-reminder-computed-not-stored
     t: The next reminder is computed, not stored
     d: >-
-      the next scheduled day strictly after now, skipping today if the routine
-      was already trained today, and wrapping a week for a once-weekly schedule.
+      Selects the next scheduled day after now, skips today when the routine was
+      trained today, and wraps to the following week when necessary.
     screen: none
     uses:
     - platform.reminders
@@ -47,9 +46,8 @@ groups:
   - id: reminders-re-sync-single-place
     t: Reminders re-sync from a single place
     d: >-
-      a schedule edit, a finished session and a fresh launch all converge on the
-      same pending notification — the app cancels and re-lays the next reminder
-      on every sync.
+      Schedule edits, completed sessions, and app launches all cancel and recreate
+      the next pending notification through the same sync path.
     screen: none
     uses:
     - platform.reminders
@@ -57,8 +55,8 @@ groups:
   - id: scheduled-inexactly-purpose
     t: Scheduled inexactly on purpose
     d: >-
-      an exact alarm needs a permission Android 14 makes the user grant by hand,
-      and a nudge to go to the gym doesn't need to land on the second.
+      Uses inexact alarms to avoid Android 14 exact-alarm permission; reminder
+      timing does not require second-level precision.
     screen: none
     uses:
     - platform.reminders
@@ -66,12 +64,8 @@ groups:
   - id: notifications-carry-own-status-bar-icon
     t: Notifications carry the app's own status-bar icon
     d: >-
-      a white silhouette of the barbell from the app mark, drawn on transparency.
-      Android renders a status-bar icon as an alpha-only stencil, so falling back
-      to the launcher icon flattens it to a featureless blob — the colour and the
-      detail that make the mark recognisable are exactly what is thrown away. The
-      silhouette is drawn for that treatment instead, so what appears beside the
-      clock is still the barbell.
+      Uses a white transparent barbell silhouette. Android renders status-bar
+      icons as alpha-only stencils, so the launcher icon is unsuitable.
     screen: system
     uses:
     - platform.android
@@ -80,9 +74,8 @@ groups:
   - id: android-only
     t: Android-only
     d: >-
-      the service is a no-op off Android, so tests never touch a platform channel.
-      Android needs RECEIVE_BOOT_COMPLETED, the plugin's receivers, and core-library
-      desugaring.
+      The service is a no-op off Android. Android requires RECEIVE_BOOT_COMPLETED,
+      the plugin receivers, and core-library desugaring.
     screen: none
     uses:
     - platform.android

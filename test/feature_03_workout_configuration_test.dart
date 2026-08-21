@@ -1,11 +1,5 @@
-// Integration tests for features/index.html#sec03
-//
-// Per-slot configuration in the exercise builder: sets, a target (fixed count /
-// range / to-failure / timed hold), a rest override, a suggested weight and the
-// progression rates. Which targets are offered follows the exercise's measure,
-// not the programme; a rep range keeps its width as it moves; a set is reps XOR
-// seconds; the untouched defaults are +2.5 kg after a clean session, −5 kg after
-// two misses.
+// Integration tests for per-slot workout configuration (features/index.html#sec03): targets, rests, suggested loads, and progression settings.
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

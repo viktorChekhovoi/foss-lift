@@ -1,9 +1,4 @@
-/// What a weight is actually made of: how an exercise is loaded, and — for a
-/// barbell — which plates go on each side of it.
-///
-/// Free of drift and Flutter like the other rule modules. The arithmetic is
-/// small but fiddly (halves, pairs, an inventory that runs out), and it is the
-/// kind of thing you want to be able to read on its own.
+/// Weight loading, plate inventory, and loadable-weight calculations.
 library;
 
 import '../util/units.dart';
@@ -14,53 +9,29 @@ import '../util/units.dart';
 /// A property of the movement, not of the program — the same way
 /// [ExerciseMeasure] is. Bench Press is loaded on a bar wherever it appears.
 enum WeightType {
-  /// Loaded on a bar: the number is the bar plus everything on it, and it can
-  /// be resolved into a per-side stack of plates.
+  /// Loaded on a bar; the value includes the bar and can be split per side.
   bar,
 
-  /// Whatever the machine reads — a stack pin, a selectorised weight, a plate
-  /// hung off one arm. The number is the number and there is nothing to work
-  /// out.
+  /// A machine or other fixed load, used as entered.
   machine,
 
-  /// A dumbbell: the number is the one in your hand. Whether the movement uses
-  /// one of them or two is the exercise's business, not the weight's — a
-  /// one-arm row and a pair of curls both log what is on the dumbbell.
+  /// The weight of one dumbbell.
   dumbbell,
 
-  /// Nothing is loaded: a push-up, a pull-up, a plank. There is no weight to
-  /// suggest, none to log and none to break down — the movement is yours and
-  /// how heavy you are is not a number this app asks for.
-  ///
-  /// A real answer rather than a missing one, which is why it is a value here
-  /// and not a null column: the codec sends it, the picker can be cleared back
-  /// to it, and every screen asks the same question of it as of the others.
+  /// No external load, such as a push-up or plank.
   none;
 
-  /// The loadings a picker offers. [none] is not among them — it is what you
-  /// get by deselecting, not a fourth kind of weight, and a chip labelled
-  /// "None" beside three real ones invites the wrong reading.
+  /// Loadings offered by the weight picker. [none] means no selection.
   static const List<WeightType> loadable = [bar, machine, dumbbell];
 
-  /// Whether there is a weight at all: a load to suggest, a field to type it
-  /// in, a number to log.
+  /// Whether this type has an external load.
   bool get carriesWeight => this != WeightType.none;
 
   /// Whether a weight of this type breaks down into a per-side plate load.
   bool get loadedPerSide => this == WeightType.bar;
 }
 
-/// The lightest a movement of this [type] can be loaded to: a bar cannot be
-/// loaded below its own weight, and nothing else has a floor.
-///
-/// The other half of [PlateSolution.belowBar]. That flag is what a plate line
-/// *says* when a weight is under the bar; this is what stops one getting there
-/// in the first place — on the board while a session runs, in the builder on
-/// the way to the database, and in progression, where repeated back-offs and a
-/// layoff cut both stop here rather than at zero. Both exist because a weight
-/// can still arrive from elsewhere — a template built before the movement's bar
-/// was set — and a line that reads "lighter than the bar" is the only honest
-/// thing to do about it.
+/// The minimum load for [type]. Bar-loaded exercises cannot be lighter than their bar; other types have a zero floor.
 double loadFloorKg({
   required WeightType type,
   required double defaultBarKg,
@@ -68,13 +39,7 @@ double loadFloorKg({
 }) =>
     type.loadedPerSide ? (barKg ?? defaultBarKg) : 0.0;
 
-/// The weight type an exercise should start on, given its equipment.
-///
-/// Only a starting point: the user can change it afterwards, and needs to for
-/// the awkward cases (an EZ-bar with its own weight, a Smith machine, a trap
-/// bar, a weighted pull-up). Bodyweight movements carry nothing; everything
-/// else that is not obviously a bar or a dumbbell reads as a machine, cables
-/// included — the number is the number.
+/// Chooses the initial weight type from an exercise's equipment.
 WeightType weightTypeForEquipment(String equipment) =>
     switch (equipment.toLowerCase()) {
       'barbell' => WeightType.bar,
@@ -83,25 +48,7 @@ WeightType weightTypeForEquipment(String equipment) =>
       _ => WeightType.machine,
     };
 
-/// The loading a movement's **name** already states, or null if it does not
-/// state one.
-///
-/// "Barbell Curl" is loaded on a bar and "Dumbbell Row" on a dumbbell — not
-/// because of a rule about equipment, but because the implement is in the name.
-/// Changing those to something else leaves a row whose name contradicts its own
-/// weight column, so on a seeded movement they are fixed —
-/// `Exercise.loadingIsFixed` in `database.dart`.
-///
-/// **The equipment is the wrong question, and answering it that way locked far
-/// too much.** How a movement is loaded is specific to the movement and to the
-/// gym: a skull crusher is done with a bar, a pair of dumbbells or on a machine;
-/// a chest-supported row is often a plate-loaded machine, where "Bar" is the
-/// useful answer; a cable station may be a stack or plates on a carriage.
-/// Equipment "Barbell" says what the seed guessed, not what you own. So only the
-/// name settles anything, and it settles it for twenty-two of the starters.
-///
-/// A movement you made yourself is never fixed, whatever you called it: you
-/// named it and you loaded it, and reconciling the two is not the app's business.
+/// Infers a fixed loading from a seeded exercise name, or null when the name does not specify one. User-created exercises remain editable.
 WeightType? loadingNamedBy(String name) {
   final n = name.toLowerCase();
   if (RegExp(r'\bbarbell\b').hasMatch(n)) return WeightType.bar;
@@ -109,21 +56,13 @@ WeightType? loadingNamedBy(String name) {
   return null;
 }
 
-/// So many plates of one size. Used both for the inventory ("I own four 20s")
-/// and for a solved stack ("two 20s go on each side").
+/// A plate size and the number available.
 typedef PlateStack = ({double kg, int count});
 
-/// A load the gym can actually be set to, and what it costs to set up: plates
-/// per side on a bar, and zero for a dumbbell or a stack, where you pick a
-/// number off the rack and there is nothing to load.
-///
-/// A ladder of these is what stops a suggested weight being arithmetic nobody
-/// can build — see [loadLadder] and the warm-up ramp that consumes it.
+/// A loadable weight and its setup cost (plates per side for a bar).
 typedef LoadRung = ({double kg, int cost});
 
-/// The bar and the plates as the user has them, resolved — see
-/// [resolvePlateSettings]. Weights are canonical kilograms like everywhere
-/// else; the editor converts at the view boundary.
+/// The configured bar and plate inventory, in canonical kilograms.
 typedef PlateSettings = ({double barKg, List<PlateStack> plates});
 
 /// A standard Olympic bar, in kilograms.
@@ -132,53 +71,27 @@ const kDefaultBarKg = 20.0;
 /// The same bar as a pounds gym describes it.
 const kDefaultBarLb = 45.0;
 
-/// How many of a plate size a gym is assumed to own until told otherwise, and
-/// how many are added when you put a new size on the rack.
-///
-/// Two — one pair — because that is the smallest amount of a plate that is any
-/// use, and claiming more of the odd sizes than a gym has is how you get a
-/// breakdown asking for four 35s.
+/// Default number of plates of each size (one pair).
 const kDefaultPlateCount = 2;
 
-/// How many of the *workhorse* plate a gym is assumed to own: the 45s in a
-/// pounds gym, the 20s in a metric one. Everything heavy is built out of these
-/// and every rack has a pile of them, so five pairs is the realistic default
-/// where one pair is right for the rest.
+/// Default count for the common heavy plate (five pairs).
 const kDefaultBigPlateCount = 10;
 
-/// The increment a gym buys dumbbells in, named in the unit it counts by: a
-/// pounds gym's rack climbs in 5s, a metric one's in 2.5s.
-///
-/// Matches how commercial racks are actually sold — hex sets run 2.5–30 kg in
-/// 2.5 kg steps, and their pounds equivalents go up in 2.5s to 30 lb and 5s
-/// above that. The light end of a rack is therefore finer than this, and above
-/// 30 kg some racks are coarser; one step is the honest compromise, because
-/// suggesting a bell nobody stocks is worse than suggesting the one beside it.
+/// Default dumbbell increments in each display unit.
 const kDumbbellStepLb = 5.0;
 const kDumbbellStepKg = 2.5;
 
-/// The increment a machine's stack moves in — five of whatever the gym counts
-/// in.
-///
-/// The *finest* common increment rather than the typical one: selectorised
-/// stacks are built from 5, 10, 15 or 20 lb plates depending on the machine, and
-/// there is no way to know which from here. A suggestion on a 5 grid is always
-/// within one pin of something the machine can do.
+/// Default machine-stack increment.
 const kStackStepLb = 5.0;
 const kStackStepKg = 5.0;
 
-/// Two weights within this of each other are the same weight. Plate maths runs
-/// on rounded grams, and a pound plate converts to kilograms with a tail on it,
-/// so 225 lb has to come out exact rather than ten grams shy of it.
+/// Tolerance for comparing converted and calculated weights.
 const kPlateToleranceKg = 0.01;
 
-/// The most distinct per-side loads the search will hold at once. A guard
-/// against a pathological inventory, not a limit anybody's gym will meet: the
-/// standard rack reaches a few hundred combinations.
+/// Maximum distinct per-side loads considered by the plate search.
 const kPlateSearchCap = 20000;
 
-/// One entry of a standard rack, in the unit it is named in rather than in
-/// kilograms — a pounds gym owns 45s, not 20.41s.
+/// One standard-rack plate size and count, in the rack's display unit.
 typedef _Stock = ({double size, int count});
 
 /// The rack a gym stocking kilograms owns: a pair of everything and a pile of

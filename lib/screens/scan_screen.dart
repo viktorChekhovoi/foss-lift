@@ -8,33 +8,15 @@ import '../services/deep_links.dart';
 import '../services/qr_decoder.dart';
 import '../theme/app_theme.dart';
 
-/// Points the camera at a Foss Lift QR code and hands what it finds to the
-/// matching import screen.
-///
-/// One scanner for everything shareable — [host] says which: `theme`, `routine`.
-/// Nothing is applied here — a scan navigates to the confirmation, which is the
-/// only place a shared anything is ever adopted.
-///
-/// On Android the system camera can already open a `fosslift://` link, so this
-/// is a convenience. It would not be on iOS: Apple's Camera app is unreliable
-/// about offering to open third-party URL schemes, and this path bypasses OS
-/// URL routing entirely by decoding the string itself.
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key, required this.host});
 
-  /// What is being scanned for, as the link host: `theme` or `routine`. It is
-  /// also what picks the wording: every sentence on this screen exists once per
-  /// kind of code rather than once with the noun spliced in, because a language
-  /// that inflects the noun cannot be handed it as a substituted word.
   final String host;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-/// What stopped the scanner, held as a value rather than as a finished
-/// sentence: the camera fails in [initState], where there is nothing to read
-/// the string catalogue with, and the wording is chosen in [build].
 enum _ScanProblem { noCamera, denied, failed }
 
 class _ScanScreenState extends State<ScanScreen> {
@@ -62,8 +44,6 @@ class _ScanScreenState extends State<ScanScreen> {
       );
       final controller = CameraController(
         back,
-        // Low resolution on purpose: a QR held up to the lens decodes fine at
-        // this size, and every extra pixel is one more to walk per frame.
         ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.yuv420,
@@ -76,8 +56,6 @@ class _ScanScreenState extends State<ScanScreen> {
       setState(() => _camera = controller);
       await controller.startImageStream(_onFrame);
     } on CameraException catch (e) {
-      // Overwhelmingly this is a declined permission, which is a choice rather
-      // than a fault — say what it means and offer the way round it.
       setState(() => _problem = e.code == 'CameraAccessDenied'
           ? _ScanProblem.denied
           : _ScanProblem.failed);
@@ -86,8 +64,6 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  /// Called for every frame. Cheap rejections first: the vast majority of
-  /// frames have no code in them, and this runs at the camera's frame rate.
   void _onFrame(CameraImage image) {
     if (_busy || _handled) return;
     _busy = true;
@@ -108,9 +84,6 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   void _found(String text) {
-    // Only act on something that actually reads as what we are scanning for;
-    // pointing the phone at a Wi-Fi QR on a café wall should not yank you into
-    // an import screen.
     if (!readsAsShare(widget.host, text)) return;
     final route = importRoute(widget.host, text);
     if (route == null) return;

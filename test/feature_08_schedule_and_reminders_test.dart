@@ -1,16 +1,5 @@
-// Feature 08 — Schedule & reminders.
-//
-// The behaviour under test is entirely the *decision*: given a day mask, a
-// reminder time, "now", and when the routine was last trained, when should the
-// next local notification fire? That decision is the pure `nextReminderAt`
-// (and its `RoutineReminder.nextFireAt` wrapper), driven here across every edge
-// the spec names — no schedule, a once-weekly day, a multi-day week, a slot
-// already trained today, and the week-wrap. The stored side of it — the mask
-// and the (nullable) reminder time per routine, re-derived through
-// `watchRoutineReminders` — is asserted against the seeded install and after a
-// schedule edit and a finished session, the two events the spec says converge
-// on the same pending reminder. The scheduler itself is Android-only, so off a
-// device it must be an inert no-op that never reaches a platform channel.
+// Integration tests for schedule and reminder timing (features/index.html#sec08).
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';

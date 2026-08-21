@@ -17,17 +17,6 @@ import '../widgets/builder_widgets.dart';
 import '../widgets/share_widgets.dart';
 import '../widgets/theme_preview.dart';
 
-/// How the app looks: the text size, the language, and the colour theme —
-/// a shipped preset or your own, with import/export.
-///
-/// The three are one screen because they are one question. Selecting a theme
-/// writes it to the settings row; the app root watches the resolved palette and
-/// repaints every screen. A routine's own accent colour is parsed straight from
-/// its `colorHex` and so still shows through, whatever is chosen here.
-///
-/// Text size and language come first, above the theme list. The list runs long
-/// — eight presets, your own, and the share and import rows under them — and a
-/// two-line control put after all that is a control nobody finds.
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
 
@@ -37,10 +26,6 @@ class AppearanceScreen extends ConsumerWidget {
     final active = ref.watch(activePaletteProvider);
     final db = ref.read(databaseProvider);
     final mine = ref.watch(customThemesProvider).value ?? const <AppPalette>[];
-    // The *resolved* palette's id, not the stored one: with nothing chosen the
-    // picker marks whichever default the system brightness put on screen, and
-    // a choice that no longer resolves marks what is actually being painted.
-    // Either way the radio agrees with what you can see.
     final selectedId = active.id;
 
     return Scaffold(
@@ -69,10 +54,6 @@ class AppearanceScreen extends ConsumerWidget {
               onTap: () => context.push(linkPath(context, '/settings/language')),
             ),
             const SizedBox(height: 28),
-            // Presets grouped by brightness so light and dark are easy to
-            // scan. Each group ends with its high-contrast option, which the
-            // row badges — picking legibility should never also mean giving up
-            // the brightness you prefer.
             for (final group in [
               (l10n.themeDarkGroup, Brightness.dark),
               (l10n.themeLightGroup, Brightness.light),
@@ -87,8 +68,6 @@ class AppearanceScreen extends ConsumerWidget {
                   label: themeDisplayName(l10n, preset),
                   selected: selectedId == preset.id,
                   onTap: () => db.setThemePreset(preset.id),
-                  // The pencil on a preset copies rather than edits: it opens
-                  // the editor with no row behind it, seeded from this preset.
                   onEdit: () =>
                       context.push(
                           linkPath(context, '/settings/appearance/custom?from=${preset.id}')),
@@ -100,8 +79,6 @@ class AppearanceScreen extends ConsumerWidget {
             Text(l10n.themeYourThemes,
                 style: sectionLabelStyle()),
             const SizedBox(height: 10),
-            // Each of the user's own: a tap selects it, the pencil opens it —
-            // which is where its name, its colours and its bin all live.
             for (final palette in mine) ...[
               _ThemeOption(
                 palette: palette,
@@ -110,9 +87,6 @@ class AppearanceScreen extends ConsumerWidget {
                 onTap: () => db.setThemePreset(palette.id),
                 onEdit: () => context.push(
                     linkPath(context, '/settings/appearance/custom/${customThemeRowId(palette.id)}')),
-                // Your own can be edited in place, so copying needs a control
-                // of its own — the pencil is already spoken for. A preset has
-                // no copy icon: its pencil already means "copy and edit".
                 onDuplicate: () => db.addCustomTheme(_seedCustom(palette,
                         _freeName(l10n.themeCopyName(palette.name), mine))
                     .toJson()),
@@ -123,9 +97,6 @@ class AppearanceScreen extends ConsumerWidget {
               onTap: () => context.push(
                   linkPath(context, '/settings/appearance/custom')),
             ),
-            // Only your own themes are shareable. The presets ship with every
-            // copy of the app, so sending someone a code for one is sending
-            // them something they already have.
             if (customThemeRowId(selectedId) != null) ...[
               const SizedBox(height: 26),
               shareSectionLabel(l10n.themeShareSection),
@@ -166,18 +137,10 @@ class AppearanceScreen extends ConsumerWidget {
   }
 }
 
-/// Starts a new theme from [from], which is whatever is on screen — you tweak
-/// from something that already looks right rather than from black.
-///
-/// It carries the bare `custom` id until it is saved and gets a row of its own,
-/// and no accessibility claim: the shipped high-contrast palettes are checked
-/// against WCAG, and a copy the user is free to recolour has not been.
 AppPalette _seedCustom(AppPalette from, String name) =>
+    // Only shipped high-contrast palettes are WCAG-checked.
     from.copyWith(id: kCustomThemeId, name: name, accessible: false);
 
-/// The first unused name in the series [base], `base 2`, `base 3`… Numbered
-/// from the second one on, so a picker full of "My theme" is something you have
-/// to have chosen rather than something the app did to you.
 String _freeName(String base, List<AppPalette> existing) {
   final taken = {for (final p in existing) p.name};
   if (!taken.contains(base)) return base;
@@ -186,12 +149,9 @@ String _freeName(String base, List<AppPalette> existing) {
   }
 }
 
-/// The name a new theme opens with.
 String _nextThemeName(AppLocalizations l10n, List<AppPalette> existing) =>
     _freeName(l10n.themeDefaultName, existing);
 
-/// The row that starts a new theme. Shaped like a theme option so the list
-/// reads as one column, but with nothing to select — a plus, and the words.
 class _NewThemeRow extends StatelessWidget {
   const _NewThemeRow({required this.onTap});
   final VoidCallback onTap;
@@ -228,7 +188,6 @@ class _NewThemeRow extends StatelessWidget {
   }
 }
 
-/// Shows [palette] as a QR someone else can point a phone at.
 Future<void> _showQr(BuildContext context, AppPalette palette) {
   return showDialog<void>(
     context: context,
@@ -249,13 +208,6 @@ Future<void> _showQr(BuildContext context, AppPalette palette) {
   );
 }
 
-/// Hands the theme code to the system share sheet — Quick Share, a chat app,
-/// the clipboard. Nothing is uploaded: the code *is* the theme.
-///
-/// The bare `FLT1.…` code, not a `fosslift://` link: a chat app does not linkify
-/// a custom scheme, so a link arrived as unclickable text that had to be pasted
-/// anyway, carrying a prefix the reader then strips. The QR still holds the
-/// link, where a camera can act on it.
 Future<void> _shareCode(AppLocalizations l10n, AppPalette palette) async {
   await SharePlus.instance.share(
     ShareParams(
@@ -265,8 +217,6 @@ Future<void> _shareCode(AppLocalizations l10n, AppPalette palette) async {
   );
 }
 
-/// Prompts for a pasted code or link and hands it to the import screen, which
-/// is the only thing allowed to apply a theme.
 Future<void> _paste(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
   final text = await promptForCode(context,
@@ -275,10 +225,6 @@ Future<void> _paste(BuildContext context) async {
   context.push('/settings/appearance/import?code=${Uri.encodeQueryComponent(text)}');
 }
 
-/// A selectable theme row: a strip of its key colours, its name, and a radio.
-/// An optional pencil edits it, and an optional copy icon clones it — which is
-/// what separates one of your own from a preset, since a preset's pencil already
-/// means "copy and edit".
 class _ThemeOption extends StatelessWidget {
   const _ThemeOption({
     required this.palette,
@@ -290,8 +236,6 @@ class _ThemeOption extends StatelessWidget {
   });
   final AppPalette palette;
 
-  /// The name as it reads on screen — a preset's translated one, or the name
-  /// the user gave their own. See [themeDisplayName].
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -362,13 +306,6 @@ class _ThemeOption extends StatelessWidget {
   }
 }
 
-/// The `AAA` mark on a row whose palette was designed and checked against WCAG.
-///
-/// A long press always explains it, as any tooltip does. A *tap* explains it too
-/// — but only on the row already selected, where a tap has nothing else to mean.
-/// On an unselected row the tap has to go on selecting the theme, so this stands
-/// aside and lets it through: three characters of jargon are worth a tooltip,
-/// not worth costing someone the tap they were actually making.
 class _AaaBadge extends StatefulWidget {
   const _AaaBadge({required this.explainOnTap});
   final bool explainOnTap;
@@ -407,7 +344,6 @@ class _AaaBadgeState extends State<_AaaBadge> {
   }
 }
 
-/// A little row of colour chips previewing a palette's ground and accents.
 class _Swatches extends StatelessWidget {
   const _Swatches({required this.palette});
   final AppPalette palette;
@@ -447,23 +383,13 @@ class _Swatches extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Custom theme editor
-// ---------------------------------------------------------------------------
 
-/// One editable role: its label and how to read/write it on a palette.
 typedef _Role = ({
   String Function(AppLocalizations) label,
   Color Function(AppPalette) get,
   AppPalette Function(AppPalette, Color) set,
 });
 
-/// The twelve editable roles, in the order the editor lists them.
-///
-/// The labels are looked up rather than stored, so the editor follows a
-/// language switch. The role *identifiers* they stand for — the JSON keys and
-/// the byte order in a theme code — are a wire format and live in
-/// `AppPalette._roles` and `ThemeCode._roleOrder`; nothing here moves them.
 const List<_Role> _roles = [
   (label: _lGround, get: _gGround, set: _sGround),
   (label: _lSurface, get: _gSurface, set: _sSurface),
@@ -475,9 +401,6 @@ const List<_Role> _roles = [
   (label: _lFaint, get: _gFaint, set: _sFaint),
   (label: _lAccent, get: _gAccent, set: _sAccent),
   (label: _lAccentPress, get: _gAccentPress, set: _sAccentPress),
-  // `gold` is the came-up-short marker everywhere it is painted — a missed
-  // goal, a backed-off weight, a downward delta. It used to be labelled
-  // "Personal record" here, which named the opposite of what it does.
   (label: _lGood, get: _gGood, set: _sGood),
   (label: _lGold, get: _gGold, set: _sGold),
 ];
@@ -521,24 +444,11 @@ AppPalette _sAccentPress(AppPalette p, Color c) => p.copyWith(accentPress: c);
 AppPalette _sGood(AppPalette p, Color c) => p.copyWith(good: c);
 AppPalette _sGold(AppPalette p, Color c) => p.copyWith(gold: c);
 
-/// Name a theme, edit each colour role, and save it as the active one.
-///
-/// With no [themeId] this builds a new theme, starting from [fromPresetId] if
-/// one is named and otherwise from whatever is active — either way you tweak
-/// from something that already looks right rather than from black. With one it
-/// edits that theme in place — and is the only place it can be renamed or
-/// deleted, because those belong with the thing itself rather than scattered
-/// across the row that lists it.
 class CustomThemeEditorScreen extends ConsumerStatefulWidget {
   const CustomThemeEditorScreen({super.key, this.themeId, this.fromPresetId});
 
-  /// The `CustomThemes` row being edited, or null to build a new one.
   final int? themeId;
 
-  /// The preset a new theme starts from, when the pencil on a preset row opened
-  /// this. A preset is never edited in place: what gets saved is a copy of it,
-  /// which is why this only seeds the draft and is ignored once [themeId] is
-  /// set. An unknown slug seeds from the active palette, as no slug does.
   final String? fromPresetId;
 
   @override
@@ -557,8 +467,6 @@ class _CustomThemeEditorScreenState
     super.dispose();
   }
 
-  /// The theme being edited, if it still exists. Read from the live list rather
-  /// than fetched once, so deleting it from under this screen is not a crash.
   AppPalette? _stored(List<AppPalette> mine) {
     final id = widget.themeId;
     if (id == null) return null;
@@ -574,10 +482,6 @@ class _CustomThemeEditorScreenState
     final l10n = AppLocalizations.of(context);
     final mine = ref.watch(customThemesProvider).value ?? const <AppPalette>[];
     final active = ref.watch(activePaletteProvider);
-    // Seeded once: after that the draft is the truth, so a rebuild cannot
-    // undo an edit.
-    // The preset this is a copy of, if that is how it was opened. Only ever
-    // consulted for a new theme: an existing one is edited in place.
     final source =
         widget.themeId == null ? presetById(widget.fromPresetId) : null;
     final draft = _draft ??=
@@ -643,9 +547,6 @@ class _CustomThemeEditorScreenState
     );
   }
 
-  /// Writes the draft: a new row the first time, the same row afterwards.
-  /// Either way the theme ends up selected — you have been looking at the
-  /// preview, and saving is a request to see it for real.
   Future<void> _save(AppPalette draft) async {
     final db = ref.read(databaseProvider);
     final id = widget.themeId;
@@ -657,8 +558,6 @@ class _CustomThemeEditorScreenState
     if (mounted) context.pop();
   }
 
-  /// Deletes after asking. Losing a palette somebody spent an evening on to a
-  /// mis-tap is exactly the sort of thing a confirmation is for.
   Future<void> _confirmDelete(int id, String name) async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
@@ -684,8 +583,6 @@ class _CustomThemeEditorScreenState
   }
 }
 
-/// The theme's name. Blank does not take, so backspacing through one cannot
-/// leave a nameless theme in the picker.
 class _NameField extends StatelessWidget {
   const _NameField({required this.controller, required this.onChanged});
   final TextEditingController controller;
@@ -716,12 +613,6 @@ class _NameField extends StatelessWidget {
   }
 }
 
-/// A role row in the editor: swatch, label, current hex, tap to change.
-///
-/// A long press copies the hex. The row's tap already belongs to the picker, so
-/// the hex cannot have a tap of its own — and long-press-to-copy is the gesture
-/// this app already uses for the one other string worth lifting off a screen,
-/// the demo link on an exercise.
 class _RoleRow extends StatelessWidget {
   const _RoleRow({
     required this.label,
@@ -789,28 +680,16 @@ String _hexOf(Color c) {
   return rgb.toRadixString(16).toUpperCase().padLeft(6, '0');
 }
 
-/// Reads a colour written as `#RGB`, `#RRGGBB` or bare `RRGGBB`.
-///
-/// Null for anything else, which is what keeps a half-typed or mistyped hex
-/// from repainting a role: the caller holds its colour until this returns one.
 Color? parseHex(String input) {
   var s = input.trim();
   if (s.startsWith('#')) s = s.substring(1);
   if (s.length == 3) {
-    // CSS shorthand: each digit doubles, so #ABC is #AABBCC.
     s = s.split('').map((d) => '$d$d').join();
   }
   if (s.length != 6 || !RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(s)) return null;
   return Color(0xFF000000 | int.parse(s, radix: 16));
 }
 
-/// A self-contained colour picker — no third-party dependency.
-///
-/// One notation: **RGB, with a hex field**. Three channels and six hex digits
-/// are how every colour a palette is built from is written down — off a brand
-/// guide, out of the Solarized spec, from a screenshot — and the hex field is
-/// what a colour can be copied and pasted as, which is how a family of related
-/// surfaces gets built without retyping.
 class _ColorPickerDialog extends StatefulWidget {
   const _ColorPickerDialog({required this.title, required this.initial});
   final String title;
@@ -821,7 +700,6 @@ class _ColorPickerDialog extends StatefulWidget {
 }
 
 class _ColorPickerDialogState extends State<_ColorPickerDialog> {
-  /// The colour itself. The sliders and the hex field are both views onto this.
   late Color _color;
 
   late final TextEditingController _hex;
@@ -839,8 +717,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     super.dispose();
   }
 
-  /// Adopts [c] as the colour. [syncField] is false while the user is typing in
-  /// the hex field, which must not have its own text rewritten under the caret.
   void _adopt(Color c, {bool syncField = true}) {
     setState(() {
       _color = c;
@@ -901,12 +777,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     );
   }
 
-  /// Puts this colour on the clipboard as `#RRGGBB`.
-  ///
-  /// The roles are families — `surface`/`surface2`/`surface3` are one hue at
-  /// three lightnesses — so building one by hand starts from the value of the
-  /// last. Retyping six hex digits to do that is the sort of thing people stop
-  /// bothering with, and then the family drifts.
   Future<void> _copyHex() async {
     final hex = '#${_hexOf(_color)}';
     final message = AppLocalizations.of(context).themeCopiedHex(hex);
@@ -916,11 +786,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Takes a colour off the clipboard, in any form the field itself accepts.
-  ///
-  /// Junk leaves the colour alone, exactly as typing junk does — [parseHex]
-  /// returning null is the whole of that rule, and it is the same rule either
-  /// way in.
   Future<void> _pasteHex() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (!mounted) return;
@@ -968,8 +833,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
           borderSide: BorderSide(color: AppColors.line),
         ),
       ),
-      // Typed as it goes: a hex that does not read yet simply does not move
-      // the colour, so backspacing through one is not destructive.
       onChanged: (text) {
         final parsed = parseHex(text);
         if (parsed != null) _adopt(parsed, syncField: false);
@@ -1008,8 +871,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     ];
   }
 
-  /// One channel: a track painted with the colours it actually traverses, so
-  /// the slider previews its own effect instead of asking you to imagine it.
   Widget _channel({
     required String label,
     required double value,
@@ -1072,11 +933,6 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     );
   }
 }
-/// The four text-size steps, each previewing itself.
-///
-/// A chip drawn at the size it selects is the only honest preview: the point of
-/// the control is how big the words get, and a row of same-sized labels says
-/// nothing about that.
 class _ScaleChoices extends StatelessWidget {
   const _ScaleChoices({required this.chosen, required this.onSelect});
   final double chosen;
@@ -1091,10 +947,6 @@ class _ScaleChoices extends StatelessWidget {
         for (final choice in kTextScaleChoices)
           TextScaleChip(
             choice: choice,
-            // The stored scale marks whichever step it is on, however it got
-            // there: the chips and the pinch write the same setting, so
-            // pinching to 200% leaves Largest selected here. A value between
-            // two steps marks neither, because neither is what is rendering.
             selected: (choice.scale - chosen).abs() < 0.001,
             onTap: () => onSelect(choice.scale),
           ),
@@ -1103,7 +955,6 @@ class _ScaleChoices extends StatelessWidget {
   }
 }
 
-/// One text-size step, drawn at the size it selects.
 class TextScaleChip extends StatelessWidget {
   const TextScaleChip({
     super.key,
@@ -1134,7 +985,6 @@ class TextScaleChip extends StatelessWidget {
         ),
         child: Text(
           choice.label(l10n),
-          // Its own scale, not the page's: the chip shows what it does.
           textScaler: TextScaler.linear(choice.scale),
           style: TextStyle(
             fontSize: 13.5,

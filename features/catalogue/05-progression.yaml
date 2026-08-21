@@ -1,8 +1,7 @@
 id: "05"
 title: Automatic progression
 tagline: >-
-  Each exercise slot advances on one axis: add weight, add reps, hold longer — or
-  take the two counted ones in turn. Success steps it up; misses back it off.
+  Progression adds weight, reps, or hold time after success and backs off after misses.
 screen: none
 code:
 - lib/data/progression.dart
@@ -19,10 +18,9 @@ groups:
   - id: weight-axis
     t: A slot advances on one of three axes
     d: >-
-      weight — more load at a fixed rep target; reps — more reps at a fixed load;
-      or time — a longer hold. A counted slot with a rep range can also take the
-      first two in turn, which is the advanced axis below rather than a fourth
-      thing to advance.
+      Weight increases load at a fixed rep target; reps increases reps at fixed
+      load; time increases hold duration. A counted slot with a rep range can
+      alternate weight and reps through the Advanced axis.
     screen: session
     defines:
     - progression.axis
@@ -31,15 +29,18 @@ groups:
   - id: defaults-work-untouched
     t: Defaults work untouched
     d: >-
-      +2.5 kg after one clean session, −5 kg after two missed ones in a row — and
-      the rule is written out under the steppers, reading correctly at any count. Every
-      rate is configurable per slot.
+      Defaults are +2.5 kg after one clean session and −5 kg after two consecutive
+      misses. Each rate is configurable per slot.
     defines:
     - progression.rates
   - id: climb-the-range-then-add-weight
     t: A weight slot can progress by reps, then by weight
     d: >-
-      the Advanced axis — the third pill, and the same switch as the "Progress by reps, then weight" tick under Progression → Advanced — makes the two numbers take turns inside a rep range. The slot carries a live rep goal, starting at the bottom of the range: a clean session raises the goal by the slot's rep step, and the session that earns a step at the top of the range adds the weight step instead and puts the goal back at the bottom. A back-off works the same way in reverse — the goal comes down by the rep back-off, and a back-off owed at the bottom of the range takes the weight down and puts the goal back at the top. The range itself never moves. Off by default, and offered only where it means something: a slot with a fixed rep count has no range to climb, and a slot on the reps or time axis is already advancing the number this would advance.
+      Advanced alternates rep and weight changes within a fixed range. The live
+      goal starts at the lower bound; a clean session raises it by the rep step,
+      and reaching the upper bound applies the weight step and resets the goal to
+      the lower bound. Misses reverse this process. The option is available only
+      for counted slots with a rep range on the weight axis.
     screen: session
     defines:
     - progression.double
@@ -53,14 +54,17 @@ groups:
   - id: advanced-has-a-rate-for-each-axis
     t: The advanced axis carries a step and a back-off for each of its two axes
     d: >-
-      reps and weight each get their own step-up and back-off amount, because a rep is not a kilogram. The two thresholds are not doubled with them: one clean-session count and one miss count govern both, since a session is clean or missed for the slot rather than for one of its axes.
+      Rep and weight each have independent step-up and back-off amounts. One
+      clean-session threshold and one miss threshold apply to the slot as a whole.
     uses:
     - progression.rates
     - progression.double
   - id: advanced-goal-is-stored-on-the-slot
     t: The live rep goal is stored on the slot
     d: >-
-      where it sits inside the range is program state, not a fact about one session, so it survives the app being closed and is what the next session is judged against. A slot that has never run the rule starts at the bottom of its range, and so does an imported one — where somebody else's program had got to is not part of the program. Editing the range pulls a goal now outside it back inside.
+      The goal position is slot state and persists across launches. New and
+      imported slots start at the lower bound. Editing the range clamps an
+      out-of-range goal back inside it.
     uses:
     - progression.double
     - template.rep-target
@@ -68,10 +72,9 @@ groups:
   - id: loading-bar-past-suggestion-itself
     t: Loading the bar past the suggestion is itself progression
     d: >-
-      beating the stored target raises it, even before a step is formally
-      "earned". Not on a slot running a cycle, where the stored number is a
-      training max rather than a weight the session asked for — see
-      <b>22</b>.
+      Exceeding a stored target raises it before a configured progression step is
+      earned. Cycle slots are excluded because their stored value is a training
+      max, not the session's requested weight.
     uses:
     - progression.verdict
     - session.exercise-weight
@@ -81,9 +84,7 @@ groups:
   items:
   - id: automatic
     t: It is automatic
-    d: >-
-      configure the rates in the workout builder; it runs on Finish, and what
-      it did is shown on the post-session recap.
+    d: Configure rates in the workout builder. Progression runs on Finish and is shown on the recap.
     screen: summary
     uses:
     - session.recap
@@ -93,19 +94,15 @@ groups:
   - id: verdict-every-planned-set-logged
     t: The verdict is "every planned set logged and none short"
     d: >-
-      a skipped set is a miss; finishing at a reduced weight is a miss. Two
-      answers on every slot, the advanced axis included: there the rep goal is a
-      number like any other, and a session either made it or did not.
+      A skipped set or reduced-weight set is a miss. The same rule applies to the
+      Advanced axis: the session either reaches its live rep goal or does not.
     defines:
     - progression.verdict
   - id: recap-names-the-axis-that-actually-moved
     t: The recap reports whichever axis a slot moved on
     d: >-
-      a session that climbed the rep goal is reported as the reps it gained,
-      against the goal it now carries; the session that topped the range and
-      earned load is reported as the weight. One slot, two axes, and the recap
-      says which of them today paid out on rather than naming the one the slot is
-      filed under.
+      Reports rep progress when the rep goal advances and weight progress when a
+      range reset adds load.
     screen: summary
     uses:
     - progression.double
@@ -114,21 +111,15 @@ groups:
   - id: ticked-slot-without-a-range-is-ordinary
     t: An advanced slot with no range left is an ordinary weight slot
     d: >-
-      take the rep range off a slot on the advanced axis and it steps up on a
-      clean session like any other, because there is no longer a range to climb.
-      The setting is kept rather than cleared, so putting the range back puts the
-      behaviour back — dropping it would make an edit somebody made to the reps
-      quietly rewrite the progression rules underneath. A slot switched to
-      failure is the same case: the range is still there and is simply not what
-      the sets are aiming at while failure is on.
+      Without a rep range, Advanced steps weight on a clean session like an
+      ordinary weight slot. The setting is retained and resumes when a range is
+      restored. To-failure slots use the same ordinary case.
     uses:
     - progression.double
     - template.rep-target
   - id: weight-axis-step-applied-lightest
     t: On the weight axis, the step is applied to the lightest logged set
-    d: >-
-      the load carried through the whole exercise. One heavy set among lighter
-      ones is a heavy single, not a new working weight.
+    d: The step applies to the exercise's lightest logged load, not an isolated heavy set.
     screen: session
     uses:
     - progression.axis
@@ -136,9 +127,9 @@ groups:
   - id: streaks-stored
     t: Streaks are stored
     d: >-
-      consecutive successes/failures, because the target moves and a past session
-      can only be judged against the goal that was live that day. Editing a workout
-      in the builder can't forgive a pending back-off.
+      Stores consecutive successes and failures so sessions are judged against the
+      target that was active at the time. Editing a workout does not clear a pending
+      back-off.
     defines:
     - progression.streak
     uses:
@@ -146,14 +137,9 @@ groups:
   - id: weight-mode-slot-no-suggested
     t: A weight-mode slot with no suggested weight takes one from the session
     d: >-
-      no load is invented for a slot nobody ever put a number on — that would be
-      telling you to load 2.5 kg onto a push-up. A weight set on the board is a
-      number, though: a slot with no stored target that was worked at a weight
-      today takes that weight as its target, steps on from it, and is listed on the
-      recap like every other exercise. The weight the session carried is the
-      lightest set logged, or the working weight when nothing was logged at all.
-      Only a slot that had no target and was given no weight is left alone, and it
-      is the one case with genuinely nothing to move.
+      A slot without a target does not invent a load. If a weight is logged, the
+      lightest logged set becomes the target and progression starts from it. A
+      slot with neither target nor logged weight is unchanged.
     uses:
     - progression.axis
     - template.item
@@ -162,13 +148,9 @@ groups:
   - id: target-never-stored-below-its-bar
     t: A target is never stored below its own bar
     d: >-
-      for a movement with a bar under it, repeated back-offs stop at the empty bar
-      rather than running down to nothing — a target lighter than the bar it is
-      loaded on is not a lighter session. The floor is applied as the target is
-      read as well as written, so a slot that drifted under its bar on an older
-      build is brought back to it the next time progression touches it, and the
-      recap counts that session's step from the bar rather than reporting the whole
-      climb back as a step up.
+      Barbell targets are clamped to the empty bar on read and write. A legacy
+      target below its bar is corrected when progression touches it; the recap
+      treats the bar as the step baseline.
     uses:
     - progression.axis
     - progression.rates

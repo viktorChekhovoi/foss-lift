@@ -1,4 +1,4 @@
-/// How long a training day will take, worked out from the template alone.
+/// Estimates workout duration from its template.
 ///
 /// Deliberately free of drift and Flutter, like the other rule modules
 /// ([progression], [plates], [layoff], [warmup]): it reads a list of

@@ -6,8 +6,7 @@ import '../providers/db_provider.dart';
 import 'active_workout.dart';
 import 'session_snapshot.dart';
 
-/// The live session's crash snapshot: one row, rewritten on every mutation, read
-/// once on launch, deleted on finish or discard.
+/// Queued crash snapshot for the in-memory live session.
 ///
 /// **The session is still in memory and still writes its history only on
 /// Finish.** This does not make it database-backed — nothing reads the snapshot
@@ -27,7 +26,7 @@ class SessionMirror {
 
   Future<void> _queue = Future<void>.value();
 
-  /// Mirrors [session] as it stands.
+  /// Queues a snapshot of [session].
   void save(ActiveWorkout session) {
     final payload = encodeSession(session);
     _next(() => _db.saveLiveSession(payload), 'mirror the session');
@@ -36,8 +35,7 @@ class SessionMirror {
   /// Drops the snapshot — the session was finished or thrown away.
   void clear() => _next(_db.clearLiveSession, 'drop the snapshot');
 
-  /// The session the last run left behind, aged by however long the app was
-  /// gone, or null if there is none to come back to.
+  /// Loads and ages the previous snapshot, if any.
   Future<ActiveWorkout?> load() async {
     final row = await _db.loadLiveSession();
     if (row == null) return null;
@@ -53,8 +51,7 @@ class SessionMirror {
   }
 }
 
-/// Where the live session's crash snapshot goes, or null for a run that does not
-/// keep one.
+/// Provides the live-session snapshot service.
 ///
 /// Null in a widget test, and deliberately: a test drives the app under a fake
 /// clock, a database future completes on the real event loop, and an unawaited

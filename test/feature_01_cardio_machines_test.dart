@@ -1,13 +1,5 @@
-// Integration tests for features/index.html#sec01 — the cardio machines in the
-// starter set (`cardio-floor-is-in-the-starter-set`) and the rule that decides
-// which movements have a console behind them
-// (`a-cardio-machine-is-cardio-and-a-machine`).
-//
-// The machines are ordinary starter rows: they are seeded, classified, keyed
-// and translated like every other movement. What is particular to them is that
-// they are measured in time, carry no load at all, and answer true to
-// [ExerciseConsole.isCardioMachine] — which is what puts the console readouts on
-// a set of one during a workout.
+// Integration tests for the cardio-machine starter rows and their console classification (features/index.html#sec01).
+
 import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';

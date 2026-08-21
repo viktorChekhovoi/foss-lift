@@ -1,8 +1,6 @@
 id: "14"
 title: Sharing a routine
-tagline: >-
-  A whole program — days, slots, rep schemes, progression rates and the custom
-  exercises it depends on — as one line of text you can paste into a message.
+tagline: Export and import complete routines as text codes or QR codes.
 screen: routine-share
 code:
 - lib/data/routine_code.dart
@@ -26,50 +24,43 @@ groups:
 - name: What it does
   items:
   - id: export-any-routine-becomes-routine
-    t: Export — any routine becomes a routine code
+    t: Exported routines become versioned routine codes
     d: >-
-      a versioned, compressed, base64 line beginning FLR2. It carries the routine's
-      name, colour, default rest, training days and description; every workout in order; every
-      exercise slot's prescription — sets, reps, rest, the set scheme and its
-      percentages, progression axis, step and back-off rates, thresholds — and a
-      definition of every exercise the routine references. Not the weights: see
-      below. A scheme travels as its shape rather than as its numbers, which is
-      what lets it arrive already snapped to the receiving phone's unit.
+      A versioned, compressed base64 line beginning FLR2. It contains the routine
+      name, color, default rest, training days, description, ordered workouts,
+      slot prescriptions, progression settings, and referenced exercise definitions.
+      Weights are excluded; schemes travel by shape so they can use the receiving
+      phone's unit.
     defines:
     - share.routine-code
     uses:
     - template.set-scheme
   - id: two-ways-out-qr-or
-    t: Two ways out — a QR to scan, or the code itself
+    t: Routines can be shared as QR or text codes
     d: >-
-      Routines → open a routine → the share icon → Show QR or Send code. The share
-      sheet sends the bare FLR2 line, because a chat app will not make a
-      fosslift:// link tappable and an unclickable link is worse than a string
-      nobody expected to click. The QR still holds the link, so a phone's own
-      camera opens the import screen without knowing this app has a scanner.
-      Nothing is uploaded, and the share sheet is where "copy" lives — no separate
-      copy button, no file to save.
+      Routines → open a routine → share → Show QR or Send code. The share sheet
+      sends the bare FLR2 line; the QR contains a fosslift:// link that a system
+      camera can open. No upload or export file is created.
     defines:
     - share.qr
     - share.deep-link
   - id: import-scanned-qr-tapped-link
-    t: Import — a scanned QR, a tapped link or a pasted code
+    t: Import from a QR scan, link, or pasted code
     d: >-
-      Routines → + → Import a routine → Scan QR or Paste
-      code; a fosslift://routine/… link tapped anywhere on the phone opens the same
-      screen. All three land on a confirmation screen, and nothing is written until
-      you accept it.
+      Routines → + → Import a routine → Scan QR or Paste code. A tapped
+      fosslift://routine/… link opens the same screen. All paths show confirmation;
+      no data is written until acceptance.
     screen: routine-import
     defines:
     - share.import-review
     uses:
     - ui.routine-add-menu
   - id: custom-exercises-travel-routine
-    t: Custom exercises travel with the routine
+    t: Custom exercise definitions travel with the routine
     d: >-
-      the name, every muscle group it trains and every one it assists, equipment,
-      weight type and bar — plus a video link, if there is a video behind it. The
-      recipient does not need them beforehand.
+      The definition includes name, primary and assisting muscle groups, equipment,
+      weight type, bar, and an optional video link. The recipient need not already
+      have the exercise.
     uses:
     - share.routine-code
     - exercise.identity
@@ -79,93 +70,66 @@ groups:
     - exercise.video-url
     - load.bar-weight
   - id: flr2-carries-whole-muscle-map
-    t: FLR2 carries the whole muscle map, and FLR1 codes still open
+    t: FLR2 carries multiple muscle groups; FLR1 remains readable
     d: >-
-      a movement's groups stopped being one byte the moment a movement could name
-      several, so the format that could only hold one is closed and a new one
-      written beside it. Codes go out as FLR2. Both are read: an FLR1 code — the
-      one in a chat message from last month, the one printed on a gym wall —
-      arrives with each exercise carrying the single group it was written with as
-      its only primary, which is exactly what it meant. What does not work is the
-      other direction: a phone still on the shipped build cannot open an FLR2
-      code, and says so plainly rather than importing a mangled routine. That is
-      also what lets FLR2 still grow in the middle rather than only on the end —
-      a field added to the routine header breaks no code anybody is holding,
-      because no build in the wild reads this tag at all.
+      FLR2 supports multiple groups; FLR1 remains readable and maps its single group
+      as primary. Older builds reject FLR2 rather than parsing it incorrectly. FLR2
+      can add fields because no shipped build reads its version.
     uses:
     - share.routine-code
     - exercise.muscle-map
   - id: supersets-travel-on-the-end-of-the-code
-    t: A shared routine carries its supersets, and older builds ignore them
+    t: Shared routines carry supersets; older builds ignore the extension
     d: >-
-      the joins ride in a section appended after the training days rather than
-      inside a slot, so the tag stays FLR2 and a build that has never heard of a
-      superset stops where it always stopped and skips what follows. Sent to the
-      shipped build, the routine arrives as the same exercises in the same order,
-      listed one after another; sent to this one, it arrives grouped. A code from a
-      routine with no supersets in it is not one byte longer than before.
+      Superset joins are in a section appended after the training days. Older
+      builds stop before and skip this section; they import the same exercises in
+      order without grouping. A routine without supersets has no extra bytes.
     uses:
     - share.routine-code
     - template.superset
   - id: range-climb-travels-on-the-end-of-the-code
-    t: A shared routine carries which slots take reps and weight in turn, and at what rates
+    t: Shared routines carry double-progression axes and rates
     d: >-
-      the ticks ride in their own appended section, behind the supersets, for the
-      same reason those do: a new bit inside a slot would leave the shipped build
-      parsing a tick as the next slot's exercise. The rep step and rep back-off
-      those slots advance by ride in a section of their own behind that, on the
-      same terms and for the same reason, and only for the slots that use them.
-      An older build imports the routine with the box unticked on every slot,
-      which is a program that adds weight a session sooner rather than a corrupt
-      one. Where the sender's program had got to inside its range does not travel
-      at all: a shared routine is a program, not somebody's progress through one,
-      so every imported slot starts at the bottom of its range. A routine where
-      nothing takes the two axes in turn costs no bytes at all — neither section
-      is written when there is nothing to carry.
+      Axis flags, followed by rep step and back-off rates, use trailing sections so
+      older readers can skip them. Older builds import slots with the axis option
+      off. Sender progress within a range is not exported; imported slots start at
+      the range minimum. Empty sections are omitted.
     uses:
     - share.routine-code
     - progression.double
   - id: cycles-travel-on-the-end-of-the-code
-    t: A shared routine carries its cycles, and older builds get the first week
+    t: Shared routines carry cycles; older builds import week one
     d: >-
-      the weeks ride in a section of their own behind the rep rates, on the terms
-      every trailing section is on. Inside the slot itself the cycle is written
-      as the plain custom scheme its first week already is, so a build that stops
-      before the section imports a working program — the same exercises, the same
-      sets, the opening week's reps and percentages — rather than a slot with no
-      scheme at all. Where the sender had got to in the cycle does not travel:
-      an imported copy opens on week one, for the reason a rep goal does not
-      travel either.
+      Cycle weeks use a trailing section. Each slot also carries its first week as
+      a custom scheme, so older readers import a working week-one program. The
+      imported cycle always starts at week one; sender progress is not exported.
     uses:
     - share.routine-code
     - template.cycle
     - template.per-set-reps
   - id: description-travels-with-the-routine
-    t: A routine's description travels with it
+    t: Routine descriptions are included in exports
     d: >-
-      it rides in the routine header, right behind the training days, so an imported program arrives explaining itself rather than as a name and a list of days. A routine nobody has described pays nothing for the field: a spare bit in the flag byte the envelope already carries says whether there is one, so such a code is the same bytes it was before descriptions existed. It lands as the sender's own words: an import is nobody's copy of a library program, so the paragraph is shown as it was written, the way a name somebody invented is. Capped at 700 bytes on the wire — well past the 300 characters the app enforces, so a legal description never loses its tail here first, and bounded all the same, so a hostile code cannot claim a megabyte of paragraph.
+      The description is optional in the routine header and controlled by an existing
+      flag bit. It preserves the sender's text and is capped at 700 wire bytes;
+      app input is limited to 300 characters.
     uses:
     - share.routine-code
     - template.description
     - ui.seeded-name
   - id: name-clash-your-call
-    t: A name clash is your call
+    t: Imports let you choose how to resolve name clashes
     d: >-
-      the confirmation screen lists every exercise that will be added, and every one
-      whose name you already use. Where an incoming exercise has the same name as
-      one already in the library and its definition differs, it carries a Replace
-      switch: keeping yours is the default.
+      The confirmation screen lists all incoming exercises and name matches. A
+      differing definition gets a Replace switch, off by default.
     screen: routine-import
     uses:
     - share.import-review
   - id: import-preview-names-in-app-language
-    t: The confirmation screen names exercises in the app's language
+    t: Import previews use the app's exercise names
     d: >-
-      a code carries the canonical English name, and the preview resolves it the
-      way every other screen does, so a starter movement is listed translated
-      rather than reading "Bench Press" on the confirmation and "Жим лежачи" the
-      moment it lands. A name the sender invented has no translation and is shown
-      as they wrote it.
+      Canonical English names resolve through the app's localization. User-defined
+      names have no translation and are shown unchanged.
     screen: routine-import
     uses:
     - share.import-review
@@ -174,7 +138,7 @@ groups:
 - name: Behaviour & edge cases
   items:
   - id: code-whole-routine
-    t: The code is the whole routine
+    t: The code contains the complete routine
     d: >-
       no server, no id to look up, nothing to expire. A code shared in 2026 still
       imports in 2030.
@@ -183,7 +147,7 @@ groups:
     - share.routine-code
     - template.item
   - id: there-nothing-wordy-left-carry
-    t: There is nothing wordy left to carry
+    t: Exercise coaching cues are not serialized
     d: >-
       an exercise used to hold a coaching cue, the largest thing in a routine
       code; removing it took a custom exercise from about 55 characters on the
@@ -193,7 +157,7 @@ groups:
     - share.routine-code
     - exercise.taxonomy
   - id: video-link-travels-id
-    t: A video link travels as its id
+    t: Video links are serialized as IDs
     d: >-
       any YouTube URL is reduced to its eleven-character id and rebuilt as https://youtu.be/&lt;id&gt;
       at the other end. A link with no video behind it does not travel at all
@@ -203,7 +167,7 @@ groups:
     - share.routine-code
     - exercise.video-url
   - id: names-capped-200-utf-8
-    t: Names are capped at 200 UTF-8 bytes on the wire
+    t: Wire names are capped at 200 UTF-8 bytes
     d: >-
       generous next to the 80 the app enforces, so a legal name never loses characters
       here first — and bounded, so a corrupt code cannot claim a megabyte of routine
@@ -212,7 +176,7 @@ groups:
     uses:
     - share.routine-code
   - id: defaults-not-transmitted
-    t: Defaults are not transmitted
+    t: Default values are omitted from the wire format
     d: >-
       a slot only spends bytes on fields that differ from the app's defaults,
       and increment/deload defaults are read per progression mode. A default
@@ -225,7 +189,7 @@ groups:
     - template.item
     - load.unit-defaults
   - id: imported-rates-land-on-a-tidy-grid
-    t: An imported step-up or back-off lands on a number somebody would type
+    t: Imported weight rates are snapped to the receiving unit's fine grid
     d: >-
       the wire format carries a rate as hundredths of a kilogram, so a rate set in
       pounds arrives a hundredth of a kilogram off what it was — a 2.5 lb step comes
@@ -241,7 +205,7 @@ groups:
     - load.fine-grid
     - progression.rates
   - id: qr-offered-whenever-one-can
-    t: A QR is offered whenever one can hold the routine
+    t: QR export is offered when the routine fits QR capacity
     d: >-
       the ceiling is the standard's: 2,331 bytes at medium error correction, 2,953
       at low. A routine that outgrows medium is painted at low rather than refused;
@@ -250,7 +214,7 @@ groups:
     uses:
     - share.qr
   - id: symbol-drawn-large-screen-allows
-    t: The symbol is drawn as large as the screen allows
+    t: QR symbols use the largest available screen size
     d: >-
       density is the real limit on scanning a screen with a camera. It measures
       the screen and not its parent, and pins the result with a fixed box — which
@@ -258,7 +222,7 @@ groups:
     uses:
     - share.qr
   - id: paste-box-owns-own-field
-    t: The paste box owns its own field
+    t: The paste dialog owns its text field
     d: >-
       showDialog's future completes when the route is popped, which is the start
       of the dismissal and not the end of it, so disposing at the await left the
@@ -267,7 +231,7 @@ groups:
     uses:
     - share.import-review
   - id: one-scanner-everything-shareable
-    t: One scanner serves everything shareable
+    t: One scanner handles all supported QR content
     d: >-
       the same camera screen reads a routine QR and a theme QR, and what it was
       opened to look for decides where it hands off — and what it ignores: a café's
@@ -284,7 +248,7 @@ groups:
     - share.theme-code
     - ui.navigation
   - id: refused-camera-says-what-instead
-    t: A refused camera says what to do instead
+    t: Camera failures provide a paste alternative
     d: >-
       that the camera is needed to scan, and that a code can be pasted instead;
       a device with no camera says that much. Either way the screen keeps a way
@@ -297,7 +261,7 @@ groups:
     - platform.android
     - platform.permissions
   - id: every-host-app-shares-needs
-    t: Every host the app can be handed needs an Android intent filter
+    t: Each supported deep-link host has an Android intent filter
     d: >-
       or the link is inert outside the app however well the routing handles it. The
       app no longer builds links, but it still reads one that arrives — from a QR,
@@ -308,7 +272,7 @@ groups:
     - share.deep-link
     - platform.android
   - id: progress-does-not-travel
-    t: Neither progress nor weights travel
+    t: Progress and suggested weights are not exported
     d: >-
       the success/failure streaks, the sender's reminder time and every suggested
       weight are left behind — someone else's working load is the one number in a
@@ -325,7 +289,7 @@ groups:
     - platform.reminders
     - history.session-record
   - id: built-exercises-travel-name
-    t: Built-in exercises travel by name and arrive as built-ins
+    t: Built-in exercises resolve by seed key or canonical name
     d: >-
       the starter library is on both phones, matched on seed key first and on the
       name, case-insensitively, second. The receiving phone re-derives the key
@@ -340,7 +304,7 @@ groups:
     - exercise.seed
     - ui.seeded-name
   - id: your-own-notes-never-travel
-    t: Your own notes never travel, and are never overwritten
+    t: User notes and local exercise settings are not imported
     d: >-
       including under Replace, which rewrites everything else about the exercise.
       A unit you pinned to a movement and a warm-up count you set on one stay
@@ -353,7 +317,7 @@ groups:
     - load.exercise-unit
     - session.warmup-count
   - id: exercise-already-exists-reused-never
-    t: An exercise that already exists is reused, never duplicated
+    t: Existing exercises are reused during import
     d: >-
       importing the same routine twice gives you two routines and one copy of
       each exercise.
@@ -362,7 +326,7 @@ groups:
     - share.import-review
     - exercise.identity
   - id: replacing-edits-place
-    t: Replacing edits in place, and never renames a starter movement
+    t: Replace updates an exercise in place without renaming starter entries
     d: >-
       it rewrites the existing exercise's definition and keeps its id, so its
       logged history and every other routine pointing at it survive. What a
@@ -378,7 +342,7 @@ groups:
     - exercise.seed
     - ui.seeded-name
   - id: import-always-creates-new-routine
-    t: An import always creates a new routine
+    t: Every import creates a new routine
     d: >-
       nothing existing is overwritten, and the new routine does not take over
       Today.
@@ -388,7 +352,7 @@ groups:
     - template.routine
     - template.active-routine
   - id: code-will-not-read-dead
-    t: A code that will not read is a dead end
+    t: Invalid or damaged codes cannot be partially imported
     d: >-
       the two failures — not a routine code at all, or damaged in transit — each
       say which, and neither offers a partial import.

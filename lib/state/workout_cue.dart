@@ -1,4 +1,4 @@
-/// What the session wants you to do at this moment, in one value.
+/// The next action a live session should present.
 ///
 /// The workout board never needed this: it draws the whole session at once and
 /// lets your eye pick the row. A notification has one line, so something has to
@@ -13,7 +13,7 @@ library;
 
 import 'active_workout.dart';
 
-/// Which of the four things is happening.
+/// Kind of action represented by a workout cue.
 enum CueKind {
   /// A rest is running. What comes after it is still described, because "rest,
   /// then squat 100" is more use than "rest".
@@ -29,7 +29,7 @@ enum CueKind {
   finished,
 }
 
-/// One thing to do, addressed well enough to log it without the app.
+/// A loggable action with its exercise and set location.
 ///
 /// [exercise] and [warmup] say where you are; [weightKg], [reps] and [seconds]
 /// say what the set is. A counted set has [reps]; a held one has [seconds];
@@ -57,7 +57,7 @@ typedef WorkoutCue = ({
   int? restLeft,
 });
 
-/// The next set of [session] that has not been logged, warm-ups first.
+/// Returns the next unlogged set, prioritizing warm-ups.
 ///
 /// **The exercise you are working comes before the one the template lists
 /// first.** Somebody who starts on the third movement because the bench is busy
@@ -245,7 +245,7 @@ WorkoutCue _cue(
       restLeft: restLeft > 0 ? restLeft : null,
     );
 
-/// What "Missed" seeds the set to: one short of the goal.
+/// Returns the value seeded by a Missed action.
 ///
 /// Not zero, and not blank. Somebody tapping Missed got *most* of the set —
 /// that is why they are reaching for a button rather than the app — so the

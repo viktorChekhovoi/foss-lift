@@ -1,27 +1,13 @@
 import 'database.dart';
 
-/// One exercise's words as a screen is rendering them — translated where the
-/// row is one the app shipped. See `util/seed_names.dart`.
+/// Display words used when filtering an exercise.
 typedef ExerciseWords = ({
   String name,
   List<String> muscleGroups,
   String equipment,
 });
 
-/// What is being asked of the exercise library: some text, and any number of
-/// equipment kinds and muscle groups.
-///
-/// One value, shared by the library screen and the workout builder's picker, so
-/// "a barbell movement for legs" is the same question in both places and the
-/// answer cannot drift between them. Search alone was never enough for that
-/// question — it means knowing the movement's name before you can find it,
-/// which is most of what a library is for.
-///
-/// **Within a dimension the chosen values are alternatives; across dimensions
-/// they narrow.** Arms *and* glutes is one session's worth of browsing rather
-/// than two searches, while barbell *and* legs is the pair of facts that finds
-/// a squat. An empty set is not a filter that matches nothing — it is one
-/// nobody has touched, and it excludes nothing.
+/// Text, equipment, and muscle filters shared by the library and workout builder. Values within a facet are alternatives; facets narrow together.
 class ExerciseFilter {
   const ExerciseFilter({
     this.query = '',
@@ -29,9 +15,7 @@ class ExerciseFilter {
     this.muscles = const {},
   });
 
-  /// Free text, matched against the name, the muscle group and the equipment —
-  /// in the language on screen as well as in the English underneath. See
-  /// [matches].
+  /// Free text matched against the displayed and canonical exercise words.
   final String query;
 
   /// The equipment kinds to keep — see [kEquipmentTypes]. Empty means all.
@@ -49,7 +33,7 @@ class ExerciseFilter {
   bool get isEmpty =>
       query.trim().isEmpty && equipment.isEmpty && muscles.isEmpty;
 
-  /// How many chips are lit — what a "clear" control has to offer to undo.
+  /// Number of selected facet values.
   int get facetCount => equipment.length + muscles.length;
 
   ExerciseFilter withQuery(String value) => ExerciseFilter(
@@ -70,8 +54,7 @@ class ExerciseFilter {
         muscles: _toggled(muscles, group),
       );
 
-  /// The same search with every chip let go. The text stays: clearing the chips
-  /// is undoing the chips.
+  /// The filter with facet selections cleared, preserving [query].
   ExerciseFilter get withoutFacets => ExerciseFilter(query: query);
 
   static Set<String> _toggled(Set<String> from, String value) {
@@ -80,23 +63,7 @@ class ExerciseFilter {
     return next;
   }
 
-  /// Whether [e] survives the filter.
-  ///
-  /// The chips test the stored value, which is the English one: they are set
-  /// from `kMuscleGroups`/`kEquipmentTypes`, and the label on the chip is a
-  /// display concern the screen has already resolved.
-  ///
-  /// The text is matched against **both** the words on screen and the English
-  /// underneath. [shown] carries the former — the translated name, every muscle
-  /// group and the equipment the screen is rendering — and defaults to the row's
-  /// own values, which is the right answer for an English install and for
-  /// anything with no translation.
-  ///
-  /// Both, rather than only what is on screen: the English is what a share code
-  /// carries and what a training partner types into a message, so somebody
-  /// hunting for the movement in a routine they were sent has the English name
-  /// in hand and nothing else. Matching only the visible words would fail them
-  /// on their own phone.
+  /// Whether [e] survives the filter. Facets use canonical values; text also searches translated values supplied through [shown].
   bool matches(Exercise e, {ExerciseWords? shown}) {
     if (equipment.isNotEmpty && !equipment.contains(e.equipment)) return false;
     final worked = e.muscles.all;
@@ -114,8 +81,7 @@ class ExerciseFilter {
     return false;
   }
 
-  /// [all], filtered. [shown] resolves one row's words as the screen renders
-  /// them — see [matches].
+  /// Returns [all] entries that match this filter.
   List<Exercise> apply(
     Iterable<Exercise> all, {
     ExerciseWords Function(Exercise)? shown,

@@ -1,8 +1,7 @@
 id: "17"
 title: Getting around
 tagline: >-
-  Four tabs at the bottom, every other screen stacked over them, and one plain
-  line on a screen that has nothing on it yet.
+  Four persistent tabs, task screens above them, and explicit empty states.
 screen: today
 code:
 - lib/router.dart
@@ -20,43 +19,35 @@ groups:
   - id: app-four-tabs
     t: The app is four tabs
     d: >-
-      Today, Routines, History and Profile. Each keeps its place while you are
-      on the others, so a scrolled list is where you left it when you come back.
+      Today, Routines, History, and Profile are persistent tab roots. Each tab
+      retains its navigation state when another tab is selected.
     defines:
     - ui.navigation
   - id: every-other-screen-stacks-over-tabs
     t: A screen you browse to keeps the tabs; a screen you are finishing does not
     d: >-
-      a routine, a workout, an exercise, the library and the settings pages open
-      inside the shell and keep the navigation bar, so leaving for another tab is
-      one tap rather than walking back up the stack first — and the tab you left
-      is still where you left it. Two kinds of screen stack over the shell
-      instead. The live session is one: it owns the whole screen, and its rest
-      bar docks where the tabs would be. The other is a screen that is a single
-      task to finish or abandon — every editor, filming a set, the scanner, an
-      import waiting to be reviewed, sharing, clip playback, the recap — where a
-      stray tab tap would walk out of the task and leave it half done. Reading a
-      routine keeps the tabs; editing one does not.
+      Routine, workout, exercise, library, and settings pages open inside the
+      shell and retain the tab bar. The live session and single-purpose tasks
+      (editors, set recording, scanning, import review, sharing, playback, and
+      recap) stack above the shell; the session's rest bar occupies the tab-bar
+      position. Browse a routine with the tabs; edit it above the shell.
     uses:
     - ui.navigation
     - session.resume-bar
   - id: one-type-scale-shared-widgets
     t: One type scale, and it lives in the shared widgets
     d: >-
-      a screen title, the eyebrow above it and a small-caps section heading are
-      three obviously different sizes rather than three sizes within two points
-      of each other, so the hierarchy on a screen reads before any of the words
-      do. The sizes belong to ScreenHeader and SectionLabel; a screen that wants
-      a heading uses the widget and inherits them rather than retyping a
-      fontSize.
+      ScreenHeader and SectionLabel define the title, eyebrow, and small-caps
+      heading sizes. Screens use these shared widgets instead of declaring
+      local font sizes.
     defines:
     - theme.type-scale
   - id: empty-screen-says-so-in-line
     t: A screen with nothing on it yet says so in a line
     d: >-
-      History before the first session, a routine with no workouts, an exercise with
-      nothing to chart, a filter that matches nothing — each says what is missing
-      where the content would be, rather than showing an empty frame.
+      History before the first session, routines without workouts, exercises
+      without chart data, and filters with no matches show an inline empty-state
+      message where content would appear.
     screen: history
     defines:
     - ui.empty-state
@@ -65,8 +56,8 @@ groups:
   - id: move-between-tabs
     t: Move between tabs
     d: >-
-      the bar at the bottom. Tapping the tab you are already on re-enters it at
-      its root.
+      Use the bottom navigation bar. Tapping the selected tab returns to that
+      tab's root.
     uses:
     - ui.navigation
 - name: Behaviour & edge cases
@@ -74,13 +65,15 @@ groups:
   - id: empty-screen-offers-next-step-where-one
     t: An empty screen offers the next step only where there is one
     d: >-
-      Today with no routines offers a ready-made program and, under it, building your own — that is the whole of what to do next. History before the first session has nothing to offer but the sentence, and does not invent a button.
+      Today with no routines offers a ready-made program and a routine builder.
+      History before the first session shows only its empty-state message.
     uses:
     - ui.empty-state
   - id: an-empty-screens-way-out-is-the-width-of-its-card
     t: Where there is a next step, it is the width of the card offering it
     d: >-
-      the button runs the full width rather than shrink-wrapping its label. A card that fills the screen with a small pill floating in the middle of it reads as a caption with a link in it, not as the one thing to do — and on a fresh install this is the one thing to do, since nothing else on Today is reachable until a routine exists. The second way out stays plain text beneath it, because two buttons of equal weight is a choice rather than a next step.
+      The primary action fills the card width. The secondary routine-building
+      action remains plain text below it, preserving one primary next step.
     screen: today
     uses:
     - ui.empty-state
@@ -88,13 +81,11 @@ groups:
   - id: tab-bar-belongs-shell-not-screens
     t: The navigation bar belongs to the shell, and the resume-workout bar rides above it
     d: >-
-      a screen inside the shell draws neither and reserves room for neither — the
-      shell measures whatever sits in that bottom slot and insets it by that,
-      which is what lets the resume bar sit above the tabs during a live session.
-      A screen with its own bottom furniture, like a workout's Start button, sits
-      above the tabs rather than under them, and the resume bar shows in exactly
-      one place: the shell's slot for screens inside it, the app-level slot for
-      the ones that stack over.
+      Screens inside the shell neither draw nor reserve space for the tab bar;
+      the shell measures its bottom slot and applies the inset. The resume bar
+      occupies that slot above the tabs. Screens stacked above the shell own
+      their bottom controls, and the resume bar is provided by the corresponding
+      app-level slot.
     uses:
     - ui.navigation
     - session.resume-bar
@@ -102,7 +93,10 @@ groups:
   - id: link-opens-in-a-tab-that-has-the-screen
     t: A link opens in the tab you are in, or in one that has the screen
     d: >-
-      not every screen hangs off every tab: a workout is reachable from Today and from Routines, the library and the settings pages only from Profile. A link keeps you in the tab you are on where that tab has the screen, and goes to a tab that has it where it has not — including from a screen stacked over the tabs, which is in no tab at all. That is what makes the plate inventory open from the builder's slot sheet, three screens above any tab, rather than landing on Page Not Found. The paths the browse screens answered to before they moved inside the tabs resolve by the same rule, so a link saved by an older build still lands.
+      A link stays in the current tab when that tab hosts the destination;
+      otherwise it selects a tab that does. This also resolves links from
+      screens stacked above the tabs, such as the plate inventory from a builder
+      slot sheet. Legacy browse paths resolve through the same hosting rule.
     screen: workout-edit
     defines:
     - ui.tab-hosting
@@ -112,19 +106,16 @@ groups:
   - id: unknown-location-has-a-way-back
     t: A location the app has no screen for has a way back
     d: >-
-      the not-found page's way home opens Today, the app's first tab, rather than a second not-found page.
+      The not-found page links to Today, the first tab.
     uses:
     - ui.navigation
     - ui.tab-hosting
   - id: system-bars-never-cover-a-control
     t: The phone's own bars never cover a control
     d: >-
-      most Android phones draw a gesture bar or a row of Back / Home / Recents
-      keys over the bottom of the screen. Every surface the app puts a control
-      on — screens, the sheets that open over them, dialogs — leaves room for
-      it, so the button at the foot of a sheet stays tappable rather than
-      sitting half under the Back key. A keyboard takes the same room while it
-      is up, and the two are never counted twice.
+      Screens, sheets, and dialogs inset controls for Android gesture or system
+      navigation bars. The keyboard uses the same bottom inset while visible;
+      the insets are not applied twice.
     screen: workout-edit
     defines:
     - ui.system-insets

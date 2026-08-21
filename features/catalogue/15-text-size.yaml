@@ -1,7 +1,6 @@
 id: "15"
 title: Text size
-tagline: >-
-  The app follows the phone's text setting, and can be nudged on top of it.
+tagline: Follows the phone's text setting with an app-specific adjustment.
 screen: theme-settings
 code:
 - lib/util/text_scale.dart
@@ -10,105 +9,85 @@ code:
 test:
 - test/feature_15_text_size_test.dart
 where: >-
-  <b>Arithmetic</b> lib/util/text_scale.dart (resolveTextScale, clampTextNudge,
-  kTextScaleChoices, the two bounds) · <b>Applied once</b> by PinchTextScale, mounted
-  at the app root in lib/main.dart · <b>The gesture</b> lib/widgets/pinch_text_scale.dart
-  · <b>The chips</b> lib/screens/appearance_screen.dart · <b>Stored as</b>
-  Settings.textScale, read through textScaleProvider
+  <b>Scale arithmetic</b> lib/util/text_scale.dart (resolveTextScale, clampTextNudge,
+  kTextScaleChoices, bounds) · <b>Root application</b> PinchTextScale in lib/main.dart
+  · <b>Gesture</b> lib/widgets/pinch_text_scale.dart · <b>Controls</b>
+  lib/screens/appearance_screen.dart · <b>Storage</b> Settings.textScale via textScaleProvider
 groups:
 - name: What it does
   items:
   - id: follows-system-text-size
     t: Follows the system text size
     d: >-
-      Android's own setting is system-wide and already discoverable; the app renders
-      at whatever it says, and Default here means "whatever the phone says".
+      The app uses the platform value. Default in Appearance means the phone's
+      current setting.
     uses:
     - ui.text-scale
     - storage.settings
   - id: offers-nudge-own
-    t: Offers a nudge of its own
+    t: Offers an app-specific text-size adjustment
     d: >-
-      Profile → Appearance → Text size: Smaller / Default / Larger / Largest, for
-      wanting this app bigger without enlarging everything else, or smaller to fit
-      more of a workout on screen. Each chip is drawn at the size it selects, because
-      how big the words get is the only thing the control is about.
+      Profile → Appearance → Text size offers Smaller, Default, Larger, and Largest.
+      Each chip uses its selected size.
     defines:
     - ui.text-scale
   - id: chips-span-the-whole-pinch-range
-    t: The four chips span the whole range the pinch does
+    t: The four chips span the pinch range
     d: >-
-      85%, 100%, 130% and 200% — the two ends are exactly the two the pinch stops
-      at, so the chips are named stops on one scale rather than a second, narrower
-      control beside it. Largest is the largest text the app will render, and
-      Smaller is the smallest; pinching to either end lands on a chip rather than
-      somewhere past the last one.
+      The choices are 85%, 100%, 130%, and 200%. Smaller and Largest are the pinch
+      bounds, so the gesture and chips share one scale.
     uses:
     - ui.text-scale
   - id: pinching-onto-a-chip-selects-it
-    t: A pinch that lands on a chip's percentage selects that chip
+    t: A pinch landing on a chip percentage selects that chip
     d: >-
-      the chips and the gesture write the same setting, so Appearance marks
-      whichever step the stored value is on however it got there. Pinch to 200%
-      and Largest is the selected chip when you next open the screen; land between
-      two and neither is marked, because neither is what the app is rendering at.
+      Chips and the gesture write the same setting. A value at 200% selects Largest;
+      a value between choices leaves all chips unselected.
     uses:
     - ui.text-scale
   - id: pinch-two-fingers-scales-text
-    t: A two-finger pinch scales the text, anywhere in the app
+    t: A two-finger pinch scales text throughout the app
     d: >-
-      the same nudge the chips write, so it survives leaving the screen and the
-      whole app follows it — this is text scaling, not a zoomed canvas, so a
-      scrolling list stays a scrolling list at every size. The gesture only takes
-      over once two fingers have moved apart or together past a threshold, which
-      is what keeps a one-finger scroll from ever being read as a pinch. While it
-      runs, the scale it is on is shown as a percentage over the screen, and the
-      value is written once the fingers come off.
+      It writes the same persistent adjustment as the chips and scales text rather
+      than zooming the canvas. The gesture activates only after two fingers pass a
+      movement threshold, preserving one-finger scrolling. The current percentage
+      appears during the gesture and is saved when the fingers lift.
     uses:
     - ui.text-scale
 - name: Behaviour & edge cases
   items:
   - id: nudge-multiplies-phone-s-setting
-    t: The nudge multiplies the phone's setting; it does not replace it
+    t: The app adjustment multiplies the phone's setting
     d: >-
-      somebody who has already set their phone large should not have to set it
-      again here, and should not lose that choice by touching this one.
+      The platform setting remains in effect; changing this setting does not reset
+      it.
     screen: none
     uses:
     - ui.text-scale
   - id: product-clamped-0-85-2
-    t: The product is clamped to 0.85×–2.0×
+    t: The final scale is clamped to 0.85×–2.0×
     d: >-
-      a phone at 2.0 and the app at Largest is 2.6, and a control that can produce
-      an unchecked layout is not an accessibility feature. The result stays in a range
-      every screen is checked at, so no combination of the two produces a layout
-      nobody has seen: 2.0 is the ceiling because 2.0 is what the sweep covers, and
-      the floor is where the set rows stop being readable across a gym. The pinch is
-      held to the same two bounds, so a gesture with no stops on it cannot walk out
-      of the range either.
+      The product of the platform setting and app adjustment stays within the range
+      covered by layout checks. The pinch uses the same bounds.
     screen: none
     uses:
     - ui.text-scale
   - id: every-screen-swept-every-scale
-    t: Every screen is swept at every scale, and overflow fails the build
+    t: Layout checks cover every screen and overflow fails the build
     d: >-
-      the feature test mounts each screen at 1.0×, 1.3× and 2.0× on a 360 dp viewport
-      and fails on any render overflow. Dialogs and sheets are swept too, at 1.0× and
-      2.0× and reached the way a user reaches them — the tighter case, since a dialog
-      is bounded on both axes by its own insets and none of it is on screen for the
-      screen sweep to see. That is where the stepper and the to-failure checkbox
-      turned up.
+      The feature test mounts each screen at 1.0×, 1.3×, and 2.0× on a 360 dp
+      viewport and fails on overflow. Dialogs and sheets are also tested at 1.0×
+      and 2.0× through their normal entry points.
     screen: none
     uses:
     - ui.text-scale
     manual: true
   - id: where-row-runs-out-width
-    t: Where a row runs out of width, the label gives and the control does not
+    t: Labels yield to controls when a row runs out of width
     d: >-
-      a section heading ellipsises before its action is pushed off; the warm-up
-      group's "· 3 sets" gives before "WARM-UP"; the board's "WORKING SETS" gives
-      before the weight beside it; a stepper's value ellipsises before either
-      of its buttons. The part that only names things yields to the part you touch.
+      A section heading ellipsizes before its action; the warm-up count yields to
+      "WARM-UP"; the board's "WORKING SETS" yields to its weight; and a stepper's
+      value ellipsizes before either button.
     screen: none
     uses:
     - ui.text-scale

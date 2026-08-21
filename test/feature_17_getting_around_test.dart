@@ -1,29 +1,5 @@
-// Integration tests for features/index.html#sec17 — getting around.
-//
-// The spec:
-//   * the app is four tabs, and the bar that switches them belongs to the shell
-//     rather than to the screens inside it;
-//   * a screen you browse to — a routine, a workout, an exercise, the library,
-//     the settings pages — opens inside the shell and keeps the navigation bar,
-//     and the tab you left keeps its own stack;
-//   * two kinds of screen stack over the shell instead: the live session with
-//     its set-recording screen, and a screen that is a single task to finish or
-//     abandon (the scanner, an import awaiting review, sharing, clip playback);
-//   * a screen with its own bottom furniture sits above the tabs, and the
-//     resume-workout bar shows in exactly one place;
-//   * a screen with nothing on it yet says so in a line, and offers the next
-//     step only where there is one;
-//   * the phone's own bars never cover a control.
-//
-// The last one is measured, not eyeballed: the tests below give the test view a
-// bottom system-bar strip the way a phone with three-button navigation does,
-// then compare the rectangle of a control against it.
-//
-// The tab shell is exercised through the real `appRouter` — a stub shell would
-// prove the widget works and say nothing about the routes the app actually has.
-//
-// Database setup runs inside `runAsync`: drift's futures only complete on the
-// real event loop, which a `testWidgets` body does not turn on its own.
+// Integration tests for shell navigation, overlays, and system-bar insets (features/index.html#sec17). Routes use the real app router and database operations run on the real event loop.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

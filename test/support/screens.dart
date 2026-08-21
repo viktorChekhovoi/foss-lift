@@ -1,9 +1,5 @@
-// The list of every screen the sweeps mount, and the host they mount into.
-//
-// Two features sweep the whole app: text size (feature 15) walks it at three
-// scales, language (feature 18) walks it in five languages. Neither is a list
-// of screens in its own right — they are two axes over the same list, so the
-// list lives here and both read it. A screen added to the app is added once.
+// Screens mounted by the text-size and language layout sweeps.
+
 import 'package:flutter/material.dart';
 import 'package:foss_lift/data/starter_routines.dart';
 import 'package:foss_lift/screens/about_screen.dart';

@@ -1,26 +1,4 @@
-// Integration tests for features/index.html#sec18 — the app's language.
-//
-// The behaviour under test, straight from the spec:
-//   * the app ships in English, Ukrainian, Spanish and both Portugueses; first
-//     run resolves the phone's language against those five and stores the
-//     answer, so the picker always has one of them selected and there is no
-//     row that defers to the phone;
-//   * the choice is a database write like any other setting, so changing it
-//     repaints the app rather than asking for a restart;
-//   * the muscle/equipment vocabulary and the names of the rows the app shipped
-//     with are stored in English and rendered from a key, so the starter
-//     library, the demo routines and a logged set all follow the switch — while
-//     anything you named yourself keeps your name;
-//   * a locale that answers nothing renders in English, never as a key;
-//   * and every screen is swept in every language, because Ukrainian runs
-//     appreciably longer than English and a layout that fits one need not fit
-//     the other.
-//
-// Two of these are checks over the source rather than over a widget tree: the
-// .arb files have to agree with each other key for key, and no screen may still
-// hold a user-facing string of its own. Both are the kind of thing that is
-// correct on the day it is written and regresses on the next screen anybody
-// adds, so they are asserted mechanically.
+// Integration tests for locale selection, translated data, and layout sweeps (features/index.html#sec18).
 
 import 'dart:convert';
 import 'dart:io';

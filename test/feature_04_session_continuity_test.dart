@@ -1,19 +1,5 @@
-// Integration tests for the half of feature 04 that happens while nobody is
-// looking at the board: the rest ending audibly with the phone away, the shade's
-// buttons, the resume bar keeping its place on the way back to a tab, and a
-// session outliving the process it was started in.
-//
-// Everything is driven through the real public surface — the
-// `activeWorkoutProvider` controller, `applyShadeAction`, `shadeButtons`, the
-// `AppDatabase`, and the two widgets that mount the resume bar. The notification
-// and the tone are recorded rather than played, because a test runner has neither
-// an audio route nor a notification channel; what a phone has to be checked for
-// by hand is written up in the report, not asserted here.
-//
-// Timer discipline (see the harness): starting a session hits real SQLite and is
-// wrapped in `tester.runAsync`, which makes the session's own 1-second timer a
-// *real* one. The rest countdown is created in the test body and so runs on the
-// fake clock, which is what `pump(Duration(...))` advances.
+// Integration tests for live-session continuity away from the workout screen: shade actions, the resume bar, and restoring a session after process death (features/index.html#sec04).
+
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';

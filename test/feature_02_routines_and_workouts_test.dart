@@ -1,10 +1,5 @@
-// Integration tests for features/index.html#sec02
-//
-// The three-level template hierarchy — routine → workout (training day) →
-// exercise slot. Five starter programmes seeded on first launch, each carrying
-// the prescription it is actually run on; one current routine;
-// split editing where reordering days never disturbs their exercises; drafts
-// built in memory before saving; a deleted current routine degrading to "none".
+// Integration tests for routines, training days, and exercise slots (features/index.html#sec02).
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

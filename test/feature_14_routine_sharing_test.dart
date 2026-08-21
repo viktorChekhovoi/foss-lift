@@ -1,22 +1,5 @@
-// Integration tests for features/index.html#sec14 — sharing a routine.
-//
-// The behaviour under test, straight from the spec:
-//   * a routine encodes to one versioned, compressed line (`FLR1.…`) carrying
-//     the whole programme — days, slots, rep schemes, progression rates;
-//   * the exercises it references travel with it, custom ones in full;
-//   * defaults are not transmitted, so an ordinary routine fits in a QR;
-//   * an import is previewed and accepted, never applied on arrival, and always
-//     lands as a new routine without taking over Today;
-//   * an incoming exercise whose name already exists is the user's call —
-//     keep mine (the default) or replace, editing in place so history survives;
-//   * the three ways a code can fail each say what to do and offer no partial
-//     import;
-//   * the share sheet sends the bare code, because a chat app leaves a
-//     `fosslift://` URL as unclickable text; the QR holds the link, so a phone's
-//     own camera can open the import screen.
-//
-// Exercised through the real public surface: the codec, the arrival plan, the
-// database methods, the link mapping and the two screens.
+// Integration tests for encoding, previewing, importing, and sharing routines (features/index.html#sec14).
+
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;

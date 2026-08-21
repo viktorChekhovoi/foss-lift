@@ -1,7 +1,7 @@
 id: "03"
 title: Workout configuration
 tagline: >-
-  Every exercise slot in a workout is configured on its own, in the exercise builder.
+  Configure each workout slot independently in the exercise builder.
 screen: workout-edit
 code:
 - lib/screens/workout_edit_screen.dart
@@ -22,8 +22,7 @@ groups:
   - id: sets
     t: A slot carries its own set count, working weight and rest
     d: >-
-      how many working sets, the weight to start from, and a rest time that
-      overrides the routine's default.
+      Stores working-set count, starting weight, and an optional rest override.
     defines:
     - template.rest
     uses:
@@ -32,8 +31,8 @@ groups:
   - id: fixed-rep-count
     t: A slot's goal is reps, a rep range, failure, or a hold in seconds
     d: >-
-      5, or 6–8, or as many as you have, or 45 s for a held movement — one of the
-      four, never a mixture.
+      A fixed count, range, to-failure target, or timed hold; targets are mutually
+      exclusive.
     defines:
     - template.rep-target
     uses:
@@ -41,28 +40,23 @@ groups:
   - id: target-opens-on-three-fields
     t: The Target card opens on sets, reps and rest, and nothing else
     d: >-
-      those are the three numbers every slot has an answer for, and the three
-      most people ever change. Everything else about the target sits behind an
-      Advanced toggle in the same card, shut by default.
+      Sets, reps, and rest are the default fields. Rep bounds, failure mode, and
+      set scheme are behind the card's collapsed Advanced section.
     uses:
     - template.item
   - id: advanced-holds-the-rest-of-the-target
     t: Advanced holds the rep range, to failure, and the set scheme
     d: >-
-      tapping it opens the upper bound of the rep range, the to-failure checkbox
-      and the way the sets differ from one another. It opens already expanded on
-      a slot that is using any of them, so nothing a slot actually does is hidden
-      behind a toggle somebody has to think to press.
+      Contains the upper rep bound, to-failure mode, and set scheme. It expands
+      automatically when a slot uses any advanced option.
     uses:
     - template.set-scheme
     - template.rep-target
   - id: an-advanced-toggle-is-a-control
     t: An Advanced toggle is a control the size of the pills it sits under
     d: >-
-      both cards' toggles are full-width bordered rows, in the type the Weight
-      and Reps pills are set in, because what they open is half a card rather
-      than a footnote to it. A small line of coloured text reads as a caption,
-      and a caption nobody presses is a set scheme nobody finds.
+      Both cards use full-width bordered rows matching the Weight and Reps pill
+      controls. The rows are interactive controls, not captions.
     screen: workout-edit
     uses:
     - template.item
@@ -70,27 +64,18 @@ groups:
   - id: to-failure-greys-the-rep-range
     t: Ticking "to failure" greys the rep range out rather than taking it away
     d: >-
-      sets taken as far as they go are not aiming at a range, so the stepper goes
-      dead — and keeps the bound it had, on screen and in storage. Untick and the
-      range is back where it was, including after the slot has been saved and
-      reopened. A field that vanishes takes the number with it and makes trying
-      the other rule for a session cost you the one you had.
+      Disables the rep-range stepper while retaining its bound in the UI and
+      storage. Clearing to-failure restores the previous range, including after
+      save and reopen.
     screen: workout-edit
     uses:
     - template.rep-target
   - id: progression-card-has-its-own-advanced
     t: The Progression card has its own Advanced half
     d: >-
-      the axis, the amounts and the two thresholds stay in the open; the ways of
-      advancing that most slots never use sit behind an Advanced toggle in the
-      same card, shut by default and opening already expanded on a slot that uses
-      one. It holds one thing so far: <b>Progress by reps, then weight</b>, under
-      a line saying what that combination does — climb the reps to the top of the
-      range, then add weight. Progression is configured in one place, so the
-      switch is here rather than beside the rep range it needs. The toggle is
-      drawn only where that one thing can be taken — on a slot with no rep range
-      to climb it opens onto a dead row, and a toggle whose whole content is
-      greyed out is a control that promises something and then refuses.
+      The card keeps axis, rates, and thresholds visible. Advanced contains
+      Progress by reps, then weight, which raises reps through the range before
+      increasing weight. It is offered only when the slot has a rep range.
     defines:
     - progression.advanced
     uses:
@@ -100,12 +85,8 @@ groups:
   - id: advanced-axis-is-a-pill-and-a-tick
     t: The advanced rule is a pill on the axis row and a tick, and they are one switch
     d: >-
-      turning the tick on selects an <b>Advanced</b> pill beside Weight and Reps;
-      tapping Weight or Reps turns the tick back off. Two ways in because they
-      answer two questions — somebody reading the axis row wants a fourth option
-      there, and somebody who has never met double progression needs the sentence
-      that only fits under a checkbox — and one switch because they are one
-      setting.
+      Selecting the checkbox selects the Advanced axis; selecting Weight or Reps
+      clears it. The pill and checkbox are two controls for the same setting.
     screen: workout-edit
     uses:
     - progression.double
@@ -114,11 +95,9 @@ groups:
   - id: advanced-axis-shows-both-rates
     t: The advanced axis asks for both pairs of amounts and one pair of thresholds
     d: >-
-      a step-up and a back-off for the reps, a step-up and a back-off for the
-      weight, and — under them — the one clean-session count and the one miss
-      count that govern the pair. The rule is read back under the fields as the
-      three sentences it is: what a clean session and a miss do to the reps, what
-      happens at the top of the range, and what happens at the bottom.
+      Takes rep and weight step-up/back-off amounts plus one clean-session
+      threshold and one miss threshold shared by both axes. Helper text describes
+      clean, top-of-range, and bottom-of-range behavior.
     screen: workout-edit
     uses:
     - progression.double
@@ -126,16 +105,11 @@ groups:
   - id: sets-can-back-off-ramp-or-be-written-out
     t: The sets of a slot can back off, ramp up, or be written out one by one
     d: >-
-      <b>Flat</b> — the default — is every set at the same weight and the same
-      target. <b>Back-off</b> opens at the slot's weight and takes a configurable
-      percentage off each set after it: at 10%, three sets are 100%, 90%, 80%.
-      <b>Ramp</b> is the same ladder climbed the other way, so the last set is the
-      slot's weight and the ones before it are lighter. <b>Custom</b> is a row per
-      set, each with its own rep target and its own percentage of the slot's
-      weight. <b>Cycle</b> is several sets of those rows — a week each, taken in
-      turn. The slot's weight is
-      the top of the ladder in every case, so progression still moves one number
-      and the whole scheme moves with it.
+      Flat uses one weight and target for every set. Back-off decreases each later
+      set by a configured percentage (for example, 100%, 90%, 80%); Ramp reverses
+      that order. Custom stores a target and percentage per set. Cycle stores
+      multiple custom rows and selects one per week. The slot weight remains the
+      top of each scheme.
     defines:
     - template.set-scheme
     uses:
@@ -146,13 +120,10 @@ groups:
   - id: scheme-weights-land-on-something-loadable
     t: A scheme's weights keep the arithmetic that made them
     d: >-
-      65% of a 75 kg training max is 48.75, and that is what the set asks for.
-      Every weight a scheme computes is snapped to the fine grid — an eighth of a
-      kilogram, or a quarter of a pound where the display unit is pounds — and
-      held at or above the empty bar for a bar-loaded movement. The grid exists to
-      kill the tail a conversion or a percentage leaves behind, not to round the
-      lift: snapping to the 2.5 kg a gym counts by would move that set to 50 and
-      make the app disagree with its own percentage.
+      Computed weights retain percentage arithmetic, then snap to the fine grid:
+      0.125 kg or 0.25 lb. Bar-loaded values are clamped to the empty bar. This
+      grid removes conversion and percentage tails without rounding to gym plate
+      increments.
     screen: none
     uses:
     - template.set-scheme
@@ -162,11 +133,9 @@ groups:
   - id: scheme-reaches-the-live-board
     t: The scheme is what the board hydrates from
     d: >-
-      each set row opens at its own weight and its own rep goal, so a back-off
-      set is judged against the back-off weight rather than against the top one —
-      finishing it is not a miss. Editing the exercise's weight mid-session moves
-      the whole ladder with it, keeping the proportions: every set still to come
-      is recomputed, and sets already logged keep what they were done at.
+      Each set row hydrates its own weight and rep goal; back-off sets are judged
+      against their own weight. Changing exercise weight during a session
+      recomputes future rows while preserving logged sets.
     screen: session
     points:
     - session
@@ -178,13 +147,9 @@ groups:
   - id: slot-joins-the-one-above-as-a-superset
     t: A slot can be joined to the one above it as a superset
     d: >-
-      one checkbox in the Target card, naming the exercise directly above it —
-      "Superset with Bench Press" — and the two are trained as one group: a set of
-      each, back to back, and the rest at the end of the round. Joining a third
-      slot to the second makes it a group of three. Only consecutive slots can be
-      joined, which is why the control says "the one above" rather than offering a
-      list: a group is always the run of rows it looks like. The first slot of a
-      workout has nothing above it and so has no checkbox.
+      The Target card can join a slot to the immediately preceding slot. Joined
+      slots form a consecutive group, run back to back, with rest after each
+      round. The first slot has no join control.
     defines:
     - template.superset
     uses:
@@ -193,58 +158,41 @@ groups:
   - id: superset-checkbox-says-what-a-superset-is
     t: The checkbox says what a superset is, if you ask it
     d: >-
-      an icon beside it opens two sentences — what a superset is, and why anybody
-      does one — and nothing sits under the control for everybody who already
-      knows. It is the one training term the app defines outside the tour, because
-      it is the one a slot can be switched to without knowing what has been asked
-      for.
+      An adjacent help icon explains the superset behavior and purpose without
+      adding helper text to the form.
     uses:
     - template.superset
     - ui.gym-vocabulary
   - id: superset-reads-as-a-group-in-the-list
     t: A superset reads as a group in the exercise list
     d: >-
-      its rows carry an accent edge down their left and the top one is tagged
-      SUPERSET, so which exercises are joined is something you see on the list
-      rather than something you open each slot to find out. Each row keeps its own
-      target line — a group is a way of performing slots, not a slot of its own.
+      Joined rows have a shared accent edge and the first row is tagged SUPERSET.
+      Each row retains its own target; the group changes execution order only.
     uses:
     - template.superset
   - id: progression-rates
     t: A slot carries its own progression rates
     d: >-
-      the axis and the step/back-off numbers: increment, success threshold, deload
-      amount, failure threshold — and, for a slot taking reps and weight in turn,
-      the rep step and rep back-off beside the weight ones.
+      Stores the progression axis, step and back-off amounts, and success and
+      failure thresholds. Advanced slots also store separate rep rates.
     uses:
     - progression.rates
   - id: step-amounts-tapped-or-typed
     t: The step-up and back-off amounts are tapped as well as typed
     d: >-
-      each has − and + beside the box. One tap moves a weight by 1.25 kg, or by
-      2.5 lb when the display unit is pounds; a rep count by 1 and a hold by 5 s.
-      Typing a value still works and is not rounded to a tap. A step-up will not
-      settle below one tap's worth — the buttons stop there, and a smaller number
-      typed in is raised to it when you leave the box, because a slot that steps up
-      by nothing never progresses. A back-off may be taken to zero, which means a
-      missed session never lightens the load.
+      Stepper taps change weight by 1.25 kg or 2.5 lb, reps by 1, and holds by 5 s.
+      Typed values are accepted without tap rounding. Step-up is clamped to at
+      least one tap; back-off may be zero.
     uses:
     - progression.rates
     - load.units
   - id: weight-nudged-by-the-slots-own-rates
     t: The weight is nudged by the amounts the slot itself progresses by
     d: >-
-      − and + sit either side of the Weight box, and they move it by what a
-      session would: + adds the step-up, − takes off the back-off. The two are
-      deliberately not the same size, because on this slot they are not — a slot
-      that climbs 2.5 kg and drops 5 kg is nudged by 2.5 and 5. A back-off of zero
-      is a slot that never lightens, so − falls back to the step-up rather than
-      becoming a button that does nothing. Where the slot progresses by reps or by
-      seconds there is no weight rate to borrow, and the buttons move by the step
-      the unit counts by instead. Typing is untouched and is not rounded to a tap.
-      − stops at the empty bar on a barbell movement and at nothing on anything
-      else; on an empty field it is dead, and + fills in the floor. On a cycle slot
-      the box is a training max, and the buttons move that.
+      Weight steppers apply the slot's step-up and back-off rates. For rep or time
+      axes they use the relevant unit step. Values are not tap-rounded; decrement
+      stops at the bar weight for barbell exercises or zero otherwise. Cycle slots
+      step the training max.
     screen: workout-edit
     uses:
     - template.item
@@ -256,14 +204,10 @@ groups:
   - id: exercise-library-properties-in-sheet
     t: The exercise's own library properties are editable from the config sheet
     d: >-
-      how it is loaded, which bar it is over, your note on it, and — for a movement
-      you made yourself — the form that holds its name, muscle groups, equipment,
-      measure and demo link. They sit in an Exercise card below the per-slot
-      settings, captioned to say that they belong to the exercise: an edit lands in
-      every routine that uses it, and the sheet above takes the new name, measure and
-      loading straight away. A starter exercise's name and classification stay put,
-      as they do in the library — a routine code that says "Bench Press" has to mean
-      the movement everyone else calls that.
+      The Exercise card edits loading, bar, and note; custom exercises also expose
+      name, groups, equipment, measurement, and demo link. Library edits apply to
+      every routine using the exercise. Starter names and classifications remain
+      fixed for routine-code compatibility.
     uses:
     - exercise.identity
     - exercise.taxonomy
@@ -282,13 +226,8 @@ groups:
   - id: adding-exercise-opens-its-config
     t: Adding an exercise opens its config straight away
     d: >-
-      picking a movement out of the library closes the picker and opens that
-      slot's own sheet on top of the list, because an exercise nobody has set the
-      sets, reps and weight on is not finished being added — landing back on the
-      list makes every add two taps and leaves the defaults standing on the slots
-      where somebody forgot the second one. Backing out of the sheet keeps the
-      exercise, at its defaults: it is already in the workout, and the sheet is
-      for tuning it rather than for confirming it.
+      Selecting an exercise closes the picker and opens its configuration sheet.
+      Backing out keeps the exercise in the workout with default settings.
     screen: workout-edit
     uses:
     - template.item
@@ -296,17 +235,15 @@ groups:
     - progression.axis
   - id: progression-axis-comes-first-sheet
     t: The progression axis comes first in the sheet
-    d: >-
-      because it decides whether everything below asks for reps or for seconds.
+    d: The axis determines whether subsequent targets use reps or seconds.
     uses:
     - progression.axis
   - id: turn-on-add-weight-at-top-of-range
     t: Turn on progress by reps, then weight
     d: >-
-      open a slot's config sheet → set a rep range under Target's Advanced →
-      scroll to Progression → tap the Advanced pill on the axis row. The tick of
-      the same name is the other way in, under the card's own Advanced toggle —
-      which appears once the range it needs exists.
+      Open a slot → set a rep range under Target → open Progression → select the
+      Advanced axis. The same setting is available through the card's Advanced
+      toggle once a range exists.
     screen: workout-edit
     uses:
     - progression.double
@@ -314,21 +251,19 @@ groups:
     - template.rep-target
   - id: sheet-field-stays-above-keyboard
     t: A field tapped in the config sheet scrolls clear of the keyboard
-    d: >-
-      the sheet scrolls the box you are typing in into view above the keyboard, and
-      does it for every text field in it — the weight and both progression amounts.
+    d: The sheet scrolls the active text field above the keyboard.
     uses:
     - ui.system-insets
   - id: reorder-slots-up-down
     t: Drag slots into order by the handle
-    d: and add more from the exercise picker.
+    d: Drag by the handle and add exercises from the picker.
     uses:
     - template.item
   - id: make-a-superset
     t: Make a superset
     d: >-
-      open a workout → edit → tap the second of the two exercises → tick "Superset
-      with …". The two rows join in the list behind the sheet.
+      Open a workout → edit → select the second exercise → tick “Superset with …”.
+      The rows join in the list.
     uses:
     - template.superset
 - name: Behaviour & edge cases
@@ -337,12 +272,9 @@ groups:
     t: >-
       Which targets are offered depends on the exercise, not the program
     d: >-
-      the axis is constrained by the measure rather than chosen freely: a counted
-      exercise offers weight and reps; a held one offers only a timed hold; and a
-      movement that carries no load is not offered the weight axis at all. The builder never offers "a deadlift progressed by time" or "load 2.5 kg
-      onto a pull-up". A slot on an unloaded movement reads Bodyweight where the
-      weight would be, with no field; on a loaded one a blank field means a number
-      still to come.
+      Counted exercises offer weight and reps; held exercises offer timed holds;
+      unloaded exercises omit the weight axis. Unloaded slots display Bodyweight
+      without a weight field, while a blank loaded field means no weight is set.
     uses:
     - exercise.measure
     - exercise.weight-type
@@ -351,7 +283,10 @@ groups:
   - id: switching-axis-keeps-the-rates-you-set
     t: Switching the axis keeps the rates you set on the axis you left
     d: >-
-      the step and back-off typed against weight are put aside when the slot moves to reps, and come back when it moves back, so looking at the other rule does not cost you the numbers you had. The advanced axis is a third set of numbers on the same terms: its weight pair and its rep pair are its own, and going Weight → Advanced → Weight finds the plain weight rates exactly as they were left. An axis the slot has not been on yet opens at that axis's defaults — 2.5 of anything is a sane step in kilograms and nonsense in reps — except the advanced axis, which opens at whatever the slot's current weight rates are, since it is the same load it was about to move. An axis the library pushes a slot off comes back to its own numbers if the exercise allows it again. The set-aside numbers are kept on the slot beside the rates in use, so they outlive the sheet being closed, the app being shut and the phone being upgraded: a slot you set up in kilograms a year ago still has them when you go back to it. A slot arriving in a shared routine code is the one case with none — a code carries the axis in use and the rates that axis reads, and where somebody else's other axes had got to is not part of the program.
+      Rates are stored per axis and restored when switching back. Advanced stores
+      separate rep and weight rates. Unused axes receive defaults; Advanced starts
+      from the current weight rates. Stored rates survive reopening, relaunch, and
+      upgrades. Shared routine codes include only the active axis and its rates.
     screen: workout-edit
     uses:
     - progression.axis
@@ -363,19 +298,9 @@ groups:
   - id: range-climb-greyed-without-a-range
     t: The advanced rule is greyed out until there is a range to climb
     d: >-
-      the pill on the axis row stays where it is, greyed and doing nothing when
-      tapped, under the card that would hold the tick. A control that appears and
-      disappears as a field two cards up is filled in teaches nobody where it
-      went, and somebody looking for double progression needs to find it before
-      they can work out what it needs — so one surface for it is always on
-      screen. The tick itself, and the Advanced toggle that holds it, are not
-      drawn while the rule cannot be taken: the toggle holds nothing else, and
-      opening it onto a single dead row is worse than not offering to open it.
-      Set the upper bound and all of it comes alive where you are already
-      looking. The same goes for a slot running to failure, and for a held
-      movement or one that carries no load, which has no second axis to take
-      turns with — those are not offered the pill at all, because the axis row
-      only ever shows axes the exercise allows.
+      The Advanced axis pill remains visible but disabled until a rep range exists.
+      The checkbox and its toggle are hidden when they have no content. Held and
+      unloaded exercises do not offer the axis. Setting an upper bound enables it.
     screen: workout-edit
     uses:
     - progression.double
@@ -385,10 +310,8 @@ groups:
   - id: rep-range-keeps-width-progression
     t: A rep range keeps its width as progression moves it
     d: >-
-      6–8 steps to 7–9, not 6–9. That is the reps axis, where the range is the
-      thing being advanced. The advanced axis does not move the range at all —
-      there the range is the ladder and the goal is what climbs it, and a ladder
-      that climbs with you is no ladder.
+      The reps axis advances 6–8 to 7–9. Advanced keeps the range fixed and moves
+      the live goal within it.
     screen: none
     uses:
     - template.rep-target
@@ -397,25 +320,22 @@ groups:
   - id: a-joined-slot-dragged-to-the-top-is-unjoined
     t: A joined slot dragged to the top of the list is unjoined
     d: >-
-      the first exercise of a workout has nothing above it to be supersetted with,
-      so a row that lands there loses the join rather than keeping a link to
-      nothing. Dragging it back down does not restore it: the join belongs to a
-      pair, and which pair is exactly what the drag changed.
+      A row moved to the top has no preceding slot and is unjoined. Moving it back
+      down does not restore the previous join.
     uses:
     - template.superset
   - id: removing-the-top-of-a-superset-leaves-the-rest-a-group
     t: Removing the top row of a superset leaves the rest of it a group
     d: >-
-      delete the first of three joined exercises and the second becomes the top of
-      a group of two — the joins that are left still describe consecutive rows.
-      Delete all but one and that one is an ordinary slot again.
+      Deleting the first of three joined exercises leaves the remaining two joined.
+      Deleting all but one leaves an ordinary slot.
     uses:
     - template.superset
   - id: set-measured-reps-or-seconds
     t: A set is measured in reps or seconds, never both
     d: >-
-      a timed set stores seconds and leaves reps at zero, so lifetime reps and volume
-      never count a 45-second plank as 45 of anything.
+      Timed sets store seconds and zero reps, so aggregate reps and volume do not
+      treat a 45-second plank as 45 repetitions.
     screen: none
     uses:
     - exercise.measure

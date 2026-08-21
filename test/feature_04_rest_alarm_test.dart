@@ -1,21 +1,5 @@
-// Integration tests for how the end of a rest reaches you off screen — the "The
-// rest sound" group of features/index.html#sec04, and
-// `ding-posted-when-rest-ends` and `no-alarm-privilege-asked-for` in particular.
-//
-// This is the one file with the notification plugin's method channel mocked, so
-// what crossed the channel is the assertion. It is the only place from which
-// "nothing was scheduled" and "no alarm permission was ever asked for" are
-// visible at all: everywhere else the alarm is a recording double, which can say
-// that a ding happened but not what was asked of the platform.
-//
-// The behaviour these describe is a trade. Play grants `USE_EXACT_ALARM` to
-// alarm clocks and calendars and not to a workout tracker, so there is no exact
-// alarm to hand the end of a rest to — and an inexact one would arrive late,
-// which for a rest timer is its own kind of broken. So nothing is scheduled at
-// all: the app rings at the moment its own countdown reaches zero, and what
-// keeps it alive to do that is the live session's foreground service. See
-// `feature_04_session_continuity_test.dart` for the half that drives a real rest
-// to its end.
+// Integration tests for off-screen rest notifications (features/index.html#sec04); the mocked channel verifies exact calls, including that no exact alarm or alarm permission is requested.
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';

@@ -1,15 +1,5 @@
-// Integration tests for the buzz at the end of a rest — the
-// `rest-end-is-felt-as-well-as-heard` entry of features/index.html#sec04, from
-// the platform's side.
-//
-// This is the one file with the vibrator's method channel mocked, so what
-// crossed the channel is the assertion. Everywhere else the buzz is a recording
-// double, which can say that a rest buzzed but not what the phone was asked to
-// do — and what the phone is asked to do is the whole of the bug this replaced.
-// The shipped build asked for touch-feedback haptics, which Android renders as a
-// faint tick and suppresses outright when the phone's touch-feedback switch is
-// off. A rest timer that cannot reach a phone in a bag has failed at the one
-// thing it is for.
+// Integration tests for platform vibration at the end of a rest (features/index.html#sec04); the mocked channel verifies an alarm vibration request rather than touch-feedback haptics.
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';

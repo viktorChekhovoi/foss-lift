@@ -10,18 +10,6 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../util/clip_label.dart';
 
-/// Watches one set back, full screen.
-///
-/// Built for checking form rather than for watching: it opens full screen on a
-/// black ground, loops by default so one rep replays without fishing for the
-/// scrubber, and plays at half or quarter speed — a sticking point goes past in
-/// an instant at 1× and is plain at 0.25×.
-///
-/// **Frame-by-frame stepping is deliberately not here.** Landing on an exact
-/// frame means seeking past the nearest keyframe and decoding forward, which is
-/// not something this player can be relied on to do; it was taken out of scope
-/// rather than shipped as a control that sometimes lands a second away from
-/// where you dragged.
 class ClipPlayerScreen extends ConsumerStatefulWidget {
   const ClipPlayerScreen({
     super.key,
@@ -30,15 +18,10 @@ class ClipPlayerScreen extends ConsumerStatefulWidget {
     this.setId,
   });
 
-  /// The clip, relative to the app support directory.
   final String relativePath;
 
-  /// What this clip was — the reel's own label, carried through so the player
-  /// says which set you are looking at.
   final String? caption;
 
-  /// The set the clip hangs on, when the player is allowed to delete it. Null
-  /// from the live board, where the session is still in memory.
   final int? setId;
 
   @override
@@ -49,9 +32,6 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
   VideoPlayerController? _controller;
   bool _missing = false;
   double _speed = 1.0;
-  /// Off to start with: a clip that plays once and stops is what somebody
-  /// opening one expects. Looping is a mode you ask for when you have found the
-  /// rep you want to watch again — see the loop control.
   bool _looping = false;
 
   @override
@@ -63,8 +43,6 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
   Future<void> _load() async {
     final store = ref.read(setVideoStoreProvider);
     final file = await store.fileFor(widget.relativePath);
-    // A row can outlive its file if one is removed by hand. Saying so beats a
-    // player that sits at nought seconds forever.
     if (!await file.exists()) {
       if (mounted) setState(() => _missing = true);
       return;
@@ -125,7 +103,6 @@ class _ClipPlayerScreenState extends ConsumerState<ClipPlayerScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    // Row first, then file — the ordering the whole storage design turns on.
     await ref.read(databaseProvider).clearSetVideo(setId);
     await ref.read(setVideoStoreProvider).delete(widget.relativePath);
     if (mounted) context.pop();

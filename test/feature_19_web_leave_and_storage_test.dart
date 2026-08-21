@@ -1,22 +1,5 @@
-// Feature 19 — the browser build, second half: not losing the work.
-//
-// Three behaviours, all of them written down in
-// features/catalogue/19-web-build.yaml:
-//
-//  - leaving-mid-workout-asks-first / leaving-with-unsaved-edits-asks-first:
-//    a register of what the app is holding that is not written down, and the
-//    browser's own dialog raised over it;
-//  - asks-the-browser-to-keep-the-database / says-so-when-storage-will-not-hold:
-//    the eviction exemption, asked for once, and what is said when the answer
-//    is no or when there was nowhere durable to write in the first place;
-//  - rest-tone-sounds-in-the-open-tab: the tone is not a phone-only thing.
-//
-// None of this can be asserted *in a browser* from the Dart VM. What is
-// asserted here is everything either side of the browser: the register, which
-// is platform-independent on purpose; the arming decision, through the seam the
-// app pushes it out of; and the classification of what a probe came back with.
-// The listener itself, and whether Chrome honours it, is a manual check — see
-// docs/web-build.md.
+// Integration tests for web leave guards, storage persistence, and open-tab audio (features/index.html#sec19).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';

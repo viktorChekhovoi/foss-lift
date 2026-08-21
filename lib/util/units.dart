@@ -1,11 +1,5 @@
-/// Weight unit conversion. All weights are stored in kilograms; these helpers
-/// convert to and from whatever unit the user has chosen for display/input.
-///
-/// A unit is more than a scale factor here. Each one counts by its own step —
-/// 2.5 kg or 5 lb — and that step is what a fresh slot progresses by, and what a
-/// converted target is snapped to. Those live here rather than in
-/// `progression.dart` because they are facts about the unit; the axis-shaped
-/// half of the same question ([ProgressionMode.defaultIncrement]) stays there.
+/// Converts stored kilogram weights to the selected display unit; unit-specific increments and snapping rules live here as well.
+
 library;
 
 import 'package:flutter/widgets.dart' show Locale;

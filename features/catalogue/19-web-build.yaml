@@ -1,8 +1,7 @@
 id: "19"
 title: The browser build
 tagline: >-
-  The same app, served as a web page. Everything still stays on your own
-  machine — the browser holds the database instead of the phone.
+  The Flutter app runs in a browser with its database stored by that browser.
 screen: none
 code:
 - lib/data/db_open.dart
@@ -35,20 +34,17 @@ groups:
   - id: runs-in-browser-same-code
     t: Runs in a browser from the same code
     d: >-
-      one Flutter codebase, built for Android and for the web. No separate
-      front end, no cut-down version of the screens — the routine builder, the
-      live board, the plate maths and the charts are the same widgets either
-      way.
+      The Android and web builds use one Flutter codebase and the same widgets,
+      including the routine builder, live board, plate calculations, and charts.
     defines:
     - platform.web
   - id: browser-holds-database
     t: The browser holds the database
     d: >-
-      sqlite3 compiled to WebAssembly, stored through the browser's own
-      origin-private file system or IndexedDB. It is the same schema and the
-      same drift queries as on the phone — only the file underneath is
-      different. Nothing is uploaded and there is no account: close the tab and
-      the data is still in that browser, on that machine.
+      SQLite is compiled to WebAssembly and stored in the browser's origin-private
+      file system or IndexedDB. The schema and Drift queries match the phone
+      build; only the storage backend differs. Data is not uploaded and is scoped
+      to that browser and machine.
     defines:
     - storage.database-location
     uses:
@@ -57,10 +53,9 @@ groups:
   - id: first-run-seeds-in-browser
     t: A fresh browser gets the starter library
     d: >-
-      the first-run seed is a property of an empty database, not of a phone, so
-      opening the page for the first time lands on the same 133 movements and racked
-      bars an install does — and, like an install, on an empty routine list with
-      the same library of ready-made programs to add from.
+      An empty web database receives the same first-run seed as an install: 133
+      movements, racked bars, an empty routine list, and the ready-made program
+      library.
     uses:
     - storage.schema
     - exercise.seed
@@ -68,10 +63,9 @@ groups:
   - id: web-build-serves-itself
     t: The page serves everything it needs from its own origin
     d: >-
-      the engine, the fonts, the sqlite3 WebAssembly module and the drift
-      worker are all served from the same place as the app. Nothing is fetched
-      from a CDN, which is what keeps "no network" true of the running app and
-      what lets it work offline once loaded.
+      The engine, fonts, SQLite WebAssembly module, and Drift worker are served
+      from the app's origin. The running app fetches no CDN resources and works
+      offline after it loads.
     uses:
     - privacy.offline
     - platform.web
@@ -80,19 +74,17 @@ groups:
   - id: capabilities-absent-not-broken
     t: What a browser cannot do is absent, not broken
     d: >-
-      every control that needs a phone is hidden on the web rather than left to
-      fail when tapped. One place answers what this build can do, and the
-      screens ask it — the same shape the Android-only services already use.
+      Controls that require phone capabilities are hidden on the web. Screens
+      query a central capability model shared with Android-only services.
     uses:
     - platform.web
     - platform.portability
   - id: no-reminders-on-web
     t: A routine cannot ask to be reminded on the web
     d: >-
-      the reminder is a scheduled local notification, and a browser has nothing
-      to schedule one with. The weekday schedule is still editable — it is part
-      of the program and it travels in a share code — but the reminder time
-      is not offered.
+      Browsers cannot schedule the local notification used for reminders. The
+      weekday schedule remains editable and is included in share codes; reminder
+      time is unavailable.
     screen: routine-edit
     uses:
     - platform.reminders
@@ -100,10 +92,9 @@ groups:
   - id: no-set-videos-on-web
     t: Set videos are not offered on the web
     d: >-
-      filming a set writes a file into app storage the browser has no
-      equivalent of, so the camera button, the clip reel and the video settings
-      screen are all absent. History and progression are untouched — a clip was
-      never anything a set needed.
+      The browser build has no supported set-video storage, so camera controls,
+      clip playback, and video settings are hidden. History and progression do
+      not depend on clips.
     screen: session
     uses:
     - video.capture
@@ -113,13 +104,9 @@ groups:
   - id: no-scanning-on-web
     t: A code is pasted on the web, not scanned
     d: >-
-      a browser can open a camera, but the plugin behind the scanner cannot
-      hand over frames one at a time there — it refuses the request outright —
-      and the decoder needs the frames. So the scanner is absent rather than
-      opening to a picture it can never read. Showing a QR still works, and so
-      does pasting a code, which was always the way in that needs no
-      permission. Import a routine therefore opens the paste box directly here,
-      rather than a sheet whose only row is the one choice left.
+      The scanner plugin cannot provide camera frames on the web, so scanning is
+      hidden. QR display and code pasting remain available; routine import opens
+      the paste field directly.
     screen: routine-import
     uses:
     - share.qr
@@ -128,12 +115,10 @@ groups:
   - id: no-shade-on-web
     t: The live workout does not leave the tab
     d: >-
-      no ongoing notification, no Done button outside the app, and nothing to
-      hear once the tab is behind another one. The clock underneath keeps its
-      place either way, so what you come back to is the truth — but a browser
-      is not somewhere the app can reach you from. The session itself is
-      unaffected: it is in memory, and collapsing it to another screen resumes
-      exactly as it does on a phone.
+      The web build has no ongoing notification or external completion control,
+      and cannot play a rest sound while its tab is backgrounded. The in-memory
+      session remains available, and the rest timer resumes with its current
+      state.
     screen: session
     uses:
     - platform.web
@@ -142,11 +127,9 @@ groups:
   - id: workout-keeps-the-tab-awake
     t: A running workout keeps the tab from being slowed down
     d: >-
-      a browser slows a hidden tab's clocks right down after a few minutes, and
-      will not do it to one that is making a sound. So for as long as a workout
-      is running — and only then — the app holds a tone far too quiet to hear,
-      which is enough to be left alone. It stops on Finish and on discarding,
-      so nothing is held between workouts.
+      Browsers throttle timers in hidden tabs. While a workout runs, the app
+      plays an inaudible tone to keep the tab active; it stops on Finish or
+      discard and is not held between workouts.
     defines:
     - platform.tab-awake
     uses:
@@ -156,20 +139,17 @@ groups:
   - id: keeping-awake-shows-in-the-tab
     t: The browser will say the page is playing something
     d: >-
-      the speaker mark appears beside the tab for the length of a workout, which
-      is the honest cost of the line above — a browser only leaves alone a page
-      it can tell is making noise. Muting the tab there silences the rest tone
-      as well, since it is the same output.
+      The browser marks the tab as playing audio for the workout duration. Muting
+      the tab also mutes the rest tone because both use the same audio output.
     uses:
     - platform.tab-awake
     - session.rest-sound
   - id: keeping-awake-does-not-work-everywhere
     t: It does not work on an iPhone, and nothing pretends it does
     d: >-
-      Safari stops a page's audio the moment it is not the thing on screen, so
-      there is nothing to hold and no way to hold it. The app still does not
-      claim to reach you with the tab put away — that promise is a phone one
-      either way, and the clocks come back correct on the way in regardless.
+      Safari stops page audio when the page leaves the foreground, so the tab
+      cannot be kept awake there. The app does not expose that capability on
+      iPhone; timers resume with the correct elapsed time.
     uses:
     - platform.tab-awake
     - platform.portability
@@ -177,11 +157,8 @@ groups:
   - id: rest-tone-sounds-in-the-open-tab
     t: A rest still sounds when the tab is the one you are looking at
     d: >-
-      the tone at the end of a rest plays in a browser as it does on a phone,
-      as long as the tab is in front. It stays silent until you have touched
-      the page — which starting a workout already is — and it cannot reach you
-      once the tab is in the background, so the off-screen ding is the part the
-      web does not get.
+      The rest-end tone plays when the web tab is foregrounded and has received
+      user interaction. It is silent while the tab is backgrounded.
     screen: session
     uses:
     - session.rest-sound
@@ -190,8 +167,8 @@ groups:
   - id: share-codes-work-everywhere
     t: A routine code made in a browser opens on a phone
     d: >-
-      the compression under the code is the same on both, so `FLR2` means one
-      thing everywhere and a code does not carry which build wrote it.
+      Both builds use the same routine-code compression and wire format, so
+      `FLR2` has the same meaning on web and phone.
     screen: routine-share
     uses:
     - share.routine-code
@@ -199,10 +176,8 @@ groups:
   - id: browser-storage-can-be-cleared
     t: Clearing site data clears the workout log
     d: >-
-      the database sits in the browser's storage for that origin, so "clear
-      cookies and site data" takes the training history with it, and a private
-      window starts empty every time. This is the honest cost of not having a
-      server, and it is why the phone build is the one to train off.
+      The database is origin-scoped browser storage. Clearing cookies or site
+      data deletes the log, and a private window starts empty on each use.
     uses:
     - storage.database-location
     - storage.durability
@@ -213,10 +188,9 @@ groups:
   - id: leaving-mid-workout-asks-first
     t: Closing the tab mid-workout asks first
     d: >-
-      a live session is held in memory and only written down when you finish
-      it, so a reload throws away every set logged since you started. While one
-      is running the browser asks whether you meant to leave, and offers to
-      stay. Finishing or discarding the session drops the question.
+      The live session is written only on Finish, so reload would discard sets
+      logged since it began. While it runs, the browser leave guard asks whether
+      to stay. Finish or discard clears the guard.
     screen: system
     defines:
     - platform.leave-guard
@@ -226,9 +200,9 @@ groups:
   - id: leaving-with-unsaved-edits-asks-first
     t: Closing the tab over an unfinished edit asks first
     d: >-
-      the routine builder, the workout builder and the exercise form all keep
-      their changes until Save, so the same question is asked over any of them
-      with edits pending. Saving, or backing out of the screen, drops it.
+      The routine builder, workout builder, and exercise form retain edits until
+      Save. The leave guard appears while any of these forms has pending edits
+      and clears after saving or leaving the screen.
     screen: system
     uses:
     - platform.leave-guard
@@ -238,21 +212,17 @@ groups:
   - id: leave-guard-is-a-browser-only-question
     t: The question is the browser's, and only the browser's
     d: >-
-      leaving is a thing a tab does, not a thing an app does — on a phone the
-      session survives being switched away from, and there is nothing to ask.
-      The register of unfinished work is kept either way; only the browser
-      raises anything over it.
+      Leaving is a browser-tab event. Phone sessions survive app switching and do
+      not show this prompt; both builds maintain the unfinished-work register.
     uses:
     - platform.leave-guard
     - platform.portability
   - id: asks-the-browser-to-keep-the-database
     t: The app asks the browser not to throw the database away
     d: >-
-      storage in a browser can be reclaimed when the machine runs short, and a
-      site can ask to be exempt. The app asks, once, the first time it opens.
-      Some browsers grant it outright, some weigh it against how much you use
-      the site, and one asks you — so the answer is not guaranteed and the app
-      does not pretend it is.
+      Browsers may reclaim storage under disk pressure. The app requests durable
+      storage once, on first open; browsers may grant, deny, or prompt for that
+      request, so the result is not guaranteed.
     defines:
     - storage.durability
     uses:
@@ -261,10 +231,9 @@ groups:
   - id: says-so-when-storage-will-not-hold
     t: A browser that cannot keep the data says so before you train on it
     d: >-
-      if the app lands in a browser with nowhere durable to write, the training
-      log lasts until the tab closes — so it says so, on the way in, and keeps
-      saying it. If storage is durable but the browser refused to exempt it
-      from being reclaimed, that is a milder note you can dismiss.
+      If no durable storage is available, the app warns on entry and keeps the
+      warning visible because the log lasts only until the tab closes. If storage
+      is durable but not eviction-protected, it shows a dismissible warning.
     screen: today
     uses:
     - storage.durability
@@ -273,21 +242,17 @@ groups:
   - id: durability-is-not-a-question-on-a-phone
     t: A phone is simply durable
     d: >-
-      app storage is not evicted and nothing has to be asked for, so neither
-      the request nor the warning exists outside the browser build.
+      Phone app storage is not evicted, so the durability request and warning are
+      web-only.
     uses:
     - storage.durability
     - platform.portability
   - id: dialog-in-a-browser-raises-its-keyboard
     t: A dialog with a field in it raises the keyboard in a browser too
     d: >-
-      the weight box, the workout name, the note and every other dialog that
-      asks for typing open ready to type in, on the web as on a phone. A browser
-      only lets a page open the keyboard while it is still handling the tap that
-      asked for it, and a field that takes focus after the dialog has finished
-      animating is asking too late — so the dialog claims focus within the tap
-      rather than leaving it to the field to ask for afterwards. The symptom
-      when it is wrong is a dialog you have to tap a second time to type in.
+      Text-entry dialogs focus their field during the opening tap, allowing the
+      browser to raise the keyboard. Deferring focus until after the dialog
+      animation would require a second tap.
     screen: session
     defines:
     - ui.dialog
@@ -296,11 +261,8 @@ groups:
   - id: dialog-makes-its-own-room-for-the-keyboard
     t: A dialog makes its own room for the keyboard
     d: >-
-      the box stays put and stays whole when the keyboard comes up: it shrinks
-      and scrolls inside itself rather than being shoved up the page until its
-      title is off the top. Sheets have always done this and dialogs did not,
-      which is why a browser was left to do the scrolling and overshot — the
-      field is what has to be visible, and it is what the dialog keeps visible.
+      A dialog resizes and scrolls its own content when the keyboard opens. The
+      field remains visible without moving the whole dialog off screen.
     screen: session
     uses:
     - ui.dialog

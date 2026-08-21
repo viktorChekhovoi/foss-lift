@@ -1,4 +1,4 @@
-/// A whole training program squeezed into one line of text.
+/// Compact FLR routine share format.
 ///
 /// ```
 /// FLR2.AeNiYGBgZGRkYWBhZWBgY2BgYWJgYGZgYGVgYGdgYGFiYGBmYmBgZWJgYGdiYGBhYWBgZmFg…

@@ -1,19 +1,4 @@
-// Builds the feature catalogue's three pages from the YAML under `features/`.
-//
-//   dart run tool/features.dart            regenerate the pages
-//   dart run tool/features.dart --check    verify without writing (CI / pre-commit)
-//
-// The source of truth is `features/catalogue/*.yaml`, `features/concepts.yaml`
-// and `features/screens.yaml`. The HTML is output — never edit it by hand, the
-// next run will overwrite you.
-//
-// --check is the part that keeps the catalogue honest. It fails on a tag that
-// is not in the vocabulary, a duplicated item id, a section id that disagrees
-// with its filename, and a section's or concept's path that has stopped
-// existing — a
-// catalogue that can rot quietly is a catalogue nobody trusts a year from now.
-// A concept nobody defines, a screen nothing points at and generated HTML that
-// has drifted are reported every run but never fail; see `Findings` for why.
+// Generate or validate the feature catalogue from `features/` YAML files. `--check` validates without writing and is used by CI/pre-commit hooks.
 
 import 'dart:convert';
 import 'dart:io';

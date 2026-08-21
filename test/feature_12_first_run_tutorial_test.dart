@@ -1,21 +1,5 @@
-// Integration tests for features/index.html#sec12 — the guided tours.
-//
-// The spec, from the catalogue:
-//   * first launch offers a choice of two tours rather than starting one;
-//   * the full tour walks the four tabs, then Today, then the live workout it
-//     cannot show; the quick tour is the four tabs and stops;
-//   * a fresh install has an empty routine list, so the Today step points at the
-//     card that fills it and both first-run tours end by getting a routine —
-//     ready-made, or built;
-//   * the routine chapter defines a superset against the checkbox that offers
-//     one;
-//   * a third tour covers building a routine and starts on its own;
-//   * a step that asks you to tap something lets the tap through to the real
-//     widget, and the tour moves on with it;
-//   * skipping says where to replay it from, and it runs once by itself.
-//
-// Tested through the real surface: the [AppDatabase] seen flag, the
-// [tutorialSeenProvider], and the [TutorialOverlay] widget with real anchors.
+// Integration tests for the first-run guided tours (features/index.html#sec12).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -7,16 +7,10 @@ import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import 'share_widgets.dart';
 
-/// The + in the corner of the Routines tab.
 const kRoutinesAddKey = ValueKey('routines-add');
 
-/// The three answers to "how do I get a routine", in the order the sheet lists
-/// them: the shortest path first, then the longest, then the one that depends on
-/// somebody else.
 enum RoutineAddChoice { library, build, import }
 
-/// The button itself: one control, above the list rather than under it, so the
-/// way to add a routine does not sink with every routine added.
 class AddRoutineButton extends ConsumerWidget {
   const AddRoutineButton({super.key});
 
@@ -33,7 +27,6 @@ class AddRoutineButton extends ConsumerWidget {
   }
 }
 
-/// Asks which way, then takes it.
 Future<void> addRoutine(BuildContext context, WidgetRef ref) async {
   final choice = await _sheet<RoutineAddChoice>(
     context,
@@ -53,10 +46,6 @@ Future<void> addRoutine(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// The second question, for a routine somebody sent: which way the code arrives.
-///
-/// Where there is no scanner — the browser build — there is one way left, so the
-/// paste box opens directly rather than behind a sheet with a single row on it.
 Future<void> _import(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
   if (!ref.read(capabilitiesProvider).scanning) {
@@ -86,8 +75,6 @@ Future<void> _import(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// Takes a pasted routine code or link to the import screen — the only place a
-/// shared routine is ever added.
 Future<void> _paste(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
   final text = await promptForCode(context,
@@ -96,9 +83,6 @@ Future<void> _paste(BuildContext context) async {
   await context.push('/routine/import?code=${Uri.encodeQueryComponent(text)}');
 }
 
-/// One of the choices, drawn the same way in the app and in the tour — the tour
-/// draws this very widget rather than a copy of it, so a reworded row cannot say
-/// one thing on the sheet and another in the picture of it.
 class RoutineAddRow extends StatelessWidget {
   const RoutineAddRow({super.key, required this.choice, this.onTap});
 
@@ -135,7 +119,6 @@ class _SheetRow extends StatelessWidget {
       );
 }
 
-/// The sheet both questions are asked on, so the second looks like the first.
 Future<T?> _sheet<T>(
   BuildContext context,
   List<Widget> Function(BuildContext sheet) rows,

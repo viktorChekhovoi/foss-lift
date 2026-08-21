@@ -1,16 +1,5 @@
-/// The plumbing every Foss Lift share code is built on.
+/// Shared envelope, checksum, and error handling for routine and theme codes.
 ///
-/// Two things travel between phones as a pasteable line of text — a theme
-/// (`FLT1`, see `theme/theme_code.dart`) and a routine (`FLR1`, see
-/// `routine_code.dart`). They carry completely different payloads and share
-/// everything else: the version tag, the base64 envelope, the checksum, the way
-/// a link is unwrapped, and the three ways reading one can fail. That common
-/// half lives here so the two formats cannot drift apart in how they *fail*,
-/// which is the part a user actually sees.
-///
-/// Deliberately free of drift, and free of Flutter but for the string
-/// catalogue: this is bytes in, bytes out, plus the sentences a failure is
-/// reported with.
 library;
 
 import 'dart:convert';
@@ -18,9 +7,7 @@ import 'dart:typed_data';
 
 import '../l10n/app_localizations.dart';
 
-/// The URL scheme a shared anything travels as. A custom scheme rather than an
-/// https App Link: it needs no domain, no hosting and no network, and so cannot
-/// rot when nobody is paying for a server.
+/// URL scheme used by share links.
 const String kShareScheme = 'fosslift';
 
 /// The two ways reading a code can fail, kept apart because the user can act on

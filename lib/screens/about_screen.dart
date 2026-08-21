@@ -6,15 +6,10 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
-/// Where to write when the app misbehaves. The only address in the app, and the
-/// only reason it holds one.
 const String kContactEmail = 'birdie.software.studios@gmail.com';
 
-/// The app's name, as it is written everywhere. A proper noun, so it is a
-/// constant rather than a catalogue entry — there is nothing here to translate.
 const String kAppName = 'Foss Lift';
 
-/// What this app is, who made it, and how to complain about it.
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -61,9 +56,6 @@ class AboutScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Printed as well as linked: a phone with no mail app set up would
-            // otherwise leave you with a button that does nothing and no
-            // address to write down.
             GestureDetector(
               onLongPress: () => _copy(context, l10n),
               child: Text(kContactEmail,
@@ -75,8 +67,6 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  /// Opens a pre-addressed draft in whatever handles mail. Falls back to the
-  /// clipboard, which leaves you somewhere you can still act.
   Future<void> _mail(BuildContext context, AppLocalizations l10n) async {
     final uri = Uri(
       scheme: 'mailto',

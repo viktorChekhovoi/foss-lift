@@ -11,8 +11,6 @@ import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../widgets/exercise_filters.dart';
 
-/// Browsable, searchable exercise library. Tap a row for details; the FAB adds
-/// a custom exercise.
 class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
@@ -21,8 +19,6 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
-  /// The search text, which lives and dies with the text field showing it. The
-  /// two dimensions outlive both — see [libraryFilterProvider].
   String _query = '';
 
   @override
@@ -50,7 +46,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           data: (all) {
             final list = filter.apply(all, shown: (e) => shownWords(l10n, e));
 
-            // Group by muscle, preserving the already-sorted order.
             final groups = <String, List<Exercise>>{};
             for (final e in list) {
               groups.putIfAbsent(e.muscleGroup, () => []).add(e);
@@ -63,12 +58,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   child: _SearchField(
                       onChanged: (v) => setState(() => _query = v)),
                 ),
-                // Pinned beside the search box rather than scrolled with the
-                // list. It used to ride at the head of the list because it was
-                // fifteen wrapped chips tall and no fixed band could promise
-                // room for that at 2× text; two buttons ask for one line, which
-                // a band can always find, and a filter you have to scroll back
-                // up to reach is a filter you use once.
                 ExerciseFilterChips(
                   filter: filter,
                   onChanged: ref.read(libraryFilterProvider.notifier).keep,
@@ -78,8 +67,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     padding: const EdgeInsets.fromLTRB(0, 4, 0, 96),
                     children: [
                       const SizedBox(height: 4),
-                      // One list child per group, not one for the lot: the
-                      // groups are what the list builds lazily as you scroll.
                       if (list.isEmpty)
                         Padding(
                           padding: EdgeInsets.only(top: 60),

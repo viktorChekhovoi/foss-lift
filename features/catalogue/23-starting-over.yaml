@@ -1,9 +1,8 @@
 id: "23"
 title: Starting over
 tagline: >-
-  One button that puts the app back where it was the first time it was opened —
-  for a phone handed on, a trial run that filled the log with nonsense, or a
-  program you would rather rebuild than untangle.
+  Reset all app data and reseed the first-launch state from one destructive
+  action.
 screen: backup
 code:
 - lib/data/database.dart
@@ -23,13 +22,9 @@ groups:
   - id: reset-empties-the-app-back-to-a-fresh-install
     t: Reset puts the app back to a fresh install
     d: >-
-      every session and set you have logged, every routine, workout and slot,
-      the exercises you added, the bars and plates you keep, the themes you
-      wrote and every setting you chose. What is left is what a first launch
-      writes and nothing else: the starter movements, the racked bars, and a
-      settings row with no answers in it. Not a partial clear with exceptions
-      somebody has to remember — the phone is the phone you had before you
-      opened the app.
+      Reset empties sessions, sets, routines, workouts, slots, custom exercises,
+      bars, plates, themes, and settings, then writes the first-launch seed:
+      starter movements, racked bars, and an unconfigured settings row.
     defines:
     - storage.reset
     uses:
@@ -38,26 +33,28 @@ groups:
   - id: reset-says-what-goes-before-it-goes
     t: It says what it is about to destroy, and asks
     d: >-
-      a button that empties the log cannot be a button you can hit on the way
-      past. The dialog names what goes in the words above — the history, the
-      routines, the exercises and the settings — says it cannot be undone, and
-      keeps the destructive answer off the default: dismissing it, backing out
-      of it or missing it entirely all leave the phone alone. Confirming is the
-      only path through.
+      The confirmation dialog lists history, routines, exercises, and settings,
+      states that reset cannot be undone, and does not default to confirmation.
+      Dismissal or back navigation leaves the database unchanged.
     uses:
     - storage.reset
     - ui.dialog
   - id: reset-points-at-the-backup-first
     t: It offers the backup before it takes the log
     d: >-
-      the one thing that makes this recoverable is a file the app cannot make for you after the fact, so the dialog names it while there is still something to save. A mention rather than a step: somebody resetting a phone they are handing on does not want to be marched through a backup they will delete, and somebody who wanted one is now holding the sentence that says so. That dialog is the only place any of this is said. The section on the screen is a heading reading Reset and the button under it, with no standing caption between them — a warning read on the way past the control is a warning read by somebody who was not going to press it.
+      The dialog recommends saving a backup before reset while the data still
+      exists. It does not force a backup flow. The Backup screen presents only
+      the Reset heading and action outside the confirmation dialog.
     uses:
     - storage.reset
     - share.backup-file
   - id: a-backup-holds-everything-a-reset-takes
     t: A backup taken with its clips holds everything a reset takes
     d: >-
-      the file is the database itself plus the clips when they were ticked, and the reset empties that same database and deletes those same clips — so restoring one puts back everything the other took, down to the settings. The single exception is the clips on a backup saved without them: nothing else on the phone belongs to the app, so nothing else can be lost. This is why the reset does not claim to reach further than a backup does.
+      A backup includes the database and, when selected, all clips. Reset empties
+      that database and deletes those clips, so restoring the corresponding
+      backup restores the reset data, including settings. Backups made without
+      clips cannot restore those clips.
     screen: none
     uses:
     - storage.reset
@@ -66,18 +63,19 @@ groups:
   - id: reset-takes-the-clips-off-the-disk-too
     t: The set videos go with it
     d: >-
-      a clip is a file in app storage that a set row points at, so emptying the
-      rows without deleting the files would leave hundreds of megabytes on the
-      phone belonging to nothing, and no screen left that could reach them. They
-      are deleted with everything else. On a build with no filesystem to hold
-      them there are none to take.
+      Set videos are files in app storage referenced by set rows. Reset deletes
+      them with the rows so it does not leave unreachable files. Builds without
+      filesystem video storage have no clips to delete.
     uses:
     - storage.reset
     - video.storage
   - id: reset-hands-back-the-first-run
     t: Afterwards the app behaves as if it had never been opened
     d: >-
-      the weight unit is guessed from the phone's region again, the first-run tour comes back, Today has no routine to be about and the routine list is empty — the library is where a program comes from, exactly as it was the first time. The unit is a guess re-made rather than a question re-asked, because the app has never asked one: a country weighs a barbell one way and the phone says which country it is in. Re-making it is the whole of what stands between a reset and a blank screen, since the app paints nothing at all until a unit is stored, so the guess is re-evaluated whenever the stored answer goes missing rather than once at launch.
+      Reset restores the first-run tour, clears the routine list, and leaves Today
+      without a current routine. The weight unit is inferred again from the
+      phone's region whenever the stored setting is absent, so the app can render
+      immediately without asking a new question.
     screen: today
     uses:
     - storage.reset
@@ -89,10 +87,8 @@ groups:
   - id: reset-refuses-during-a-workout
     t: It will not run over a running workout
     d: >-
-      the live session is in memory and is not history until Finish, so emptying
-      the database under it would throw the session away as a side effect of a
-      button that says nothing about sessions. Finish or abandon it first; the
-      screen says which. The same rule restore is held to, for the same reason.
+      A live session remains in memory until Finish. Reset is unavailable until
+      the session is finished or abandoned, as with restore.
     uses:
     - storage.reset
     - session.live-state
@@ -101,12 +97,9 @@ groups:
   - id: reset-is-one-transaction
     t: It happens all at once or not at all
     d: >-
-      the tables are emptied and the seed is written back inside a single
-      transaction, so a reset interrupted half way — the process killed, the
-      screen closed — leaves the database as it was rather than as a set of
-      tables that disagree about what exists. The list of tables to empty is
-      taken from the schema rather than written out, so a table added in a later
-      release is cleared by this without anybody remembering to add it.
+      Reset empties tables and writes the seed in one transaction. An interrupted
+      reset leaves the previous database intact. The table list comes from the
+      schema, so later tables are included without a separate reset list.
     screen: none
     uses:
     - storage.reset
@@ -114,7 +107,9 @@ groups:
   - id: reset-is-absent-where-backup-is
     t: The browser build does not offer it
     d: >-
-      the wipe itself is rows rather than the database file, so a tab could run it — but it sits on Backup &amp; restore, and that screen is absent on the web for want of a filesystem to write a backup to. So the reset goes with it. Putting it somewhere else to keep it reachable there would separate it from the one control that makes it survivable, which is a worse trade than a browser tab having no reset button.
+      Reset operates on rows, but it is located on Backup &amp; restore. That
+      screen is absent on the web because the web build cannot write backup files,
+      so reset is absent there as well.
     uses:
     - storage.reset
     - platform.web
@@ -124,6 +119,8 @@ groups:
   - id: reset-your-profile
     t: Reset your profile
     d: >-
-      Profile → Backup &amp; restore → scroll to the bottom → Reset profile → confirm. It lands you back on Today, with an empty routine list and the tour offering itself again.
+      Profile → Backup &amp; restore → scroll to the bottom → Reset profile →
+      confirm. The app returns to Today with an empty routine list and the first-
+      run tour.
     uses:
     - storage.reset

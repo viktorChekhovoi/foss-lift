@@ -1,27 +1,5 @@
-// Integration tests for features/index.html#sec21 — the routine library.
-//
-// The behaviour under test, straight from the catalogue:
-//   * your-list-holds-only-what-you-put-there — a fresh install opens on an
-//     empty routine list with no current routine, while the movements, the bars
-//     and the settings row are seeded exactly as before;
-//   * three-ways-to-get-a-routine — the + in the corner of the Routines tab
-//     opens one sheet holding all three, and import asks scan or paste on a
-//     sheet of its own;
-//   * library-holds-the-programs-the-app-ships — the five programs are a table
-//     in the app, listed under the names the app gives them;
-//   * a-program-is-previewed-before-it-is-added — the preview shows every
-//     training day and every exercise in it, and writes nothing;
-//   * added-program-is-yours / added-program-carries-its-prescription — adding
-//     one lands an ordinary routine carrying the published prescription, and
-//     twice lands two independent ones;
-//   * first-program-added-becomes-the-current-one — the first routine to arrive
-//     on an empty install becomes the one Today is about, however it arrives;
-//   * adding-copies-the-movements-you-already-have — a program creates no
-//     exercises, only a routine, its days and its slots;
-//   * library-names-follow-the-language — the programs and their days are named
-//     through their seed keys, published titles excepted;
-//   * update-keeps-the-programs-already-in-your-list — a phone that already has
-//     one of the five keeps it across the update.
+// Integration tests for the built-in routine library and adding programs (features/index.html#sec21).
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

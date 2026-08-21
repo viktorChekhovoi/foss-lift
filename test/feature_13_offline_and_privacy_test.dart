@@ -1,12 +1,5 @@
-// Feature 13 — Offline & privacy.
-//
-// The claim is a negative one — the app makes no network connections and
-// collects nothing — so the honest test is a guardrail that scans the whole of
-// lib/ for any networking import and asserts there are none, plus a check that
-// the one datastore is a local drift/SQLite database that opens and seeds with
-// no network anywhere near it, and that the sole platform integration (the
-// Android reminder) is inert off a device. Nothing here invents behaviour the
-// spec does not state.
+// Integration tests for offline operation and local-only storage (features/index.html#sec13).
+
 import 'dart:io';
 
 import 'package:drift/native.dart';

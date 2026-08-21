@@ -10,22 +10,8 @@ import '../util/units.dart';
 import '../widgets/builder_widgets.dart';
 import '../util/format.dart';
 
-/// The bars the gym racks, and which of them every barbell lift falls back to.
-///
-/// Add the odd bar your gym owns, rename and re-weigh the ones you added, and
-/// take any of them off the rack. **The six standard bars cannot be renamed or
-/// re-weighed** — an Olympic bar weighs 20 kg everywhere, and a name and a
-/// weight that other phones resolve shared routines against are not a
-/// preference. See [Bars]. Deleting one is still allowed, because a gym may
-/// genuinely not rack a trap bar.
-///
-/// Tapping a bar makes it the app-wide default — an exercise can still carry its
-/// own (Exercise → Bar weight), and this is what the rest of them use.
-/// Finds one bar's pencil in a test. By name, because the list is the gym's and
-/// the ids are not stable across a seeded install.
 ValueKey<String> barEditKey(String name) => ValueKey('bar-edit-$name');
 
-/// Finds one bar's cross in a test.
 ValueKey<String> barRemoveKey(String name) => ValueKey('bar-remove-$name');
 
 class BarSettingsScreen extends ConsumerWidget {
@@ -39,14 +25,8 @@ class BarSettingsScreen extends ConsumerWidget {
     final db = ref.read(databaseProvider);
     final l10n = AppLocalizations.of(context);
     final u = unitSuffix(l10n, unit);
-    // Which row carries the tick: the bar the default weight resolves to. With
-    // nothing chosen that is the standard bar for the unit, which is normally a
-    // bar on this list.
     final chosen = bars.atWeight(setup.barKg);
 
-    // A bar is referred to by its weight, so two of them on one list cannot
-    // weigh the same. The writer refuses and returns false; saying nothing would
-    // read as a save that did not stick.
     void refused(double kg) {
       if (!context.mounted) return;
       final w = l10n.unitWeightShort(
@@ -70,10 +50,6 @@ class BarSettingsScreen extends ConsumerWidget {
         context,
         title: l10n.barSettingsEditTitle,
         unit: unit,
-        // The stored name, not the translated one. Only a bar of your own gets
-        // here — a seeded name never reaches a field it could be saved out of,
-        // which would rewrite the value `Settings.barWeight` and the routine
-        // codec resolve against.
         name: bar.name,
         kg: bar.weightKg,
       );
@@ -116,7 +92,6 @@ class BarSettingsScreen extends ConsumerWidget {
                       unit: unit,
                       selected: bar.id == chosen?.id,
                       onSelect: () => db.setBarWeight(bar.weightKg),
-                      // No pencil on a standard bar — see the class comment.
                       onEdit: bar.isCustom ? () => editBar(bar) : null,
                       onRemove: () => db.deleteBar(bar.id),
                     ),
@@ -162,8 +137,6 @@ class BarSettingsScreen extends ConsumerWidget {
   }
 }
 
-/// One bar: tap it to make it the default, the pencil — on a bar of your own
-/// only — to rename or re-weigh it, the cross to take it off the rack.
 class _BarRow extends StatelessWidget {
   const _BarRow({
     required this.bar,
@@ -178,8 +151,6 @@ class _BarRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onSelect;
 
-  /// Null for a standard bar, which is fixed. The row is otherwise the same:
-  /// there is no second kind of bar, only one you may rewrite.
   final VoidCallback? onEdit;
   final VoidCallback onRemove;
 
@@ -207,10 +178,6 @@ class _BarRow extends StatelessWidget {
                       color: selected ? AppColors.accent : AppColors.faint,
                     ),
                     const SizedBox(width: 10),
-                    // The weight sits under the name rather than beside it: at
-                    // 2× text a name, a weight and two icon buttons cannot share
-                    // a phone's width, and a weight is the one thing here that
-                    // must not be ellipsised.
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

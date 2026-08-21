@@ -1,4 +1,4 @@
-/// The programs the app ships, as prescriptions rather than as rows.
+/// Starter programs shipped as prescriptions rather than database rows.
 ///
 /// These used to be written into the routines table on first launch. They are a
 /// table in the code instead, and the routine library is a screen over it: nine

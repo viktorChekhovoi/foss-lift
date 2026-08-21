@@ -1,11 +1,5 @@
-// Feature 05 — Automatic progression (features/index.html#sec05).
-//
-// Every slot advances along a single axis; a clean session steps it up and two
-// misses back it off. These tests drive the behaviour the spec describes through
-// its real public surface: the pure rules in `progression.dart`, the
-// `AppDatabase.advanceProgression` path that applies them to a stored slot, the
-// `ExerciseEntry` verdict/lightest-set rules that decide what gets applied, and
-// one end-to-end run through the live controller's finish path.
+// Integration tests for automatic progression (features/index.html#sec05).
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

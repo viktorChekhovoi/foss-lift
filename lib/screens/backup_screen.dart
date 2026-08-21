@@ -1,13 +1,3 @@
-/// Saving everything to a file, and reading one back.
-///
-/// The service does the work — see `services/backup_service.dart`; this is the
-/// screen, and the three decisions on it that are the user's rather than the
-/// app's: whether clips travel, whether a file that size is worth making, and
-/// whether replacing everything is really what was meant.
-///
-/// **Restore is behind a confirmation, and nothing else here is.** Saving a
-/// backup cannot hurt anybody, so it is one tap. Restoring throws away the
-/// phone's data on purpose, which is a thing to be asked about in those words.
 library;
 
 import 'dart:io';
@@ -25,13 +15,8 @@ import '../services/backup_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 
-/// What a backup would come to, with clips and without.
-///
-/// Both at once, because the checkbox switches between them and re-measuring a
-/// folder of clips on every tick would make the number arrive late each time.
 typedef BackupSize = ({int bare, int withClips});
 
-/// Measured, not guessed — see [BackupService.size].
 final backupSizeProvider = FutureProvider<BackupSize>((ref) async {
   final service = ref.watch(backupServiceProvider);
   return (
@@ -48,11 +33,8 @@ class BackupScreen extends ConsumerStatefulWidget {
 }
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
-  /// Off by default: the useful backup is the one that fits in a message.
   bool _clips = false;
 
-  /// While a file is being written or read. Both are slow enough with a reel of
-  /// clips in them to need saying, and neither should be startable twice.
   bool _busy = false;
 
   @override
@@ -98,14 +80,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               onPressed: _busy ? null : () => _restore(l10n),
               child: Text(l10n.backupChooseFile),
             ),
-            // Last on the screen, under the one thing that would let you undo
-            // it. Nothing that empties the log belongs above the control that
-            // saves it.
             const SizedBox(height: 36),
             Text(l10n.backupResetHeading, style: sectionLabelStyle()),
-            // No caption under this heading. What a reset costs is in the
-            // dialog, where it is read by somebody about to press the thing;
-            // standing on the screen it was read by everybody who was not.
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: _busy ? null : () => _reset(l10n),
@@ -128,8 +104,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Builds the file and hands it to the phone's share sheet. The app keeps no
-  /// copy: a backup in app storage goes with the uninstall it exists for.
   Future<void> _save(AppLocalizations l10n) async {
     setState(() => _busy = true);
     try {
@@ -143,19 +117,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     }
   }
 
-  /// Picks a file, asks, and replaces everything.
-  ///
-  /// The live session is checked first and by hand: it is in memory and is not
-  /// history until Finish, so replacing the database under it would throw a
-  /// workout away as a side effect of a button that says nothing about workouts.
   Future<void> _restore(AppLocalizations l10n) async {
     if (ref.read(activeWorkoutProvider) != null) {
       _say(l10n.backupFinishWorkoutFirst);
       return;
     }
-    // No type filter: a picker's filters go by extension and MIME, and a backup
-    // that has been through a cloud drive may have neither intact. What says a
-    // file is a backup is the manifest inside it.
     final picked = await openFile();
     if (picked == null || !mounted) return;
     final path = picked.path;
@@ -197,26 +163,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       case BackupRefusal.fromANewerVersion:
         _say(l10n.backupFromNewerVersion);
       case null:
-        // Everything reading the old database is now reading a file that is no
-        // longer there. Rebuilding the database provider rebuilds the lot.
         ref.invalidate(databaseProvider);
         _say(l10n.backupRestored);
     }
   }
 
-  /// Empties the app back to a fresh install, once the user has agreed to it in
-  /// those words.
-  ///
-  /// The running-workout refusal comes first and comes before the dialog, for
-  /// the reason [_restore] is held to the same rule: a live session is memory
-  /// and is not history until Finish, so emptying the database under one would
-  /// throw it away as a side effect of a button that says nothing about
-  /// sessions.
-  ///
-  /// The clips are files rather than rows, so the database cannot take them
-  /// with it — see [AppDatabase.resetEverything]. Unlike a restore nothing is
-  /// invalidated afterwards: it is the same database object, and every screen
-  /// watching it is handed the empty tables by drift's own streams.
   Future<void> _reset(AppLocalizations l10n) async {
     if (ref.read(activeWorkoutProvider) != null) {
       _say(l10n.backupFinishWorkoutFirst);
@@ -254,15 +205,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       if (mounted) setState(() => _busy = false);
     }
     if (!mounted) return;
-    // Back to the tabs. This screen is two pushes into a profile that no longer
-    // describes anything, and leaving somebody here after the wipe makes the
-    // first thing they see of their fresh install the button that emptied it.
     context.go('/today');
     _say(l10n.backupResetDone);
   }
 }
 
-/// A line under a control: the size, the omission, the warning.
 class _Note extends StatelessWidget {
   const _Note(this.text, {this.warn = false});
   final String text;
