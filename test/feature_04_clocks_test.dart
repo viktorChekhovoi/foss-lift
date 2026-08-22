@@ -62,19 +62,26 @@ void main() {
     await db.close();
   });
 
-  Future<ActiveWorkoutController> startPush({List<Override> extra = const []}) async {
-    container = containerFor(db, overrides: [
-      clockProvider.overrideWithValue(clock.call),
-      restToneProvider.overrideWithValue(tone),
-      // The rest ending asks where the phone is and reaches for a notification
-      // channel and a vibrator. None of the three exists under a plain `test()`,
-      // and none is what this file is about — see feature_04_live_session_test
-      // for the tests that are.
-      appOnScreenProvider.overrideWithValue(() => true),
-      restAlarmProvider.overrideWithValue(RestAlarm(platformSupported: false)),
-      restBuzzProvider.overrideWithValue(RestBuzz(platformSupported: false)),
-      ...extra,
-    ]);
+  Future<ActiveWorkoutController> startPush({
+    List<Override> extra = const [],
+  }) async {
+    container = containerFor(
+      db,
+      overrides: [
+        clockProvider.overrideWithValue(clock.call),
+        restToneProvider.overrideWithValue(tone),
+        // The rest ending asks where the phone is and reaches for a notification
+        // channel and a vibrator. None of the three exists under a plain `test()`,
+        // and none is what this file is about — see feature_04_live_session_test
+        // for the tests that are.
+        appOnScreenProvider.overrideWithValue(() => true),
+        restAlarmProvider.overrideWithValue(
+          RestAlarm(platformSupported: false),
+        ),
+        restBuzzProvider.overrideWithValue(RestBuzz(platformSupported: false)),
+        ...extra,
+      ],
+    );
     final ctl = container!.read(activeWorkoutProvider.notifier);
     await ctl.start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
     return ctl;
@@ -83,20 +90,27 @@ void main() {
   ActiveWorkout session() => container!.read(activeWorkoutProvider)!;
 
   group('a rest knows when it is due, not how often it was asked', () {
-    test('a rest whose time passed unwatched is over the moment it is', () async {
-      final ctl = await startPush();
-      ctl.startRest(90, null);
-      expect(session().restLeft, 90);
+    test(
+      'a rest whose time passed unwatched is over the moment it is',
+      () async {
+        final ctl = await startPush();
+        ctl.startRest(90, null);
+        expect(session().restLeft, 90);
 
-      // Three minutes go by with the app getting no ticks at all — a tab
-      // throttled to one a minute, or a laptop lid closed.
-      clock.skip(const Duration(minutes: 3));
-      await oneTick();
+        // Three minutes go by with the app getting no ticks at all — a tab
+        // throttled to one a minute, or a laptop lid closed.
+        clock.skip(const Duration(minutes: 3));
+        await oneTick();
 
-      expect(session().restLeft, 0,
-          reason: 'the rest was due two minutes ago; it does not still have '
-              'time on it because nobody was counting');
-    });
+        expect(
+          session().restLeft,
+          0,
+          reason:
+              'the rest was due two minutes ago; it does not still have '
+              'time on it because nobody was counting',
+        );
+      },
+    );
 
     test('and it says so exactly once, however long the gap was', () async {
       final ctl = await startPush();
@@ -107,9 +121,13 @@ void main() {
       await oneTick();
       await oneTick();
 
-      expect(tone.played, 1,
-          reason: 'one rest ended, so one ding — not one per second nobody '
-              'counted, and not a second one on the next tick');
+      expect(
+        tone.played,
+        1,
+        reason:
+            'one rest ended, so one ding — not one per second nobody '
+            'counted, and not a second one on the next tick',
+      );
     });
 
     test('a rest still running after the gap keeps the right time', () async {
@@ -135,9 +153,13 @@ void main() {
       clock.skip(const Duration(seconds: 100));
       await oneTick();
 
-      expect(session().restLeft, inInclusiveRange(47, 50),
-          reason: 'the extra minute has to survive the gap too — a nudge that '
-              'only changed the displayed number would lose it');
+      expect(
+        session().restLeft,
+        inInclusiveRange(47, 50),
+        reason:
+            'the extra minute has to survive the gap too — a nudge that '
+            'only changed the displayed number would lose it',
+      );
     });
 
     test('taking a rest to zero by hand still ends it', () async {
@@ -159,8 +181,11 @@ void main() {
       clock.skip(const Duration(minutes: 20));
       await oneTick();
 
-      expect(session().elapsed, inInclusiveRange(1200, 1202),
-          reason: 'twenty minutes passed whether or not the app ran for them');
+      expect(
+        session().elapsed,
+        inInclusiveRange(1200, 1202),
+        reason: 'twenty minutes passed whether or not the app ran for them',
+      );
     });
 
     test('what Finish writes down is that real length', () async {
@@ -171,22 +196,29 @@ void main() {
       await oneTick();
       final id = await ctl.finish();
 
-      final saved = await (db.select(db.sessions)
-            ..where((t) => t.id.equals(id!)))
-          .getSingle();
-      expect(saved.durationSeconds, inInclusiveRange(2520, 2522),
-          reason: 'the history is what the workout actually took; a stalled '
-              'counter would file it as minutes long');
+      final saved = await (db.select(
+        db.sessions,
+      )..where((t) => t.id.equals(id!))).getSingle();
+      expect(
+        saved.durationSeconds,
+        inInclusiveRange(2520, 2522),
+        reason:
+            'the history is what the workout actually took; a stalled '
+            'counter would file it as minutes long',
+      );
     });
   });
 
   group('a browser is asked not to slow the tab down', () {
     test('nothing holds the tab awake before a workout starts', () async {
       final keeper = _RecordingKeeper();
-      container = containerFor(db, overrides: [
-        clockProvider.overrideWithValue(clock.call),
-        tabAwakeProvider.overrideWithValue(keeper),
-      ]);
+      container = containerFor(
+        db,
+        overrides: [
+          clockProvider.overrideWithValue(clock.call),
+          tabAwakeProvider.overrideWithValue(keeper),
+        ],
+      );
       container!.read(tabAwakeSyncProvider);
       expect(keeper.holding, isFalse);
     });
@@ -201,8 +233,11 @@ void main() {
 
       await ctl.finish();
       container!.read(tabAwakeSyncProvider);
-      expect(keeper.holding, isFalse,
-          reason: 'nothing is held between workouts');
+      expect(
+        keeper.holding,
+        isFalse,
+        reason: 'nothing is held between workouts',
+      );
     });
 
     test('and so does throwing the workout away', () async {

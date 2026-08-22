@@ -28,30 +28,25 @@ void main() {
 
   /// A database in a file, as the app has — not `memoryDb()`, which has no file
   /// to copy anywhere.
-  AppDatabase openAt(File file) =>
-      AppDatabase.forTesting(NativeDatabase(file));
+  AppDatabase openAt(File file) => AppDatabase.forTesting(NativeDatabase(file));
 
   BackupService serviceFor(
     AppDatabase database, {
     int? schemaVersion,
     DateTime? now,
-  }) =>
-      BackupService(
-        snapshotDatabase: (path) => database.snapshotTo(path),
-        databaseFile: () async => dbFile,
-        storageDirectory: () async => storage,
-        workDirectory: () async => root,
-        closeDatabase: database.close,
-        schemaVersion: schemaVersion ?? database.schemaVersion,
-        now: () => now ?? DateTime(2026, 8, 7),
-      );
+  }) => BackupService(
+    snapshotDatabase: (path) => database.snapshotTo(path),
+    databaseFile: () async => dbFile,
+    storageDirectory: () async => storage,
+    workDirectory: () async => root,
+    closeDatabase: database.close,
+    schemaVersion: schemaVersion ?? database.schemaVersion,
+    now: () => now ?? DateTime(2026, 8, 7),
+  );
 
   /// A routine, by the only field these tests look at.
-  Future<void> addRoutine(AppDatabase into, String name) => into.createRoutine(
-        name: name,
-        color: '#E8543F',
-        restSeconds: 120,
-      );
+  Future<void> addRoutine(AppDatabase into, String name) =>
+      into.createRoutine(name: name, color: '#E8543F', restSeconds: 120);
 
   /// What is in a database, cheaply.
   Future<Iterable<String>> routinesIn(AppDatabase from) async =>
@@ -63,6 +58,23 @@ void main() {
     await dir.create(recursive: true);
     final file = File(p.join(dir.path, name));
     await file.writeAsBytes(List.filled(bytes, 7));
+    return file;
+  }
+
+  Future<File> archiveWithDatabase(String name, List<int> bytes) async {
+    final manifest = BackupManifest(
+      schema: db.schemaVersion,
+      created: DateTime(2026, 8, 7),
+      clips: 0,
+    );
+    final file = File(p.join(root.path, name));
+    await file.writeAsBytes(
+      ZipEncoder().encodeBytes(
+        Archive()
+          ..add(ArchiveFile.string(kBackupManifestEntry, manifest.encode()))
+          ..add(ArchiveFile(kBackupDatabaseEntry, bytes.length, bytes)),
+      ),
+    );
     return file;
   }
 
@@ -79,40 +91,48 @@ void main() {
   });
 
   group('A backup is one file holding everything', () {
-    test('it carries the database, and the database still has your log in it',
-        () async {
-      await addRoutine(db, 'Upper / Lower');
+    test(
+      'it carries the database, and the database still has your log in it',
+      () async {
+        await addRoutine(db, 'Upper / Lower');
 
-      final file = await serviceFor(db).save(clips: false);
+        final file = await serviceFor(db).save(clips: false);
 
-      expect(await file.exists(), isTrue);
-      final entries = ZipDecoder()
-          .decodeBytes(await file.readAsBytes())
-          .files
-          .map((f) => f.name)
-          .toList();
-      expect(entries, contains(kBackupManifestEntry));
-      expect(entries, contains(kBackupDatabaseEntry));
+        expect(await file.exists(), isTrue);
+        final entries = ZipDecoder()
+            .decodeBytes(await file.readAsBytes())
+            .files
+            .map((f) => f.name)
+            .toList();
+        expect(entries, contains(kBackupManifestEntry));
+        expect(entries, contains(kBackupDatabaseEntry));
 
-      // The proof is opening it: a copy of a file is not a database until
-      // something reads a routine back out of it.
-      final restored = File(p.join(root.path, 'read-back.sqlite'));
-      await restored.writeAsBytes(ZipDecoder()
-          .decodeBytes(await file.readAsBytes())
-          .findFile(kBackupDatabaseEntry)!
-          .readBytes()!);
-      final reopened = openAt(restored);
-      addTearDown(reopened.close);
-      expect(await routinesIn(reopened), contains('Upper / Lower'));
-    });
+        // The proof is opening it: a copy of a file is not a database until
+        // something reads a routine back out of it.
+        final restored = File(p.join(root.path, 'read-back.sqlite'));
+        await restored.writeAsBytes(
+          ZipDecoder()
+              .decodeBytes(await file.readAsBytes())
+              .findFile(kBackupDatabaseEntry)!
+              .readBytes()!,
+        );
+        final reopened = openAt(restored);
+        addTearDown(reopened.close);
+        expect(await routinesIn(reopened), contains('Upper / Lower'));
+      },
+    );
 
     test('and a manifest saying which schema wrote it', () async {
       final file = await serviceFor(db).save(clips: false);
 
-      final manifest = BackupManifest.decode(String.fromCharCodes(ZipDecoder()
-          .decodeBytes(await file.readAsBytes())
-          .findFile(kBackupManifestEntry)!
-          .readBytes()!));
+      final manifest = BackupManifest.decode(
+        String.fromCharCodes(
+          ZipDecoder()
+              .decodeBytes(await file.readAsBytes())
+              .findFile(kBackupManifestEntry)!
+              .readBytes()!,
+        ),
+      );
 
       expect(manifest, isNotNull);
       expect(manifest!.schema, db.schemaVersion);
@@ -121,8 +141,10 @@ void main() {
     });
 
     test('it is named for the day it was made', () {
-      expect(backupFileName(DateTime(2026, 8, 7)),
-          'fosslift-backup-2026-08-07.zip');
+      expect(
+        backupFileName(DateTime(2026, 8, 7)),
+        'fosslift-backup-2026-08-07.zip',
+      );
     });
 
     test('set videos are left out unless they are asked for', () async {
@@ -154,23 +176,30 @@ void main() {
           p.join(kBackupVideoFolder, 'b.mp4'),
         ]),
       );
-      final manifest = BackupManifest.decode(String.fromCharCodes(
-          archive.findFile(kBackupManifestEntry)!.readBytes()!));
+      final manifest = BackupManifest.decode(
+        String.fromCharCodes(
+          archive.findFile(kBackupManifestEntry)!.readBytes()!,
+        ),
+      );
       expect(manifest!.clips, 2);
     });
 
-    test('the size offered up front counts the clips only when they are in',
-        () async {
-      await routinesIn(db); // drift opens the file lazily; a read makes it real
-      await clip('a.mp4', bytes: 4096);
-      final service = serviceFor(db);
+    test(
+      'the size offered up front counts the clips only when they are in',
+      () async {
+        await routinesIn(
+          db,
+        ); // drift opens the file lazily; a read makes it real
+        await clip('a.mp4', bytes: 4096);
+        final service = serviceFor(db);
 
-      final bare = await service.size(clips: false);
-      final full = await service.size(clips: true);
+        final bare = await service.size(clips: false);
+        final full = await service.size(clips: true);
 
-      expect(bare, greaterThan(0), reason: 'the database is never nothing');
-      expect(full - bare, 4096);
-    });
+        expect(bare, greaterThan(0), reason: 'the database is never nothing');
+        expect(full - bare, 4096);
+      },
+    );
   });
 
   group('Restore replaces everything on the phone', () {
@@ -188,15 +217,19 @@ void main() {
       addTearDown(reopened.close);
       final names = await routinesIn(reopened);
       expect(names, contains('The one in the backup'));
-      expect(names, isNot(contains('Made after the backup')),
-          reason: 'restore replaces, it does not merge');
+      expect(
+        names,
+        isNot(contains('Made after the backup')),
+        reason: 'restore replaces, it does not merge',
+      );
     });
 
     test('clips come back when they were put in', () async {
       await clip('a.mp4');
       final backup = await serviceFor(db).save(clips: true);
-      await Directory(p.join(storage.path, kBackupVideoFolder))
-          .delete(recursive: true);
+      await Directory(
+        p.join(storage.path, kBackupVideoFolder),
+      ).delete(recursive: true);
 
       await serviceFor(db).restore(backup);
 
@@ -206,21 +239,24 @@ void main() {
       );
     });
 
-    test('and a backup without them leaves the clips already on the phone',
-        () async {
-      // Relative paths, so the sets in the restored database still find the
-      // files that are already there — see features/index.html#sec20.
-      final backup = await serviceFor(db).save(clips: false);
-      await clip('filmed-since.mp4');
+    test(
+      'and a backup without them leaves the clips already on the phone',
+      () async {
+        // Relative paths, so the sets in the restored database still find the
+        // files that are already there — see features/index.html#sec20.
+        final backup = await serviceFor(db).save(clips: false);
+        await clip('filmed-since.mp4');
 
-      await serviceFor(db).restore(backup);
+        await serviceFor(db).restore(backup);
 
-      expect(
-        await File(p.join(storage.path, kBackupVideoFolder, 'filmed-since.mp4'))
-            .exists(),
-        isTrue,
-      );
-    });
+        expect(
+          await File(
+            p.join(storage.path, kBackupVideoFolder, 'filmed-since.mp4'),
+          ).exists(),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('Restore replaces the database under a running app', () {
@@ -245,6 +281,48 @@ void main() {
       return routinesIn(reopened);
     }
 
+    test(
+      'corrupt SQLite is refused while the current database stays usable',
+      () async {
+        await addRoutine(db, 'Current profile');
+        final backup = await archiveWithDatabase(
+          'corrupt-sqlite.zip',
+          List<int>.generate(4096, (i) => i % 251),
+        );
+
+        expect(await serviceFor(db).restore(backup), BackupRefusal.notABackup);
+        expect(
+          await routinesIn(db),
+          contains('Current profile'),
+          reason: 'validation happens before the live database is closed',
+        );
+      },
+    );
+
+    test(
+      'an unrelated valid SQLite database is refused without replacement',
+      () async {
+        await addRoutine(db, 'Current profile');
+        final unrelatedFile = File(p.join(root.path, 'unrelated.sqlite'));
+        final unrelated = openAt(unrelatedFile);
+        await unrelated.customStatement(
+          'CREATE TABLE unrelated_notes (id INTEGER PRIMARY KEY, note TEXT)',
+        );
+        await unrelated.close();
+        final backup = await archiveWithDatabase(
+          'unrelated-valid-sqlite.zip',
+          await unrelatedFile.readAsBytes(),
+        );
+
+        expect(await serviceFor(db).restore(backup), BackupRefusal.notABackup);
+        expect(
+          await routinesIn(db),
+          contains('Current profile'),
+          reason: 'a valid SQLite header is not proof it is a Foss Lift backup',
+        );
+      },
+    );
+
     test('a file that is not a backup at all', () async {
       await addRoutine(db, 'Still here afterwards');
       await db.close();
@@ -252,14 +330,20 @@ void main() {
       await photo.writeAsBytes(List.filled(2048, 3));
 
       expect(await serviceFor(db).restore(photo), BackupRefusal.notABackup);
-      expect(await routineNames(), contains('Still here afterwards'),
-          reason: 'nothing is touched until the file is known to be a backup');
+      expect(
+        await routineNames(),
+        contains('Still here afterwards'),
+        reason: 'nothing is touched until the file is known to be a backup',
+      );
     });
 
     test('a zip with no manifest in it', () async {
       final zip = File(p.join(root.path, 'something-else.zip'));
-      await zip.writeAsBytes(ZipEncoder()
-          .encodeBytes(Archive()..add(ArchiveFile.string('readme.txt', 'hi'))));
+      await zip.writeAsBytes(
+        ZipEncoder().encodeBytes(
+          Archive()..add(ArchiveFile.string('readme.txt', 'hi')),
+        ),
+      );
 
       expect(await serviceFor(db).restore(zip), BackupRefusal.notABackup);
     });
@@ -268,8 +352,10 @@ void main() {
       final backup = await serviceFor(db).save(clips: false);
 
       // The same file, read by a build one schema version behind it.
-      final refusal = await serviceFor(db, schemaVersion: db.schemaVersion - 1)
-          .restore(backup);
+      final refusal = await serviceFor(
+        db,
+        schemaVersion: db.schemaVersion - 1,
+      ).restore(backup);
 
       expect(refusal, BackupRefusal.fromANewerVersion);
     });
@@ -314,9 +400,7 @@ void main() {
     ) async {
       final container = containerFor(
         memory,
-        overrides: [
-          capabilitiesProvider.overrideWithValue(Capabilities.web),
-        ],
+        overrides: [capabilitiesProvider.overrideWithValue(Capabilities.web)],
       );
       addTearDown(container.dispose);
 
@@ -337,8 +421,9 @@ void main() {
       await tester.pumpWidget(routedAppUnder(container, const BackupScreen()));
       await tester.pumpAndSettle();
 
-      final tick =
-          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      final tick = tester.widget<CheckboxListTile>(
+        find.byType(CheckboxListTile),
+      );
       expect(tick.value, isFalse, reason: 'clips are out until asked for');
       expect(
         find.textContaining(RegExp('videos? are not', caseSensitive: false)),

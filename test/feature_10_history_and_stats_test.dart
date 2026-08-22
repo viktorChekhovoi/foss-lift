@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/history_screen.dart';
 import 'package:foss_lift/screens/summary_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/util/format.dart';
@@ -28,14 +29,14 @@ void main() {
     bool done = true,
     int? seconds,
   }) => SessionSetsCompanion.insert(
-        sessionId: 0,
-        exerciseName: exercise,
-        setNumber: n,
-        weight: Value(weight),
-        reps: Value(reps),
-        done: Value(done),
-        seconds: Value(seconds),
-      );
+    sessionId: 0,
+    exerciseName: exercise,
+    setNumber: n,
+    weight: Value(weight),
+    reps: Value(reps),
+    done: Value(done),
+    seconds: Value(seconds),
+  );
 
   /// Persists one finished session directly, the fast path for building history.
   Future<int> saveOne(
@@ -47,15 +48,15 @@ void main() {
     double storedVolume = 0,
     List<SessionSetsCompanion> sets = const [],
   }) => db.saveSession(
-        routineId: routineId,
-        workoutId: workoutId,
-        name: name,
-        startedAt: at,
-        endedAt: at.add(const Duration(minutes: 30)),
-        durationSeconds: 1800,
-        totalVolume: storedVolume,
-        sets: sets,
-      );
+    routineId: routineId,
+    workoutId: workoutId,
+    name: name,
+    startedAt: at,
+    endedAt: at.add(const Duration(minutes: 30)),
+    durationSeconds: 1800,
+    totalVolume: storedVolume,
+    sets: sets,
+  );
 
   /// The PPL workout ids, by day name ("Push", "Pull", "Legs").
   ///
@@ -111,17 +112,17 @@ void main() {
       int? seconds,
       bool done = true,
     }) => ExerciseSetEntry(
-          // The maths under test groups by session, never by set id.
-          setId: sessionId * 100 + setNumber,
-          sessionId: sessionId,
-          date: date,
-          sessionName: 'S$sessionId',
-          setNumber: setNumber,
-          weightKg: weightKg,
-          reps: reps,
-          seconds: seconds,
-          done: done,
-        );
+      // The maths under test groups by session, never by set id.
+      setId: sessionId * 100 + setNumber,
+      sessionId: sessionId,
+      date: date,
+      sessionName: 'S$sessionId',
+      setNumber: setNumber,
+      weightKg: weightKg,
+      reps: reps,
+      seconds: seconds,
+      done: done,
+    );
 
     test('no sets yields no points', () {
       expect(progressPoints(const []), isEmpty);
@@ -129,15 +130,15 @@ void main() {
 
     test(
       'skipped sets do not count; an all-skipped session contributes nothing',
-        () {
-      final points = progressPoints([
+      () {
+        final points = progressPoints([
           entry(
             sessionId: 1,
             date: DateTime(2026, 1, 1),
             weightKg: 100,
             reps: 5,
           ),
-        entry(
+          entry(
             sessionId: 1,
             date: DateTime(2026, 1, 1),
             setNumber: 2,
@@ -145,17 +146,17 @@ void main() {
             reps: 5,
             done: false,
           ),
-        entry(
+          entry(
             sessionId: 2,
             date: DateTime(2026, 1, 2),
             weightKg: 90,
             reps: 5,
             done: false,
           ),
-      ]);
-      expect(points, hasLength(1));
-      // The 120 kg set was skipped, so the session's top weight is the 100.
-      expect(points.single.topWeightKg, 100);
+        ]);
+        expect(points, hasLength(1));
+        // The 120 kg set was skipped, so the session's top weight is the 100.
+        expect(points.single.topWeightKg, 100);
       },
     );
 
@@ -183,8 +184,8 @@ void main() {
 
     test(
       'top weight is the heaviest completed set; reps-at-top breaks ties on reps',
-        () {
-      final points = progressPoints([
+      () {
+        final points = progressPoints([
           entry(
             sessionId: 1,
             date: DateTime(2026, 1, 1),
@@ -205,25 +206,25 @@ void main() {
             weightKg: 90,
             reps: 12,
           ),
-      ]);
-      final p = points.single;
-      expect(p.topWeightKg, 100);
-      expect(p.repsAtTop, 8); // most reps at the top weight
+        ]);
+        final p = points.single;
+        expect(p.topWeightKg, 100);
+        expect(p.repsAtTop, 8); // most reps at the top weight
       },
     );
 
     test(
       'the top set is the heaviest weight, never a rep-adjusted estimate',
-        () {
-      final points = progressPoints([
-        // A heavy single sets the top weight…
+      () {
+        final points = progressPoints([
+          // A heavy single sets the top weight…
           entry(
             sessionId: 1,
             date: DateTime(2026, 1, 1),
             weightKg: 105,
             reps: 1,
           ),
-        // …and 100×5 does not displace it, however many reps it carried.
+          // …and 100×5 does not displace it, however many reps it carried.
           entry(
             sessionId: 1,
             date: DateTime(2026, 1, 1),
@@ -231,10 +232,10 @@ void main() {
             weightKg: 100,
             reps: 5,
           ),
-      ]);
-      final p = points.single;
-      expect(p.topWeightKg, 105);
-      expect(p.repsAtTop, 1);
+        ]);
+        final p = points.single;
+        expect(p.topWeightKg, 105);
+        expect(p.repsAtTop, 1);
       },
     );
 
@@ -298,9 +299,9 @@ void main() {
           name: 'A',
           at: DateTime(2026, 1, 1),
           sets: [
-        setRow('Bench Press', 1, weight: 100, reps: 5),
-        setRow('Bench Press', 2, weight: 100, reps: 5),
-        setRow('Bench Press', 3, weight: 100, reps: 5),
+            setRow('Bench Press', 1, weight: 100, reps: 5),
+            setRow('Bench Press', 2, weight: 100, reps: 5),
+            setRow('Bench Press', 3, weight: 100, reps: 5),
           ],
         );
         await saveOne(
@@ -308,18 +309,18 @@ void main() {
           name: 'B',
           at: DateTime(2026, 1, 3),
           sets: [
-        setRow('Back Squat', 1, weight: 140, reps: 5),
-        setRow('Back Squat', 2, weight: 140, reps: 5),
+            setRow('Back Squat', 1, weight: 140, reps: 5),
+            setRow('Back Squat', 2, weight: 140, reps: 5),
           ],
         );
 
-      final totals = await db.watchLifetimeTotals().first;
+        final totals = await db.watchLifetimeTotals().first;
         expect(
           totals.volumeKg,
           closeTo(100 * 5 * 3 + 140 * 5 * 2, 1e-9),
         ); // 2900
-      expect(totals.reps, 25);
-      expect(totals.sets, 5);
+        expect(totals.reps, 25);
+        expect(totals.sets, 5);
       },
     );
 
@@ -328,9 +329,9 @@ void main() {
       // must come from the sets beneath it, not the cached number.
       await saveOne(
         db,
-          name: 'A',
-          at: DateTime(2026, 1, 1),
-          storedVolume: 999999,
+        name: 'A',
+        at: DateTime(2026, 1, 1),
+        storedVolume: 999999,
         sets: [setRow('Bench Press', 1, weight: 50, reps: 10)],
       );
 
@@ -344,8 +345,8 @@ void main() {
         name: 'A',
         at: DateTime(2026, 1, 1),
         sets: [
-        setRow('Bench Press', 1, weight: 100, reps: 5),
-        setRow('Bench Press', 2, weight: 100, reps: 5, done: false),
+          setRow('Bench Press', 1, weight: 100, reps: 5),
+          setRow('Bench Press', 2, weight: 100, reps: 5, done: false),
         ],
       );
 
@@ -361,9 +362,9 @@ void main() {
         name: 'A',
         at: DateTime(2026, 1, 1),
         sets: [
-        setRow('Bench Press', 1, weight: 100, reps: 5),
-        // A 60-second plank: seconds held, zero reps, zero load.
-        setRow('Plank', 2, seconds: 60),
+          setRow('Bench Press', 1, weight: 100, reps: 5),
+          // A 60-second plank: seconds held, zero reps, zero load.
+          setRow('Plank', 2, seconds: 60),
         ],
       );
 
@@ -397,6 +398,84 @@ void main() {
     tearDown(() async {
       container.dispose();
       await db.close();
+    });
+
+    Future<void> seedHistory(int count) async {
+      for (var i = 1; i <= count; i++) {
+        await saveOne(
+          db,
+          name: 'Session $i',
+          at: DateTime(2026, 1, 1).add(Duration(days: i)),
+          sets: [setRow('Bench Press', 1, weight: i.toDouble(), reps: 5)],
+        );
+      }
+    }
+
+    Future<void> openHistory(WidgetTester tester, {bool routed = false}) async {
+      final screen = routedAppUnder(
+        container,
+        const HistoryScreen(),
+        scaffold: true,
+        alsoRoutes: routed ? const ['summary/:id'] : const [],
+      );
+      await tester.pumpWidget(screen);
+      await pumpUntil(tester, find.text('Session 50'));
+    }
+
+    testWidgets(
+      'the first visit builds one bounded page but counts all history',
+      (tester) async {
+        await tester.runAsync(() => seedHistory(60));
+        await openHistory(tester);
+
+        expect(find.text(l10nFor().historySessionCount(60)), findsOneWidget);
+        expect(find.text('Session 60'), findsOneWidget);
+        expect(find.text('Session 11'), findsOneWidget);
+        expect(
+          find.text('Session 10'),
+          findsNothing,
+          reason: 'the first database and widget page is bounded at 50 rows',
+        );
+      },
+    );
+
+    testWidgets('reaching the end loads the next page and opens its recap', (
+      tester,
+    ) async {
+      await tester.runAsync(() => seedHistory(51));
+      await openHistory(tester, routed: true);
+
+      await tester.dragUntilVisible(
+        find.text('Session 1'),
+        find.byType(Scrollable).first,
+        const Offset(0, -500),
+      );
+      await tester.pump();
+      expect(find.text('Session 1'), findsOneWidget);
+
+      await tester.tap(find.text('Session 1'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('at /summary/:id'),
+        findsOneWidget,
+        reason: 'rows loaded after the first page navigate like earlier rows',
+      );
+    });
+
+    testWidgets('an exact page boundary ends without a phantom loading row', (
+      tester,
+    ) async {
+      await tester.runAsync(() => seedHistory(50));
+      await openHistory(tester);
+
+      await tester.dragUntilVisible(
+        find.text('Session 1'),
+        find.byType(Scrollable).first,
+        const Offset(0, -500),
+      );
+      await tester.pump();
+      expect(find.text('Session 1'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
     test('lists every finished session, newest first', () async {
@@ -438,10 +517,10 @@ void main() {
 
     test(
       'deleting the routine keeps its sessions, sets and lifetime totals',
-        () async {
-      final ppl = await routineNamed(db);
-      final workouts = await db.workoutsForRoutine(ppl.id);
-      final push = workouts.first;
+      () async {
+        final ppl = await routineNamed(db);
+        final workouts = await db.workoutsForRoutine(ppl.id);
+        final push = workouts.first;
 
         final id = await saveOne(
           db,
@@ -452,12 +531,12 @@ void main() {
           sets: [setRow('Bench Press', 1, weight: 100, reps: 5)],
         );
 
-      await db.deleteRoutine(ppl.id);
+        await db.deleteRoutine(ppl.id);
 
-      // The session, its sets and the totals all survive the template's death.
-      final history = await db.watchHistory().first;
-      expect(history.map((s) => s.id), contains(id));
-      expect(await db.setsForSession(id), hasLength(1));
+        // The session, its sets and the totals all survive the template's death.
+        final history = await db.watchHistory().first;
+        expect(history.map((s) => s.id), contains(id));
+        expect(await db.setsForSession(id), hasLength(1));
         expect(
           (await db.watchLifetimeTotals().first).volumeKg,
           closeTo(500, 1e-9),
@@ -472,10 +551,10 @@ void main() {
 
       final id = await saveOne(
         db,
-          name: 'Push',
-          at: DateTime(2026, 1, 1),
-          routineId: ppl.id,
-          workoutId: push.id,
+        name: 'Push',
+        at: DateTime(2026, 1, 1),
+        routineId: ppl.id,
+        workoutId: push.id,
         sets: [setRow('Bench Press', 1, weight: 100, reps: 5)],
       );
 
@@ -506,14 +585,14 @@ void main() {
 
     test(
       'finishing tags the report with that session id and reports its slots',
-        () async {
-      final push = (await pplWorkouts(db))['Push']!;
-      final id = await finishClean(container, push, 'Push');
+      () async {
+        final push = (await pplWorkouts(db))['Push']!;
+        final id = await finishClean(container, push, 'Push');
 
-      final report = container.read(lastProgressionProvider);
-      expect(report, isNotNull);
-      expect(report!.sessionId, id);
-      expect(report.outcomes.map((o) => o.name), contains('Bench Press'));
+        final report = container.read(lastProgressionProvider);
+        expect(report, isNotNull);
+        expect(report!.sessionId, id);
+        expect(report.outcomes.map((o) => o.name), contains('Bench Press'));
       },
     );
 
