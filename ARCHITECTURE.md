@@ -153,9 +153,9 @@ has "Upper 1" and "Upper 2".
 | `Exercises`    | The library. name (the canonical **English**), `seedKey` (nullable — which starter movement this is, and what the screens actually render through; null for one you added), muscleGroup (the **lead** group — the one it files under and the one an FLR1 code carries), `extraPrimaryGroups` and `secondaryGroups` (the rest of what it trains and what it only assists, unit-separator-joined; read all three through `Exercise.muscles` as a `MuscleMap`), equipment, videoUrl (canonical `youtu.be/<id>` when it is a YouTube video), isCustom, `measure` (counted or held), `weightType` (bar/machine/dumbbell/none), `barWeight` (nullable — the weight of this movement's own bar, naming a `Bars` row; null uses the default), `notes` (nullable, ≤300 chars — the user's own note, which never travels in a routine code), `unitOverride` (nullable `kg`/`lb` — the unit this one movement is read and typed in; null follows the app-wide setting), `warmupSets` (nullable — how many warm-up rungs it opens with; null follows `Settings.warmup_sets`, and neither is consulted while that is zero). Neither of the last two travels in a routine code |
 | `Routines`     | A program. name, `description` (nullable, ≤`kMaxDescriptionLength` — what the program is, in a sentence or two; shipped copies carry the canonical English and read through `seededDescription`), `seedKey` (nullable — which demo program this is; **cleared on rename**, so a routine you have named stops following the language), colorHex, position, restSeconds (default rest), plus its weekly schedule: `scheduleDays` (day bitmask) and `reminderMinutes` (nullable — no reminder unless asked for) |
 | `Workouts`     | A training day inside a routine. routineId, name, `seedKey` (nullable, cleared on rename — as `Routines`), position, `warmupsEnabled` (on by default — off means this day suggests no warm-up ramps at all) |
-| `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, **its set scheme**: `scheme` (flat/backOff/ramp/custom/cycle), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), `cycleBlocks` (nullable — the weeks a cycle rotates through, the same row grammar with `|` between weeks) and `cyclePosition` (which week the next session uses; program state, so it survives a builder edit and does not travel in a share code), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters, `supersetWithPrevious` — trained in the same round as the slot above it, see `data/superset.dart` — and the advanced axis it can be put on: `addWeightAtTopOfRange` (take reps and weight in turn), `repsIncrement`/`repsDeload` (the rep half of its rates, beside the weight half above) and `repsTarget` (nullable — where the climb has got to inside the range; null is the bottom of it, and `WorkoutItemTarget.goalReps` is how it is read), and `sparedRates` (nullable — the step and back-off kept for the axes the slot is *not* on, encoded by `encodeSparedRates` in `data/progression.dart`) |
+| `WorkoutItems` | One exercise slot in a workout. sets, repsMin/repsMax (or repsMin + null = fixed), toFailure, restSeconds override, suggestedWeight, optional `targetRpe` in tenths, **its set scheme**: `scheme` (flat/backOff/ramp/custom/cycle), `schemePercent`, `customSets` (encoded rows — see `data/set_scheme.dart`), `cycleBlocks` (nullable — the weeks a cycle rotates through, the same row grammar with `|` between weeks) and `cyclePosition` (which week the next session uses; program state, so it survives a builder edit and does not travel in a share code), **plus its progression**: mode, holdSeconds, increment/successThreshold, deload/failureThreshold, and the two streak counters; optional GZCL `gzclTier`, encoded `gzclStages`, per-slot `gzclStage`, and `gzclAmrapTarget`; `supersetWithPrevious` — trained in the same round as the slot above it, see `data/superset.dart` — and the advanced axis it can be put on: `addWeightAtTopOfRange` (take reps and weight in turn), `repsIncrement`/`repsDeload` (the rep half of its rates, beside the weight half above) and `repsTarget` (nullable — where the climb has got to inside the range; null is the bottom of it, and `WorkoutItemTarget.goalReps` is how it is read), and `sparedRates` (nullable — the step and back-off kept for the axes the slot is *not* on, encoded by `encodeSparedRates` in `data/progression.dart`) |
 | `Sessions`     | A logged session header. routineId†, workoutId†, name, `seedKey` (nullable — denormalised beside the name, so a logged day still reads in the current language), times, duration, totalVolume*, setsCompleted |
-| `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`), and the four nullable console readouts a set on a cardio machine may carry: `speedKph`, `inclinePercent`, `resistanceLevel`, `distanceKm` (speed and distance metric in the column, converted for display — see `util/cardio_units.dart`) |
+| `SessionSets`  | Individual logged sets (denormalised `exerciseName` **and** `exerciseSeedKey` so history survives library edits and still follows the language). Weight in kg, `reps`/`seconds` for what was done, nullable `actualRpe` in tenths, plus `goalReps`/`goalSeconds`/`goalWeight` — what the set was aiming at, `videoPath` (nullable, **relative** — `set_videos/<id>.mp4` under the app support directory; see `set_video_store.dart`), and the four nullable console readouts a set on a cardio machine may carry: `speedKph`, `inclinePercent`, `resistanceLevel`, `distanceKm` (speed and distance metric in the column, converted for display — see `util/cardio_units.dart`) |
 | `Settings`     | Single-row (id=1) app prefs. `weightUnit` (**nullable — null is "not stored yet", which the first launch answers from the phone's region via `seedWeightUnit`**; everything that only displays a weight reads null as kg), `activeRoutineId`†, the layoff rules `layoffDays`/`layoffPercent`, `barWeight` (the default bar, named by its weight — see `Bars`), a plate rack per unit (`plateInventory` for kg, `plateInventoryLb`) — all nullable, see below — `tutorialSeen` (the first-run tour has run), `textScale` (the user's text-size nudge on top of the phone's), the set-video caps (`videoHeight`, `videoMaxSeconds`), `warmupSets` (how many warm-up rungs a session opens each exercise with, 1–`kMaxWarmupSets`), and the selected colour theme (`themePresetId` — a preset slug, `custom:<n>` naming a `CustomThemes` row, or null), and the chosen language (`localeTag` — `uk`, `pt_BR`; null only until first run resolves the phone's language and writes it), and `advancedProgramming` (off until asked for — whether the builder *offers* cycles, per-set rep ranges and training maxes; it never decides what a slot already configured will run) |
 | `CustomThemes` | One row per theme the user built or imported: just the palette as JSON, name included (`AppPalette.toJson`). Presets are code, not rows |
 | `Bars`         | The bars the gym racks: `unit` (which unit's list — one per unit, like the plate rack), `name`, `seedKey` (nullable — which shipped bar this is, rendered through it so the name follows the language), `weightKg`. Seeded with the common bars on first run and the user's to rename, re-weigh, delete and add to |
@@ -266,11 +266,11 @@ dart run build_runner build
 ```
 
 ### The routine library — `data/starter_routines.dart`
-The sixteen programs the app ships — two hypertrophy splits (PPL, Upper/Lower),
-three beginner strength routines (Starting Strength, StrongLifts 5x5, Full Body
-3x), four that ask for less than a gym, four 5/3/1 templates, two Candito Linear
-variants and Sheiko #29–32 — as a table of prescriptions in code rather than rows
-in the database. Each
+The sixteen programs the app ships — GZCLP, Push/Pull/Legs, the Basic Beginner Routine,
+Starting Strength, StrongLifts 5x5, the Bodyweight Routine, the Dumbbell Beginner
+Routine, four 5/3/1 templates, two Candito Linear variants,
+Sheiko #29–32, and two TSA programs — as a table of prescriptions in code rather
+than rows in the database. Each
 carries the program's own rest, schedule, step-up, back-off and failure threshold
 where they differ from the defaults: a linear-progression barbell program adds
 5 kg a session to the squat and resets only after a third missed session.
@@ -294,11 +294,11 @@ where they differ from the defaults: a linear-progression barbell program adds
   language — unless somebody has typed over it, which the helper tells apart by
   comparing the column against the shipped text. A routine of your own carries
   whatever you wrote, and both travel in a routine code.
-- **The library covers training without a gym**: beside the five gym programs
-  there are Two-Day Full Body, Bodyweight Basics, Dumbbell Full Body and Interval
-  Conditioning. The last is timed rather than counted — `StarterSlot.holdSeconds`
-  is the work period, and it only means anything on a movement the library holds
-  as *held*, because the axis comes from the movement's own measure.
+- **The library uses published programs, including limited-equipment choices.**
+  The Bodyweight Routine records its strength pairs and core triplet as
+  supersets. The Dumbbell Beginner Routine alternates its two published days
+  and uses rep-range progression. Retired Foss Lift-authored templates remain
+  addressable by key for old links, but are not offered in the library.
 - **`createRoutine` adopts the first routine to arrive** as the current one,
   whichever way it arrived — built, imported or added from the library —
   because an empty install has no current routine and Today would otherwise sit
@@ -844,7 +844,7 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
-  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13**
+  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13 → v14 → v15 → v16**
   (`Settings.warmup_sets`; `Exercises.extra_primary_groups` and
   `secondary_groups`; `WorkoutItems.superset_with_previous`;
   `Routines.description`; the starter movements this build ships that an
@@ -853,7 +853,8 @@ you never looked at.
   `WorkoutItems.add_weight_at_top_of_range`; `WorkoutItems.reps_increment`,
   `reps_deload` and `reps_target`; `WorkoutItems.spared_rates`; `WorkoutItems.cycle_blocks` and `cycle_position`
   beside `Settings.advanced_programming`; `Exercises.unit_override` and
-  `Exercises.warmup_sets`). The starter walk
+  `Exercises.warmup_sets`; `WorkoutItems.cycle_names`; the Sheiko starter
+  movements; `WorkoutItems.target_rpe` and `SessionSets.actual_rpe`). The starter walk
   is generic — it walks the shipped table and inserts what is missing — but each
   rung that runs it runs **once**, so a release that adds more movements needs a
   rung of its own rather than an edit to one that shipped. Each rung spells

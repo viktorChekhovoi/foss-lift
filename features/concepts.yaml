@@ -137,6 +137,11 @@ concepts:
     what: What a set is aiming at — a fixed count, a range, a hold, or to failure.
     code: [lib/data/database.dart, lib/widgets/workout_items_editor.dart]
 
+  - id: template.effort-target
+    area: template
+    what: An optional RPE target on a slot or written-out set, kept out of ordinary routines until explicitly selected.
+    code: [lib/data/database.dart, lib/data/set_scheme.dart, lib/widgets/workout_items_editor.dart]
+
   - id: template.set-scheme
     area: template
     what: >-
@@ -251,6 +256,11 @@ concepts:
     area: session
     what: Turning a set into a logged result — tap to cycle, hold to type.
     code: [lib/screens/workout_screen.dart, lib/state/active_workout.dart, lib/widgets/board_cells.dart]
+
+  - id: session.effort-rating
+    area: session
+    what: The optional actual RPE recorded with a completed working set and retained in history.
+    code: [lib/screens/workout_screen.dart, lib/state/active_workout.dart, lib/data/database.dart]
 
   - id: session.exercise-weight
     area: session
@@ -430,6 +440,21 @@ concepts:
     area: progression
     what: The stored consecutive success and failure counts.
     code: [lib/data/database.dart]
+
+  - id: progression.gzcl-tier
+    area: progression
+    what: The optional T1, T2 or T3 role assigned to a slot in a GZCL program.
+    code: [lib/data/progression.dart, lib/data/database.dart]
+
+  - id: progression.stage-ladder
+    area: progression
+    what: An ordered, configurable series of set and rep prescriptions that advances after a missed base prescription.
+    code: [lib/data/progression.dart, lib/data/database.dart]
+
+  - id: progression.amrap-trigger
+    area: progression
+    what: A configurable final-set repetition result that earns a load increase.
+    code: [lib/data/progression.dart, lib/data/database.dart]
 
   - id: progression.layoff-rules
     area: progression

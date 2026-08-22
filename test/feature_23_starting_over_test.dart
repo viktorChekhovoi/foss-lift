@@ -33,9 +33,7 @@ void main() {
   /// an exercise of your own, a bar of your own, and settings you have chosen.
   Future<void> fillItUp(AppDatabase db) async {
     await db.seedWeightUnit('lb');
-    await db.addStarterRoutine(
-      kStarterRoutines.firstWhere((p) => p.name == kPpl),
-    );
+    await db.addStarterRoutine(starterRoutineByName(kPpl)!);
     await db.createExercise(
       name: 'Zercher Squat',
       muscles: MuscleMap.single('legs'),
@@ -70,37 +68,53 @@ void main() {
       final baseline = await census(fresh);
 
       await fillItUp(db);
-      expect(await census(db), isNot(baseline),
-          reason: 'the fixture wrote nothing, so the reset proves nothing');
+      expect(
+        await census(db),
+        isNot(baseline),
+        reason: 'the fixture wrote nothing, so the reset proves nothing',
+      );
 
       await db.resetEverything();
 
       expect(await census(db), baseline);
     });
 
-    test('keeps the starter library, which is what a first launch writes',
-        () async {
-      await fillItUp(db);
-      await db.resetEverything();
+    test(
+      'keeps the starter library, which is what a first launch writes',
+      () async {
+        await fillItUp(db);
+        await db.resetEverything();
 
-      final exercises = await db.watchExercises().first;
-      expect(exercises, isNotEmpty);
-      expect(exercises.map((e) => e.name), contains('Bench Press'));
-      expect(exercises.map((e) => e.name), isNot(contains('Zercher Squat')),
-          reason: 'a movement you added is yours, and yours is what goes');
-      expect((await db.barsFor('kg')).map((b) => b.name),
-          contains('Olympic bar'));
-      expect((await db.barsFor('lb')).map((b) => b.name),
-          isNot(contains('Log bar')));
-    });
+        final exercises = await db.watchExercises().first;
+        expect(exercises, isNotEmpty);
+        expect(exercises.map((e) => e.name), contains('Bench Press'));
+        expect(
+          exercises.map((e) => e.name),
+          isNot(contains('Zercher Squat')),
+          reason: 'a movement you added is yours, and yours is what goes',
+        );
+        expect(
+          (await db.barsFor('kg')).map((b) => b.name),
+          contains('Olympic bar'),
+        );
+        expect(
+          (await db.barsFor('lb')).map((b) => b.name),
+          isNot(contains('Log bar')),
+        );
+      },
+    );
 
     test('hands back the first run: no unit chosen, no tour seen', () async {
       await fillItUp(db);
       await db.resetEverything();
 
-      expect(await db.watchUnitChosen().first, isFalse,
-          reason: 'the wipe itself leaves no unit; re-guessing it is the '
-              'app root\'s job, and is covered on its own below');
+      expect(
+        await db.watchUnitChosen().first,
+        isFalse,
+        reason:
+            'the wipe itself leaves no unit; re-guessing it is the '
+            'app root\'s job, and is covered on its own below',
+      );
       expect(await db.watchTutorialSeen().first, isFalse);
       expect(await db.watchRoutines().first, isEmpty);
       expect(await db.watchActiveRoutineId().first, isNull);
@@ -140,32 +154,39 @@ void main() {
       expect(await db.watchRoutines().first, isEmpty);
     });
 
-    test('the app finds a unit again, rather than holding a blank frame',
-        () async {
-      // `main.dart` paints nothing at all until a unit is stored — a holding
-      // frame meant for the moment on a fresh install before the region guess
-      // lands. A reset puts the database back into exactly that state, so if
-      // the guess is only ever made once, the app comes back from a reset to
-      // an empty screen and stays there. It did.
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      container.listen(unitSeedProvider, (_, _) {}, fireImmediately: true);
-      await pumpEventQueue();
-      expect(await db.watchUnitChosen().first, isTrue,
-          reason: 'the fresh install never got a unit, so this proves nothing');
+    test(
+      'the app finds a unit again, rather than holding a blank frame',
+      () async {
+        // `main.dart` paints nothing at all until a unit is stored — a holding
+        // frame meant for the moment on a fresh install before the region guess
+        // lands. A reset puts the database back into exactly that state, so if
+        // the guess is only ever made once, the app comes back from a reset to
+        // an empty screen and stays there. It did.
+        final container = containerFor(db);
+        addTearDown(container.dispose);
+        container.listen(unitSeedProvider, (_, _) {}, fireImmediately: true);
+        await pumpEventQueue();
+        expect(
+          await db.watchUnitChosen().first,
+          isTrue,
+          reason: 'the fresh install never got a unit, so this proves nothing',
+        );
 
-      await db.resetEverything();
-      await pumpEventQueue();
+        await db.resetEverything();
+        await pumpEventQueue();
 
-      expect(await db.watchUnitChosen().first, isTrue);
-    });
+        expect(await db.watchUnitChosen().first, isTrue);
+      },
+    );
 
-    test('resetting a database that is already fresh changes nothing',
-        () async {
-      final before = await census(db);
-      await db.resetEverything();
-      expect(await census(db), before);
-    });
+    test(
+      'resetting a database that is already fresh changes nothing',
+      () async {
+        final before = await census(db);
+        await db.resetEverything();
+        expect(await census(db), before);
+      },
+    );
   });
 
   group('the clips go too', () {
@@ -173,7 +194,9 @@ void main() {
       // One directory, returned every time it is asked for. A callback that
       // made a fresh temp dir per call would hand the store a different base
       // than the assertions look at, and the test would fail on its own fixture.
-      final base = await Directory.systemTemp.createTemp('fosslift-reset-clips');
+      final base = await Directory.systemTemp.createTemp(
+        'fosslift-reset-clips',
+      );
       addTearDown(() => base.delete(recursive: true));
       final store = SetVideoStore(baseDirectory: () async => base);
       final dir = await store.directory();
@@ -187,7 +210,9 @@ void main() {
     });
 
     test('a build with no clips to take is not an error', () async {
-      final base = await Directory.systemTemp.createTemp('fosslift-reset-empty');
+      final base = await Directory.systemTemp.createTemp(
+        'fosslift-reset-empty',
+      );
       addTearDown(() => base.delete(recursive: true));
       final store = SetVideoStore(baseDirectory: () async => base);
 
@@ -224,8 +249,9 @@ void main() {
     Future<T> read<T>(WidgetTester tester, Future<T> Function() query) async =>
         (await tester.runAsync(query)) as T;
 
-    testWidgets('sits at the bottom of Backup & restore, under Reset',
-        (tester) async {
+    testWidgets('sits at the bottom of Backup & restore, under Reset', (
+      tester,
+    ) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
 
@@ -236,8 +262,9 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('and the heading and the button are the whole of the section',
-        (tester) async {
+    testWidgets('and the heading and the button are the whole of the section', (
+      tester,
+    ) async {
       // No standing caption between them. What a reset costs is said in the
       // dialog, where it is read by somebody who is about to press the thing;
       // said on the screen it is read by everybody who is not.
@@ -248,13 +275,17 @@ void main() {
 
       final heading = tester.getBottomLeft(find.text(l10n.backupResetHeading));
       final button = tester.getTopLeft(find.text(l10n.backupResetProfile));
-      expect(button.dy - heading.dy, lessThan(40),
-          reason: 'a line of prose has been let in between the two');
+      expect(
+        button.dy - heading.dy,
+        lessThan(40),
+        reason: 'a line of prose has been let in between the two',
+      );
       await stop(tester);
     });
 
-    testWidgets('says what it will destroy, and does nothing until confirmed',
-        (tester) async {
+    testWidgets('says what it will destroy, and does nothing until confirmed', (
+      tester,
+    ) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
 
@@ -266,8 +297,11 @@ void main() {
 
       await tapAndRun(tester, find.text(l10n.commonCancel));
 
-      expect(await read(tester, () => db.watchRoutines().first), isNotEmpty,
-          reason: 'backing out of the dialog is not a reset');
+      expect(
+        await read(tester, () => db.watchRoutines().first),
+        isNotEmpty,
+        reason: 'backing out of the dialog is not a reset',
+      );
       await stop(tester);
     });
 
@@ -296,12 +330,14 @@ void main() {
       await tapAndRun(tester, find.text(l10n.backupResetProfile));
 
       expect(find.text(l10n.backupFinishWorkoutFirst), findsOneWidget);
-      expect(find.text(l10n.backupResetTitle), findsNothing,
-          reason: 'the refusal comes before the dialog, not after it');
+      expect(
+        find.text(l10n.backupResetTitle),
+        findsNothing,
+        reason: 'the refusal comes before the dialog, not after it',
+      );
       expect(await read(tester, () => db.watchRoutines().first), isNotEmpty);
       container.read(activeWorkoutProvider.notifier).discard();
       await stop(tester);
     });
-
   });
 }

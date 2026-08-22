@@ -30,8 +30,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
       'startedAt': s.startedAt.millisecondsSinceEpoch,
       'elapsed': s.elapsed,
       'unit': s.unit,
-      if (s.notice case final n?)
-        'notice': {'percent': n.percent, 'days': n.days},
+  if (s.notice case final n?) 'notice': {'percent': n.percent, 'days': n.days},
       'plates': [for (final p in s.plates) _stack(p)],
       'barKg': s.barKg,
       'warmupSets': s.warmupSets,
@@ -45,11 +44,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
           'exerciseSeedKey': p.exerciseSeedKey,
         },
       if (s.restFor case final r?)
-        'restFor': {
-          'exercise': r.exercise,
-          'set': r.set,
-          'warmup': r.warmup,
-        },
+    'restFor': {'exercise': r.exercise, 'set': r.set, 'warmup': r.warmup},
       'exercises': [
         for (final e in s.exercises)
           {
@@ -70,6 +65,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'schemePercent': e.schemePercent,
             'customSets': encodeCustomSets(e.customSets),
             'goalReps': e.goalReps,
+        'targetRpe': e.targetRpe,
             'floorKg': e.floorKg,
             'supersetWithPrevious': e.supersetWithPrevious,
             'cardioMachine': e.cardioMachine,
@@ -121,7 +117,8 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       unit: m['unit'] as String,
       notice: _readNotice(m['notice']),
       plates: [
-        for (final p in m['plates'] as List) _readStack(p as Map<String, dynamic>),
+        for (final p in m['plates'] as List)
+          _readStack(p as Map<String, dynamic>),
       ],
       barKg: (m['barKg'] as num?)?.toDouble() ?? kDefaultBarKg,
       warmupSets: m['warmupSets'] as int? ?? kDefaultWarmupSets,
@@ -152,6 +149,8 @@ Map<String, dynamic> _set(SetEntry s) => {
       'logged': s.logged,
       'loggedOrder': s.loggedOrder,
       'videoPath': s.videoPath,
+  'targetRpe': s.targetRpe,
+  'actualRpe': s.actualRpe,
       if (s.hasConsole) 'console': _console(s.console),
     };
 
@@ -163,6 +162,8 @@ SetEntry _readSet(Map<String, dynamic> m) => SetEntry(
       logged: m['logged'] as int?,
       loggedOrder: m['loggedOrder'] as int?,
       videoPath: m['videoPath'] as String?,
+  targetRpe: m['targetRpe'] as int?,
+  actualRpe: m['actualRpe'] as int?,
       console: _readConsole(m['console']),
     );
 
@@ -249,8 +250,7 @@ SetScheme _readScheme(Object? raw) {
 ExerciseEntry _readExercise(
   Map<String, dynamic> m, {
   required String sessionUnit,
-}) =>
-    ExerciseEntry(
+}) => ExerciseEntry(
       exerciseId: m['exerciseId'] as int?,
       itemId: m['itemId'] as int?,
       name: m['name'] as String,
@@ -268,6 +268,7 @@ ExerciseEntry _readExercise(
       schemePercent: m['schemePercent'] as int? ?? kDefaultSchemePercent,
       customSets: decodeCustomSets(m['customSets'] as String?),
       goalReps: m['goalReps'] as int? ?? 0,
+  targetRpe: m['targetRpe'] as int?,
       floorKg: (m['floorKg'] as num?)?.toDouble() ?? 0,
       // Absent in a snapshot from a build that had no supersets, which means
       // exactly what it says: this exercise stood on its own.
@@ -285,7 +286,9 @@ ExerciseEntry _readExercise(
         for (final r in m['warmupLadder'] as List)
           _readRung(r as Map<String, dynamic>),
       ],
-      sets: [for (final s in m['sets'] as List) _readSet(s as Map<String, dynamic>)],
+  sets: [
+    for (final s in m['sets'] as List) _readSet(s as Map<String, dynamic>),
+  ],
       warmups: [
         for (final s in m['warmups'] as List) _readSet(s as Map<String, dynamic>),
       ],

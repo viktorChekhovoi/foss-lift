@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/database.dart' show WorkoutItemView;
 import '../data/plates.dart';
+import '../data/set_scheme.dart' show formatRpe;
 import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/providers.dart';
@@ -186,11 +187,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     if (session != null) {
       final rest = session.restAfter(h.exercise, h.set, warmup: false);
       if (rest.seconds > 0) {
-        _startRest(
-          rest.seconds,
-          rest.prompt,
-          (exercise: h.exercise, set: h.set, warmup: false),
-        );
+        _startRest(rest.seconds, rest.prompt, (
+          exercise: h.exercise,
+          set: h.set,
+          warmup: false,
+        ));
       }
     }
   }
@@ -352,6 +353,46 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     ref.read(activeWorkoutProvider.notifier).setWeight(ei, si, kg);
   }
 
+  Future<void> _editRpe(int ei, int si, SetEntry entry) async {
+    final chosen = await showModalBottomSheet<int?>(
+      context: context,
+      backgroundColor: AppColors.ground,
+      builder: (sheet) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (var value = 60; value <= 100; value += 5)
+              ListTile(
+                title: Text('@${formatRpe(value)}'),
+                subtitle: Text(
+                  value == 100
+                      ? AppLocalizations.of(context).rpeNoRepsLeft
+                      : value == 60
+                      ? AppLocalizations.of(context).rpeFourPlusRepsLeft
+                      : AppLocalizations.of(
+                          context,
+                        ).rpeRepsLeft(10 - value ~/ 10),
+                ),
+                trailing: entry.actualRpe == value
+                    ? Icon(Icons.check, color: AppColors.accent)
+                    : null,
+                onTap: () => Navigator.pop(sheet, value),
+              ),
+            if (entry.actualRpe != null)
+              ListTile(
+                title: Text(AppLocalizations.of(context).commonClear),
+                onTap: () => Navigator.pop(sheet, -1),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || chosen == null) return;
+    ref
+        .read(activeWorkoutProvider.notifier)
+        .setRpe(ei, si, chosen < 0 ? null : chosen);
+  }
+
   Future<void> _editWarmupWeight(int ei, int wi) async {
     final e = ref.read(activeWorkoutProvider)?.exercises[ei];
     if (e == null) return;
@@ -496,13 +537,15 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                         next.exerciseIndex == ei,
                                     onWarmupCount: (n) =>
                                         controller.setWarmupCount(ei, n),
-                                    onEditWorkingWeight: () => _editWorkingWeight(ei),
+                                    onEditWorkingWeight: () =>
+                                        _editWorkingWeight(ei),
                                     onSettings:
                                         session.exercises[ei].itemId == null
                                         ? null
                                         : () => _editSlot(ei),
                                     warmupRowBuilder: (wi) {
-                                      final entry = session.exercises[ei].warmups[wi];
+                                      final entry =
+                                          session.exercises[ei].warmups[wi];
                                       final marked =
                                           next != null &&
                                           next.warmup &&
@@ -547,7 +590,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                       );
                                     },
                                     rowBuilder: (si) {
-                                      final entry = session.exercises[ei].sets[si];
+                                      final entry =
+                                          session.exercises[ei].sets[si];
                                       final marked =
                                           next != null &&
                                           !next.warmup &&
@@ -571,10 +615,14 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                           entry: entry,
                                           unit: session.exercises[ei].unit,
                                           isNext: marked,
-                                          onEditWeight: () => _editSetWeight(ei, si),
+                                            onEditWeight: () =>
+                                                _editSetWeight(ei, si),
                                           showWeight: _showsWeight(
                                             session.exercises[ei],
                                           ),
+                                            onRpe: entry.targetRpe == null
+                                                ? null
+                                                : () => _editRpe(ei, si, entry),
                                           holdingSeconds:
                                               _holding?.exercise == ei &&
                                                   _holding?.set == si
@@ -796,8 +844,9 @@ class _SessionNotice extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              AppLocalizations.of(context)
-                  .startWorkoutDeloadNotice(notice.percent, notice.days),
+              AppLocalizations.of(
+                context,
+              ).startWorkoutDeloadNotice(notice.percent, notice.days),
               style: kMono.copyWith(
                 fontSize: 11.5,
                 height: 1.45,
@@ -874,7 +923,9 @@ class _SupersetBracket extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12),
             decoration: BoxDecoration(
               border: Border(
-                left: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+                left: BorderSide(
+                  color: AppColors.accent.withValues(alpha: 0.5),
+                ),
               ),
             ),
             child: Column(
@@ -920,18 +971,18 @@ class _ExerciseBlock extends StatelessWidget {
     final first = exercise.sets.first;
     final sets = exercise.sets.length;
     if (!first.timed &&
-        exercise.sets.any((s) =>
+        exercise.sets.any(
+          (s) =>
             s.goal != first.goal ||
             s.goalMin != first.goalMin ||
-            s.amrap != first.amrap)) {
+              s.amrap != first.amrap,
+        )) {
       return joinRowLabels(
         l10n,
-        exercise.sets.map((s) => rowLabel(
-              l10n,
-              reps: s.goalMin,
-              repsMax: s.goal,
-              amrap: s.amrap,
-            )),
+        exercise.sets.map(
+          (s) =>
+              rowLabel(l10n, reps: s.goalMin, repsMax: s.goal, amrap: s.amrap),
+        ),
       );
     }
     if (!first.timed && first.amrap) {
@@ -954,8 +1005,12 @@ class _ExerciseBlock extends StatelessWidget {
             name: seededName(l10n, exercise.seedKey, exercise.name),
             subtitle: exercise.cycleWeeks == 0
                 ? null
-                : cycleWeekLine(l10n, exercise.cycleWeekName,
-                    exercise.cycleWeek, exercise.cycleWeeks),
+                : cycleWeekLine(
+                    l10n,
+                    exercise.cycleWeekName,
+                    exercise.cycleWeek,
+                    exercise.cycleWeeks,
+                  ),
             exerciseId: exercise.exerciseId,
             onSettings: onSettings,
           ),
@@ -1027,6 +1082,7 @@ class _ExerciseBlock extends StatelessWidget {
             unit: unit,
             timed: exercise.mode.timed,
             showWeight: _showsWeight(exercise),
+            showRpe: exercise.usesRpe,
           ),
           for (var si = 0; si < exercise.sets.length; si++) rowBuilder(si),
         ],
@@ -1350,6 +1406,7 @@ class _SetRow extends StatelessWidget {
     this.onVideo,
     this.holdingSeconds,
     this.perSide,
+    this.onRpe,
   });
   final int number;
   final SetEntry entry;
@@ -1367,6 +1424,7 @@ class _SetRow extends StatelessWidget {
   final VoidCallback? onVideo;
 
   final int? holdingSeconds;
+  final VoidCallback? onRpe;
 
   SetEntry get _entry => entry;
 
@@ -1403,6 +1461,7 @@ class _SetRow extends StatelessWidget {
               flex: kResultColumnFlex,
               child: _resultBox(AppLocalizations.of(context)),
             ),
+            if (onRpe != null) SizedBox(width: 48, child: _rpeCell()),
             SizedBox(
               width: kSetTrailingColumnWidth,
               child: onVideo == null
@@ -1431,6 +1490,27 @@ class _SetRow extends StatelessWidget {
       ),
     );
   }
+
+  Widget _rpeCell() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 3),
+    child: GestureDetector(
+      key: const ValueKey('set-rpe'),
+      onTap: onRpe,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: boardCellDecoration(
+          primary: false,
+          done: _entry.actualRpe != null,
+          tone: _tone,
+        ),
+        child: Text(
+          '@${formatRpe(_entry.actualRpe ?? _entry.targetRpe!)}',
+          style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
+        ),
+      ),
+    ),
+  );
 
   Widget _setNumber() {
     final done = _entry.done;
@@ -1593,7 +1673,10 @@ class _ConsoleRowState extends State<_ConsoleRow> {
       children: [
         widget.row,
         Padding(
-          padding: const EdgeInsets.only(left: kSetNumberColumnWidth, bottom: 2),
+          padding: const EdgeInsets.only(
+            left: kSetNumberColumnWidth,
+            bottom: 2,
+          ),
           child: Row(
             children: [
               GestureDetector(
@@ -1631,10 +1714,7 @@ class _ConsoleRowState extends State<_ConsoleRow> {
                     key: kConsoleSummaryKey,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: kMono.copyWith(
-                      fontSize: 11,
-                      color: AppColors.muted,
-                    ),
+                    style: kMono.copyWith(fontSize: 11, color: AppColors.muted),
                   ),
                 ),
             ],
@@ -1658,8 +1738,7 @@ class _ConsoleRowState extends State<_ConsoleRow> {
                       ? null
                       : toDisplaySpeed(_m.speedKph!, widget.unit),
                   onChanged: (v) => _write(
-                    speed: () =>
-                        v == null ? null : speedToKph(v, widget.unit),
+                    speed: () => v == null ? null : speedToKph(v, widget.unit),
                   ),
                 ),
                 _ConsoleField(
@@ -1740,9 +1819,7 @@ class _ConsoleFieldState extends State<_ConsoleField> {
       width: 104,
       child: TextField(
         controller: _c,
-        keyboardType: TextInputType.numberWithOptions(
-          decimal: widget.decimals,
-        ),
+        keyboardType: TextInputType.numberWithOptions(decimal: widget.decimals),
         style: kMono.copyWith(fontSize: 13),
         decoration: InputDecoration(
           isDense: true,
@@ -1991,7 +2068,8 @@ class _RestBanner extends StatelessWidget {
         p.weightKg == null
             ? l10n.sessionRestPlain
             : l10n.sessionRestSetUpThenRest(weight()),
-      RestPurpose.anotherSet => p.weightKg == null
+      RestPurpose.anotherSet =>
+        p.weightKg == null
           ? l10n.sessionRestPlain
           : l10n.sessionRestSetUp(weight()),
       RestPurpose.nextExercise => l10n.sessionRestNextExercise(

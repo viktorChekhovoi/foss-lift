@@ -11,8 +11,7 @@ import '../data/superset.dart';
 import '../data/warmup.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/db_provider.dart';
-import '../providers/providers.dart'
-    show appLocalizationsProvider;
+import '../providers/providers.dart' show appLocalizationsProvider;
 import '../services/rest_alarm.dart';
 import '../services/rest_buzz.dart';
 import '../services/rest_tone.dart';
@@ -33,12 +32,14 @@ class SetEntry {
     double? weight,
     int? goalMin,
     this.amrap = false,
+    this.targetRpe,
+    this.actualRpe,
     this.logged,
     this.loggedOrder,
     this.videoPath,
     this.console = kNoConsoleMetrics,
-  })  : weight = weight ?? goalWeight ?? 0,
-        goalMin = goalMin ?? goal;
+  }) : weight = weight ?? goalWeight ?? 0,
+       goalMin = goalMin ?? goal;
 
   /// The target from the template — reps, or seconds when [timed]. Immutable.
   final int goal;
@@ -51,6 +52,10 @@ class SetEntry {
 
   /// True when this set is held for time rather than counted in reps.
   final bool timed;
+
+  /// Prescribed and recorded effort in tenths (80 is RPE 8).
+  final int? targetRpe;
+  int? actualRpe;
 
   /// The weight the template suggests, in kg. Null when it suggests none.
   final double? goalWeight;
@@ -123,6 +128,7 @@ class ExerciseEntry {
     this.cycleNames = const [],
     this.cyclePosition = 0,
     this.goalReps = 0,
+    this.targetRpe,
     this.floorKg = 0,
     this.supersetWithPrevious = false,
     this.cardioMachine = false,
@@ -168,6 +174,8 @@ class ExerciseEntry {
   /// count. Progression, volume, the verdict and the saved history all read
   /// this list and nothing else.
   final List<SetEntry> sets;
+
+  bool get usesRpe => sets.any((s) => s.targetRpe != null);
 
   /// The warm-up ramp shown *above* the working sets, kept apart so nothing here
   /// can distort what the working sets mean. Warm-ups are suggestions: they are
@@ -235,23 +243,25 @@ class ExerciseEntry {
 
   /// The slot's own rep target, which every scheme but a custom one repeats.
   final int goalReps;
+  final int? targetRpe;
 
   /// The lightest this exercise may be loaded to — the empty bar, or 0.
   final double floorKg;
 
   /// What each set is aiming at, given [workingKg] as the top of the ladder.
   List<SetTarget> targetsAt(double? topKg, String unit) => resolveSetTargets(
-        scheme: scheme,
-        sets: sets.length,
-        goalReps: goalReps,
-        topWeightKg: topKg,
-        unit: unit,
-        percent: schemePercent,
-        custom: customSets,
-        cycle: cycle,
-        cyclePosition: cyclePosition,
-        floorKg: floorKg,
-      );
+    scheme: scheme,
+    sets: sets.length,
+    goalReps: goalReps,
+    topWeightKg: topKg,
+    unit: unit,
+    percent: schemePercent,
+    custom: customSets,
+    cycle: cycle,
+    cyclePosition: cyclePosition,
+    floorKg: floorKg,
+    targetRpe: targetRpe,
+  );
 
   /// The loads this exercise can actually be set to at this gym — every rung the
   /// ramp is allowed to land on. Rebuilt whenever [workingKg] moves (the ladder
@@ -522,8 +532,8 @@ class ActiveWorkout {
   /// a cue with no exercise behind it any more.
   String unitForCue(WorkoutCue cue) =>
       cue.exerciseIndex >= 0 && cue.exerciseIndex < exercises.length
-          ? exercises[cue.exerciseIndex].unit
-          : unit;
+      ? exercises[cue.exerciseIndex].unit
+      : unit;
 
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
   int get doneSets =>
@@ -912,9 +922,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     // prompt and the set are the old rest's, and a new rest that inherited
     // either would describe the set before it.
     _restEndsAt = _now.add(Duration(seconds: seconds));
-    _commit(s
-        .copyWith(clearRest: true)
-        .copyWith(restLeft: seconds, restPrompt: prompt, restFor: forSet));
+    _commit(
+      s
+          .copyWith(clearRest: true)
+          .copyWith(restLeft: seconds, restPrompt: prompt, restFor: forSet),
+    );
     // Anything left over from the last rest — the ding for a rest this one
     // replaces is a ding for a rest that is over.
     ref.read(restAlarmProvider).clear();
@@ -1057,11 +1069,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final s = state;
     if (s == null) return l10n.restAlarmBackToIt;
     final cue = nextUp(s);
-    return restIsOverLine(
-      l10n,
-      cue,
-      cue == null ? s.unit : s.unitForCue(cue),
-    );
+    return restIsOverLine(l10n, cue, cue == null ? s.unit : s.unitForCue(cue));
   }
 
   // ---- The crash snapshot --------------------------------------------------
@@ -1273,6 +1281,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       cycle: v.item.cycleWeeks,
       cyclePosition: v.item.cyclePosition,
       floorKg: warmupBar,
+      targetRpe: v.item.targetRpe,
     );
     final e = ExerciseEntry(
       exerciseId: v.exercise.id,
@@ -1286,8 +1295,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       restSeconds: v.item.restSeconds ?? defaultRestSeconds,
       // The same grid the set rows above landed on: the working weight and
       // the sets under it are one load, not two readings of it.
-      workingKg:
-          resolveTopWeight(topWeightKg: w, unit: exUnit, floorKg: warmupBar),
+      workingKg: resolveTopWeight(
+        topWeightKg: w,
+        unit: exUnit,
+        floorKg: warmupBar,
+      ),
       warmupBarKg: warmupBar,
       unit: exUnit,
       // The movement's own ramp depth over the session's, unless the session's
@@ -1306,15 +1318,20 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       supersetWithPrevious: v.item.supersetWithPrevious,
       cardioMachine: v.exercise.isCardioMachine,
       sets: [
-        for (final t in targets)
+        for (final (setIndex, t) in targets.indexed)
           SetEntry(
             // A hold is counted in seconds and no scheme touches that; the
             // weight on it still ramps like anything else.
             goal: mode.timed ? goal : t.reps,
             goalMin: mode.timed ? null : t.minReps,
-            amrap: !mode.timed && t.amrap,
+            amrap:
+                !mode.timed &&
+                (t.amrap ||
+                    (v.item.gzclTier == GzclTier.t1 &&
+                        setIndex == targets.length - 1)),
             goalWeight: t.weightKg,
             timed: mode.timed,
+            targetRpe: t.targetRpe,
           ),
       ],
     );
@@ -1402,8 +1419,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (before == null || workoutId == null) return;
     // The rest a slot falls back on when it names none of its own — read the
     // same way [start] reads it.
-    final routine =
-        await _db.routineById((await _db.workoutById(workoutId)).routineId);
+    final routine = await _db.routineById(
+      (await _db.workoutById(workoutId)).routineId,
+    );
     // That was a trip to the database, and the session may have been finished,
     // thrown away or replaced while it ran — so the work below is done against
     // the session as it stands now.
@@ -1455,7 +1473,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// which is the honest answer available: three slots of the same movement
   /// re-timed and re-ordered in one save hand their rests out in board order.
   ({Map<int, WorkoutItemView> matched, List<WorkoutItemView> extra})
-      _pairWithTemplate(ActiveWorkout s, List<WorkoutItemView> items) {
+  _pairWithTemplate(ActiveWorkout s, List<WorkoutItemView> items) {
     final held = <int, List<int>>{};
     for (var ei = 0; ei < s.exercises.length; ei++) {
       if (s.exercises[ei].exerciseId case final id?) {
@@ -1547,6 +1565,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   void setWeight(int ei, int si, double value) =>
       _editEntry(ei, si, warmup: false, edit: (e) => e.weight = value);
 
+  /// Records optional set effort without logging or unlogging the set.
+  void setRpe(int ei, int si, int? value) {
+    final s = state;
+    if (s == null || ei < 0 || ei >= s.exercises.length) return;
+    final sets = s.exercises[ei].sets;
+    if (si < 0 || si >= sets.length) return;
+    sets[si].actualRpe = value?.clamp(60, 100);
+    _commit(s.copyWith());
+  }
+
   /// The load this exercise is being worked at today. Every set still to come
   /// moves with it and the warm-up ramp is rebuilt to climb toward it — a ramp
   /// computed for a weight you are no longer doing is priming the wrong lift.
@@ -1627,8 +1655,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final views = await _db.itemsForWorkout(workoutId);
     final view = views.where((v) => v.item.id == itemId).firstOrNull;
     if (view == null || _gone) return;
-    final routine =
-        await _db.routineById((await _db.workoutById(workoutId)).routineId);
+    final routine = await _db.routineById(
+      (await _db.workoutById(workoutId)).routineId,
+    );
     if (_gone) return;
 
     // Those were trips to the database, so the board is looked at again rather
@@ -1667,7 +1696,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// new list are appended rather than dropped: asking for three sets after
   /// doing four is a decision about what is left to do, not permission to erase
   /// the fourth.
-  void _carryLoggedWork({required ExerciseEntry from, required ExerciseEntry to}) {
+  void _carryLoggedWork({
+    required ExerciseEntry from,
+    required ExerciseEntry to,
+  }) {
     for (var i = 0; i < from.sets.length; i++) {
       if (!from.sets[i].done) {
         // A set nobody has logged is rebuilt to the new target — but what the
@@ -1723,7 +1755,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     entry.logged = logged;
     s.restamp(entry, wasDone: false);
 
-    final rest = s.restAfter(cue.exerciseIndex, cue.setIndex, warmup: cue.warmup);
+    final rest = s.restAfter(
+      cue.exerciseIndex,
+      cue.setIndex,
+      warmup: cue.warmup,
+    );
     if (rest.seconds == 0) {
       // Mid-superset: no clock to start, so the logged set is published on its
       // own. The next movement of the group is already the marked one.
@@ -1780,10 +1816,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// gym that counts its dumbbells in pounds, whatever the rest of the app is
   /// reading. The plates and the bar stay the session's — they are the iron in
   /// one gym.
-  void _rebuildRamp(
-    ExerciseEntry e, {
-    required List<PlateStack> inventory,
-  }) {
+  void _rebuildRamp(ExerciseEntry e, {required List<PlateStack> inventory}) {
     final was = [...e.warmups];
     e.warmups.clear();
     if (!e.hasWarmups) {
@@ -1879,6 +1912,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
             inclinePercent: Value(set.console.inclinePercent),
             resistanceLevel: Value(set.console.resistanceLevel),
             distanceKm: Value(set.console.distanceKm),
+            actualRpe: Value(set.actualRpe),
           ),
         );
       }
@@ -1913,6 +1947,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     for (final e in s.exercises) {
       final itemId = e.itemId;
       if (itemId == null) continue;
+      if (e.usesRpe) continue;
       final move = await _db.advanceProgression(
         itemId,
         verdict: e.verdict,
@@ -1922,6 +1957,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         // target gets established, and it must not leave the exercise off the
         // recap.
         sessionWeight: e.sessionLoadKg,
+        finalAmrapReps: e.sets.isNotEmpty && e.sets.last.amrap
+            ? e.sets.last.logged
+            : null,
       );
       // Read the slot back after advancing to see where progression left it —
       // the resulting target and the streaks — so the summary can explain it.
@@ -2085,7 +2123,10 @@ class ProgressionReport {
 ///
 /// It is still a provider on top of that, because a plain `test()` has no fake
 /// binding to pump and needs to move time by hand.
-final clockProvider = Provider<DateTime Function()>((ref) => () => clock.now());
+final clockProvider = Provider<DateTime Function()>(
+  (ref) =>
+      () => clock.now(),
+);
 
 /// The one player for the rest tone, disposed with the scope that made it. One
 /// instance rather than one per rest: an `AudioPlayer` holds a platform

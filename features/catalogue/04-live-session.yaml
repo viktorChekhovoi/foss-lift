@@ -58,6 +58,31 @@ groups:
       goal → one fewer → … → 0 → untouched; holding the cell enters an exact value.
     defines:
     - session.set-logging
+  - id: rpe-appears-only-where-used
+    t: RPE appears only on an exercise that uses it
+    d: >-
+      A prescribed RPE adds an RPE control to that exercise's working sets. The
+      target is visible before logging; tapping the control records an optional
+      actual rating from 6–10 in half-point steps with reps-in-reserve labels.
+      Exercises without a target keep the existing board, and warm-ups never ask
+      for RPE.
+    defines:
+    - session.effort-rating
+    uses:
+    - template.effort-target
+    - session.set-logging
+    - session.warmup-ramp
+    - ui.gym-vocabulary
+  - id: rpe-never-blocks-logging
+    t: RPE never blocks a set or a workout
+    d: >-
+      Sets keep their one-tap logging and rest behavior. An actual rating may be
+      entered before or after the result and may remain blank when the workout is
+      finished.
+    uses:
+    - session.effort-rating
+    - session.set-logging
+    - session.finish
   - id: result-cell-is-the-obvious-target
     t: The cell that logs a set is the one that looks like a button
     d: >-
@@ -248,6 +273,7 @@ groups:
     - session.progress-mark
     - session.rest-timer
     - session.superset-round
+    - session.effort-rating
     - storage.schema
   - id: note-one-exception-goes-both
     t: The note is the one exception, and it goes both ways

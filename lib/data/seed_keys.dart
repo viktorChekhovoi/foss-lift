@@ -172,6 +172,11 @@ const Map<String, String> kSeedBarKeys = {
 /// the string behind that key is the same English in every language — a
 /// program is named the way a book is.
 const Map<String, String> kSeedRoutineKeys = {
+  'GZCLP': 'gzclp',
+  'Push/Pull/Legs': 'ppl_6_day',
+  'Basic Beginner Routine': 'fitness_basic_beginner',
+  'Bodyweight Routine': 'bodyweightfitness_recommended',
+  'Dumbbell Beginner Routine': 'dumbbell_stopgap',
   'Push / Pull / Legs': 'push_pull_legs',
   'Upper / Lower': 'upper_lower',
   'Starting Strength': 'starting_strength',
@@ -188,11 +193,19 @@ const Map<String, String> kSeedRoutineKeys = {
   'Candito Linear — Strength/Control': 'candito_linear_control',
   'Candito Linear — Strength/Hypertrophy': 'candito_linear_hypertrophy',
   'Sheiko #29–32': 'sheiko_29_32',
+  'TSA Beginner Approach': 'tsa_beginner',
+  'TSA Intermediate 2.0': 'tsa_intermediate_2',
 };
 
 /// The same, for their training days. The three barbell programs all name
 /// their days A, B and C, so one key each serves all of them.
 const Map<String, String> kSeedWorkoutKeys = {
+  'Pull A': 'pull_a',
+  'Push A': 'push_a',
+  'Legs A': 'legs_a',
+  'Pull B': 'pull_b',
+  'Push B': 'push_b',
+  'Legs B': 'legs_b',
   'Push': 'push',
   'Pull': 'pull',
   'Legs': 'legs',
@@ -214,4 +227,3 @@ const Map<String, String> kSeedWorkoutKeys = {
   'Variation Lower': 'variation_lower',
   'Variation Upper': 'variation_upper',
 };
-

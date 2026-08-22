@@ -204,30 +204,37 @@ class SharedItem {
     double? repsDeload,
     List<List<CustomSet>> cycle = const [],
     List<String> cycleNames = const [],
-  }) =>
-      SharedItem._(
-        cycle: cycle,
-        cycleNames: cycleNames,
-        supersetWithPrevious: supersetWithPrevious,
-        addWeightAtTopOfRange: addWeightAtTopOfRange,
-        repsIncrement: repsIncrement ?? ProgressionMode.reps.defaultIncrement,
-        repsDeload: repsDeload ?? ProgressionMode.reps.defaultDeload,
-        exercise: exercise,
-        targetSets: targetSets,
-        repsMin: repsMin,
-        repsMax: repsMax,
-        toFailure: toFailure,
-        restSeconds: restSeconds,
-        progression: progression,
-        holdSeconds: holdSeconds,
-        increment: increment ?? progression.defaultIncrement,
-        deload: deload ?? progression.defaultDeload,
-        successThreshold: successThreshold,
-        failureThreshold: failureThreshold,
-        scheme: scheme,
-        schemePercent: schemePercent,
-        customSets: customSets,
-      );
+    int? targetRpe,
+    GzclTier? gzclTier,
+    List<GzclStage> gzclStages = const [],
+    int gzclAmrapTarget = defaultGzclT3AmrapTarget,
+  }) => SharedItem._(
+    cycle: cycle,
+    cycleNames: cycleNames,
+    supersetWithPrevious: supersetWithPrevious,
+    addWeightAtTopOfRange: addWeightAtTopOfRange,
+    repsIncrement: repsIncrement ?? ProgressionMode.reps.defaultIncrement,
+    repsDeload: repsDeload ?? ProgressionMode.reps.defaultDeload,
+    exercise: exercise,
+    targetSets: targetSets,
+    repsMin: repsMin,
+    repsMax: repsMax,
+    toFailure: toFailure,
+    restSeconds: restSeconds,
+    progression: progression,
+    holdSeconds: holdSeconds,
+    increment: increment ?? progression.defaultIncrement,
+    deload: deload ?? progression.defaultDeload,
+    successThreshold: successThreshold,
+    failureThreshold: failureThreshold,
+    scheme: scheme,
+    schemePercent: schemePercent,
+    customSets: customSets,
+    targetRpe: targetRpe,
+    gzclTier: gzclTier,
+    gzclStages: gzclStages,
+    gzclAmrapTarget: gzclAmrapTarget,
+  );
 
   const SharedItem._({
     required this.exercise,
@@ -251,6 +258,10 @@ class SharedItem {
     this.repsDeload = 2,
     this.cycle = const [],
     this.cycleNames = const [],
+    this.targetRpe,
+    this.gzclTier,
+    this.gzclStages = const [],
+    this.gzclAmrapTarget = defaultGzclT3AmrapTarget,
   });
 
   /// Index into [SharedRoutine.exercises].
@@ -291,6 +302,12 @@ class SharedItem {
   /// section of its own, after the weeks it names.
   final List<String> cycleNames;
 
+  /// Optional effort prescription in tenths (85 is RPE 8.5).
+  final int? targetRpe;
+  final GzclTier? gzclTier;
+  final List<GzclStage> gzclStages;
+  final int gzclAmrapTarget;
+
   /// The same slot with one of the trailing-section flags set.
   ///
   /// Both sections are applied after the slots have been read, so each needs a
@@ -304,30 +321,37 @@ class SharedItem {
     List<List<CustomSet>>? cycle,
     List<String>? cycleNames,
     SetScheme? scheme,
-  }) =>
-      SharedItem._(
-        exercise: exercise,
-        targetSets: targetSets,
-        repsMin: repsMin,
-        repsMax: repsMax,
-        toFailure: toFailure,
-        restSeconds: restSeconds,
-        progression: progression,
-        holdSeconds: holdSeconds,
-        increment: increment,
-        deload: deload,
-        successThreshold: successThreshold,
-        failureThreshold: failureThreshold,
-        scheme: scheme ?? this.scheme,
-        schemePercent: schemePercent,
-        customSets: customSets,
-        supersetWithPrevious: superset ?? supersetWithPrevious,
-        addWeightAtTopOfRange: climbRange ?? addWeightAtTopOfRange,
-        repsIncrement: repsIncrement ?? this.repsIncrement,
-        repsDeload: repsDeload ?? this.repsDeload,
-        cycle: cycle ?? this.cycle,
-        cycleNames: cycleNames ?? this.cycleNames,
-      );
+    int? targetRpe,
+    GzclTier? gzclTier,
+    List<GzclStage>? gzclStages,
+    int? gzclAmrapTarget,
+  }) => SharedItem._(
+    exercise: exercise,
+    targetSets: targetSets,
+    repsMin: repsMin,
+    repsMax: repsMax,
+    toFailure: toFailure,
+    restSeconds: restSeconds,
+    progression: progression,
+    holdSeconds: holdSeconds,
+    increment: increment,
+    deload: deload,
+    successThreshold: successThreshold,
+    failureThreshold: failureThreshold,
+    scheme: scheme ?? this.scheme,
+    schemePercent: schemePercent,
+    customSets: customSets,
+    supersetWithPrevious: superset ?? supersetWithPrevious,
+    addWeightAtTopOfRange: climbRange ?? addWeightAtTopOfRange,
+    repsIncrement: repsIncrement ?? this.repsIncrement,
+    repsDeload: repsDeload ?? this.repsDeload,
+    cycle: cycle ?? this.cycle,
+    cycleNames: cycleNames ?? this.cycleNames,
+    targetRpe: targetRpe ?? this.targetRpe,
+    gzclTier: gzclTier ?? this.gzclTier,
+    gzclStages: gzclStages ?? this.gzclStages,
+    gzclAmrapTarget: gzclAmrapTarget ?? this.gzclAmrapTarget,
+  );
 
   /// The same slot, joined to the one above it. How the supersets section is
   /// applied once the slots themselves have been read.
@@ -349,6 +373,15 @@ class SharedItem {
   /// The same slot with its weeks named. Applied after [cycling], from the
   /// section that follows the one that carried the weeks.
   SharedItem namingWeeks(List<String> names) => _flagged(cycleNames: names);
+
+  SharedItem prescribingRpe(int value) => _flagged(targetRpe: value);
+
+  SharedItem withGzcl(GzclTier tier, List<GzclStage> stages, int amrapTarget) =>
+      _flagged(
+        gzclTier: tier,
+        gzclStages: stages,
+        gzclAmrapTarget: amrapTarget,
+      );
 
   final int targetSets;
   final int repsMin;
@@ -522,6 +555,10 @@ abstract final class RoutineCode {
   /// What those weeks are called, where anybody has named them.
   static const int _sectionCycleNames = 5;
 
+  /// Optional effort targets for slots, stored in tenths.
+  static const int _sectionTargetRpe = 6;
+  static const int _sectionGzcl = 7;
+
   // -- Envelope flag bits ---------------------------------------------------
   // The one byte in front of the body. **Frozen**, like everything else here.
 
@@ -563,8 +600,7 @@ abstract final class RoutineCode {
     for (final e in routine.exercises) {
       // Eleven characters, or nothing: a link we cannot resolve to a video is a
       // page, and a page is not worth the ninety bytes it costs.
-      final videoId =
-          e.videoUrl == null ? null : youTubeVideoId(e.videoUrl!);
+      final videoId = e.videoUrl == null ? null : youTubeVideoId(e.videoUrl!);
       // Only worth sending when it is not what this equipment implies anyway.
       final typed = e.weightType != weightTypeForEquipment(e.equipment);
 
@@ -573,12 +609,14 @@ abstract final class RoutineCode {
       final beyondLead =
           e.muscles.extraPrimary.isNotEmpty || e.muscles.secondary.isNotEmpty;
 
-      body.byte((e.isCustom ? _exCustom : 0) |
-          (videoId != null ? _exVideo : 0) |
-          (e.measure == ExerciseMeasure.time ? _exTimed : 0) |
-          (typed ? _exWeightType : 0) |
-          (e.barWeight != null ? _exBarWeight : 0) |
-          (beyondLead ? _exMuscles : 0));
+      body.byte(
+        (e.isCustom ? _exCustom : 0) |
+            (videoId != null ? _exVideo : 0) |
+            (e.measure == ExerciseMeasure.time ? _exTimed : 0) |
+            (typed ? _exWeightType : 0) |
+            (e.barWeight != null ? _exBarWeight : 0) |
+            (beyondLead ? _exMuscles : 0),
+      );
       body.string(_clampName(e.name));
       _writeWord(body, e.muscles.lead, kMuscleGroups);
       _writeWord(body, e.equipment, kEquipmentTypes);
@@ -625,6 +663,8 @@ abstract final class RoutineCode {
     _writeRepRates(body, routine.workouts);
     _writeCycles(body, routine.workouts);
     _writeCycleNames(body, routine.workouts);
+    _writeTargetRpe(body, routine.workouts);
+    _writeGzcl(body, routine.workouts);
 
     final raw = body.take();
     // Compress only when it actually helps: a short routine of common words
@@ -633,14 +673,10 @@ abstract final class RoutineCode {
     final packed = _deflate(raw);
     final smaller = packed.length < raw.length;
 
-    return ShareCodec.pack(
-      version,
-      [
-        (smaller ? _flagDeflated : 0) | (described ? _flagDescription : 0),
-        ...(smaller ? packed : raw),
-      ],
-      checksumBytes: 4,
-    );
+    return ShareCodec.pack(version, [
+      (smaller ? _flagDeflated : 0) | (described ? _flagDescription : 0),
+      ...(smaller ? packed : raw),
+    ], checksumBytes: 4);
   }
 
   /// The full share link — what a **QR code** holds, so one image serves both a
@@ -659,8 +695,13 @@ abstract final class RoutineCode {
   /// [RoutineCodeOk] with a complete program or a [RoutineCodeFailure] saying
   /// which of the three things went wrong.
   static RoutineCodeResult decode(String source) {
-    final read = ShareCodec.unpack(source,
-        versions: readableVersions, host: host, minBody: 2, checksumBytes: 4);
+    final read = ShareCodec.unpack(
+      source,
+      versions: readableVersions,
+      host: host,
+      minBody: 2,
+      checksumBytes: 4,
+    );
     if (read.problem != null) return RoutineCodeFailure(read.problem!);
 
     final envelope = read.body!;
@@ -679,7 +720,8 @@ abstract final class RoutineCode {
       // is compressed: without the bit there is no description in it, which is
       // both an undescribed routine and every `FLR1` code ever written.
       return RoutineCodeOk(
-          _read(ByteReader(raw), described: flags & _flagDescription != 0));
+        _read(ByteReader(raw), described: flags & _flagDescription != 0),
+      );
     } on ShareCodeDamaged {
       return const RoutineCodeFailure(ShareCodeProblem.damaged);
     } on RangeError {
@@ -692,8 +734,9 @@ abstract final class RoutineCode {
     final color = _hex(r.byte(), r.byte(), r.byte());
     final rest = r.varint();
     final days = r.varint();
-    final description =
-        described ? _clamp(r.string(), maxDescriptionBytes) : '';
+    final description = described
+        ? _clamp(r.string(), maxDescriptionBytes)
+        : '';
 
     final exercises = <SharedExercise>[];
     final exerciseCount = r.varint();
@@ -711,18 +754,20 @@ abstract final class RoutineCode {
           : weightTypeForEquipment(equipment);
       final barWeight = flags & _exBarWeight != 0 ? r.fixed2() : null;
 
-      exercises.add(SharedExercise(
-        name: exName,
-        muscles: muscles,
-        equipment: equipment,
-        isCustom: flags & _exCustom != 0,
-        measure: flags & _exTimed != 0
-            ? ExerciseMeasure.time
-            : ExerciseMeasure.reps,
-        videoUrl: video,
-        weightType: weightType,
-        barWeight: barWeight,
-      ));
+      exercises.add(
+        SharedExercise(
+          name: exName,
+          muscles: muscles,
+          equipment: equipment,
+          isCustom: flags & _exCustom != 0,
+          measure: flags & _exTimed != 0
+              ? ExerciseMeasure.time
+              : ExerciseMeasure.reps,
+          videoUrl: video,
+          weightType: weightType,
+          barWeight: barWeight,
+        ),
+      );
     }
 
     final workouts = <SharedWorkout>[];
@@ -880,6 +925,10 @@ abstract final class RoutineCode {
           _readCycles(r, workouts);
         case _sectionCycleNames:
           _readCycleNames(r, workouts);
+        case _sectionTargetRpe:
+          _readTargetRpe(r, workouts);
+        case _sectionGzcl:
+          _readGzcl(r, workouts);
         default:
           return;
       }
@@ -991,12 +1040,14 @@ abstract final class RoutineCode {
             final reps = r.varint();
             final top = r.varint();
             final amrap = r.varint() != 0;
-            rows.add(CustomSet(
-              reps: reps,
-              repsMax: top == 0 ? null : top - 1,
-              amrap: amrap,
-              percent: r.varint(),
-            ));
+            rows.add(
+              CustomSet(
+                reps: reps,
+                repsMax: top == 0 ? null : top - 1,
+                amrap: amrap,
+                percent: r.varint(),
+              ),
+            );
           }
           weeks.add(rows);
         }
@@ -1023,7 +1074,10 @@ abstract final class RoutineCode {
         it.cycleNames.any((n) => n.trim().isNotEmpty);
     final labelled = [
       for (final w in workouts)
-        [for (final (i, it) in w.items.indexed) if (named(it)) (i, it)],
+        [
+          for (final (i, it) in w.items.indexed)
+            if (named(it)) (i, it),
+        ],
     ];
     if (labelled.every((l) => l.isEmpty)) return;
     body.varint(_sectionCycleNames);
@@ -1047,9 +1101,94 @@ abstract final class RoutineCode {
     for (final w in workouts) {
       for (var n = r.varint(); n > 0; n--) {
         final at = r.varint();
-        final names = [for (var week = r.varint(); week > 0; week--) r.string()];
+        final names = [
+          for (var week = r.varint(); week > 0; week--) r.string(),
+        ];
         if (at >= 0 && at < w.items.length) {
           w.items[at] = w.items[at].namingWeeks(names);
+        }
+      }
+    }
+  }
+
+  static void _writeTargetRpe(ByteWriter body, List<SharedWorkout> workouts) {
+    final rated = [
+      for (final w in workouts)
+        [
+          for (final (i, it) in w.items.indexed)
+            if (it.targetRpe != null) (i, it.targetRpe!),
+        ],
+    ];
+    if (rated.every((rows) => rows.isEmpty)) return;
+    body.varint(_sectionTargetRpe);
+    for (final rows in rated) {
+      body.varint(rows.length);
+      for (final (at, value) in rows) {
+        body.varint(at);
+        body.varint(value);
+      }
+    }
+  }
+
+  static void _readTargetRpe(ByteReader r, List<SharedWorkout> workouts) {
+    for (final w in workouts) {
+      for (var n = r.varint(); n > 0; n--) {
+        final at = r.varint();
+        final value = r.varint();
+        if (at >= 0 && at < w.items.length && value >= 60 && value <= 100) {
+          w.items[at] = w.items[at].prescribingRpe(value);
+        }
+      }
+    }
+  }
+
+  static void _writeGzcl(ByteWriter body, List<SharedWorkout> workouts) {
+    final configured = [
+      for (final workout in workouts)
+        [
+          for (final (at, item) in workout.items.indexed)
+            if (item.gzclTier != null) (at, item),
+        ],
+    ];
+    if (configured.every((items) => items.isEmpty)) return;
+    body.varint(_sectionGzcl);
+    for (final items in configured) {
+      body.varint(items.length);
+      for (final (at, item) in items) {
+        body.varint(at);
+        body.byte(item.gzclTier!.index);
+        body.varint(item.gzclAmrapTarget);
+        body.varint(item.gzclStages.length);
+        for (final stage in item.gzclStages) {
+          body.varint(stage.sets);
+          body.varint(stage.reps);
+        }
+      }
+    }
+  }
+
+  static void _readGzcl(ByteReader r, List<SharedWorkout> workouts) {
+    for (final workout in workouts) {
+      for (var n = r.varint(); n > 0; n--) {
+        final at = r.varint();
+        final tierIndex = r.byte();
+        final amrapTarget = r.varint();
+        final stages = <GzclStage>[];
+        for (var s = r.varint(); s > 0; s--) {
+          final sets = r.varint();
+          final reps = r.varint();
+          if (sets > 0 && reps > 0) {
+            stages.add(GzclStage(sets: sets, reps: reps));
+          }
+        }
+        if (at < workout.items.length &&
+            tierIndex < GzclTier.values.length &&
+            amrapTarget > 0) {
+          workout.items[at] = workout.items[at].withGzcl(
+            GzclTier.values[tierIndex],
+            stages,
+            amrapTarget,
+          );
         }
       }
     }
@@ -1065,18 +1204,18 @@ abstract final class RoutineCode {
     final repsMin = mask & _fRepsMin != 0 ? r.varint() : plain.repsMin;
     final repsMax = mask & _fRepsMax != 0 ? r.varint() : null;
     final rest = mask & _fRest != 0 ? r.varint() : null;
-    final mode =
-        mask & _fProgression != 0 ? _progression(r.byte()) : plain.progression;
+    final mode = mask & _fProgression != 0
+        ? _progression(r.byte())
+        : plain.progression;
     final hold = mask & _fHold != 0 ? r.varint() : plain.holdSeconds;
     final increment = mask & _fIncrement != 0 ? r.fixed2() : null;
     final deload = mask & _fDeload != 0 ? r.fixed2() : null;
-    final success =
-        mask & _fSuccess != 0 ? r.varint() : plain.successThreshold;
-    final failure =
-        mask & _fFailure != 0 ? r.varint() : plain.failureThreshold;
+    final success = mask & _fSuccess != 0 ? r.varint() : plain.successThreshold;
+    final failure = mask & _fFailure != 0 ? r.varint() : plain.failureThreshold;
     final scheme = mask & _fScheme != 0 ? _scheme(r.byte()) : plain.scheme;
-    final schemePercent =
-        mask & _fScheme != 0 ? r.varint() : plain.schemePercent;
+    final schemePercent = mask & _fScheme != 0
+        ? r.varint()
+        : plain.schemePercent;
     final custom = <CustomSet>[];
     if (mask & _fCustomSets != 0) {
       final rows = r.varint();
@@ -1106,8 +1245,8 @@ abstract final class RoutineCode {
 
   /// A scheme by its index, or flat for one this build has never heard of —
   /// the same forgiveness the progression axis gets.
-  static SetScheme _scheme(int index) => index >= 0 &&
-          index < SetScheme.values.length
+  static SetScheme _scheme(int index) =>
+      index >= 0 && index < SetScheme.values.length
       ? SetScheme.values[index]
       : SetScheme.flat;
 
@@ -1147,8 +1286,10 @@ abstract final class RoutineCode {
     return [(value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF];
   }
 
-  static String _hex(int r, int g, int b) =>
-      ((r << 16) | (g << 8) | b).toRadixString(16).toUpperCase().padLeft(6, '0');
+  static String _hex(int r, int g, int b) => ((r << 16) | (g << 8) | b)
+      .toRadixString(16)
+      .toUpperCase()
+      .padLeft(6, '0');
 
   static WeightType _weightType(int index) => index < WeightType.values.length
       ? WeightType.values[index]
@@ -1156,8 +1297,8 @@ abstract final class RoutineCode {
 
   static ProgressionMode _progression(int index) =>
       index < ProgressionMode.values.length
-          ? ProgressionMode.values[index]
-          : ProgressionMode.weight;
+      ? ProgressionMode.values[index]
+      : ProgressionMode.weight;
 }
 
 /// What came of reading a routine code.

@@ -389,100 +389,40 @@ class $ExercisesTable extends Exercises
 class Exercise extends DataClass implements Insertable<Exercise> {
   final int id;
 
-  /// The canonical English name. What a routine code carries, what history
-  /// denormalises, and what an importer matches on — see `seedKey` for what is
-  /// actually rendered.
+  /// Canonical English name used by history and routine codes.
   final String name;
 
-  /// Which movement of the starter library this is, or null for one you added.
-  ///
-  /// A screen renders `seededName(l10n, seedKey, name)` rather than `name`, so
-  /// the whole starter library follows a language switch instead of being
-  /// frozen at whatever the phone was set to on install day. Seeded exercises
-  /// cannot be renamed (see [isCustom]), so unlike a routine or a training day
-  /// this key is never cleared. See `util/seed_names.dart`.
+  /// Starter-library key, or null for a user-created exercise.
   final String? seedKey;
 
-  /// The lead muscle group — the first of the primaries, and the one the
-  /// library files the movement under. Read [ExerciseMuscles.muscles] rather
-  /// than this column wherever the question is "what does it work"; this is
-  /// where it goes, which is a narrower fact.
-  ///
-  /// It stays a column of its own rather than being the head of the list below
-  /// because it is what `watchExercises` orders by and what an FLR1 routine code
-  /// carries.
+  /// Lead muscle group used for filing and ordering exercises.
   final String muscleGroup;
   final String equipment;
   final String? videoUrl;
   final bool isCustom;
 
-  /// Whether the movement is counted or held — see [ExerciseMeasure]. Decides
-  /// which progression axes a workout may put it on.
+  /// Whether the movement is counted in reps or held for time.
   final ExerciseMeasure measure;
 
-  /// How the load is arranged — see [WeightType]. Decides what the weight
-  /// column *means*, and so whether it can be broken down into plates.
-  ///
-  /// Defaults to [WeightType.machine]: the number is the number, which is the
-  /// only reading that is never wrong for something that carries a weight. It
-  /// is deliberately not [WeightType.none] — almost every movement is loaded,
-  /// so a movement nobody has classified is loaded too.
-  ///
-  /// [WeightType.none] is stored like any other value, and means the movement
-  /// carries nothing: a push-up, a plank. Nothing downstream offers it a
-  /// weight.
+  /// How the movement is loaded, determining the meaning of its weight.
   final WeightType weightType;
 
-  /// What you need to remember about this movement at your gym: the seat
-  /// setting, the rack pin, how far down you take it, which cable stack sticks.
-  ///
-  /// Personal, and deliberately so. This is not the coaching cue that used to
-  /// live here and was deleted — that was general advice, which travels badly
-  /// because it is long and because the demo link says it better. A note is
-  /// specific to one person at one gym, which is why it never travels at all:
-  /// "seat 4, pin 7" is not merely useless on someone else's machine, it is
-  /// wrong. Nothing puts this in a routine code.
-  ///
-  /// Capped at 300 characters, which is a couple of settings and a reminder —
-  /// past that it stops being something you can read between sets.
+  /// Personal gym note, excluded from shared routine codes.
   final String? notes;
 
-  /// What *this* movement's bar weighs, in kg, when the gym's default is wrong
-  /// for it. Null — the usual case — means the default from settings.
-  ///
-  /// Per exercise rather than app-wide because a gym is not one bar: the EZ
-  /// curl bar is 10, the trap bar 25, the Smith carriage counterweighted to
-  /// something else again, and every one of them is a fact about the movement
-  /// you do on it. Ignored unless [weightType] is [WeightType.bar].
+  /// Exercise-specific bar weight in kg, or null for the configured default.
   final double? barWeight;
 
-  /// The primaries after the lead, [kGroupSeparator]-joined, or empty for a
-  /// movement that trains one group.
+  /// Additional primary groups, joined by [kGroupSeparator].
   final String extraPrimaryGroups;
 
-  /// The groups the movement only assists, [kGroupSeparator]-joined.
+  /// Secondary muscle groups, joined by [kGroupSeparator].
   final String secondaryGroups;
 
-  /// The unit this one movement is read and typed in — `kg` or `lb` — when the
-  /// app-wide one is wrong for it. Null, the usual case, means it follows the
-  /// app.
-  ///
-  /// Per exercise rather than app-wide because a gym is not one unit: the
-  /// dumbbell rack is stamped in pounds and the bar is loaded in kilograms, and
-  /// which one a lift is counted in is a fact about the lift. Storage is
-  /// unaffected — every weight in this app is kilograms, here as everywhere —
-  /// but the override travels with the movement into everything that reads or
-  /// asks for one of its weights: the board, the builder, the ramp's loadable
-  /// grid and its slots' step rates.
+  /// Display-unit override for this movement, or null for the app unit.
   final String? unitOverride;
 
-  /// How many warm-up rungs this movement opens with, over
-  /// `Settings.warmupSets`. Null follows the setting; zero is a movement you
-  /// never warm up for.
-  ///
-  /// Consulted only while the app-wide count is above zero — see
-  /// [warmupCountFor]. None app-wide means the app suggests no ramps at all, and
-  /// a movement's own count is not an exemption from that.
+  /// Exercise-specific warm-up count; null follows `Settings.warmupSets`.
   final int? warmupSets;
   const Exercise({
     required this.id,
@@ -2327,6 +2267,61 @@ class $WorkoutItemsTable extends WorkoutItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _targetRpeMeta = const VerificationMeta(
+    'targetRpe',
+  );
+  @override
+  late final GeneratedColumn<int> targetRpe = GeneratedColumn<int>(
+    'target_rpe',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<GzclTier?, String> gzclTier =
+      GeneratedColumn<String>(
+        'gzcl_tier',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<GzclTier?>($WorkoutItemsTable.$convertergzclTiern);
+  static const VerificationMeta _gzclStagesMeta = const VerificationMeta(
+    'gzclStages',
+  );
+  @override
+  late final GeneratedColumn<String> gzclStages = GeneratedColumn<String>(
+    'gzcl_stages',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _gzclStageMeta = const VerificationMeta(
+    'gzclStage',
+  );
+  @override
+  late final GeneratedColumn<int> gzclStage = GeneratedColumn<int>(
+    'gzcl_stage',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _gzclAmrapTargetMeta = const VerificationMeta(
+    'gzclAmrapTarget',
+  );
+  @override
+  late final GeneratedColumn<int> gzclAmrapTarget = GeneratedColumn<int>(
+    'gzcl_amrap_target',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(defaultGzclT3AmrapTarget),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2359,6 +2354,11 @@ class $WorkoutItemsTable extends WorkoutItems
     cycleBlocks,
     cyclePosition,
     cycleNames,
+    targetRpe,
+    gzclTier,
+    gzclStages,
+    gzclStage,
+    gzclAmrapTarget,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2580,6 +2580,33 @@ class $WorkoutItemsTable extends WorkoutItems
         cycleNames.isAcceptableOrUnknown(data['cycle_names']!, _cycleNamesMeta),
       );
     }
+    if (data.containsKey('target_rpe')) {
+      context.handle(
+        _targetRpeMeta,
+        targetRpe.isAcceptableOrUnknown(data['target_rpe']!, _targetRpeMeta),
+      );
+    }
+    if (data.containsKey('gzcl_stages')) {
+      context.handle(
+        _gzclStagesMeta,
+        gzclStages.isAcceptableOrUnknown(data['gzcl_stages']!, _gzclStagesMeta),
+      );
+    }
+    if (data.containsKey('gzcl_stage')) {
+      context.handle(
+        _gzclStageMeta,
+        gzclStage.isAcceptableOrUnknown(data['gzcl_stage']!, _gzclStageMeta),
+      );
+    }
+    if (data.containsKey('gzcl_amrap_target')) {
+      context.handle(
+        _gzclAmrapTargetMeta,
+        gzclAmrapTarget.isAcceptableOrUnknown(
+          data['gzcl_amrap_target']!,
+          _gzclAmrapTargetMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2713,6 +2740,28 @@ class $WorkoutItemsTable extends WorkoutItems
         DriftSqlType.string,
         data['${effectivePrefix}cycle_names'],
       ),
+      targetRpe: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}target_rpe'],
+      ),
+      gzclTier: $WorkoutItemsTable.$convertergzclTiern.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}gzcl_tier'],
+        ),
+      ),
+      gzclStages: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gzcl_stages'],
+      ),
+      gzclStage: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}gzcl_stage'],
+      )!,
+      gzclAmrapTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}gzcl_amrap_target'],
+      )!,
     );
   }
 
@@ -2727,6 +2776,10 @@ class $WorkoutItemsTable extends WorkoutItems
   $converterprogression = const EnumNameConverter<ProgressionMode>(
     ProgressionMode.values,
   );
+  static JsonTypeConverter2<GzclTier, String, String> $convertergzclTier =
+      const EnumNameConverter<GzclTier>(GzclTier.values);
+  static JsonTypeConverter2<GzclTier?, String?, String?> $convertergzclTiern =
+      JsonTypeConverter2.asNullable($convertergzclTier);
 }
 
 class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
@@ -2884,6 +2937,16 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
   final String? cycleNames;
+
+  /// Optional prescribed effort in tenths (80 is RPE 8).
+  final int? targetRpe;
+
+  /// Optional GZCL role and its configurable progression state. These follow
+  /// the v16 RPE column so fresh and upgraded databases have the same shape.
+  final GzclTier? gzclTier;
+  final String? gzclStages;
+  final int gzclStage;
+  final int gzclAmrapTarget;
   const WorkoutItem({
     required this.id,
     required this.workoutId,
@@ -2915,6 +2978,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     this.cycleBlocks,
     required this.cyclePosition,
     this.cycleNames,
+    this.targetRpe,
+    this.gzclTier,
+    this.gzclStages,
+    required this.gzclStage,
+    required this.gzclAmrapTarget,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2973,6 +3041,19 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     if (!nullToAbsent || cycleNames != null) {
       map['cycle_names'] = Variable<String>(cycleNames);
     }
+    if (!nullToAbsent || targetRpe != null) {
+      map['target_rpe'] = Variable<int>(targetRpe);
+    }
+    if (!nullToAbsent || gzclTier != null) {
+      map['gzcl_tier'] = Variable<String>(
+        $WorkoutItemsTable.$convertergzclTiern.toSql(gzclTier),
+      );
+    }
+    if (!nullToAbsent || gzclStages != null) {
+      map['gzcl_stages'] = Variable<String>(gzclStages);
+    }
+    map['gzcl_stage'] = Variable<int>(gzclStage);
+    map['gzcl_amrap_target'] = Variable<int>(gzclAmrapTarget);
     return map;
   }
 
@@ -3024,6 +3105,17 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       cycleNames: cycleNames == null && nullToAbsent
           ? const Value.absent()
           : Value(cycleNames),
+      targetRpe: targetRpe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetRpe),
+      gzclTier: gzclTier == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gzclTier),
+      gzclStages: gzclStages == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gzclStages),
+      gzclStage: Value(gzclStage),
+      gzclAmrapTarget: Value(gzclAmrapTarget),
     );
   }
 
@@ -3071,6 +3163,13 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       cycleBlocks: serializer.fromJson<String?>(json['cycleBlocks']),
       cyclePosition: serializer.fromJson<int>(json['cyclePosition']),
       cycleNames: serializer.fromJson<String?>(json['cycleNames']),
+      targetRpe: serializer.fromJson<int?>(json['targetRpe']),
+      gzclTier: $WorkoutItemsTable.$convertergzclTiern.fromJson(
+        serializer.fromJson<String?>(json['gzclTier']),
+      ),
+      gzclStages: serializer.fromJson<String?>(json['gzclStages']),
+      gzclStage: serializer.fromJson<int>(json['gzclStage']),
+      gzclAmrapTarget: serializer.fromJson<int>(json['gzclAmrapTarget']),
     );
   }
   @override
@@ -3111,6 +3210,13 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       'cycleBlocks': serializer.toJson<String?>(cycleBlocks),
       'cyclePosition': serializer.toJson<int>(cyclePosition),
       'cycleNames': serializer.toJson<String?>(cycleNames),
+      'targetRpe': serializer.toJson<int?>(targetRpe),
+      'gzclTier': serializer.toJson<String?>(
+        $WorkoutItemsTable.$convertergzclTiern.toJson(gzclTier),
+      ),
+      'gzclStages': serializer.toJson<String?>(gzclStages),
+      'gzclStage': serializer.toJson<int>(gzclStage),
+      'gzclAmrapTarget': serializer.toJson<int>(gzclAmrapTarget),
     };
   }
 
@@ -3145,6 +3251,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     Value<String?> cycleBlocks = const Value.absent(),
     int? cyclePosition,
     Value<String?> cycleNames = const Value.absent(),
+    Value<int?> targetRpe = const Value.absent(),
+    Value<GzclTier?> gzclTier = const Value.absent(),
+    Value<String?> gzclStages = const Value.absent(),
+    int? gzclStage,
+    int? gzclAmrapTarget,
   }) => WorkoutItem(
     id: id ?? this.id,
     workoutId: workoutId ?? this.workoutId,
@@ -3178,6 +3289,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     cycleBlocks: cycleBlocks.present ? cycleBlocks.value : this.cycleBlocks,
     cyclePosition: cyclePosition ?? this.cyclePosition,
     cycleNames: cycleNames.present ? cycleNames.value : this.cycleNames,
+    targetRpe: targetRpe.present ? targetRpe.value : this.targetRpe,
+    gzclTier: gzclTier.present ? gzclTier.value : this.gzclTier,
+    gzclStages: gzclStages.present ? gzclStages.value : this.gzclStages,
+    gzclStage: gzclStage ?? this.gzclStage,
+    gzclAmrapTarget: gzclAmrapTarget ?? this.gzclAmrapTarget,
   );
   WorkoutItem copyWithCompanion(WorkoutItemsCompanion data) {
     return WorkoutItem(
@@ -3253,6 +3369,15 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
       cycleNames: data.cycleNames.present
           ? data.cycleNames.value
           : this.cycleNames,
+      targetRpe: data.targetRpe.present ? data.targetRpe.value : this.targetRpe,
+      gzclTier: data.gzclTier.present ? data.gzclTier.value : this.gzclTier,
+      gzclStages: data.gzclStages.present
+          ? data.gzclStages.value
+          : this.gzclStages,
+      gzclStage: data.gzclStage.present ? data.gzclStage.value : this.gzclStage,
+      gzclAmrapTarget: data.gzclAmrapTarget.present
+          ? data.gzclAmrapTarget.value
+          : this.gzclAmrapTarget,
     );
   }
 
@@ -3288,7 +3413,12 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           ..write('sparedRates: $sparedRates, ')
           ..write('cycleBlocks: $cycleBlocks, ')
           ..write('cyclePosition: $cyclePosition, ')
-          ..write('cycleNames: $cycleNames')
+          ..write('cycleNames: $cycleNames, ')
+          ..write('targetRpe: $targetRpe, ')
+          ..write('gzclTier: $gzclTier, ')
+          ..write('gzclStages: $gzclStages, ')
+          ..write('gzclStage: $gzclStage, ')
+          ..write('gzclAmrapTarget: $gzclAmrapTarget')
           ..write(')'))
         .toString();
   }
@@ -3325,6 +3455,11 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
     cycleBlocks,
     cyclePosition,
     cycleNames,
+    targetRpe,
+    gzclTier,
+    gzclStages,
+    gzclStage,
+    gzclAmrapTarget,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3359,7 +3494,12 @@ class WorkoutItem extends DataClass implements Insertable<WorkoutItem> {
           other.sparedRates == this.sparedRates &&
           other.cycleBlocks == this.cycleBlocks &&
           other.cyclePosition == this.cyclePosition &&
-          other.cycleNames == this.cycleNames);
+          other.cycleNames == this.cycleNames &&
+          other.targetRpe == this.targetRpe &&
+          other.gzclTier == this.gzclTier &&
+          other.gzclStages == this.gzclStages &&
+          other.gzclStage == this.gzclStage &&
+          other.gzclAmrapTarget == this.gzclAmrapTarget);
 }
 
 class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
@@ -3393,6 +3533,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
   final Value<String?> cycleBlocks;
   final Value<int> cyclePosition;
   final Value<String?> cycleNames;
+  final Value<int?> targetRpe;
+  final Value<GzclTier?> gzclTier;
+  final Value<String?> gzclStages;
+  final Value<int> gzclStage;
+  final Value<int> gzclAmrapTarget;
   const WorkoutItemsCompanion({
     this.id = const Value.absent(),
     this.workoutId = const Value.absent(),
@@ -3424,6 +3569,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.cycleBlocks = const Value.absent(),
     this.cyclePosition = const Value.absent(),
     this.cycleNames = const Value.absent(),
+    this.targetRpe = const Value.absent(),
+    this.gzclTier = const Value.absent(),
+    this.gzclStages = const Value.absent(),
+    this.gzclStage = const Value.absent(),
+    this.gzclAmrapTarget = const Value.absent(),
   });
   WorkoutItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -3456,6 +3606,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     this.cycleBlocks = const Value.absent(),
     this.cyclePosition = const Value.absent(),
     this.cycleNames = const Value.absent(),
+    this.targetRpe = const Value.absent(),
+    this.gzclTier = const Value.absent(),
+    this.gzclStages = const Value.absent(),
+    this.gzclStage = const Value.absent(),
+    this.gzclAmrapTarget = const Value.absent(),
   }) : workoutId = Value(workoutId),
        exerciseId = Value(exerciseId);
   static Insertable<WorkoutItem> custom({
@@ -3489,6 +3644,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Expression<String>? cycleBlocks,
     Expression<int>? cyclePosition,
     Expression<String>? cycleNames,
+    Expression<int>? targetRpe,
+    Expression<String>? gzclTier,
+    Expression<String>? gzclStages,
+    Expression<int>? gzclStage,
+    Expression<int>? gzclAmrapTarget,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3523,6 +3683,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       if (cycleBlocks != null) 'cycle_blocks': cycleBlocks,
       if (cyclePosition != null) 'cycle_position': cyclePosition,
       if (cycleNames != null) 'cycle_names': cycleNames,
+      if (targetRpe != null) 'target_rpe': targetRpe,
+      if (gzclTier != null) 'gzcl_tier': gzclTier,
+      if (gzclStages != null) 'gzcl_stages': gzclStages,
+      if (gzclStage != null) 'gzcl_stage': gzclStage,
+      if (gzclAmrapTarget != null) 'gzcl_amrap_target': gzclAmrapTarget,
     });
   }
 
@@ -3557,6 +3722,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     Value<String?>? cycleBlocks,
     Value<int>? cyclePosition,
     Value<String?>? cycleNames,
+    Value<int?>? targetRpe,
+    Value<GzclTier?>? gzclTier,
+    Value<String?>? gzclStages,
+    Value<int>? gzclStage,
+    Value<int>? gzclAmrapTarget,
   }) {
     return WorkoutItemsCompanion(
       id: id ?? this.id,
@@ -3590,6 +3760,11 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
       cycleBlocks: cycleBlocks ?? this.cycleBlocks,
       cyclePosition: cyclePosition ?? this.cyclePosition,
       cycleNames: cycleNames ?? this.cycleNames,
+      targetRpe: targetRpe ?? this.targetRpe,
+      gzclTier: gzclTier ?? this.gzclTier,
+      gzclStages: gzclStages ?? this.gzclStages,
+      gzclStage: gzclStage ?? this.gzclStage,
+      gzclAmrapTarget: gzclAmrapTarget ?? this.gzclAmrapTarget,
     );
   }
 
@@ -3694,6 +3869,23 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
     if (cycleNames.present) {
       map['cycle_names'] = Variable<String>(cycleNames.value);
     }
+    if (targetRpe.present) {
+      map['target_rpe'] = Variable<int>(targetRpe.value);
+    }
+    if (gzclTier.present) {
+      map['gzcl_tier'] = Variable<String>(
+        $WorkoutItemsTable.$convertergzclTiern.toSql(gzclTier.value),
+      );
+    }
+    if (gzclStages.present) {
+      map['gzcl_stages'] = Variable<String>(gzclStages.value);
+    }
+    if (gzclStage.present) {
+      map['gzcl_stage'] = Variable<int>(gzclStage.value);
+    }
+    if (gzclAmrapTarget.present) {
+      map['gzcl_amrap_target'] = Variable<int>(gzclAmrapTarget.value);
+    }
     return map;
   }
 
@@ -3729,7 +3921,12 @@ class WorkoutItemsCompanion extends UpdateCompanion<WorkoutItem> {
           ..write('sparedRates: $sparedRates, ')
           ..write('cycleBlocks: $cycleBlocks, ')
           ..write('cyclePosition: $cyclePosition, ')
-          ..write('cycleNames: $cycleNames')
+          ..write('cycleNames: $cycleNames, ')
+          ..write('targetRpe: $targetRpe, ')
+          ..write('gzclTier: $gzclTier, ')
+          ..write('gzclStages: $gzclStages, ')
+          ..write('gzclStage: $gzclStage, ')
+          ..write('gzclAmrapTarget: $gzclAmrapTarget')
           ..write(')'))
         .toString();
   }
@@ -4557,6 +4754,17 @@ class $SessionSetsTable extends SessionSets
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _actualRpeMeta = const VerificationMeta(
+    'actualRpe',
+  );
+  @override
+  late final GeneratedColumn<int> actualRpe = GeneratedColumn<int>(
+    'actual_rpe',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4577,6 +4785,7 @@ class $SessionSetsTable extends SessionSets
     inclinePercent,
     resistanceLevel,
     distanceKm,
+    actualRpe,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4716,6 +4925,12 @@ class $SessionSetsTable extends SessionSets
         distanceKm.isAcceptableOrUnknown(data['distance_km']!, _distanceKmMeta),
       );
     }
+    if (data.containsKey('actual_rpe')) {
+      context.handle(
+        _actualRpeMeta,
+        actualRpe.isAcceptableOrUnknown(data['actual_rpe']!, _actualRpeMeta),
+      );
+    }
     return context;
   }
 
@@ -4797,6 +5012,10 @@ class $SessionSetsTable extends SessionSets
         DriftSqlType.double,
         data['${effectivePrefix}distance_km'],
       ),
+      actualRpe: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}actual_rpe'],
+      ),
     );
   }
 
@@ -4871,6 +5090,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
 
   /// Distance covered, in kilometres. Metric for the same reason [speedKph] is.
   final double? distanceKm;
+
+  /// The lifter's optional set RPE in tenths (85 is RPE 8.5).
+  final int? actualRpe;
   const SessionSet({
     required this.id,
     required this.sessionId,
@@ -4890,6 +5112,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     this.inclinePercent,
     this.resistanceLevel,
     this.distanceKm,
+    this.actualRpe,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4931,6 +5154,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     }
     if (!nullToAbsent || distanceKm != null) {
       map['distance_km'] = Variable<double>(distanceKm);
+    }
+    if (!nullToAbsent || actualRpe != null) {
+      map['actual_rpe'] = Variable<int>(actualRpe);
     }
     return map;
   }
@@ -4975,6 +5201,9 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       distanceKm: distanceKm == null && nullToAbsent
           ? const Value.absent()
           : Value(distanceKm),
+      actualRpe: actualRpe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actualRpe),
     );
   }
 
@@ -5002,6 +5231,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       inclinePercent: serializer.fromJson<double?>(json['inclinePercent']),
       resistanceLevel: serializer.fromJson<int?>(json['resistanceLevel']),
       distanceKm: serializer.fromJson<double?>(json['distanceKm']),
+      actualRpe: serializer.fromJson<int?>(json['actualRpe']),
     );
   }
   @override
@@ -5026,6 +5256,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       'inclinePercent': serializer.toJson<double?>(inclinePercent),
       'resistanceLevel': serializer.toJson<int?>(resistanceLevel),
       'distanceKm': serializer.toJson<double?>(distanceKm),
+      'actualRpe': serializer.toJson<int?>(actualRpe),
     };
   }
 
@@ -5048,6 +5279,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     Value<double?> inclinePercent = const Value.absent(),
     Value<int?> resistanceLevel = const Value.absent(),
     Value<double?> distanceKm = const Value.absent(),
+    Value<int?> actualRpe = const Value.absent(),
   }) => SessionSet(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -5073,6 +5305,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
         ? resistanceLevel.value
         : this.resistanceLevel,
     distanceKm: distanceKm.present ? distanceKm.value : this.distanceKm,
+    actualRpe: actualRpe.present ? actualRpe.value : this.actualRpe,
   );
   SessionSet copyWithCompanion(SessionSetsCompanion data) {
     return SessionSet(
@@ -5110,6 +5343,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
       distanceKm: data.distanceKm.present
           ? data.distanceKm.value
           : this.distanceKm,
+      actualRpe: data.actualRpe.present ? data.actualRpe.value : this.actualRpe,
     );
   }
 
@@ -5133,7 +5367,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           ..write('speedKph: $speedKph, ')
           ..write('inclinePercent: $inclinePercent, ')
           ..write('resistanceLevel: $resistanceLevel, ')
-          ..write('distanceKm: $distanceKm')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('actualRpe: $actualRpe')
           ..write(')'))
         .toString();
   }
@@ -5158,6 +5393,7 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
     inclinePercent,
     resistanceLevel,
     distanceKm,
+    actualRpe,
   );
   @override
   bool operator ==(Object other) =>
@@ -5180,7 +5416,8 @@ class SessionSet extends DataClass implements Insertable<SessionSet> {
           other.speedKph == this.speedKph &&
           other.inclinePercent == this.inclinePercent &&
           other.resistanceLevel == this.resistanceLevel &&
-          other.distanceKm == this.distanceKm);
+          other.distanceKm == this.distanceKm &&
+          other.actualRpe == this.actualRpe);
 }
 
 class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
@@ -5202,6 +5439,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
   final Value<double?> inclinePercent;
   final Value<int?> resistanceLevel;
   final Value<double?> distanceKm;
+  final Value<int?> actualRpe;
   const SessionSetsCompanion({
     this.id = const Value.absent(),
     this.sessionId = const Value.absent(),
@@ -5221,6 +5459,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.inclinePercent = const Value.absent(),
     this.resistanceLevel = const Value.absent(),
     this.distanceKm = const Value.absent(),
+    this.actualRpe = const Value.absent(),
   });
   SessionSetsCompanion.insert({
     this.id = const Value.absent(),
@@ -5241,6 +5480,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     this.inclinePercent = const Value.absent(),
     this.resistanceLevel = const Value.absent(),
     this.distanceKm = const Value.absent(),
+    this.actualRpe = const Value.absent(),
   }) : sessionId = Value(sessionId),
        exerciseName = Value(exerciseName),
        setNumber = Value(setNumber);
@@ -5263,6 +5503,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Expression<double>? inclinePercent,
     Expression<int>? resistanceLevel,
     Expression<double>? distanceKm,
+    Expression<int>? actualRpe,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5283,6 +5524,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       if (inclinePercent != null) 'incline_percent': inclinePercent,
       if (resistanceLevel != null) 'resistance_level': resistanceLevel,
       if (distanceKm != null) 'distance_km': distanceKm,
+      if (actualRpe != null) 'actual_rpe': actualRpe,
     });
   }
 
@@ -5305,6 +5547,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     Value<double?>? inclinePercent,
     Value<int?>? resistanceLevel,
     Value<double?>? distanceKm,
+    Value<int?>? actualRpe,
   }) {
     return SessionSetsCompanion(
       id: id ?? this.id,
@@ -5325,6 +5568,7 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
       inclinePercent: inclinePercent ?? this.inclinePercent,
       resistanceLevel: resistanceLevel ?? this.resistanceLevel,
       distanceKm: distanceKm ?? this.distanceKm,
+      actualRpe: actualRpe ?? this.actualRpe,
     );
   }
 
@@ -5385,6 +5629,9 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
     if (distanceKm.present) {
       map['distance_km'] = Variable<double>(distanceKm.value);
     }
+    if (actualRpe.present) {
+      map['actual_rpe'] = Variable<int>(actualRpe.value);
+    }
     return map;
   }
 
@@ -5408,7 +5655,8 @@ class SessionSetsCompanion extends UpdateCompanion<SessionSet> {
           ..write('speedKph: $speedKph, ')
           ..write('inclinePercent: $inclinePercent, ')
           ..write('resistanceLevel: $resistanceLevel, ')
-          ..write('distanceKm: $distanceKm')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('actualRpe: $actualRpe')
           ..write(')'))
         .toString();
   }
@@ -8704,6 +8952,11 @@ typedef $$WorkoutItemsTableCreateCompanionBuilder =
       Value<String?> cycleBlocks,
       Value<int> cyclePosition,
       Value<String?> cycleNames,
+      Value<int?> targetRpe,
+      Value<GzclTier?> gzclTier,
+      Value<String?> gzclStages,
+      Value<int> gzclStage,
+      Value<int> gzclAmrapTarget,
     });
 typedef $$WorkoutItemsTableUpdateCompanionBuilder =
     WorkoutItemsCompanion Function({
@@ -8737,6 +8990,11 @@ typedef $$WorkoutItemsTableUpdateCompanionBuilder =
       Value<String?> cycleBlocks,
       Value<int> cyclePosition,
       Value<String?> cycleNames,
+      Value<int?> targetRpe,
+      Value<GzclTier?> gzclTier,
+      Value<String?> gzclStages,
+      Value<int> gzclStage,
+      Value<int> gzclAmrapTarget,
     });
 
 final class $$WorkoutItemsTableReferences
@@ -8926,6 +9184,32 @@ class $$WorkoutItemsTableFilterComposer
 
   ColumnFilters<String> get cycleNames => $composableBuilder(
     column: $table.cycleNames,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get targetRpe => $composableBuilder(
+    column: $table.targetRpe,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<GzclTier?, GzclTier, String> get gzclTier =>
+      $composableBuilder(
+        column: $table.gzclTier,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get gzclStages => $composableBuilder(
+    column: $table.gzclStages,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get gzclStage => $composableBuilder(
+    column: $table.gzclStage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get gzclAmrapTarget => $composableBuilder(
+    column: $table.gzclAmrapTarget,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9125,6 +9409,31 @@ class $$WorkoutItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get targetRpe => $composableBuilder(
+    column: $table.targetRpe,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get gzclTier => $composableBuilder(
+    column: $table.gzclTier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get gzclStages => $composableBuilder(
+    column: $table.gzclStages,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get gzclStage => $composableBuilder(
+    column: $table.gzclStage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get gzclAmrapTarget => $composableBuilder(
+    column: $table.gzclAmrapTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkoutsTableOrderingComposer get workoutId {
     final $$WorkoutsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9306,6 +9615,25 @@ class $$WorkoutItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get targetRpe =>
+      $composableBuilder(column: $table.targetRpe, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<GzclTier?, String> get gzclTier =>
+      $composableBuilder(column: $table.gzclTier, builder: (column) => column);
+
+  GeneratedColumn<String> get gzclStages => $composableBuilder(
+    column: $table.gzclStages,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get gzclStage =>
+      $composableBuilder(column: $table.gzclStage, builder: (column) => column);
+
+  GeneratedColumn<int> get gzclAmrapTarget => $composableBuilder(
+    column: $table.gzclAmrapTarget,
+    builder: (column) => column,
+  );
+
   $$WorkoutsTableAnnotationComposer get workoutId {
     final $$WorkoutsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -9411,6 +9739,11 @@ class $$WorkoutItemsTableTableManager
                 Value<String?> cycleBlocks = const Value.absent(),
                 Value<int> cyclePosition = const Value.absent(),
                 Value<String?> cycleNames = const Value.absent(),
+                Value<int?> targetRpe = const Value.absent(),
+                Value<GzclTier?> gzclTier = const Value.absent(),
+                Value<String?> gzclStages = const Value.absent(),
+                Value<int> gzclStage = const Value.absent(),
+                Value<int> gzclAmrapTarget = const Value.absent(),
               }) => WorkoutItemsCompanion(
                 id: id,
                 workoutId: workoutId,
@@ -9442,6 +9775,11 @@ class $$WorkoutItemsTableTableManager
                 cycleBlocks: cycleBlocks,
                 cyclePosition: cyclePosition,
                 cycleNames: cycleNames,
+                targetRpe: targetRpe,
+                gzclTier: gzclTier,
+                gzclStages: gzclStages,
+                gzclStage: gzclStage,
+                gzclAmrapTarget: gzclAmrapTarget,
               ),
           createCompanionCallback:
               ({
@@ -9475,6 +9813,11 @@ class $$WorkoutItemsTableTableManager
                 Value<String?> cycleBlocks = const Value.absent(),
                 Value<int> cyclePosition = const Value.absent(),
                 Value<String?> cycleNames = const Value.absent(),
+                Value<int?> targetRpe = const Value.absent(),
+                Value<GzclTier?> gzclTier = const Value.absent(),
+                Value<String?> gzclStages = const Value.absent(),
+                Value<int> gzclStage = const Value.absent(),
+                Value<int> gzclAmrapTarget = const Value.absent(),
               }) => WorkoutItemsCompanion.insert(
                 id: id,
                 workoutId: workoutId,
@@ -9506,6 +9849,11 @@ class $$WorkoutItemsTableTableManager
                 cycleBlocks: cycleBlocks,
                 cyclePosition: cyclePosition,
                 cycleNames: cycleNames,
+                targetRpe: targetRpe,
+                gzclTier: gzclTier,
+                gzclStages: gzclStages,
+                gzclStage: gzclStage,
+                gzclAmrapTarget: gzclAmrapTarget,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -10002,6 +10350,7 @@ typedef $$SessionSetsTableCreateCompanionBuilder =
       Value<double?> inclinePercent,
       Value<int?> resistanceLevel,
       Value<double?> distanceKm,
+      Value<int?> actualRpe,
     });
 typedef $$SessionSetsTableUpdateCompanionBuilder =
     SessionSetsCompanion Function({
@@ -10023,6 +10372,7 @@ typedef $$SessionSetsTableUpdateCompanionBuilder =
       Value<double?> inclinePercent,
       Value<int?> resistanceLevel,
       Value<double?> distanceKm,
+      Value<int?> actualRpe,
     });
 
 final class $$SessionSetsTableReferences
@@ -10138,6 +10488,11 @@ class $$SessionSetsTableFilterComposer
 
   ColumnFilters<double> get distanceKm => $composableBuilder(
     column: $table.distanceKm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get actualRpe => $composableBuilder(
+    column: $table.actualRpe,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10259,6 +10614,11 @@ class $$SessionSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get actualRpe => $composableBuilder(
+    column: $table.actualRpe,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SessionsTableOrderingComposer get sessionId {
     final $$SessionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -10359,6 +10719,9 @@ class $$SessionSetsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get actualRpe =>
+      $composableBuilder(column: $table.actualRpe, builder: (column) => column);
+
   $$SessionsTableAnnotationComposer get sessionId {
     final $$SessionsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -10429,6 +10792,7 @@ class $$SessionSetsTableTableManager
                 Value<double?> inclinePercent = const Value.absent(),
                 Value<int?> resistanceLevel = const Value.absent(),
                 Value<double?> distanceKm = const Value.absent(),
+                Value<int?> actualRpe = const Value.absent(),
               }) => SessionSetsCompanion(
                 id: id,
                 sessionId: sessionId,
@@ -10448,6 +10812,7 @@ class $$SessionSetsTableTableManager
                 inclinePercent: inclinePercent,
                 resistanceLevel: resistanceLevel,
                 distanceKm: distanceKm,
+                actualRpe: actualRpe,
               ),
           createCompanionCallback:
               ({
@@ -10469,6 +10834,7 @@ class $$SessionSetsTableTableManager
                 Value<double?> inclinePercent = const Value.absent(),
                 Value<int?> resistanceLevel = const Value.absent(),
                 Value<double?> distanceKm = const Value.absent(),
+                Value<int?> actualRpe = const Value.absent(),
               }) => SessionSetsCompanion.insert(
                 id: id,
                 sessionId: sessionId,
@@ -10488,6 +10854,7 @@ class $$SessionSetsTableTableManager
                 inclinePercent: inclinePercent,
                 resistanceLevel: resistanceLevel,
                 distanceKm: distanceKm,
+                actualRpe: actualRpe,
               ),
           withReferenceMapper: (p0) => p0
               .map(

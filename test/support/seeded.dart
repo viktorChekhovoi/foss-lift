@@ -13,9 +13,7 @@ Future<RoutineWithCount> routineWithCountNamed(
 ]) async {
   var rows = await db.watchRoutines().first;
   if (!rows.any((r) => r.routine.name == name)) {
-    await db.addStarterRoutine(
-      kStarterRoutines.firstWhere((program) => program.name == name),
-    );
+    await db.addStarterRoutine(starterRoutineByName(name)!);
     rows = await db.watchRoutines().first;
   }
   return rows.firstWhere((r) => r.routine.name == name);

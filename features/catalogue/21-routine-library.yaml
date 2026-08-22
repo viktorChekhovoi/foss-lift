@@ -22,10 +22,11 @@ groups:
   - id: library-holds-the-programs-the-app-ships
     t: The library holds the programs the app ships
     d: >-
-      The library contains sixteen templates: Push / Pull / Legs, Upper / Lower,
-      Starting Strength, StrongLifts 5x5, Full Body 3x, Bodyweight Basics,
-      Dumbbell Full Body, Interval Conditioning, Two-Day Full Body, four 5/3/1
-      variants, two Candito Linear variants, and Sheiko #29–32. Templates are
+      The library contains sixteen published templates: GZCLP, Push/Pull/Legs,
+      the Basic Beginner Routine, Starting Strength, StrongLifts 5x5, the
+      Bodyweight Routine, the Dumbbell Beginner Routine, four 5/3/1
+      variants, two Candito Linear variants, Sheiko #29–32, and the TSA Beginner
+      and Intermediate 2.0 approaches. Templates are
       defined in code rather than stored as database rows, so every build has the
       same immutable library.
     defines:
@@ -111,25 +112,28 @@ groups:
     - progression.rates
     - template.item
   - id: library-covers-training-without-a-gym
-    t: Four of the programs need no gym
+    t: The library includes established programs for limited equipment
     d: >-
-      Bodyweight Basics requires a floor and hanging point; Dumbbell Full Body
-      requires one pair of dumbbells; Interval Conditioning requires a rope and
-      sprint space. Two-Day Full Body covers squat, hinge, press, and pull across
-      two sessions.
+      The Bodyweight Routine uses bodyweight progressions and a place to hang or
+      row. The Dumbbell Beginner Routine uses adjustable dumbbells
+      or a rack of dumbbells and alternates two full-body sessions.
     uses:
     - template.starter-library
     - template.routine
-  - id: interval-programs-prescribe-seconds
-    t: An interval program prescribes seconds, not reps
+  - id: library-ships-community-programs
+    t: Community programs keep their published structure
     d: >-
-      Conditioning slots carry a work period in seconds, shown in the preview and
-      copied routine instead of a rep count. A work period is applied only to
-      exercises measured in time; counted exercises ignore it.
+      Push/Pull/Legs retains its six-day pull, push, legs rotation and
+      alternating primary lifts. The Basic Beginner Routine alternates two
+      three-lift days. The bodyweight Recommended Routine keeps its three paired
+      strength blocks and core triplet. The Dumbbell Beginner Routine alternates its two
+      published full-body days.
     uses:
     - template.starter-library
+    - template.workout
     - template.item
     - template.rep-target
+    - template.superset
   - id: library-ships-four-531-programs
     t: Four of the programs run 5/3/1 cycles
     d: >-
@@ -142,6 +146,19 @@ groups:
     - template.starter-library
     - template.cycle
     - template.training-max
+    - template.per-set-reps
+  - id: library-ships-gzclp
+    t: GZCLP arrives as its four-workout rotation
+    d: >-
+      A1, B1, A2 and B2 train squat, bench press, deadlift and overhead press
+      once as T1 and once as T2, with lat pulldowns or dumbbell rows as T3. T1
+      opens on 5 × 3+, T2 on 3 × 10 and T3 on 3 × 15+, carrying the configurable
+      GZCL progression assigned to each tier.
+    uses:
+    - template.starter-library
+    - progression.gzcl-tier
+    - progression.stage-ladder
+    - progression.amrap-trigger
     - template.per-set-reps
   - id: library-ships-two-candito-programs
     t: Two of the programs are Candito's linear progression
@@ -169,6 +186,20 @@ groups:
     - template.set-scheme
     - template.per-set-reps
     - template.training-max
+  - id: library-ships-two-tsa-rpe-programs
+    t: The library ships TSA Beginner and Intermediate 2.0
+    d: >-
+      Both are explicit nine-week powerlifting programs based on The Strength
+      Athlete's published templates. Their four-day structure, exercise
+      variations, sets, reps, and effort prescriptions are represented with
+      Foss Lift's supported RPE targets. Those loads are chosen in the session
+      and are not advanced by Foss Lift's linear progression.
+    uses:
+    - template.starter-library
+    - template.effort-target
+    - template.set-scheme
+    - template.per-set-reps
+    - session.effort-rating
   - id: sheiko-is-forty-eight-explicit-sessions
     t: Sheiko arrives as forty-eight sessions in order, not as a rotation
     d: >-
@@ -240,9 +271,9 @@ groups:
   - id: program-says-what-it-is
     t: A program says what it is before you take it
     d: >-
-      The preview and copied routine retain the template's description, including
-      intended user, schedule, and purpose. The copied description remains
-      editable.
+      The preview and copied routine retain a short factual description naming
+      the program's author or community, schedule, equipment, and any limitation
+      Foss Lift cannot automate. The copy remains editable.
     screen: routine-preview
     uses:
     - template.starter-library

@@ -55,8 +55,9 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
         child: data.when(
           loading: () =>
               Center(child: CircularProgressIndicator(color: AppColors.accent)),
-          error: (e, _) =>
-              Center(child: Text('$e', style: TextStyle(color: AppColors.muted))),
+          error: (e, _) => Center(
+            child: Text('$e', style: TextStyle(color: AppColors.muted)),
+          ),
           data: (d) => _SummaryBody(
             session: d.session,
             sets: d.sets,
@@ -122,18 +123,30 @@ class _SummaryBody extends StatelessWidget {
                         colors: [AppColors.good, Color(0xFF2FAE7D)],
                       ),
                     ),
-                    child: const Icon(Icons.check_rounded, size: 40, color: Color(0xFF062015)),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      size: 40,
+                      color: Color(0xFF062015),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
                 Center(
-                  child: Text(l10n.summaryTitle,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+                  child: Text(
+                    l10n.summaryTitle,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Center(
-                  child: Text(seededName(l10n, session.seedKey, session.name),
-                      style: TextStyle(color: AppColors.muted, fontSize: 14)),
+                  child: Text(
+                    seededName(l10n, session.seedKey, session.name),
+                    style: TextStyle(color: AppColors.muted, fontSize: 14),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Center(
@@ -159,13 +172,15 @@ class _SummaryBody extends StatelessWidget {
                     Expanded(
                       child: _SumCell(
                           value: fmtTotal(session.setsCompleted),
-                          label: l10n.summarySetsDone),
+                        label: l10n.summarySetsDone,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _SumCell(
                           value: fmtTotal(grouped.length),
-                          label: l10n.summaryExercises),
+                        label: l10n.summaryExercises,
+                      ),
                     ),
                   ],
                 ),
@@ -212,7 +227,8 @@ class _SummaryBody extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
-                          for (final entry in grouped.entries.toList().asMap().entries)
+                          for (final entry
+                              in grouped.entries.toList().asMap().entries)
                             _SessionExerciseRow(
                               index: entry.key + 1,
                               sets: entry.value.value,
@@ -226,8 +242,10 @@ class _SummaryBody extends StatelessWidget {
                           if (grouped.isEmpty)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 18),
-                              child: Text(l10n.summaryNoSets,
-                                  style: TextStyle(color: AppColors.muted)),
+                              child: Text(
+                                l10n.summaryNoSets,
+                                style: TextStyle(color: AppColors.muted),
+                              ),
                             ),
                         ],
                       ),
@@ -279,11 +297,14 @@ class _HistoryHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(seededName(l10n, session.seedKey, session.name),
+                  Text(
+                    seededName(l10n, session.seedKey, session.name),
                       style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5)),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     _sessionStamp(session.startedAt, l10n.localeName),
@@ -320,14 +341,21 @@ class _SumCell extends StatelessWidget {
         children: [
           Text.rich(
             TextSpan(
-              style: kMono.copyWith(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+              style: kMono.copyWith(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
               children: [
                 TextSpan(text: value),
                 if (unit != null)
                   TextSpan(
                     text: ' $unit',
                     style: TextStyle(
-                        fontSize: 13, color: AppColors.muted, fontWeight: FontWeight.w600),
+                      fontSize: 13,
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
               ],
             ),
@@ -335,7 +363,11 @@ class _SumCell extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label.toUpperCase(),
-            style: kMono.copyWith(fontSize: 11, letterSpacing: 0.9, color: AppColors.faint),
+            style: kMono.copyWith(
+              fontSize: 11,
+              letterSpacing: 0.9,
+              color: AppColors.faint,
+            ),
           ),
         ],
       ),
@@ -369,15 +401,22 @@ class _ProgressionRow extends StatelessWidget {
     final mag = outcome.moved.abs();
     final up = outcome.moved > 0;
     return switch (outcome.mode) {
-      ProgressionMode.weight => up
+      ProgressionMode.weight =>
+        up
           ? l10n.summaryStepWeight(
-              fmtWeight(toDisplayWeight(mag, unit)), unitSuffix(l10n, unit))
+                fmtWeight(toDisplayWeight(mag, unit)),
+                unitSuffix(l10n, unit),
+              )
           : l10n.summaryBackOffWeight(
-              fmtWeight(toDisplayWeight(mag, unit)), unitSuffix(l10n, unit)),
-      ProgressionMode.reps => up
+                fmtWeight(toDisplayWeight(mag, unit)),
+                unitSuffix(l10n, unit),
+              ),
+      ProgressionMode.reps =>
+        up
           ? l10n.summaryStepReps(mag.round())
           : l10n.summaryBackOffReps(mag.round()),
-      ProgressionMode.time => up
+      ProgressionMode.time =>
+        up
           ? l10n.summaryStepTime('${mag.round()}')
           : l10n.summaryBackOffTime('${mag.round()}'),
     };
@@ -407,8 +446,7 @@ class _ProgressionRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        border:
-            last ? null : Border(bottom: BorderSide(color: AppColors.line)),
+        border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
@@ -418,11 +456,19 @@ class _ProgressionRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(seededName(l10n, outcome.seedKey, outcome.name),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                  seededName(l10n, outcome.seedKey, outcome.name),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 if (sub != null) ...[
                   const SizedBox(height: 2),
-                  Text(sub, style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Text(
+                    sub,
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
                 ],
               ],
             ),
@@ -430,7 +476,10 @@ class _ProgressionRow extends StatelessWidget {
           Text(
             _target(l10n),
             style: kMono.copyWith(
-                fontSize: 13, fontWeight: FontWeight.w700, color: tone),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: tone,
+            ),
           ),
         ],
       ),
@@ -473,22 +522,24 @@ class _SessionExerciseRow extends StatelessWidget {
 
     final filmedSets = sets.where((s) => s.videoPath != null).toList();
     return GestureDetector(
-      onTap: filmedSets.isEmpty
-          ? null
-          : () => _openClips(context, filmedSets),
+      onTap: filmedSets.isEmpty ? null : () => _openClips(context, filmedSets),
       behavior: HitTestBehavior.opaque,
       child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
+          border: last
+              ? null
+              : Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
           SizedBox(
             width: 22,
-            child: Text('$index',
+              child: Text(
+                '$index',
                 textAlign: TextAlign.center,
-                style: kMono.copyWith(fontSize: 13, color: AppColors.faint)),
+                style: kMono.copyWith(fontSize: 13, color: AppColors.faint),
+              ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -496,10 +547,16 @@ class _SessionExerciseRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    seededName(l10n, sets.first.exerciseSeedKey,
-                        sets.first.exerciseName),
+                    seededName(
+                      l10n,
+                      sets.first.exerciseSeedKey,
+                      sets.first.exerciseName,
+                    ),
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 const SizedBox(height: 2),
                 Text.rich(
                   TextSpan(
@@ -524,37 +581,31 @@ class _SessionExerciseRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     readouts,
-                    style: kMono.copyWith(fontSize: 11, color: AppColors.faint),
+                      style: kMono.copyWith(
+                        fontSize: 11,
+                        color: AppColors.faint,
+                      ),
                   ),
                 ],
               ],
             ),
           ),
-          Text.rich(
-            TextSpan(
+            Text(
+              timed
+                  ? '${l10n.unitSecondsShort('${best.seconds ?? 0}')}'
+                        '${best.weight == 0 ? '' : ' @ $w'}'
+                  : '$w × ${best.reps}'
+                        '${best.actualRpe == null ? '' : ' @${formatRpe(best.actualRpe!)}'}',
               style: kMono.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
-              children: timed
-                  ? [
-                      TextSpan(
-                          text: l10n.unitSecondsShort('${best.seconds ?? 0}')),
-                      if (best.weight != 0)
-                        TextSpan(
-                            text: ' @ $w',
-                            style: TextStyle(color: AppColors.faint)),
-                    ]
-                  : [
-                      TextSpan(text: w),
-                      TextSpan(
-                          text: ' ×${best.reps}',
-                          style: TextStyle(color: AppColors.faint)),
-                    ],
-            ),
           ),
           if (filmedSets.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 10),
-              child: Icon(Icons.play_circle_outline,
-                  size: 20, color: AppColors.accent),
+                child: Icon(
+                  Icons.play_circle_outline,
+                  size: 20,
+                  color: AppColors.accent,
+                ),
             ),
         ],
       ),
@@ -562,10 +613,7 @@ class _SessionExerciseRow extends StatelessWidget {
     );
   }
 
-  Future<void> _openClips(
-    BuildContext context,
-    List<SessionSet> filmed,
-  ) async {
+  Future<void> _openClips(BuildContext context, List<SessionSet> filmed) async {
     final l10n = AppLocalizations.of(context);
     SessionSet? chosen = filmed.first;
     if (filmed.length > 1) {
@@ -578,8 +626,10 @@ class _SessionExerciseRow extends StatelessWidget {
             children: [
               for (final s in filmed)
                 ListTile(
-                  leading: Icon(Icons.play_circle_outline,
-                      color: AppColors.accent),
+                  leading: Icon(
+                    Icons.play_circle_outline,
+                    color: AppColors.accent,
+                  ),
                   title: Text(_labelFor(l10n, s)),
                   onTap: () => Navigator.pop(sheet, s),
                 ),

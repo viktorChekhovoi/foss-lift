@@ -71,8 +71,7 @@ class Exercises extends Table {
   RealColumn get barWeight => real().nullable()();
 
   /// Additional primary groups, joined by [kGroupSeparator].
-  TextColumn get extraPrimaryGroups =>
-      text().withDefault(const Constant(''))();
+  TextColumn get extraPrimaryGroups => text().withDefault(const Constant(''))();
 
   /// Secondary muscle groups, joined by [kGroupSeparator].
   TextColumn get secondaryGroups => text().withDefault(const Constant(''))();
@@ -175,7 +174,8 @@ class Workouts extends Table {
   /// it off — for the day that follows another, or the one you warm up for
   /// before the app is open. It belongs to the day rather than the session, so
   /// a day trained without ramps opens without them again next week.
-  BoolColumn get warmupsEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get warmupsEnabled =>
+      boolean().withDefault(const Constant(true))();
 }
 
 /// One exercise slot inside a workout. Reps are stored structurally so the app
@@ -353,6 +353,17 @@ class WorkoutItems extends Table {
   /// upgraded database has to end up the same shape as a fresh one. Whatever
   /// column comes next goes under this one, and takes this note with it.
   TextColumn get cycleNames => text().nullable()();
+
+  /// Optional prescribed effort in tenths (80 is RPE 8).
+  IntColumn get targetRpe => integer().nullable()();
+
+  /// Optional GZCL role and its configurable progression state. These follow
+  /// the v16 RPE column so fresh and upgraded databases have the same shape.
+  TextColumn get gzclTier => textEnum<GzclTier>().nullable()();
+  TextColumn get gzclStages => text().nullable()();
+  IntColumn get gzclStage => integer().withDefault(const Constant(0))();
+  IntColumn get gzclAmrapTarget =>
+      integer().withDefault(const Constant(defaultGzclT3AmrapTarget))();
 }
 
 /// What one slot's sets are actually aiming at, and by which rule.
@@ -362,6 +373,17 @@ class WorkoutItems extends Table {
 /// [WorkoutItems.repsTarget] as anything: which of the four target kinds this
 /// slot is, and what number falls out of it.
 extension WorkoutItemTarget on WorkoutItem {
+  List<GzclStage> get gzclStageList => decodeGzclStages(gzclStages);
+
+  GzclStage? get currentGzclStage {
+    final stages = gzclStageList;
+    if (gzclTier == null || gzclTier == GzclTier.t3 || stages.isEmpty) {
+      return null;
+    }
+    final at = gzclStage.clamp(0, stages.length - 1);
+    return stages[at];
+  }
+
   /// Whether this slot takes reps and weight in turn — the advanced axis.
   ///
   /// All four conditions, every time it is asked. A slot keeps the setting
@@ -381,6 +403,8 @@ extension WorkoutItemTarget on WorkoutItem {
   /// fixed count is itself. Says nothing about a timed slot, which is measured
   /// in seconds — see [WorkoutItems.holdSeconds].
   int get goalReps {
+    final gzcl = currentGzclStage;
+    if (gzcl != null) return gzcl.reps;
     if (toFailure) return repsMin;
     final top = repsMax;
     if (top == null) return repsMin;
@@ -441,6 +465,8 @@ extension WorkoutItemTarget on WorkoutItem {
   /// differ in length cannot be counted one way by the board and another by the
   /// duration estimate.
   int get setCount {
+    final gzcl = currentGzclStage;
+    if (gzcl != null) return gzcl.sets;
     final rows = cycleRows;
     return rows.isEmpty ? targetSets : rows.length;
   }
@@ -547,6 +573,9 @@ class SessionSets extends Table {
 
   /// Distance covered, in kilometres. Metric for the same reason [speedKph] is.
   RealColumn get distanceKm => real().nullable()();
+
+  /// The lifter's optional set RPE in tenths (85 is RPE 8.5).
+  IntColumn get actualRpe => integer().nullable()();
 }
 
 /// A single-row key/value store for app-wide preferences (always id == 1).
@@ -1059,7 +1088,8 @@ const Map<String, String> _starterDemos = {
       'bm9M6y4QFoM', // Deconstructing The Turkish Get Up — Bodybuilding.com
   "Farmer's Carry":
       '8OtwXwrJizk', // How To Do A Farmer's Walk (Farmer's Carry) — PureGym
-  'Air Squat': 'l83R5PblSMA', // Leg exercise - How to bodyweight squat — PureGym
+  'Air Squat':
+      'l83R5PblSMA', // Leg exercise - How to bodyweight squat — PureGym
   'Bodyweight Lunge': 'g8-Ge9S0aUw', // How To Do A Forward Lunge — PureGym
   'Pike Push-Up': '9NLyrC2joJs', // How To Do A Pike Push up — PureGym
   'Diamond Push-Up': 'K8bKxVcwjrk', // How To Do A Diamond Push up — PureGym
@@ -1188,10 +1218,7 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     // widening the grip takes the triceps out of it, putting the feet up sends
     // it to the upper chest and the front delt. The one that files elsewhere is
     // the diamond push-up, which is a triceps movement — see Arms.
-    'Wide Push-Up': _s(
-      'Bodyweight',
-      assists: ['Shoulders', 'Arms', 'Core'],
-    ),
+    'Wide Push-Up': _s('Bodyweight', assists: ['Shoulders', 'Arms', 'Core']),
     'Decline Push-Up': _s(
       'Bodyweight',
       also: ['Shoulders'],
@@ -1215,9 +1242,17 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
     // blocks, started from a platform. Each is its own movement with its own
     // history, and each is prescribed as a percentage of the whole deadlift —
     // see `data/percentage_base.dart`.
-    'Deadlift to Knees': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    'Deadlift to Knees': _s(
+      'Barbell',
+      also: ['Legs'],
+      assists: ['Arms', 'Core'],
+    ),
     'Block Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
-    'Deficit Deadlift': _s('Barbell', also: ['Legs'], assists: ['Arms', 'Core']),
+    'Deficit Deadlift': _s(
+      'Barbell',
+      also: ['Legs'],
+      assists: ['Arms', 'Core'],
+    ),
     'Barbell Row': _s('Barbell', also: ['Arms'], assists: ['Core']),
     'Barbell Shrug': _s('Barbell', assists: ['Arms']),
     'Dumbbell Row': _s('Dumbbell', also: ['Arms'], assists: ['Core']),
@@ -1309,11 +1344,7 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
       also: ['Back', 'Shoulders'],
       assists: ['Arms', 'Core'],
     ),
-    'Kettlebell Swing': _s(
-      'Other',
-      also: ['Back'],
-      assists: ['Core', 'Arms'],
-    ),
+    'Kettlebell Swing': _s('Other', also: ['Back'], assists: ['Core', 'Arms']),
     // A leg day off a pair of dumbbells. The hinges name Back as a primary for
     // the same reason the barbell ones do; the squats and lunges do not, because
     // holding a dumbbell is not what the back is there for.
@@ -1416,18 +1447,30 @@ final Map<String, Map<String, _Starter>> _starterLibrary = {
   // a Legs filter somebody has to read past to find a squat. Every muscle each
   // one leans on is still named — as an assist, which is what it is doing.
   'Cardio': {
-    'Burpee': _s('Bodyweight', assists: ['Legs', 'Chest', 'Arms', 'Shoulders', 'Core']),
-    'Mountain Climber': _s('Bodyweight', assists: ['Core', 'Legs', 'Shoulders', 'Chest']),
+    'Burpee': _s(
+      'Bodyweight',
+      assists: ['Legs', 'Chest', 'Arms', 'Shoulders', 'Core'],
+    ),
+    'Mountain Climber': _s(
+      'Bodyweight',
+      assists: ['Core', 'Legs', 'Shoulders', 'Chest'],
+    ),
     'High Knees': _s('Bodyweight', assists: ['Legs', 'Core']),
     'Jumping Jack': _s('Bodyweight', assists: ['Legs', 'Shoulders', 'Core']),
     'Jump Squat': _s('Bodyweight', assists: ['Legs', 'Core']),
     'Box Jump': _s('Bodyweight', assists: ['Legs', 'Core']),
     'Skater Jump': _s('Bodyweight', assists: ['Legs', 'Core']),
-    'Bear Crawl': _s('Bodyweight', assists: ['Core', 'Shoulders', 'Legs', 'Arms']),
+    'Bear Crawl': _s(
+      'Bodyweight',
+      assists: ['Core', 'Shoulders', 'Legs', 'Arms'],
+    ),
     'Sprint': _s('Bodyweight', assists: ['Legs', 'Core']),
     'Jump Rope': _s('Other', assists: ['Legs', 'Shoulders', 'Core']),
     'Battle Rope': _s('Other', assists: ['Shoulders', 'Arms', 'Back', 'Core']),
-    'Shadow Boxing': _s('Bodyweight', assists: ['Shoulders', 'Core', 'Arms', 'Legs']),
+    'Shadow Boxing': _s(
+      'Bodyweight',
+      assists: ['Shoulders', 'Core', 'Arms', 'Legs'],
+    ),
     // The cardio floor. Equipment `Machine` beside the `Cardio` group is what
     // makes each of these a console — see [isCardioMachine] — so a set of one
     // can carry the speed, incline, resistance and distance it was done at.
@@ -1648,8 +1691,11 @@ class AppDatabase extends _$AppDatabase {
   ///   deficit deadlift, the seated good morning and the French press. No column
   ///   changes and nothing already on a phone is touched — a rung of its own
   ///   rather than an edit to v14, for the reason stated on v6.
+  /// - **v16** — optional RPE targets on slots and actual RPE on logged sets.
+  /// - **v17** — optional GZCL tier, stage ladder, current stage and T3 AMRAP
+  ///   target. Null tier leaves every existing slot on ordinary progression.
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1851,6 +1897,24 @@ class AppDatabase extends _$AppDatabase {
       // library. No column changes: the starter walk is the whole rung, and it
       // leaves every movement already there exactly as it is.
       if (from < 15) await _insertMissingStarterExercises(m.database);
+      if (from < 16) {
+        await m.addColumn(workoutItems, workoutItems.targetRpe);
+        await m.addColumn(sessionSets, sessionSets.actualRpe);
+      }
+      if (from < 17) {
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "gzcl_tier" TEXT NULL',
+        );
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "gzcl_stages" TEXT NULL',
+        );
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "gzcl_stage" INTEGER NOT NULL DEFAULT 0',
+        );
+        await m.database.customStatement(
+          'ALTER TABLE "workout_items" ADD COLUMN "gzcl_amrap_target" INTEGER NOT NULL DEFAULT 25',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -1867,7 +1931,9 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Matched on the canonical English name, which is what `_seed` writes and what
   /// every routine code names. A movement already there is left exactly as it is.
-  static Future<void> _insertMissingStarterExercises(DatabaseConnectionUser db) async {
+  static Future<void> _insertMissingStarterExercises(
+    DatabaseConnectionUser db,
+  ) async {
     for (final group in _starterLibrary.entries) {
       for (final movement in group.value.entries) {
         final name = movement.key;
@@ -2046,9 +2112,9 @@ class AppDatabase extends _$AppDatabase {
       );
       if (was == now) return;
       await _reunitItems(
-        await (select(workoutItems)
-              ..where((i) => i.exerciseId.equals(id)))
-            .get(),
+        await (select(
+          workoutItems,
+        )..where((i) => i.exerciseId.equals(id))).get(),
         from: was,
         to: now,
       );
@@ -2154,9 +2220,9 @@ class AppDatabase extends _$AppDatabase {
   /// slots belong to a routine.
   JoinedSelectStatement<HasResultSet, dynamic> _routineSlots(int routineId) =>
       select(workoutItems).join([
-        innerJoin(workouts, workouts.id.equalsExp(workoutItems.workoutId)),
-        innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
-      ])
+          innerJoin(workouts, workouts.id.equalsExp(workoutItems.workoutId)),
+          innerJoin(exercises, exercises.id.equalsExp(workoutItems.exerciseId)),
+        ])
         ..where(workouts.routineId.equals(routineId))
         ..orderBy([
           OrderingTerm(expression: workouts.position),
@@ -2195,8 +2261,9 @@ class AppDatabase extends _$AppDatabase {
           row.readTable(workoutItems).id,
     ];
     if (ids.isEmpty) return;
-    await (update(workoutItems)..where((i) => i.id.isIn(ids)))
-        .write(WorkoutItemsCompanion(suggestedWeight: Value(kg)));
+    await (update(workoutItems)..where((i) => i.id.isIn(ids))).write(
+      WorkoutItemsCompanion(suggestedWeight: Value(kg)),
+    );
   }
 
   Future<List<Workout>> workoutsForRoutine(int routineId) {
@@ -2235,8 +2302,9 @@ class AppDatabase extends _$AppDatabase {
   /// alone — this is not a rename, so the seed key stays and a demo day keeps
   /// following the language.
   Future<void> setWorkoutWarmupsEnabled(int id, bool enabled) {
-    return (update(workouts)..where((w) => w.id.equals(id)))
-        .write(WorkoutsCompanion(warmupsEnabled: Value(enabled)));
+    return (update(workouts)..where((w) => w.id.equals(id))).write(
+      WorkoutsCompanion(warmupsEnabled: Value(enabled)),
+    );
   }
 
   /// Deletes a workout; its exercise slots cascade away via the foreign key.
@@ -2503,10 +2571,11 @@ class AppDatabase extends _$AppDatabase {
               scheme: cycling
                   ? const Value(SetScheme.cycle)
                   : (written
-                      ? const Value(SetScheme.custom)
-                      : const Value.absent()),
-              cycleBlocks:
-                  cycling ? Value(encodeCycleBlocks(slot.cycle)) : const Value.absent(),
+                        ? const Value(SetScheme.custom)
+                        : const Value.absent()),
+              cycleBlocks: cycling
+                  ? Value(encodeCycleBlocks(slot.cycle))
+                  : const Value.absent(),
               customSets: written
                   ? Value(encodeCustomSets(slot.customSets))
                   : const Value.absent(),
@@ -2516,17 +2585,29 @@ class AppDatabase extends _$AppDatabase {
                   ? Value(slot.repsMin)
                   : const Value.absent(),
               repsMax: Value(slot.repsMax),
+              targetRpe: Value(slot.targetRpe),
+              supersetWithPrevious: Value(slot.supersetWithPrevious),
+              addWeightAtTopOfRange: Value(slot.addWeightAtTopOfRange),
+              gzclTier: Value(slot.gzclTier),
+              gzclStages: Value(encodeGzclStages(slot.gzclStages)),
+              gzclAmrapTarget: Value(slot.gzclAmrapTarget),
               holdSeconds: hold == null ? const Value.absent() : Value(hold),
-              suggestedWeight: Value(slot.weightKg == null
-                  ? null
-                  : asLoadedIn(slot.weightKg!, unit)),
+              suggestedWeight: Value(
+                slot.weightKg == null ? null : asLoadedIn(slot.weightKg!, unit),
+              ),
               progression: Value(mode),
               // Only the weight axis has a unit at all — a rep step is a rep in
               // every gym on earth, and landing one on a plate grid is nonsense.
-              increment: Value(_starterRate(
-                  slot.increment ?? mode.defaultIncrement, mode, unit)),
+              increment: Value(
+                _starterRate(
+                  slot.increment ?? mode.defaultIncrement,
+                  mode,
+                  unit,
+                ),
+              ),
               deload: Value(
-                  _starterRate(slot.deload ?? mode.defaultDeload, mode, unit)),
+                _starterRate(slot.deload ?? mode.defaultDeload, mode, unit),
+              ),
               // A lift the program deliberately moves slower than the ones
               // beside it waits this many clean sessions for its step. Absent
               // where the program says nothing, which is the app's own one.
@@ -2667,8 +2748,9 @@ class AppDatabase extends _$AppDatabase {
       exercises,
     )..where((e) => e.id.equals(it.exerciseId))).getSingleOrNull();
     if (exercise == null || !exercise.weightType.loadedPerSide) return 0;
-    final row =
-        await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    final row = await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
     return loadFloorKg(
       type: exercise.weightType,
       defaultBarKg: row?.barWeight ?? defaultBarKg(row?.weightUnit ?? 'kg'),
@@ -2699,9 +2781,14 @@ class AppDatabase extends _$AppDatabase {
     required SessionVerdict verdict,
     double? performedWeight,
     double? sessionWeight,
+    int? finalAmrapReps,
   }) async {
     final it = await workoutItemById(itemId);
     if (it == null) return (moved: 0.0, axis: ProgressionMode.weight);
+
+    if (it.gzclTier != null) {
+      return _advanceGzcl(it, verdict, finalAmrapReps: finalAmrapReps);
+    }
 
     // A cycle answers the whole question differently and answers it first: the
     // weeks are what advance, and the weight moves once, when they come round.
@@ -2755,7 +2842,8 @@ class AppDatabase extends _$AppDatabase {
           // next session's percentages would be taken from it. A cycle never
           // reaches here at all; a custom slot does, and is held to the same
           // rule for the same reason.
-          final base = performedWeight != null &&
+          final base =
+              performedWeight != null &&
                   performedWeight > stored &&
                   !it.runsPercentages
               ? performedWeight
@@ -2815,6 +2903,60 @@ class AppDatabase extends _$AppDatabase {
     return (moved: moved, axis: axis);
   }
 
+  Future<ProgressionMove> _advanceGzcl(
+    WorkoutItem it,
+    SessionVerdict verdict, {
+    int? finalAmrapReps,
+  }) async {
+    final tier = it.gzclTier!;
+    var patch = const WorkoutItemsCompanion(
+      successStreak: Value(0),
+      failStreak: Value(0),
+    );
+    var moved = 0.0;
+
+    if (tier == GzclTier.t3) {
+      if (finalAmrapReps != null && finalAmrapReps >= it.gzclAmrapTarget) {
+        final from = it.suggestedWeight;
+        if (from != null) {
+          final floorKg = await _loadFloorFor(it);
+          final to = advanceTarget(
+            from < floorKg ? floorKg : from,
+            it.increment,
+            ProgressionMode.weight,
+            floorKg: floorKg,
+          );
+          patch = patch.copyWith(suggestedWeight: Value(to));
+          moved = to - from;
+        }
+      }
+    } else if (verdict == SessionVerdict.success) {
+      final from = it.suggestedWeight;
+      if (from != null) {
+        final floorKg = await _loadFloorFor(it);
+        final stored = from < floorKg ? floorKg : from;
+        final to = advanceTarget(
+          stored,
+          it.increment,
+          ProgressionMode.weight,
+          floorKg: floorKg,
+        );
+        patch = patch.copyWith(suggestedWeight: Value(to));
+        moved = to - stored;
+      }
+    } else {
+      final stages = it.gzclStageList;
+      if (stages.isNotEmpty && it.gzclStage < stages.length - 1) {
+        patch = patch.copyWith(gzclStage: Value(it.gzclStage + 1));
+      }
+    }
+
+    await (update(
+      workoutItems,
+    )..where((row) => row.id.equals(it.id))).write(patch);
+    return (moved: moved, axis: ProgressionMode.weight);
+  }
+
   /// Advances a slot running a cycle: the week always, the weight at the wrap.
   ///
   /// **The performed weight is deliberately not consulted here**, unlike every
@@ -2866,9 +3008,7 @@ class AppDatabase extends _$AppDatabase {
       moved = to - stored;
     }
 
-    await (update(
-      workoutItems,
-    )..where((i) => i.id.equals(it.id))).write(patch);
+    await (update(workoutItems)..where((i) => i.id.equals(it.id))).write(patch);
     return (moved: moved, axis: ProgressionMode.weight);
   }
 
@@ -3188,9 +3328,13 @@ class AppDatabase extends _$AppDatabase {
           )
           ..orderBy([
             OrderingTerm(
-                expression: sessions.startedAt, mode: OrderingMode.desc),
+              expression: sessions.startedAt,
+              mode: OrderingMode.desc,
+            ),
             OrderingTerm(
-                expression: sessionSets.setNumber, mode: OrderingMode.desc),
+              expression: sessionSets.setNumber,
+              mode: OrderingMode.desc,
+            ),
           ])
           ..limit(1);
 
@@ -3265,8 +3409,9 @@ class AppDatabase extends _$AppDatabase {
   /// asked — moving abroad, or switching the app's language, must not silently
   /// re-unit a training log somebody has been keeping.
   Future<void> seedWeightUnit(String unit) async {
-    final row =
-        await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    final row = await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
     if (row?.weightUnit != null) return;
     await _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
   }
@@ -3292,8 +3437,9 @@ class AppDatabase extends _$AppDatabase {
   /// the app-wide setting is the answer for everything nobody chose.
   Future<void> setWeightUnit(String unit) {
     return transaction(() async {
-      final row =
-          await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+      final row = await (select(
+        settings,
+      )..where((s) => s.id.equals(1))).getSingleOrNull();
       final was = row?.weightUnit ?? 'kg';
       await _writeSettings(SettingsCompanion(weightUnit: Value(unit)));
       if (was == unit) return;
@@ -3301,8 +3447,7 @@ class AppDatabase extends _$AppDatabase {
       final pinned = {
         for (final e in await (select(
           exercises,
-        )..where((e) => e.unitOverride.isNotNull()))
-            .get())
+        )..where((e) => e.unitOverride.isNotNull())).get())
           e.id,
       };
       await _reunitItems(
@@ -3345,16 +3490,18 @@ class AppDatabase extends _$AppDatabase {
         }
       }
       if (!moved) continue;
-      await (update(workoutItems)..where((i) => i.id.equals(item.id)))
-          .write(patch);
+      await (update(
+        workoutItems,
+      )..where((i) => i.id.equals(item.id))).write(patch);
     }
   }
 
   /// The app-wide unit as stored, for the writers that have to compare against
   /// it. Screens read `weightUnitProvider` instead.
   Future<String> _appUnit() async {
-    final row =
-        await (select(settings)..where((s) => s.id.equals(1))).getSingleOrNull();
+    final row = await (select(
+      settings,
+    )..where((s) => s.id.equals(1))).getSingleOrNull();
     return row?.weightUnit ?? 'kg';
   }
 
@@ -3436,9 +3583,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// How many warm-up rungs a session opens each exercise with.
   Stream<int> watchDefaultWarmupSets() {
-    return (select(settings)..where((s) => s.id.equals(1)))
-        .watchSingleOrNull()
-        .map(_warmupSetsOf);
+    return (select(
+      settings,
+    )..where((s) => s.id.equals(1))).watchSingleOrNull().map(_warmupSetsOf);
   }
 
   /// The same, read once — what [ActiveWorkoutController.start] seeds from.
@@ -3729,17 +3876,17 @@ class AppDatabase extends _$AppDatabase {
   /// not this method's business — they are files beside the database, and the
   /// caller that has a filesystem deletes them (see [SetVideoStore.deleteEverything]).
   Future<void> resetEverything() => transaction(() async {
-        // `allTables` is in declaration order, not dependency order, so a
-        // parent can be reached before its children and trip the foreign keys.
-        // Deferring the checks to the commit makes the order irrelevant while
-        // still enforcing them on the database that comes out — unlike turning
-        // them off, which would let an inconsistent result through.
-        await customStatement('PRAGMA defer_foreign_keys = ON');
-        for (final table in allTables) {
-          await delete(table).go();
-        }
-        await _seed();
-      });
+    // `allTables` is in declaration order, not dependency order, so a
+    // parent can be reached before its children and trip the foreign keys.
+    // Deferring the checks to the commit makes the order irrelevant while
+    // still enforcing them on the database that comes out — unlike turning
+    // them off, which would let an inconsistent result through.
+    await customStatement('PRAGMA defer_foreign_keys = ON');
+    for (final table in allTables) {
+      await delete(table).go();
+    }
+    await _seed();
+  });
 
   // ---- Seed ---------------------------------------------------------------
 

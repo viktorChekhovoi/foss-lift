@@ -72,9 +72,7 @@ List<ExerciseArrival> planExerciseArrivals(
   List<SharedExercise> incoming,
   List<Exercise> library,
 ) {
-  final byName = {
-    for (final e in library) e.name.trim().toLowerCase(): e,
-  };
+  final byName = {for (final e in library) e.name.trim().toLowerCase(): e};
   final bySeedKey = {
     for (final e in library)
       if (e.seedKey != null) e.seedKey!: e,
@@ -84,7 +82,8 @@ List<ExerciseArrival> planExerciseArrivals(
     for (final e in incoming)
       () {
         final key = seedKeyForName(e.name);
-        final existing = (key == null ? null : bySeedKey[key]) ??
+        final existing =
+            (key == null ? null : bySeedKey[key]) ??
             byName[e.name.trim().toLowerCase()];
         return ExerciseArrival(
           incoming: e,
@@ -128,41 +127,47 @@ extension RoutineSharing on AppDatabase {
           return dictionary.length - 1;
         });
         final it = view.item;
-        items.add(SharedItem(
-          exercise: index,
-          targetSets: it.targetSets,
-          repsMin: it.repsMin,
-          repsMax: it.repsMax,
-          toFailure: it.toFailure,
-          restSeconds: it.restSeconds,
-          // The weight stays behind with the streaks: it is the sender's body,
-          // not the sender's program. See routine_code.dart.
-          progression: it.progression,
-          holdSeconds: it.holdSeconds,
-          increment: it.increment,
-          deload: it.deload,
-          successThreshold: it.successThreshold,
-          failureThreshold: it.failureThreshold,
-          // The scheme is part of the prescription, so it travels — as a shape
-          // and its percentages, not as the weights it produces.
-          scheme: it.scheme,
-          schemePercent: it.schemePercent,
-          customSets: decodeCustomSets(it.customSets),
-          // The weeks travel; where the slot has got to in them does not, for
-          // the reason repsTarget does not — see below.
-          cycle: it.cycleWeeks,
-          // And what they are called, which is part of the program in the way
-          // the day's own name is.
-          cycleNames: it.cycleWeekNameList,
-          // Which slots are trained back to back is the program too, and so is
-          // whether a slot climbs its range before its load moves.
-          supersetWithPrevious: it.supersetWithPrevious,
-          addWeightAtTopOfRange: it.addWeightAtTopOfRange,
-          repsIncrement: it.repsIncrement,
-          repsDeload: it.repsDeload,
-          // successStreak and failStreak are left behind on purpose: momentum
-          // is earned on your own bar, not inherited with a program.
-        ));
+        items.add(
+          SharedItem(
+            exercise: index,
+            targetSets: it.targetSets,
+            repsMin: it.repsMin,
+            repsMax: it.repsMax,
+            toFailure: it.toFailure,
+            restSeconds: it.restSeconds,
+            // The weight stays behind with the streaks: it is the sender's body,
+            // not the sender's program. See routine_code.dart.
+            progression: it.progression,
+            holdSeconds: it.holdSeconds,
+            increment: it.increment,
+            deload: it.deload,
+            successThreshold: it.successThreshold,
+            failureThreshold: it.failureThreshold,
+            // The scheme is part of the prescription, so it travels — as a shape
+            // and its percentages, not as the weights it produces.
+            scheme: it.scheme,
+            schemePercent: it.schemePercent,
+            customSets: decodeCustomSets(it.customSets),
+            // The weeks travel; where the slot has got to in them does not, for
+            // the reason repsTarget does not — see below.
+            cycle: it.cycleWeeks,
+            // And what they are called, which is part of the program in the way
+            // the day's own name is.
+            cycleNames: it.cycleWeekNameList,
+            // Which slots are trained back to back is the program too, and so is
+            // whether a slot climbs its range before its load moves.
+            supersetWithPrevious: it.supersetWithPrevious,
+            addWeightAtTopOfRange: it.addWeightAtTopOfRange,
+            repsIncrement: it.repsIncrement,
+            repsDeload: it.repsDeload,
+            targetRpe: it.targetRpe,
+            gzclTier: it.gzclTier,
+            gzclStages: it.gzclStageList,
+            gzclAmrapTarget: it.gzclAmrapTarget,
+            // successStreak and failStreak are left behind on purpose: momentum
+            // is earned on your own bar, not inherited with a program.
+          ),
+        );
       }
       workouts.add(SharedWorkout(name: day.name, items: items));
     }
@@ -210,12 +215,13 @@ extension RoutineSharing on AppDatabase {
           // language and stay unrenameable like every other one. Anything else
           // is one of the user's own, whatever it was on the sender's phone.
           final key = seedKeyForName(arrival.incoming.name);
-          ids.add(await into(exercises).insert(
-            _companion(arrival.incoming).copyWith(
-              seedKey: Value(key),
-              isCustom: Value(key == null),
+          ids.add(
+            await into(exercises).insert(
+              _companion(
+                arrival.incoming,
+              ).copyWith(seedKey: Value(key), isCustom: Value(key == null)),
             ),
-          ));
+          );
           continue;
         }
         if (arrival.clashes && replace.contains(i)) {
@@ -223,9 +229,11 @@ extension RoutineSharing on AppDatabase {
           // the name is the vocabulary every routine code is written in, and
           // is not editable by hand for the same reason. How it loads is the
           // sender's to describe, and is written.
-          await (update(exercises)..where((e) => e.id.equals(existing.id)))
-              .write(_companion(arrival.incoming,
-                  keepName: existing.seedKey != null));
+          await (update(
+            exercises,
+          )..where((e) => e.id.equals(existing.id))).write(
+            _companion(arrival.incoming, keepName: existing.seedKey != null),
+          );
         }
         ids.add(existing.id);
       }
@@ -234,9 +242,10 @@ extension RoutineSharing on AppDatabase {
       // the kilogram one whatever unit they train in — the wire format has no
       // unit in it. Filling it in from this phone's unit is what keeps an
       // imported routine stepping by 5 lb in a pounds gym.
-      final unit = (await (select(settings)..where((s) => s.id.equals(1)))
-                  .getSingleOrNull())
-              ?.weightUnit ??
+      final unit =
+          (await (select(
+            settings,
+          )..where((s) => s.id.equals(1))).getSingleOrNull())?.weightUnit ??
           'kg';
 
       // Each slot's weight comes off *this* phone: what it last logged for the
@@ -277,27 +286,33 @@ extension RoutineSharing on AppDatabase {
                   suggestedWeight: Value(weights[ids[it.exercise]]),
                   progression: Value(it.progression),
                   holdSeconds: Value(it.holdSeconds),
-                  increment: Value(isDefaultIncrement(
-                          it.increment, it.progression, 'kg')
-                      ? defaultIncrementFor(it.progression, unit)
-                      : _landedRate(it.increment, it.progression, unit)),
+                  increment: Value(
+                    isDefaultIncrement(it.increment, it.progression, 'kg')
+                        ? defaultIncrementFor(it.progression, unit)
+                        : _landedRate(it.increment, it.progression, unit),
+                  ),
                   deload: Value(
-                      isDefaultDeload(it.deload, it.progression, 'kg')
-                          ? defaultDeloadFor(it.progression, unit)
-                          : _landedRate(it.deload, it.progression, unit)),
+                    isDefaultDeload(it.deload, it.progression, 'kg')
+                        ? defaultDeloadFor(it.progression, unit)
+                        : _landedRate(it.deload, it.progression, unit),
+                  ),
                   successThreshold: Value(it.successThreshold),
                   failureThreshold: Value(it.failureThreshold),
                   scheme: Value(it.scheme),
                   schemePercent: Value(it.schemePercent),
-                  customSets: Value(it.scheme.isCustom
-                      ? encodeCustomSets(it.customSets)
-                      : null),
-                  cycleBlocks: Value(it.scheme == SetScheme.cycle
-                      ? encodeCycleBlocks(it.cycle)
-                      : null),
-                  cycleNames: Value(it.scheme == SetScheme.cycle
-                      ? encodeCycleNames(it.cycleNames)
-                      : null),
+                  customSets: Value(
+                    it.scheme.isCustom ? encodeCustomSets(it.customSets) : null,
+                  ),
+                  cycleBlocks: Value(
+                    it.scheme == SetScheme.cycle
+                        ? encodeCycleBlocks(it.cycle)
+                        : null,
+                  ),
+                  cycleNames: Value(
+                    it.scheme == SetScheme.cycle
+                        ? encodeCycleNames(it.cycleNames)
+                        : null,
+                  ),
                   // An imported copy opens on week one: cyclePosition takes its
                   // column default rather than the sender's progress.
                   // The first slot of a day cannot be joined to the one above
@@ -306,6 +321,10 @@ extension RoutineSharing on AppDatabase {
                   addWeightAtTopOfRange: Value(it.addWeightAtTopOfRange),
                   repsIncrement: Value(it.repsIncrement),
                   repsDeload: Value(it.repsDeload),
+                  targetRpe: Value(it.targetRpe),
+                  gzclTier: Value(it.gzclTier),
+                  gzclStages: Value(encodeGzclStages(it.gzclStages)),
+                  gzclAmrapTarget: Value(it.gzclAmrapTarget),
                   // repsTarget is left behind with the streaks: where the
                   // sender had got to inside their range is progress, not
                   // program, so an imported slot starts at the bottom of it.
@@ -325,17 +344,17 @@ extension RoutineSharing on AppDatabase {
 /// routine can read the movement's name and already knows, or can look it up
 /// with the link that does travel.
 SharedExercise _share(Exercise e) => SharedExercise(
-      name: e.name,
-      muscles: e.muscles,
-      equipment: e.equipment,
-      isCustom: e.isCustom,
-      measure: e.measure,
-      weightType: e.weightType,
-      // Canonicalised here rather than in the codec, so a [SharedRoutine] holds
-      // the same link whether it came off this database or off a decoded code.
-      videoUrl: _canonicalVideo(e.videoUrl),
-      barWeight: e.barWeight,
-    );
+  name: e.name,
+  muscles: e.muscles,
+  equipment: e.equipment,
+  isCustom: e.isCustom,
+  measure: e.measure,
+  weightType: e.weightType,
+  // Canonicalised here rather than in the codec, so a [SharedRoutine] holds
+  // the same link whether it came off this database or off a decoded code.
+  videoUrl: _canonicalVideo(e.videoUrl),
+  barWeight: e.barWeight,
+);
 
 /// A stored link reduced to the canonical short form, or null when there is no
 /// video behind it — a search results page, a link to somewhere else entirely.

@@ -41,13 +41,12 @@ void main() {
     required SessionVerdict verdict,
     double? performedWeight,
     double? sessionWeight,
-  }) async =>
-      (await db.advanceProgression(
-        itemId,
-        verdict: verdict,
-        performedWeight: performedWeight,
-        sessionWeight: sessionWeight,
-      )).moved;
+  }) async => (await db.advanceProgression(
+    itemId,
+    verdict: verdict,
+    performedWeight: performedWeight,
+    sessionWeight: sessionWeight,
+  )).moved;
 
   group('the axis is constrained by the exercise measure', () {
     test('a counted movement may use weight or reps, in that order', () {
@@ -194,19 +193,13 @@ void main() {
     test('two misses in a row back it off by the default 5 kg', () async {
       final id = await slotIdNamed(db, 'Push', 'Bench Press');
 
-      final first = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final first = await advance(id, verdict: SessionVerdict.miss);
       expect(first, 0); // one bad night is not the weight
       var slot = await db.workoutItemById(id);
       expect(slot!.suggestedWeight, 80);
       expect(slot.failStreak, 1);
 
-      final second = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final second = await advance(id, verdict: SessionVerdict.miss);
       expect(second, closeTo(-5, 1e-9));
       slot = await db.workoutItemById(id);
       expect(slot!.suggestedWeight, 75);
@@ -307,17 +300,11 @@ void main() {
     test('repeated back-offs land on the empty bar and stay there', () async {
       final id = await benchAt(22.5, failureThreshold: 1);
 
-      final first = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final first = await advance(id, verdict: SessionVerdict.miss);
       expect(first, closeTo(-2.5, 1e-9)); // 22.5 → 17.5, held at the 20 kg bar
       expect((await db.workoutItemById(id))!.suggestedWeight, 20);
 
-      final second = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final second = await advance(id, verdict: SessionVerdict.miss);
       expect(second, 0); // there is nowhere lighter to go
       expect((await db.workoutItemById(id))!.suggestedWeight, 20);
     });
@@ -501,10 +488,7 @@ void main() {
     test('a clean session adds a rep and keeps the range width', () async {
       // Pull-Up is 6–10, reps mode, no suggested weight.
       final id = await slotIdNamed(db, 'Pull', 'Pull-Up');
-      final moved = await advance(
-        id,
-        verdict: SessionVerdict.success,
-      );
+      final moved = await advance(id, verdict: SessionVerdict.success);
       expect(moved, 1);
       final slot = await db.workoutItemById(id);
       expect(slot!.repsMin, 7);
@@ -514,10 +498,7 @@ void main() {
     test('two misses drop the reps and keep the range width', () async {
       final id = await slotIdNamed(db, 'Pull', 'Pull-Up');
       await db.advanceProgression(id, verdict: SessionVerdict.miss);
-      final moved = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final moved = await advance(id, verdict: SessionVerdict.miss);
       expect(moved, -2);
       final slot = await db.workoutItemById(id);
       expect(slot!.repsMin, 4);
@@ -538,10 +519,7 @@ void main() {
         ),
       ]);
       final id = (await db.itemsForWorkout(pull.id)).single.item.id;
-      final moved = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final moved = await advance(id, verdict: SessionVerdict.miss);
       expect(moved, -1); // 2 would go to 0, floored back to 1
       expect((await db.workoutItemById(id))!.repsMin, 1);
     });
@@ -566,10 +544,7 @@ void main() {
 
     test('a clean session holds five seconds longer', () async {
       final id = await plankSlot();
-      final moved = await advance(
-        id,
-        verdict: SessionVerdict.success,
-      );
+      final moved = await advance(id, verdict: SessionVerdict.success);
       expect(moved, 5);
       expect((await db.workoutItemById(id))!.holdSeconds, 35);
     });
@@ -577,10 +552,7 @@ void main() {
     test('two misses cut the hold by the configured deload', () async {
       final id = await plankSlot();
       await db.advanceProgression(id, verdict: SessionVerdict.miss);
-      final moved = await advance(
-        id,
-        verdict: SessionVerdict.miss,
-      );
+      final moved = await advance(id, verdict: SessionVerdict.miss);
       expect(moved, -10);
       expect((await db.workoutItemById(id))!.holdSeconds, 20);
     });
@@ -599,12 +571,201 @@ void main() {
         ),
       ]);
       final id = (await db.itemsForWorkout(push.id)).single.item.id;
-      final moved = await advance(
-        id,
-        verdict: SessionVerdict.success,
-      );
+      final moved = await advance(id, verdict: SessionVerdict.success);
       expect(moved, 0);
       expect((await db.workoutItemById(id))!.suggestedWeight, isNull);
+    });
+  });
+
+  group('configurable GZCL stage ladders', () {
+    Future<int> gzclBench({
+      required GzclTier tier,
+      required List<GzclStage> stages,
+      int stage = 0,
+      double weight = 80,
+      double increment = 2.5,
+    }) async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          suggestedWeight: Value(weight),
+          progression: const Value(ProgressionMode.weight),
+          increment: Value(increment),
+          gzclTier: Value(tier),
+          gzclStages: Value(encodeGzclStages(stages)),
+          gzclStage: Value(stage),
+        ),
+      ]);
+      return (await db.itemsForWorkout(push.id)).single.item.id;
+    }
+
+    test('a T1 ladder accepts extra configured stages', () async {
+      final stages = const [
+        GzclStage(sets: 5, reps: 5),
+        GzclStage(sets: 5, reps: 3),
+        GzclStage(sets: 6, reps: 2),
+        GzclStage(sets: 10, reps: 1),
+      ];
+      final id = await gzclBench(tier: GzclTier.t1, stages: stages);
+
+      final slot = await db.workoutItemById(id);
+      expect(slot!.gzclTier, GzclTier.t1);
+      expect(decodeGzclStages(slot.gzclStages), stages);
+      expect(slot.gzclStage, 0);
+      expect(slot.setCount, 5);
+      expect(slot.goalReps, 5);
+    });
+
+    test('a T2 ladder also uses its configured set and rep stages', () async {
+      final stages = const [
+        GzclStage(sets: 4, reps: 12),
+        GzclStage(sets: 3, reps: 10),
+        GzclStage(sets: 3, reps: 8),
+      ];
+      final id = await gzclBench(tier: GzclTier.t2, stages: stages, stage: 1);
+
+      final slot = await db.workoutItemById(id);
+      expect(slot!.gzclTier, GzclTier.t2);
+      expect(decodeGzclStages(slot.gzclStages), stages);
+      expect(slot.gzclStage, 1);
+      expect(slot.setCount, 3);
+      expect(slot.goalReps, 10);
+    });
+
+    test(
+      'success adds the configured load and retains the current stage',
+      () async {
+        final id = await gzclBench(
+          tier: GzclTier.t1,
+          stages: const [
+            GzclStage(sets: 5, reps: 5),
+            GzclStage(sets: 6, reps: 2),
+          ],
+          increment: 5,
+        );
+
+        final moved = await advance(id, verdict: SessionVerdict.success);
+        final slot = await db.workoutItemById(id);
+        expect(moved, 5);
+        expect(slot!.suggestedWeight, 85);
+        expect(slot.gzclStage, 0);
+        expect(slot.setCount, 5);
+        expect(slot.goalReps, 5);
+      },
+    );
+
+    test('a miss advances one slot without changing its load', () async {
+      final stages = const [
+        GzclStage(sets: 5, reps: 3),
+        GzclStage(sets: 6, reps: 2),
+        GzclStage(sets: 10, reps: 1),
+      ];
+      final benchId = await gzclBench(tier: GzclTier.t1, stages: stages);
+      final push = await workoutNamed(db, 'Push');
+      final press = await exerciseNamed(db, 'Overhead Press');
+      await db
+          .into(db.workoutItems)
+          .insert(
+            WorkoutItemsCompanion.insert(
+              workoutId: push.id,
+              exerciseId: press.id,
+              position: const Value(1),
+              suggestedWeight: const Value(50),
+              gzclTier: const Value(GzclTier.t1),
+              gzclStages: Value(encodeGzclStages(stages)),
+            ),
+          );
+      final pressId = (await db.itemsForWorkout(push.id)).last.item.id;
+
+      final moved = await advance(benchId, verdict: SessionVerdict.miss);
+      final bench = await db.workoutItemById(benchId);
+      final overheadPress = await db.workoutItemById(pressId);
+      expect(moved, 0);
+      expect(bench!.suggestedWeight, 80);
+      expect(bench.gzclStage, 1);
+      expect(bench.setCount, 6);
+      expect(bench.goalReps, 2);
+      expect(
+        overheadPress!.gzclStage,
+        0,
+        reason: 'each lift carries its own ladder position',
+      );
+    });
+
+    test('a miss on the final stage holds for a manual reset', () async {
+      final id = await gzclBench(
+        tier: GzclTier.t2,
+        stages: const [
+          GzclStage(sets: 3, reps: 10),
+          GzclStage(sets: 3, reps: 6),
+        ],
+        stage: 1,
+      );
+
+      final moved = await advance(id, verdict: SessionVerdict.miss);
+      final slot = await db.workoutItemById(id);
+      expect(moved, 0);
+      expect(slot!.suggestedWeight, 80);
+      expect(slot.gzclStage, 1);
+      expect(slot.setCount, 3);
+      expect(slot.goalReps, 6);
+    });
+  });
+
+  group('GZCL T3 uses its configurable final-AMRAP target', () {
+    Future<int> t3Bench({required int target}) async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final push = await workoutNamed(db, 'Push');
+      await db.replaceWorkoutItems(push.id, [
+        WorkoutItemsCompanion.insert(
+          workoutId: push.id,
+          exerciseId: ex.id,
+          suggestedWeight: const Value(40),
+          progression: const Value(ProgressionMode.weight),
+          increment: const Value(2.5),
+          gzclTier: const Value(GzclTier.t3),
+          gzclAmrapTarget: Value(target),
+          scheme: const Value(SetScheme.custom),
+          customSets: Value(
+            encodeCustomSets(const [
+              CustomSet(reps: 15, percent: 100),
+              CustomSet(reps: 15, percent: 100),
+              CustomSet(reps: 15, percent: 100, amrap: true),
+            ]),
+          ),
+        ),
+      ]);
+      return (await db.itemsForWorkout(push.id)).single.item.id;
+    }
+
+    Future<void> trainT3(List<int> reps) async {
+      final ctrl = container.read(activeWorkoutProvider.notifier);
+      await ctrl.start(
+        workoutId: await workoutIdNamed(db, 'Push'),
+        name: 'Push',
+      );
+      for (var i = 0; i < reps.length; i++) {
+        ctrl.setLogged(0, i, reps[i]);
+      }
+      await ctrl.finish();
+    }
+
+    test(
+      'a configured target of 20 steps when the last AMRAP reaches 20',
+      () async {
+        final id = await t3Bench(target: 20);
+        await trainT3([15, 15, 20]);
+        expect((await db.workoutItemById(id))!.suggestedWeight, 42.5);
+      },
+    );
+
+    test('an earlier high-rep set cannot satisfy the trigger', () async {
+      final id = await t3Bench(target: 20);
+      await trainT3([20, 15, 19]);
+      expect((await db.workoutItemById(id))!.suggestedWeight, 40);
     });
   });
 
@@ -669,6 +830,40 @@ void main() {
   });
 
   group('end to end through the live controller finish', () {
+    test(
+      'an RPE slot keeps its reference load after an effort overshoot',
+      () async {
+        final ex = await exerciseNamed(db, 'Bench Press');
+        final push = await workoutNamed(db, 'Push');
+        await db.replaceWorkoutItems(push.id, [
+          WorkoutItemsCompanion.insert(
+            workoutId: push.id,
+            exerciseId: ex.id,
+            targetSets: const Value(1),
+            repsMin: const Value(5),
+            suggestedWeight: const Value(100),
+            targetRpe: const Value(70),
+            progression: const Value(ProgressionMode.weight),
+          ),
+        ]);
+        final itemId = (await db.itemsForWorkout(push.id)).single.item.id;
+        final ctrl = container.read(activeWorkoutProvider.notifier);
+        await ctrl.start(workoutId: push.id, name: 'Push');
+        ctrl.setLogged(0, 0, 5);
+        ctrl.setRpe(0, 0, 90);
+        await ctrl.finish();
+
+        final item = await db.workoutItemById(itemId);
+        expect(item!.suggestedWeight, 100);
+        expect(item.successStreak, 0);
+        expect(
+          item.failStreak,
+          0,
+          reason: '@9 against @7 is not a conventional missed set',
+        );
+      },
+    );
+
     test('a clean session steps the slot up on Finish', () async {
       // Reduce Push to a single bench slot so the whole session is one exercise.
       final ex = await exerciseNamed(db, 'Bench Press');
@@ -790,7 +985,8 @@ void main() {
     await ctrl.start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
     if (at != null) ctrl.setWorkingWeight(0, at);
     boardGoals = [
-      for (final s in container.read(activeWorkoutProvider)!.exercises.first.sets)
+      for (final s
+          in container.read(activeWorkoutProvider)!.exercises.first.sets)
         s.goal,
     ];
     for (var si = 0; si < reps.length; si++) {
@@ -830,15 +1026,21 @@ void main() {
       expect(slot.failStreak, 0);
     });
 
-    test("the goal climbs by the slot's own rep step, and stops at the top",
-        () async {
-      final id = await rangedBench(advanced: true, repsIncrement: 3);
-      await train([6, 6, 6]);
+    test(
+      "the goal climbs by the slot's own rep step, and stops at the top",
+      () async {
+        final id = await rangedBench(advanced: true, repsIncrement: 3);
+        await train([6, 6, 6]);
 
-      final slot = await bench(id);
-      expect(slot.goalReps, 8, reason: '6 + 3 is past the top of the range');
-      expect(slot.suggestedWeight, 80, reason: 'the top is reached, not passed');
-    });
+        final slot = await bench(id);
+        expect(slot.goalReps, 8, reason: '6 + 3 is past the top of the range');
+        expect(
+          slot.suggestedWeight,
+          80,
+          reason: 'the top is reached, not passed',
+        );
+      },
+    );
 
     test(
       'the session that earns a step at the top adds the weight and starts the '
@@ -906,35 +1108,51 @@ void main() {
       await train([6, 6, 6], at: 75);
 
       final slot = await bench(id);
-      expect(slot.failStreak, 1, reason: 'the reps were there, the load was not');
+      expect(
+        slot.failStreak,
+        1,
+        reason: 'the reps were there, the load was not',
+      );
       expect(slot.goalReps, 6);
       expect(slot.suggestedWeight, 80);
     });
 
-    test('a skipped set is a miss even when the logged ones made the goal',
-        () async {
-      final id = await rangedBench(advanced: true);
-      await train([6, 6, null]);
+    test(
+      'a skipped set is a miss even when the logged ones made the goal',
+      () async {
+        final id = await rangedBench(advanced: true);
+        await train([6, 6, null]);
 
-      final slot = await bench(id);
-      expect(slot.failStreak, 1);
-      expect(slot.repsTarget, isNull);
-      expect(slot.suggestedWeight, 80);
-    });
+        final slot = await bench(id);
+        expect(slot.failStreak, 1);
+        expect(slot.repsTarget, isNull);
+        expect(slot.suggestedWeight, 80);
+      },
+    );
 
-    test('a back-off owed inside the range drops the goal by the rep back-off',
-        () async {
-      final id = await rangedBench(advanced: true, repsTarget: 8);
+    test(
+      'a back-off owed inside the range drops the goal by the rep back-off',
+      () async {
+        final id = await rangedBench(advanced: true, repsTarget: 8);
 
-      await train([5, 5, 5]);
-      expect((await bench(id)).goalReps, 8, reason: 'one miss is not a back-off');
-      await train([5, 5, 5]);
+        await train([5, 5, 5]);
+        expect(
+          (await bench(id)).goalReps,
+          8,
+          reason: 'one miss is not a back-off',
+        );
+        await train([5, 5, 5]);
 
-      final slot = await bench(id);
-      expect(slot.goalReps, 6, reason: '8 − 2');
-      expect(slot.suggestedWeight, 80, reason: 'the load waits at the bottom');
-      expect(slot.failStreak, 0);
-    });
+        final slot = await bench(id);
+        expect(slot.goalReps, 6, reason: '8 − 2');
+        expect(
+          slot.suggestedWeight,
+          80,
+          reason: 'the load waits at the bottom',
+        );
+        expect(slot.failStreak, 0);
+      },
+    );
 
     test('the rep back-off stops at the bottom of the range', () async {
       final id = await rangedBench(
@@ -962,7 +1180,11 @@ void main() {
         final slot = await bench(id);
         expect(slot.suggestedWeight, 75, reason: '−5, the default back-off');
         expect(slot.goalReps, 8);
-        expect(slot.repsMin, 6, reason: 'the range does not move on the way down');
+        expect(
+          slot.repsMin,
+          6,
+          reason: 'the range does not move on the way down',
+        );
         expect(slot.repsMax, 8);
         expect(slot.failStreak, 0);
       },
@@ -974,9 +1196,9 @@ void main() {
 
       // Read back through the ordinary workout query, which is what the next
       // launch does.
-      final stored = (await db.itemsForWorkout(await workoutIdNamed(db, 'Push')))
-          .single
-          .item;
+      final stored = (await db.itemsForWorkout(
+        await workoutIdNamed(db, 'Push'),
+      )).single.item;
       expect(stored.repsTarget, 7);
       expect(stored.id, id);
 
@@ -1007,21 +1229,23 @@ void main() {
       expect((await bench(id)).goalReps, 8);
     });
 
-    test('an advanced slot with no range left is an ordinary weight slot',
-        () async {
-      // Nothing to climb: a clean session at the fixed count steps the load up,
-      // and the setting is kept rather than cleared so putting the range back
-      // puts the behaviour back.
-      final id = await rangedBench(advanced: true, repsMin: 8, repsMax: null);
-      expect((await bench(id)).climbsRange, isFalse);
-      expect((await bench(id)).goalReps, 8);
+    test(
+      'an advanced slot with no range left is an ordinary weight slot',
+      () async {
+        // Nothing to climb: a clean session at the fixed count steps the load up,
+        // and the setting is kept rather than cleared so putting the range back
+        // puts the behaviour back.
+        final id = await rangedBench(advanced: true, repsMin: 8, repsMax: null);
+        expect((await bench(id)).climbsRange, isFalse);
+        expect((await bench(id)).goalReps, 8);
 
-      await train([8, 8, 8]);
-      final slot = await bench(id);
-      expect(slot.suggestedWeight, 82.5);
-      expect(slot.repsTarget, isNull, reason: 'no goal was climbed');
-      expect(slot.addWeightAtTopOfRange, isTrue, reason: 'kept, not cleared');
-    });
+        await train([8, 8, 8]);
+        final slot = await bench(id);
+        expect(slot.suggestedWeight, 82.5);
+        expect(slot.repsTarget, isNull, reason: 'no goal was climbed');
+        expect(slot.addWeightAtTopOfRange, isTrue, reason: 'kept, not cleared');
+      },
+    );
 
     test('and a short session on one is an ordinary miss', () async {
       final id = await rangedBench(advanced: true, repsMin: 8, repsMax: null);
@@ -1032,20 +1256,25 @@ void main() {
       expect(slot.failStreak, 1);
     });
 
-    test('a slot switched to failure keeps its range and trains to failure',
-        () async {
-      final id = await rangedBench(advanced: true, toFailure: true);
+    test(
+      'a slot switched to failure keeps its range and trains to failure',
+      () async {
+        final id = await rangedBench(advanced: true, toFailure: true);
 
-      final slot = await bench(id);
-      expect(slot.repsMax, 8, reason: 'the range is kept, just not aimed at');
-      expect(slot.climbsRange, isFalse);
-      expect(slot.goalReps, 6, reason: 'the number a set has to beat');
+        final slot = await bench(id);
+        expect(slot.repsMax, 8, reason: 'the range is kept, just not aimed at');
+        expect(slot.climbsRange, isFalse);
+        expect(slot.goalReps, 6, reason: 'the number a set has to beat');
 
-      await train([6, 6, 6]);
-      expect(boardGoals, [6, 6, 6]);
-      expect((await bench(id)).suggestedWeight, 82.5,
-          reason: 'an ordinary clean session on an ordinary weight slot');
-    });
+        await train([6, 6, 6]);
+        expect(boardGoals, [6, 6, 6]);
+        expect(
+          (await bench(id)).suggestedWeight,
+          82.5,
+          reason: 'an ordinary clean session on an ordinary weight slot',
+        );
+      },
+    );
 
     test('an untouched ranged slot is still judged against the top', () async {
       final id = await rangedBench(advanced: false);
@@ -1077,18 +1306,20 @@ void main() {
       expect(moved.moved, 1, reason: 'one rep, not one kilogram');
     });
 
-    test('the session that topped the range is reported on the weight axis',
-        () async {
-      final id = await rangedBench(advanced: true, repsTarget: 8);
-      final moved = await db.advanceProgression(
-        id,
-        verdict: SessionVerdict.success,
-        performedWeight: 80,
-      );
+    test(
+      'the session that topped the range is reported on the weight axis',
+      () async {
+        final id = await rangedBench(advanced: true, repsTarget: 8);
+        final moved = await db.advanceProgression(
+          id,
+          verdict: SessionVerdict.success,
+          performedWeight: 80,
+        );
 
-      expect(moved.axis, ProgressionMode.weight);
-      expect(moved.moved, closeTo(2.5, 1e-9));
-    });
+        expect(moved.axis, ProgressionMode.weight);
+        expect(moved.moved, closeTo(2.5, 1e-9));
+      },
+    );
 
     test('a goal that came down is reported as the reps it lost', () async {
       final id = await rangedBench(
@@ -1096,19 +1327,28 @@ void main() {
         repsTarget: 8,
         failureThreshold: 1,
       );
-      final moved = await db.advanceProgression(id, verdict: SessionVerdict.miss);
+      final moved = await db.advanceProgression(
+        id,
+        verdict: SessionVerdict.miss,
+      );
 
       expect(moved.axis, ProgressionMode.reps);
       expect(moved.moved, -2);
     });
 
-    test('a back-off at the bottom is reported as the weight it lost', () async {
-      final id = await rangedBench(advanced: true, failureThreshold: 1);
-      final moved = await db.advanceProgression(id, verdict: SessionVerdict.miss);
+    test(
+      'a back-off at the bottom is reported as the weight it lost',
+      () async {
+        final id = await rangedBench(advanced: true, failureThreshold: 1);
+        final moved = await db.advanceProgression(
+          id,
+          verdict: SessionVerdict.miss,
+        );
 
-      expect(moved.axis, ProgressionMode.weight);
-      expect(moved.moved, closeTo(-5, 1e-9));
-    });
+        expect(moved.axis, ProgressionMode.weight);
+        expect(moved.moved, closeTo(-5, 1e-9));
+      },
+    );
 
     test("a session that moved nothing reports the slot's own axis", () async {
       final id = await rangedBench(advanced: true, successThreshold: 2);
@@ -1139,28 +1379,38 @@ void main() {
   });
 
   group('the recap reports whichever axis a slot moved on', () {
-    test('a session that climbed the goal is reported as the reps it gained',
-        () async {
-      await rangedBench(advanced: true);
-      await train([6, 6, 6]);
+    test(
+      'a session that climbed the goal is reported as the reps it gained',
+      () async {
+        await rangedBench(advanced: true);
+        await train([6, 6, 6]);
 
-      final outcome = container.read(lastProgressionProvider)!.outcomes.single;
-      expect(outcome.mode, ProgressionMode.reps);
-      expect(outcome.moved, 1);
-      expect(outcome.target, 7, reason: 'the goal it now carries');
-      expect(outcome.steppedUp, isTrue);
-    });
+        final outcome = container
+            .read(lastProgressionProvider)!
+            .outcomes
+            .single;
+        expect(outcome.mode, ProgressionMode.reps);
+        expect(outcome.moved, 1);
+        expect(outcome.target, 7, reason: 'the goal it now carries');
+        expect(outcome.steppedUp, isTrue);
+      },
+    );
 
-    test('and the session that topped the range is reported as the weight',
-        () async {
-      await rangedBench(advanced: true, repsTarget: 8);
-      await train([8, 8, 8]);
+    test(
+      'and the session that topped the range is reported as the weight',
+      () async {
+        await rangedBench(advanced: true, repsTarget: 8);
+        await train([8, 8, 8]);
 
-      final outcome = container.read(lastProgressionProvider)!.outcomes.single;
-      expect(outcome.mode, ProgressionMode.weight);
-      expect(outcome.moved, closeTo(2.5, 1e-9));
-      expect(outcome.target, 82.5);
-    });
+        final outcome = container
+            .read(lastProgressionProvider)!
+            .outcomes
+            .single;
+        expect(outcome.mode, ProgressionMode.weight);
+        expect(outcome.moved, closeTo(2.5, 1e-9));
+        expect(outcome.target, 82.5);
+      },
+    );
 
     testWidgets('the recap line reads in reps on the session that gained one', (
       tester,
@@ -1181,8 +1431,11 @@ void main() {
 
       final l10n = l10nFor();
       expect(find.text(l10n.summaryStepReps(1)), findsOneWidget);
-      expect(find.text(l10n.summaryTargetReps(7)), findsOneWidget,
-          reason: 'where the next session opens, on the axis that moved');
+      expect(
+        find.text(l10n.summaryTargetReps(7)),
+        findsOneWidget,
+        reason: 'where the next session opens, on the axis that moved',
+      );
 
       await stop(tester);
     });
@@ -1259,28 +1512,35 @@ void main() {
       expect(slot.suggestedWeight, 80);
     });
 
-    test('and reads back unticked, at the rep defaults, with no goal', () async {
-      final db = oldDatabase();
-      addTearDown(db.close);
+    test(
+      'and reads back unticked, at the rep defaults, with no goal',
+      () async {
+        final db = oldDatabase();
+        addTearDown(db.close);
 
-      final slot = (await db.itemsForWorkout(1)).single.item;
-      expect(
-        slot.addWeightAtTopOfRange,
-        isFalse,
-        reason:
-            'a program built before the tick existed adds weight a '
-            'session sooner, not a corrupt one',
-      );
-      expect(slot.repsIncrement, 1);
-      expect(slot.repsDeload, 2);
-      expect(slot.repsTarget, isNull, reason: 'no goal has ever been climbed');
-      expect(slot.climbsRange, isFalse);
-      expect(
-        slot.goalReps,
-        8,
-        reason: 'an ordinary ranged slot still asks for the top of its range',
-      );
-    });
+        final slot = (await db.itemsForWorkout(1)).single.item;
+        expect(
+          slot.addWeightAtTopOfRange,
+          isFalse,
+          reason:
+              'a program built before the tick existed adds weight a '
+              'session sooner, not a corrupt one',
+        );
+        expect(slot.repsIncrement, 1);
+        expect(slot.repsDeload, 2);
+        expect(
+          slot.repsTarget,
+          isNull,
+          reason: 'no goal has ever been climbed',
+        );
+        expect(slot.climbsRange, isFalse);
+        expect(
+          slot.goalReps,
+          8,
+          reason: 'an ordinary ranged slot still asks for the top of its range',
+        );
+      },
+    );
 
     test('and the database is left standing on the current rung', () async {
       final db = oldDatabase();

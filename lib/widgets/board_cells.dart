@@ -4,7 +4,6 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../util/units.dart';
 
-
 const int kWeightColumnFlex = 2;
 const int kResultColumnFlex = 3;
 
@@ -51,8 +50,7 @@ TextStyle boardCellTextStyle({
   required bool primary,
   required bool done,
   required Color tone,
-}) =>
-    kMono.copyWith(
+}) => kMono.copyWith(
       fontSize: primary ? 16 : 14,
       fontWeight: primary ? FontWeight.w700 : FontWeight.w600,
       color: done ? tone : AppColors.muted,
@@ -184,12 +182,14 @@ class BoardColumnHeaders extends StatelessWidget {
     required this.unit,
     required this.timed,
     this.showWeight = true,
+    this.showRpe = false,
   });
 
   final String unit;
   final bool timed;
 
   final bool showWeight;
+  final bool showRpe;
 
   @override
   Widget build(BuildContext context) {
@@ -220,6 +220,7 @@ class BoardColumnHeaders extends StatelessWidget {
             timed ? l10n.sessionColSecHeld : l10n.sessionColRepsDone,
             flex: kResultColumnFlex,
           ),
+          if (showRpe) h('RPE', width: 48),
           const SizedBox(width: kSetTrailingColumnWidth),
         ],
       ),

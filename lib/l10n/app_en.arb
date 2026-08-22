@@ -997,11 +997,11 @@
   "@seedRoutineDescUpperLower": {
     "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
   },
-  "seedRoutineDescStartingStrength": "Mark Rippetoe's beginner barbell program: two alternating workouts of three lifts each, three days a week, adding weight every session for as long as that keeps working. Long rests — it is heavy on purpose.",
+  "seedRoutineDescStartingStrength": "Mark Rippetoe's novice barbell program. Alternate two three-lift workouts three days per week and add weight each session.",
   "@seedRoutineDescStartingStrength": {
     "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
   },
-  "seedRoutineDescStrongLifts5x5": "Five sets of five, across five lifts and two alternating workouts, three days a week. The same idea as Starting Strength with more sets and a lighter start.",
+  "seedRoutineDescStrongLifts5x5": "Mehdi Hadim’s three-day novice barbell program. Alternate two workouts built around five sets of five; deadlift remains one set of five.",
   "@seedRoutineDescStrongLifts5x5": {
     "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
   },
@@ -4131,7 +4131,7 @@
   "@tutorialBuildLibraryTitle": {
     "description": "Title of the tour step ringing the Ready-made routines row on the drawn sheet. One line."
   },
-  "tutorialBuildLibraryBody": "Ready-made routines holds the programs the app ships — Push / Pull / Legs, StrongLifts 5×5 and three more. Open one to read its workouts, then add it to your list.",
+  "tutorialBuildLibraryBody": "Ready-made routines contains published programs such as Push/Pull/Legs, StrongLifts 5×5, and the Bodyweight Routine. Open one to review its workouts, then add it to your list.",
   "@tutorialBuildLibraryBody": {
     "description": "Body of the step about the routine library. It names the row — see routineLibraryTitle — so use the same words you translated that with. The two programs are names, not to be translated. Three lines."
   },
@@ -4328,6 +4328,10 @@
     "description": "Name of a shipped program. \"Candito\" is the author's surname and stays as it is; \"Linear\" and \"Strength/Control\" are the published names of the program and its variant."
   },
   "seedRoutineSheiko2932": "Sheiko #29–32",
+  "seedRoutineTsaBeginner": "TSA Beginner Approach",
+  "seedRoutineTsaIntermediate2": "TSA Intermediate 2.0",
+  "seedRoutineDescTsaBeginner": "The Strength Athlete’s nine-week beginner powerlifting program. Train four days per week and choose each RPE-prescribed load in the session.",
+  "seedRoutineDescTsaIntermediate2": "The Strength Athlete’s nine-week Intermediate 2.0 powerlifting program. Four weekly sessions combine competition lifts, variations, and RPE-regulated work.",
   "@seedRoutineSheiko2932": {
     "description": "Name of a shipped program: Boris Sheiko's numbered blocks #29 to #32, run as one sixteen-week sequence. A published program's name, so it stays as it is in most languages."
   },
@@ -4335,31 +4339,31 @@
   "@seedRoutineCanditoHypertrophy": {
     "description": "Name of a shipped program: the same split with more volume on its variation days."
   },
-  "seedRoutineDesc531Classic": "Four sessions a week, one main lift each: three working sets off a training max, the last of them for as many reps as you have. Two assistance movements follow. Set each training max to 90% of your best single before you start.",
+  "seedRoutineDesc531Classic": "Jim Wendler’s four-day 5/3/1 template. Each day trains one main lift from a 90% training max, followed by two assistance movements.",
   "@seedRoutineDesc531Classic": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
-  "seedRoutineDesc531BoringButBig": "The same four sessions, with five sets of ten of the main lift at half the training max after it. The most work of the four and the one that adds size. Set each training max to 90% of your best single before you start.",
+  "seedRoutineDesc531BoringButBig": "Jim Wendler’s four-day Boring But Big template. Main 5/3/1 work is followed by five sets of ten at 50% of the training max.",
   "@seedRoutineDesc531BoringButBig": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
-  "seedRoutineDesc531FirstSetLast": "The same four sessions, with five sets of five of the main lift at the week's own opening percentage after it. Less volume than Boring But Big and heavier, because the back-off weight climbs as the week does. Set each training max to 90% of your best single before you start.",
+  "seedRoutineDesc531FirstSetLast": "Jim Wendler’s four-day First Set Last template. Main 5/3/1 work is followed by five sets at the first work-set percentage.",
   "@seedRoutineDesc531FirstSetLast": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
-  "seedRoutineDesc531Beginners": "The four lifts folded into three sessions a week, two of them a session. For somebody whose linear progression has stopped adding weight but who does not want four days in the gym. Set each training max to 90% of your best single before you start.",
+  "seedRoutineDesc531Beginners": "Jim Wendler’s three-day beginner template. Each session trains two main lifts from 90% training maxes, followed by assistance.",
   "@seedRoutineDesc531Beginners": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
-  "seedRoutineDescCanditoControl": "Four sessions a week: two heavy days on the squat, deadlift and bench, and two on paused versions of the same lifts for six sets of four. Add a little to each lift every week for as long as that works. For somebody whose sessions have stopped going up but whose weeks still do.",
+  "seedRoutineDescCanditoControl": "Jonnie Candito’s four-day linear program with strength and control days. The control days use paused competition-lift variations for six sets of four.",
   "@seedRoutineDescCanditoControl": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
-  "seedRoutineDescSheiko2932": "Sheiko's #29, #30, #31 and #32 back to back: sixteen weeks, three sessions a week, every set of every competition lift written out at its own percentage, finishing on a max test. For somebody peaking for a meet. Set each training max to your current best single, not to 90% of it.",
+  "seedRoutineDescSheiko2932": "Boris Sheiko’s #29–32 sequence: sixteen weeks, three days per week, ending with a max test. Percentages use current competition maxes, not 90% training maxes.",
   "@seedRoutineDescSheiko2932": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
-  "seedRoutineDescCanditoHypertrophy": "The same two heavy days, with the other two spent on five sets of eight of a variation instead of paused work. More volume and more exercise choice than Strength/Control, and the same weekly progression.",
+  "seedRoutineDescCanditoHypertrophy": "Jonnie Candito’s four-day linear program with strength and hypertrophy days. The variation days begin with five sets of eight.",
   "@seedRoutineDescCanditoHypertrophy": {
     "description": "The description shown on that program's preview and copied onto the routine."
   },
@@ -4420,6 +4424,32 @@
       }
     }
   },
+  "commonClear": "Clear",
+  "commonNone": "None",
+  "itemEditorEffortTarget": "Effort target",
+  "rpeNoRepsLeft": "No reps left",
+  "rpeFourPlusRepsLeft": "4+ reps left",
+  "rpeRepsLeft": "{count, plural, one {1 rep left} other {{count} reps left}}",
+  "@rpeRepsLeft": {"placeholders": {"count": {"type": "int"}}},
+  "seedRoutinePpl": "Push/Pull/Legs",
+  "seedRoutineFitnessBasicBeginner": "Basic Beginner Routine",
+  "seedRoutineBodyweightfitnessRecommended": "Bodyweight Routine",
+  "seedRoutineDumbbellStopgap": "Dumbbell Beginner Routine",
+  "seedRoutineGzclp": "GZCLP",
+  "itemEditorGzclTier": "GZCL tier",
+  "itemEditorGzclStandard": "Standard",
+  "itemEditorGzclStages": "Stages (sets × reps)",
+  "itemEditorGzclAmrapTarget": "Final AMRAP target",
+  "itemEditorGzclT1": "T1",
+  "itemEditorGzclT2": "T2",
+  "itemEditorGzclT3": "T3",
+  "seedRoutineDescPpl": "A six-day barbell push/pull/legs program. Pull, push, and legs repeat each week while deadlift alternates with row and bench alternates with overhead press.",
+  "seedRoutineDescFitnessBasicBeginner": "A barbell introduction trained three days per week. Alternate two three-lift workouts, add weight after successful sessions, and move to a larger program after no more than three months.",
+  "seedRoutineDescBodyweightfitnessRecommended": "A full-body routine trained three days per week. It uses bodyweight progressions and requires places to hang and perform rows; edit each slot when you move to a harder progression.",
+  "seedRoutineDescDumbbellStopgap": "A two-workout dumbbell routine. Alternate A and B three days per week, using adjustable dumbbells or a rack of increasing weights; plank holds are entered by time.",
+  "seedRoutineDescGzclp": "Cody Lefever’s novice linear progression. Four rotating sessions train each main lift once as T1 and once as T2, with back work in T3.",
+  "seedDayPullA": "Pull A", "seedDayPushA": "Push A", "seedDayLegsA": "Legs A",
+  "seedDayPullB": "Pull B", "seedDayPushB": "Push B", "seedDayLegsB": "Legs B",
   "itemEditorCycleWeekSummary": "{reps} · {percents}%",
   "@itemEditorCycleWeekSummary": {
     "description": "A folded week of a cycle, read back on its own heading: the rep targets and the percentages of the training max, each list joined by targetRowSeparator — '5/5/5+ · 65/75/85%'.",

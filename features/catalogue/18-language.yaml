@@ -78,10 +78,10 @@ groups:
   - id: demo-routines-translated
     t: The starter programs and their training days read in the chosen language
     d: >-
-      Push / Pull / Legs, Upper / Lower, Full Body 3x, and the training days of
-      all five starter routines resolve through seeded names until renamed.
-      Starting Strength and StrongLifts 5x5 remain English as published program
-      names.
+      Push/Pull/Legs, the Basic Beginner Routine, the Bodyweight Routine, the
+      Dumbbell Beginner Routine, and every other shipped program and training
+      day resolve through seeded names until renamed. Published program names
+      such as Starting Strength and StrongLifts 5x5 remain unchanged.
     uses:
     - ui.seeded-name
     - template.routine

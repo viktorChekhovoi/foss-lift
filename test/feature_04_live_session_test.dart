@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -169,7 +170,6 @@ void main() {
         of: find.byKey(ValueKey(row)),
         matching: find.byKey(const ValueKey('set-weight')),
       );
-
   /// Scrolls [cell] into view and taps it.
   ///
   /// The board is taller than the test viewport — every exercise carrying a
@@ -180,6 +180,36 @@ void main() {
     await tester.pump();
     await tester.tap(cell);
   }
+
+  group('optional RPE on working sets', () {
+    test('an actual rating may be recorded and survives Finish', () async {
+      final ex = await exerciseNamed(db, 'Bench Press');
+      final rid = await db.createRoutine(
+        name: 'Effort',
+        color: 'FF0000',
+        restSeconds: 90,
+      );
+      final wid = await db.createWorkout(rid, 'RPE day');
+      await db.replaceWorkoutItems(wid, [
+        WorkoutItemsCompanion.insert(
+          workoutId: wid,
+          exerciseId: ex.id,
+          targetSets: const Value(1),
+          repsMin: const Value(5),
+          suggestedWeight: const Value(100),
+          targetRpe: const Value(70),
+        ),
+      ]);
+      container = containerFor(db);
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      await ctl.start(workoutId: wid, name: 'RPE day');
+      expect(session().exercises.single.sets.single.targetRpe, 70);
+      ctl.setLogged(0, 0, 5);
+      ctl.setRpe(0, 0, 90);
+      final sessionId = await ctl.finish();
+      expect((await db.setsForSession(sessionId!)).single.actualRpe, 90);
+    });
+  });
 
   /// Puts the session down, then the tree.
   ///
@@ -230,11 +260,9 @@ void main() {
           .read(activeWorkoutProvider.notifier)
           .start(workoutId: wid, name: 'Push');
     });
-    await tester.pumpWidget(routedAppUnder(
-      container!,
-      const WorkoutScreen(),
-      alsoRoutes: alsoRoutes,
-    ));
+    await tester.pumpWidget(
+      routedAppUnder(container!, const WorkoutScreen(), alsoRoutes: alsoRoutes),
+    );
     await tester.pump();
   }
 
@@ -399,8 +427,11 @@ void main() {
       await tester.pump();
       expect(session().restLeft, 0);
       expect(find.text('0:08'), findsNothing);
-      expect(find.text('−15s'), findsNothing,
-          reason: 'a rest that is over has nothing left to nudge');
+      expect(
+        find.text('−15s'),
+        findsNothing,
+        reason: 'a rest that is over has nothing left to nudge',
+      );
 
       await stopAll(tester);
     });
@@ -425,28 +456,39 @@ void main() {
         await tester.tap(cell);
         await tester.pump();
       }
-      expect(logged(), isFalse,
-          reason: 'the cycle never came back round to untouched');
+      expect(
+        logged(),
+        isFalse,
+        reason: 'the cycle never came back round to untouched',
+      );
     }
 
-    testWidgets('tapping a logged set round to untouched ends its rest',
-        (tester) async {
+    testWidgets('tapping a logged set round to untouched ends its rest', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
       expect(find.byKey(kRestBannerKey), findsOneWidget);
 
-      await tapRoundToUntouched(tester, repsCell('0-0-Bench Press'),
-          () => session().exercises[0].sets[0].done);
+      await tapRoundToUntouched(
+        tester,
+        repsCell('0-0-Bench Press'),
+        () => session().exercises[0].sets[0].done,
+      );
 
-      expect(session().restLeft, 0,
-          reason: 'the set that started the rest did not happen');
+      expect(
+        session().restLeft,
+        0,
+        reason: 'the set that started the rest did not happen',
+      );
       expect(find.byKey(kRestBannerKey), findsNothing);
       await stopAll(tester);
     });
 
-    testWidgets('but clearing an older set leaves the rest you are taking',
-        (tester) async {
+    testWidgets('but clearing an older set leaves the rest you are taking', (
+      tester,
+    ) async {
       // The rest running is the one the *second* set started. Going back to
       // tidy up the first is not you deciding to stop resting.
       await pumpPushScreen(tester);
@@ -456,18 +498,25 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       expect(session().restLeft, greaterThan(0));
 
-      await tapRoundToUntouched(tester, repsCell('0-0-Bench Press'),
-          () => session().exercises[0].sets[0].done);
+      await tapRoundToUntouched(
+        tester,
+        repsCell('0-0-Bench Press'),
+        () => session().exercises[0].sets[0].done,
+      );
 
       expect(session().exercises[0].sets[1].done, isTrue);
-      expect(session().restLeft, greaterThan(0),
-          reason: 'the rest belongs to the set still logged');
+      expect(
+        session().restLeft,
+        greaterThan(0),
+        reason: 'the rest belongs to the set still logged',
+      );
       expect(find.byKey(kRestBannerKey), findsOneWidget);
       await stopAll(tester);
     });
 
-    testWidgets('correcting a count leaves the rest exactly where it was',
-        (tester) async {
+    testWidgets('correcting a count leaves the rest exactly where it was', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump(const Duration(seconds: 10));
@@ -478,9 +527,13 @@ void main() {
       await tester.pump();
 
       expect(session().exercises[0].sets[0].done, isTrue);
-      expect(session().restLeft, left,
-          reason: 'the clock you are already resting on is not restarted, '
-              'and not stopped either');
+      expect(
+        session().restLeft,
+        left,
+        reason:
+            'the clock you are already resting on is not restarted, '
+            'and not stopped either',
+      );
       await stopAll(tester);
     });
 
@@ -519,23 +572,28 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a warm-up rung tapped back to untouched ends its rest too',
-        (tester) async {
+    testWidgets('a warm-up rung tapped back to untouched ends its rest too', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       await tapCell(tester, repsCell('w0-0-Bench Press'));
       await tester.pump();
       expect(find.byKey(kRestBannerKey), findsOneWidget);
 
-      await tapRoundToUntouched(tester, repsCell('w0-0-Bench Press'),
-          () => session().exercises[0].warmups[0].done);
+      await tapRoundToUntouched(
+        tester,
+        repsCell('w0-0-Bench Press'),
+        () => session().exercises[0].warmups[0].done,
+      );
 
       expect(session().restLeft, 0);
       expect(find.byKey(kRestBannerKey), findsNothing);
       await stopAll(tester);
     });
 
-    testWidgets('and clearing one from the dialog does the same',
-        (tester) async {
+    testWidgets('and clearing one from the dialog does the same', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       await tapCell(tester, repsCell('w0-0-Bench Press'));
       await tester.pump();
@@ -571,8 +629,11 @@ void main() {
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
-      expect(buzz.buzzes, 0,
-          reason: 'logging a set is a tick; the buzz is for the end of a rest');
+      expect(
+        buzz.buzzes,
+        0,
+        reason: 'logging a set is a tick; the buzz is for the end of a rest',
+      );
 
       await tester.pump(const Duration(seconds: 120));
       expect(session().restLeft, 0);
@@ -598,8 +659,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('and so does −15s when it takes the last seconds off',
-        (tester) async {
+    testWidgets('and so does −15s when it takes the last seconds off', (
+      tester,
+    ) async {
       await pumpPushScreen(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
@@ -607,14 +669,18 @@ void main() {
       await tester.pump(const Duration(seconds: 112));
       await tester.tap(find.text('−15s'));
       await tester.pump();
-      expect(session().restLeft, 0,
-          reason: 'below fifteen the button can only mean skip');
+      expect(
+        session().restLeft,
+        0,
+        reason: 'below fifteen the button can only mean skip',
+      );
       expect(buzz.buzzes, 1);
 
       await stopAll(tester);
     });
 
-    testWidgets('a rest an older set was cleared under still buzzes at the end',
+    testWidgets(
+      'a rest an older set was cleared under still buzzes at the end',
         (tester) async {
       // The clear stopped no rest, so it consumed no silence either — the rest
       // that was left running rings for itself when its time is up.
@@ -639,7 +705,8 @@ void main() {
       expect(session().restLeft, 0);
       expect(buzz.buzzes, 1);
       await stopAll(tester);
-    });
+      },
+    );
 
     testWidgets('a rest a hold takes with it ends without one', (tester) async {
       // Starting a hold ends the rest silently — the buzz would say "stop"
@@ -660,8 +727,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('and neither does abandoning the session mid-rest',
-        (tester) async {
+    testWidgets('and neither does abandoning the session mid-rest', (
+      tester,
+    ) async {
       await pumpPushRouted(tester, overrides: withBuzz());
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
@@ -674,14 +742,20 @@ void main() {
       await frames(tester);
 
       expect(container!.read(activeWorkoutProvider), isNull);
-      expect(buzz.buzzes, 0,
-          reason: 'the rest went with the workout; nothing ended');
+      expect(
+        buzz.buzzes,
+        0,
+        reason: 'the rest went with the workout; nothing ended',
+      );
       await stop(tester);
     });
 
     testWidgets('nor finishing it', (tester) async {
-      await pumpPushRouted(tester,
-          alsoRoutes: const ['summary/:id'], overrides: withBuzz());
+      await pumpPushRouted(
+        tester,
+        alsoRoutes: const ['summary/:id'],
+        overrides: withBuzz(),
+      );
 
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -720,8 +794,9 @@ void main() {
     // Aborting leaves for Today, so this one needs a router over it.
     Future<void> pumpRouted(WidgetTester tester) => pumpPushRouted(tester);
 
-    testWidgets('abort asks first, and a refusal keeps the session',
-        (tester) async {
+    testWidgets('abort asks first, and a refusal keeps the session', (
+      tester,
+    ) async {
       await pumpRouted(tester);
 
       await tester.tap(find.byTooltip('Abort workout'));
@@ -736,8 +811,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('confirming throws the session away without writing it',
-        (tester) async {
+    testWidgets('confirming throws the session away without writing it', (
+      tester,
+    ) async {
       await pumpRouted(tester);
       // Log something, so the discarded session is one that had work in it.
       await tapCell(tester, repsCell('0-0-Bench Press'));
@@ -751,8 +827,11 @@ void main() {
 
       expect(container!.read(activeWorkoutProvider), isNull);
       final sessions = await tester.runAsync(() => db.watchHistory().first);
-      expect(sessions, isEmpty,
-          reason: 'an aborted workout is never written to history');
+      expect(
+        sessions,
+        isEmpty,
+        reason: 'an aborted workout is never written to history',
+      );
 
       await stop(tester);
     });
@@ -761,11 +840,13 @@ void main() {
   group('Starting a workout while one is already live', () {
     /// The detail screen for [wid], with a `/session` to land on.
     Future<void> pumpDetail(WidgetTester tester, int wid) async {
-      await tester.pumpWidget(routedAppUnder(
+      await tester.pumpWidget(
+        routedAppUnder(
         container!,
         WorkoutDetailScreen(workoutId: wid),
         alsoRoutes: const ['session'],
-      ));
+        ),
+      );
       await frames(tester);
     }
 
@@ -775,17 +856,17 @@ void main() {
       await tester.runAsync(() async {
         container = containerFor(db);
         id = await workoutIdNamed(db, other);
-        await container!.read(activeWorkoutProvider.notifier).start(
-              workoutId: await workoutIdNamed(db, 'Push'),
-              name: 'Push',
-            );
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
       });
       container!.read(activeWorkoutProvider.notifier).cycleSet(0, 0);
       return id;
     }
 
-    testWidgets('the one already running opens instead of restarting',
-        (tester) async {
+    testWidgets('the one already running opens instead of restarting', (
+      tester,
+    ) async {
       final push = await livePushThen(tester, 'Push');
       final startedAt = session().startedAt;
 
@@ -801,8 +882,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a different one asks first, naming what would be lost',
-        (tester) async {
+    testWidgets('a different one asks first, naming what would be lost', (
+      tester,
+    ) async {
       final pull = await livePushThen(tester, 'Pull');
       await pumpDetail(tester, pull);
       await tester.tap(find.text('Start workout'));
@@ -828,8 +910,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('confirming discards the live session and starts the new one',
-        (tester) async {
+    testWidgets('confirming discards the live session and starts the new one', (
+      tester,
+    ) async {
       final pull = await livePushThen(tester, 'Pull');
       await pumpDetail(tester, pull);
       await tester.tap(find.text('Start workout'));
@@ -994,7 +1077,8 @@ void main() {
       },
     );
 
-    testWidgets('shutting one ramp shuts only that exercise, and it stays shut',
+    testWidgets(
+      'shutting one ramp shuts only that exercise, and it stays shut',
         (tester) async {
       await pumpPushScreen(tester);
       // Bench is the first exercise; Overhead Press is the second, and has a
@@ -1030,7 +1114,8 @@ void main() {
       expect(find.byKey(const ValueKey('w0-0-Bench Press')), findsNothing);
 
       await stopAll(tester);
-    });
+      },
+    );
   });
 
   group('How many rungs a ramp opens with is a setting', () {
@@ -1049,15 +1134,11 @@ void main() {
           matching: find.byType(BuilderField),
         );
 
-    Finder warmupStepper(IconData icon) => find.descendant(
-          of: warmupField(),
-          matching: find.byIcon(icon),
-        );
+    Finder warmupStepper(IconData icon) =>
+        find.descendant(of: warmupField(), matching: find.byIcon(icon));
 
-    Finder warmupReads(String n) => find.descendant(
-          of: warmupField(),
-          matching: find.text(n),
-        );
+    Finder warmupReads(String n) =>
+        find.descendant(of: warmupField(), matching: find.text(n));
 
     /// Mounts Exercise settings with [sets] already stored.
     Future<void> pumpSettings(WidgetTester tester, int sets) async {
@@ -1067,12 +1148,14 @@ void main() {
         // filesystem, and there is no plugin behind it in a test. Stubbing it
         // keeps the screen's own providers running on the real event loop,
         // which is what a tap on the stepper needs.
-        container = containerFor(db, overrides: [
-          videoUsageProvider.overrideWith((ref) async => 0),
-        ]);
+        container = containerFor(
+          db,
+          overrides: [videoUsageProvider.overrideWith((ref) async => 0)],
+        );
       });
       await tester.pumpWidget(
-          appUnder(container!, const ExerciseSettingsScreen()));
+        appUnder(container!, const ExerciseSettingsScreen()),
+      );
       await pumpThroughDatabase(tester);
     }
 
@@ -1089,14 +1172,16 @@ void main() {
       );
     });
 
-    test('a session started after it changes seeds every exercise there',
+    test(
+      'a session started after it changes seeds every exercise there',
         () async {
       await db.setDefaultWarmupSets(5);
       await startPush();
 
       expect(session().exercises, hasLength(kPushSize));
       expect(session().exercises.every((e) => e.warmupCount == 5), isTrue);
-    });
+      },
+    );
 
     test('set to one, the bench ramp asks for exactly one rung', () async {
       await db.setDefaultWarmupSets(1);
@@ -1129,12 +1214,15 @@ void main() {
       expect(session().exercises[1].warmupCount, 2);
     });
 
-    testWidgets('the setting is a stepper showing what is stored',
-        (tester) async {
+    testWidgets('the setting is a stepper showing what is stored', (
+      tester,
+    ) async {
       await pumpSettings(tester, 2);
       // The card caption, printed the way every builder card prints one.
       expect(
-          find.text(l10nFor().settingsWarmups.toUpperCase()), findsOneWidget);
+        find.text(l10nFor().settingsWarmups.toUpperCase()),
+        findsOneWidget,
+      );
       expect(warmupReads('2'), findsOneWidget);
 
       await tester.tap(warmupStepper(Icons.add));
@@ -1146,8 +1234,9 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('and it goes no further than the stepper in a session does',
-        (tester) async {
+    testWidgets('and it goes no further than the stepper in a session does', (
+      tester,
+    ) async {
       await pumpSettings(tester, kMaxWarmupSets);
       await tester.tap(warmupStepper(Icons.add));
       await pumpThroughDatabase(tester);
@@ -1158,8 +1247,9 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('and down to none, which is one of the answers',
-        (tester) async {
+    testWidgets('and down to none, which is one of the answers', (
+      tester,
+    ) async {
       await pumpSettings(tester, 1);
       await tester.tap(warmupStepper(Icons.remove));
       await pumpThroughDatabase(tester);
@@ -1181,8 +1271,11 @@ void main() {
 
       expect(session().exercises, hasLength(kPushSize));
       expect(session().exercises.every((e) => e.warmupCount == 0), isTrue);
-      expect(session().exercises.every((e) => e.warmups.isEmpty), isTrue,
-          reason: 'at none the app stops suggesting warm-ups altogether');
+      expect(
+        session().exercises.every((e) => e.warmups.isEmpty),
+        isTrue,
+        reason: 'at none the app stops suggesting warm-ups altogether',
+      );
     });
 
     test('and the stepper on the board still builds one', () async {
@@ -1191,9 +1284,13 @@ void main() {
 
       ctl.setWarmupCount(0, 3);
 
-      expect(session().exercises[0].warmups, isNotEmpty,
-          reason: 'what you have already warmed up for is a decision about '
-              'today');
+      expect(
+        session().exercises[0].warmups,
+        isNotEmpty,
+        reason:
+            'what you have already warmed up for is a decision about '
+            'today',
+      );
     });
   });
 
@@ -1229,12 +1326,14 @@ void main() {
 
     test('changing the working weight recomputes the warm-up ramp', () async {
       final ctl = await startPush();
-      final before =
-          session().exercises[0].warmups.map((s) => s.weight).toList();
+      final before = session().exercises[0].warmups
+          .map((s) => s.weight)
+          .toList();
 
       ctl.setWorkingWeight(0, benchWeight + 40);
-      final after =
-          session().exercises[0].warmups.map((s) => s.weight).toList();
+      final after = session().exercises[0].warmups
+          .map((s) => s.weight)
+          .toList();
 
       expect(after, isNot(before), reason: 'the ramp primed the old weight');
       expect(after.last, greaterThan(before.last));
@@ -1257,12 +1356,16 @@ void main() {
 
       final now = session().exercises[0].warmups[1];
       expect(now.logged, didReps);
-      expect(now.weight, wasAt,
-          reason: 'the plates were already on the bar for that rung');
+      expect(
+        now.weight,
+        wasAt,
+        reason: 'the plates were already on the bar for that rung',
+      );
     });
 
-    testWidgets('the weight is one control per exercise, not a box per set',
-        (tester) async {
+    testWidgets('the weight is one control per exercise, not a box per set', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       // Nothing on the board asks to be typed into.
       expect(find.byType(TextField), findsNothing);
@@ -1280,8 +1383,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('one set can still be overridden from its own row',
-        (tester) async {
+    testWidgets('one set can still be overridden from its own row', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       await tapCell(tester, weightCell('0-3-Bench Press'));
       await frames(tester);
@@ -1365,8 +1469,9 @@ void main() {
           matching: find.text(n),
         );
 
-    testWidgets('it shows what was built, not what was asked for',
-        (tester) async {
+    testWidgets('it shows what was built, not what was asked for', (
+      tester,
+    ) async {
       // 25 kg over a 20 kg bar: the bar is the only rung under the ceiling, so
       // the default request of three comes back as one.
       await pumpLift(tester, 25);
@@ -1379,8 +1484,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('+ is greyed out and dead once the ladder has run out',
-        (tester) async {
+    testWidgets('+ is greyed out and dead once the ladder has run out', (
+      tester,
+    ) async {
       await pumpLift(tester, 25);
       final plus = tester.widget<Text>(find.text('+'));
       expect(plus.style?.color, AppColors.faint);
@@ -1422,8 +1528,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('and the shut group summarises the rungs it has',
-        (tester) async {
+    testWidgets('and the shut group summarises the rungs it has', (
+      tester,
+    ) async {
       await pumpLift(tester, 25);
       await tester.tap(find.text('WARM-UP'));
       await tester.pump();
@@ -1447,9 +1554,7 @@ void main() {
     }
 
     /// The warm-up rungs of the exercise at [ei], in the display unit.
-    List<double> rungsIn(String unit, int ei) => session()
-        .exercises[ei]
-        .warmups
+    List<double> rungsIn(String unit, int ei) => session().exercises[ei].warmups
         .map((s) => toDisplayWeight(s.weight, unit))
         .toList();
 
@@ -1540,8 +1645,11 @@ void main() {
           ctl.setWarmupCount(ei, n);
           final w = session().exercises[ei].warmups.map((s) => s.weight);
           expect(w.length, lessThanOrEqualTo(n));
-          expect(w.every((x) => x > 0 && x < working), isTrue,
-              reason: 'exercise $ei, $n sets: $w against $working');
+          expect(
+            w.every((x) => x > 0 && x < working),
+            isTrue,
+            reason: 'exercise $ei, $n sets: $w against $working',
+          );
           for (var i = 1; i < w.length; i++) {
             expect(w.elementAt(i), greaterThan(w.elementAt(i - 1)));
           }
@@ -1578,8 +1686,11 @@ void main() {
         expect(e.warmups.length, 1);
         final frac = e.warmups.single.weight / e.sets.first.goalWeight!;
         expect(frac, greaterThanOrEqualTo(kWarmupStartFraction));
-        expect(frac, lessThanOrEqualTo(kWarmupTopFraction + 0.01),
-            reason: 'exercise $ei warmed up at ${(frac * 100).round()}%');
+        expect(
+          frac,
+          lessThanOrEqualTo(kWarmupTopFraction + 0.01),
+          reason: 'exercise $ei warmed up at ${(frac * 100).round()}%',
+        );
         // On a barbell lift that means plates on it, not the bar on its own.
         expect(e.warmups.single.weight, greaterThan(e.warmupBarKg));
       }
@@ -1607,8 +1718,11 @@ void main() {
       ctl.setWarmupCount(0, kMaxWarmupSets);
       final ramp = session().exercises[0].warmups;
       for (var i = 1; i < ramp.length; i++) {
-        expect(ramp[i].goal, lessThanOrEqualTo(ramp[i - 1].goal),
-            reason: 'rung $i of ${ramp.map((s) => '${s.weight}x${s.goal}')}');
+        expect(
+          ramp[i].goal,
+          lessThanOrEqualTo(ramp[i - 1].goal),
+          reason: 'rung $i of ${ramp.map((s) => '${s.weight}x${s.goal}')}',
+        );
       }
       // The top of the ramp is a couple of reps, not a set.
       expect(ramp.last.goal, lessThanOrEqualTo(3));
@@ -1656,16 +1770,19 @@ void main() {
       await frames(tester);
     }
 
-    testWidgets('the exercise weight stops at the bar, and says so',
-        (tester) async {
+    testWidgets('the exercise weight stops at the bar, and says so', (
+      tester,
+    ) async {
       // Back Squat over the standard 20 kg bar. Ten kilos is not a light day,
       // it is a load nobody can build.
       await pumpOne(tester, exercise: 'Back Squat', weightKg: 100);
 
       await tester.tap(find.byKey(const ValueKey('working-weight-0')));
       await frames(tester);
-      expect(find.textContaining('no lighter than the 20 kg bar'),
-          findsOneWidget);
+      expect(
+        find.textContaining('no lighter than the 20 kg bar'),
+        findsOneWidget,
+      );
 
       await type(tester, '10');
 
@@ -1703,8 +1820,9 @@ void main() {
   });
 
   group('A movement with no load has no weight on the board', () {
-    testWidgets('a plank shows no weight column, and no empty unit',
-        (tester) async {
+    testWidgets('a plank shows no weight column, and no empty unit', (
+      tester,
+    ) async {
       await tester.runAsync(() async {
         final wid = await buildPlankWorkout(db);
         container = containerFor(db);
@@ -1715,8 +1833,11 @@ void main() {
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
 
-      expect(find.text('kg'), findsNothing,
-          reason: 'a column heading over nothing');
+      expect(
+        find.text('kg'),
+        findsNothing,
+        reason: 'a column heading over nothing',
+      );
       expect(find.byKey(const ValueKey('set-weight')), findsNothing);
       expect(find.byKey(const ValueKey('working-weight-0')), findsNothing);
 
@@ -1749,7 +1870,8 @@ void main() {
       return (box.decoration as BoxDecoration).color;
     }
 
-    testWidgets('it is wider than the weight beside it, and the only one filled',
+    testWidgets(
+      'it is wider than the weight beside it, and the only one filled',
         (tester) async {
       await pumpPushScreen(tester);
 
@@ -1757,23 +1879,34 @@ void main() {
       final result = tester.getRect(repsCell(row));
       final weight = tester.getRect(weightCell(row));
 
-      expect(result.width, greaterThan(weight.width),
-          reason: 'the cell tapped on every set is the smaller target');
+        expect(
+          result.width,
+          greaterThan(weight.width),
+          reason: 'the cell tapped on every set is the smaller target',
+        );
       // Filled against an outline: the two are told apart at a glance, without
       // reading the headings over them.
       final resultFill = fillOf(tester, repsCell(row));
       final weightFill = fillOf(tester, weightCell(row));
       expect(resultFill, isNotNull);
-      expect(resultFill, isNot(Colors.transparent),
-          reason: 'the logging cell is not filled in');
-      expect(weightFill == null || weightFill == Colors.transparent, isTrue,
-          reason: 'the weight cell is filled too, so both read as buttons');
+        expect(
+          resultFill,
+          isNot(Colors.transparent),
+          reason: 'the logging cell is not filled in',
+        );
+        expect(
+          weightFill == null || weightFill == Colors.transparent,
+          isTrue,
+          reason: 'the weight cell is filled too, so both read as buttons',
+        );
 
       await stopAll(tester);
-    });
+      },
+    );
 
-    testWidgets('the headings sit centred over the columns they name',
-        (tester) async {
+    testWidgets('the headings sit centred over the columns they name', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
 
       // Every heading against the cell under it. A column the headings do not
@@ -1808,8 +1941,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('it pulses on the set you are on, and nowhere else',
-        (tester) async {
+    testWidgets('it pulses on the set you are on, and nowhere else', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       // Past the ramp, so the mark is on a working set rather than on the
       // group above them.
@@ -1824,10 +1958,16 @@ void main() {
       // Half a breath in: the accent has come up through the cell.
       await tester.pump(kBoardPulsePeriod ~/ 2);
 
-      expect(fillOf(tester, next), isNot(pulseBefore),
-          reason: 'the cell to tap next is not pulsing');
-      expect(fillOf(tester, later), restingBefore,
-          reason: 'a set further down the board is pulsing too');
+      expect(
+        fillOf(tester, next),
+        isNot(pulseBefore),
+        reason: 'the cell to tap next is not pulsing',
+      );
+      expect(
+        fillOf(tester, later),
+        restingBefore,
+        reason: 'a set further down the board is pulsing too',
+      );
 
       await stopAll(tester);
     });
@@ -1842,13 +1982,17 @@ void main() {
       final before = fillOf(tester, logged);
       await tester.pump(kBoardPulsePeriod ~/ 2);
 
-      expect(fillOf(tester, logged), before,
-          reason: 'a logged set is still breathing at you');
+      expect(
+        fillOf(tester, logged),
+        before,
+        reason: 'a logged set is still breathing at you',
+      );
       await stopAll(tester);
     });
 
-    testWidgets('the warm-up rung you are on pulses like any other set',
-        (tester) async {
+    testWidgets('the warm-up rung you are on pulses like any other set', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
 
       final rung = repsCell('w0-0-Bench Press');
@@ -1858,10 +2002,16 @@ void main() {
       final before = fillOf(tester, rung);
       await tester.pump(kBoardPulsePeriod ~/ 2);
 
-      expect(fillOf(tester, rung), isNot(before),
-          reason: 'the rung you are on is not pulsing');
-      expect(fillOf(tester, later), restingBefore,
-          reason: 'a rung further up the ramp is pulsing too');
+      expect(
+        fillOf(tester, rung),
+        isNot(before),
+        reason: 'the rung you are on is not pulsing',
+      );
+      expect(
+        fillOf(tester, later),
+        restingBefore,
+        reason: 'a rung further up the ramp is pulsing too',
+      );
       await stopAll(tester);
     });
   });
@@ -1885,8 +2035,11 @@ void main() {
 
       final bar = tester.getRect(find.byKey(kRestBannerKey));
       final list = tester.getRect(find.byType(ListView).first);
-      expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
-          reason: 'the board ran on underneath the bar');
+      expect(
+        list.bottom,
+        lessThanOrEqualTo(bar.top + 0.5),
+        reason: 'the board ran on underneath the bar',
+      );
 
       // And the far end of the session can be reached with the bar up: the last
       // set of the last exercise comes to rest above it.
@@ -1898,17 +2051,25 @@ void main() {
       );
       await tester.pump();
       expect(
-        tester.getRect(find.byKey(const ValueKey('4-2-Triceps Pushdown'))).bottom,
+        tester
+            .getRect(find.byKey(const ValueKey('4-2-Triceps Pushdown')))
+            .bottom,
         lessThanOrEqualTo(bar.top + 0.5),
       );
 
       // And it is against the bottom edge, taking only the height it needs: a
       // bar handed a share of the column sat halfway up the screen with the
       // board squeezed above it and nothing at all underneath.
-      expect(bar.bottom, closeTo(780, 0.5),
-          reason: 'a blank strip opened up under the bar');
-      expect(bar.height, lessThan(200),
-          reason: 'the bar took room the board should have had');
+      expect(
+        bar.bottom,
+        closeTo(780, 0.5),
+        reason: 'a blank strip opened up under the bar',
+      );
+      expect(
+        bar.height,
+        lessThan(200),
+        reason: 'the bar took room the board should have had',
+      );
 
       await stopAll(tester);
     });
@@ -1921,8 +2082,11 @@ void main() {
     // rungs that do not exist.
 
     /// A barbell lift on a board where the app-wide warm-up count is [rungs].
-    Future<void> pumpAsking(WidgetTester tester, int rungs,
-        {double weightKg = 100}) async {
+    Future<void> pumpAsking(
+      WidgetTester tester,
+      int rungs, {
+      double weightKg = 100,
+    }) async {
       await tester.runAsync(() async {
         await db.setDefaultWarmupSets(rungs);
         final wid = await buildBarbellWorkout(db, weightKg: weightKg);
@@ -1935,23 +2099,32 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('asking for none leaves the header and nothing else',
-        (tester) async {
+    testWidgets('asking for none leaves the header and nothing else', (
+      tester,
+    ) async {
       await pumpAsking(tester, 0);
       expect(session().exercises[0].warmupCount, 0);
 
-      expect(find.text(l10nFor().sessionWarmupLabel), findsOneWidget,
-          reason: 'the group stays: it is where the stepper lives');
+      expect(
+        find.text(l10nFor().sessionWarmupLabel),
+        findsOneWidget,
+        reason: 'the group stays: it is where the stepper lives',
+      );
       expect(find.byKey(const ValueKey('warmup-count-0')), findsNothing);
-      expect(find.text(l10nFor().sessionWarmupDisclaimer), findsNothing,
-          reason: 'nothing is being suggested, so there is nothing to '
-              'disclaim');
+      expect(
+        find.text(l10nFor().sessionWarmupDisclaimer),
+        findsNothing,
+        reason:
+            'nothing is being suggested, so there is nothing to '
+            'disclaim',
+      );
 
       await stopAll(tester);
     });
 
-    testWidgets('and one tap on the header is still all it takes to add one',
-        (tester) async {
+    testWidgets('and one tap on the header is still all it takes to add one', (
+      tester,
+    ) async {
       await pumpAsking(tester, 0);
 
       await tester.tap(find.text(l10nFor().sessionWarmupLabel));
@@ -1964,8 +2137,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a ramp that was asked for opens as it always did',
-        (tester) async {
+    testWidgets('a ramp that was asked for opens as it always did', (
+      tester,
+    ) async {
       await pumpAsking(tester, 3);
 
       expect(session().exercises[0].warmups, isNotEmpty);
@@ -1974,8 +2148,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('so does one that was asked for and could not be built',
-        (tester) async {
+    testWidgets('so does one that was asked for and could not be built', (
+      tester,
+    ) async {
       // Nothing under an empty bar to warm up with: the group has a reason to
       // give, and giving it means being open.
       await pumpAsking(tester, 3, weightKg: 20);
@@ -2005,8 +2180,9 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('it names the reason, and never asks for the impossible',
-        (tester) async {
+    testWidgets('it names the reason, and never asks for the impossible', (
+      tester,
+    ) async {
       await pumpEmptyBarSquat(tester);
 
       expect(session().exercises[0].warmupCount, greaterThan(0));
@@ -2028,8 +2204,11 @@ void main() {
       await tester.pump();
 
       expect(session().exercises[0].warmupCount, 0);
-      expect(find.text(l10nFor().sessionWarmupTooLight), findsNothing,
-          reason: 'nothing was asked for, so there is nothing to explain');
+      expect(
+        find.text(l10nFor().sessionWarmupTooLight),
+        findsNothing,
+        reason: 'nothing was asked for, so there is nothing to explain',
+      );
 
       await stopAll(tester);
     });
@@ -2139,8 +2318,9 @@ void main() {
       }
     }
 
-    testWidgets('it names the count and defaults to going back',
-        (tester) async {
+    testWidgets('it names the count and defaults to going back', (
+      tester,
+    ) async {
       await pumpRouted(tester);
       await tapCell(tester, repsCell('0-0-Bench Press'));
       await tester.pump();
@@ -2148,14 +2328,19 @@ void main() {
       await tester.tap(find.text('Finish'));
       await frames(tester);
 
-      expect(find.text('Finish with ${kPushTotalSets - 1} sets unlogged?'),
-          findsOneWidget);
+      expect(
+        find.text('Finish with ${kPushTotalSets - 1} sets unlogged?'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Back to the board'));
       await frames(tester);
 
-      expect(container!.read(activeWorkoutProvider), isNotNull,
-          reason: 'the default answer leaves the session running');
+      expect(
+        container!.read(activeWorkoutProvider),
+        isNotNull,
+        reason: 'the default answer leaves the session running',
+      );
       final sessions = await tester.runAsync(() => db.watchHistory().first);
       expect(sessions, isEmpty, reason: 'nothing was written on the way past');
 
@@ -2174,14 +2359,18 @@ void main() {
 
       expect(container!.read(activeWorkoutProvider), isNull);
       final sessions = await tester.runAsync(() => db.watchHistory().first);
-      expect(sessions, hasLength(1),
-          reason: 'the session it warned about is still the one it writes');
+      expect(
+        sessions,
+        hasLength(1),
+        reason: 'the session it warned about is still the one it writes',
+      );
 
       await stop(tester);
     });
 
-    testWidgets('a fully logged session finishes without asking',
-        (tester) async {
+    testWidgets('a fully logged session finishes without asking', (
+      tester,
+    ) async {
       await pumpRouted(tester);
       logEverything();
       await tester.pump();
@@ -2189,8 +2378,11 @@ void main() {
       await tester.tap(find.text('Finish'));
       await frames(tester);
 
-      expect(find.textContaining('unlogged'), findsNothing,
-          reason: 'there is nothing to warn about');
+      expect(
+        find.textContaining('unlogged'),
+        findsNothing,
+        reason: 'there is nothing to warn about',
+      );
       expect(container!.read(activeWorkoutProvider), isNull);
 
       await stop(tester);
@@ -2203,8 +2395,10 @@ void main() {
       logEverything();
       await tester.pump();
       expect(
-          session().exercises.any((e) => e.warmups.any((w) => !w.done)), isTrue,
-          reason: 'this proves nothing unless a rung is left unlogged');
+        session().exercises.any((e) => e.warmups.any((w) => !w.done)),
+        isTrue,
+        reason: 'this proves nothing unless a rung is left unlogged',
+      );
 
       await tester.tap(find.text('Finish'));
       await frames(tester);
@@ -2319,8 +2513,9 @@ void main() {
     // load the only part of the line inside a box. "WORKING SETS × 8 [80]" read
     // as a label with a stray editable cell in the middle of it.
 
-    testWidgets('no row carries a goal cell; the exercise states it once',
-        (tester) async {
+    testWidgets('no row carries a goal cell; the exercise states it once', (
+      tester,
+    ) async {
       await tester.runAsync(() async {
         final wid = await buildBarbellWorkout(db, weightKg: 100, sets: 3);
         container = containerFor(db);
@@ -2333,27 +2528,35 @@ void main() {
 
       expect(find.text('GOAL'), findsNothing);
       expect(find.byKey(kExerciseGoalKey), findsOneWidget);
-      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '3 × 5',
-          reason: 'three sets of five, said the way a lifter says it');
+      expect(
+        tester.widget<Text>(find.byKey(kExerciseGoalKey)).data,
+        '3 × 5',
+        reason: 'three sets of five, said the way a lifter says it',
+      );
       // Joined to the load, which is the control: "3 × 5 @ 100 kg".
       expect(find.text('@'), findsOneWidget);
       await stopAll(tester);
     });
 
-    testWidgets('and a real session shows no per-row goal anywhere',
-        (tester) async {
+    testWidgets('and a real session shows no per-row goal anywhere', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
 
       // One per exercise that is actually built — the list is lazy, so the
       // assertion is "at least one, and nothing in the old per-row form".
       expect(find.byKey(kExerciseGoalKey), findsWidgets);
-      expect(find.text('80×8'), findsNothing,
-          reason: 'the goal cell that used to sit on every row');
+      expect(
+        find.text('80×8'),
+        findsNothing,
+        reason: 'the goal cell that used to sit on every row',
+      );
       await stopAll(tester);
     });
 
-    testWidgets('a hold with nothing on it states the hold on its own',
-        (tester) async {
+    testWidgets('a hold with nothing on it states the hold on its own', (
+      tester,
+    ) async {
       await tester.runAsync(() async {
         final wid = await buildPlankWorkout(db);
         container = containerFor(db);
@@ -2364,10 +2567,16 @@ void main() {
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
 
-      expect(tester.widget<Text>(find.byKey(kExerciseGoalKey)).data, '2 × 45s',
-          reason: 'two holds of forty-five seconds');
-      expect(find.text('@'), findsNothing,
-          reason: 'nothing to be at: the movement carries no load');
+      expect(
+        tester.widget<Text>(find.byKey(kExerciseGoalKey)).data,
+        '2 × 45s',
+        reason: 'two holds of forty-five seconds',
+      );
+      expect(
+        find.text('@'),
+        findsNothing,
+        reason: 'nothing to be at: the movement carries no load',
+      );
       await stopAll(tester);
     });
   });
@@ -2383,21 +2592,26 @@ void main() {
           matching: find.byKey(kNextSetKey),
         );
 
-    testWidgets('the ramp is where you start, so its first rung is marked',
-        (tester) async {
+    testWidgets('the ramp is where you start, so its first rung is marked', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
 
       // The group is open by default, so the rung itself is what carries the
       // mark — not the block around it.
       expect(markOn('w0-0-Bench Press'), findsOneWidget);
-      expect(find.byKey(kNextSetKey), findsOneWidget,
-          reason: 'one rung, not the whole ramp');
+      expect(
+        find.byKey(kNextSetKey),
+        findsOneWidget,
+        reason: 'one rung, not the whole ramp',
+      );
       expect(find.byKey(kNextWarmupKey), findsNothing);
       await stopAll(tester);
     });
 
-    testWidgets('shutting the group moves the mark back onto it',
-        (tester) async {
+    testWidgets('shutting the group moves the mark back onto it', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       await tester.tap(find.text('WARM-UP').first);
       await tester.pump();
@@ -2407,48 +2621,60 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('an open ramp is never lit up as a whole block',
-        (tester) async {
+    testWidgets('an open ramp is never lit up as a whole block', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
 
       // The group's own container, while its first rung is the set you are on.
       final group = find.byKey(const ValueKey('warmup-0'));
       expect(group, findsOneWidget);
-      final marked = tester
-          .widget<Container>(group)
-          .decoration as BoxDecoration;
+      final marked =
+          tester.widget<Container>(group).decoration as BoxDecoration;
 
       // The same container once the ramp is behind you and nothing in it is
       // next. Being where you are may not change how the block is painted.
       clearRamp(container!.read(activeWorkoutProvider.notifier));
       await tester.pump();
-      final quiet = tester
+      final quiet =
+          tester
           .widget<Container>(find.byKey(const ValueKey('warmup-0')))
-          .decoration as BoxDecoration;
+                  .decoration
+              as BoxDecoration;
 
-      expect(marked.color, quiet.color,
-          reason: 'the whole warm-up block is filled for being where you are');
-      expect((marked.border as Border).top.color,
+      expect(
+        marked.color,
+        quiet.color,
+        reason: 'the whole warm-up block is filled for being where you are',
+      );
+      expect(
+        (marked.border as Border).top.color,
           (quiet.border as Border).top.color,
-          reason: 'the whole warm-up block is outlined in the accent');
+        reason: 'the whole warm-up block is outlined in the accent',
+      );
       await stopAll(tester);
     });
 
-    testWidgets('with the ramp behind you it is the first working set',
-        (tester) async {
+    testWidgets('with the ramp behind you it is the first working set', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       clearRamp(container!.read(activeWorkoutProvider.notifier));
       await tester.pump();
 
       expect(markOn('0-0-Bench Press'), findsOneWidget);
-      expect(find.byKey(kNextSetKey), findsOneWidget,
-          reason: 'exactly one thing on the board is ever marked');
+      expect(
+        find.byKey(kNextSetKey),
+        findsOneWidget,
+        reason: 'exactly one thing on the board is ever marked',
+      );
       expect(find.byKey(kNextWarmupKey), findsNothing);
       await stopAll(tester);
     });
 
-    testWidgets('logging a set moves the mark down, rest or no rest',
-        (tester) async {
+    testWidgets('logging a set moves the mark down, rest or no rest', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       clearRamp(container!.read(activeWorkoutProvider.notifier));
       await tester.pump();
@@ -2464,8 +2690,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('starting on a later movement marks that one, not the first',
-        (tester) async {
+    testWidgets('starting on a later movement marks that one, not the first', (
+      tester,
+    ) async {
       // The mark follows what you are working, not what the template lists
       // first: warming up on the third exercise and leaving the first for
       // later must not pin the mark to the untouched first.
@@ -2474,22 +2701,32 @@ void main() {
       // how it is arrived at on a phone — you come back to the screen — and
       // what puts the marked row on screen to be found.
       late String third;
-      await pumpPushScreen(tester, before: (ctl) {
+      await pumpPushScreen(
+        tester,
+        before: (ctl) {
         third = session().exercises[2].name;
         clearRamp(ctl, 2);
         ctl.cycleSet(2, 0);
         ctl.stopRest(tone: false);
-      });
+        },
+      );
 
       expect(markOn('2-1-$third'), findsOneWidget);
-      expect(find.byKey(kNextSetKey), findsOneWidget,
-          reason: 'exactly one thing on the board is ever marked');
-      expect(markOn('w0-0-Bench Press'), findsNothing,
-          reason: 'the untouched first exercise is not where you are');
+      expect(
+        find.byKey(kNextSetKey),
+        findsOneWidget,
+        reason: 'exactly one thing on the board is ever marked',
+      );
+      expect(
+        markOn('w0-0-Bench Press'),
+        findsNothing,
+        reason: 'the untouched first exercise is not where you are',
+      );
       await stopAll(tester);
     });
 
-    testWidgets('and once that movement is done the mark goes back up the list',
+    testWidgets(
+      'and once that movement is done the mark goes back up the list',
         (tester) async {
       await pumpPushScreen(tester);
       final ctl = container!.read(activeWorkoutProvider.notifier);
@@ -2500,11 +2737,15 @@ void main() {
       ctl.stopRest(tone: false);
       await tester.pump();
 
-      expect(markOn('w0-0-Bench Press'), findsOneWidget,
-          reason: 'nothing is in progress, so template order takes over');
+        expect(
+          markOn('w0-0-Bench Press'),
+          findsOneWidget,
+          reason: 'nothing is in progress, so template order takes over',
+        );
       expect(find.byKey(kNextSetKey), findsOneWidget);
       await stopAll(tester);
-    });
+      },
+    );
 
     testWidgets('and a finished session marks nothing at all', (tester) async {
       await pumpPushScreen(tester);
@@ -2538,21 +2779,29 @@ void main() {
       ctl.stopRest(tone: false);
     }
 
-    test('the mark passes its ramp by and lands on the next movement',
+    test(
+      'the mark passes its ramp by and lands on the next movement',
         () async {
       final ctl = await startPush();
       doTheWork(ctl, 0);
-      expect(session().exercises[0].warmups.any((w) => w.done), isFalse,
-          reason: 'the premise: the ramp was never ticked');
+        expect(
+          session().exercises[0].warmups.any((w) => w.done),
+          isFalse,
+          reason: 'the premise: the ramp was never ticked',
+        );
 
       final cue = nextUp(session())!;
 
-      expect(cue.exerciseIndex, 1,
-          reason: 'the next movement that still owes work');
+        expect(
+          cue.exerciseIndex,
+          1,
+          reason: 'the next movement that still owes work',
+        );
       // The shade names the same movement, from the same arithmetic.
       expect(cue.exercise, session().exercises[1].name);
       expect(session().exercises[0].warmups.every((w) => !w.done), isTrue);
-    });
+      },
+    );
 
     test('a rung ticked afterwards is recorded and starts no rest', () async {
       final ctl = await startPush();
@@ -2560,23 +2809,33 @@ void main() {
 
       for (var wi = 0; wi < session().exercises[0].warmups.length; wi++) {
         final rest = session().restAfter(0, wi, warmup: true);
-        expect(rest.seconds, 0,
-            reason: 'there is nothing left on that movement to rest for');
+        expect(
+          rest.seconds,
+          0,
+          reason: 'there is nothing left on that movement to rest for',
+        );
         expect(rest.prompt, isNull);
       }
 
       ctl.cycleWarmup(0, 0);
-      expect(session().exercises[0].warmups[0].done, isTrue,
-          reason: 'squaring the board up at the end still records the rung');
+      expect(
+        session().exercises[0].warmups[0].done,
+        isTrue,
+        reason: 'squaring the board up at the end still records the rung',
+      );
     });
 
-    testWidgets('so the board marks the next movement, not the leftover rung',
-        (tester) async {
+    testWidgets('so the board marks the next movement, not the leftover rung', (
+      tester,
+    ) async {
       late String next;
-      await pumpPushScreen(tester, before: (ctl) {
+      await pumpPushScreen(
+        tester,
+        before: (ctl) {
         next = session().exercises[1].name;
         doTheWork(ctl, 0);
-      });
+        },
+      );
 
       expect(find.byKey(ValueKey('w1-0-$next')), findsOneWidget);
       expect(
@@ -2597,8 +2856,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('and tapping the leftover rung opens no rest bar',
-        (tester) async {
+    testWidgets('and tapping the leftover rung opens no rest bar', (
+      tester,
+    ) async {
       // The board is mounted first and the work done under it: opening on a
       // session already in progress scrolls to the marked movement, which is
       // no longer Bench.
@@ -2610,8 +2870,11 @@ void main() {
       await tester.pump();
 
       expect(session().exercises[0].warmups[0].done, isTrue);
-      expect(find.byKey(kRestBannerKey), findsNothing,
-          reason: 'nothing on that movement is left to rest for');
+      expect(
+        find.byKey(kRestBannerKey),
+        findsNothing,
+        reason: 'nothing on that movement is left to rest for',
+      );
 
       await stopAll(tester);
     });
@@ -2623,11 +2886,12 @@ void main() {
     // done before you can log anything.
 
     /// The board's scroll position.
-    ScrollableState board(WidgetTester tester) =>
-        tester.state<ScrollableState>(find.descendant(
+    ScrollableState board(WidgetTester tester) => tester.state<ScrollableState>(
+      find.descendant(
           of: find.byType(ListView),
           matching: find.byType(Scrollable),
-        ));
+      ),
+    );
 
     /// Puts the marked set in the last exercise, before the screen is mounted.
     void onTheLast(ActiveWorkoutController ctl) {
@@ -2637,16 +2901,24 @@ void main() {
       ctl.stopRest(tone: false);
     }
 
-    testWidgets('a session in progress opens with the marked set on screen',
-        (tester) async {
+    testWidgets('a session in progress opens with the marked set on screen', (
+      tester,
+    ) async {
       await pumpPushScreen(tester, before: onTheLast);
 
-      expect(board(tester).position.pixels, greaterThan(0),
-          reason: 'the board opened at the top of a workout you are '
-              'five movements into');
+      expect(
+        board(tester).position.pixels,
+        greaterThan(0),
+        reason:
+            'the board opened at the top of a workout you are '
+            'five movements into',
+      );
       final marked = find.byKey(kNextSetKey);
-      expect(marked, findsOneWidget,
-          reason: 'the marked set was never laid out, so it is off screen');
+      expect(
+        marked,
+        findsOneWidget,
+        reason: 'the marked set was never laid out, so it is off screen',
+      );
       final row = tester.getRect(marked);
       final view = tester.getRect(find.byType(ListView));
       expect(row.top, greaterThanOrEqualTo(view.top));
@@ -2655,15 +2927,17 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a session with nothing logged is left at the top',
-        (tester) async {
+    testWidgets('a session with nothing logged is left at the top', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       expect(board(tester).position.pixels, 0);
       await stopAll(tester);
     });
 
-    testWidgets('and the list never moves under you afterwards',
-        (tester) async {
+    testWidgets('and the list never moves under you afterwards', (
+      tester,
+    ) async {
       await pumpPushScreen(tester, before: onTheLast);
       final opened = board(tester).position.pixels;
 
@@ -2680,8 +2954,11 @@ void main() {
 
       // Within a pixel or two: the mark's own border leaves the row it was on,
       // so the content above the bottom of the list is that much shorter.
-      expect(board(tester).position.pixels, closeTo(opened, 4),
-          reason: 'the rows may not move under a thumb that is logging sets');
+      expect(
+        board(tester).position.pixels,
+        closeTo(opened, 4),
+        reason: 'the rows may not move under a thumb that is logging sets',
+      );
       await stopAll(tester);
     });
   });
@@ -2774,14 +3051,20 @@ void main() {
       final ctl = await startPush();
       final ramp = session().exercises[0].warmups;
 
-      expect(nextUp(session())!.setCount, ramp.length,
-          reason: 'a rung counts the rungs');
+      expect(
+        nextUp(session())!.setCount,
+        ramp.length,
+        reason: 'a rung counts the rungs',
+      );
 
       for (var wi = 0; wi < ramp.length; wi++) {
         ctl.cycleWarmup(0, wi);
       }
-      expect(nextUp(session())!.setCount, session().exercises[0].sets.length,
-          reason: 'a working set counts the working sets');
+      expect(
+        nextUp(session())!.setCount,
+        session().exercises[0].sets.length,
+        reason: 'a working set counts the working sets',
+      );
     });
 
     test('and the work follows once the ramp is ticked off', () async {
@@ -2798,7 +3081,8 @@ void main() {
       expect(cue.weightKg, benchWeight);
     });
 
-    test('a rung nobody went back for does not hold up the next exercise',
+    test(
+      'a rung nobody went back for does not hold up the next exercise',
         () async {
       final ctl = await startPush();
       // Every working set of Bench done, one warm-up rung still unticked.
@@ -2807,15 +3091,23 @@ void main() {
       }
 
       final cue = nextUp(session())!;
-      expect(cue.exercise, session().exercises[1].name,
-          reason: 'the ramp of a finished exercise is behind you');
-    });
+        expect(
+          cue.exercise,
+          session().exercises[1].name,
+          reason: 'the ramp of a finished exercise is behind you',
+        );
+      },
+    );
 
-    test('what you owe is in the movement you are working, not the first one',
+    test(
+      'what you owe is in the movement you are working, not the first one',
         () async {
       final ctl = await startPush();
-      expect(nextUp(session())!.exerciseIndex, 0,
-          reason: 'with nothing logged it is template order');
+        expect(
+          nextUp(session())!.exerciseIndex,
+          0,
+          reason: 'with nothing logged it is template order',
+        );
 
       // Started on the third movement and left the first two for later.
       clearRamp(ctl, 2);
@@ -2825,7 +3117,8 @@ void main() {
       expect(cue.exerciseIndex, 2);
       expect(cue.warmup, isFalse);
       expect(cue.setIndex, 1, reason: 'the next set of the one you are on');
-    });
+      },
+    );
 
     test('its ramp still comes before its working sets', () async {
       final ctl = await startPush();
@@ -2833,8 +3126,11 @@ void main() {
 
       final cue = nextUp(session())!;
       expect(cue.exerciseIndex, 2);
-      expect(cue.warmup, isTrue,
-          reason: 'a ramp primes the movement it belongs to');
+      expect(
+        cue.warmup,
+        isTrue,
+        reason: 'a ramp primes the movement it belongs to',
+      );
     });
 
     test('and the one you logged in most recently wins', () async {
@@ -2847,8 +3143,7 @@ void main() {
       expect(nextUp(session())!.exerciseIndex, 3);
     });
 
-    test('including when the most recent one is further up the board',
-        () async {
+    test('including when the most recent one is further up the board', () async {
       // Working back up to a movement skipped past: the bench was busy, it is
       // free now. Template order still lists it first, and it is where you are.
       final ctl = await startPush();
@@ -2859,7 +3154,11 @@ void main() {
 
       final cue = nextUp(session())!;
       expect(cue.exerciseIndex, 1);
-      expect(cue.setIndex, 1, reason: 'the next set of the one you came back to');
+      expect(
+        cue.setIndex,
+        1,
+        reason: 'the next set of the one you came back to',
+      );
     });
 
     test('and it stays there until that movement runs out of work', () async {
@@ -2899,18 +3198,23 @@ void main() {
       }
 
       final cue = nextUp(session())!;
-      expect(cue.exerciseIndex, 0,
-          reason: 'the first exercise with anything outstanding');
+      expect(
+        cue.exerciseIndex,
+        0,
+        reason: 'the first exercise with anything outstanding',
+      );
       expect(cue.warmup, isTrue, reason: 'and its ramp is where that starts');
     });
 
-    test('a warm-up rung of a later exercise is not what you owe now',
+    test(
+      'a warm-up rung of a later exercise is not what you owe now',
         () async {
       await startPush();
       final cue = nextUp(session())!;
       // Bench's ramp, not the ramp of anything further down the list.
       expect(cue.exerciseIndex, 0);
-    });
+      },
+    );
 
     test('resting outranks whatever is next, and still names it', () async {
       final ctl = await startPush();
@@ -2968,7 +3272,8 @@ void main() {
 
       // A counted set: most of it got done, which is why the button was
       // reached for rather than the app.
-      expect(missedSeed((
+      expect(
+        missedSeed((
         kind: CueKind.lift,
         exercise: 'Bench Press',
         exerciseSeedKey: null,
@@ -2980,10 +3285,13 @@ void main() {
         reps: 8,
         seconds: null,
         restLeft: null,
-      )), 7);
+        )),
+        7,
+      );
 
       // A goal of one has nowhere to go but zero.
-      expect(missedSeed((
+      expect(
+        missedSeed((
         kind: CueKind.lift,
         exercise: 'x',
         exerciseSeedKey: null,
@@ -2995,11 +3303,14 @@ void main() {
         reps: 1,
         seconds: null,
         restLeft: null,
-      )), 0);
+        )),
+        0,
+      );
 
       // A hold is not guessable — how long you held it is not a number
       // anything can seed.
-      expect(missedSeed((
+      expect(
+        missedSeed((
         kind: CueKind.hold,
         exercise: 'Plank',
         exerciseSeedKey: null,
@@ -3011,7 +3322,9 @@ void main() {
         reps: null,
         seconds: 45,
         restLeft: null,
-      )), isNull);
+        )),
+        isNull,
+      );
 
       expect(cue.exercise, isNotEmpty);
     });
@@ -3022,7 +3335,8 @@ void main() {
     // press comes from a notification that may be a moment out of date, and the
     // session is the only thing that knows what is actually outstanding.
 
-    test('Done logs the outstanding set at its goal and starts the rest',
+    test(
+      'Done logs the outstanding set at its goal and starts the rest',
         () async {
       final ctl = await startPush();
       // Clear Bench's ramp so the working set is what is outstanding.
@@ -3034,11 +3348,18 @@ void main() {
       ctl.logNextAtGoal();
 
       expect(session().exercises[0].sets[0].logged, benchGoal);
-      expect(session().exercises[0].sets[0].missedGoal, isFalse,
-          reason: 'at the goal is a hit');
-      expect(session().restLeft, greaterThan(0),
-          reason: 'the rest starts without the app being touched');
-    });
+        expect(
+          session().exercises[0].sets[0].missedGoal,
+          isFalse,
+          reason: 'at the goal is a hit',
+        );
+        expect(
+          session().restLeft,
+          greaterThan(0),
+          reason: 'the rest starts without the app being touched',
+        );
+      },
+    );
 
     test('Done logs the set the board marks, not the first one left', () async {
       // The shade and the board read the same arithmetic, so a session started
@@ -3051,8 +3372,11 @@ void main() {
       ctl.logNextAtGoal();
 
       expect(session().exercises[3].sets[1].done, isTrue);
-      expect(session().exercises[1].sets.every((s) => !s.done), isTrue,
-          reason: 'the untouched second movement is not where you are');
+      expect(
+        session().exercises[1].sets.every((s) => !s.done),
+        isTrue,
+        reason: 'the untouched second movement is not where you are',
+      );
     });
 
     test('Done walks the warm-up rungs first', () async {
@@ -3061,8 +3385,11 @@ void main() {
 
       final ramp = session().exercises[0].warmups;
       expect(ramp.first.logged, ramp.first.goal);
-      expect(session().exercises[0].sets[0].done, isFalse,
-          reason: 'the work waits for the ramp');
+      expect(
+        session().exercises[0].sets[0].done,
+        isFalse,
+        reason: 'the work waits for the ramp',
+      );
     });
 
     test('Done does nothing while a rest is running', () async {
@@ -3072,8 +3399,11 @@ void main() {
 
       ctl.logNextAtGoal();
 
-      expect(session().doneSets, before,
-          reason: 'you are resting; there is nothing to claim yet');
+      expect(
+        session().doneSets,
+        before,
+        reason: 'you are resting; there is nothing to claim yet',
+      );
     });
 
     test('Done refuses a hold, which is not a number it can invent', () async {
@@ -3097,8 +3427,11 @@ void main() {
       ctl.logNextAsMissed();
 
       expect(session().exercises[0].sets[0].logged, benchGoal - 1);
-      expect(session().exercises[0].sets[0].missedGoal, isTrue,
-          reason: 'it lands gold, which is the point of seeding it short');
+      expect(
+        session().exercises[0].sets[0].missedGoal,
+        isTrue,
+        reason: 'it lands gold, which is the point of seeding it short',
+      );
       // You have just finished a set. That the number wants correcting does not
       // make the rest between sets any shorter, and a board you come back to
       // with no clock running is one where you have to start it by hand.
@@ -3134,8 +3467,7 @@ void main() {
       int? reps,
       int? seconds,
       int? restLeft,
-    }) =>
-        (
+    }) => (
           kind: kind,
           exercise: exercise,
           exerciseSeedKey: null,
@@ -3150,27 +3482,38 @@ void main() {
         );
 
     test('a loaded set reads as a bar you could go and load', () {
-      expect(describeCue(l10n, cue(weightKg: 80, reps: 8), 'kg'),
-          l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8));
+      expect(
+        describeCue(l10n, cue(weightKg: 80, reps: 8), 'kg'),
+        l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8),
+      );
     });
 
     test('and in the unit on the phone, not the one in the database', () {
       // 80 kg is 176.37 lb — the number you would set the bar to.
-      expect(describeCue(l10n, cue(weightKg: 80, reps: 8), 'lb'),
-          l10n.shadeSetWeightReps(load('176.37', l10n.unitLbSuffix), 8));
+      expect(
+        describeCue(l10n, cue(weightKg: 80, reps: 8), 'lb'),
+        l10n.shadeSetWeightReps(load('176.37', l10n.unitLbSuffix), 8),
+      );
     });
 
     test('a bodyweight movement says so rather than saying nothing', () {
-      expect(describeCue(l10n, cue(reps: 12), 'kg'),
-          l10n.shadeSetBodyweightReps(12));
+      expect(
+        describeCue(l10n, cue(reps: 12), 'kg'),
+        l10n.shadeSetBodyweightReps(12),
+      );
     });
 
     test('a hold is seconds, and a loaded hold is both', () {
-      expect(describeCue(l10n, cue(kind: CueKind.hold, seconds: 45), 'kg'),
-          l10n.unitSecondsShort('45'));
+      expect(
+        describeCue(l10n, cue(kind: CueKind.hold, seconds: 45), 'kg'),
+        l10n.unitSecondsShort('45'),
+      );
       expect(
         describeCue(
-            l10n, cue(kind: CueKind.hold, weightKg: 20, seconds: 45), 'kg'),
+          l10n,
+          cue(kind: CueKind.hold, weightKg: 20, seconds: 45),
+          'kg',
+        ),
         l10n.shadeSetWeightSeconds(load('20', l10n.unitKgSuffix), 45),
       );
     });
@@ -3195,14 +3538,21 @@ void main() {
       // Four identical sets of bench read identically from a pocket without
       // it — see issue #65.
       expect(
-        shadeText(l10n, cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5),
-            'kg'),
+        shadeText(
+          l10n,
+          cue(weightKg: 80, reps: 8, setIndex: 3, setCount: 5),
+          'kg',
+        ),
         l10n.shadeSetLine(
-            4, 5, l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8)),
+          4,
+          5,
+          l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8),
+        ),
       );
     });
 
-    test('a warm-up rung says so on the bold line, and counts the rungs below',
+    test(
+      'a warm-up rung says so on the bold line, and counts the rungs below',
         () {
       expect(
         shadeTitle(l10n, cue(warmup: true, setIndex: 1, setCount: 3)),
@@ -3210,10 +3560,14 @@ void main() {
       );
       expect(
         shadeText(
-            l10n, cue(warmup: true, reps: 5, setIndex: 1, setCount: 3), 'kg'),
+            l10n,
+            cue(warmup: true, reps: 5, setIndex: 1, setCount: 3),
+            'kg',
+          ),
         l10n.shadeSetLine(2, 3, l10n.shadeSetBodyweightReps(5)),
       );
-    });
+      },
+    );
 
     test('a hold names the movement the same way', () {
       expect(
@@ -3235,15 +3589,19 @@ void main() {
                 reps: 8,
                 setIndex: 3,
                 setCount: 5,
-                restLeft: 40),
-            'kg'),
+            restLeft: 40,
+          ),
+          'kg',
+        ),
         l10n.shadeNextLine(
           l10n.shadeWhereExerciseSet('Bench Press', 4, 5),
           l10n.shadeSetWeightReps(load('80', l10n.unitKgSuffix), 8),
         ),
       );
-      expect(shadeTitle(l10n, cue(kind: CueKind.resting, restLeft: 40)),
-          l10n.shadeRestTitle(fmtDuration(40)));
+      expect(
+        shadeTitle(l10n, cue(kind: CueKind.resting, restLeft: 40)),
+        l10n.shadeRestTitle(fmtDuration(40)),
+      );
     });
 
     test('and says when what is next is a warm-up rung', () {
@@ -3257,7 +3615,8 @@ void main() {
               reps: 5,
               setIndex: 0,
               setCount: 3,
-              restLeft: 40),
+            restLeft: 40,
+          ),
           'kg',
         ),
         l10n.shadeNextLine(
@@ -3271,8 +3630,10 @@ void main() {
       // The same three controls the screen has, so the two places a rest can be
       // nudged from do not disagree about what a nudge is.
       expect(
-        shadeButtons(l10n, cue(kind: CueKind.resting, restLeft: 40))
-            .map((b) => b.id),
+        shadeButtons(
+          l10n,
+          cue(kind: CueKind.resting, restLeft: 40),
+        ).map((b) => b.id),
         // Skip first: Android lays the row out from the left and squeezes it
         // from the right, and Skip is the one control a rest is reached for.
         [
@@ -3284,17 +3645,20 @@ void main() {
     });
 
     test('a set to do offers Done and Missed', () {
-      expect(
-        shadeButtons(l10n, cue(weightKg: 80, reps: 8)).map((b) => b.id),
-        [WorkoutShade.doneAction, WorkoutShade.missedAction],
-      );
+      expect(shadeButtons(l10n, cue(weightKg: 80, reps: 8)).map((b) => b.id), [
+        WorkoutShade.doneAction,
+        WorkoutShade.missedAction,
+      ]);
     });
 
     test('a hold offers the one button that opens the app', () {
       // Start, which logs nothing: how long you held it is the measurement, and
       // nothing in a pocket can invent it.
       expect(
-        shadeButtons(l10n, cue(kind: CueKind.hold, seconds: 45)).map((b) => b.id),
+        shadeButtons(
+          l10n,
+          cue(kind: CueKind.hold, seconds: 45),
+        ).map((b) => b.id),
         [WorkoutShade.startAction],
       );
     });
@@ -3313,8 +3677,11 @@ void main() {
       final copy = shadeCopy(l10n, done, 'kg');
       expect(copy.title, l10n.shadeFinishedTitle);
       expect(copy.text, l10n.shadeFinishedBody);
-      expect(copy.buttons, isEmpty,
-          reason: 'Finish weighs up unlogged sets and opens the recap');
+      expect(
+        copy.buttons,
+        isEmpty,
+        reason: 'Finish weighs up unlogged sets and opens the recap',
+      );
     });
 
     group('the name gives way so the counter stays on the line', () {
@@ -3344,50 +3711,77 @@ void main() {
 
         expect(line, whole('Bench Press'));
         expect(line.length, lessThanOrEqualTo(kShadeWhereChars));
-        expect(line, isNot(contains('…')),
-            reason: 'nothing here was too long to say');
+        expect(
+          line,
+          isNot(contains('…')),
+          reason: 'nothing here was too long to say',
+        );
       });
 
-      test('a long one is cut to the budget, and it is the name that is cut',
+      test(
+        'a long one is cut to the budget, and it is the name that is cut',
           () {
         final full = whole(long);
-        expect(full.length, greaterThan(kShadeWhereChars),
-            reason: 'the case only means something if it would have overrun');
+          expect(
+            full.length,
+            greaterThan(kShadeWhereChars),
+            reason: 'the case only means something if it would have overrun',
+          );
 
-        final line =
-            shadeWhere(l10n, cue(exercise: long, setIndex: 3, setCount: 5));
+          final line = shadeWhere(
+            l10n,
+            cue(exercise: long, setIndex: 3, setCount: 5),
+          );
 
         expect(line.length, lessThanOrEqualTo(kShadeWhereChars));
         expect(line, contains('…'));
-        expect(line, endsWith(counterOf(full, long)),
-            reason: 'the counter is the half worth keeping');
+          expect(
+            line,
+            endsWith(counterOf(full, long)),
+            reason: 'the counter is the half worth keeping',
+          );
         expect(line, startsWith(leadOf(full, long)));
-      });
+        },
+      );
 
       test('and what is left of the name is the start of the real one', () {
         final full = whole(long);
-        final line =
-            shadeWhere(l10n, cue(exercise: long, setIndex: 3, setCount: 5));
+        final line = shadeWhere(
+          l10n,
+          cue(exercise: long, setIndex: 3, setCount: 5),
+        );
 
-        final kept =
-            line.substring(leadOf(full, long).length, line.indexOf('…'));
+        final kept = line.substring(
+          leadOf(full, long).length,
+          line.indexOf('…'),
+        );
         expect(kept, isNotEmpty, reason: 'an ellipsis alone names nothing');
-        expect(long, startsWith(kept),
-            reason: 'the kept part has to be the movement, not a rewrite of it');
+        expect(
+          long,
+          startsWith(kept),
+          reason: 'the kept part has to be the movement, not a rewrite of it',
+        );
       });
 
-      test('a warm-up rung gives its name the same way, and keeps its word',
+      test(
+        'a warm-up rung gives its name the same way, and keeps its word',
           () {
         final full = whole(long, warmup: true);
         final line = shadeWhere(
-            l10n, cue(exercise: long, warmup: true, setIndex: 1, setCount: 3));
+            l10n,
+            cue(exercise: long, warmup: true, setIndex: 1, setCount: 3),
+          );
 
         expect(line.length, lessThanOrEqualTo(kShadeWhereChars));
         expect(line, contains('…'));
-        expect(line, startsWith(leadOf(full, long)),
-            reason: 'the ramp is not what shortens; "Warm-up" stays');
+          expect(
+            line,
+            startsWith(leadOf(full, long)),
+            reason: 'the ramp is not what shortens; "Warm-up" stays',
+          );
         expect(line, endsWith(counterOf(full, long)));
-      });
+        },
+      );
 
       test('and the resting second line carries the same cut line', () {
         final resting = cue(
@@ -3397,7 +3791,8 @@ void main() {
             reps: 8,
             setIndex: 3,
             setCount: 5,
-            restLeft: 40);
+          restLeft: 40,
+        );
 
         final text = shadeText(l10n, resting, 'kg');
 
@@ -3409,8 +3804,11 @@ void main() {
           ),
         );
         expect(text, contains('…'));
-        expect(text, isNot(contains(long)),
-            reason: 'the line the shade cannot fit is not fitted here either');
+        expect(
+          text,
+          isNot(contains(long)),
+          reason: 'the line the shade cannot fit is not fitted here either',
+        );
       });
     });
   });
@@ -3457,24 +3855,29 @@ void main() {
     late _RecordingTone tone;
     late _RecordingBuzz buzz;
 
-    Future<ActiveWorkoutController> startPushWithPhone(
-        {required bool onScreen}) async {
+    Future<ActiveWorkoutController> startPushWithPhone({
+      required bool onScreen,
+    }) async {
       alarm = _RecordingAlarm();
       tone = _RecordingTone();
       buzz = _RecordingBuzz();
-      container = containerFor(db, overrides: [
+      container = containerFor(
+        db,
+        overrides: [
         restAlarmProvider.overrideWithValue(alarm),
         restToneProvider.overrideWithValue(tone),
         restBuzzProvider.overrideWithValue(buzz),
         appOnScreenProvider.overrideWithValue(() => onScreen),
-      ]);
+        ],
+      );
       final wid = await workoutIdNamed(db, 'Push');
       final ctl = container!.read(activeWorkoutProvider.notifier);
       await ctl.start(workoutId: wid, name: 'Push');
       return ctl;
     }
 
-    test('a rest running out off screen rings, and says what is next',
+    test(
+      'a rest running out off screen rings, and says what is next',
         () async {
       final ctl = await startPushWithPhone(onScreen: false);
       ctl.startRest(90, null);
@@ -3482,14 +3885,25 @@ void main() {
       ctl.stopRest();
 
       expect(alarm.rung, hasLength(1));
-      expect(alarm.rung.single, contains('Bench Press'),
-          reason: '"rest over" makes you open the app to find out what for');
-      expect(tone.played, 1,
-          reason: 'the notification joins the tone; it does not replace it');
-      expect(buzz.buzzes, 1,
-          reason: 'a bag is where a rest ending has to be felt rather than '
-              'heard, and the notification cannot be relied on to do it');
-    });
+        expect(
+          alarm.rung.single,
+          contains('Bench Press'),
+          reason: '"rest over" makes you open the app to find out what for',
+        );
+        expect(
+          tone.played,
+          1,
+          reason: 'the notification joins the tone; it does not replace it',
+        );
+        expect(
+          buzz.buzzes,
+          1,
+          reason:
+              'a bag is where a rest ending has to be felt rather than '
+              'heard, and the notification cannot be relied on to do it',
+        );
+      },
+    );
 
     test('and it buzzes on screen and off it alike', () async {
       final ctl = await startPushWithPhone(onScreen: true);
@@ -3497,8 +3911,11 @@ void main() {
 
       ctl.stopRest();
 
-      expect(buzz.buzzes, 1,
-          reason: 'the vibration is the rest ending, not the notification');
+      expect(
+        buzz.buzzes,
+        1,
+        reason: 'the vibration is the rest ending, not the notification',
+      );
     });
 
     test('with the app on screen there is no notification — you are looking '
@@ -3512,7 +3929,8 @@ void main() {
       expect(tone.played, 1);
     });
 
-    test('skipping from the shade sounds, like every other end of a rest',
+    test(
+      'skipping from the shade sounds, like every other end of a rest',
         () async {
       // It used to be silent, on the argument that whoever pressed Skip knows.
       // What that produced was the one button in the app that is only ever
@@ -3524,7 +3942,8 @@ void main() {
 
       expect(alarm.rung, hasLength(1));
       expect(session().restLeft, 0);
-    });
+      },
+    );
 
     test('and starting the next rest takes the old one down', () async {
       final ctl = await startPushWithPhone(onScreen: true);
@@ -3555,22 +3974,30 @@ void main() {
       ctl.stopRest();
 
       expect(tone.played, 1);
-      expect(alarm.rung, hasLength(1),
-          reason: 'the notification is the picture beside the sound');
+      expect(
+        alarm.rung,
+        hasLength(1),
+        reason: 'the notification is the picture beside the sound',
+      );
     });
   });
 
   group('how loud it is belongs to the phone', () {
-    testWidgets('Exercise settings offers no volume control at all',
-        (tester) async {
+    testWidgets('Exercise settings offers no volume control at all', (
+      tester,
+    ) async {
       container = containerFor(db);
       await tester.pumpWidget(
-          appUnder(container!, const ExerciseSettingsScreen()));
+        appUnder(container!, const ExerciseSettingsScreen()),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.byType(Slider), findsNothing,
-          reason: 'the phone\'s alarm slider is the one control for this');
+      expect(
+        find.byType(Slider),
+        findsNothing,
+        reason: 'the phone\'s alarm slider is the one control for this',
+      );
       await stop(tester);
     });
   });
@@ -3587,8 +4014,11 @@ void main() {
 
       final p = session().restAfterWarmup(0, 0);
       expect(p.purpose, RestPurpose.anotherWarmup);
-      expect(p.weightKg, ramp[1].weight,
-          reason: 'the load about to go on the bar, not the one just lifted');
+      expect(
+        p.weightKg,
+        ramp[1].weight,
+        reason: 'the load about to go on the bar, not the one just lifted',
+      );
     });
 
     test('after the last rung it names the working weight', () async {
@@ -3655,8 +4085,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('the weight is named in pounds when that is the unit',
-        (tester) async {
+    testWidgets('the weight is named in pounds when that is the unit', (
+      tester,
+    ) async {
       await tester.runAsync(() => db.setWeightUnit('lb'));
       await pumpPushScreen(tester);
 
@@ -3675,29 +4106,39 @@ void main() {
   });
 
   group('A held set times itself', () {
-    testWidgets('tap starts a count-up; tap again logs what it read',
-        (tester) async {
+    testWidgets('tap starts a count-up; tap again logs what it read', (
+      tester,
+    ) async {
       // A hold is a duration you measure, not a count you claim — so the cell
       // is a stopwatch rather than the rep cycle.
       await pumpPlank(tester);
       final cell = repsCell('0-0-Plank');
 
       // Untouched, it shows the goal.
-      expect(find.descendant(of: cell, matching: find.text('45s')),
-          findsOneWidget);
+      expect(
+        find.descendant(of: cell, matching: find.text('45s')),
+        findsOneWidget,
+      );
 
       await tester.tap(cell);
       await tester.pump();
-      expect(find.descendant(of: cell, matching: find.text('0s')),
+      expect(
+        find.descendant(of: cell, matching: find.text('0s')),
           findsOneWidget,
-          reason: 'the stopwatch starts at zero, not at the goal');
-      expect(session().exercises[0].sets[0].done, isFalse,
-          reason: 'a hold in progress is not a logged set');
+        reason: 'the stopwatch starts at zero, not at the goal',
+      );
+      expect(
+        session().exercises[0].sets[0].done,
+        isFalse,
+        reason: 'a hold in progress is not a logged set',
+      );
 
       // It counts up a second at a time.
       await tester.pump(const Duration(seconds: 12));
-      expect(find.descendant(of: cell, matching: find.text('12s')),
-          findsOneWidget);
+      expect(
+        find.descendant(of: cell, matching: find.text('12s')),
+        findsOneWidget,
+      );
 
       // And stopping logs exactly what it read.
       await tester.tap(cell);
@@ -3724,8 +4165,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('tapping a logged hold clears it, ready to run again',
-        (tester) async {
+    testWidgets('tapping a logged hold clears it, ready to run again', (
+      tester,
+    ) async {
       await pumpPlank(tester);
       final cell = repsCell('0-0-Plank');
 
@@ -3753,10 +4195,16 @@ void main() {
       await tapCell(tester, repsCell('0-1-Plank'));
       await tester.pump();
 
-      expect(session().exercises[0].sets[0].logged, 7,
-          reason: 'the abandoned hold is logged, not lost');
-      expect(session().exercises[0].sets[1].done, isFalse,
-          reason: 'and the new one is running, not logged');
+      expect(
+        session().exercises[0].sets[0].logged,
+        7,
+        reason: 'the abandoned hold is logged, not lost',
+      );
+      expect(
+        session().exercises[0].sets[1].done,
+        isFalse,
+        reason: 'and the new one is running, not logged',
+      );
 
       await tester.pump(const Duration(seconds: 4));
       await tapCell(tester, repsCell('0-1-Plank'));
@@ -3788,8 +4236,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('and does not offer it to a session with nothing held',
-        (tester) async {
+    testWidgets('and does not offer it to a session with nothing held', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       expect(find.textContaining('tap to start, tap to stop'), findsNothing);
       await stopAll(tester);
@@ -3810,7 +4259,8 @@ void main() {
   });
 
   group('A short set says so without relying on its colour', () {
-    testWidgets('a set that fell short carries a downward arrow; a hit does not',
+    testWidgets(
+      'a set that fell short carries a downward arrow; a hit does not',
         (tester) async {
       // Green and gold differing only in hue is the one pair a colour-blind
       // reader cannot separate, and this column is the app's most-read signal.
@@ -3851,7 +4301,8 @@ void main() {
       );
 
       await stopAll(tester);
-    });
+      },
+    );
   });
 
   group('The resume bar takes room rather than covering things', () {
@@ -3863,7 +4314,8 @@ void main() {
       List<RouteBase> routes,
     ) async {
       final router = GoRouter(initialLocation: at, routes: routes);
-      await tester.pumpWidget(UncontrolledProviderScope(
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
         container: container!,
         child: MaterialApp.router(
           theme: AppTheme.build(kDefaultPalette),
@@ -3873,19 +4325,20 @@ void main() {
           builder: (context, child) =>
               ResumeWorkoutOverlay(router: router, child: child!),
         ),
-      ));
+        ),
+      );
       await frames(tester);
       return router;
     }
 
-    testWidgets('a pushed screen ends above the bar, not under it',
-        (tester) async {
+    testWidgets('a pushed screen ends above the bar, not under it', (
+      tester,
+    ) async {
       await tester.runAsync(() async {
         container = containerFor(db);
-        await container!.read(activeWorkoutProvider.notifier).start(
-              workoutId: await workoutIdNamed(db, 'Push'),
-              name: 'Push',
-            );
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
       });
       await pumpUnderOverlay(tester, '/library', [
         GoRoute(path: '/library', builder: (_, _) => const LibraryScreen()),
@@ -3894,13 +4347,17 @@ void main() {
       expect(find.byKey(resumeWorkoutBarKey), findsOneWidget);
       final bar = tester.getRect(find.byKey(resumeWorkoutBarKey));
       final list = tester.getRect(find.byType(ListView).first);
-      expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
-          reason: 'the list runs on underneath the bar');
+      expect(
+        list.bottom,
+        lessThanOrEqualTo(bar.top + 0.5),
+        reason: 'the list runs on underneath the bar',
+      );
 
       await stopAll(tester);
     });
 
-    testWidgets('a tab screen keeps it above the nav bar and clear of the list',
+    testWidgets(
+      'a tab screen keeps it above the nav bar and clear of the list',
         (tester) async {
       // A tab screen on a small phone is the worst case there is: a navigation
       // bar and the resume bar out of 720 logical pixels.
@@ -3910,18 +4367,24 @@ void main() {
 
       await tester.runAsync(() async {
         container = containerFor(db);
-        await container!.read(activeWorkoutProvider.notifier).start(
-              workoutId: await workoutIdNamed(db, 'Push'),
-              name: 'Push',
-            );
+          await container!
+              .read(activeWorkoutProvider.notifier)
+              .start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
       });
       await pumpUnderOverlay(tester, '/today', [
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => HomeShell(shell: shell),
           branches: [
-            for (final p in const ['/today', '/routines', '/history', '/profile'])
+              for (final p in const [
+                '/today',
+                '/routines',
+                '/history',
+                '/profile',
+              ])
               StatefulShellBranch(
-                routes: [GoRoute(path: p, builder: (_, _) => const TodayScreen())],
+                  routes: [
+                    GoRoute(path: p, builder: (_, _) => const TodayScreen()),
+                  ],
               ),
           ],
         ),
@@ -3933,16 +4396,24 @@ void main() {
       final nav = tester.getRect(find.byType(NavigationBar));
       final list = tester.getRect(find.byType(ListView).first);
 
-      expect(bar.bottom, lessThanOrEqualTo(nav.top + 0.5),
-          reason: 'the bar belongs above the navigation bar');
-      expect(list.bottom, lessThanOrEqualTo(bar.top + 0.5),
-          reason: "Today's list runs on underneath the bar");
+        expect(
+          bar.bottom,
+          lessThanOrEqualTo(nav.top + 0.5),
+          reason: 'the bar belongs above the navigation bar',
+        );
+        expect(
+          list.bottom,
+          lessThanOrEqualTo(bar.top + 0.5),
+          reason: "Today's list runs on underneath the bar",
+        );
 
       await stopAll(tester);
-    });
+      },
+    );
 
-    testWidgets('with no session live nothing is reserved at all',
-        (tester) async {
+    testWidgets('with no session live nothing is reserved at all', (
+      tester,
+    ) async {
       container = containerFor(db);
       await pumpUnderOverlay(tester, '/library', [
         GoRoute(path: '/library', builder: (_, _) => const LibraryScreen()),
@@ -3950,8 +4421,10 @@ void main() {
 
       expect(find.byKey(resumeWorkoutBarKey), findsNothing);
       final list = tester.getRect(find.byType(ListView).first);
-      expect(list.bottom,
-          closeTo(tester.getSize(find.byType(MaterialApp)).height, 1.0));
+      expect(
+        list.bottom,
+        closeTo(tester.getSize(find.byType(MaterialApp)).height, 1.0),
+      );
 
       await stopAll(tester);
     });
@@ -3968,8 +4441,9 @@ void main() {
           await db.setExerciseNotes(e.id, text);
         });
 
-    testWidgets('a note is readable without leaving the workout',
-        (tester) async {
+    testWidgets('a note is readable without leaving the workout', (
+      tester,
+    ) async {
       await noteOn(tester, 'Bench Press', 'Rack pin 7, bench squeaks');
       await pumpPushScreen(tester);
 
@@ -3982,8 +4456,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a movement with no note still offers somewhere to add one',
-        (tester) async {
+    testWidgets('a movement with no note still offers somewhere to add one', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
 
       // Nothing to read, so nothing claims there is — but there is somewhere
@@ -4005,8 +4480,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('one tap brings it up, and there is no second icon',
-        (tester) async {
+    testWidgets('one tap brings it up, and there is no second icon', (
+      tester,
+    ) async {
       // It used to take two: the first tap unfolded the note and grew a pencil,
       // and the pencil was the thing you were reaching for.
       await noteOn(tester, 'Bench Press', 'Rack pin 7');
@@ -4018,8 +4494,11 @@ void main() {
 
       // The note is up, and it is the thing you can change.
       expect(find.text('Rack pin 7'), findsOneWidget);
-      expect(find.byTooltip('Edit note'), findsNothing,
-          reason: 'one icon, one meaning');
+      expect(
+        find.byTooltip('Edit note'),
+        findsNothing,
+        reason: 'one icon, one meaning',
+      );
 
       await tester.enterText(find.byType(TextField), 'Rack pin 8');
       await tester.tap(find.text('Save'));
@@ -4030,8 +4509,9 @@ void main() {
       await stopAll(tester);
     });
 
-    testWidgets('a note written elsewhere reaches a session already running',
-        (tester) async {
+    testWidgets('a note written elsewhere reaches a session already running', (
+      tester,
+    ) async {
       await pumpPushScreen(tester);
       expect(find.byTooltip('My note'), findsNothing);
 
@@ -4065,24 +4545,34 @@ void main() {
     Future<GoRouter> pumpShellWithSomewhereToGo(WidgetTester tester) async {
       await tester.runAsync(() async {
         container = containerFor(db);
-        await container!.read(activeWorkoutProvider.notifier).start(
-              workoutId: await workoutIdNamed(db, 'Push'),
-              name: 'Push',
-            );
+        await container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: await workoutIdNamed(db, 'Push'), name: 'Push');
       });
-      final router = GoRouter(initialLocation: '/today', routes: [
+      final router = GoRouter(
+        initialLocation: '/today',
+        routes: [
         StatefulShellRoute.indexedStack(
           builder: (_, _, shell) => HomeShell(shell: shell),
           branches: [
-            for (final p in const ['/today', '/routines', '/history', '/profile'])
+              for (final p in const [
+                '/today',
+                '/routines',
+                '/history',
+                '/profile',
+              ])
               StatefulShellBranch(
-                routes: [GoRoute(path: p, builder: (_, _) => const TodayScreen())],
+                  routes: [
+                    GoRoute(path: p, builder: (_, _) => const TodayScreen()),
+                  ],
               ),
           ],
         ),
         GoRoute(path: '/library', builder: (_, _) => const LibraryScreen()),
-      ]);
-      await tester.pumpWidget(UncontrolledProviderScope(
+        ],
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
         container: container!,
         child: MaterialApp.router(
           theme: AppTheme.build(kDefaultPalette),
@@ -4092,7 +4582,8 @@ void main() {
           builder: (context, child) =>
               ResumeWorkoutOverlay(router: router, child: child!),
         ),
-      ));
+        ),
+      );
       await frames(tester);
       return router;
     }
@@ -4113,8 +4604,11 @@ void main() {
 
     testWidgets('pushing a screen over a tab never draws two', (tester) async {
       final router = await pumpShellWithSomewhereToGo(tester);
-      expect(find.byKey(resumeWorkoutBarKey), findsOneWidget,
-          reason: 'at rest on a tab root the shell owns it');
+      expect(
+        find.byKey(resumeWorkoutBarKey),
+        findsOneWidget,
+        reason: 'at rest on a tab root the shell owns it',
+      );
 
       router.push('/library');
       await everyFrameOf(tester, 'pushing /library over /today');
@@ -4171,10 +4665,9 @@ void main() {
       // already thrown.
       addTearDown(() => stop(tester));
       await tester.runAsync(
-        () => c.read(activeWorkoutProvider.notifier).start(
-              workoutId: wid,
-              name: 'Two Day',
-            ),
+        () => c
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Two Day'),
       );
 
       await tester.pumpWidget(
@@ -4191,9 +4684,7 @@ void main() {
       expect(find.byKey(kRestBannerKey), findsOneWidget);
       final geometry = (
         banner: tester.getRect(find.byKey(kRestBannerKey)),
-        caption: tester.getRect(
-          find.text('Set up $next, rest, then lift.'),
-        ),
+        caption: tester.getRect(find.text('Set up $next, rest, then lift.')),
         pills: {
           for (final label in const ['−15s', '+15s', 'Skip'])
             label: tester.getRect(find.widgetWithText(OutlinedButton, label)),
@@ -4219,12 +4710,18 @@ void main() {
         long = await bannerAfterLastSetOf(tester, longName, scale);
       });
 
-      expect(overflows, isEmpty,
-          reason: 'the rest bar overflowed at ${scale}x');
+      expect(
+        overflows,
+        isEmpty,
+        reason: 'the rest bar overflowed at ${scale}x',
+      );
 
       // The bar is the board's last row, not something that runs off it.
-      expect(long.banner.top, greaterThanOrEqualTo(0.0),
-          reason: 'the bar grew off the top of the screen at ${scale}x');
+      expect(
+        long.banner.top,
+        greaterThanOrEqualTo(0.0),
+        reason: 'the bar grew off the top of the screen at ${scale}x',
+      );
 
       // At the size the phone ships with, a short caption is one line. That is
       // the whole complaint: "Rest, then lift." came back on two.
@@ -4234,24 +4731,36 @@ void main() {
       // What must stay true at every scale is that it wraps rather than being
       // cut: the caption has no maxLines, so there is no ellipsis to find, and
       // the checks below hold the three buttons to their size while it grows.
-      expect(short.caption.height,
+      expect(
+        short.caption.height,
           lessThan(captionLine(scale) * (scale <= 1.0 ? 1.9 : 3.9)),
-          reason: 'the short caption ran past three lines at ${scale}x');
+        reason: 'the short caption ran past three lines at ${scale}x',
+      );
 
       for (final label in const ['−15s', '+15s', 'Skip']) {
         final a = short.pills[label]!;
         final b = long.pills[label]!;
-        expect(b.size.width, closeTo(a.size.width, 0.5),
-            reason: '$label was squeezed by the name above it at ${scale}x');
-        expect(b.size.height, closeTo(a.size.height, 0.5),
-            reason: '$label lost height to the caption at ${scale}x');
-        expect(b.left, closeTo(a.left, 0.5),
-            reason: '$label moved along the bar at ${scale}x');
+        expect(
+          b.size.width,
+          closeTo(a.size.width, 0.5),
+          reason: '$label was squeezed by the name above it at ${scale}x',
+        );
+        expect(
+          b.size.height,
+          closeTo(a.size.height, 0.5),
+          reason: '$label lost height to the caption at ${scale}x',
+        );
+        expect(
+          b.left,
+          closeTo(a.left, 0.5),
+          reason: '$label moved along the bar at ${scale}x',
+        );
       }
     }
 
-    testWidgets('a long name pushes nothing about, at ordinary text size',
-        (tester) async {
+    testWidgets('a long name pushes nothing about, at ordinary text size', (
+      tester,
+    ) async {
       await checkAtScale(tester, 1.0);
     });
 
@@ -4274,10 +4783,9 @@ void main() {
       });
       container = containerFor(db);
       await tester.runAsync(
-        () => container!.read(activeWorkoutProvider.notifier).start(
-              workoutId: wid,
-              name: 'Two Day',
-            ),
+        () => container!
+            .read(activeWorkoutProvider.notifier)
+            .start(workoutId: wid, name: 'Two Day'),
       );
       await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
       await tester.pump();
@@ -4291,12 +4799,17 @@ void main() {
       // the live session's tree with it.
       await stopAll(tester);
 
-      expect(caption.maxLines, isNull, reason: 'it wraps as far as it needs to');
+      expect(
+        caption.maxLines,
+        isNull,
+        reason: 'it wraps as far as it needs to',
+      );
       expect(caption.overflow, isNot(TextOverflow.ellipsis));
     });
 
-    testWidgets('"Rest, then lift." is one line on a 390-wide phone',
-        (tester) async {
+    testWidgets('"Rest, then lift." is one line on a 390-wide phone', (
+      tester,
+    ) async {
       // The reported case, at the phone's own text size: between two working
       // sets there is nothing to set up, and the caption is six words long.
       tester.view.physicalSize = const Size(390, 780);
@@ -4310,8 +4823,11 @@ void main() {
       await tester.pump();
 
       final line = tester.getSize(find.text('Rest, then lift.'));
-      expect(line.height, lessThan(captionLine(1.0) * 1.9),
-          reason: 'the caption wrapped onto a second line');
+      expect(
+        line.height,
+        lessThan(captionLine(1.0) * 1.9),
+        reason: 'the caption wrapped onto a second line',
+      );
 
       await stopAll(tester);
     });
@@ -4340,20 +4856,32 @@ void main() {
     final wav = _RestTone.read();
 
     test('it is a short, plain PCM ding', () {
-      expect(wav.bitsPerSample, 16, reason: 'plain 16-bit PCM, or the maths '
-          'below is reading something else');
+      expect(
+        wav.bitsPerSample,
+        16,
+        reason:
+            'plain 16-bit PCM, or the maths '
+            'below is reading something else',
+      );
       expect(wav.channels, 1);
-      expect(wav.seconds, lessThan(maxSeconds),
-          reason: 'a rest ending is one event; it does not need a melody');
-      expect(wav.bytes, lessThan(twoNoteBytes),
-          reason: 'shorter than the two-note figure it replaces');
+      expect(
+        wav.seconds,
+        lessThan(maxSeconds),
+        reason: 'a rest ending is one event; it does not need a melody',
+      );
+      expect(
+        wav.bytes,
+        lessThan(twoNoteBytes),
+        reason: 'shorter than the two-note figure it replaces',
+      );
     });
 
     test('and it is struck at the top of the scale', () {
       // The complaint that started issue #61: a ding you cannot hear over a
       // gym is a rest timer that does not work. Nothing is gained by leaving
       // headroom on the one sound the app makes.
-      final peak = wav.envelope(const Duration(milliseconds: 10))
+      final peak = wav
+          .envelope(const Duration(milliseconds: 10))
           .reduce((a, b) => a > b ? a : b);
       expect(peak, greaterThan(32767 * 0.9));
     });
@@ -4364,22 +4892,30 @@ void main() {
       // now and the app plays the asset itself, so the Android raw resource is
       // gone and there is one file left to be the ding.
       expect(File('assets/sound/rest_done.wav').existsSync(), isTrue);
-      expect(File('android/app/src/main/res/raw/rest_done.wav').existsSync(),
+      expect(
+        File('android/app/src/main/res/raw/rest_done.wav').existsSync(),
           isFalse,
-          reason: 'nothing sounds from a raw resource any more');
+        reason: 'nothing sounds from a raw resource any more',
+      );
     });
 
     test('it strikes at once and only fades from there', () {
       // A two-note figure gives itself away in the envelope: it decays, then
       // rises again for the second note. One ding never rises after its attack.
       final envelope = wav.envelope(const Duration(milliseconds: 10));
-      expect(envelope.length, greaterThan(4),
-          reason: 'too short to say anything about the shape of it');
+      expect(
+        envelope.length,
+        greaterThan(4),
+        reason: 'too short to say anything about the shape of it',
+      );
 
       final peak = envelope.reduce((a, b) => a > b ? a : b);
       final attack = envelope.indexOf(peak);
-      expect(attack, lessThanOrEqualTo(5),
-          reason: 'a fast attack peaks in the first 50 ms, not later');
+      expect(
+        attack,
+        lessThanOrEqualTo(5),
+        reason: 'a fast attack peaks in the first 50 ms, not later',
+      );
 
       // Allowing 5% of the peak as jitter: a decaying sine's window maxima are
       // not perfectly monotonic, but a second note is a rise of a different
@@ -4389,7 +4925,8 @@ void main() {
         expect(
           envelope[i],
           lessThanOrEqualTo(envelope[i - 1] + jitter),
-          reason: 'the tone gets louder again ${i * 10} ms in — '
+          reason:
+              'the tone gets louder again ${i * 10} ms in — '
               'that is a second note',
         );
       }
@@ -4428,8 +4965,7 @@ class _RestTone {
   factory _RestTone.read() {
     final raw = File('assets/sound/rest_done.wav').readAsBytesSync();
     final data = ByteData.sublistView(raw);
-    String tag(int at) =>
-        String.fromCharCodes(raw.sublist(at, at + 4));
+    String tag(int at) => String.fromCharCodes(raw.sublist(at, at + 4));
     if (tag(0) != 'RIFF' || tag(8) != 'WAVE') {
       throw StateError('not a RIFF/WAVE file');
     }

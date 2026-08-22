@@ -55,6 +55,17 @@ groups:
     - session.console-metrics
     - history.session-record
     - load.units
+  - id: history-keeps-set-rpe
+    t: History keeps the RPE recorded on each set
+    d: >-
+      Recaps and saved session details append the actual rating to weight and reps,
+      such as “100 kg × 5 @8.5”. A blank rating adds nothing, and editing or
+      removing a routine target never changes past ratings.
+    uses:
+    - history.session-record
+    - session.effort-rating
+    - template.effort-target
+    - storage.schema
   - id: per-exercise-progress-chart
     t: Each exercise has a progress chart
     d: >-

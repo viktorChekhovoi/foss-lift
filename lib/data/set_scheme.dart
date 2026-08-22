@@ -50,7 +50,6 @@ enum SetScheme {
   /// What the builder asks when deciding whether to draw rows at all, and what
   /// [resolveSetTargets] asks when deciding where the rows come from.
   bool get isWrittenOut => this == SetScheme.custom || this == SetScheme.cycle;
-
 }
 
 /// One row of a written-out prescription: what to aim for, and at what fraction
@@ -67,6 +66,7 @@ class CustomSet {
     required this.percent,
     this.repsMax,
     this.amrap = false,
+    this.targetRpe,
   });
 
   /// The bottom of the row: a count, the bottom of a range, or the minimum an
@@ -88,6 +88,9 @@ class CustomSet {
   /// Of the slot's weight, as a whole percentage. 100 is the slot's weight.
   final int percent;
 
+  /// Prescribed effort in tenths (80 is RPE 8, 85 is RPE 8.5).
+  final int? targetRpe;
+
   /// What the row asks for — the number the board opens on and the first tap
   /// claims. The top of a range; the minimum of an open-ended row, which is
   /// the only number it names.
@@ -103,16 +106,20 @@ class CustomSet {
       other.reps == reps &&
       other.repsMax == repsMax &&
       other.amrap == amrap &&
-      other.percent == percent;
+      other.percent == percent &&
+      other.targetRpe == targetRpe;
 
   @override
-  int get hashCode => Object.hash(reps, repsMax, amrap, percent);
+  int get hashCode => Object.hash(reps, repsMax, amrap, percent, targetRpe);
 
   @override
   String toString() =>
       '${amrap ? '$reps+' : (repsMax == null ? '$reps' : '$reps-$repsMax')}'
-      '×$percent%';
+      '×$percent%${targetRpe == null ? '' : '@${formatRpe(targetRpe!)}'}';
 }
+
+String formatRpe(int value) =>
+    value % 10 == 0 ? '${value ~/ 10}' : (value / 10).toStringAsFixed(1);
 
 /// What one set of a hydrated slot is aiming at.
 class SetTarget {
@@ -121,6 +128,7 @@ class SetTarget {
     this.weightKg,
     int? minReps,
     this.amrap = false,
+    this.targetRpe,
   }) : minReps = minReps ?? reps;
 
   /// The goal — see [CustomSet.goalReps].
@@ -136,6 +144,7 @@ class SetTarget {
   /// In kilograms, already snapped and floored — or null for a movement that
   /// carries no load, which has nothing to take a percentage of.
   final double? weightKg;
+  final int? targetRpe;
 
   @override
   bool operator ==(Object other) =>
@@ -143,10 +152,11 @@ class SetTarget {
       other.reps == reps &&
       other.minReps == minReps &&
       other.amrap == amrap &&
-      other.weightKg == weightKg;
+      other.weightKg == weightKg &&
+      other.targetRpe == targetRpe;
 
   @override
-  int get hashCode => Object.hash(reps, minReps, amrap, weightKg);
+  int get hashCode => Object.hash(reps, minReps, amrap, weightKg, targetRpe);
 
   @override
   String toString() => '$reps @ ${weightKg ?? '—'}';
@@ -162,8 +172,13 @@ class SetTarget {
 /// `5`, `8-12` or `5+`; a plain count is written exactly as it always was, so
 /// every column already on a phone reads unchanged and a slot nobody has given
 /// a range to writes the same bytes it used to.
-String encodeCustomSets(List<CustomSet> sets) =>
-    sets.map((s) => '${_encodeReps(s)}:${s.percent}').join(',');
+String encodeCustomSets(List<CustomSet> sets) => sets
+    .map(
+      (s) =>
+          '${_encodeReps(s)}:${s.percent}'
+          '${s.targetRpe == null ? '' : '@${s.targetRpe}'}',
+    )
+    .join(',');
 
 String _encodeReps(CustomSet s) {
   if (s.amrap) return '${s.reps}+';
@@ -182,15 +197,25 @@ List<CustomSet> decodeCustomSets(String? encoded) {
   for (final part in encoded.split(',')) {
     final halves = part.split(':');
     if (halves.length != 2) return const [];
-    final percent = int.tryParse(halves[1]);
+    final effort = halves[1].split('@');
+    if (effort.length > 2) return const [];
+    final percent = int.tryParse(effort[0]);
+    final targetRpe = effort.length == 2 ? int.tryParse(effort[1]) : null;
     final row = _decodeReps(halves[0]);
-    if (percent == null || row == null) return const [];
-    out.add(CustomSet(
+    if (percent == null ||
+        row == null ||
+        (effort.length == 2 && targetRpe == null)) {
+      return const [];
+    }
+    out.add(
+      CustomSet(
       reps: row.reps,
       repsMax: row.repsMax,
       amrap: row.amrap,
       percent: percent,
-    ));
+        targetRpe: targetRpe,
+      ),
+    );
   }
   return out;
 }
@@ -278,10 +303,8 @@ String cycleNameAt(List<String> names, int index) =>
 
 /// A name as the column holds it: the separator and the escape character itself
 /// are the only two things that cannot travel literally.
-String _escapeCycleName(String name) => name
-    .trim()
-    .replaceAll('%', '%25')
-    .replaceAll(kCycleBlockSeparator, '%7C');
+String _escapeCycleName(String name) =>
+    name.trim().replaceAll('%', '%25').replaceAll(kCycleBlockSeparator, '%7C');
 
 String _unescapeCycleName(String stored) =>
     stored.replaceAll('%7C', kCycleBlockSeparator).replaceAll('%25', '%');
@@ -323,12 +346,15 @@ List<SetTarget> resolveSetTargets({
   List<List<CustomSet>> cycle = const [],
   int cyclePosition = 0,
   double floorKg = 0,
+  int? targetRpe,
 }) {
   final floor = _effectiveFloor(topWeightKg, floorKg);
   final rows = scheme == SetScheme.cycle
       ? cycleBlockAt(cycle, cyclePosition)
       : custom;
-  final count = scheme == SetScheme.cycle && rows.isNotEmpty ? rows.length : sets;
+  final count = scheme == SetScheme.cycle && rows.isNotEmpty
+      ? rows.length
+      : sets;
 
   double? weightAt(int wholePercent) {
     final top = topWeightKg;
@@ -339,7 +365,11 @@ List<SetTarget> resolveSetTargets({
   return [
     for (var i = 0; i < count; i++)
       switch (scheme) {
-        SetScheme.flat => SetTarget(reps: goalReps, weightKg: weightAt(100)),
+        SetScheme.flat => SetTarget(
+          reps: goalReps,
+          weightKg: weightAt(100),
+          targetRpe: targetRpe,
+        ),
         SetScheme.backOff => SetTarget(
             reps: goalReps,
             // Clamped at nothing rather than allowed to go negative: a long
@@ -347,24 +377,32 @@ List<SetTarget> resolveSetTargets({
             // below zero is not lighter, it is nonsense. The floor above is
             // what it actually lands on.
             weightKg: weightAt(_atLeastNothing(100 - i * percent)),
+          targetRpe: targetRpe,
           ),
         SetScheme.ramp => SetTarget(
             reps: goalReps,
             weightKg: weightAt(_atLeastNothing(100 - (sets - 1 - i) * percent)),
+          targetRpe: targetRpe,
           ),
         // The set count and the rows are edited separately, so they can
         // disagree for a tap or two. A row that is not there yet is the slot's
         // own target at its own weight — a set that reads as unconfigured
         // rather than one that vanishes. A cycle cannot be in that state, since
         // its count comes from its rows, but it reads through the same branch.
-        SetScheme.custom || SetScheme.cycle => i < rows.length
+        SetScheme.custom || SetScheme.cycle =>
+          i < rows.length
             ? SetTarget(
                 reps: rows[i].goalReps,
                 minReps: rows[i].minReps,
                 amrap: rows[i].amrap,
                 weightKg: weightAt(_atLeastNothing(rows[i].percent)),
+                  targetRpe: rows[i].targetRpe ?? targetRpe,
               )
-            : SetTarget(reps: goalReps, weightKg: weightAt(100)),
+              : SetTarget(
+                  reps: goalReps,
+                  weightKg: weightAt(100),
+                  targetRpe: targetRpe,
+                ),
       },
   ];
 }

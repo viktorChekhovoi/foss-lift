@@ -29,6 +29,8 @@ const kModeWeightKey = ValueKey('mode-weight');
 const kModeRepsKey = ValueKey('mode-reps');
 const kModeTimeKey = ValueKey('mode-time');
 const kModeAdvancedKey = ValueKey('mode-advanced');
+const kGzclTierKey = ValueKey('gzcl-tier');
+const kGzclStagesKey = ValueKey('gzcl-stages');
 
 const kSupersetCheckKey = ValueKey('superset-with-previous');
 const kSupersetHintKey = ValueKey('superset-hint');
@@ -42,6 +44,7 @@ class ItemDraft {
     this.repsMin = 8,
     this.repsMax,
     this.toFailure = false,
+    this.targetRpe,
     this.addWeightAtTopOfRange = false,
     this.repsIncrement = 1,
     this.repsDeload = 2,
@@ -65,17 +68,24 @@ class ItemDraft {
     this.failureThreshold = defaultFailureThreshold,
     this.successStreak = 0,
     this.failStreak = 0,
+    this.gzclTier,
+    List<GzclStage>? gzclStages,
+    this.gzclStage = 0,
+    this.gzclAmrapTarget = defaultGzclT3AmrapTarget,
     this.supersetWithPrevious = false,
     this.exercise,
     Map<RateAxis, ProgressionRates> sparedRates = const {},
-  })  : _rates = {...sparedRates},
-        progression = _startingMode(measure, weightType, progression),
-        increment = increment ??
-            _startingMode(measure, weightType, progression).defaultIncrement,
-        deload = deload ??
-            _startingMode(measure, weightType, progression).defaultDeload,
-        // Exercises without a load must not retain a stale weight.
-        weightKg = weightType.carriesWeight ? weightKg : null;
+  }) : gzclStages = [...?gzclStages],
+       _rates = {...sparedRates},
+       progression = _startingMode(measure, weightType, progression),
+       increment =
+           increment ??
+           _startingMode(measure, weightType, progression).defaultIncrement,
+       deload =
+           deload ??
+           _startingMode(measure, weightType, progression).defaultDeload,
+       // Exercises without a load must not retain a stale weight.
+       weightKg = weightType.carriesWeight ? weightKg : null;
 
   static ProgressionMode _startingMode(
     ExerciseMeasure measure,
@@ -88,47 +98,53 @@ class ItemDraft {
   }
 
   static List<ProgressionMode> _axesFor(
-          ExerciseMeasure measure, WeightType weightType) =>
-      [
-        for (final m in measure.modes)
-          if (m != ProgressionMode.weight || weightType.carriesWeight) m,
-      ];
+    ExerciseMeasure measure,
+    WeightType weightType,
+  ) => [
+    for (final m in measure.modes)
+      if (m != ProgressionMode.weight || weightType.carriesWeight) m,
+  ];
 
   factory ItemDraft.fromView(WorkoutItemView v) => ItemDraft(
-        exercise: v.exercise,
-        exerciseId: v.exercise.id,
-        name: v.exercise.name,
-        muscle: v.exercise.muscleGroup,
-        sets: v.item.targetSets,
-        repsMin: v.item.repsMin,
-        repsMax: v.item.repsMax,
-        toFailure: v.item.toFailure,
-        addWeightAtTopOfRange: v.item.addWeightAtTopOfRange,
-        repsIncrement: v.item.repsIncrement,
-        repsDeload: v.item.repsDeload,
-        repsTarget: v.item.repsTarget,
-        restSeconds: v.item.restSeconds,
-        weightKg: v.item.suggestedWeight,
-        scheme: v.item.scheme,
-        schemePercent: v.item.schemePercent,
-        customSets: decodeCustomSets(v.item.customSets),
-        cycle: v.item.cycleWeeks,
-        cycleNames: v.item.cycleWeekNameList,
-        cyclePosition: v.item.cyclePosition,
-        measure: v.exercise.measure,
-        weightType: v.exercise.weightType,
-        barKg: v.exercise.barWeight,
-        progression: v.item.progression,
-        holdSeconds: v.item.holdSeconds,
-        increment: v.item.increment,
-        deload: v.item.deload,
-        successThreshold: v.item.successThreshold,
-        failureThreshold: v.item.failureThreshold,
-        successStreak: v.item.successStreak,
-        failStreak: v.item.failStreak,
-        supersetWithPrevious: v.item.supersetWithPrevious,
-        sparedRates: decodeSparedRates(v.item.sparedRates),
-      );
+    exercise: v.exercise,
+    exerciseId: v.exercise.id,
+    name: v.exercise.name,
+    muscle: v.exercise.muscleGroup,
+    sets: v.item.targetSets,
+    repsMin: v.item.repsMin,
+    repsMax: v.item.repsMax,
+    toFailure: v.item.toFailure,
+    targetRpe: v.item.targetRpe,
+    addWeightAtTopOfRange: v.item.addWeightAtTopOfRange,
+    repsIncrement: v.item.repsIncrement,
+    repsDeload: v.item.repsDeload,
+    repsTarget: v.item.repsTarget,
+    restSeconds: v.item.restSeconds,
+    weightKg: v.item.suggestedWeight,
+    scheme: v.item.scheme,
+    schemePercent: v.item.schemePercent,
+    customSets: decodeCustomSets(v.item.customSets),
+    cycle: v.item.cycleWeeks,
+    cycleNames: v.item.cycleWeekNameList,
+    cyclePosition: v.item.cyclePosition,
+    measure: v.exercise.measure,
+    weightType: v.exercise.weightType,
+    barKg: v.exercise.barWeight,
+    progression: v.item.progression,
+    holdSeconds: v.item.holdSeconds,
+    increment: v.item.increment,
+    deload: v.item.deload,
+    successThreshold: v.item.successThreshold,
+    failureThreshold: v.item.failureThreshold,
+    successStreak: v.item.successStreak,
+    failStreak: v.item.failStreak,
+    gzclTier: v.item.gzclTier,
+    gzclStages: v.item.gzclStageList,
+    gzclStage: v.item.gzclStage,
+    gzclAmrapTarget: v.item.gzclAmrapTarget,
+    supersetWithPrevious: v.item.supersetWithPrevious,
+    sparedRates: decodeSparedRates(v.item.sparedRates),
+  );
 
   factory ItemDraft.forExercise(Exercise e, {String unit = 'kg'}) {
     final mode = e.measure.defaultMode;
@@ -163,6 +179,7 @@ class ItemDraft {
   int repsMin;
   int? repsMax;
   bool toFailure;
+  int? targetRpe;
 
   bool addWeightAtTopOfRange;
 
@@ -194,23 +211,23 @@ class ItemDraft {
     return rows.isEmpty ? sets : rows.length;
   }
 
-  List<CustomSet> get cycleRows => scheme == SetScheme.cycle
-      ? cycleBlockAt(cycle, cyclePosition)
-      : const [];
+  List<CustomSet> get cycleRows =>
+      scheme == SetScheme.cycle ? cycleBlockAt(cycle, cyclePosition) : const [];
 
   bool get runsPercentages => scheme == SetScheme.cycle
       ? cycleRows.isNotEmpty
       : (scheme == SetScheme.custom && customSets.isNotEmpty);
 
   bool get usesAdvanced =>
-      toFailure || repsMax != null || scheme != SetScheme.flat;
+      toFailure ||
+      repsMax != null ||
+      targetRpe != null ||
+      scheme != SetScheme.flat;
 
   bool get usesProgressionAdvanced => addWeightAtTopOfRange;
 
   bool get canClimbRange =>
-      !toFailure &&
-      repsMax != null &&
-      modes.contains(ProgressionMode.weight);
+      !toFailure && repsMax != null && modes.contains(ProgressionMode.weight);
 
   bool get onAdvancedAxis => addWeightAtTopOfRange && canClimbRange;
 
@@ -238,6 +255,7 @@ class ItemDraft {
         cycle: cycle,
         cyclePosition: cyclePosition,
         floorKg: floorKg(defaultBarKg),
+        targetRpe: targetRpe,
       );
 
   ProgressionMode progression;
@@ -249,16 +267,28 @@ class ItemDraft {
 
   int successStreak;
   int failStreak;
+  GzclTier? gzclTier;
+  List<GzclStage> gzclStages;
+  int gzclStage;
+  int gzclAmrapTarget;
+
+  void setGzclTier(GzclTier? tier) {
+    gzclTier = tier;
+    gzclStage = 0;
+    if (tier == GzclTier.t1 && gzclStages.isEmpty) {
+      gzclStages = [...gzclpT1Stages];
+    } else if (tier == GzclTier.t2 && gzclStages.isEmpty) {
+      gzclStages = [...gzclpT2Stages];
+    }
+    if (tier != null) progression = ProgressionMode.weight;
+  }
 
   bool supersetWithPrevious;
 
   List<ProgressionMode> get modes => _axesFor(measure, weightType);
 
-  double floorKg(double defaultBarKg) => loadFloorKg(
-        type: weightType,
-        barKg: barKg,
-        defaultBarKg: defaultBarKg,
-      );
+  double floorKg(double defaultBarKg) =>
+      loadFloorKg(type: weightType, barKg: barKg, defaultBarKg: defaultBarKg);
 
   double? clampedWeightKg(double defaultBarKg) {
     final w = weightKg;
@@ -301,7 +331,8 @@ class ItemDraft {
     _rates[from] = (increment: increment, deload: deload);
     change();
     final to = _rateAxis;
-    final kept = _rates.remove(to) ??
+    final kept =
+        _rates.remove(to) ??
         (to == RateAxis.advanced ? _rates[RateAxis.weight] : null);
     if (to == from) return;
     final mode = to == RateAxis.advanced ? ProgressionMode.weight : progression;
@@ -321,9 +352,14 @@ class ItemDraft {
   }
 }
 
-List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
-    {int workoutId = 0, double defaultBarKg = 0}) {
-  final joined = normaliseJoins([for (final d in drafts) d.supersetWithPrevious]);
+List<WorkoutItemsCompanion> itemCompanions(
+  List<ItemDraft> drafts, {
+  int workoutId = 0,
+  double defaultBarKg = 0,
+}) {
+  final joined = normaliseJoins([
+    for (final d in drafts) d.supersetWithPrevious,
+  ]);
   return [
     for (var i = 0; i < drafts.length; i++)
       WorkoutItemsCompanion.insert(
@@ -334,6 +370,7 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         repsMin: Value(drafts[i].repsMin),
         repsMax: Value(drafts[i].repsMax),
         toFailure: Value(drafts[i].toFailure),
+        targetRpe: Value(drafts[i].targetRpe),
         addWeightAtTopOfRange: Value(drafts[i].addWeightAtTopOfRange),
         repsIncrement: Value(drafts[i].repsIncrement),
         repsDeload: Value(drafts[i].repsDeload),
@@ -343,15 +380,21 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         suggestedWeight: Value(drafts[i].clampedWeightKg(defaultBarKg)),
         scheme: Value(drafts[i].scheme),
         schemePercent: Value(drafts[i].schemePercent),
-        customSets: Value(drafts[i].scheme.isCustom
-            ? encodeCustomSets(drafts[i].customSets)
-            : null),
-        cycleNames: Value(drafts[i].scheme == SetScheme.cycle
-            ? encodeCycleNames(drafts[i].cycleNames)
-            : null),
-        cycleBlocks: Value(drafts[i].scheme == SetScheme.cycle
-            ? encodeCycleBlocks(drafts[i].cycle)
-            : null),
+        customSets: Value(
+          drafts[i].scheme.isCustom
+              ? encodeCustomSets(drafts[i].customSets)
+              : null,
+        ),
+        cycleNames: Value(
+          drafts[i].scheme == SetScheme.cycle
+              ? encodeCycleNames(drafts[i].cycleNames)
+              : null,
+        ),
+        cycleBlocks: Value(
+          drafts[i].scheme == SetScheme.cycle
+              ? encodeCycleBlocks(drafts[i].cycle)
+              : null,
+        ),
         cyclePosition: Value(drafts[i].cyclePosition),
         progression: Value(drafts[i].progression),
         holdSeconds: Value(drafts[i].holdSeconds),
@@ -361,6 +404,10 @@ List<WorkoutItemsCompanion> itemCompanions(List<ItemDraft> drafts,
         failureThreshold: Value(drafts[i].failureThreshold),
         successStreak: Value(drafts[i].successStreak),
         failStreak: Value(drafts[i].failStreak),
+        gzclTier: Value(drafts[i].gzclTier),
+        gzclStages: Value(encodeGzclStages(drafts[i].gzclStages)),
+        gzclStage: Value(drafts[i].gzclStage),
+        gzclAmrapTarget: Value(drafts[i].gzclAmrapTarget),
         supersetWithPrevious: Value(joined[i]),
       ),
   ];
@@ -372,6 +419,7 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       repsMin: Value(d.repsMin),
       repsMax: Value(d.repsMax),
       toFailure: Value(d.toFailure),
+      targetRpe: Value(d.targetRpe),
       addWeightAtTopOfRange: Value(d.addWeightAtTopOfRange),
       repsIncrement: Value(d.repsIncrement),
       repsDeload: Value(d.repsDeload),
@@ -381,11 +429,15 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       suggestedWeight: Value(d.clampedWeightKg(defaultBarKg)),
       scheme: Value(d.scheme),
       schemePercent: Value(d.schemePercent),
-      customSets: Value(d.scheme.isCustom ? encodeCustomSets(d.customSets) : null),
-      cycleBlocks:
-          Value(d.scheme == SetScheme.cycle ? encodeCycleBlocks(d.cycle) : null),
-      cycleNames:
-          Value(d.scheme == SetScheme.cycle ? encodeCycleNames(d.cycleNames) : null),
+      customSets: Value(
+        d.scheme.isCustom ? encodeCustomSets(d.customSets) : null,
+      ),
+      cycleBlocks: Value(
+        d.scheme == SetScheme.cycle ? encodeCycleBlocks(d.cycle) : null,
+      ),
+      cycleNames: Value(
+        d.scheme == SetScheme.cycle ? encodeCycleNames(d.cycleNames) : null,
+      ),
       cyclePosition: Value(d.cyclePosition),
       progression: Value(d.progression),
       holdSeconds: Value(d.holdSeconds),
@@ -393,6 +445,10 @@ WorkoutItemsCompanion itemUpdate(ItemDraft d, {double defaultBarKg = 0}) =>
       deload: Value(d.deload),
       successThreshold: Value(d.successThreshold),
       failureThreshold: Value(d.failureThreshold),
+      gzclTier: Value(d.gzclTier),
+      gzclStages: Value(encodeGzclStages(d.gzclStages)),
+      gzclStage: Value(d.gzclStage),
+      gzclAmrapTarget: Value(d.gzclAmrapTarget),
     );
 
 double roundStepWeight(double display) =>
@@ -406,10 +462,11 @@ String progressionAmount(
 ) {
   return switch (mode) {
     ProgressionMode.weight => l10n.unitWeightShort(
-        fmtWeight(toDisplayWeight(amount, unit)), unitSuffix(l10n, unit)),
+      fmtWeight(toDisplayWeight(amount, unit)),
+      unitSuffix(l10n, unit),
+    ),
     ProgressionMode.reps => l10n.itemEditorAmountReps(amount.round()),
-    ProgressionMode.time =>
-      '${amount.round()}${l10n.itemEditorSecondsSuffix}',
+    ProgressionMode.time => '${amount.round()}${l10n.itemEditorSecondsSuffix}',
   };
 }
 
@@ -448,7 +505,9 @@ String draftSummary(AppLocalizations l10n, ItemDraft d, String unit) {
   final weight = d.weightKg == null
       ? null
       : l10n.unitWeightShort(
-          fmtWeight(toDisplayWeight(d.weightKg!, unit)), unitSuffix(l10n, unit));
+          fmtWeight(toDisplayWeight(d.weightKg!, unit)),
+          unitSuffix(l10n, unit),
+        );
   final w = weight != null && d.runsPercentages
       ? l10n.itemEditorSummaryTrainingMax(weight)
       : weight;
@@ -497,9 +556,9 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   }
 
   void _remove(int i) => _bump(() {
-        _items.removeAt(i);
-        _normalise();
-      });
+    _items.removeAt(i);
+    _normalise();
+  });
 
   void _normalise() {
     if (_items.isNotEmpty) _items.first.supersetWithPrevious = false;
@@ -510,12 +569,14 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     final picked = await pickExercise(context);
     FocusManager.instance.primaryFocus?.unfocus();
     if (picked == null) return;
-    _bump(() => _items.add(
-          ItemDraft.forExercise(
-            picked,
-            unit: unitForExercise(widget.unit, picked.unitOverride),
-          ),
-        ));
+    _bump(
+      () => _items.add(
+        ItemDraft.forExercise(
+          picked,
+          unit: unitForExercise(widget.unit, picked.unitOverride),
+        ),
+      ),
+    );
     if (!mounted) return;
     await _configure(_items.length - 1);
   }
@@ -525,8 +586,7 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
     final l10n = AppLocalizations.of(context);
     final above = i == 0
         ? null
-        : seededName(
-            l10n, _items[i - 1].exercise?.seedKey, _items[i - 1].name);
+        : seededName(l10n, _items[i - 1].exercise?.seedKey, _items[i - 1].name);
     await showItemConfigSheet(
       context,
       draft: _items[i],
@@ -542,7 +602,9 @@ class _WorkoutItemsEditorState extends State<WorkoutItemsEditor> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final joins = normaliseJoins([for (final d in _items) d.supersetWithPrevious]);
+    final joins = normaliseJoins([
+      for (final d in _items) d.supersetWithPrevious,
+    ]);
     return BuilderReorderList<ItemDraft>(
       caption: l10n.itemEditorCaption,
       items: _items,
@@ -571,27 +633,26 @@ Future<void> showItemConfigSheet(
   double defaultBarKg = 0,
   String? exerciseAbove,
   required VoidCallback onChanged,
-}) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: AppColors.ground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: _ItemConfigSheet(
-          draft: draft,
-          unit: unit,
-          routineRest: routineRest,
-          defaultBarKg: defaultBarKg,
-          exerciseAbove: exerciseAbove,
-          onChanged: onChanged,
-        ),
-      ),
-    );
+}) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  backgroundColor: AppColors.ground,
+  shape: const RoundedRectangleBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  ),
+  builder: (ctx) => Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+    child: _ItemConfigSheet(
+      draft: draft,
+      unit: unit,
+      routineRest: routineRest,
+      defaultBarKg: defaultBarKg,
+      exerciseAbove: exerciseAbove,
+      onChanged: onChanged,
+    ),
+  ),
+);
 
 class _ItemConfigSheet extends ConsumerStatefulWidget {
   const _ItemConfigSheet({
@@ -630,9 +691,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   String _weightHint(AppLocalizations l10n) {
     final floor = d.floorKg(widget.defaultBarKg);
     if (floor <= 0) return l10n.itemEditorWeightUnset;
-    return l10n.itemEditorWeightFloor(
-      fmtWeight(toDisplayWeight(floor, _unit)),
-    );
+    return l10n.itemEditorWeightFloor(fmtWeight(toDisplayWeight(floor, _unit)));
   }
 
   @override
@@ -682,10 +741,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   }
 
   Widget _note(String text) => Text(
-        text,
-        style: kMono.copyWith(
-            fontSize: 11, height: 1.5, color: AppColors.faint),
-      );
+    text,
+    style: kMono.copyWith(fontSize: 11, height: 1.5, color: AppColors.faint),
+  );
 
   String _weightAmount(AppLocalizations l10n, double amount) =>
       progressionAmount(l10n, amount, ProgressionMode.weight, _unit);
@@ -740,13 +798,18 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(d.name,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w700)),
+                      Text(
+                        d.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(d.muscle,
-                          style: TextStyle(
-                              fontSize: 13, color: AppColors.muted)),
+                      Text(
+                        d.muscle,
+                        style: TextStyle(fontSize: 13, color: AppColors.muted),
+                      ),
                     ],
                   ),
                 ),
@@ -850,7 +913,37 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                         onClear: () => _bump(() => d.repsMax = null),
                       ),
                     ),
+                    BuilderField(
+                      label: l10n.itemEditorEffortTarget,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          value: d.targetRpe,
+                          isExpanded: true,
+                          dropdownColor: AppColors.surface3,
+                          items: [
+                            DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text(l10n.commonNone),
+                            ),
+                            for (var rpe = 60; rpe <= 100; rpe += 5)
+                              DropdownMenuItem<int?>(
+                                value: rpe,
+                                child: Text(
+                                  rpe == 80 ? 'RPE' : '@${formatRpe(rpe)}',
+                                ),
+                              ),
+                          ],
+                          onChanged: (v) => _bump(() => d.targetRpe = v),
+                        ),
+                      ),
+                    ),
                   ]),
+                  if (d.targetRpe != null) ...[
+                    const SizedBox(height: 10),
+                    Text('6 · ${l10n.rpeFourPlusRepsLeft}'),
+                    Text('8 · ${l10n.rpeRepsLeft(2)}'),
+                    Text('10 · ${l10n.rpeNoRepsLeft}'),
+                  ],
                   const SizedBox(height: 14),
                   _CheckRow(
                     label: l10n.itemEditorToFailure,
@@ -873,59 +966,130 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 Text(
                   l10n.itemEditorBodyweight,
                   style: kMono.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
                 ),
               ])
             else
               builderCard(
-                  d.runsPercentages
-                      ? '${l10n.itemEditorTrainingMax} '
+                d.runsPercentages
+                    ? '${l10n.itemEditorTrainingMax} '
                           '(${unitSuffix(l10n, _unit)})'
-                      : l10n.itemEditorWeightWithUnit(
-                          unitSuffix(l10n, _unit)), [
-                Row(
-                  key: kWeightFieldKey,
-                  children: [
-                    stepperButton(
-                      Icons.remove,
-                      _canNudgeWeightDown ? () => _nudgeWeight(-1) : null,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _weight,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        style: kMono.copyWith(
-                            fontSize: 16, fontWeight: FontWeight.w600),
-                        decoration: builderInput(_weightHint(l10n)),
-                        onChanged: (v) {
-                          final parsed =
-                              double.tryParse(v.trim().replaceAll(',', '.'));
-                          _bump(() => d.weightKg =
-                              parsed == null ? null : toKg(parsed, _unit));
-                        },
+                    : l10n.itemEditorWeightWithUnit(unitSuffix(l10n, _unit)),
+                [
+                  Row(
+                    key: kWeightFieldKey,
+                    children: [
+                      stepperButton(
+                        Icons.remove,
+                        _canNudgeWeightDown ? () => _nudgeWeight(-1) : null,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    stepperButton(Icons.add, () => _nudgeWeight(1)),
-                  ],
-                ),
-              ]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _weight,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: kMono.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: builderInput(_weightHint(l10n)),
+                          onChanged: (v) {
+                            final parsed = double.tryParse(
+                              v.trim().replaceAll(',', '.'),
+                            );
+                            _bump(
+                              () => d.weightKg = parsed == null
+                                  ? null
+                                  : toKg(parsed, _unit),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      stepperButton(Icons.add, () => _nudgeWeight(1)),
+                    ],
+                  ),
+                ],
+              ),
             const SizedBox(height: 14),
             builderCard(l10n.itemEditorProgression, [
+              DropdownButtonFormField<String>(
+                key: kGzclTierKey,
+                initialValue: d.gzclTier?.name ?? 'standard',
+                isExpanded: true,
+                decoration: builderInput(l10n.itemEditorGzclTier),
+                items: [
+                  DropdownMenuItem(
+                    value: 'standard',
+                    child: Text(l10n.itemEditorGzclStandard),
+                  ),
+                  DropdownMenuItem(
+                    value: GzclTier.t1.name,
+                    child: Text(l10n.itemEditorGzclT1),
+                  ),
+                  DropdownMenuItem(
+                    value: GzclTier.t2.name,
+                    child: Text(l10n.itemEditorGzclT2),
+                  ),
+                  DropdownMenuItem(
+                    value: GzclTier.t3.name,
+                    child: Text(l10n.itemEditorGzclT3),
+                  ),
+                ],
+                onChanged: (value) => _bump(
+                  () => d.setGzclTier(
+                    value == 'standard' ? null : GzclTier.values.byName(value!),
+                  ),
+                ),
+              ),
+              if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: kGzclStagesKey,
+                  initialValue: encodeGzclStages(
+                    d.gzclStages,
+                  )?.replaceAll(';', ', '),
+                  decoration: builderInput(l10n.itemEditorGzclStages),
+                  onChanged: (value) => _bump(() {
+                    final stages = decodeGzclStages(
+                      value.replaceAll(',', ';').replaceAll('×', 'x'),
+                    );
+                    if (stages.isNotEmpty) {
+                      d.gzclStages = stages;
+                      d.gzclStage = d.gzclStage.clamp(0, stages.length - 1);
+                    }
+                  }),
+                ),
+              ],
+              if (d.gzclTier == GzclTier.t3) ...[
+                const SizedBox(height: 12),
+                BuilderField(
+                  label: l10n.itemEditorGzclAmrapTarget,
+                  child: NumberStepper(
+                    value: d.gzclAmrapTarget,
+                    min: 1,
+                    max: 100,
+                    onChanged: (value) =>
+                        _bump(() => d.gzclAmrapTarget = value),
+                  ),
+                ),
+              ],
+              if (d.gzclTier != null) const SizedBox(height: 16),
               if (d.modes.length > 1)
                 _ModePicker(
                   modes: d.modes,
                   mode: d.progression,
                   advanced: d.onAdvancedAxis,
-                  advancedOffered: d.modes.contains(ProgressionMode.weight) &&
+                  advancedOffered:
+                      d.modes.contains(ProgressionMode.weight) &&
                       d.modes.contains(ProgressionMode.reps),
                   advancedEnabled: d.canClimbRange,
-                  onChanged: (m) =>
-                      _bump(() => d.setMode(m, unit: _unit)),
+                  onChanged: (m) => _bump(() => d.setMode(m, unit: _unit)),
                   onAdvanced: () =>
                       _bump(() => d.setAdvanced(true, unit: _unit)),
                 )
@@ -1005,17 +1169,21 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               _note(progressionRule(l10n, d, _unit)),
               if (d.onAdvancedAxis) ...[
                 const SizedBox(height: 6),
-                _note(l10n.itemEditorRuleAtTop(
-                  d.repsMax!,
-                  _weightAmount(l10n, d.increment),
-                  d.repsMin,
-                )),
+                _note(
+                  l10n.itemEditorRuleAtTop(
+                    d.repsMax!,
+                    _weightAmount(l10n, d.increment),
+                    d.repsMin,
+                  ),
+                ),
                 const SizedBox(height: 6),
-                _note(l10n.itemEditorRuleAtBottom(
-                  d.repsMin,
-                  _weightAmount(l10n, d.deload),
-                  d.repsMax!,
-                )),
+                _note(
+                  l10n.itemEditorRuleAtBottom(
+                    d.repsMin,
+                    _weightAmount(l10n, d.deload),
+                    d.repsMax!,
+                  ),
+                ),
               ],
               if (d.canClimbRange || d.onAdvancedAxis) ...[
                 const SizedBox(height: 14),
@@ -1023,10 +1191,12 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   rowKey: kProgressionAdvancedKey,
                   open: _progressionAdvanced,
                   onTap: () => setState(
-                      () => _progressionAdvanced = !_progressionAdvanced),
+                    () => _progressionAdvanced = !_progressionAdvanced,
+                  ),
                 ),
               ],
-              if (_progressionAdvanced && (d.canClimbRange || d.onAdvancedAxis)) ...[
+              if (_progressionAdvanced &&
+                  (d.canClimbRange || d.onAdvancedAxis)) ...[
                 const SizedBox(height: 14),
                 _CheckRow(
                   key: kRangeClimbKey,
@@ -1035,8 +1205,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   enabled: d.canClimbRange,
                   note: l10n.itemEditorAddWeightAtTopHint,
                   disabledNote: l10n.itemEditorRangeClimbNeedsRange,
-                  onChanged: (v) =>
-                      _bump(() => d.setAdvanced(v, unit: _unit)),
+                  onChanged: (v) => _bump(() => d.setAdvanced(v, unit: _unit)),
                 ),
               ],
             ]),
@@ -1046,7 +1215,10 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 Text(
                   l10n.itemEditorExerciseShared,
                   style: kMono.copyWith(
-                      fontSize: 11, height: 1.5, color: AppColors.faint),
+                    fontSize: 11,
+                    height: 1.5,
+                    color: AppColors.faint,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ExerciseLoadingSection(exercise: ex),
@@ -1083,10 +1255,10 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
 }
 
 String _soleAxis(AppLocalizations l10n, ProgressionMode m) => switch (m) {
-      ProgressionMode.time => l10n.itemEditorAxisTime,
-      ProgressionMode.reps => l10n.itemEditorAxisReps,
-      ProgressionMode.weight => l10n.itemEditorAxisWeight,
-    };
+  ProgressionMode.time => l10n.itemEditorAxisTime,
+  ProgressionMode.reps => l10n.itemEditorAxisReps,
+  ProgressionMode.weight => l10n.itemEditorAxisWeight,
+};
 
 const kAdvancedToggleKey = ValueKey('target-advanced');
 const kSchemePickerKey = ValueKey('set-scheme');
@@ -1210,17 +1382,17 @@ class _SchemeSection extends StatelessWidget {
         ],
         if (d.scheme == SetScheme.cycle) ...[
           const SizedBox(height: 14),
-          _CycleEditor(
-            draft: d,
-            onChanged: onChanged,
-          ),
+          _CycleEditor(draft: d, onChanged: onChanged),
         ],
         const SizedBox(height: 14),
         Text(
           key: kSchemePreviewKey,
           _schemeLine(l10n, d, unit, defaultBarKg),
-          style:
-              kMono.copyWith(fontSize: 11, height: 1.5, color: AppColors.faint),
+          style: kMono.copyWith(
+            fontSize: 11,
+            height: 1.5,
+            color: AppColors.faint,
+          ),
         ),
       ],
     );
@@ -1228,9 +1400,8 @@ class _SchemeSection extends StatelessWidget {
 }
 
 List<CustomSet> _seedCustomRows(ItemDraft d) => [
-      for (var i = 0; i < d.sets; i++)
-        CustomSet(reps: d.goalReps, percent: 100),
-    ];
+  for (var i = 0; i < d.sets; i++) CustomSet(reps: d.goalReps, percent: 100),
+];
 
 class EditorPill extends StatelessWidget {
   const EditorPill({
@@ -1255,8 +1426,9 @@ class EditorPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final live = onTap != null;
-    final colour =
-        on ? AppColors.accent : (live ? AppColors.muted : AppColors.faint);
+    final colour = on
+        ? AppColors.accent
+        : (live ? AppColors.muted : AppColors.faint);
     final text = Text(
       label,
       textAlign: centred ? TextAlign.center : TextAlign.start,
@@ -1281,8 +1453,8 @@ class EditorPill extends StatelessWidget {
               color: on
                   ? AppColors.accent
                   : (live
-                      ? AppColors.line
-                      : AppColors.line.withValues(alpha: 0.5)),
+                        ? AppColors.line
+                        : AppColors.line.withValues(alpha: 0.5)),
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -1318,9 +1490,11 @@ String _schemeLine(
   }
   final varyingReps = targets.map((t) => t.reps).toSet().length > 1;
   final body = targets
-      .map((t) => varyingReps
-          ? '${t.reps}×${fmtWeight(toDisplayWeight(t.weightKg ?? 0, unit))}'
-          : fmtWeight(toDisplayWeight(t.weightKg ?? 0, unit)))
+      .map(
+        (t) => varyingReps
+            ? '${t.reps}×${fmtWeight(toDisplayWeight(t.weightKg ?? 0, unit))}'
+            : fmtWeight(toDisplayWeight(t.weightKg ?? 0, unit)),
+      )
       .join(sep);
   return '$body ${unitSuffix(l10n, unit)}';
 }
@@ -1336,21 +1510,21 @@ class _SchemePicker extends StatelessWidget {
   final ValueChanged<SetScheme> onChanged;
 
   static String _label(AppLocalizations l10n, SetScheme s) => switch (s) {
-        SetScheme.flat => l10n.itemEditorSchemeFlat,
-        SetScheme.backOff => l10n.itemEditorSchemeBackOff,
-        SetScheme.ramp => l10n.itemEditorSchemeRamp,
-        SetScheme.custom => l10n.itemEditorSchemeCustom,
-        SetScheme.cycle => l10n.itemEditorSchemeCycle,
-      };
+    SetScheme.flat => l10n.itemEditorSchemeFlat,
+    SetScheme.backOff => l10n.itemEditorSchemeBackOff,
+    SetScheme.ramp => l10n.itemEditorSchemeRamp,
+    SetScheme.custom => l10n.itemEditorSchemeCustom,
+    SetScheme.cycle => l10n.itemEditorSchemeCycle,
+  };
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     EditorPill pill(SetScheme s) => EditorPill(
-          label: _label(l10n, s),
-          on: s == scheme,
-          onTap: () => onChanged(s),
-        );
+      label: _label(l10n, s),
+      on: s == scheme,
+      onTap: () => onChanged(s),
+    );
 
     return Wrap(
       spacing: 8,
@@ -1369,8 +1543,11 @@ class _SchemePicker extends StatelessWidget {
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.only(left: 4),
                   tooltip: l10n.itemEditorCycleWhat,
-                  icon: Icon(Icons.info_outline,
-                      size: 16, color: AppColors.faint),
+                  icon: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.faint,
+                  ),
                 ),
               ],
             )
@@ -1402,7 +1579,10 @@ class _CustomSetRow extends StatelessWidget {
         Text(
           l10n.itemEditorSchemeSetNumber(index + 1),
           style: kMono.copyWith(
-              fontSize: 11, letterSpacing: 0.5, color: AppColors.faint),
+            fontSize: 11,
+            letterSpacing: 0.5,
+            color: AppColors.faint,
+          ),
         ),
         const SizedBox(height: 6),
         builderGrid([
@@ -1429,20 +1609,20 @@ class _CustomSetRow extends StatelessWidget {
         ]),
         const SizedBox(height: 10),
         builderGrid([
-            BuilderField(
-              label: l10n.itemEditorRepRange,
-              child: NumberStepper(
-                value: row.repsMax ?? row.reps,
-                isEmpty: row.repsMax == null,
-                emptyLabel: l10n.itemEditorNoUpper,
-                min: row.reps,
-                max: 100,
-                enabled: capped,
-                onChanged: (v) => onChanged(_with(repsMax: v)),
-                onClear: () => onChanged(_with(clearMax: true)),
-              ),
+          BuilderField(
+            label: l10n.itemEditorRepRange,
+            child: NumberStepper(
+              value: row.repsMax ?? row.reps,
+              isEmpty: row.repsMax == null,
+              emptyLabel: l10n.itemEditorNoUpper,
+              min: row.reps,
+              max: 100,
+              enabled: capped,
+              onChanged: (v) => onChanged(_with(repsMax: v)),
+              onClear: () => onChanged(_with(clearMax: true)),
             ),
-          ]),
+          ),
+        ]),
         const SizedBox(height: 10),
         _CheckRow(
           label: l10n.itemEditorSchemeAmrap,
@@ -1473,10 +1653,7 @@ class _CustomSetRow extends StatelessWidget {
 }
 
 class _CycleEditor extends StatefulWidget {
-  const _CycleEditor({
-    required this.draft,
-    required this.onChanged,
-  });
+  const _CycleEditor({required this.draft, required this.onChanged});
 
   final ItemDraft draft;
   final VoidCallback onChanged;
@@ -1505,7 +1682,8 @@ class _CycleEditorState extends State<_CycleEditor> {
             title: cycleWeekTitle(l10n, _d.cycleNameOf(w), w),
             rows: _d.cycle[w],
             open: w == _open,
-            current: _d.cycle.length > 1 && w == _d.cyclePosition % _d.cycle.length,
+            current:
+                _d.cycle.length > 1 && w == _d.cyclePosition % _d.cycle.length,
             onToggle: () => setState(() => _open = w == _open ? null : w),
             onRename: () => _renameWeek(w),
             onRemove: _d.cycle.length > 1 ? () => _removeWeek(w) : null,
@@ -1521,23 +1699,31 @@ class _CycleEditorState extends State<_CycleEditor> {
   }
 
   void _setRow(int week, int index, CustomSet row) {
-    final weeks = [for (final w in _d.cycle) [...w]];
+    final weeks = [
+      for (final w in _d.cycle) [...w],
+    ];
     weeks[week][index] = row;
     _d.cycle = weeks;
     widget.onChanged();
   }
 
   void _addSet(int week) {
-    final weeks = [for (final w in _d.cycle) [...w]];
-    weeks[week].add(weeks[week].isEmpty
-        ? CustomSet(reps: _d.goalReps, percent: 100)
-        : weeks[week].last);
+    final weeks = [
+      for (final w in _d.cycle) [...w],
+    ];
+    weeks[week].add(
+      weeks[week].isEmpty
+          ? CustomSet(reps: _d.goalReps, percent: 100)
+          : weeks[week].last,
+    );
     _d.cycle = weeks;
     widget.onChanged();
   }
 
   void _removeSet(int week) {
-    final weeks = [for (final w in _d.cycle) [...w]];
+    final weeks = [
+      for (final w in _d.cycle) [...w],
+    ];
     weeks[week].removeLast();
     _d.cycle = weeks;
     widget.onChanged();
@@ -1563,17 +1749,16 @@ class _CycleEditorState extends State<_CycleEditor> {
   void _addWeek() {
     _d.cycle = [
       ..._d.cycle,
-      if (_d.cycle.isEmpty)
-        _seedCustomRows(_d)
-      else
-        [..._d.cycle.last],
+      if (_d.cycle.isEmpty) _seedCustomRows(_d) else [..._d.cycle.last],
     ];
     setState(() => _open = _d.cycle.length - 1);
     widget.onChanged();
   }
 
   void _removeWeek(int week) {
-    final weeks = [for (final w in _d.cycle) [...w]]..removeAt(week);
+    final weeks = [
+      for (final w in _d.cycle) [...w],
+    ]..removeAt(week);
     _d.cycle = weeks;
     if (week < _d.cycleNames.length) {
       _d.cycleNames = [..._d.cycleNames]..removeAt(week);
@@ -1583,9 +1768,7 @@ class _CycleEditorState extends State<_CycleEditor> {
     }
     setState(() {
       if (_open == null) return;
-      _open = _open == week
-          ? null
-          : (_open! > week ? _open! - 1 : _open);
+      _open = _open == week ? null : (_open! > week ? _open! - 1 : _open);
     });
     widget.onChanged();
   }
@@ -1595,7 +1778,9 @@ ValueKey<String> cycleWeekKey(int week) => ValueKey('cycle-week-$week');
 
 const ValueKey<String> cycleWeekRenameKey = ValueKey('cycle-week-rename');
 
-const ValueKey<String> cycleWeekNameFieldKey = ValueKey('cycle-week-name-field');
+const ValueKey<String> cycleWeekNameFieldKey = ValueKey(
+  'cycle-week-name-field',
+);
 const ValueKey<String> cycleWeekNameSaveKey = ValueKey('cycle-week-name-save');
 
 String cycleWeekTitle(AppLocalizations l10n, String name, int index) =>
@@ -1622,8 +1807,9 @@ class _CycleWeekNameDialog extends StatefulWidget {
 }
 
 class _CycleWeekNameDialogState extends State<_CycleWeekNameDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.current);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.current,
+  );
 
   @override
   void dispose() {
@@ -1699,8 +1885,7 @@ class _CycleWeekCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: current ? AppColors.accent : AppColors.line),
+        border: Border.all(color: current ? AppColors.accent : AppColors.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1740,7 +1925,9 @@ class _CycleWeekCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: kMono.copyWith(
-                            fontSize: 12, color: AppColors.faint),
+                          fontSize: 12,
+                          color: AppColors.faint,
+                        ),
                       ),
                     ),
                   ] else
@@ -1750,8 +1937,11 @@ class _CycleWeekCard extends StatelessWidget {
                     onPressed: onRename,
                     visualDensity: VisualDensity.compact,
                     tooltip: l10n.itemEditorCycleNameWeek,
-                    icon: Icon(Icons.edit_outlined,
-                        size: 16, color: AppColors.faint),
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: AppColors.faint,
+                    ),
                   ),
                   if (onRemove != null)
                     IconButton(
@@ -1779,7 +1969,8 @@ class _CycleWeekCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                            color: AppColors.line.withValues(alpha: 0.6)),
+                          color: AppColors.line.withValues(alpha: 0.6),
+                        ),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(10),
@@ -1803,9 +1994,9 @@ class _CycleWeekCard extends StatelessWidget {
   }
 
   String _summary(AppLocalizations l10n) => l10n.itemEditorCycleWeekSummary(
-        rowsTargetLabel(l10n, rows),
-        joinRowLabels(l10n, rows.map((r) => '${r.percent}')),
-      );
+    rowsTargetLabel(l10n, rows),
+    joinRowLabels(l10n, rows.map((r) => '${r.percent}')),
+  );
 }
 
 class _CycleActions extends StatelessWidget {
@@ -1872,7 +2063,6 @@ Future<void> _explainSuperset(BuildContext context) {
 
 const kCycleExplainKey = ValueKey('cycle-explain');
 
-
 Future<void> _explainCycle(BuildContext context) {
   final l10n = AppLocalizations.of(context);
   return showAppDialog<void>(
@@ -1931,13 +2121,15 @@ class _CheckRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 15,
-                color: enabled ? null : AppColors.faint,
-              )),
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15,
+              color: enabled ? null : AppColors.faint,
+            ),
+          ),
         ),
         if (onExplain != null)
           IconButton(
@@ -1952,10 +2144,7 @@ class _CheckRow extends StatelessWidget {
       ],
     );
 
-    final lines = [
-      ?note,
-      if (!enabled) ?disabledNote,
-    ];
+    final lines = [?note, if (!enabled) ?disabledNote];
     return InkWell(
       onTap: enabled ? () => onChanged(!value) : null,
       borderRadius: BorderRadius.circular(10),
@@ -1969,7 +2158,10 @@ class _CheckRow extends StatelessWidget {
               child: Text(
                 line,
                 style: kMono.copyWith(
-                    fontSize: 11, height: 1.5, color: AppColors.faint),
+                  fontSize: 11,
+                  height: 1.5,
+                  color: AppColors.faint,
+                ),
               ),
             ),
         ],
@@ -1999,16 +2191,16 @@ class _ModePicker extends StatelessWidget {
   final VoidCallback? onAdvanced;
 
   static String _label(AppLocalizations l10n, ProgressionMode m) => switch (m) {
-        ProgressionMode.weight => l10n.itemEditorModeWeight,
-        ProgressionMode.reps => l10n.itemEditorModeReps,
-        ProgressionMode.time => l10n.itemEditorModeTime,
-      };
+    ProgressionMode.weight => l10n.itemEditorModeWeight,
+    ProgressionMode.reps => l10n.itemEditorModeReps,
+    ProgressionMode.time => l10n.itemEditorModeTime,
+  };
 
   static Key _key(ProgressionMode m) => switch (m) {
-        ProgressionMode.weight => kModeWeightKey,
-        ProgressionMode.reps => kModeRepsKey,
-        ProgressionMode.time => kModeTimeKey,
-      };
+    ProgressionMode.weight => kModeWeightKey,
+    ProgressionMode.reps => kModeRepsKey,
+    ProgressionMode.time => kModeTimeKey,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -2046,14 +2238,13 @@ class _ModePicker extends StatelessWidget {
       ],
     );
   }
-
 }
 
 double amountStep(ProgressionMode mode, String unit) => switch (mode) {
-      ProgressionMode.weight => unit == 'lb' ? 2.5 : 1.25,
-      ProgressionMode.reps => 1,
-      ProgressionMode.time => 5,
-    };
+  ProgressionMode.weight => unit == 'lb' ? 2.5 : 1.25,
+  ProgressionMode.reps => 1,
+  ProgressionMode.time => 5,
+};
 
 class _AmountField extends StatefulWidget {
   const _AmountField({
@@ -2127,9 +2318,9 @@ class _AmountFieldState extends State<_AmountField> {
         ? roundStepWeight(display)
         : display;
     _c.text = fmtWeight(tidy);
-    widget.onChanged(widget.mode == ProgressionMode.weight
-        ? toKg(tidy, widget.unit)
-        : tidy);
+    widget.onChanged(
+      widget.mode == ProgressionMode.weight ? toKg(tidy, widget.unit) : tidy,
+    );
   }
 
   @override
@@ -2138,8 +2329,8 @@ class _AmountFieldState extends State<_AmountField> {
     final suffix = widget.mode == ProgressionMode.weight
         ? unitSuffix(l10n, widget.unit)
         : (widget.mode.timed
-            ? l10n.itemEditorSuffixSeconds
-            : l10n.itemEditorSuffixReps);
+              ? l10n.itemEditorSuffixSeconds
+              : l10n.itemEditorSuffixReps);
     return SizedBox(
       height: 36, // matches a NumberStepper, so grid rows line up
       child: Row(
@@ -2150,37 +2341,44 @@ class _AmountFieldState extends State<_AmountField> {
           ),
           Expanded(
             child: TextField(
-                controller: _c,
-                focusNode: _focus,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.right,
-                style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  suffixText: suffix,
-                  suffixStyle:
-                      kMono.copyWith(fontSize: 12, color: AppColors.faint),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.line),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: AppColors.accent),
-                  ),
+              controller: _c,
+              focusNode: _focus,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.right,
+              style: kMono.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 10,
                 ),
-                onChanged: (v) {
-                  final parsed = double.tryParse(v.trim().replaceAll(',', '.'));
-                  if (parsed == null || parsed < 0) return;
-                  widget.onChanged(widget.mode == ProgressionMode.weight
+                filled: true,
+                fillColor: AppColors.surface,
+                suffixText: suffix,
+                suffixStyle: kMono.copyWith(
+                  fontSize: 12,
+                  color: AppColors.faint,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.line),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.accent),
+                ),
+              ),
+              onChanged: (v) {
+                final parsed = double.tryParse(v.trim().replaceAll(',', '.'));
+                if (parsed == null || parsed < 0) return;
+                widget.onChanged(
+                  widget.mode == ProgressionMode.weight
                       ? toKg(parsed, widget.unit)
-                      : parsed);
-                },
+                      : parsed,
+                );
+              },
             ),
           ),
           stepperButton(Icons.add, () => _nudge(1)),

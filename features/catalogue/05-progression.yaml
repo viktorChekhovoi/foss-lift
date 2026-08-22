@@ -80,6 +80,49 @@ groups:
     - session.exercise-weight
     - template.cycle
     - template.training-max
+  - id: gzcl-tiers-are-explicit-and-configurable
+    t: A slot can be assigned GZCL tier T1, T2 or T3
+    d: >-
+      T1 and T2 carry an editable ordered ladder of set and rep stages. T3 carries
+      an editable final-set AMRAP target. The tier supplies published GZCLP
+      defaults without fixing the slot to those defaults.
+    screen: workout-edit
+    defines:
+    - progression.gzcl-tier
+    uses:
+    - progression.stage-ladder
+    - progression.amrap-trigger
+    - template.per-set-reps
+  - id: gzcl-ladder-advances-per-slot
+    t: A missed GZCL T1 or T2 prescription advances that slot to its next stage
+    d: >-
+      Completing the base prescription adds the configured load and retains the
+      stage. Missing it retains the load and advances to the next configured
+      set-and-rep stage. Each slot stores its own position, so one lift cannot
+      advance another lift's ladder. A miss on the final stage holds for manual
+      reset rather than inventing a new max.
+    defines:
+    - progression.stage-ladder
+    uses:
+    - progression.gzcl-tier
+    - progression.verdict
+    - progression.rates
+    - progression.streak
+    - storage.schema
+  - id: gzcl-t3-progresses-from-last-amrap
+    t: GZCL T3 adds load only when its final AMRAP reaches its target
+    d: >-
+      The target is configurable per slot and defaults to 25 reps. Reaching it
+      adds the configured load; completing fewer reps holds the load. Earlier
+      sets do not satisfy the trigger.
+    screen: session
+    defines:
+    - progression.amrap-trigger
+    uses:
+    - progression.gzcl-tier
+    - progression.rates
+    - template.per-set-reps
+    - session.finish
 - name: How to use it
   items:
   - id: automatic

@@ -22,10 +22,10 @@ enum ProgressionMode {
   ///
   /// One clean session earns a step; see [defaultSuccessThreshold].
   double get defaultIncrement => switch (this) {
-        ProgressionMode.weight => 2.5,
-        ProgressionMode.reps => 1,
-        ProgressionMode.time => 5,
-      };
+    ProgressionMode.weight => 2.5,
+    ProgressionMode.reps => 1,
+    ProgressionMode.time => 5,
+  };
 
   /// Default amount to subtract on a deload.
   double get defaultDeload => defaultIncrement * 2;
@@ -34,10 +34,60 @@ enum ProgressionMode {
   /// legitimate place to end up (the bodyweight movement you were adding a
   /// belt to); zero reps or zero seconds is not a set.
   double get floor => switch (this) {
-        ProgressionMode.weight => 0,
-        ProgressionMode.reps => 1,
-        ProgressionMode.time => 5,
-      };
+    ProgressionMode.weight => 0,
+    ProgressionMode.reps => 1,
+    ProgressionMode.time => 5,
+  };
+}
+
+/// The role a slot has in a GZCL program. Null on an ordinary slot.
+enum GzclTier { t1, t2, t3 }
+
+/// One base prescription in a configurable GZCL T1/T2 failure ladder.
+class GzclStage {
+  const GzclStage({required this.sets, required this.reps});
+
+  final int sets;
+  final int reps;
+
+  @override
+  bool operator ==(Object other) =>
+      other is GzclStage && other.sets == sets && other.reps == reps;
+
+  @override
+  int get hashCode => Object.hash(sets, reps);
+}
+
+const gzclpT1Stages = [
+  GzclStage(sets: 5, reps: 3),
+  GzclStage(sets: 6, reps: 2),
+  GzclStage(sets: 10, reps: 1),
+];
+
+const gzclpT2Stages = [
+  GzclStage(sets: 3, reps: 10),
+  GzclStage(sets: 3, reps: 8),
+  GzclStage(sets: 3, reps: 6),
+];
+
+const defaultGzclT3AmrapTarget = 25;
+
+String? encodeGzclStages(List<GzclStage> stages) => stages.isEmpty
+    ? null
+    : stages.map((stage) => '${stage.sets}x${stage.reps}').join(';');
+
+List<GzclStage> decodeGzclStages(String? encoded) {
+  if (encoded == null || encoded.isEmpty) return const [];
+  final stages = <GzclStage>[];
+  for (final part in encoded.split(';')) {
+    final fields = part.split('x');
+    if (fields.length != 2) continue;
+    final sets = int.tryParse(fields[0]);
+    final reps = int.tryParse(fields[1]);
+    if (sets == null || reps == null || sets < 1 || reps < 1) continue;
+    stages.add(GzclStage(sets: sets, reps: reps));
+  }
+  return stages;
 }
 
 /// A step up and a back-off, in the units of whatever they move.
@@ -51,7 +101,8 @@ enum RateAxis { weight, reps, time, advanced }
 ///
 /// Empty comes back as null rather than as an empty string, so "nothing kept"
 /// is one value in the database instead of two.
-String? encodeSparedRates(Map<RateAxis, ProgressionRates> rates) => rates.isEmpty
+String? encodeSparedRates(Map<RateAxis, ProgressionRates> rates) =>
+    rates.isEmpty
     ? null
     : [
         for (final e in rates.entries)
@@ -84,12 +135,12 @@ enum ExerciseMeasure {
 
   /// The axes this measure permits, in the order they should be offered.
   List<ProgressionMode> get modes => switch (this) {
-        ExerciseMeasure.reps => const [
-            ProgressionMode.weight,
-            ProgressionMode.reps,
-          ],
-        ExerciseMeasure.time => const [ProgressionMode.time],
-      };
+    ExerciseMeasure.reps => const [
+      ProgressionMode.weight,
+      ProgressionMode.reps,
+    ],
+    ExerciseMeasure.time => const [ProgressionMode.time],
+  };
 
   /// The axis to start on: load for anything counted, time for anything held.
   ProgressionMode get defaultMode => modes.first;

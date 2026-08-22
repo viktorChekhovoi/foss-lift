@@ -45,13 +45,41 @@ groups:
     uses:
     - template.item
   - id: advanced-holds-the-rest-of-the-target
-    t: Advanced holds the rep range, to failure, and the set scheme
+    t: Advanced holds the rep range, to failure, effort target, and set scheme
     d: >-
-      Contains the upper rep bound, to-failure mode, and set scheme. It expands
-      automatically when a slot uses any advanced option.
+      Contains the upper rep bound, to-failure mode, optional RPE target, and set
+      scheme. It expands automatically when a slot uses any advanced option. RPE
+      is absent from a new slot until selected here.
     uses:
     - template.set-scheme
     - template.rep-target
+    - template.effort-target
+  - id: slot-can-prescribe-rpe
+    t: A slot can optionally prescribe RPE
+    d: >-
+      Advanced offers no effort target by default. Selecting RPE accepts 6–10 in
+      half-point steps and shows the equivalent reps in reserve in the picker.
+      The target applies to every working set in the slot, including written-out
+      custom and cycle sets. Removing it restores the ordinary builder and
+      does not remove RPE already recorded in history.
+    defines:
+    - template.effort-target
+    uses:
+    - template.item
+    - template.set-scheme
+    - template.per-set-reps
+    - ui.gym-vocabulary
+  - id: rpe-load-is-self-selected
+    t: An RPE slot leaves today's load to the lifter
+    d: >-
+      Its last working load is a starting reference rather than a progression
+      target. Finishing the session neither steps nor backs off that load, and an
+      effort rating above or below target is not a progression success or miss.
+    screen: none
+    uses:
+    - template.effort-target
+    - progression.rates
+    - session.effort-rating
   - id: an-advanced-toggle-is-a-control
     t: An Advanced toggle is a control the size of the pills it sits under
     d: >-
