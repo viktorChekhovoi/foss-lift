@@ -14,6 +14,7 @@ import 'package:foss_lift/screens/profile_screen.dart';
 import 'package:foss_lift/services/backup_service.dart';
 import 'package:foss_lift/util/capabilities.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -304,11 +305,11 @@ void main() {
       () async {
         await addRoutine(db, 'Current profile');
         final unrelatedFile = File(p.join(root.path, 'unrelated.sqlite'));
-        final unrelated = openAt(unrelatedFile);
-        await unrelated.customStatement(
+        final unrelated = sqlite.sqlite3.open(unrelatedFile.path);
+        unrelated.execute(
           'CREATE TABLE unrelated_notes (id INTEGER PRIMARY KEY, note TEXT)',
         );
-        await unrelated.close();
+        unrelated.close();
         final backup = await archiveWithDatabase(
           'unrelated-valid-sqlite.zip',
           await unrelatedFile.readAsBytes(),

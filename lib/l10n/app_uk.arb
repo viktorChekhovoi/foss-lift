@@ -599,6 +599,9 @@
   "routinesTitle": "Програми",
   "routineLibraryTitle": "Готові програми",
   "routineLibraryAdd": "Додати до моїх програм",
+  "routineLibraryBeginner": "Початківець",
+  "routineLibraryIntermediate": "Середній рівень",
+  "routineLibraryAdvanced": "Просунутий",
   "routinesNewRoutine": "Нова програма",
   "routinesAdd": "Додати програму",
   "routinesImport": "Імпортувати програму",
@@ -893,6 +896,6 @@
   "seedRoutineDescPpl": "Шестиденна програма PPL зі штангою. Тяга, жим і ноги повторюються щотижня з чергуванням основних вправ.",
   "seedRoutineDescFitnessBasicBeginner": "Вступна програма зі штангою на три дні на тиждень. Чергуйте два тренування по три вправи не довше трьох місяців.",
   "seedRoutineDescBodyweightfitnessRecommended": "Програма на все тіло на три дні на тиждень. Потрібні місця для вису й горизонтальної тяги.",
-  "seedRoutineDescDumbbellStopgap": "Програма з двох тренувань із гантелями. Чергуйте A і B три дні на тиждень з регульованими гантелями або набором різної ваги.", "seedRoutineDescGzclp": "Лінійна прогресія Коді Лефевера для початківців. Чотири тренування по черзі опрацьовують кожну основну вправу як T1 і T2, а спину — у T3.", "itemEditorGzclT1": "T1", "itemEditorGzclT2": "T2", "itemEditorGzclT3": "T3",
+  "seedRoutineDescDumbbellStopgap": "Програма з двох тренувань із гантелями. Чергуйте A і B три дні на тиждень з регульованими гантелями або набором різної ваги.", "seedRoutineDescGzclp": "Лінійна прогресія Коді Лефевера для початківців. Чотири тренування по черзі поєднують важкі основні вправи, помірні допоміжні вправи та багатоповторну додаткову роботу.", "itemEditorGzclT1": "T1", "itemEditorGzclT2": "T2", "itemEditorGzclT3": "T3",
   "seedDayPullA": "Тяга A", "seedDayPushA": "Жим A", "seedDayLegsA": "Ноги A", "seedDayPullB": "Тяга B", "seedDayPushB": "Жим B", "seedDayLegsB": "Ноги B"
 }

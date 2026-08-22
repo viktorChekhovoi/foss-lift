@@ -155,6 +155,77 @@ final historyProvider = StreamProvider<List<Session>>((ref) {
   return ref.watch(databaseProvider).watchHistory();
 });
 
+const int kHistoryPageSize = 50;
+
+class HistoryPage {
+  const HistoryPage({
+    required this.sessions,
+    required this.hasMore,
+    required this.total,
+  });
+  final List<Session> sessions;
+  final bool hasMore;
+  final int total;
+}
+
+/// The History tab's bounded, keyset-paginated window.
+final pagedHistoryProvider =
+    AsyncNotifierProvider<PagedHistoryController, HistoryPage>(
+      PagedHistoryController.new,
+    );
+
+class PagedHistoryController extends AsyncNotifier<HistoryPage> {
+  bool _loadingMore = false;
+
+  @override
+  Future<HistoryPage> build() => _firstPage();
+
+  Future<HistoryPage> _firstPage() async {
+    final db = ref.read(databaseProvider);
+    final rows = await db.historyPage(limit: kHistoryPageSize + 1);
+    final total = await db
+        .watchSessionCount()
+        .firstWhere((count) => count >= rows.length);
+    return HistoryPage(
+      sessions: rows.take(kHistoryPageSize).toList(),
+      hasMore: rows.length > kHistoryPageSize,
+      total: total,
+    );
+  }
+
+  Future<void> loadMore() async {
+    final current = state.value;
+    if (current == null || !current.hasMore || _loadingMore) return;
+    _loadingMore = true;
+    final last = current.sessions.last;
+    try {
+      final rows = await ref
+          .read(databaseProvider)
+          .historyPage(
+            beforeStartedAt: last.startedAt,
+            beforeId: last.id,
+            limit: kHistoryPageSize + 1,
+          );
+      state = AsyncData(
+        HistoryPage(
+          sessions: [...current.sessions, ...rows.take(kHistoryPageSize)],
+          hasMore: rows.length > kHistoryPageSize,
+          total: current.total,
+        ),
+      );
+    } catch (error, stack) {
+      state = AsyncError<HistoryPage>(error, stack);
+    } finally {
+      _loadingMore = false;
+    }
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(_firstPage);
+  }
+}
+
 /// Every logged set of one exercise across finished sessions, oldest first —
 /// the source for its progress chart.
 final exerciseHistoryProvider =
@@ -213,8 +284,9 @@ final storageHealthProvider = FutureProvider<StorageHealth>(
 ///
 /// A provider rather than a bare constant so a test can mount a screen as the
 /// browser build would draw it without being in a browser.
-final capabilitiesProvider =
-    Provider<Capabilities>((ref) => currentCapabilities);
+final capabilitiesProvider = Provider<Capabilities>(
+  (ref) => currentCapabilities,
+);
 
 /// When each routine's next reminder is due, and when it was last trained.
 final routineRemindersProvider = StreamProvider<List<RoutineReminder>>((ref) {
@@ -241,7 +313,9 @@ final reminderSyncProvider = Provider<void>((ref) {
   final reminders = ref.watch(routineRemindersProvider).value;
   if (reminders == null) return;
   final l10n = ref.watch(appLocalizationsProvider);
-  ref.watch(reminderServiceProvider).sync(
+  ref
+      .watch(reminderServiceProvider)
+      .sync(
         [
           for (final r in reminders)
             (
@@ -311,8 +385,9 @@ final workoutShadeSyncProvider = Provider<void>((ref) {
   ref.watch(shadeActionsProvider);
 
   final session = ref.watch(activeWorkoutProvider);
-  final cue =
-      session == null ? null : nextUp(session, restLeft: session.restLeft);
+  final cue = session == null
+      ? null
+      : nextUp(session, restLeft: session.restLeft);
   // No session, so no shade. A session with every set logged still has one: it
   // is not history until Finish, and the notification is where it says so.
   if (cue == null) {
@@ -447,10 +522,9 @@ final localeTagProvider = StreamProvider<String?>((ref) {
   final db = ref.watch(databaseProvider);
   return db.watchLocaleTag().asyncMap((tag) async {
     if (tag != null) return tag;
-    final resolved = localeTag(resolveLocale(
-      null,
-      WidgetsBinding.instance.platformDispatcher.locales,
-    ));
+    final resolved = localeTag(
+      resolveLocale(null, WidgetsBinding.instance.platformDispatcher.locales),
+    );
     await db.setLocaleTag(resolved);
     return resolved;
   });
@@ -536,8 +610,9 @@ final unitSeedProvider = Provider<void>((ref) {
   // install that already has an answer, so this cannot re-unit a log somebody
   // has been keeping.
   if (ref.watch(unitChosenProvider).value == true) return;
-  final unit =
-      localeDefaultUnit(WidgetsBinding.instance.platformDispatcher.locales);
+  final unit = localeDefaultUnit(
+    WidgetsBinding.instance.platformDispatcher.locales,
+  );
   unawaited(ref.watch(databaseProvider).seedWeightUnit(unit));
 });
 
@@ -730,8 +805,9 @@ final orphanSweepProvider = FutureProvider<int>((ref) async {
 /// rebuilding — or the screen being opened again — costs a map lookup rather
 /// than a decode.
 final clipStillProvider = FutureProvider.family<File?, String>(
-    (ref, clipRelative) =>
-        ref.watch(setVideoThumbnailsProvider).stillFor(clipRelative));
+  (ref, clipRelative) =>
+      ref.watch(setVideoThumbnailsProvider).stillFor(clipRelative),
+);
 
 /// Every clip of one exercise, newest first — the film reel for that movement.
 final exerciseClipsProvider =

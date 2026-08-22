@@ -428,9 +428,11 @@ void main() {
         await tester.runAsync(() => seedHistory(60));
         await openHistory(tester);
 
-        expect(find.text(l10nFor().historySessionCount(60)), findsOneWidget);
+        expect(
+          find.text(l10nFor().historySessionCount(60).toUpperCase()),
+          findsOneWidget,
+        );
         expect(find.text('Session 60'), findsOneWidget);
-        expect(find.text('Session 11'), findsOneWidget);
         expect(
           find.text('Session 10'),
           findsNothing,

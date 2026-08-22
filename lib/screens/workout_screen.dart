@@ -481,7 +481,8 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(activeWorkoutProvider);
+    ref.watch(activeWorkoutProvider.select((session) => session?.rev));
+    final session = ref.read(activeWorkoutProvider);
     if (session == null) {
       return const Scaffold(body: SizedBox.shrink());
     }
@@ -507,7 +508,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
               onFinish: _finish,
               onAbort: _abort,
             ),
-            _StatStrip(session: session),
+            const _StatStrip(),
             _LoggingHint(anyTimed: session.exercises.any((e) => e.mode.timed)),
             Expanded(
               child: LayoutBuilder(
@@ -608,49 +609,49 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                                               .exercises[ei]
                                               .cardioMachine,
                                           row: _SetRow(
-                                          key: ValueKey(
-                                            '$ei-$si-${session.exercises[ei].name}',
-                                          ),
-                                          number: si + 1,
-                                          entry: entry,
-                                          unit: session.exercises[ei].unit,
-                                          isNext: marked,
+                                            key: ValueKey(
+                                              '$ei-$si-${session.exercises[ei].name}',
+                                            ),
+                                            number: si + 1,
+                                            entry: entry,
+                                            unit: session.exercises[ei].unit,
+                                            isNext: marked,
                                             onEditWeight: () =>
                                                 _editSetWeight(ei, si),
-                                          showWeight: _showsWeight(
-                                            session.exercises[ei],
-                                          ),
+                                            showWeight: _showsWeight(
+                                              session.exercises[ei],
+                                            ),
                                             onRpe: entry.targetRpe == null
                                                 ? null
                                                 : () => _editRpe(ei, si, entry),
-                                          holdingSeconds:
-                                              _holding?.exercise == ei &&
-                                                  _holding?.set == si
-                                              ? _held
-                                              : null,
-                                          onTap: () {
-                                            if (entry.timed) {
-                                              _tapTimed(ei, si, entry);
-                                              return;
-                                            }
-                                            final wasDone = entry.done;
-                                            controller.cycleSet(ei, si);
-                                            HapticFeedback.selectionClick();
-                                            _restForSet(
-                                              ei,
-                                              si,
-                                              warmup: false,
-                                              wasDone: wasDone,
-                                            );
-                                          },
-                                          onTypeResult: () =>
-                                              _editResult(ei, si, entry),
-                                          onVideo:
-                                              ref
-                                                  .watch(capabilitiesProvider)
-                                                  .setVideos
-                                              ? () => _video(ei, si, entry)
-                                              : null,
+                                            holdingSeconds:
+                                                _holding?.exercise == ei &&
+                                                    _holding?.set == si
+                                                ? _held
+                                                : null,
+                                            onTap: () {
+                                              if (entry.timed) {
+                                                _tapTimed(ei, si, entry);
+                                                return;
+                                              }
+                                              final wasDone = entry.done;
+                                              controller.cycleSet(ei, si);
+                                              HapticFeedback.selectionClick();
+                                              _restForSet(
+                                                ei,
+                                                si,
+                                                warmup: false,
+                                                wasDone: wasDone,
+                                              );
+                                            },
+                                            onTypeResult: () =>
+                                                _editResult(ei, si, entry),
+                                            onVideo:
+                                                ref
+                                                    .watch(capabilitiesProvider)
+                                                    .setVideos
+                                                ? () => _video(ei, si, entry)
+                                                : null,
                                           ),
                                         ),
                                       );
@@ -749,12 +750,21 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _StatStrip extends StatelessWidget {
-  const _StatStrip({required this.session});
-  final ActiveWorkout session;
+class _StatStrip extends ConsumerWidget {
+  const _StatStrip();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final elapsed = ref.watch(
+      activeWorkoutProvider.select((session) => session?.elapsed ?? 0),
+    );
+    final setCount = ref.watch(
+      activeWorkoutProvider.select(
+        (session) => (session?.doneSets ?? 0, session?.totalSets ?? 0),
+      ),
+    );
+    final session = ref.read(activeWorkoutProvider);
+    if (session == null) return const SizedBox.shrink();
     final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
@@ -767,14 +777,11 @@ class _StatStrip extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Stat(
-              label: l10n.sessionStatDuration,
-              value: fmtDuration(session.elapsed),
-            ),
+            _Stat(label: l10n.sessionStatDuration, value: fmtDuration(elapsed)),
             VerticalDivider(width: 1, color: AppColors.line),
             _Stat(
               label: l10n.sessionStatSets,
-              value: '${session.doneSets}/${session.totalSets}',
+              value: '${setCount.$1}/${setCount.$2}',
               accent: true,
             ),
           ],
@@ -973,8 +980,8 @@ class _ExerciseBlock extends StatelessWidget {
     if (!first.timed &&
         exercise.sets.any(
           (s) =>
-            s.goal != first.goal ||
-            s.goalMin != first.goalMin ||
+              s.goal != first.goal ||
+              s.goalMin != first.goalMin ||
               s.amrap != first.amrap,
         )) {
       return joinRowLabels(
@@ -2033,7 +2040,7 @@ class _ResultDialogState extends State<_ResultDialog> {
 
 const kRestBannerKey = ValueKey('rest-banner');
 
-class _RestBanner extends StatelessWidget {
+class _RestBanner extends ConsumerWidget {
   const _RestBanner({
     required this.secondsLeft,
     required this.prompt,
@@ -2070,16 +2077,21 @@ class _RestBanner extends StatelessWidget {
             : l10n.sessionRestSetUpThenRest(weight()),
       RestPurpose.anotherSet =>
         p.weightKg == null
-          ? l10n.sessionRestPlain
-          : l10n.sessionRestSetUp(weight()),
+            ? l10n.sessionRestPlain
+            : l10n.sessionRestSetUp(weight()),
       RestPurpose.nextExercise => l10n.sessionRestNextExercise(
-          seededName(l10n, p.exerciseSeedKey, p.exercise ?? ''),
-        ),
+        seededName(l10n, p.exerciseSeedKey, p.exercise ?? ''),
+      ),
     };
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveSecondsLeft = ref.watch(
+      activeWorkoutProvider.select(
+        (session) => session?.restLeft ?? secondsLeft,
+      ),
+    );
     final l10n = AppLocalizations.of(context);
     return Container(
       key: kRestBannerKey,
@@ -2116,7 +2128,7 @@ class _RestBanner extends StatelessWidget {
                       constraints.maxWidth - _kClockRoom)
                     Row(
                       children: [
-                        _clock(),
+                        _clock(liveSecondsLeft),
                         const Spacer(),
                         for (final pill in pills) ...[
                           const SizedBox(width: 8),
@@ -2125,7 +2137,7 @@ class _RestBanner extends StatelessWidget {
                       ],
                     )
                   else ...[
-                    _clock(),
+                    _clock(liveSecondsLeft),
                     const SizedBox(height: 10),
                     Wrap(spacing: 8, runSpacing: 8, children: pills),
                   ],
@@ -2138,8 +2150,8 @@ class _RestBanner extends StatelessWidget {
     );
   }
 
-  Widget _clock() => Text(
-    fmtDuration(secondsLeft),
+  Widget _clock(int value) => Text(
+    fmtDuration(value),
     maxLines: 1,
     style: kMono.copyWith(
       fontSize: 24,

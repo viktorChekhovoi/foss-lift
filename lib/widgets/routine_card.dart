@@ -14,12 +14,13 @@ class RoutineCard extends StatelessWidget {
     required this.onTap,
     this.isCurrent = false,
     this.onSetCurrent,
-  })  : name = data.routine.name,
-        seedKey = data.routine.seedKey,
-        colorHex = data.routine.colorHex,
-        workoutCount = data.workoutCount,
-        scheduleDays = data.routine.scheduleDays,
-        hasReminder = data.routine.reminderMinutes != null;
+  }) : experienceLabel = null,
+       name = data.routine.name,
+       seedKey = data.routine.seedKey,
+       colorHex = data.routine.colorHex,
+       workoutCount = data.workoutCount,
+       scheduleDays = data.routine.scheduleDays,
+       hasReminder = data.routine.reminderMinutes != null;
 
   const RoutineCard.program({
     super.key,
@@ -29,15 +30,17 @@ class RoutineCard extends StatelessWidget {
     required this.workoutCount,
     required this.scheduleDays,
     required this.onTap,
-  })  : isCurrent = false,
-        onSetCurrent = null,
-        hasReminder = false;
+    this.experienceLabel,
+  }) : isCurrent = false,
+       onSetCurrent = null,
+       hasReminder = false;
 
   final String name;
   final String? seedKey;
   final String colorHex;
   final int workoutCount;
   final int scheduleDays;
+  final String? experienceLabel;
 
   final bool hasReminder;
 
@@ -96,12 +99,39 @@ class RoutineCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      l10n.routineCardWorkoutCount(workoutCount),
-                      style: kMono.copyWith(
-                        fontSize: 12.5,
-                        color: AppColors.muted,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 3,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          l10n.routineCardWorkoutCount(workoutCount),
+                          style: kMono.copyWith(
+                            fontSize: 12.5,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        if (experienceLabel != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              experienceLabel!,
+                              style: kMono.copyWith(
+                                fontSize: 10,
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     if (scheduleDays != kNoScheduleMask) ...[
                       const SizedBox(height: 3),
@@ -120,7 +150,9 @@ class RoutineCard extends StatelessWidget {
                               scheduleLabel(l10n, scheduleDays),
                               overflow: TextOverflow.ellipsis,
                               style: kMono.copyWith(
-                                  fontSize: 11.5, color: AppColors.faint),
+                                fontSize: 11.5,
+                                color: AppColors.faint,
+                              ),
                             ),
                           ),
                         ],

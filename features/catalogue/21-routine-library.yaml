@@ -6,14 +6,20 @@ tagline: >-
 screen: routine-library
 code:
 - lib/data/starter_routines.dart
+- lib/data/starter_routines/basic_routines.dart
+- lib/data/starter_routines/established_routines.dart
+- lib/data/starter_routines/gzclp.dart
+- lib/data/starter_routines/candito.dart
+- lib/data/starter_routines/sheiko.dart
+- lib/data/starter_routines/tsa_routines.dart
 - lib/screens/routine_library_screen.dart
 - lib/screens/routines_screen.dart
 - lib/data/database.dart
 test:
 - test/feature_21_routine_library_test.dart
 where: >-
-  <b>The programs</b> lib/data/starter_routines.dart — a table of prescriptions,
-  no drift and no Flutter · <b>Installing one</b> AppDatabase.addStarterRoutine ·
+  <b>The programs</b> lib/data/starter_routines.dart and its starter_routines/
+  parts — grouped tables of prescriptions, no drift and no Flutter · <b>Installing one</b> AppDatabase.addStarterRoutine ·
   <b>Screens</b> lib/screens/routine_library_screen.dart (the list and the
   preview), reached from lib/screens/routines_screen.dart
 groups:
@@ -45,6 +51,14 @@ groups:
     - template.routine
     - ui.empty-state
     - ui.routine-add-menu
+  - id: library-browses-by-experience-level
+    t: Ready-made routines are labelled, ordered, and filtered by experience
+    d: >-
+      Every template carries one visible Beginner, Intermediate, or Advanced label. The library lists beginner templates first, then intermediate templates, then advanced templates while retaining a stable order within each level. You can select one or more experience levels to show only matching templates, and clearing the selection restores the full ordered library.
+    defines:
+    - template.experience-level
+    uses:
+    - template.starter-library
   - id: three-ways-to-get-a-routine
     t: One button adds a routine, and it offers all three ways
     d: >-
@@ -150,10 +164,7 @@ groups:
   - id: library-ships-gzclp
     t: GZCLP arrives as its four-workout rotation
     d: >-
-      A1, B1, A2 and B2 train squat, bench press, deadlift and overhead press
-      once as T1 and once as T2, with lat pulldowns or dumbbell rows as T3. T1
-      opens on 5 × 3+, T2 on 3 × 10 and T3 on 3 × 15+, carrying the configurable
-      GZCL progression assigned to each tier.
+      A1, B1, A2 and B2 train squat, bench press, deadlift and overhead press once as heavy main work and once as moderate secondary work, with higher-rep lat pulldowns or dumbbell rows for assistance. The three roles open on 5 × 3+, 3 × 10, and 3 × 15+ respectively, carrying their configurable GZCL progressions without requiring the preview description to assume the reader knows the T1, T2, and T3 names.
     uses:
     - template.starter-library
     - progression.gzcl-tier

@@ -59,8 +59,10 @@ groups:
     t: Restore replaces everything on the phone
     d: >-
       Restore replaces the current database; it does not merge records. A
-      confirmation states this before any data is changed, and the resulting
-      database matches the backup.
+      confirmation states this before any data is changed. The replacement is
+      staged and proven to be a compatible Foss Lift database before the live
+      profile is closed or changed. If staging, replacement, or reopening fails,
+      the previous profile remains available without restarting the app.
     defines:
     - share.restore
     uses:
@@ -69,9 +71,11 @@ groups:
     t: Clips come back only if they were put in
     d: >-
       An archive containing clips restores them beside the sets that reference
-      them. Clip paths are relative to app storage, so a backup without clips can
-      still restore on the original phone. On a phone without those files, sets
-      remain valid and show no playback control.
+      them. Clips are staged separately after the database succeeds, so a bad
+      clip cannot make either the restored or previous database unavailable.
+      Clip paths are relative to app storage, so a backup without clips can still
+      restore on the original phone. On a phone without those files, sets remain
+      valid and show no playback control.
     uses:
     - share.restore
     - video.storage
@@ -91,8 +95,11 @@ groups:
     t: A file that is not a backup is refused by what is in it
     d: >-
       Validation uses the manifest, not the filename. Renamed archives, photos,
-      and routine-code files are rejected, and the current database is untouched
-      until validation succeeds.
+      routine-code files, corrupt SQLite files, unrelated SQLite databases, and
+      databases whose real schema disagrees with the manifest are rejected. The
+      embedded database must pass SQLite integrity checks and contain compatible
+      Foss Lift tables and essential columns. The current database remains open
+      and usable after every refusal.
     uses:
     - share.restore
   - id: restore-refuses-during-a-workout

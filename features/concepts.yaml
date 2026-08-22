@@ -221,6 +221,11 @@ concepts:
       arrives configured as, and what adding one does to your list.
     code: [lib/data/starter_routines.dart, lib/screens/routine_library_screen.dart]
 
+  - id: template.experience-level
+    area: template
+    what: The beginner, intermediate or advanced suitability assigned to each ready-made routine and used to browse the library.
+    code: [lib/data/starter_routines.dart, lib/screens/routine_library_screen.dart]
+
   - id: template.active-routine
     area: template
     what: Which routine is the current one, and so what Today offers.

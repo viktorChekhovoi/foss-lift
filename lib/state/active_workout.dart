@@ -827,6 +827,7 @@ class ActiveWorkout {
     RestSetRef? restFor,
     bool? restDone,
     bool clearRest = false,
+    bool bumpRevision = true,
   }) => ActiveWorkout(
     routineId: routineId,
     workoutId: workoutId,
@@ -844,7 +845,7 @@ class ActiveWorkout {
     restFor: clearRest ? null : (restFor ?? this.restFor),
     restDone: clearRest ? false : (restDone ?? this.restDone),
     notice: notice,
-    rev: rev + 1,
+    rev: bumpRevision ? rev + 1 : rev,
   );
 }
 
@@ -959,7 +960,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     if (left == s.restLeft) return;
     // Not committed: the snapshot ages its own clock on the way back in, so a
     // write a second would buy nothing. See [_commit].
-    state = s.copyWith(restLeft: left);
+    state = s.copyWith(restLeft: left, bumpRevision: false);
   }
 
   /// Adds [seconds] to a running rest, or takes them off. Going to or below
@@ -1152,7 +1153,9 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     final anchor = _elapsedAnchor;
     if (s == null || anchor == null) return;
     final elapsed = _elapsedBase + _now.difference(anchor).inSeconds;
-    if (elapsed != s.elapsed) state = s.copyWith(elapsed: elapsed);
+    if (elapsed != s.elapsed) {
+      state = s.copyWith(elapsed: elapsed, bumpRevision: false);
+    }
   }
 
   /// Begins a live session from a workout template. Passing a null [workoutId]

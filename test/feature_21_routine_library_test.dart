@@ -18,26 +18,45 @@ import 'package:foss_lift/widgets/routine_card.dart';
 import 'support/harness.dart';
 import 'support/schema_v1.dart';
 
-/// The order the library lists its programs in: the gym programs first, then the
-/// four that need less than a gym.
+/// The order the library lists its programs in: least experience first, with
+/// the established library order retained inside each level.
 const _kLibraryOrder = [
   'gzclp',
-  'ppl-6-day',
   'fitness-basic-beginner',
   'starting-strength',
   'stronglifts-5x5',
   'bodyweightfitness-recommended',
   'dumbbell-stopgap',
+  '531-beginners',
+  'tsa-beginner',
+  'ppl-6-day',
   '531-classic',
   '531-bbb',
   '531-fsl',
-  '531-beginners',
   'candito-linear-control',
   'candito-linear-hypertrophy',
-  'sheiko-29-32',
-  'tsa-beginner',
   'tsa-intermediate-2',
+  'sheiko-29-32',
 ];
+
+const _kExperienceByProgram = {
+  'gzclp': 'beginner',
+  'fitness-basic-beginner': 'beginner',
+  'starting-strength': 'beginner',
+  'stronglifts-5x5': 'beginner',
+  'bodyweightfitness-recommended': 'beginner',
+  'dumbbell-stopgap': 'beginner',
+  '531-beginners': 'beginner',
+  'tsa-beginner': 'beginner',
+  'ppl-6-day': 'intermediate',
+  '531-classic': 'intermediate',
+  '531-bbb': 'intermediate',
+  '531-fsl': 'intermediate',
+  'candito-linear-control': 'intermediate',
+  'candito-linear-hypertrophy': 'intermediate',
+  'tsa-intermediate-2': 'intermediate',
+  'sheiko-29-32': 'advanced',
+};
 
 /// Keys of the unpublished, Foss Lift-authored templates which the community
 /// programs replace. Keeping this list explicit prevents a cosmetically renamed
@@ -364,10 +383,145 @@ void main() {
         expect(sets.map((set) => set.amrap), [false, false, true]);
       }
     });
+
+    testWidgets('the preview describes the three jobs without tier shorthand', (
+      tester,
+    ) async {
+      _tallPhone(tester);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        routedAppUnder(
+          container,
+          const StarterRoutinePreviewScreen(routineKey: 'gzclp'),
+        ),
+      );
+      await pumpThroughDatabase(tester);
+
+      final description = seededDescription(
+        l10nFor(),
+        _program('gzclp').seedKey,
+        _program('gzclp').description,
+      )!;
+      expect(find.text(description), findsOneWidget);
+      expect(
+        description.toLowerCase(),
+        allOf(contains('heavy'), contains('secondary'), contains('assistance')),
+        reason: 'the preview explains what each kind of work does',
+      );
+      expect(
+        description,
+        isNot(matches(RegExp(r'\bT[123]\b'))),
+        reason: 'a new lifter should not need GZCL tier vocabulary',
+      );
+
+      await stop(tester);
+    });
+  });
+
+  group('ready-made routines browse by experience level', () {
+    test('all sixteen carry a level and are grouped beginner to advanced', () {
+      expect(kStarterRoutines.map((p) => p.key), _kLibraryOrder);
+      expect(
+        {for (final p in kStarterRoutines) p.key: p.experienceLevel.name},
+        _kExperienceByProgram,
+        reason: 'every ready-made routine has one deliberate experience level',
+      );
+    });
+
+    testWidgets('each card shows its experience label', (tester) async {
+      _tallPhone(tester);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, const RoutineLibraryScreen()),
+      );
+      await pumpThroughDatabase(tester);
+
+      for (final program in kStarterRoutines) {
+        final card = find.byKey(ValueKey('starter-${program.key}'));
+        final label = switch (_kExperienceByProgram[program.key]) {
+          'beginner' => 'Beginner',
+          'intermediate' => 'Intermediate',
+          'advanced' => 'Advanced',
+          _ => throw StateError('${program.key} has no expected level'),
+        };
+        expect(
+          find.descendant(of: card, matching: find.text(label)),
+          findsOneWidget,
+          reason: '${program.key} does not show $label on its card',
+        );
+      }
+
+      await stop(tester);
+    });
+
+    testWidgets('filters combine, toggle independently, and clear to all', (
+      tester,
+    ) async {
+      _tallPhone(tester);
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        routedAppUnder(container, const RoutineLibraryScreen()),
+      );
+      await pumpThroughDatabase(tester);
+
+      Finder card(String key) => find.byKey(ValueKey('starter-$key'));
+      final beginner = find.byKey(const ValueKey('experience-filter-beginner'));
+      final intermediate = find.byKey(
+        const ValueKey('experience-filter-intermediate'),
+      );
+      final advanced = find.byKey(const ValueKey('experience-filter-advanced'));
+
+      expect(beginner, findsOneWidget);
+      expect(intermediate, findsOneWidget);
+      expect(advanced, findsOneWidget);
+      expect(card('gzclp'), findsOneWidget);
+      expect(card('ppl-6-day'), findsOneWidget);
+      expect(card('sheiko-29-32'), findsOneWidget);
+
+      await tester.tap(beginner);
+      await tester.pumpAndSettle();
+      expect(card('gzclp'), findsOneWidget);
+      expect(card('ppl-6-day'), findsNothing);
+      expect(card('sheiko-29-32'), findsNothing);
+
+      await tester.tap(intermediate);
+      await tester.pumpAndSettle();
+      expect(card('gzclp'), findsOneWidget);
+      expect(card('ppl-6-day'), findsOneWidget);
+      expect(card('sheiko-29-32'), findsNothing);
+
+      await tester.tap(beginner);
+      await tester.pumpAndSettle();
+      expect(card('gzclp'), findsNothing);
+      expect(card('ppl-6-day'), findsOneWidget);
+      expect(card('sheiko-29-32'), findsNothing);
+
+      await tester.tap(intermediate);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('starter-gzclp')),
+        findsOneWidget,
+        reason: 'clearing every selection restores the complete library',
+      );
+      expect(card('ppl-6-day'), findsOneWidget);
+      expect(card('sheiko-29-32'), findsOneWidget);
+
+      await tester.tap(advanced);
+      await tester.pumpAndSettle();
+      expect(card('gzclp'), findsNothing);
+      expect(card('ppl-6-day'), findsNothing);
+      expect(card('sheiko-29-32'), findsOneWidget);
+
+      await stop(tester);
+    });
   });
 
   group('the library holds the programs the app ships', () {
-    test('fifteen published templates, each with its own key', () {
+    test('sixteen published templates, each with its own key', () {
       expect(kStarterRoutines, hasLength(_kLibraryOrder.length));
       expect(
         kStarterRoutines.map((p) => p.key).toSet(),
@@ -377,7 +531,7 @@ void main() {
       expect(
         kStarterRoutines.map((p) => p.key),
         _kLibraryOrder,
-        reason: 'the hypertrophy splits come first',
+        reason: 'beginner programs come first without scrambling each level',
       );
     });
 

@@ -33,8 +33,11 @@ groups:
   - id: session-history
     t: Finished sessions appear in History
     d: >-
-      Sessions are ordered newest first. Tapping one opens its recap; the action
-      there is Back.
+      Sessions are ordered newest first and loaded in bounded batches as the end
+      of the visible history is reached. The total still counts every finished
+      session. A newly finished session appears once at the top on the next
+      History visit, without duplicating or dropping older loaded sessions.
+      Tapping any loaded session opens its recap; the action there is Back.
     defines:
     - history.session-record
   - id: lifetime-totals

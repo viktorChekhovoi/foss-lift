@@ -7581,6 +7581,34 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CustomThemesTable customThemes = $CustomThemesTable(this);
   late final $LiveSessionsTable liveSessions = $LiveSessionsTable(this);
   late final $BarsTable bars = $BarsTable(this);
+  late final Index workoutsRoutinePosition = Index(
+    'workouts_routine_position',
+    'CREATE INDEX workouts_routine_position ON workouts (routine_id, position)',
+  );
+  late final Index workoutItemsWorkoutPosition = Index(
+    'workout_items_workout_position',
+    'CREATE INDEX workout_items_workout_position ON workout_items (workout_id, position)',
+  );
+  late final Index sessionsStartedId = Index(
+    'sessions_started_id',
+    'CREATE INDEX sessions_started_id ON sessions (started_at, id)',
+  );
+  late final Index sessionsRoutineStartedId = Index(
+    'sessions_routine_started_id',
+    'CREATE INDEX sessions_routine_started_id ON sessions (routine_id, started_at, id)',
+  );
+  late final Index sessionsWorkoutStartedId = Index(
+    'sessions_workout_started_id',
+    'CREATE INDEX sessions_workout_started_id ON sessions (workout_id, started_at, id)',
+  );
+  late final Index sessionSetsSessionId = Index(
+    'session_sets_session_id',
+    'CREATE INDEX session_sets_session_id ON session_sets (session_id, id)',
+  );
+  late final Index sessionSetsExerciseSessionSet = Index(
+    'session_sets_exercise_session_set',
+    'CREATE INDEX session_sets_exercise_session_set ON session_sets (exercise_id, session_id, set_number)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7596,6 +7624,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     customThemes,
     liveSessions,
     bars,
+    workoutsRoutinePosition,
+    workoutItemsWorkoutPosition,
+    sessionsStartedId,
+    sessionsRoutineStartedId,
+    sessionsWorkoutStartedId,
+    sessionSetsSessionId,
+    sessionSetsExerciseSessionSet,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

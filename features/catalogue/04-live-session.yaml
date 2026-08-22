@@ -110,7 +110,7 @@ groups:
     - session.exercise-weight
   - id: tracks-duration-set-count-live
     t: Tracks duration and set count live
-    d: The elapsed duration is refreshed from the clock each second; the set counter updates on logging.
+    d: The elapsed duration is refreshed from the clock each second without rebuilding exercise and set rows; the set counter updates on logging.
     uses:
     - session.live-state
     - session.rest-timer

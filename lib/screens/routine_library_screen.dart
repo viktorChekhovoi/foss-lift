@@ -11,12 +11,37 @@ import '../util/seed_names.dart';
 import '../util/target_label.dart';
 import '../widgets/routine_card.dart';
 
-class RoutineLibraryScreen extends StatelessWidget {
+class RoutineLibraryScreen extends StatefulWidget {
   const RoutineLibraryScreen({super.key});
+
+  @override
+  State<RoutineLibraryScreen> createState() => _RoutineLibraryScreenState();
+}
+
+class _RoutineLibraryScreenState extends State<RoutineLibraryScreen> {
+  final Set<ExperienceLevel> _levels = {};
+
+  String _levelLabel(AppLocalizations l10n, ExperienceLevel level) =>
+      switch (level) {
+        ExperienceLevel.beginner => l10n.routineLibraryBeginner,
+        ExperienceLevel.intermediate => l10n.routineLibraryIntermediate,
+        ExperienceLevel.advanced => l10n.routineLibraryAdvanced,
+      };
+
+  void _toggle(ExperienceLevel level) {
+    setState(() {
+      _levels.contains(level) ? _levels.remove(level) : _levels.add(level);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final programs = _levels.isEmpty
+        ? kStarterRoutines
+        : kStarterRoutines.where(
+            (program) => _levels.contains(program.experienceLevel),
+          );
     return Scaffold(
       appBar: AppBar(title: Text(l10n.routineLibraryTitle)),
       body: SafeArea(
@@ -24,7 +49,23 @@ class RoutineLibraryScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
-            for (final program in kStarterRoutines) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final level in ExperienceLevel.values)
+                    FilterChip(
+                      key: ValueKey('experience-filter-${level.name}'),
+                      label: Text(_levelLabel(l10n, level)),
+                      selected: _levels.contains(level),
+                      onSelected: (_) => _toggle(level),
+                    ),
+                ],
+              ),
+            ),
+            for (final program in programs) ...[
               RoutineCard.program(
                 key: ValueKey('starter-${program.key}'),
                 name: program.name,
@@ -32,6 +73,7 @@ class RoutineLibraryScreen extends StatelessWidget {
                 colorHex: program.colorHex,
                 workoutCount: program.days.length,
                 scheduleDays: program.scheduleDays,
+                experienceLabel: _levelLabel(l10n, program.experienceLevel),
                 onTap: () => context.push('/routines/library/${program.key}'),
               ),
               const SizedBox(height: 12),
@@ -73,9 +115,15 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
                     child: Text(
                       seededDescription(
-                          l10n, program.seedKey, program.description)!,
+                        l10n,
+                        program.seedKey,
+                        program.description,
+                      )!,
                       style: TextStyle(
-                          fontSize: 14, height: 1.4, color: AppColors.muted),
+                        fontSize: 14,
+                        height: 1.4,
+                        color: AppColors.muted,
+                      ),
                     ),
                   ),
                   for (final day in program.days) ...[
@@ -84,7 +132,9 @@ class StarterRoutinePreviewScreen extends ConsumerWidget {
                       child: Text(
                         seededName(l10n, kSeedWorkoutKeys[day.name], day.name),
                         style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     _DayCard(day: day),
@@ -121,8 +171,9 @@ String _slotTarget(AppLocalizations l10n, StarterSlot slot) {
   return setsTargetLabel(
     l10n,
     sets: slot.sets,
-    progression:
-        slot.holdSeconds == null ? ProgressionMode.reps : ProgressionMode.time,
+    progression: slot.holdSeconds == null
+        ? ProgressionMode.reps
+        : ProgressionMode.time,
     toFailure: false,
     holdSeconds: slot.holdSeconds ?? 0,
     repsMin: slot.repsMin,
@@ -159,10 +210,15 @@ class _DayCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      seededName(l10n, kSeedExerciseKeys[slot.exercise],
-                          slot.exercise),
+                      seededName(
+                        l10n,
+                        kSeedExerciseKeys[slot.exercise],
+                        slot.exercise,
+                      ),
                       style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),

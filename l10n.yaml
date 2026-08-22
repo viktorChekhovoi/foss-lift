@@ -1,8 +1,4 @@
-# Where the translations live and what gen_l10n makes of them.
-#
-# `untranslated-messages-file` is the useful one: it lists every key a locale
-# has not answered yet, so a half-finished language is a file to work through
-# rather than something you find by scrolling the app in it.
+# Where the translations live and what gen_l10n makes of them
 arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart

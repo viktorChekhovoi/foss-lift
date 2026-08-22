@@ -599,6 +599,9 @@
   "routinesTitle": "Rutinas",
   "routineLibraryTitle": "Rutinas predefinidas",
   "routineLibraryAdd": "Añadir a mis rutinas",
+  "routineLibraryBeginner": "Principiante",
+  "routineLibraryIntermediate": "Intermedio",
+  "routineLibraryAdvanced": "Avanzado",
   "routinesNewRoutine": "Nueva rutina",
   "routinesAdd": "Añadir una rutina",
   "routinesImport": "Importar una rutina",
@@ -893,6 +896,6 @@
   "seedRoutineDescPpl": "Programa PPL de seis días con barra. Tirón, empuje y piernas se repiten cada semana con los levantamientos principales alternados.",
   "seedRoutineDescFitnessBasicBeginner": "Introducción a la barra, tres días por semana. Alterna dos entrenamientos de tres levantamientos durante un máximo de tres meses.",
   "seedRoutineDescBodyweightfitnessRecommended": "Rutina de cuerpo completo, tres días por semana. Usa progresiones con el peso corporal y requiere un lugar para colgarse y hacer remos.",
-  "seedRoutineDescDumbbellStopgap": "Rutina de dos entrenamientos con mancuernas. Alterna A y B tres días por semana con mancuernas ajustables o de varios pesos.", "seedRoutineDescGzclp": "Progresión lineal para principiantes de Cody Lefever. Cuatro sesiones rotativas entrenan cada levantamiento principal una vez como T1 y otra como T2, con trabajo de espalda en T3.", "itemEditorGzclT1": "T1", "itemEditorGzclT2": "T2", "itemEditorGzclT3": "T3",
+  "seedRoutineDescDumbbellStopgap": "Rutina de dos entrenamientos con mancuernas. Alterna A y B tres días por semana con mancuernas ajustables o de varios pesos.", "seedRoutineDescGzclp": "Progresión lineal para principiantes de Cody Lefever. Cuatro sesiones rotativas combinan levantamientos principales pesados, levantamientos secundarios moderados y trabajo auxiliar con más repeticiones.", "itemEditorGzclT1": "T1", "itemEditorGzclT2": "T2", "itemEditorGzclT3": "T3",
   "seedDayPullA": "Tirón A", "seedDayPushA": "Empuje A", "seedDayLegsA": "Piernas A", "seedDayPullB": "Tirón B", "seedDayPushB": "Empuje B", "seedDayLegsB": "Piernas B"
 }

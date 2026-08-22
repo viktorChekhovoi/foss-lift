@@ -844,7 +844,7 @@ you never looked at.
   current shape for a fresh install. A rung that has shipped is never edited and
   never renumbered, and one that writes DDL by hand must build the shape of *its
   own era*, never `m.createTable` — see "The app has shipped" in `CLAUDE.md`.
-  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13 → v14 → v15 → v16**
+  The ladder currently runs **v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13 → v14 → v15 → v16 → v17 → v18**
   (`Settings.warmup_sets`; `Exercises.extra_primary_groups` and
   `secondary_groups`; `WorkoutItems.superset_with_previous`;
   `Routines.description`; the starter movements this build ships that an
@@ -854,7 +854,7 @@ you never looked at.
   `reps_deload` and `reps_target`; `WorkoutItems.spared_rates`; `WorkoutItems.cycle_blocks` and `cycle_position`
   beside `Settings.advanced_programming`; `Exercises.unit_override` and
   `Exercises.warmup_sets`; `WorkoutItems.cycle_names`; the Sheiko starter
-  movements; `WorkoutItems.target_rpe` and `SessionSets.actual_rpe`). The starter walk
+  movements; `WorkoutItems.target_rpe` and `SessionSets.actual_rpe`; the GZCL slot fields; and indexes for `(routine_id, position)` / `(workout_id, position)`, history and latest-session ordering, and session/exercise set lookup). The starter walk
   is generic — it walks the shipped table and inserts what is missing — but each
   rung that runs it runs **once**, so a release that adds more movements needs a
   rung of its own rather than an edit to one that shipped. Each rung spells

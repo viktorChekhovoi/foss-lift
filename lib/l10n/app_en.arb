@@ -2944,6 +2944,18 @@
   "@routineLibraryAdd": {
     "description": "The button that copies the program being previewed into the user's own routine list."
   },
+  "routineLibraryBeginner": "Beginner",
+  "@routineLibraryBeginner": {
+    "description": "Experience-level label and filter for a ready-made routine intended for a beginner."
+  },
+  "routineLibraryIntermediate": "Intermediate",
+  "@routineLibraryIntermediate": {
+    "description": "Experience-level label and filter for a ready-made routine intended for an intermediate trainee."
+  },
+  "routineLibraryAdvanced": "Advanced",
+  "@routineLibraryAdvanced": {
+    "description": "Experience-level label and filter for a ready-made routine intended for an advanced trainee."
+  },
   "routinesNewRoutine": "New routine",
   "@routinesNewRoutine": {
     "description": "Row in the add-a-routine sheet that opens the new-routine editor, and the same label on the picture of that sheet in the tour."
@@ -4447,7 +4459,7 @@
   "seedRoutineDescFitnessBasicBeginner": "A barbell introduction trained three days per week. Alternate two three-lift workouts, add weight after successful sessions, and move to a larger program after no more than three months.",
   "seedRoutineDescBodyweightfitnessRecommended": "A full-body routine trained three days per week. It uses bodyweight progressions and requires places to hang and perform rows; edit each slot when you move to a harder progression.",
   "seedRoutineDescDumbbellStopgap": "A two-workout dumbbell routine. Alternate A and B three days per week, using adjustable dumbbells or a rack of increasing weights; plank holds are entered by time.",
-  "seedRoutineDescGzclp": "Cody Lefever’s novice linear progression. Four rotating sessions train each main lift once as T1 and once as T2, with back work in T3.",
+  "seedRoutineDescGzclp": "Cody Lefever’s novice linear progression. Four rotating sessions pair heavy main lifts with moderate secondary lifts and higher-rep assistance work.",
   "seedDayPullA": "Pull A", "seedDayPushA": "Push A", "seedDayLegsA": "Legs A",
   "seedDayPullB": "Pull B", "seedDayPushB": "Push B", "seedDayLegsB": "Legs B",
   "itemEditorCycleWeekSummary": "{reps} · {percents}%",

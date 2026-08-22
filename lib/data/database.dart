@@ -159,6 +159,7 @@ class Routines extends Table {
 
 /// One day within a routine ("Push", "Upper 1"). Names need not be unique — an
 /// Upper/Lower split legitimately repeats "Upper" twice.
+@TableIndex(name: 'workouts_routine_position', columns: {#routineId, #position})
 class Workouts extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId =>
@@ -180,6 +181,10 @@ class Workouts extends Table {
 
 /// One exercise slot inside a workout. Reps are stored structurally so the app
 /// can express a fixed count (10), a range (6–8), or "to failure".
+@TableIndex(
+  name: 'workout_items_workout_position',
+  columns: {#workoutId, #position},
+)
 class WorkoutItems extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get workoutId =>
@@ -477,6 +482,15 @@ extension WorkoutItemTarget on WorkoutItem {
 /// [routineId] and [workoutId] are deliberately plain integers rather than
 /// foreign keys: deleting a template must not erase the history of having
 /// trained it.
+@TableIndex(name: 'sessions_started_id', columns: {#startedAt, #id})
+@TableIndex(
+  name: 'sessions_routine_started_id',
+  columns: {#routineId, #startedAt, #id},
+)
+@TableIndex(
+  name: 'sessions_workout_started_id',
+  columns: {#workoutId, #startedAt, #id},
+)
 class Sessions extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId => integer().nullable()();
@@ -498,6 +512,11 @@ class Sessions extends Table {
 /// A single logged set belonging to a session. `exerciseName` is denormalised
 /// so history stays readable even if the library changes later. Weights are
 /// always stored in kilograms; the UI converts for display.
+@TableIndex(name: 'session_sets_session_id', columns: {#sessionId, #id})
+@TableIndex(
+  name: 'session_sets_exercise_session_set',
+  columns: {#exerciseId, #sessionId, #setNumber},
+)
 class SessionSets extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get sessionId =>
@@ -1694,8 +1713,10 @@ class AppDatabase extends _$AppDatabase {
   /// - **v16** — optional RPE targets on slots and actual RPE on logged sets.
   /// - **v17** — optional GZCL tier, stage ladder, current stage and T3 AMRAP
   ///   target. Null tier leaves every existing slot on ordinary progression.
+  /// - **v18** — indexes for ordered routines, paginated history, latest-session
+  ///   lookups, and session/exercise set history.
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1914,6 +1935,19 @@ class AppDatabase extends _$AppDatabase {
         await m.database.customStatement(
           'ALTER TABLE "workout_items" ADD COLUMN "gzcl_amrap_target" INTEGER NOT NULL DEFAULT 25',
         );
+      }
+      if (from < 18) {
+        for (final statement in const [
+          'CREATE INDEX workouts_routine_position ON workouts (routine_id, position)',
+          'CREATE INDEX workout_items_workout_position ON workout_items (workout_id, position)',
+          'CREATE INDEX sessions_started_id ON sessions (started_at, id)',
+          'CREATE INDEX sessions_routine_started_id ON sessions (routine_id, started_at, id)',
+          'CREATE INDEX sessions_workout_started_id ON sessions (workout_id, started_at, id)',
+          'CREATE INDEX session_sets_session_id ON session_sets (session_id, id)',
+          'CREATE INDEX session_sets_exercise_session_set ON session_sets (exercise_id, session_id, set_number)',
+        ]) {
+          await m.database.customStatement(statement);
+        }
       }
     },
     beforeOpen: (details) async {
@@ -3125,6 +3159,33 @@ class AppDatabase extends _$AppDatabase {
           ..where((s) => s.endedAt.isNotNull())
           ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
         .watch();
+  }
+
+  /// One bounded page of finished sessions, newest first. The id makes equal
+  /// timestamps deterministic and is also the second half of the keyset cursor.
+  Future<List<Session>> historyPage({
+    DateTime? beforeStartedAt,
+    int? beforeId,
+    int limit = 50,
+  }) {
+    final query = select(sessions)
+      ..where((s) {
+        var predicate = s.endedAt.isNotNull();
+        if (beforeStartedAt != null && beforeId != null) {
+          predicate =
+              predicate &
+              (s.startedAt.isSmallerThanValue(beforeStartedAt) |
+                  (s.startedAt.equals(beforeStartedAt) &
+                      s.id.isSmallerThanValue(beforeId)));
+        }
+        return predicate;
+      })
+      ..orderBy([
+        (s) => OrderingTerm.desc(s.startedAt),
+        (s) => OrderingTerm.desc(s.id),
+      ])
+      ..limit(limit);
+    return query.get();
   }
 
   /// The most recently finished session of a routine, if it has ever been
