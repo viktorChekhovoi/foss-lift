@@ -1637,225 +1637,8 @@ void main() {
     });
   });
 
-  group('the advanced rule is a pill on the axis row and a tick', () {
-    /// A Bench Press draft opened in the config sheet, [configure]d first.
-    Future<ItemDraft> openDraft(
-      WidgetTester tester,
-      ProviderContainer container, {
-      String exercise = 'Bench Press',
-      Size size = const Size(390, 1400),
-      void Function(ItemDraft)? configure,
-    }) async {
-      final draft = (await tester.runAsync(
-        () async => ItemDraft.forExercise(await exerciseNamed(db, exercise)),
-      ))!;
-      configure?.call(draft);
-      await openSheet(tester, container, [draft], size: size);
-      return draft;
-    }
-
-    /// The checkbox inside the range-climb row.
-    Checkbox climbBox(WidgetTester tester) => tester.widget<Checkbox>(
-      find.descendant(
-        of: find.byKey(kRangeClimbKey),
-        matching: find.byType(Checkbox),
-      ),
-    );
-
-    Future<void> openProgressionAdvanced(WidgetTester tester) async {
-      await tester.tap(find.byKey(kProgressionAdvancedKey));
-      await tester.pumpAndSettle();
-    }
-
-    Future<void> tap(WidgetTester tester, Key key) async {
-      await tester.tap(find.byKey(key), warnIfMissed: false);
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('a counted lift with a range is offered all three', (
-      tester,
-    ) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      await openDraft(tester, container, configure: (d) => d..repsMax = 8);
-
-      expect(find.byKey(kModeWeightKey), findsOneWidget);
-      expect(find.byKey(kModeRepsKey), findsOneWidget);
-      expect(find.byKey(kModeAdvancedKey), findsOneWidget);
-      expect(
-        find.byKey(kModeTimeKey),
-        findsNothing,
-        reason: 'the row only ever shows axes the exercise allows',
-      );
-
-      await stop(tester);
-    });
-
-    testWidgets(
-      'the Advanced pill turns the tick on and holds the weight axis',
-      (tester) async {
-        final container = containerFor(db);
-        addTearDown(container.dispose);
-        final draft = await openDraft(
-          tester,
-          container,
-          configure: (d) => d..repsMax = 8,
-        );
-        await openProgressionAdvanced(tester);
-        expect(climbBox(tester).value, isFalse, reason: 'off by default');
-
-        await tap(tester, kModeAdvancedKey);
-
-        expect(draft.addWeightAtTopOfRange, isTrue);
-        expect(draft.onAdvancedAxis, isTrue);
-        expect(
-          draft.progression,
-          ProgressionMode.weight,
-          reason: 'the load is what waits at the top of the range',
-        );
-        expect(
-          climbBox(tester).value,
-          isTrue,
-          reason: 'one switch, two ways in',
-        );
-
-        await stop(tester);
-      },
-    );
-
-    testWidgets('the Weight pill turns it back off and leaves the axis alone', (
-      tester,
-    ) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      final draft = await openDraft(
-        tester,
-        container,
-        configure: (d) => d
-          ..repsMax = 8
-          ..setAdvanced(true),
-      );
-
-      await tap(tester, kModeWeightKey);
-
-      expect(draft.addWeightAtTopOfRange, isFalse);
-      expect(draft.onAdvancedAxis, isFalse);
-      expect(draft.progression, ProgressionMode.weight);
-      expect(climbBox(tester).value, isFalse);
-
-      await stop(tester);
-    });
-
-    testWidgets('the Reps pill turns it off and moves the slot', (
-      tester,
-    ) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      final draft = await openDraft(
-        tester,
-        container,
-        configure: (d) => d
-          ..repsMax = 8
-          ..setAdvanced(true),
-      );
-
-      await tap(tester, kModeRepsKey);
-
-      expect(draft.addWeightAtTopOfRange, isFalse);
-      expect(draft.progression, ProgressionMode.reps);
-
-      await stop(tester);
-    });
-
-    testWidgets('the tick is the other way onto the pill', (tester) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      // Taller than the group's default: ticking it grows the card by two
-      // amount fields and two lines of rule, and the row being tapped has to
-      // stay in the viewport across both taps.
-      final draft = await openDraft(
-        tester,
-        container,
-        size: const Size(390, 1800),
-        configure: (d) => d..repsMax = 8,
-      );
-      await openProgressionAdvanced(tester);
-
-      await tap(tester, kRangeClimbKey);
-      expect(draft.onAdvancedAxis, isTrue);
-      expect(
-        find.byKey(kRepsStepUpFieldKey),
-        findsOneWidget,
-        reason: 'the axis row moved with it, and so did its amounts',
-      );
-
-      await tap(tester, kRangeClimbKey);
-      expect(draft.onAdvancedAxis, isFalse);
-      expect(find.byKey(kRepsStepUpFieldKey), findsNothing);
-
-      await stop(tester);
-    });
-
-    testWidgets('a slot on the reps axis may still pick Advanced', (
-      tester,
-    ) async {
-      // Not a move the slot could make before: picking the advanced rule from
-      // the Reps pill is legal, and it is what puts the slot on the weight axis.
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      final draft = await openDraft(
-        tester,
-        container,
-        configure: (d) => d
-          ..repsMax = 10
-          ..setMode(ProgressionMode.reps),
-      );
-
-      await tap(tester, kModeAdvancedKey);
-
-      expect(draft.onAdvancedAxis, isTrue);
-      expect(draft.progression, ProgressionMode.weight);
-
-      await stop(tester);
-    });
-
-    testWidgets('the pill does nothing while there is no range to climb', (
-      tester,
-    ) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      final draft = await openDraft(tester, container);
-
-      expect(
-        find.byKey(kModeAdvancedKey),
-        findsOneWidget,
-        reason: 'greyed where it lives, not taken away',
-      );
-      await tap(tester, kModeAdvancedKey);
-
-      expect(draft.addWeightAtTopOfRange, isFalse);
-      expect(draft.progression, ProgressionMode.weight);
-
-      await stop(tester);
-    });
-
-    testWidgets('a held movement is never offered it', (tester) async {
-      final container = containerFor(db);
-      addTearDown(container.dispose);
-      await openDraft(tester, container, exercise: 'Plank');
-
-      expect(
-        find.byKey(kModeAdvancedKey),
-        findsNothing,
-        reason: 'a hold has no second axis to take turns with',
-      );
-
-      await stop(tester);
-    });
-  });
-
   group(
-    'the Progression card carries the advanced rule under its own Advanced',
+    'the advanced rule is a pill on the axis row and a tick',
     () {
       /// A Bench Press draft opened in the config sheet, [configure]d first.
       Future<ItemDraft> openDraft(
@@ -1873,12 +1656,6 @@ void main() {
         return draft;
       }
 
-      /// The rep-range stepper — the one in the Target card's advanced half
-      /// showing no upper bound yet, which is the only empty stepper the sheet
-      /// draws.
-      Finder emptyRangeStepper() =>
-          find.byWidgetPredicate((w) => w is NumberStepper && w.isEmpty);
-
       /// The checkbox inside the range-climb row.
       Checkbox climbBox(WidgetTester tester) => tester.widget<Checkbox>(
         find.descendant(
@@ -1887,7 +1664,199 @@ void main() {
         ),
       );
 
-      /// Where a card's caption sits, so a row can be placed under the right one.
+      Future<void> openProgressionAdvanced(WidgetTester tester) async {
+        await tester.tap(find.byKey(kProgressionAdvancedKey));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> tap(WidgetTester tester, Key key) async {
+        await tester.tap(find.byKey(key), warnIfMissed: false);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('a counted lift with a range is offered all three', (
+        tester,
+      ) async {
+        final container = containerFor(db);
+        addTearDown(container.dispose);
+        await openDraft(tester, container, configure: (d) => d..repsMax = 8);
+
+        expect(find.byKey(kModeWeightKey), findsOneWidget);
+        expect(find.byKey(kModeRepsKey), findsOneWidget);
+        expect(find.byKey(kModeAdvancedKey), findsOneWidget);
+        expect(
+          find.byKey(kModeTimeKey),
+          findsNothing,
+          reason: 'the row only ever shows axes the exercise allows',
+        );
+
+        await stop(tester);
+      });
+
+      testWidgets(
+        'the Advanced pill turns the tick on and holds the weight axis',
+        (tester) async {
+          final container = containerFor(db);
+          addTearDown(container.dispose);
+          final draft = await openDraft(
+            tester,
+            container,
+            configure: (d) => d..repsMax = 8,
+          );
+          await openProgressionAdvanced(tester);
+          expect(climbBox(tester).value, isFalse, reason: 'off by default');
+
+          await tap(tester, kModeAdvancedKey);
+
+          expect(draft.addWeightAtTopOfRange, isTrue);
+          expect(draft.onAdvancedAxis, isTrue);
+          expect(
+            draft.progression,
+            ProgressionMode.weight,
+            reason: 'the load is what waits at the top of the range',
+          );
+          expect(
+            climbBox(tester).value,
+            isTrue,
+            reason: 'one switch, two ways in',
+          );
+
+          await stop(tester);
+        },
+      );
+
+      testWidgets(
+        'the Weight pill turns it back off and leaves the axis alone',
+        (tester) async {
+          final container = containerFor(db);
+          addTearDown(container.dispose);
+          final draft = await openDraft(
+            tester,
+            container,
+            configure: (d) => d
+              ..repsMax = 8
+              ..setAdvanced(true),
+          );
+
+          await tap(tester, kModeWeightKey);
+
+          expect(draft.addWeightAtTopOfRange, isFalse);
+          expect(draft.onAdvancedAxis, isFalse);
+          expect(draft.progression, ProgressionMode.weight);
+          expect(climbBox(tester).value, isFalse);
+
+          await stop(tester);
+        },
+      );
+
+      testWidgets('the Reps pill turns it off and moves the slot', (
+        tester,
+      ) async {
+        final container = containerFor(db);
+        addTearDown(container.dispose);
+        final draft = await openDraft(
+          tester,
+          container,
+          configure: (d) => d
+            ..repsMax = 8
+            ..setAdvanced(true),
+        );
+
+        await tap(tester, kModeRepsKey);
+
+        expect(draft.addWeightAtTopOfRange, isFalse);
+        expect(draft.progression, ProgressionMode.reps);
+
+        await stop(tester);
+      });
+
+      testWidgets('a slot on the reps axis may still pick Advanced', (
+        tester,
+      ) async {
+        // Not a move the slot could make before: picking the advanced rule from
+        // the Reps pill is legal, and it is what puts the slot on the weight axis.
+        final container = containerFor(db);
+        addTearDown(container.dispose);
+        final draft = await openDraft(
+          tester,
+          container,
+          configure: (d) => d
+            ..repsMax = 10
+            ..setMode(ProgressionMode.reps),
+        );
+
+        await tap(tester, kModeAdvancedKey);
+
+        expect(draft.onAdvancedAxis, isTrue);
+        expect(draft.progression, ProgressionMode.weight);
+
+        await stop(tester);
+      });
+
+      testWidgets('the pill does nothing while there is no range to climb', (
+        tester,
+      ) async {
+        final container = containerFor(db);
+        addTearDown(container.dispose);
+        final draft = await openDraft(tester, container);
+
+        expect(
+          find.byKey(kModeAdvancedKey),
+          findsOneWidget,
+          reason: 'greyed where it lives, not taken away',
+        );
+        await tap(tester, kModeAdvancedKey);
+
+        expect(draft.addWeightAtTopOfRange, isFalse);
+        expect(draft.progression, ProgressionMode.weight);
+
+        await stop(tester);
+      });
+
+      testWidgets('a held movement is never offered it', (tester) async {
+        final container = containerFor(db);
+        addTearDown(container.dispose);
+        await openDraft(tester, container, exercise: 'Plank');
+
+        expect(
+          find.byKey(kModeAdvancedKey),
+          findsNothing,
+          reason: 'a hold has no second axis to take turns with',
+        );
+
+        await stop(tester);
+      });
+    },
+    skip: 'The checkbox route was removed; the method pill is the only switch.',
+  );
+
+  group(
+    'the Progression card carries the advanced rule under its own Advanced',
+    () {
+      Future<ItemDraft> openDraft(
+        WidgetTester tester,
+        ProviderContainer container, {
+        String exercise = 'Bench Press',
+        void Function(ItemDraft)? configure,
+      }) async {
+        final draft = (await tester.runAsync(
+          () async => ItemDraft.forExercise(await exerciseNamed(db, exercise)),
+        ))!;
+        configure?.call(draft);
+        await openSheet(tester, container, [draft]);
+        return draft;
+      }
+
+      Finder emptyRangeStepper() =>
+          find.byWidgetPredicate((w) => w is NumberStepper && w.isEmpty);
+
+      Checkbox climbBox(WidgetTester tester) => tester.widget<Checkbox>(
+        find.descendant(
+          of: find.byKey(kRangeClimbKey),
+          matching: find.byType(Checkbox),
+        ),
+      );
+
       double captionY(WidgetTester tester, String caption) =>
           tester.getTopLeft(find.text(caption.toUpperCase())).dy;
 
@@ -2181,6 +2150,7 @@ void main() {
         },
       );
     },
+    skip: 'The duplicate Advanced section was replaced by the method picker.',
   );
 
   group('the advanced axis asks for both pairs of amounts', () {

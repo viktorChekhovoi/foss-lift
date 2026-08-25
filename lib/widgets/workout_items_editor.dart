@@ -682,7 +682,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
 
   late bool _advanced = widget.draft.usesAdvanced;
 
-  late bool _progressionAdvanced = widget.draft.usesProgressionAdvanced;
+  late bool _gzclOpen = widget.draft.gzclTier != null;
 
   ItemDraft get d => widget.draft;
 
@@ -1018,83 +1018,16 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ),
             const SizedBox(height: 14),
             builderCard(l10n.itemEditorProgression, [
-              DropdownButtonFormField<String>(
-                key: kGzclTierKey,
-                initialValue: d.gzclTier?.name ?? 'standard',
-                isExpanded: true,
-                decoration: builderInput(l10n.itemEditorGzclTier),
-                items: [
-                  DropdownMenuItem(
-                    value: 'standard',
-                    child: Text(l10n.itemEditorGzclStandard),
-                  ),
-                  DropdownMenuItem(
-                    value: GzclTier.t1.name,
-                    child: Text(l10n.itemEditorGzclT1),
-                  ),
-                  DropdownMenuItem(
-                    value: GzclTier.t2.name,
-                    child: Text(l10n.itemEditorGzclT2),
-                  ),
-                  DropdownMenuItem(
-                    value: GzclTier.t3.name,
-                    child: Text(l10n.itemEditorGzclT3),
-                  ),
-                ],
-                onChanged: (value) => _bump(
-                  () => d.setGzclTier(
-                    value == 'standard' ? null : GzclTier.values.byName(value!),
-                  ),
-                ),
+              Text(
+                l10n.itemEditorProgressionMethod,
+                style: sectionLabelStyle(),
               ),
-              if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: kGzclStagesKey,
-                  initialValue: encodeGzclStages(
-                    d.gzclStages,
-                  )?.replaceAll(';', ', '),
-                  decoration: builderInput(l10n.itemEditorGzclStages),
-                  onChanged: (value) => _bump(() {
-                    final stages = decodeGzclStages(
-                      value.replaceAll(',', ';').replaceAll('×', 'x'),
-                    );
-                    if (stages.isNotEmpty) {
-                      d.gzclStages = stages;
-                      d.gzclStage = d.gzclStage.clamp(0, stages.length - 1);
-                    }
-                  }),
-                ),
-              ],
-              if (d.gzclTier == GzclTier.t3) ...[
-                const SizedBox(height: 12),
-                BuilderField(
-                  label: l10n.itemEditorGzclAmrapTarget,
-                  child: NumberStepper(
-                    value: d.gzclAmrapTarget,
-                    min: 1,
-                    max: 100,
-                    onChanged: (value) =>
-                        _bump(() => d.gzclAmrapTarget = value),
-                  ),
-                ),
-              ],
-              if (d.gzclTier != null) const SizedBox(height: 16),
-              if (d.modes.length > 1)
-                _ModePicker(
-                  modes: d.modes,
-                  mode: d.progression,
-                  advanced: d.onAdvancedAxis,
-                  advancedOffered:
-                      d.modes.contains(ProgressionMode.weight) &&
-                      d.modes.contains(ProgressionMode.reps),
-                  advancedEnabled: d.canClimbRange,
-                  onChanged: (m) => _bump(() => d.setMode(m, unit: _unit)),
-                  onAdvanced: () =>
-                      _bump(() => d.setAdvanced(true, unit: _unit)),
-                )
-              else
-                _note(_soleAxis(l10n, d.modes.first)),
+              const SizedBox(height: 10),
+              _ProgressionMethodPicker(
+                draft: d,
+                onChanged: () => _bump(() {}),
+                unit: _unit,
+              ),
               const SizedBox(height: 16),
               builderGrid([
                 BuilderField(
@@ -1185,28 +1118,64 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 ),
               ],
-              if (d.canClimbRange || d.onAdvancedAxis) ...[
-                const SizedBox(height: 14),
-                _AdvancedToggle(
-                  rowKey: kProgressionAdvancedKey,
-                  open: _progressionAdvanced,
-                  onTap: () => setState(
-                    () => _progressionAdvanced = !_progressionAdvanced,
+              const SizedBox(height: 18),
+              EditorPill(
+                label: l10n.itemEditorGzclpOnly,
+                icon: _gzclOpen ? Icons.expand_less : Icons.expand_more,
+                on: _gzclOpen || d.gzclTier != null,
+                onTap: () => setState(() => _gzclOpen = !_gzclOpen),
+              ),
+              if (_gzclOpen) ...[
+                const SizedBox(height: 8),
+                _note(l10n.itemEditorGzclpOnlyHint),
+                const SizedBox(height: 10),
+                _GzclTierPicker(
+                  key: kGzclTierKey,
+                  tier: d.gzclTier,
+                  onChanged: (tier) => _bump(() {
+                    if (d.scheme == SetScheme.cycle) d.scheme = SetScheme.flat;
+                    if (tier != null) {
+                      d.setMode(ProgressionMode.weight, unit: _unit);
+                    }
+                    d.setGzclTier(tier);
+                  }),
+                ),
+              ],
+              if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: kGzclStagesKey,
+                  initialValue: encodeGzclStages(
+                    d.gzclStages,
+                  )?.replaceAll(';', ', '),
+                  decoration: builderInput(l10n.itemEditorGzclStages),
+                  onChanged: (value) => _bump(() {
+                    final stages = decodeGzclStages(
+                      value.replaceAll(',', ';').replaceAll('×', 'x'),
+                    );
+                    if (stages.isNotEmpty) {
+                      d.gzclStages = stages;
+                      d.gzclStage = d.gzclStage.clamp(0, stages.length - 1);
+                    }
+                  }),
+                ),
+              ],
+              if (d.gzclTier == GzclTier.t3) ...[
+                const SizedBox(height: 12),
+                BuilderField(
+                  label: l10n.itemEditorGzclAmrapTarget,
+                  child: NumberStepper(
+                    value: d.gzclAmrapTarget,
+                    min: 1,
+                    max: 100,
+                    onChanged: (value) =>
+                        _bump(() => d.gzclAmrapTarget = value),
                   ),
                 ),
               ],
-              if (_progressionAdvanced &&
-                  (d.canClimbRange || d.onAdvancedAxis)) ...[
-                const SizedBox(height: 14),
-                _CheckRow(
-                  key: kRangeClimbKey,
-                  label: l10n.itemEditorAddWeightAtTop,
-                  value: d.onAdvancedAxis,
-                  enabled: d.canClimbRange,
-                  note: l10n.itemEditorAddWeightAtTopHint,
-                  disabledNote: l10n.itemEditorRangeClimbNeedsRange,
-                  onChanged: (v) => _bump(() => d.setAdvanced(v, unit: _unit)),
-                ),
+              if (d.scheme == SetScheme.cycle) ...[
+                const SizedBox(height: 18),
+                _CycleEditor(draft: d, onChanged: () => _bump(() {})),
               ],
             ]),
             if (ex != null) ...[
@@ -1269,22 +1238,16 @@ const kRangeClimbKey = ValueKey('add-weight-at-top-of-range');
 const kProgressionAdvancedKey = ValueKey('progression-advanced');
 
 class _AdvancedToggle extends StatelessWidget {
-  const _AdvancedToggle({
-    required this.open,
-    required this.onTap,
-    this.rowKey = kAdvancedToggleKey,
-  });
+  const _AdvancedToggle({required this.open, required this.onTap});
 
   final bool open;
   final VoidCallback onTap;
-
-  final Key rowKey;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return EditorPill(
-      key: rowKey,
+      key: kAdvancedToggleKey,
       label: l10n.itemEditorAdvanced,
       icon: open ? Icons.expand_less : Icons.expand_more,
       on: open,
@@ -1379,10 +1342,6 @@ class _SchemeSection extends StatelessWidget {
               },
             ),
           ],
-        ],
-        if (d.scheme == SetScheme.cycle) ...[
-          const SizedBox(height: 14),
-          _CycleEditor(draft: d, onChanged: onChanged),
         ],
         const SizedBox(height: 14),
         Text(
@@ -1531,28 +1490,7 @@ class _SchemePicker extends StatelessWidget {
       runSpacing: 8,
       children: [
         for (final s in SetScheme.values)
-          if (s == SetScheme.cycle)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                pill(s),
-                IconButton(
-                  key: kCycleExplainKey,
-                  onPressed: () => _explainCycle(context),
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.only(left: 4),
-                  tooltip: l10n.itemEditorCycleWhat,
-                  icon: Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: AppColors.faint,
-                  ),
-                ),
-              ],
-            )
-          else
-            pill(s),
+          if (s != SetScheme.cycle) pill(s),
       ],
     );
   }
@@ -2087,20 +2025,11 @@ class _CheckRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.onExplain,
-    this.enabled = true,
-    this.note,
-    this.disabledNote,
   });
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
   final VoidCallback? onExplain;
-
-  final bool enabled;
-
-  final String? note;
-
-  final String? disabledNote;
 
   @override
   Widget build(BuildContext context) {
@@ -2112,7 +2041,7 @@ class _CheckRow extends StatelessWidget {
           height: 24,
           child: Checkbox(
             value: value,
-            onChanged: enabled ? (v) => onChanged(v ?? false) : null,
+            onChanged: (v) => onChanged(v ?? false),
             activeColor: AppColors.accent,
             checkColor: const Color(0xFF1A0E07),
             side: BorderSide(color: AppColors.line, width: 1.5),
@@ -2125,10 +2054,7 @@ class _CheckRow extends StatelessWidget {
             label,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 15,
-              color: enabled ? null : AppColors.faint,
-            ),
+            style: TextStyle(fontSize: 15, color: null),
           ),
         ),
         if (onExplain != null)
@@ -2144,24 +2070,151 @@ class _CheckRow extends StatelessWidget {
       ],
     );
 
-    final lines = [?note, if (!enabled) ?disabledNote];
     return InkWell(
-      onTap: enabled ? () => onChanged(!value) : null,
+      onTap: () => onChanged(!value),
       borderRadius: BorderRadius.circular(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          row,
-          for (final line in lines)
-            Padding(
-              padding: const EdgeInsets.only(left: 36, top: 2),
-              child: Text(
-                line,
-                style: kMono.copyWith(
-                  fontSize: 11,
-                  height: 1.5,
+        children: [row],
+      ),
+    );
+  }
+}
+
+const kProgressionCycleKey = ValueKey('progression-cycle');
+
+class _ProgressionMethodPicker extends StatelessWidget {
+  const _ProgressionMethodPicker({
+    required this.draft,
+    required this.unit,
+    required this.onChanged,
+  });
+
+  final ItemDraft draft;
+  final String unit;
+  final VoidCallback onChanged;
+
+  void _ordinary(ProgressionMode mode) {
+    draft.setGzclTier(null);
+    if (draft.scheme == SetScheme.cycle) draft.scheme = SetScheme.flat;
+    draft.setMode(mode, unit: unit);
+    onChanged();
+  }
+
+  void _advanced() {
+    draft.setGzclTier(null);
+    if (draft.scheme == SetScheme.cycle) draft.scheme = SetScheme.flat;
+    draft.setAdvanced(true, unit: unit);
+    onChanged();
+  }
+
+  void _cycle() {
+    draft.setGzclTier(null);
+    draft.setMode(ProgressionMode.weight, unit: unit);
+    draft.scheme = SetScheme.cycle;
+    if (draft.cycle.isEmpty) draft.cycle = [_seedCustomRows(draft)];
+    onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final d = draft;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (d.modes.length > 1)
+          _ModePicker(
+            modes: d.modes,
+            mode: d.progression,
+            advanced: d.onAdvancedAxis,
+            advancedOffered:
+                d.modes.contains(ProgressionMode.weight) &&
+                d.modes.contains(ProgressionMode.reps),
+            advancedEnabled: d.canClimbRange,
+            onChanged: _ordinary,
+            onAdvanced: _advanced,
+            cycleOffered: d.weightType.carriesWeight,
+            cycleOn: d.scheme == SetScheme.cycle,
+            onCycle: _cycle,
+          )
+        else
+          _noteText(_soleAxis(l10n, d.modes.first)),
+        if (d.weightType.carriesWeight && d.modes.length == 1) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: EditorPill(
+                  key: kProgressionCycleKey,
+                  label: l10n.itemEditorSchemeCycle,
+                  centred: true,
+                  on: d.scheme == SetScheme.cycle,
+                  onTap: _cycle,
+                ),
+              ),
+              IconButton(
+                key: kCycleExplainKey,
+                onPressed: () => _explainCycle(context),
+                tooltip: l10n.itemEditorCycleWhat,
+                icon: Icon(
+                  Icons.info_outline,
+                  size: 18,
                   color: AppColors.faint,
                 ),
+              ),
+            ],
+          ),
+        ],
+        if (!d.canClimbRange &&
+            d.modes.contains(ProgressionMode.weight) &&
+            d.modes.contains(ProgressionMode.reps)) ...[
+          const SizedBox(height: 6),
+          _noteText(l10n.itemEditorRangeClimbNeedsRange),
+        ],
+      ],
+    );
+  }
+
+  Widget _noteText(String text) => Text(
+    text,
+    style: kMono.copyWith(fontSize: 11, height: 1.5, color: AppColors.faint),
+  );
+}
+
+class _GzclTierPicker extends StatelessWidget {
+  const _GzclTierPicker({
+    super.key,
+    required this.tier,
+    required this.onChanged,
+  });
+
+  final GzclTier? tier;
+  final ValueChanged<GzclTier?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final choices = <(GzclTier?, String, String)>[
+      (null, l10n.itemEditorGzclStandard, l10n.itemEditorGzclStandardHint),
+      (GzclTier.t1, l10n.itemEditorGzclT1, l10n.itemEditorGzclT1Hint),
+      (GzclTier.t2, l10n.itemEditorGzclT2, l10n.itemEditorGzclT2Hint),
+      (GzclTier.t3, l10n.itemEditorGzclT3, l10n.itemEditorGzclT3Hint),
+    ];
+    return RadioGroup<GzclTier?>(
+      groupValue: tier,
+      onChanged: onChanged,
+      child: Column(
+        children: [
+          for (final choice in choices)
+            Material(
+              color: Colors.transparent,
+              child: RadioListTile<GzclTier?>(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: choice.$1,
+                title: Text(choice.$2),
+                subtitle: Text(choice.$3),
               ),
             ),
         ],
@@ -2179,6 +2232,9 @@ class _ModePicker extends StatelessWidget {
     this.advancedOffered = false,
     this.advancedEnabled = false,
     this.onAdvanced,
+    this.cycleOffered = false,
+    this.cycleOn = false,
+    this.onCycle,
   });
   final List<ProgressionMode> modes;
   final ProgressionMode mode;
@@ -2189,6 +2245,9 @@ class _ModePicker extends StatelessWidget {
   final bool advancedOffered;
   final bool advancedEnabled;
   final VoidCallback? onAdvanced;
+  final bool cycleOffered;
+  final bool cycleOn;
+  final VoidCallback? onCycle;
 
   static String _label(AppLocalizations l10n, ProgressionMode m) => switch (m) {
     ProgressionMode.weight => l10n.itemEditorModeWeight,
@@ -2225,14 +2284,43 @@ class _ModePicker extends StatelessWidget {
               ),
           ],
         ),
-        if (advancedOffered) ...[
+        if (advancedOffered || cycleOffered) ...[
           const SizedBox(height: 8),
-          EditorPill(
-            key: kModeAdvancedKey,
-            label: l10n.itemEditorModeAdvanced,
-            centred: true,
-            on: advanced,
-            onTap: advancedEnabled ? onAdvanced : null,
+          Row(
+            children: [
+              if (advancedOffered)
+                Expanded(
+                  child: EditorPill(
+                    key: kModeAdvancedKey,
+                    label: l10n.itemEditorModeAdvanced,
+                    centred: true,
+                    on: advanced,
+                    onTap: advancedEnabled ? onAdvanced : null,
+                  ),
+                ),
+              if (advancedOffered && cycleOffered) const SizedBox(width: 8),
+              if (cycleOffered)
+                Expanded(
+                  child: EditorPill(
+                    key: kProgressionCycleKey,
+                    label: l10n.itemEditorSchemeCycle,
+                    centred: true,
+                    on: cycleOn,
+                    onTap: onCycle,
+                  ),
+                ),
+              if (cycleOffered)
+                IconButton(
+                  key: kCycleExplainKey,
+                  onPressed: () => _explainCycle(context),
+                  tooltip: l10n.itemEditorCycleWhat,
+                  icon: Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: AppColors.faint,
+                  ),
+                ),
+            ],
           ),
         ],
       ],

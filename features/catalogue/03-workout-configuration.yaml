@@ -99,11 +99,11 @@ groups:
     uses:
     - template.rep-target
   - id: progression-card-has-its-own-advanced
-    t: The Progression card has its own Advanced half
+    t: The Progression card is the one place that chooses how a slot progresses
     d: >-
-      The card keeps axis, rates, and thresholds visible. Advanced contains
-      Progress by reps, then weight, which raises reps through the range before
-      increasing weight. It is offered only when the slot has a rep range.
+      Weight, reps, double progression and cycles share one method picker above
+      the rates and thresholds. Double progression raises reps through the range
+      before increasing weight and is disabled until the slot has a rep range.
     defines:
     - progression.advanced
     uses:
@@ -111,10 +111,10 @@ groups:
     - progression.rates
     - progression.double
   - id: advanced-axis-is-a-pill-and-a-tick
-    t: The advanced rule is a pill on the axis row and a tick, and they are one switch
+    t: Double progression has one switch in the method picker
     d: >-
-      Selecting the checkbox selects the Advanced axis; selecting Weight or Reps
-      clears it. The pill and checkbox are two controls for the same setting.
+      Selecting Advanced enables double progression; selecting Weight, Reps or
+      Cycle clears it. No second Advanced section duplicates this choice.
     screen: workout-edit
     uses:
     - progression.double

@@ -308,9 +308,9 @@ groups:
   - id: build-a-cycle
     t: Build a cycle
     d: >-
-      Routines → a routine → a day → edit → tap a slot → Target → Advanced → Set
-      scheme → Cycle. Add weeks and one row per set with reps and a percentage of
-      the training max. Use the Cycle option's (i) for its definition.
+      Routines → a routine → a day → edit → tap a slot → Progression → Cycle.
+      Add weeks and one row per set with reps and a percentage of the training
+      max. Use the Cycle option's (i) for its definition.
     screen: workout-edit
     uses:
     - template.cycle

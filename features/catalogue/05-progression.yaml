@@ -81,11 +81,13 @@ groups:
     - template.cycle
     - template.training-max
   - id: gzcl-tiers-are-explicit-and-configurable
-    t: A slot can be assigned GZCL tier T1, T2 or T3
+    t: GZCLP tiers are grouped and explained separately from ordinary progression
     d: >-
-      T1 and T2 carry an editable ordered ladder of set and rep stages. T3 carries
-      an editable final-set AMRAP target. The tier supplies published GZCLP
-      defaults without fixing the slot to those defaults.
+      An expandable GZCLP-only group explains T1 as heavy main work, T2 as
+      moderate secondary work and T3 as higher-rep assistance. T1 and T2 carry
+      an editable ordered ladder of set and rep stages. T3 carries an editable
+      final-set AMRAP target. The tier supplies published GZCLP defaults without
+      fixing the slot to those defaults.
     screen: workout-edit
     defines:
     - progression.gzcl-tier
