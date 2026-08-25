@@ -83,11 +83,12 @@ groups:
   - id: gzcl-tiers-are-explicit-and-configurable
     t: GZCLP tiers are grouped and explained separately from ordinary progression
     d: >-
-      An expandable GZCLP-only group explains T1 as heavy main work, T2 as
-      moderate secondary work and T3 as higher-rep assistance. T1 and T2 carry
-      an editable ordered ladder of set and rep stages. T3 carries an editable
-      final-set AMRAP target. The tier supplies published GZCLP defaults without
-      fixing the slot to those defaults.
+      The progression-type dropdown groups its final three options as GZCLP T1,
+      T2 and T3, with type-specific explanations and hints. T1 and T2 carry an
+      editable ordered ladder of set and rep stages. T3 carries an editable
+      final-set AMRAP target. Those controls appear only after their tier is
+      selected. The tier supplies published GZCLP defaults without fixing the
+      slot to those defaults.
     screen: workout-edit
     defines:
     - progression.gzcl-tier

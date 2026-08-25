@@ -1611,12 +1611,33 @@ void main() {
         reason: 'a hold has no rep range, no failure and no ladder',
       );
     });
-  });
 
-  group('an Advanced toggle is a control the size of the pills above it', () {
-    testWidgets('the Target one is no smaller than a mode pill', (
+    testWidgets('rep then weight configures the range it requires', (
       tester,
     ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      late ItemDraft draft;
+      await openBench(
+        tester,
+        container,
+        configure: (value) => draft = value..toFailure = true,
+      );
+
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorModeRepsThenWeight).last);
+      await tester.pumpAndSettle();
+
+      expect(draft.onAdvancedAxis, isTrue);
+      expect(draft.repsMax, draft.repsMin + 2);
+      expect(draft.toFailure, isFalse);
+      expect(find.text(l10nFor().itemEditorRepsThenWeightHint), findsOneWidget);
+    });
+  });
+
+  group('an Advanced toggle is a full-sized control', () {
+    testWidgets('the Target one has a comfortable tap target', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       final bench = (await tester.runAsync(
@@ -1626,13 +1647,11 @@ void main() {
       await openSheet(tester, container, [bench]);
 
       final toggle = tester.getSize(find.byKey(kAdvancedToggleKey));
-      final pill = tester.getSize(find.byKey(kModeWeightKey));
       expect(
         toggle.height,
-        greaterThanOrEqualTo(pill.height),
+        greaterThanOrEqualTo(40),
         reason:
-            'a line of small coloured text reads as a caption on the '
-            'half above rather than the way into the half below',
+            'the disclosure needs to read and behave like a control, not a caption',
       );
     });
   });

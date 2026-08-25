@@ -101,9 +101,10 @@ groups:
   - id: progression-card-has-its-own-advanced
     t: The Progression card is the one place that chooses how a slot progresses
     d: >-
-      Weight, reps, double progression and cycles share one method picker above
-      the rates and thresholds. Double progression raises reps through the range
-      before increasing weight and is disabled until the slot has a rep range.
+      One dropdown above the rates and thresholds contains weight, reps, rep then
+      weight, cycle, and the three GZCLP tiers. An info action beside it explains
+      the selected type. Choosing rep then weight creates a rep range when needed
+      and turns off to-failure training so the method is immediately usable.
     defines:
     - progression.advanced
     uses:
@@ -111,10 +112,11 @@ groups:
     - progression.rates
     - progression.double
   - id: advanced-axis-is-a-pill-and-a-tick
-    t: Double progression has one switch in the method picker
+    t: Rep then weight has one switch in the progression-type dropdown
     d: >-
-      Selecting Advanced enables double progression; selecting Weight, Reps or
-      Cycle clears it. No second Advanced section duplicates this choice.
+      Selecting Rep then weight enables double progression; selecting another
+      type clears it. Its hint explains the rep climb, while Cycle and each GZCLP
+      tier show hints specific to their progression rules.
     screen: workout-edit
     uses:
     - progression.double

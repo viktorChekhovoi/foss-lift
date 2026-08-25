@@ -102,7 +102,8 @@ void main() {
       expect(
         items.map((v) => v.exercise.name),
         want.map((s) => s.name),
-        reason: '$routine / $day holds the wrong movements, or in the wrong '
+        reason:
+            '$routine / $day holds the wrong movements, or in the wrong '
             'order',
       );
 
@@ -154,26 +155,70 @@ void main() {
         expect(days.map((w) => w.name), ['Workout A', 'Workout B']);
       });
 
-      test('Workout A squats, benches and pulls one set of deadlifts',
-          () async {
-        await expectSlots(name, 'Workout A', [
-          _loaded('Back Squat',
-              sets: 3, min: 5, w: 60, inc: 5, deload: 10, ft: 3),
-          _loaded('Bench Press',
-              sets: 3, min: 5, w: 45, inc: 2.5, deload: 5, ft: 3),
-          _loaded('Deadlift',
-              sets: 1, min: 5, w: 70, inc: 5, deload: 10, ft: 3),
-        ]);
-      });
+      test(
+        'Workout A squats, benches and pulls one set of deadlifts',
+        () async {
+          await expectSlots(name, 'Workout A', [
+            _loaded(
+              'Back Squat',
+              sets: 3,
+              min: 5,
+              w: 60,
+              inc: 5,
+              deload: 10,
+              ft: 3,
+            ),
+            _loaded(
+              'Bench Press',
+              sets: 3,
+              min: 5,
+              w: 45,
+              inc: 2.5,
+              deload: 5,
+              ft: 3,
+            ),
+            _loaded(
+              'Deadlift',
+              sets: 1,
+              min: 5,
+              w: 70,
+              inc: 5,
+              deload: 10,
+              ft: 3,
+            ),
+          ]);
+        },
+      );
 
       test('Workout B squats again, presses overhead and cleans', () async {
         await expectSlots(name, 'Workout B', [
-          _loaded('Back Squat',
-              sets: 3, min: 5, w: 60, inc: 5, deload: 10, ft: 3),
-          _loaded('Overhead Press',
-              sets: 3, min: 5, w: 30, inc: 2.5, deload: 5, ft: 3),
-          _loaded('Power Clean',
-              sets: 5, min: 3, w: 40, inc: 2.5, deload: 5, ft: 3),
+          _loaded(
+            'Back Squat',
+            sets: 3,
+            min: 5,
+            w: 60,
+            inc: 5,
+            deload: 10,
+            ft: 3,
+          ),
+          _loaded(
+            'Overhead Press',
+            sets: 3,
+            min: 5,
+            w: 30,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
+          _loaded(
+            'Power Clean',
+            sets: 5,
+            min: 3,
+            w: 40,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
         ]);
       });
     });
@@ -197,23 +242,65 @@ void main() {
 
       test('Workout A is five by five throughout', () async {
         await expectSlots(name, 'Workout A', [
-          _loaded('Back Squat',
-              sets: 5, min: 5, w: 40, inc: 2.5, deload: 5, ft: 3),
-          _loaded('Bench Press',
-              sets: 5, min: 5, w: 30, inc: 2.5, deload: 5, ft: 3),
-          _loaded('Barbell Row',
-              sets: 5, min: 5, w: 30, inc: 2.5, deload: 5, ft: 3),
+          _loaded(
+            'Back Squat',
+            sets: 5,
+            min: 5,
+            w: 40,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
+          _loaded(
+            'Bench Press',
+            sets: 5,
+            min: 5,
+            w: 30,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
+          _loaded(
+            'Barbell Row',
+            sets: 5,
+            min: 5,
+            w: 30,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
         ]);
       });
 
       test('Workout B keeps the deadlift to a single set', () async {
         await expectSlots(name, 'Workout B', [
-          _loaded('Back Squat',
-              sets: 5, min: 5, w: 40, inc: 2.5, deload: 5, ft: 3),
-          _loaded('Overhead Press',
-              sets: 5, min: 5, w: 20, inc: 2.5, deload: 5, ft: 3),
-          _loaded('Deadlift',
-              sets: 1, min: 5, w: 60, inc: 5, deload: 10, ft: 3),
+          _loaded(
+            'Back Squat',
+            sets: 5,
+            min: 5,
+            w: 40,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
+          _loaded(
+            'Overhead Press',
+            sets: 5,
+            min: 5,
+            w: 20,
+            inc: 2.5,
+            deload: 5,
+            ft: 3,
+          ),
+          _loaded(
+            'Deadlift',
+            sets: 1,
+            min: 5,
+            w: 60,
+            inc: 5,
+            deload: 10,
+            ft: 3,
+          ),
         ]);
       });
     });
@@ -241,53 +328,136 @@ void main() {
 
       test('Workout A ends on an unloaded core movement', () async {
         await expectSlots(name, 'Workout A', [
-          _loaded('Back Squat',
-              sets: 3, min: 5, w: 55, inc: 5, deload: 10, ft: 2),
-          _loaded('Bench Press',
-              sets: 3, min: 5, w: 40, inc: 2.5, deload: 5, ft: 2),
-          _loaded('Seated Cable Row',
-              sets: 3, min: 10, w: 45, inc: 2.5, deload: 5, ft: 2),
+          _loaded(
+            'Back Squat',
+            sets: 3,
+            min: 5,
+            w: 55,
+            inc: 5,
+            deload: 10,
+            ft: 2,
+          ),
+          _loaded(
+            'Bench Press',
+            sets: 3,
+            min: 5,
+            w: 40,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
+          _loaded(
+            'Seated Cable Row',
+            sets: 3,
+            min: 10,
+            w: 45,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
           _unloaded('Hanging Leg Raise', sets: 3, min: 8, max: 12),
         ]);
       });
 
       test('Workout B works in rep ranges rather than fixed fives', () async {
         await expectSlots(name, 'Workout B', [
-          _loaded('Romanian Deadlift',
-              sets: 3, min: 8, w: 60, inc: 5, deload: 10, ft: 2),
-          _loaded('Overhead Press',
-              sets: 3, min: 6, max: 8, w: 30, inc: 2.5, deload: 5, ft: 2),
-          _loaded('Lat Pulldown',
-              sets: 3, min: 10, max: 12, w: 50, inc: 2.5, deload: 5, ft: 2),
-          _loaded('Cable Crunch',
-              sets: 3, min: 12, max: 15, w: 30, inc: 2.5, deload: 5, ft: 2),
+          _loaded(
+            'Romanian Deadlift',
+            sets: 3,
+            min: 8,
+            w: 60,
+            inc: 5,
+            deload: 10,
+            ft: 2,
+          ),
+          _loaded(
+            'Overhead Press',
+            sets: 3,
+            min: 6,
+            max: 8,
+            w: 30,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
+          _loaded(
+            'Lat Pulldown',
+            sets: 3,
+            min: 10,
+            max: 12,
+            w: 50,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
+          _loaded(
+            'Cable Crunch',
+            sets: 3,
+            min: 12,
+            max: 15,
+            w: 30,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
         ]);
       });
 
       test('Workout C opens heavy and finishes on chin-ups', () async {
         await expectSlots(name, 'Workout C', [
-          _loaded('Deadlift',
-              sets: 2, min: 5, w: 80, inc: 5, deload: 10, ft: 2),
-          _loaded('Incline DB Press',
-              sets: 3, min: 8, max: 10, w: 22.5, inc: 2.5, deload: 5, ft: 2),
+          _loaded(
+            'Deadlift',
+            sets: 2,
+            min: 5,
+            w: 80,
+            inc: 5,
+            deload: 10,
+            ft: 2,
+          ),
+          _loaded(
+            'Incline DB Press',
+            sets: 3,
+            min: 8,
+            max: 10,
+            w: 22.5,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
           _unloaded('Chin-Up', sets: 3, min: 5, max: 8),
-          _loaded('Leg Curl',
-              sets: 3, min: 12, w: 40, inc: 2.5, deload: 5, ft: 2),
+          _loaded(
+            'Leg Curl',
+            sets: 3,
+            min: 12,
+            w: 40,
+            inc: 2.5,
+            deload: 5,
+            ft: 2,
+          ),
         ]);
       });
     });
 
-    test('the linear programmes back off later than the hypertrophy ones',
-        () async {
-      // The distinguishing rule, asserted once as a rule rather than only as a
-      // column of numbers: a beginner who misses a session on Starting
-      // Strength is having a bad day, not stalling.
-      final ss = await slotNamed(db, 'Workout A', 'Back Squat',
-          routine: 'Starting Strength');
-      final ppl = await slotNamed(db, 'Legs', 'Back Squat');
+    test(
+      'the linear programmes back off later than the hypertrophy ones',
+      () async {
+        // The distinguishing rule, asserted once as a rule rather than only as a
+        // column of numbers: a beginner who misses a session on Starting
+        // Strength is having a bad day, not stalling.
+        final ss = await slotNamed(
+          db,
+          'Workout A',
+          'Back Squat',
+          routine: 'Starting Strength',
+        );
+        final ppl = await slotNamed(db, 'Legs', 'Back Squat');
 
-      expect(ss.item.failureThreshold, greaterThan(ppl.item.failureThreshold));
-    });
+        expect(
+          ss.item.failureThreshold,
+          greaterThan(ppl.item.failureThreshold),
+        );
+      },
+    );
 
     test('a routine holds its ordered training days', () async {
       final ppl = await routineWithCountNamed(db, 'Push / Pull / Legs');
@@ -493,15 +663,23 @@ void main() {
     final field = find.byKey(const ValueKey('routine-description'));
 
     /// Opens the builder on [rid] and returns once the routine is loaded.
-    Future<void> pumpBuilder(WidgetTester tester, int rid,
-        {Locale locale = const Locale('en')}) async {
+    Future<void> pumpBuilder(
+      WidgetTester tester,
+      int rid, {
+      Locale locale = const Locale('en'),
+    }) async {
       tester.view.physicalSize = const Size(390, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       final container = containerFor(db);
       addTearDown(container.dispose);
-      await tester.pumpWidget(routedAppUnder(
-          container, RoutineEditScreen(routineId: rid), locale: locale));
+      await tester.pumpWidget(
+        routedAppUnder(
+          container,
+          RoutineEditScreen(routineId: rid),
+          locale: locale,
+        ),
+      );
       await pumpThroughDatabase(tester);
     }
 
@@ -528,8 +706,9 @@ void main() {
       await pumpThroughDatabase(tester);
     }
 
-    testWidgets('what you type in the builder is stored on the routine',
-        (tester) async {
+    testWidgets('what you type in the builder is stored on the routine', (
+      tester,
+    ) async {
       final rid = await aRoutine(tester);
       await pumpBuilder(tester, rid);
 
@@ -537,19 +716,25 @@ void main() {
       await tester.enterText(field, 'Four days, two of them heavy.');
       await save(tester);
 
-      expect((await reload(tester, rid)).description,
-          'Four days, two of them heavy.');
+      expect(
+        (await reload(tester, rid)).description,
+        'Four days, two of them heavy.',
+      );
 
       await stop(tester);
     });
 
-    testWidgets('editing a routine keeps the description it has',
-        (tester) async {
+    testWidgets('editing a routine keeps the description it has', (
+      tester,
+    ) async {
       final rid = await aRoutine(tester, description: 'Three days a week.');
       await pumpBuilder(tester, rid);
 
-      expect(find.text('Three days a week.'), findsOneWidget,
-          reason: 'the field opens on what is there');
+      expect(
+        find.text('Three days a week.'),
+        findsOneWidget,
+        reason: 'the field opens on what is there',
+      );
       await save(tester);
 
       expect((await reload(tester, rid)).description, 'Three days a week.');
@@ -564,8 +749,11 @@ void main() {
       await tester.enterText(field, '   ');
       await save(tester);
 
-      expect((await reload(tester, rid)).description, isNull,
-          reason: 'a blank field means there is nothing to say');
+      expect(
+        (await reload(tester, rid)).description,
+        isNull,
+        reason: 'a blank field means there is nothing to say',
+      );
 
       await stop(tester);
     });
@@ -577,9 +765,11 @@ void main() {
       await tester.enterText(field, 'x' * (kMaxDescriptionLength + 120));
       await pumpThroughDatabase(tester);
 
-      expect(tester.widget<TextField>(field).controller!.text.length,
-          kMaxDescriptionLength,
-          reason: 'the cap is enforced while typing, not at the insert');
+      expect(
+        tester.widget<TextField>(field).controller!.text.length,
+        kMaxDescriptionLength,
+        reason: 'the cap is enforced while typing, not at the insert',
+      );
 
       await stop(tester);
     });
@@ -590,7 +780,8 @@ void main() {
       addTearDown(container.dispose);
 
       await tester.pumpWidget(
-          appUnder(container, RoutineDetailScreen(routineId: rid)));
+        appUnder(container, RoutineDetailScreen(routineId: rid)),
+      );
       await pumpThroughDatabase(tester);
 
       expect(find.text('Three days a week.'), findsOneWidget);
@@ -598,20 +789,24 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('and one nobody has described shows nothing at all',
-        (tester) async {
+    testWidgets('and one nobody has described shows nothing at all', (
+      tester,
+    ) async {
       final rid = await aRoutine(tester);
       final container = containerFor(db);
       addTearDown(container.dispose);
 
       await tester.pumpWidget(
-          appUnder(container, RoutineDetailScreen(routineId: rid)));
+        appUnder(container, RoutineDetailScreen(routineId: rid)),
+      );
       await pumpThroughDatabase(tester);
 
       // The workout count is there, so the page has drawn; there is simply no
       // paragraph above it.
-      expect(find.textContaining(l10nFor().routineDetailWorkoutCount(1)),
-          findsOneWidget);
+      expect(
+        find.textContaining(l10nFor().routineDetailWorkoutCount(1)),
+        findsOneWidget,
+      );
       expect(
         tester
             .widgetList<Text>(find.byType(Text))
@@ -626,15 +821,18 @@ void main() {
     testWidgets('a shipped description follows the language', (tester) async {
       const es = Locale('es');
       final program = kStarterRoutines.first;
-      final rid = (await tester
-          .runAsync(() => db.addStarterRoutine(program)))!;
+      final rid = (await tester.runAsync(() => db.addStarterRoutine(program)))!;
       final container = containerFor(db);
       addTearDown(container.dispose);
       final shown = seededDescription(
-          l10nFor(es), program.seedKey, program.description)!;
+        l10nFor(es),
+        program.seedKey,
+        program.description,
+      )!;
 
-      await tester.pumpWidget(appUnder(
-          container, RoutineDetailScreen(routineId: rid), locale: es));
+      await tester.pumpWidget(
+        appUnder(container, RoutineDetailScreen(routineId: rid), locale: es),
+      );
       await pumpThroughDatabase(tester);
 
       expect(shown, isNot(program.description), reason: 'the premise');
@@ -644,29 +842,36 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('one you have rewritten is shown as you wrote it',
-        (tester) async {
+    testWidgets('one you have rewritten is shown as you wrote it', (
+      tester,
+    ) async {
       const es = Locale('es');
       final program = kStarterRoutines.first;
       final rid = (await tester.runAsync(() async {
         final id = await db.addStarterRoutine(program);
-        await db.updateRoutineMeta(id,
-            name: program.name,
-            seedKey: program.seedKey,
-            color: program.colorHex,
-            restSeconds: program.restSeconds,
-            description: 'Mine now, and only three days of it.');
+        await db.updateRoutineMeta(
+          id,
+          name: program.name,
+          seedKey: program.seedKey,
+          color: program.colorHex,
+          restSeconds: program.restSeconds,
+          description: 'Mine now, and only three days of it.',
+        );
         return id;
       }))!;
       final container = containerFor(db);
       addTearDown(container.dispose);
 
-      await tester.pumpWidget(appUnder(
-          container, RoutineDetailScreen(routineId: rid), locale: es));
+      await tester.pumpWidget(
+        appUnder(container, RoutineDetailScreen(routineId: rid), locale: es),
+      );
       await pumpThroughDatabase(tester);
 
-      expect(find.text('Mine now, and only three days of it.'), findsOneWidget,
-          reason: 'a description you typed is not a shipped string');
+      expect(
+        find.text('Mine now, and only three days of it.'),
+        findsOneWidget,
+        reason: 'a description you typed is not a shipped string',
+      );
 
       await stop(tester);
     });
@@ -962,8 +1167,8 @@ void main() {
       );
       // The card is captioned without a unit — there is no number in it.
       expect(find.text('WEIGHT'), findsOneWidget);
-      // And no weight axis to choose, so the axis is stated, not offered.
-      expect(find.text('More reps'), findsOneWidget);
+      // And no weight progression is offered, so reps is the selected method.
+      expect(find.text('Reps'), findsOneWidget);
 
       await stop(tester);
     });
@@ -1004,7 +1209,13 @@ void main() {
       // A blank weight on a bar is a number still to come, not bodyweight.
       expect(find.text('Not set yet'), findsOneWidget);
       expect(find.text('Bodyweight'), findsNothing);
-      expect(find.text('Reps'), findsWidgets, reason: 'both axes are offered');
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Reps'),
+        findsOneWidget,
+        reason: 'both axes are offered',
+      );
 
       await stop(tester);
     });
@@ -1148,8 +1359,11 @@ void main() {
       );
       await pumpThroughDatabase(tester);
 
-      expect(find.text(l10nFor().commonSuperset), findsOneWidget,
-          reason: 'the group is named once, above the rows it holds');
+      expect(
+        find.text(l10nFor().commonSuperset),
+        findsOneWidget,
+        reason: 'the group is named once, above the rows it holds',
+      );
 
       await stop(tester);
     });
@@ -1177,7 +1391,10 @@ void main() {
     Future<int> longRoutine(WidgetTester tester, int days) async {
       return (await tester.runAsync(() async {
         final rid = await db.createRoutine(
-            name: 'Long', color: 'FF6A3D', restSeconds: 90);
+          name: 'Long',
+          color: 'FF6A3D',
+          restSeconds: 90,
+        );
         for (var i = 1; i <= days; i++) {
           await db.createWorkout(rid, 'Day $i');
         }
@@ -1193,7 +1410,8 @@ void main() {
       final container = containerFor(db);
       addTearDown(container.dispose);
       await tester.pumpWidget(
-          routedAppUnder(container, const TodayScreen(), scaffold: true));
+        routedAppUnder(container, const TodayScreen(), scaffold: true),
+      );
       await pumpThroughDatabase(tester);
     }
 
@@ -1204,14 +1422,18 @@ void main() {
       for (var i = 1; i <= 7; i++) {
         expect(find.text('Day $i'), findsOneWidget, reason: 'Day $i is hidden');
       }
-      expect(find.byKey(kTodayShowAllWorkoutsKey), findsNothing,
-          reason: 'nothing is folded, so nothing offers to unfold it');
+      expect(
+        find.byKey(kTodayShowAllWorkoutsKey),
+        findsNothing,
+        reason: 'nothing is folded, so nothing offers to unfold it',
+      );
 
       await stop(tester);
     });
 
-    testWidgets('past that, it shows the one you are on and its neighbours',
-        (tester) async {
+    testWidgets('past that, it shows the one you are on and its neighbours', (
+      tester,
+    ) async {
       await longRoutine(tester, 10);
       await pumpToday(tester);
 
@@ -1221,16 +1443,20 @@ void main() {
         expect(find.text(name), findsOneWidget, reason: '$name is not offered');
       }
       for (final name in const ['Day 4', 'Day 10']) {
-        expect(find.text(name), findsNothing,
-            reason: '$name buries the day you are on');
+        expect(
+          find.text(name),
+          findsNothing,
+          reason: '$name buries the day you are on',
+        );
       }
       expect(find.byKey(kTodayShowAllWorkoutsKey), findsOneWidget);
 
       await stop(tester);
     });
 
-    testWidgets('and the line underneath opens the rest in place',
-        (tester) async {
+    testWidgets('and the line underneath opens the rest in place', (
+      tester,
+    ) async {
       await longRoutine(tester, 10);
       await pumpToday(tester);
 
@@ -1238,11 +1464,17 @@ void main() {
       await pumpThroughDatabase(tester);
 
       for (var i = 1; i <= 10; i++) {
-        expect(find.text('Day $i'), findsOneWidget,
-            reason: 'Day $i is still folded away');
+        expect(
+          find.text('Day $i'),
+          findsOneWidget,
+          reason: 'Day $i is still folded away',
+        );
       }
-      expect(find.byKey(kTodayShowAllWorkoutsKey), findsNothing,
-          reason: 'opened, it is the plain list it always was');
+      expect(
+        find.byKey(kTodayShowAllWorkoutsKey),
+        findsNothing,
+        reason: 'opened, it is the plain list it always was',
+      );
 
       await stop(tester);
     });

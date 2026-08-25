@@ -98,6 +98,13 @@ const _sameInEveryLanguage = {
   'mi',
 };
 
+bool _isUniversalTermsOnly(String message) {
+  final terms = RegExp(
+    r'[A-Za-z0-9]+',
+  ).allMatches(message).map((match) => match.group(0)!).toList();
+  return terms.isNotEmpty && terms.every(_sameInEveryLanguage.contains);
+}
+
 /// Words a native reviewer decided each language really does say in English.
 ///
 /// A gym borrows vocabulary, and a translation that insists on a native word
@@ -652,6 +659,7 @@ void main() {
           for (final entry in english.entries)
             if (theirs[entry.key] == entry.value &&
                 !_sameInEveryLanguage.contains(entry.value) &&
+                !_isUniversalTermsOnly(entry.value) &&
                 !kept.contains(entry.key) &&
                 !_isFormatOnly(entry.value) &&
                 RegExp(r'[A-Za-z]').hasMatch(entry.value))

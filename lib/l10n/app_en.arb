@@ -1709,7 +1709,7 @@
   "@itemEditorCycleWhat": {
     "description": "Title of the dialog behind the info tap beside the Set scheme label. A question, as the superset one is."
   },
-  "itemEditorCycleExplained": "A set of weeks, run in order. Each session takes the next one, and the week after the last is the first again. The percentages are of the training max, and the training max is what progresses — it moves when the cycle comes round, not session by session.",
+  "itemEditorCycleExplained": "A cycle repeats a list of weeks. Each workout uses the next week’s sets and percentages. The weight field is your training max, not that day’s bar weight. Foss Lift changes the training max only after the last week.",
   "@itemEditorCycleExplained": {
     "description": "The body of that dialog: what a cycle is, for somebody deciding whether to pick one. Keep it to three short sentences, and keep it about the shape — naming a particular program here would make the general tool read as that program's setting."
   },
@@ -4455,6 +4455,20 @@
   "itemEditorGzclT1Hint": "Main lift — heavy, low-rep work",
   "itemEditorGzclT2Hint": "Secondary lift — moderate weight and reps",
   "itemEditorGzclT3Hint": "Assistance — lighter, high-rep work",
+  "itemEditorModeRepsThenWeight": "Reps → weight",
+  "itemEditorProgressionTypeInfo": "About this progression type",
+  "itemEditorRepsThenWeightHint": "Build reps to the top of the range, then add weight and return to the bottom.",
+  "itemEditorCycleHint": "Sets use percentages of a training max; progression changes that training max after the cycle.",
+  "itemEditorWeightProgressionExplained": "After enough successful workouts, the prescribed weight increases. Repeated misses reduce it.",
+  "itemEditorRepsProgressionExplained": "After enough successful workouts, the rep target increases. Repeated misses reduce it.",
+  "itemEditorTimeProgressionExplained": "After enough successful workouts, the hold target gets longer. Repeated misses shorten it.",
+  "itemEditorRepsThenWeightExplained": "The rep target climbs through a range. After reaching the top, the next increase adds weight and resets the target to the bottom. This type requires a rep range and cannot be combined with training to failure.",
+  "itemEditorGzclpT1": "GZCLP · T1",
+  "itemEditorGzclpT2": "GZCLP · T2",
+  "itemEditorGzclpT3": "GZCLP · T3",
+  "itemEditorGzclT1Explained": "GZCLP’s heavy main-lift tier. A missed prescription moves the exercise to the next sets-and-reps stage; completing the final stage resets the ladder at a lower weight.",
+  "itemEditorGzclT2Explained": "GZCLP’s moderate secondary-lift tier. It uses the same staged failure progression as T1 with more reps and lighter weight.",
+  "itemEditorGzclT3Explained": "GZCLP’s higher-rep assistance tier. Weight increases when the final AMRAP set reaches its configured target.",
   "itemEditorGzclTier": "GZCL tier",
   "itemEditorGzclStandard": "Standard",
   "itemEditorGzclStages": "Stages (sets × reps)",

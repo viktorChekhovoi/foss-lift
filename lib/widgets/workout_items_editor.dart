@@ -682,8 +682,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
 
   late bool _advanced = widget.draft.usesAdvanced;
 
-  late bool _gzclOpen = widget.draft.gzclTier != null;
-
   ItemDraft get d => widget.draft;
 
   bool get _timed => d.progression.timed;
@@ -751,6 +749,56 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   void _bump(VoidCallback fn) {
     setState(fn);
     widget.onChanged();
+  }
+
+  _ProgressionType get _progressionType {
+    if (d.gzclTier case final tier?) {
+      return switch (tier) {
+        GzclTier.t1 => _ProgressionType.gzclT1,
+        GzclTier.t2 => _ProgressionType.gzclT2,
+        GzclTier.t3 => _ProgressionType.gzclT3,
+      };
+    }
+    if (d.scheme == SetScheme.cycle) return _ProgressionType.cycle;
+    if (d.onAdvancedAxis) return _ProgressionType.repsThenWeight;
+    return switch (d.progression) {
+      ProgressionMode.weight => _ProgressionType.weight,
+      ProgressionMode.reps => _ProgressionType.reps,
+      ProgressionMode.time => _ProgressionType.time,
+    };
+  }
+
+  void _selectProgressionType(_ProgressionType type) {
+    _bump(() {
+      d.setGzclTier(null);
+      if (d.scheme == SetScheme.cycle) d.scheme = SetScheme.flat;
+      switch (type) {
+        case _ProgressionType.weight:
+          d.setMode(ProgressionMode.weight, unit: _unit);
+        case _ProgressionType.reps:
+          d.setMode(ProgressionMode.reps, unit: _unit);
+        case _ProgressionType.time:
+          d.setMode(ProgressionMode.time, unit: _unit);
+        case _ProgressionType.repsThenWeight:
+          d.toFailure = false;
+          d.repsMax ??= (d.repsMin + 2).clamp(1, 100);
+          d.setAdvanced(true, unit: _unit);
+          _advanced = true;
+        case _ProgressionType.cycle:
+          d.setMode(ProgressionMode.weight, unit: _unit);
+          d.scheme = SetScheme.cycle;
+          if (d.cycle.isEmpty) d.cycle = [_seedCustomRows(d)];
+        case _ProgressionType.gzclT1:
+        case _ProgressionType.gzclT2:
+        case _ProgressionType.gzclT3:
+          d.setMode(ProgressionMode.weight, unit: _unit);
+          d.setGzclTier(switch (type) {
+            _ProgressionType.gzclT1 => GzclTier.t1,
+            _ProgressionType.gzclT2 => GzclTier.t2,
+            _ => GzclTier.t3,
+          });
+      }
+    });
   }
 
   Future<void> _editExercise() async {
@@ -1023,11 +1071,17 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 style: sectionLabelStyle(),
               ),
               const SizedBox(height: 10),
-              _ProgressionMethodPicker(
-                draft: d,
-                onChanged: () => _bump(() {}),
-                unit: _unit,
+              _ProgressionTypePicker(
+                type: _progressionType,
+                modes: d.modes,
+                carriesWeight: d.weightType.carriesWeight,
+                onChanged: _selectProgressionType,
               ),
+              if (_progressionHint(l10n, _progressionType)
+                  case final hint?) ...[
+                const SizedBox(height: 8),
+                _note(hint),
+              ],
               const SizedBox(height: 16),
               builderGrid([
                 BuilderField(
@@ -1118,29 +1172,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 ),
               ],
-              const SizedBox(height: 18),
-              EditorPill(
-                label: l10n.itemEditorGzclpOnly,
-                icon: _gzclOpen ? Icons.expand_less : Icons.expand_more,
-                on: _gzclOpen || d.gzclTier != null,
-                onTap: () => setState(() => _gzclOpen = !_gzclOpen),
-              ),
-              if (_gzclOpen) ...[
-                const SizedBox(height: 8),
-                _note(l10n.itemEditorGzclpOnlyHint),
-                const SizedBox(height: 10),
-                _GzclTierPicker(
-                  key: kGzclTierKey,
-                  tier: d.gzclTier,
-                  onChanged: (tier) => _bump(() {
-                    if (d.scheme == SetScheme.cycle) d.scheme = SetScheme.flat;
-                    if (tier != null) {
-                      d.setMode(ProgressionMode.weight, unit: _unit);
-                    }
-                    d.setGzclTier(tier);
-                  }),
-                ),
-              ],
               if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
                 const SizedBox(height: 12),
                 TextFormField(
@@ -1223,7 +1254,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   }
 }
 
-String _soleAxis(AppLocalizations l10n, ProgressionMode m) => switch (m) {
+String soleAxis(AppLocalizations l10n, ProgressionMode m) => switch (m) {
   ProgressionMode.time => l10n.itemEditorAxisTime,
   ProgressionMode.reps => l10n.itemEditorAxisReps,
   ProgressionMode.weight => l10n.itemEditorAxisWeight,
@@ -2083,107 +2114,137 @@ class _CheckRow extends StatelessWidget {
 
 const kProgressionCycleKey = ValueKey('progression-cycle');
 
-class _ProgressionMethodPicker extends StatelessWidget {
-  const _ProgressionMethodPicker({
-    required this.draft,
-    required this.unit,
+enum _ProgressionType {
+  weight,
+  reps,
+  time,
+  repsThenWeight,
+  cycle,
+  gzclT1,
+  gzclT2,
+  gzclT3,
+}
+
+class _ProgressionTypePicker extends StatelessWidget {
+  const _ProgressionTypePicker({
+    required this.type,
+    required this.modes,
+    required this.carriesWeight,
     required this.onChanged,
   });
 
-  final ItemDraft draft;
-  final String unit;
-  final VoidCallback onChanged;
-
-  void _ordinary(ProgressionMode mode) {
-    draft.setGzclTier(null);
-    if (draft.scheme == SetScheme.cycle) draft.scheme = SetScheme.flat;
-    draft.setMode(mode, unit: unit);
-    onChanged();
-  }
-
-  void _advanced() {
-    draft.setGzclTier(null);
-    if (draft.scheme == SetScheme.cycle) draft.scheme = SetScheme.flat;
-    draft.setAdvanced(true, unit: unit);
-    onChanged();
-  }
-
-  void _cycle() {
-    draft.setGzclTier(null);
-    draft.setMode(ProgressionMode.weight, unit: unit);
-    draft.scheme = SetScheme.cycle;
-    if (draft.cycle.isEmpty) draft.cycle = [_seedCustomRows(draft)];
-    onChanged();
-  }
+  final _ProgressionType type;
+  final List<ProgressionMode> modes;
+  final bool carriesWeight;
+  final ValueChanged<_ProgressionType> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final d = draft;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final choices = <_ProgressionType>[
+      if (modes.contains(ProgressionMode.weight)) _ProgressionType.weight,
+      if (modes.contains(ProgressionMode.reps)) _ProgressionType.reps,
+      if (modes.contains(ProgressionMode.time)) _ProgressionType.time,
+      if (modes.contains(ProgressionMode.weight) &&
+          modes.contains(ProgressionMode.reps))
+        _ProgressionType.repsThenWeight,
+      if (carriesWeight) ...[
+        _ProgressionType.cycle,
+        _ProgressionType.gzclT1,
+        _ProgressionType.gzclT2,
+        _ProgressionType.gzclT3,
+      ],
+    ];
+    return Row(
       children: [
-        if (d.modes.length > 1)
-          _ModePicker(
-            modes: d.modes,
-            mode: d.progression,
-            advanced: d.onAdvancedAxis,
-            advancedOffered:
-                d.modes.contains(ProgressionMode.weight) &&
-                d.modes.contains(ProgressionMode.reps),
-            advancedEnabled: d.canClimbRange,
-            onChanged: _ordinary,
-            onAdvanced: _advanced,
-            cycleOffered: d.weightType.carriesWeight,
-            cycleOn: d.scheme == SetScheme.cycle,
-            onCycle: _cycle,
-          )
-        else
-          _noteText(_soleAxis(l10n, d.modes.first)),
-        if (d.weightType.carriesWeight && d.modes.length == 1) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: EditorPill(
-                  key: kProgressionCycleKey,
-                  label: l10n.itemEditorSchemeCycle,
-                  centred: true,
-                  on: d.scheme == SetScheme.cycle,
-                  onTap: _cycle,
+        Expanded(
+          child: DropdownButtonFormField<_ProgressionType>(
+            key: kGzclTierKey,
+            initialValue: type,
+            isExpanded: true,
+            decoration: builderInput(l10n.itemEditorProgressionMethod),
+            items: [
+              for (final choice in choices)
+                DropdownMenuItem(
+                  value: choice,
+                  child: Text(_progressionTypeLabel(l10n, choice)),
                 ),
-              ),
-              IconButton(
-                key: kCycleExplainKey,
-                onPressed: () => _explainCycle(context),
-                tooltip: l10n.itemEditorCycleWhat,
-                icon: Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: AppColors.faint,
-                ),
-              ),
             ],
+            onChanged: (value) {
+              if (value != null) onChanged(value);
+            },
           ),
-        ],
-        if (!d.canClimbRange &&
-            d.modes.contains(ProgressionMode.weight) &&
-            d.modes.contains(ProgressionMode.reps)) ...[
-          const SizedBox(height: 6),
-          _noteText(l10n.itemEditorRangeClimbNeedsRange),
-        ],
+        ),
+        const SizedBox(width: 6),
+        IconButton(
+          key: kCycleExplainKey,
+          onPressed: () => _explainProgressionType(context, type),
+          tooltip: l10n.itemEditorProgressionTypeInfo,
+          icon: const Icon(Icons.info_outline),
+        ),
       ],
     );
   }
+}
 
-  Widget _noteText(String text) => Text(
-    text,
-    style: kMono.copyWith(fontSize: 11, height: 1.5, color: AppColors.faint),
+String _progressionTypeLabel(AppLocalizations l10n, _ProgressionType type) =>
+    switch (type) {
+      _ProgressionType.weight => l10n.itemEditorModeWeight,
+      _ProgressionType.reps => l10n.itemEditorModeReps,
+      _ProgressionType.time => l10n.itemEditorModeTime,
+      _ProgressionType.repsThenWeight => l10n.itemEditorModeRepsThenWeight,
+      _ProgressionType.cycle => l10n.itemEditorSchemeCycle,
+      _ProgressionType.gzclT1 => l10n.itemEditorGzclpT1,
+      _ProgressionType.gzclT2 => l10n.itemEditorGzclpT2,
+      _ProgressionType.gzclT3 => l10n.itemEditorGzclpT3,
+    };
+
+String? _progressionHint(AppLocalizations l10n, _ProgressionType type) =>
+    switch (type) {
+      _ProgressionType.repsThenWeight => l10n.itemEditorRepsThenWeightHint,
+      _ProgressionType.cycle => l10n.itemEditorCycleHint,
+      _ProgressionType.gzclT1 => l10n.itemEditorGzclT1Hint,
+      _ProgressionType.gzclT2 => l10n.itemEditorGzclT2Hint,
+      _ProgressionType.gzclT3 => l10n.itemEditorGzclT3Hint,
+      _ => null,
+    };
+
+String _progressionExplanation(AppLocalizations l10n, _ProgressionType type) =>
+    switch (type) {
+      _ProgressionType.weight => l10n.itemEditorWeightProgressionExplained,
+      _ProgressionType.reps => l10n.itemEditorRepsProgressionExplained,
+      _ProgressionType.time => l10n.itemEditorTimeProgressionExplained,
+      _ProgressionType.repsThenWeight => l10n.itemEditorRepsThenWeightExplained,
+      _ProgressionType.cycle => l10n.itemEditorCycleExplained,
+      _ProgressionType.gzclT1 => l10n.itemEditorGzclT1Explained,
+      _ProgressionType.gzclT2 => l10n.itemEditorGzclT2Explained,
+      _ProgressionType.gzclT3 => l10n.itemEditorGzclT3Explained,
+    };
+
+Future<void> _explainProgressionType(
+  BuildContext context,
+  _ProgressionType type,
+) {
+  final l10n = AppLocalizations.of(context);
+  return showAppDialog<void>(
+    context,
+    builder: (ctx) => AppDialog(
+      title: type == _ProgressionType.cycle
+          ? l10n.itemEditorCycleWhat
+          : _progressionTypeLabel(l10n, type),
+      content: Text(_progressionExplanation(l10n, type)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(l10n.commonDone),
+        ),
+      ],
+    ),
   );
 }
 
-class _GzclTierPicker extends StatelessWidget {
-  const _GzclTierPicker({
+class GzclTierPicker extends StatelessWidget {
+  const GzclTierPicker({
     super.key,
     required this.tier,
     required this.onChanged,
@@ -2223,8 +2284,9 @@ class _GzclTierPicker extends StatelessWidget {
   }
 }
 
-class _ModePicker extends StatelessWidget {
-  const _ModePicker({
+class ModePicker extends StatelessWidget {
+  const ModePicker({
+    super.key,
     required this.modes,
     required this.mode,
     required this.onChanged,

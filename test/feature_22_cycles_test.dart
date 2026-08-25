@@ -84,31 +84,40 @@ Future<ItemDraft> openCycleSheet(
   int position = 0,
   List<String> names = const [],
 }) async {
-  final draft = (await tester.runAsync(() async =>
-      ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
-    ..weightKg = 100
-    ..scheme = SetScheme.cycle
-    ..cycle = [for (final week in k531) [...week]]
-    ..cycleNames = [...names]
-    ..cyclePosition = position;
+  final draft =
+      (await tester.runAsync(
+          () async =>
+              ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+        ))!
+        ..weightKg = 100
+        ..scheme = SetScheme.cycle
+        ..cycle = [
+          for (final week in k531) [...week],
+        ]
+        ..cycleNames = [...names]
+        ..cyclePosition = position;
   // Tall: the sheet is long, and a control below the fold is a control a tap
   // cannot reach.
   tester.view.physicalSize = const Size(390, 2600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(appUnder(
-    container,
-    Scaffold(
-      body: ListView(children: [
-        WorkoutItemsEditor(
-          items: [draft],
-          unit: 'kg',
-          routineRest: 90,
-          defaultBarKg: 20,
+  await tester.pumpWidget(
+    appUnder(
+      container,
+      Scaffold(
+        body: ListView(
+          children: [
+            WorkoutItemsEditor(
+              items: [draft],
+              unit: 'kg',
+              routineRest: 90,
+              defaultBarKg: 20,
+            ),
+          ],
         ),
-      ]),
+      ),
     ),
-  ));
+  );
   await tester.pumpAndSettle();
   await tester.tap(find.text(draft.name));
   await tester.pumpAndSettle();
@@ -144,48 +153,54 @@ void main() {
 
   // ---------------------------------------------------------------- the rows
 
-  group('a written-out row takes a count, a range, or a minimum with no top', () {
-    test('a plain count is its own goal and its own floor', () {
-      const row = CustomSet(reps: 5, percent: 100);
-      expect(row.goalReps, 5);
-      expect(row.minReps, 5);
-      expect(row.amrap, isFalse);
-    });
+  group(
+    'a written-out row takes a count, a range, or a minimum with no top',
+    () {
+      test('a plain count is its own goal and its own floor', () {
+        const row = CustomSet(reps: 5, percent: 100);
+        expect(row.goalReps, 5);
+        expect(row.minReps, 5);
+        expect(row.amrap, isFalse);
+      });
 
-    test('a range asks for its top and is not missed inside itself', () {
-      const row = CustomSet(reps: 8, repsMax: 12, percent: 80);
-      expect(row.goalReps, 12, reason: 'the top is what it asks for');
-      expect(row.minReps, 8, reason: 'and the bottom is the only miss');
-    });
+      test('a range asks for its top and is not missed inside itself', () {
+        const row = CustomSet(reps: 8, repsMax: 12, percent: 80);
+        expect(row.goalReps, 12, reason: 'the top is what it asks for');
+        expect(row.minReps, 8, reason: 'and the bottom is the only miss');
+      });
 
-    test('a row with no top asks for its minimum', () {
-      const row = CustomSet(reps: 5, percent: 85, amrap: true);
-      expect(row.goalReps, 5);
-      expect(row.minReps, 5);
-    });
+      test('a row with no top asks for its minimum', () {
+        const row = CustomSet(reps: 5, percent: 85, amrap: true);
+        expect(row.goalReps, 5);
+        expect(row.minReps, 5);
+      });
 
-    test('the three shapes round-trip through the column', () {
-      const rows = [
-        CustomSet(reps: 5, percent: 65),
-        CustomSet(reps: 8, repsMax: 12, percent: 80),
-        CustomSet(reps: 5, percent: 85, amrap: true),
-      ];
-      expect(decodeCustomSets(encodeCustomSets(rows)), rows);
-    });
+      test('the three shapes round-trip through the column', () {
+        const rows = [
+          CustomSet(reps: 5, percent: 65),
+          CustomSet(reps: 8, repsMax: 12, percent: 80),
+          CustomSet(reps: 5, percent: 85, amrap: true),
+        ];
+        expect(decodeCustomSets(encodeCustomSets(rows)), rows);
+      });
 
-    test('a column written before rows could hold a range still reads', () {
-      expect(decodeCustomSets('5:100,8:90'), const [
-        CustomSet(reps: 5, percent: 100),
-        CustomSet(reps: 8, percent: 90),
-      ]);
-    });
+      test('a column written before rows could hold a range still reads', () {
+        expect(decodeCustomSets('5:100,8:90'), const [
+          CustomSet(reps: 5, percent: 100),
+          CustomSet(reps: 8, percent: 90),
+        ]);
+      });
 
-    test('a column that will not parse reads as no rows rather than throwing', () {
-      expect(decodeCustomSets('nonsense'), isEmpty);
-      expect(decodeCustomSets('5:'), isEmpty);
-      expect(decodeCustomSets(null), isEmpty);
-    });
-  });
+      test(
+        'a column that will not parse reads as no rows rather than throwing',
+        () {
+          expect(decodeCustomSets('nonsense'), isEmpty);
+          expect(decodeCustomSets('5:'), isEmpty);
+          expect(decodeCustomSets(null), isEmpty);
+        },
+      );
+    },
+  );
 
   // -------------------------------------------------------------- the blocks
 
@@ -215,14 +230,14 @@ void main() {
 
   group('a cycle resolves to the week it is on', () {
     List<SetTarget> at(int position) => resolveSetTargets(
-          scheme: SetScheme.cycle,
-          sets: 3,
-          goalReps: 5,
-          topWeightKg: 100,
-          unit: 'kg',
-          cycle: k531,
-          cyclePosition: position,
-        );
+      scheme: SetScheme.cycle,
+      sets: 3,
+      goalReps: 5,
+      topWeightKg: 100,
+      unit: 'kg',
+      cycle: k531,
+      cyclePosition: position,
+    );
 
     test('week one is 5/5/5 at 65, 75 and 85 per cent', () {
       expect(at(0).map((t) => t.weightKg).toList(), [65.0, 75.0, 85.0]);
@@ -268,10 +283,7 @@ void main() {
         unit: 'kg',
         floorKg: 20,
         cycle: const [
-          [
-            CustomSet(reps: 5, percent: 65),
-            CustomSet(reps: 5, percent: 10),
-          ],
+          [CustomSet(reps: 5, percent: 65), CustomSet(reps: 5, percent: 10)],
         ],
       );
       // 65% of 102.5 is 66.625, and the eighth of a kilogram the fine grid
@@ -303,16 +315,15 @@ void main() {
       int misses = 0,
       int weeks = 3,
       int failureThreshold = defaultFailureThreshold,
-    }) =>
-        stepCycle(
-          verdict: verdict,
-          position: position,
-          misses: misses,
-          weeks: weeks,
-          failureThreshold: failureThreshold,
-          increment: 2.5,
-          deload: 5,
-        );
+    }) => stepCycle(
+      verdict: verdict,
+      position: position,
+      misses: misses,
+      weeks: weeks,
+      failureThreshold: failureThreshold,
+      increment: 2.5,
+      deload: 5,
+    );
 
     test('a session inside the cycle moves the week and nothing else', () {
       final s = step(verdict: SessionVerdict.success, position: 0);
@@ -436,20 +447,27 @@ void main() {
       it = await finish(it, verdict: SessionVerdict.miss);
       it = await finish(it, verdict: SessionVerdict.success);
       expect(it.cyclePosition, 0);
-      expect(it.suggestedWeight, 95, reason: 'two misses reached the threshold');
+      expect(
+        it.suggestedWeight,
+        95,
+        reason: 'two misses reached the threshold',
+      );
     });
 
-    test('loading the bar past the prescription does not move the max', () async {
-      // The whole point: every set is a percentage of this number, so a heavy
-      // week must not be read as the number having gone up.
-      var it = await cycleSlot();
-      it = await finish(
-        it,
-        verdict: SessionVerdict.success,
-        performedWeight: 140,
-      );
-      expect(it.suggestedWeight, 100);
-    });
+    test(
+      'loading the bar past the prescription does not move the max',
+      () async {
+        // The whole point: every set is a percentage of this number, so a heavy
+        // week must not be read as the number having gone up.
+        var it = await cycleSlot();
+        it = await finish(
+          it,
+          verdict: SessionVerdict.success,
+          performedWeight: 140,
+        );
+        expect(it.suggestedWeight, 100);
+      },
+    );
 
     test('the streaks are not what a cycle counts with', () async {
       // A clean week must not fire the ordinary one-session step up.
@@ -480,7 +498,12 @@ void main() {
 
     test('an open-ended set is not missed by beating its minimum', () async {
       final ctrl = await startCycle(db, container, position: 0);
-      final open = container.read(activeWorkoutProvider)!.exercises.single.sets.last;
+      final open = container
+          .read(activeWorkoutProvider)!
+          .exercises
+          .single
+          .sets
+          .last;
       expect(open.amrap, isTrue);
       open.logged = 9;
       expect(open.missedGoal, isFalse, reason: '9 beats the 5 it asked for');
@@ -489,7 +512,12 @@ void main() {
 
     test('an open-ended set is missed under its minimum', () async {
       final ctrl = await startCycle(db, container, position: 0);
-      final open = container.read(activeWorkoutProvider)!.exercises.single.sets.last;
+      final open = container
+          .read(activeWorkoutProvider)!
+          .exercises
+          .single
+          .sets
+          .last;
       open.logged = 3;
       expect(open.missedGoal, isTrue);
       ctrl.discard();
@@ -539,22 +567,29 @@ void main() {
           repsMin: const Value(5),
           suggestedWeight: const Value(100),
           scheme: const Value(SetScheme.cycle),
-          cycleBlocks: Value(encodeCycleBlocks(const [
-            [
-              CustomSet(reps: 5, percent: 65),
-              CustomSet(reps: 5, percent: 75),
-              CustomSet(reps: 5, percent: 85, amrap: true),
-              CustomSet(reps: 5, percent: 65),
-              CustomSet(reps: 5, percent: 65),
-            ],
-          ])),
+          cycleBlocks: Value(
+            encodeCycleBlocks(const [
+              [
+                CustomSet(reps: 5, percent: 65),
+                CustomSet(reps: 5, percent: 75),
+                CustomSet(reps: 5, percent: 85, amrap: true),
+                CustomSet(reps: 5, percent: 65),
+                CustomSet(reps: 5, percent: 65),
+              ],
+            ]),
+          ),
         ),
       ]);
       final it = (await db.itemsForWorkout(push.id)).single.item;
       expect(it.setCount, 5, reason: 'the week has five rows in it');
 
-      await container.read(activeWorkoutProvider.notifier).start(workoutId: push.id, name: 'Push');
-      expect(container.read(activeWorkoutProvider)!.exercises.single.sets, hasLength(5));
+      await container
+          .read(activeWorkoutProvider.notifier)
+          .start(workoutId: push.id, name: 'Push');
+      expect(
+        container.read(activeWorkoutProvider)!.exercises.single.sets,
+        hasLength(5),
+      );
       container.read(activeWorkoutProvider.notifier).discard();
     });
 
@@ -577,58 +612,58 @@ void main() {
   group('Cycle is a scheme anybody can pick', () {
     testWidgets('the picker offers all five, live', (tester) async {
       final l10n = l10nFor();
-      final draft = (await tester.runAsync(() async =>
-          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
-        ..weightKg = 100;
+      final draft = (await tester.runAsync(
+        () async =>
+            ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+      ))!..weightKg = 100;
       tester.view.physicalSize = const Size(390, 2000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(appUnder(
-        container,
-        Scaffold(
-          body: ListView(children: [
-            WorkoutItemsEditor(
-                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
-          ]),
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: [draft],
+                  unit: 'kg',
+                  routineRest: 90,
+                  defaultBarKg: 20,
+                ),
+              ],
+            ),
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text(draft.name));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(kAdvancedToggleKey));
-      await tester.pumpAndSettle();
-
-      for (final label in [
-        l10n.itemEditorSchemeFlat,
-        l10n.itemEditorSchemeBackOff,
-        l10n.itemEditorSchemeRamp,
-        l10n.itemEditorSchemeCustom,
-        l10n.itemEditorSchemeCycle,
-      ]) {
-        final pill = find.widgetWithText(EditorPill, label);
-        expect(pill, findsOneWidget);
-        expect(tester.widget<EditorPill>(pill).onTap, isNotNull,
-            reason: 'nothing gates the picker');
-      }
-
-      // The (i) rides on the Cycle option and is there before it is taken —
-      // "what would I be picking" is asked ahead of the pick.
+      expect(find.byKey(kGzclTierKey), findsOneWidget);
       expect(find.byKey(kCycleExplainKey), findsOneWidget);
-      await tester.tap(find.widgetWithText(
-          EditorPill, l10n.itemEditorSchemeCycle));
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.itemEditorSchemeCycle).last);
       await tester.pumpAndSettle();
       expect(draft.scheme, SetScheme.cycle);
-      expect(find.byKey(kCycleExplainKey), findsOneWidget,
-          reason: 'taking the option does not take its explanation away');
+      expect(
+        find.byKey(kCycleExplainKey),
+        findsOneWidget,
+        reason: 'taking the option does not take its explanation away',
+      );
     });
 
-    testWidgets('a written-out row asks for a range and an open end',
-        (tester) async {
+    testWidgets('a written-out row asks for a range and an open end', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await openCycleSheet(tester, db, container);
 
-      expect(find.text(l10n.itemEditorSchemeAmrap), findsWidgets,
-          reason: 'a cycle without an open set cannot be 5/3/1');
+      expect(
+        find.text(l10n.itemEditorSchemeAmrap),
+        findsWidgets,
+        reason: 'a cycle without an open set cannot be 5/3/1',
+      );
     });
   });
 
@@ -648,9 +683,9 @@ void main() {
           cyclePosition: const Value(2),
         ),
       ]);
-      final drafts = (await db.itemsForWorkout(push.id))
-          .map(ItemDraft.fromView)
-          .toList();
+      final drafts = (await db.itemsForWorkout(
+        push.id,
+      )).map(ItemDraft.fromView).toList();
       expect(drafts.single.cycle, k531);
       expect(drafts.single.cyclePosition, 2);
 
@@ -698,7 +733,8 @@ void main() {
       final routine = await routineNamed(db);
       final shared = await db.sharedRoutine(routine.id);
       final back =
-          (RoutineCode.decode(RoutineCode.encode(shared)) as RoutineCodeOk).routine;
+          (RoutineCode.decode(RoutineCode.encode(shared)) as RoutineCodeOk)
+              .routine;
       expect(back.workouts.first.items.first.cycle, isEmpty);
     });
   });
@@ -724,12 +760,17 @@ void main() {
     });
 
     test('every movement they name is in the starter library', () async {
-      final library = (await db.watchExercises().first).map((e) => e.name).toSet();
+      final library = (await db.watchExercises().first)
+          .map((e) => e.name)
+          .toSet();
       for (final program in the531()) {
         for (final day in program.days) {
           for (final slot in day.items) {
-            expect(library, contains(slot.exercise),
-                reason: '${program.name} names ${slot.exercise}');
+            expect(
+              library,
+              contains(slot.exercise),
+              reason: '${program.name} names ${slot.exercise}',
+            );
           }
         }
       }
@@ -743,7 +784,8 @@ void main() {
           .routine;
       final days = await db.workoutsForRoutine(routine.id);
       final slots = [
-        for (final d in days) ...(await db.itemsForWorkout(d.id)).map((v) => v.item),
+        for (final d in days)
+          ...(await db.itemsForWorkout(d.id)).map((v) => v.item),
       ];
       final cycled = slots.where((s) => s.scheme == SetScheme.cycle).toList();
       expect(cycled, isNotEmpty);
@@ -764,13 +806,15 @@ void main() {
   // ------------------------------------------------------------- on screen
 
   group('the week is on screen', () {
-    testWidgets('the board says which week of the cycle you are on',
-        (tester) async {
+    testWidgets('the board says which week of the cycle you are on', (
+      tester,
+    ) async {
       // The database work runs on the real event loop; the widget clock is
       // fake, and a drift future awaited under it never completes.
       late final ActiveWorkoutController ctrl;
       await tester.runAsync(
-          () async => ctrl = await startCycle(db, container, position: 1));
+        () async => ctrl = await startCycle(db, container, position: 1),
+      );
       await tester.pumpWidget(appUnder(container, const WorkoutScreen()));
       await tester.pump();
 
@@ -786,12 +830,15 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('a week whose rows differ is listed set by set', (tester) async {
+    testWidgets('a week whose rows differ is listed set by set', (
+      tester,
+    ) async {
       // Week three is 5/3/1+ — three different numbers, so "3 × 5" would be a
       // statement about the week that is not true of two of its sets.
       late final ActiveWorkoutController ctrl;
       await tester.runAsync(
-          () async => ctrl = await startCycle(db, container, position: 2));
+        () async => ctrl = await startCycle(db, container, position: 2),
+      );
       await tester.pumpWidget(appUnder(container, const WorkoutScreen()));
       await tester.pump();
 
@@ -799,10 +846,7 @@ void main() {
       // Joined by a slash, not by the middot that separates a slot's summary
       // into fields — "5 · 3 · 1+" reads as three fields, not one week.
       final sep = l10n.targetRowSeparator;
-      expect(
-        find.text('5${sep}3$sep${l10n.targetAmrap(1)}'),
-        findsOneWidget,
-      );
+      expect(find.text('5${sep}3$sep${l10n.targetAmrap(1)}'), findsOneWidget);
 
       ctrl.discard();
       await stop(tester);
@@ -844,20 +888,25 @@ void main() {
   // ------------------------------------------------ the builder's cycle card
 
   group('a week is a card of its own, and it folds', () {
-    testWidgets('the week the next session runs is the one that opens',
-        (tester) async {
+    testWidgets('the week the next session runs is the one that opens', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await openCycleSheet(tester, db, container, position: 1);
 
       // Week two is open, so it is the one week not reading as a single line.
       expect(find.text(foldedWeek(l10n, 1)), findsNothing);
       expect(find.text(foldedWeek(l10n, 0)), findsOneWidget);
-      expect(find.text(foldedWeek(l10n, 2)), findsOneWidget,
-          reason: 'a folded week still says what it asks for');
+      expect(
+        find.text(foldedWeek(l10n, 2)),
+        findsOneWidget,
+        reason: 'a folded week still says what it asks for',
+      );
     });
 
-    testWidgets('tapping a folded week opens it and shuts the other',
-        (tester) async {
+    testWidgets('tapping a folded week opens it and shuts the other', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await openCycleSheet(tester, db, container);
 
@@ -865,10 +914,16 @@ void main() {
       await tester.tap(find.byKey(cycleWeekKey(2)));
       await tester.pumpAndSettle();
 
-      expect(find.text(foldedWeek(l10n, 2)), findsNothing,
-          reason: 'week three is the one open now');
-      expect(find.text(foldedWeek(l10n, 0)), findsOneWidget,
-          reason: 'and week one has folded behind it');
+      expect(
+        find.text(foldedWeek(l10n, 2)),
+        findsNothing,
+        reason: 'week three is the one open now',
+      );
+      expect(
+        find.text(foldedWeek(l10n, 0)),
+        findsOneWidget,
+        reason: 'and week one has folded behind it',
+      );
     });
 
     testWidgets('a week you have just added is open', (tester) async {
@@ -881,31 +936,48 @@ void main() {
       expect(draft.cycle.length, 4);
       expect(find.byKey(cycleWeekKey(3)), findsOneWidget);
       // The new week is a copy of the last, and it is not the one folded.
-      expect(find.text(foldedWeek(l10n, 2)), findsOneWidget,
-          reason: 'week three folded when week four opened');
+      expect(
+        find.text(foldedWeek(l10n, 2)),
+        findsOneWidget,
+        reason: 'week three folded when week four opened',
+      );
     });
 
-    testWidgets("the slot's one line names the weight a training max",
-        (tester) async {
+    testWidgets("the slot's one line names the weight a training max", (
+      tester,
+    ) async {
       final l10n = l10nFor();
       // Before the sheet: the row in the exercise list under the movement.
       tester.view.physicalSize = const Size(390, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      final draft = (await tester.runAsync(() async =>
-          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
-        ..weightKg = 100
-        ..scheme = SetScheme.cycle
-        ..cycle = [for (final week in k531) [...week]];
-      await tester.pumpWidget(appUnder(
-        container,
-        Scaffold(
-          body: ListView(children: [
-            WorkoutItemsEditor(
-                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
-          ]),
+      final draft =
+          (await tester.runAsync(
+              () async =>
+                  ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+            ))!
+            ..weightKg = 100
+            ..scheme = SetScheme.cycle
+            ..cycle = [
+              for (final week in k531) [...week],
+            ];
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: [draft],
+                  unit: 'kg',
+                  routineRest: 90,
+                  defaultBarKg: 20,
+                ),
+              ],
+            ),
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       final line = tester
@@ -915,17 +987,22 @@ void main() {
           .firstWhere((t) => t.contains(rowsTargetLabel(l10n, k531[0])));
       expect(
         line,
-        contains(l10n.itemEditorSummaryTrainingMax(
-            l10n.unitWeightShort('100', l10n.unitKgSuffix))),
+        contains(
+          l10n.itemEditorSummaryTrainingMax(
+            l10n.unitWeightShort('100', l10n.unitKgSuffix),
+          ),
+        ),
         reason: 'the number is a training max, not a weight to lift',
       );
-      expect(line.split(l10n.itemEditorSchemeSeparator).length, 4,
-          reason: 'target, training max, scheme and step — four fields, and '
-              'the three sets are one of them',
+      expect(
+        line.split(l10n.itemEditorSchemeSeparator).length,
+        4,
+        reason:
+            'target, training max, scheme and step — four fields, and '
+            'the three sets are one of them',
       );
     });
   });
-
 
   // ------------------------------------------------------------- week names
 
@@ -937,8 +1014,11 @@ void main() {
 
     test('a cycle nobody has named is null in the column', () {
       expect(encodeCycleNames(const []), isNull);
-      expect(encodeCycleNames(const ['', '  ', '']), isNull,
-          reason: 'blanks are not names');
+      expect(
+        encodeCycleNames(const ['', '  ', '']),
+        isNull,
+        reason: 'blanks are not names',
+      );
       expect(decodeCycleNames(null), isEmpty);
     });
 
@@ -951,22 +1031,29 @@ void main() {
       expect(cycleNameAt(const ['Volume'], 0), 'Volume');
       expect(cycleNameAt(const ['Volume'], 1), '');
       expect(cycleNameAt(const [], 0), '');
-      expect(cycleNameAt(const ['  Deload  '], 0), 'Deload',
-          reason: 'the name is what was typed, trimmed');
+      expect(
+        cycleNameAt(const ['  Deload  '], 0),
+        'Deload',
+        reason: 'the name is what was typed, trimmed',
+      );
     });
 
-    test('a named week is headed by its name and an unnamed one by its number',
-        () {
-      final l10n = l10nFor();
-      expect(cycleWeekTitle(l10n, 'Deload', 3), 'Deload');
-      expect(cycleWeekTitle(l10n, '', 3), l10n.itemEditorCycleWeek(4));
-    });
+    test(
+      'a named week is headed by its name and an unnamed one by its number',
+      () {
+        final l10n = l10nFor();
+        expect(cycleWeekTitle(l10n, 'Deload', 3), 'Deload');
+        expect(cycleWeekTitle(l10n, '', 3), l10n.itemEditorCycleWeek(4));
+      },
+    );
 
     test('the line under the exercise says the name and keeps the count', () {
       final l10n = l10nFor();
       expect(cycleWeekLine(l10n, '', 2, 4), l10n.sessionCycleWeek(2, 4));
-      expect(cycleWeekLine(l10n, 'Deload', 4, 4),
-          l10n.sessionCycleWeekNamed('Deload', 4, 4));
+      expect(
+        cycleWeekLine(l10n, 'Deload', 4, 4),
+        l10n.sessionCycleWeekNamed('Deload', 4, 4),
+      );
     });
 
     test('a stored slot reads back the name of the week it is on', () async {
@@ -987,27 +1074,30 @@ void main() {
       expect(item.cycleWeekNumber, 3);
     });
 
-    test('a slot whose weeks are unnamed says so rather than throwing',
-        () async {
-      final ex = await exerciseNamed(db, 'Bench Press');
-      final push = await workoutNamed(db, 'Push');
-      await db.replaceWorkoutItems(push.id, [
-        WorkoutItemsCompanion.insert(
-          workoutId: push.id,
-          exerciseId: ex.id,
-          scheme: const Value(SetScheme.cycle),
-          cycleBlocks: Value(encodeCycleBlocks(k531)),
-        ),
-      ]);
-      final item = (await db.itemsForWorkout(push.id)).single.item;
-      expect(item.cycleWeekNameList, isEmpty);
-      expect(item.cycleWeekName, '');
-    });
+    test(
+      'a slot whose weeks are unnamed says so rather than throwing',
+      () async {
+        final ex = await exerciseNamed(db, 'Bench Press');
+        final push = await workoutNamed(db, 'Push');
+        await db.replaceWorkoutItems(push.id, [
+          WorkoutItemsCompanion.insert(
+            workoutId: push.id,
+            exerciseId: ex.id,
+            scheme: const Value(SetScheme.cycle),
+            cycleBlocks: Value(encodeCycleBlocks(k531)),
+          ),
+        ]);
+        final item = (await db.itemsForWorkout(push.id)).single.item;
+        expect(item.cycleWeekNameList, isEmpty);
+        expect(item.cycleWeekName, '');
+      },
+    );
   });
 
   group('a named week is named everywhere the week is shown', () {
-    testWidgets('the board writes the name where it wrote "Week"',
-        (tester) async {
+    testWidgets('the board writes the name where it wrote "Week"', (
+      tester,
+    ) async {
       late final ActiveWorkoutController ctrl;
       await tester.runAsync(() async {
         final ex = await exerciseNamed(db, 'Bench Press');
@@ -1032,7 +1122,10 @@ void main() {
       await tester.pump();
 
       final l10n = l10nFor();
-      expect(find.text(l10n.sessionCycleWeekNamed('Peak', 2, 3)), findsOneWidget);
+      expect(
+        find.text(l10n.sessionCycleWeekNamed('Peak', 2, 3)),
+        findsOneWidget,
+      );
       expect(find.text(l10n.sessionCycleWeek(2, 3)), findsNothing);
 
       ctrl.discard();
@@ -1041,59 +1134,83 @@ void main() {
 
     testWidgets('the builder heads the card with the name', (tester) async {
       final l10n = l10nFor();
-      await openCycleSheet(tester, db, container,
-          names: const ['Volume', 'Peak', 'Deload']);
+      await openCycleSheet(
+        tester,
+        db,
+        container,
+        names: const ['Volume', 'Peak', 'Deload'],
+      );
 
       expect(find.textContaining('Volume'), findsWidgets);
       expect(find.text('Deload'), findsOneWidget);
-      expect(find.text(l10n.itemEditorCycleWeek(3)), findsNothing,
-          reason: 'week three is called Deload now');
+      expect(
+        find.text(l10n.itemEditorCycleWeek(3)),
+        findsNothing,
+        reason: 'week three is called Deload now',
+      );
     });
 
-    testWidgets('the pencil names a week, and clearing it puts the number back',
-        (tester) async {
-      final draft = await openCycleSheet(tester, db, container);
+    testWidgets(
+      'the pencil names a week, and clearing it puts the number back',
+      (tester) async {
+        final draft = await openCycleSheet(tester, db, container);
 
-      // The pencil inside week one's card — the week that opens.
-      await tester.tap(find.descendant(
-        of: find.byKey(cycleWeekKey(0)),
-        matching: find.byKey(cycleWeekRenameKey),
-      ));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(cycleWeekNameFieldKey), 'Volume');
-      await tester.tap(find.byKey(cycleWeekNameSaveKey));
-      await tester.pumpAndSettle();
+        // The pencil inside week one's card — the week that opens.
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(cycleWeekKey(0)),
+            matching: find.byKey(cycleWeekRenameKey),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(cycleWeekNameFieldKey), 'Volume');
+        await tester.tap(find.byKey(cycleWeekNameSaveKey));
+        await tester.pumpAndSettle();
 
-      expect(draft.cycleNameOf(0), 'Volume');
-      expect(find.textContaining('Volume'), findsWidgets);
+        expect(draft.cycleNameOf(0), 'Volume');
+        expect(find.textContaining('Volume'), findsWidgets);
 
-      await tester.tap(find.descendant(
-        of: find.byKey(cycleWeekKey(0)),
-        matching: find.byKey(cycleWeekRenameKey),
-      ));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(cycleWeekNameFieldKey), '');
-      await tester.tap(find.byKey(cycleWeekNameSaveKey));
-      await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(cycleWeekKey(0)),
+            matching: find.byKey(cycleWeekRenameKey),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(cycleWeekNameFieldKey), '');
+        await tester.tap(find.byKey(cycleWeekNameSaveKey));
+        await tester.pumpAndSettle();
 
-      expect(draft.cycleNameOf(0), '');
-      expect(draft.cycleNames, isEmpty,
-          reason: 'a list of nothing but blanks is stored as no names at all');
-    });
+        expect(draft.cycleNameOf(0), '');
+        expect(
+          draft.cycleNames,
+          isEmpty,
+          reason: 'a list of nothing but blanks is stored as no names at all',
+        );
+      },
+    );
 
     testWidgets('removing a week takes its name with it', (tester) async {
-      final draft = await openCycleSheet(tester, db, container,
-          names: const ['Volume', 'Peak', 'Deload']);
+      final draft = await openCycleSheet(
+        tester,
+        db,
+        container,
+        names: const ['Volume', 'Peak', 'Deload'],
+      );
 
-      await tester.tap(find.descendant(
-        of: find.byKey(cycleWeekKey(0)),
-        matching: find.byIcon(Icons.close),
-      ));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(cycleWeekKey(0)),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(draft.cycle, hasLength(2));
-      expect(draft.cycleNames, const ['Peak', 'Deload'],
-          reason: 'week two is still called Peak, not Volume');
+      expect(draft.cycleNames, const [
+        'Peak',
+        'Deload',
+      ], reason: 'week two is still called Peak, not Volume');
     });
 
     test('the names travel in a routine code', () async {
@@ -1111,8 +1228,10 @@ void main() {
       final routine = await routineNamed(db);
       final code = RoutineCode.encode(await db.sharedRoutine(routine.id));
       final back = (RoutineCode.decode(code) as RoutineCodeOk).routine;
-      final slot =
-          back.workouts.firstWhere((w) => w.name == 'Push').items.single;
+      final slot = back.workouts
+          .firstWhere((w) => w.name == 'Push')
+          .items
+          .single;
       expect(slot.cycle, k531);
       expect(slot.cycleNames, const ['Volume', '', 'Peak']);
     });
@@ -1134,43 +1253,44 @@ void main() {
         return RoutineCode.encode(await db.sharedRoutine(routine.id)).length;
       }
 
-      expect(await lengthWith(null),
-          lessThan(await lengthWith(encodeCycleNames(const ['Volume']))));
+      expect(
+        await lengthWith(null),
+        lessThan(await lengthWith(encodeCycleNames(const ['Volume']))),
+      );
     });
   });
-
 
   group('an upgraded phone finds its weeks unnamed', () {
     /// A database at the shipped v1 shape with one ordinary slot in it, climbed
     /// all the way up by opening it — see `support/schema_v1.dart`.
     AppDatabase v1Database() => AppDatabase.forTesting(
-          NativeDatabase.memory(
-            setup: (raw) {
-              for (final stmt in kSchemaV1) {
-                raw.execute(stmt);
-              }
-              raw.execute(
-                'INSERT INTO exercises (id, name, seed_key, muscle_group, '
-                "equipment) VALUES (1, 'Bench Press', 'bench_press', 'Chest', "
-                "'Barbell')",
-              );
-              raw.execute(
-                'INSERT INTO routines (id, name, color_hex, position, '
-                "rest_seconds) VALUES (1, 'Mine', 'FF6A3D', 0, 120)",
-              );
-              raw.execute(
-                'INSERT INTO workouts (id, routine_id, name, position) '
-                "VALUES (1, 1, 'Push', 0)",
-              );
-              raw.execute(
-                'INSERT INTO workout_items (id, workout_id, exercise_id, '
-                'position, target_sets, reps_min, suggested_weight) '
-                'VALUES (1, 1, 1, 0, 3, 5, 80.0)',
-              );
-              raw.execute('PRAGMA user_version = 1');
-            },
-          ),
-        );
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final stmt in kSchemaV1) {
+            raw.execute(stmt);
+          }
+          raw.execute(
+            'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+            "equipment) VALUES (1, 'Bench Press', 'bench_press', 'Chest', "
+            "'Barbell')",
+          );
+          raw.execute(
+            'INSERT INTO routines (id, name, color_hex, position, '
+            "rest_seconds) VALUES (1, 'Mine', 'FF6A3D', 0, 120)",
+          );
+          raw.execute(
+            'INSERT INTO workouts (id, routine_id, name, position) '
+            "VALUES (1, 1, 'Push', 0)",
+          );
+          raw.execute(
+            'INSERT INTO workout_items (id, workout_id, exercise_id, '
+            'position, target_sets, reps_min, suggested_weight) '
+            'VALUES (1, 1, 1, 0, 3, 5, 80.0)',
+          );
+          raw.execute('PRAGMA user_version = 1');
+        },
+      ),
+    );
 
     test('the column arrives empty, and no slot gains a name', () async {
       final upgraded = v1Database();
@@ -1187,34 +1307,50 @@ void main() {
       final upgraded = v1Database();
       addTearDown(upgraded.close);
 
-      final names =
-          (await upgraded.watchExercises().first).map((e) => e.name).toSet();
-      expect(names, containsAll(
-          const ['Pause Squat', 'Paused Bench Press', 'Pause Deadlift']));
+      final names = (await upgraded.watchExercises().first)
+          .map((e) => e.name)
+          .toSet();
+      expect(
+        names,
+        containsAll(const [
+          'Pause Squat',
+          'Paused Bench Press',
+          'Pause Deadlift',
+        ]),
+      );
     });
   });
 
   group('the card says the rates move the training max', () {
-    testWidgets('the rule is read back against the training max',
-        (tester) async {
+    testWidgets('the rule is read back against the training max', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await openCycleSheet(tester, db, container);
 
       expect(
-        find.text(l10n.itemEditorProgressionRuleCycle(
-          l10n.unitWeightShort('2.5', l10n.unitKgSuffix),
-          l10n.unitWeightShort('5', l10n.unitKgSuffix),
-          2,
-        )),
+        find.text(
+          l10n.itemEditorProgressionRuleCycle(
+            l10n.unitWeightShort('2.5', l10n.unitKgSuffix),
+            l10n.unitWeightShort('5', l10n.unitKgSuffix),
+            2,
+          ),
+        ),
         findsOneWidget,
       );
-      expect(find.textContaining(l10n.itemEditorCleanSessions.toUpperCase(),
-          findRichText: true), findsNothing,
-          reason: 'a cycle counts weeks, not a run of clean sessions');
+      expect(
+        find.textContaining(
+          l10n.itemEditorCleanSessions.toUpperCase(),
+          findRichText: true,
+        ),
+        findsNothing,
+        reason: 'a cycle counts weeks, not a run of clean sessions',
+      );
     });
 
-    testWidgets('the (i) on the Cycle option says what a cycle is',
-        (tester) async {
+    testWidgets('the (i) on the Cycle option says what a cycle is', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await openCycleSheet(tester, db, container);
 
@@ -1232,50 +1368,65 @@ void main() {
 
   // ------------------------------------------------- the percentage base
 
-  group('a movement takes its percentages from the lift it is a version of',
-      () {
-    test('the squat variations come off the back squat', () {
-      expect(percentageBaseFor('Front Squat'), 'Back Squat');
-    });
+  group(
+    'a movement takes its percentages from the lift it is a version of',
+    () {
+      test('the squat variations come off the back squat', () {
+        expect(percentageBaseFor('Front Squat'), 'Back Squat');
+      });
 
-    test('the pulling variations come off the deadlift', () {
-      for (final name in const [
-        'Deadlift to Knees',
-        'Block Deadlift',
-        'Deficit Deadlift',
-      ]) {
-        expect(percentageBaseFor(name), 'Deadlift', reason: name);
-      }
-    });
+      test('the pulling variations come off the deadlift', () {
+        for (final name in const [
+          'Deadlift to Knees',
+          'Block Deadlift',
+          'Deficit Deadlift',
+        ]) {
+          expect(percentageBaseFor(name), 'Deadlift', reason: name);
+        }
+      });
 
-    test('a movement that names none is its own base', () {
-      expect(percentageBaseFor('Back Squat'), 'Back Squat');
-      expect(percentageBaseFor('Bench Press'), 'Bench Press');
-      expect(percentageBaseFor('Deadlift'), 'Deadlift');
-      expect(percentageBaseFor('Zercher Squat'), 'Zercher Squat',
-          reason: 'a movement you built is its own base');
-    });
+      test('a movement that names none is its own base', () {
+        expect(percentageBaseFor('Back Squat'), 'Back Squat');
+        expect(percentageBaseFor('Bench Press'), 'Bench Press');
+        expect(percentageBaseFor('Deadlift'), 'Deadlift');
+        expect(
+          percentageBaseFor('Zercher Squat'),
+          'Zercher Squat',
+          reason: 'a movement you built is its own base',
+        );
+      });
 
-    test('no base is itself a variation', () {
-      for (final base in kPercentageBases.values.toSet()) {
-        expect(percentageBaseFor(base), base,
-            reason: '$base is a base and a variation at once');
-      }
-      for (final base in kPercentageBases.values.toSet()) {
-        expect(kPercentageBases.keys, isNot(contains(base)),
-            reason: '$base is a key and a value at once');
-      }
-    });
+      test('no base is itself a variation', () {
+        for (final base in kPercentageBases.values.toSet()) {
+          expect(
+            percentageBaseFor(base),
+            base,
+            reason: '$base is a base and a variation at once',
+          );
+        }
+        for (final base in kPercentageBases.values.toSet()) {
+          expect(
+            kPercentageBases.keys,
+            isNot(contains(base)),
+            reason: '$base is a key and a value at once',
+          );
+        }
+      });
 
-    test('every movement the table names is in the starter library', () async {
-      final library =
-          (await db.watchExercises().first).map((e) => e.name).toSet();
-      for (final entry in kPercentageBases.entries) {
-        expect(library, contains(entry.key));
-        expect(library, contains(entry.value));
-      }
-    });
-  });
+      test(
+        'every movement the table names is in the starter library',
+        () async {
+          final library = (await db.watchExercises().first)
+              .map((e) => e.name)
+              .toSet();
+          for (final entry in kPercentageBases.entries) {
+            expect(library, contains(entry.key));
+            expect(library, contains(entry.value));
+          }
+        },
+      );
+    },
+  );
 
   // --------------------------------------------- one screen, every max
 
@@ -1287,7 +1438,10 @@ void main() {
     /// slots under one lift disagree.
     Future<int> percentageRoutine({double frontSquatKg = 100}) async {
       final rid = await db.createRoutine(
-          name: 'Percentages', color: 'FF6A3D', restSeconds: 90);
+        name: 'Percentages',
+        color: 'FF6A3D',
+        restSeconds: 90,
+      );
       final squat = await exerciseNamed(db, 'Back Squat');
       final front = await exerciseNamed(db, 'Front Squat');
       final bench = await exerciseNamed(db, 'Bench Press');
@@ -1301,10 +1455,12 @@ void main() {
           repsMin: const Value(5),
           suggestedWeight: const Value(100),
           scheme: const Value(SetScheme.custom),
-          customSets: Value(encodeCustomSets(const [
-            CustomSet(reps: 5, percent: 70),
-            CustomSet(reps: 5, percent: 80),
-          ])),
+          customSets: Value(
+            encodeCustomSets(const [
+              CustomSet(reps: 5, percent: 70),
+              CustomSet(reps: 5, percent: 80),
+            ]),
+          ),
         ),
         WorkoutItemsCompanion.insert(
           workoutId: one,
@@ -1313,9 +1469,9 @@ void main() {
           repsMin: const Value(5),
           suggestedWeight: Value(frontSquatKg),
           scheme: const Value(SetScheme.custom),
-          customSets: Value(encodeCustomSets(const [
-            CustomSet(reps: 5, percent: 60),
-          ])),
+          customSets: Value(
+            encodeCustomSets(const [CustomSet(reps: 5, percent: 60)]),
+          ),
         ),
         WorkoutItemsCompanion.insert(
           workoutId: one,
@@ -1352,20 +1508,28 @@ void main() {
       return out;
     }
 
-    test('the routine is gathered by the lift the percentages come from',
-        () async {
-      final rid = await percentageRoutine();
-      final groups = await db.watchTrainingMaxGroups(rid).first;
+    test(
+      'the routine is gathered by the lift the percentages come from',
+      () async {
+        final rid = await percentageRoutine();
+        final groups = await db.watchTrainingMaxGroups(rid).first;
 
-      expect(groups, hasLength(1),
-          reason: 'the flat bench slot has no training max to set');
-      expect(groups.single.base, 'Back Squat');
-      expect(groups.single.members, {'Back Squat': 2, 'Front Squat': 1});
-    });
+        expect(
+          groups,
+          hasLength(1),
+          reason: 'the flat bench slot has no training max to set',
+        );
+        expect(groups.single.base, 'Back Squat');
+        expect(groups.single.members, {'Back Squat': 2, 'Front Squat': 1});
+      },
+    );
 
     test('a flat slot is not a training max', () async {
       final rid = await db.createRoutine(
-          name: 'Flat', color: 'FF6A3D', restSeconds: 90);
+        name: 'Flat',
+        color: 'FF6A3D',
+        restSeconds: 90,
+      );
       final wid = await db.createWorkout(rid, 'Day 1');
       final bench = await exerciseNamed(db, 'Bench Press');
       await db.replaceWorkoutItems(wid, [
@@ -1378,8 +1542,11 @@ void main() {
         ),
       ]);
 
-      expect(await db.watchTrainingMaxGroups(rid).first, isEmpty,
-          reason: 'a routine of flat sets has no training max to set');
+      expect(
+        await db.watchTrainingMaxGroups(rid).first,
+        isEmpty,
+        reason: 'a routine of flat sets has no training max to set',
+      );
     });
 
     test('a field opens on the number its slots already carry', () async {
@@ -1392,10 +1559,15 @@ void main() {
       final rid = await percentageRoutine(frontSquatKg: 80);
       final groups = await db.watchTrainingMaxGroups(rid).first;
 
-      expect(groups.single.weightKg, isNull,
-          reason: 'the slots differ, so the field cannot claim a number');
-      expect(groups.single.members, {'Back Squat': 2, 'Front Squat': 1},
-          reason: 'they are still one lift');
+      expect(
+        groups.single.weightKg,
+        isNull,
+        reason: 'the slots differ, so the field cannot claim a number',
+      );
+      expect(groups.single.members, {
+        'Back Squat': 2,
+        'Front Squat': 1,
+      }, reason: 'they are still one lift');
     });
 
     test('setting one lift writes every slot whose base it is', () async {
@@ -1404,10 +1576,16 @@ void main() {
 
       final slots = await slotsOf(rid);
       expect(slots['Back Squat']!.map((s) => s.suggestedWeight), [120, 120]);
-      expect(slots['Front Squat']!.single.suggestedWeight, 120,
-          reason: 'the front squat trains off the squat');
-      expect(slots['Bench Press']!.single.suggestedWeight, 60,
-          reason: 'a lift the field does not name is left alone');
+      expect(
+        slots['Front Squat']!.single.suggestedWeight,
+        120,
+        reason: 'the front squat trains off the squat',
+      );
+      expect(
+        slots['Bench Press']!.single.suggestedWeight,
+        60,
+        reason: 'a lift the field does not name is left alone',
+      );
     });
 
     test('and the field then reads back what it wrote', () async {
@@ -1419,7 +1597,10 @@ void main() {
 
     test('a routine you built yourself is gathered the same way', () async {
       final rid = await db.createRoutine(
-          name: 'Mine', color: 'FF6A3D', restSeconds: 90);
+        name: 'Mine',
+        color: 'FF6A3D',
+        restSeconds: 90,
+      );
       final wid = await db.createWorkout(rid, 'Bench');
       final bench = await exerciseNamed(db, 'Bench Press');
       await db.replaceWorkoutItems(wid, [
@@ -1432,9 +1613,9 @@ void main() {
             repsMin: const Value(5),
             suggestedWeight: const Value(90),
             scheme: const Value(SetScheme.custom),
-            customSets: Value(encodeCustomSets(const [
-              CustomSet(reps: 5, percent: 75),
-            ])),
+            customSets: Value(
+              encodeCustomSets(const [CustomSet(reps: 5, percent: 75)]),
+            ),
           ),
       ]);
 
@@ -1454,22 +1635,27 @@ void main() {
       await db.setTrainingMax(mine, 'Back Squat', 130);
 
       final untouched = await slotsOf(theirs);
-      expect(untouched['Back Squat']!.map((s) => s.suggestedWeight),
-          [100, 100]);
+      expect(untouched['Back Squat']!.map((s) => s.suggestedWeight), [
+        100,
+        100,
+      ]);
     });
 
-    testWidgets('the routine page offers the screen when there is one to set',
-        (tester) async {
+    testWidgets('the routine page offers the screen when there is one to set', (
+      tester,
+    ) async {
       final rid = (await tester.runAsync(percentageRoutine))!;
       tester.view.physicalSize = const Size(390, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(routedAppUnder(
-        container,
-        RoutineDetailScreen(routineId: rid),
-        alsoRoutes: ['routine/$rid/training-maxes'],
-      ));
+      await tester.pumpWidget(
+        routedAppUnder(
+          container,
+          RoutineDetailScreen(routineId: rid),
+          alsoRoutes: ['routine/$rid/training-maxes'],
+        ),
+      );
       await pumpThroughDatabase(tester);
 
       final button = find.byKey(const ValueKey('routine-training-maxes'));
@@ -1481,11 +1667,15 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('and does not offer it on a routine of flat sets',
-        (tester) async {
+    testWidgets('and does not offer it on a routine of flat sets', (
+      tester,
+    ) async {
       final rid = (await tester.runAsync(() async {
         final id = await db.createRoutine(
-            name: 'Flat', color: 'FF6A3D', restSeconds: 90);
+          name: 'Flat',
+          color: 'FF6A3D',
+          restSeconds: 90,
+        );
         final wid = await db.createWorkout(id, 'Day 1');
         final bench = await exerciseNamed(db, 'Bench Press');
         await db.replaceWorkoutItems(wid, [
@@ -1503,23 +1693,29 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(routedAppUnder(
-          container, RoutineDetailScreen(routineId: rid)));
+      await tester.pumpWidget(
+        routedAppUnder(container, RoutineDetailScreen(routineId: rid)),
+      );
       await pumpThroughDatabase(tester);
 
-      expect(find.byKey(const ValueKey('routine-training-maxes')), findsNothing,
-          reason: 'an action that opens onto nothing is worse than none');
+      expect(
+        find.byKey(const ValueKey('routine-training-maxes')),
+        findsNothing,
+        reason: 'an action that opens onto nothing is worse than none',
+      );
 
       await stop(tester);
     });
 
     /// The text of the field keyed on [base].
     String fieldText(WidgetTester tester, String base) => tester
-        .widget<EditableText>(find.descendant(
-          of: find.byKey(ValueKey('tm-field-$base')),
-          matching: find.byType(EditableText),
-          matchRoot: true,
-        ))
+        .widget<EditableText>(
+          find.descendant(
+            of: find.byKey(ValueKey('tm-field-$base')),
+            matching: find.byType(EditableText),
+            matchRoot: true,
+          ),
+        )
         .controller
         .text;
 
@@ -1528,48 +1724,59 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
-          routedAppUnder(container, TrainingMaxScreen(routineId: rid)));
+        routedAppUnder(container, TrainingMaxScreen(routineId: rid)),
+      );
       await pumpThroughDatabase(tester);
     }
 
-    testWidgets('the screen offers one field per lift, filled in',
-        (tester) async {
+    testWidgets('the screen offers one field per lift, filled in', (
+      tester,
+    ) async {
       final rid = (await tester.runAsync(percentageRoutine))!;
       await pumpScreen(tester, rid);
 
       expect(find.byKey(const ValueKey('tm-field-Back Squat')), findsOneWidget);
-      expect(find.byKey(const ValueKey('tm-field-Front Squat')), findsNothing,
-          reason: 'the front squat trains off the squat and gets no field');
+      expect(
+        find.byKey(const ValueKey('tm-field-Front Squat')),
+        findsNothing,
+        reason: 'the front squat trains off the squat and gets no field',
+      );
       expect(find.byKey(const ValueKey('tm-field-Bench Press')), findsNothing);
       expect(fieldText(tester, 'Back Squat'), '100');
 
       await stop(tester);
     });
 
-    testWidgets('each field names the movements it will write, and how many',
-        (tester) async {
+    testWidgets('each field names the movements it will write, and how many', (
+      tester,
+    ) async {
       final rid = (await tester.runAsync(percentageRoutine))!;
       await pumpScreen(tester, rid);
 
       expect(
-        find.byWidgetPredicate((w) =>
-            w is Text &&
-            (w.data ?? '').contains('Back Squat') &&
-            (w.data ?? '').contains('Front Squat') &&
-            (w.data ?? '').contains('2') &&
-            (w.data ?? '').contains('1')),
+        find.byWidgetPredicate(
+          (w) =>
+              w is Text &&
+              (w.data ?? '').contains('Back Squat') &&
+              (w.data ?? '').contains('Front Squat') &&
+              (w.data ?? '').contains('2') &&
+              (w.data ?? '').contains('1'),
+        ),
         findsOneWidget,
-        reason: 'a field that reached further than its label would be worse '
+        reason:
+            'a field that reached further than its label would be worse '
             'than no field',
       );
 
       await stop(tester);
     });
 
-    testWidgets('a field whose slots disagree opens empty and says so',
-        (tester) async {
-      final rid =
-          (await tester.runAsync(() => percentageRoutine(frontSquatKg: 80)))!;
+    testWidgets('a field whose slots disagree opens empty and says so', (
+      tester,
+    ) async {
+      final rid = (await tester.runAsync(
+        () => percentageRoutine(frontSquatKg: 80),
+      ))!;
       await pumpScreen(tester, rid);
 
       expect(fieldText(tester, 'Back Squat'), '');
@@ -1577,14 +1784,18 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('typing a number and saving writes every slot under it',
-        (tester) async {
-      final rid =
-          (await tester.runAsync(() => percentageRoutine(frontSquatKg: 80)))!;
+    testWidgets('typing a number and saving writes every slot under it', (
+      tester,
+    ) async {
+      final rid = (await tester.runAsync(
+        () => percentageRoutine(frontSquatKg: 80),
+      ))!;
       await pumpScreen(tester, rid);
 
       await tester.enterText(
-          find.byKey(const ValueKey('tm-field-Back Squat')), '125');
+        find.byKey(const ValueKey('tm-field-Back Squat')),
+        '125',
+      );
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('tm-save')));
       await pumpThroughDatabase(tester);
@@ -1641,20 +1852,25 @@ void main() {
       return (await db.itemsForWorkout(push.id)).single.item;
     }
 
-    test('loading the bar past the prescription does not move a custom max',
-        () async {
-      // Every set is a fraction of this number, so a heavy session must not be
-      // read as the number itself having gone up.
-      final it = await customSlot();
-      await db.advanceProgression(
-        it.id,
-        verdict: SessionVerdict.success,
-        performedWeight: 140,
-      );
-      final after = (await db.workoutItemById(it.id))!;
-      expect(after.suggestedWeight, 102.5,
-          reason: 'it steps by its own step, not by what was on the bar');
-    });
+    test(
+      'loading the bar past the prescription does not move a custom max',
+      () async {
+        // Every set is a fraction of this number, so a heavy session must not be
+        // read as the number itself having gone up.
+        final it = await customSlot();
+        await db.advanceProgression(
+          it.id,
+          verdict: SessionVerdict.success,
+          performedWeight: 140,
+        );
+        final after = (await db.workoutItemById(it.id))!;
+        expect(
+          after.suggestedWeight,
+          102.5,
+          reason: 'it steps by its own step, not by what was on the bar',
+        );
+      },
+    );
 
     test('a custom slot whose step is nothing holds its max', () async {
       final ex = await exerciseNamed(db, 'Bench Press');
@@ -1682,26 +1898,38 @@ void main() {
       expect((await db.workoutItemById(it.id))!.suggestedWeight, 100);
     });
 
-    testWidgets("a custom slot's one line names the weight a training max",
-        (tester) async {
+    testWidgets("a custom slot's one line names the weight a training max", (
+      tester,
+    ) async {
       final l10n = l10nFor();
       tester.view.physicalSize = const Size(390, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      final draft = (await tester.runAsync(() async =>
-          ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press'))))!
-        ..weightKg = 100
-        ..scheme = SetScheme.custom
-        ..customSets = [...rows];
-      await tester.pumpWidget(appUnder(
-        container,
-        Scaffold(
-          body: ListView(children: [
-            WorkoutItemsEditor(
-                items: [draft], unit: 'kg', routineRest: 90, defaultBarKg: 20),
-          ]),
+      final draft =
+          (await tester.runAsync(
+              () async =>
+                  ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+            ))!
+            ..weightKg = 100
+            ..scheme = SetScheme.custom
+            ..customSets = [...rows];
+      await tester.pumpWidget(
+        appUnder(
+          container,
+          Scaffold(
+            body: ListView(
+              children: [
+                WorkoutItemsEditor(
+                  items: [draft],
+                  unit: 'kg',
+                  routineRest: 90,
+                  defaultBarKg: 20,
+                ),
+              ],
+            ),
+          ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       final line = tester
@@ -1711,9 +1939,13 @@ void main() {
           .firstWhere((t) => t.contains(rowsTargetLabel(l10n, rows)));
       expect(
         line,
-        contains(l10n.itemEditorSummaryTrainingMax(
-            l10n.unitWeightShort('100', l10n.unitKgSuffix))),
-        reason: 'a custom slot is percentages of its weight exactly as a '
+        contains(
+          l10n.itemEditorSummaryTrainingMax(
+            l10n.unitWeightShort('100', l10n.unitKgSuffix),
+          ),
+        ),
+        reason:
+            'a custom slot is percentages of its weight exactly as a '
             'cycle is',
       );
 
