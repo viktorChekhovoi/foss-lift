@@ -4458,7 +4458,7 @@
   "itemEditorModeRepsThenWeight": "Reps → weight",
   "itemEditorProgressionTypeInfo": "About this progression type",
   "itemEditorRepsThenWeightHint": "Build reps to the top of the range, then add weight and return to the bottom.",
-  "itemEditorCycleHint": "Sets use percentages of a training max; progression changes that training max after the cycle.",
+  "itemEditorCycleHint": "The weeks above replace the usual sets and reps. Their percentages use your training max, which progresses after the final week.",
   "itemEditorWeightProgressionExplained": "After enough successful workouts, the prescribed weight increases. Repeated misses reduce it.",
   "itemEditorRepsProgressionExplained": "After enough successful workouts, the rep target increases. Repeated misses reduce it.",
   "itemEditorTimeProgressionExplained": "After enough successful workouts, the hold target gets longer. Repeated misses shorten it.",

@@ -1536,8 +1536,10 @@ void main() {
 
       await tester.tap(find.text('None'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('RPE'));
+      expect(find.text('@8'), findsOneWidget);
+      await tester.tap(find.text('@8'));
       await tester.pumpAndSettle();
+      expect(find.text('@8'), findsOneWidget);
       expect(find.text('6 · 4+ reps left'), findsOneWidget);
       expect(find.text('8 · 2 reps left'), findsOneWidget);
       expect(find.text('10 · No reps left'), findsOneWidget);
@@ -1633,6 +1635,16 @@ void main() {
       expect(draft.repsMax, draft.repsMin + 2);
       expect(draft.toFailure, isFalse);
       expect(find.text(l10nFor().itemEditorRepsThenWeightHint), findsOneWidget);
+
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorModeWeight).last);
+      await tester.pumpAndSettle();
+      expect(
+        draft.repsMax,
+        isNull,
+        reason: 'an untouched range made for this mode should leave with it',
+      );
     });
   });
 

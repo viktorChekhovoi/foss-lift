@@ -682,6 +682,8 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
 
   late bool _advanced = widget.draft.usesAdvanced;
 
+  int? _autoRepRangeMax;
+
   ItemDraft get d => widget.draft;
 
   bool get _timed => d.progression.timed;
@@ -770,6 +772,12 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
 
   void _selectProgressionType(_ProgressionType type) {
     _bump(() {
+      if (type != _ProgressionType.repsThenWeight &&
+          _autoRepRangeMax != null &&
+          d.repsMax == _autoRepRangeMax) {
+        d.repsMax = null;
+      }
+      if (type != _ProgressionType.repsThenWeight) _autoRepRangeMax = null;
       d.setGzclTier(null);
       if (d.scheme == SetScheme.cycle) d.scheme = SetScheme.flat;
       switch (type) {
@@ -781,7 +789,10 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
           d.setMode(ProgressionMode.time, unit: _unit);
         case _ProgressionType.repsThenWeight:
           d.toFailure = false;
-          d.repsMax ??= (d.repsMin + 2).clamp(1, 100);
+          if (d.repsMax == null) {
+            d.repsMax = (d.repsMin + 2).clamp(1, 100);
+            _autoRepRangeMax = d.repsMax;
+          }
           d.setAdvanced(true, unit: _unit);
           _advanced = true;
         case _ProgressionType.cycle:
@@ -872,44 +883,53 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
             ),
             const SizedBox(height: 14),
             builderCard(l10n.itemEditorTarget, [
+              if (d.scheme == SetScheme.cycle) ...[
+                _CycleEditor(draft: d, onChanged: () => _bump(() {})),
+                const SizedBox(height: 16),
+              ],
               builderGrid([
-                BuilderField(
-                  label: l10n.itemEditorSets,
-                  child: NumberStepper(
-                    value: d.setCount,
-                    min: 1,
-                    max: 12,
-                    enabled: d.scheme != SetScheme.cycle,
-                    onChanged: (v) => _bump(() => d.sets = v),
-                  ),
-                ),
-                if (_timed)
+                if (d.scheme != SetScheme.cycle) ...[
                   BuilderField(
-                    label: l10n.itemEditorHold,
+                    label: l10n.itemEditorSets,
                     child: NumberStepper(
-                      value: d.holdSeconds,
-                      suffix: l10n.itemEditorSecondsSuffix,
-                      step: 5,
-                      min: 5,
-                      max: 600,
-                      onChanged: (v) => _bump(() => d.holdSeconds = v),
-                    ),
-                  )
-                else
-                  BuilderField(
-                    label: d.toFailure
-                        ? l10n.itemEditorRepsToBeat
-                        : l10n.itemEditorReps,
-                    child: NumberStepper(
-                      value: d.repsMin,
+                      value: d.setCount,
                       min: 1,
-                      max: 100,
-                      onChanged: (v) => _bump(() {
-                        d.repsMin = v;
-                        if (d.repsMax != null && d.repsMax! < v) d.repsMax = v;
-                      }),
+                      max: 12,
+                      enabled: d.scheme != SetScheme.cycle,
+                      onChanged: (v) => _bump(() => d.sets = v),
                     ),
                   ),
+                  if (_timed)
+                    BuilderField(
+                      label: l10n.itemEditorHold,
+                      child: NumberStepper(
+                        value: d.holdSeconds,
+                        suffix: l10n.itemEditorSecondsSuffix,
+                        step: 5,
+                        min: 5,
+                        max: 600,
+                        onChanged: (v) => _bump(() => d.holdSeconds = v),
+                      ),
+                    )
+                  else
+                    BuilderField(
+                      label: d.toFailure
+                          ? l10n.itemEditorRepsToBeat
+                          : l10n.itemEditorReps,
+                      child: NumberStepper(
+                        value: d.repsMin,
+                        min: 1,
+                        max: 100,
+                        onChanged: (v) => _bump(() {
+                          _autoRepRangeMax = null;
+                          d.repsMin = v;
+                          if (d.repsMax != null && d.repsMax! < v) {
+                            d.repsMax = v;
+                          }
+                        }),
+                      ),
+                    ),
+                ],
                 BuilderField(
                   label: l10n.itemEditorRest,
                   note: d.restSeconds == null
@@ -957,32 +977,29 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                         min: d.repsMin,
                         max: 100,
                         enabled: !d.toFailure,
-                        onChanged: (v) => _bump(() => d.repsMax = v),
-                        onClear: () => _bump(() => d.repsMax = null),
+                        onChanged: (v) => _bump(() {
+                          _autoRepRangeMax = null;
+                          d.repsMax = v;
+                        }),
+                        onClear: () => _bump(() {
+                          _autoRepRangeMax = null;
+                          d.repsMax = null;
+                        }),
                       ),
                     ),
                     BuilderField(
                       label: l10n.itemEditorEffortTarget,
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int?>(
-                          value: d.targetRpe,
-                          isExpanded: true,
-                          dropdownColor: AppColors.surface3,
-                          items: [
-                            DropdownMenuItem<int?>(
-                              value: null,
-                              child: Text(l10n.commonNone),
-                            ),
-                            for (var rpe = 60; rpe <= 100; rpe += 5)
-                              DropdownMenuItem<int?>(
-                                value: rpe,
-                                child: Text(
-                                  rpe == 80 ? 'RPE' : '@${formatRpe(rpe)}',
-                                ),
-                              ),
-                          ],
-                          onChanged: (v) => _bump(() => d.targetRpe = v),
-                        ),
+                      child: _MenuField<int?>(
+                        value: d.targetRpe,
+                        height: 36,
+                        choices: [
+                          null,
+                          for (var rpe = 60; rpe <= 100; rpe += 5) rpe,
+                        ],
+                        label: (rpe) => rpe == null
+                            ? l10n.commonNone
+                            : '@${formatRpe(rpe)}',
+                        onChanged: (v) => _bump(() => d.targetRpe = v),
                       ),
                     ),
                   ]),
@@ -1203,10 +1220,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                         _bump(() => d.gzclAmrapTarget = value),
                   ),
                 ),
-              ],
-              if (d.scheme == SetScheme.cycle) ...[
-                const SizedBox(height: 18),
-                _CycleEditor(draft: d, onChanged: () => _bump(() {})),
               ],
             ]),
             if (ex != null) ...[
@@ -2158,21 +2171,12 @@ class _ProgressionTypePicker extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: DropdownButtonFormField<_ProgressionType>(
+          child: _MenuField<_ProgressionType>(
             key: kGzclTierKey,
-            initialValue: type,
-            isExpanded: true,
-            decoration: builderInput(l10n.itemEditorProgressionMethod),
-            items: [
-              for (final choice in choices)
-                DropdownMenuItem(
-                  value: choice,
-                  child: Text(_progressionTypeLabel(l10n, choice)),
-                ),
-            ],
-            onChanged: (value) {
-              if (value != null) onChanged(value);
-            },
+            value: type,
+            choices: choices,
+            label: (choice) => _progressionTypeLabel(l10n, choice),
+            onChanged: onChanged,
           ),
         ),
         const SizedBox(width: 6),
@@ -2183,6 +2187,113 @@ class _ProgressionTypePicker extends StatelessWidget {
           icon: const Icon(Icons.info_outline),
         ),
       ],
+    );
+  }
+}
+
+class _MenuField<T> extends StatelessWidget {
+  const _MenuField({
+    super.key,
+    required this.value,
+    required this.choices,
+    required this.label,
+    required this.onChanged,
+    this.height = 48,
+  });
+
+  final T value;
+  final List<T> choices;
+  final String Function(T value) label;
+  final ValueChanged<T> onChanged;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<T>(
+      tooltip: '',
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 6),
+      elevation: 12,
+      color: AppColors.surface3,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppColors.line),
+      ),
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        for (final choice in choices)
+          PopupMenuItem<T>(
+            value: choice,
+            height: 44,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label(choice),
+                    style: TextStyle(
+                      color: choice == value
+                          ? AppColors.accent
+                          : AppColors.text,
+                      fontWeight: choice == value
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (choice == value)
+                  Icon(Icons.check_rounded, size: 18, color: AppColors.accent),
+              ],
+            ),
+          ),
+      ],
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: AppColors.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: height,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 14, right: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, .12),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: Align(
+                      key: ValueKey(value),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        label(value),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: kMono.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Icon(Icons.expand_more_rounded, color: AppColors.faint),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

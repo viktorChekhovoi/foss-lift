@@ -104,7 +104,8 @@ groups:
       One dropdown above the rates and thresholds contains weight, reps, rep then
       weight, cycle, and the three GZCLP tiers. An info action beside it explains
       the selected type. Choosing rep then weight creates a rep range when needed
-      and turns off to-failure training so the method is immediately usable.
+      and turns off to-failure training so the method is immediately usable. If
+      that generated range is untouched, choosing another type removes it again.
     defines:
     - progression.advanced
     uses:
@@ -116,7 +117,8 @@ groups:
     d: >-
       Selecting Rep then weight enables double progression; selecting another
       type clears it. Its hint explains the rep climb, while Cycle and each GZCLP
-      tier show hints specific to their progression rules.
+      tier show hints specific to their progression rules. Cycle's weeks replace
+      the ordinary set and rep controls and are authored with the Target.
     screen: workout-edit
     uses:
     - progression.double
@@ -138,8 +140,9 @@ groups:
       Flat uses one weight and target for every set. Back-off decreases each later
       set by a configured percentage (for example, 100%, 90%, 80%); Ramp reverses
       that order. Custom stores a target and percentage per set. Cycle stores
-      multiple custom rows and selects one per week. The slot weight remains the
-      top of each scheme.
+      multiple custom rows and selects one per week; those weeks replace the
+      ordinary set and rep controls in Target. The slot weight remains the top of
+      each scheme.
     defines:
     - template.set-scheme
     uses:
