@@ -13,7 +13,6 @@ import 'common.dart';
 import 'exercise_filters.dart';
 import '../util/format.dart';
 
-
 InputDecoration builderInput(String hint) => InputDecoration(
   hintText: hint,
   counterText: '',
@@ -425,23 +424,22 @@ Widget settingRowShell({
   required VoidCallback onTap,
   required Widget child,
   Color? border,
-}) =>
-    Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+}) => Material(
+  color: Colors.transparent,
+  child: InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(14),
+    child: Ink(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: border ?? AppColors.line),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: child,
-        ),
+        border: Border.all(color: border ?? AppColors.line),
       ),
-    );
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: child,
+    ),
+  ),
+);
 
 class SettingRow extends StatelessWidget {
   const SettingRow({
@@ -462,48 +460,48 @@ class SettingRow extends StatelessWidget {
     return settingRowShell(
       onTap: onTap,
       child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (note != null) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        note!,
-                        style: kMono.copyWith(
-                          fontSize: 11.5,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Flexible(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.end,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: kMono.copyWith(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.accent,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
-            ],
+                if (note != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    note!,
+                    style: kMono.copyWith(
+                      fontSize: 11.5,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: kMono.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(Icons.chevron_right, color: AppColors.faint, size: 20),
+        ],
+      ),
     );
   }
 }
@@ -550,8 +548,7 @@ class NumberStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canGoDown =
-        enabled && !isEmpty && (value > min || onClear != null);
+    final canGoDown = enabled && !isEmpty && (value > min || onClear != null);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -950,7 +947,10 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                   child: Text('$e', style: TextStyle(color: AppColors.muted)),
                 ),
                 data: (all) {
-                  final list = filter.apply(all, shown: (e) => shownWords(l10n, e));
+                  final list = filter.apply(
+                    all,
+                    shown: (e) => shownWords(l10n, e),
+                  );
                   return ListView.separated(
                     itemCount: list.length + 2,
                     separatorBuilder: (_, i) => i == 0
@@ -963,8 +963,9 @@ class _ExercisePickerState extends ConsumerState<ExercisePicker> {
                       if (i == 0) {
                         return ExerciseFilterChips(
                           filter: filter,
-                          onChanged:
-                              ref.read(pickerFilterProvider.notifier).keep,
+                          onChanged: ref
+                              .read(pickerFilterProvider.notifier)
+                              .keep,
                         );
                       }
                       if (i == 1) {

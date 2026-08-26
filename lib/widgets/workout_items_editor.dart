@@ -679,6 +679,8 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   String get _unit => unitForExercise(widget.unit, d.exercise?.unitOverride);
 
   late final TextEditingController _weight;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _progressionAnchor = GlobalKey();
 
   late bool _advanced = widget.draft.usesAdvanced;
 
@@ -707,6 +709,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   @override
   void dispose() {
     _weight.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -745,9 +748,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
     style: kMono.copyWith(fontSize: 11, height: 1.5, color: AppColors.faint),
   );
 
-  String _weightAmount(AppLocalizations l10n, double amount) =>
-      progressionAmount(l10n, amount, ProgressionMode.weight, _unit);
-
   void _bump(VoidCallback fn) {
     setState(fn);
     widget.onChanged();
@@ -771,6 +771,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
   }
 
   void _selectProgressionType(_ProgressionType type) {
+    final before = _anchorY;
     _bump(() {
       if (type != _ProgressionType.repsThenWeight &&
           _autoRepRangeMax != null &&
@@ -810,6 +811,26 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
           });
       }
     });
+    if (before != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final after = _anchorY;
+        if (after == null) return;
+        final position = _scrollController.position;
+        _scrollController.jumpTo(
+          (_scrollController.offset + after - before).clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+        );
+      });
+    }
+  }
+
+  double? get _anchorY {
+    final box = _progressionAnchor.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero).dy;
   }
 
   Future<void> _editExercise() async {
@@ -844,6 +865,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
       }
     });
     return SingleChildScrollView(
+      controller: _scrollController,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + mq.padding.bottom),
         child: Column(
@@ -987,8 +1009,10 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                         }),
                       ),
                     ),
-                    BuilderField(
+                    _EffortTargetField(
                       label: l10n.itemEditorEffortTarget,
+                      tooltip: l10n.itemEditorEffortTargetWhat,
+                      onExplain: () => _explainEffortTarget(context),
                       child: _MenuField<int?>(
                         value: d.targetRpe,
                         height: 36,
@@ -1089,6 +1113,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ),
               const SizedBox(height: 10),
               _ProgressionTypePicker(
+                key: _progressionAnchor,
                 type: _progressionType,
                 modes: d.modes,
                 carriesWeight: d.weightType.carriesWeight,
@@ -1096,8 +1121,8 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               ),
               if (_progressionHint(l10n, _progressionType)
                   case final hint?) ...[
-                const SizedBox(height: 8),
-                _note(hint),
+                const SizedBox(height: 10),
+                _GuidanceCallout(text: hint),
               ],
               const SizedBox(height: 16),
               builderGrid([
@@ -1169,25 +1194,9 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 ),
               ]),
-              const SizedBox(height: 14),
-              _note(progressionRule(l10n, d, _unit)),
-              if (d.onAdvancedAxis) ...[
-                const SizedBox(height: 6),
-                _note(
-                  l10n.itemEditorRuleAtTop(
-                    d.repsMax!,
-                    _weightAmount(l10n, d.increment),
-                    d.repsMin,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                _note(
-                  l10n.itemEditorRuleAtBottom(
-                    d.repsMin,
-                    _weightAmount(l10n, d.deload),
-                    d.repsMax!,
-                  ),
-                ),
+              if (!d.onAdvancedAxis) ...[
+                const SizedBox(height: 14),
+                _note(progressionRule(l10n, d, _unit)),
               ],
               if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
                 const SizedBox(height: 12),
@@ -2043,6 +2052,23 @@ Future<void> _explainSuperset(BuildContext context) {
   );
 }
 
+Future<void> _explainEffortTarget(BuildContext context) {
+  final l10n = AppLocalizations.of(context);
+  return showAppDialog<void>(
+    context,
+    builder: (ctx) => AppDialog(
+      title: l10n.itemEditorEffortTargetWhat,
+      content: Text(l10n.itemEditorEffortTargetExplained),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(l10n.commonDone),
+        ),
+      ],
+    ),
+  );
+}
+
 const kCycleExplainKey = ValueKey('cycle-explain');
 
 Future<void> _explainCycle(BuildContext context) {
@@ -2127,6 +2153,96 @@ class _CheckRow extends StatelessWidget {
 
 const kProgressionCycleKey = ValueKey('progression-cycle');
 
+class _GuidanceCallout extends StatelessWidget {
+  const _GuidanceCallout({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent.withValues(alpha: .22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.route_rounded, size: 17, color: AppColors.accent),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EffortTargetField extends StatelessWidget {
+  const _EffortTargetField({
+    required this.label,
+    required this.tooltip,
+    required this.onExplain,
+    required this.child,
+  });
+
+  final String label;
+  final String tooltip;
+  final VoidCallback onExplain;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label.toUpperCase(),
+                style: kMono.copyWith(
+                  fontSize: 10,
+                  letterSpacing: 1,
+                  color: AppColors.faint,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: tooltip,
+              onPressed: onExplain,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 22, height: 18),
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                Icons.info_outline_rounded,
+                size: 15,
+                color: AppColors.faint,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
+  }
+}
+
 enum _ProgressionType {
   weight,
   reps,
@@ -2140,6 +2256,7 @@ enum _ProgressionType {
 
 class _ProgressionTypePicker extends StatelessWidget {
   const _ProgressionTypePicker({
+    super.key,
     required this.type,
     required this.modes,
     required this.carriesWeight,

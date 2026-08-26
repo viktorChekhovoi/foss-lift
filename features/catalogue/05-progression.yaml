@@ -103,7 +103,8 @@ groups:
       stage. Missing it retains the load and advances to the next configured
       set-and-rep stage. Each slot stores its own position, so one lift cannot
       advance another lift's ladder. A miss on the final stage holds for manual
-      reset rather than inventing a new max.
+      reset rather than inventing a new max; the app does not automatically reset
+      it at a lower weight.
     defines:
     - progression.stage-ladder
     uses:

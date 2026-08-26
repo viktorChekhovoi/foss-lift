@@ -1709,7 +1709,7 @@
   "@itemEditorCycleWhat": {
     "description": "Title of the dialog behind the info tap beside the Set scheme label. A question, as the superset one is."
   },
-  "itemEditorCycleExplained": "A cycle repeats a list of weeks. Each workout uses the next week’s sets and percentages. The weight field is your training max, not that day’s bar weight. Foss Lift changes the training max only after the last week.",
+  "itemEditorCycleExplained": "A cycle repeats an ordered list of phases—often weeks, but they can represent any sequence you choose. Each workout uses the next phase’s sets and percentages. The weight field is your training max, not that day’s bar weight. Foss Lift changes the training max only after the final phase.",
   "@itemEditorCycleExplained": {
     "description": "The body of that dialog: what a cycle is, for somebody deciding whether to pick one. Keep it to three short sentences, and keep it about the shape — naming a particular program here would make the general tool read as that program's setting."
   },
@@ -4439,6 +4439,8 @@
   "commonClear": "Clear",
   "commonNone": "None",
   "itemEditorEffortTarget": "Effort target",
+  "itemEditorEffortTargetWhat": "What is an effort target?",
+  "itemEditorEffortTargetExplained": "An effort target uses RPE to describe how close a set should be to failure. RPE 10 means no reps left, RPE 8 means about two reps left, and RPE 6 means four or more.",
   "rpeNoRepsLeft": "No reps left",
   "rpeFourPlusRepsLeft": "4+ reps left",
   "rpeRepsLeft": "{count, plural, one {1 rep left} other {{count} reps left}}",
@@ -4458,7 +4460,7 @@
   "itemEditorModeRepsThenWeight": "Reps → weight",
   "itemEditorProgressionTypeInfo": "About this progression type",
   "itemEditorRepsThenWeightHint": "Build reps to the top of the range, then add weight and return to the bottom.",
-  "itemEditorCycleHint": "The weeks above replace the usual sets and reps. Their percentages use your training max, which progresses after the final week.",
+  "itemEditorCycleHint": "The phases above—usually weeks—replace the usual sets and reps. Their percentages use your training max, which progresses after the final phase.",
   "itemEditorWeightProgressionExplained": "After enough successful workouts, the prescribed weight increases. Repeated misses reduce it.",
   "itemEditorRepsProgressionExplained": "After enough successful workouts, the rep target increases. Repeated misses reduce it.",
   "itemEditorTimeProgressionExplained": "After enough successful workouts, the hold target gets longer. Repeated misses shorten it.",
@@ -4466,7 +4468,7 @@
   "itemEditorGzclpT1": "GZCLP · T1",
   "itemEditorGzclpT2": "GZCLP · T2",
   "itemEditorGzclpT3": "GZCLP · T3",
-  "itemEditorGzclT1Explained": "GZCLP’s heavy main-lift tier. A missed prescription moves the exercise to the next sets-and-reps stage; completing the final stage resets the ladder at a lower weight.",
+  "itemEditorGzclT1Explained": "GZCLP’s heavy main-lift tier. Success increases the exercise weight and keeps its current sets-and-reps stage. A miss advances to the next stage; at the final stage, Foss Lift holds it for a manual reset.",
   "itemEditorGzclT2Explained": "GZCLP’s moderate secondary-lift tier. It uses the same staged failure progression as T1 with more reps and lighter weight.",
   "itemEditorGzclT3Explained": "GZCLP’s higher-rep assistance tier. Weight increases when the final AMRAP set reaches its configured target.",
   "itemEditorGzclTier": "GZCL tier",

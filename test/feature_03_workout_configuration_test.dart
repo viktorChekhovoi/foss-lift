@@ -1545,6 +1545,20 @@ void main() {
       expect(find.text('10 · No reps left'), findsOneWidget);
     });
 
+    testWidgets('effort target explains RPE briefly', (tester) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      await openBench(tester, container);
+      await tester.tap(find.byKey(kAdvancedToggleKey));
+      await tester.pumpAndSettle();
+
+      final l10n = l10nFor();
+      await tester.tap(find.byTooltip(l10n.itemEditorEffortTargetWhat));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.itemEditorEffortTargetWhat), findsOneWidget);
+      expect(find.text(l10n.itemEditorEffortTargetExplained), findsOneWidget);
+    });
+
     testWidgets('a slot already using it opens expanded', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
@@ -1645,6 +1659,33 @@ void main() {
         isNull,
         reason: 'an untouched range made for this mode should leave with it',
       );
+    });
+
+    testWidgets('changing to and from Cycle keeps the picker anchored', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final bench = (await tester.runAsync(
+        () async =>
+            ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+      ))!;
+      await openSheet(tester, container, [bench], size: const Size(390, 800));
+      await tester.ensureVisible(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+
+      final before = tester.getCenter(find.byKey(kGzclTierKey)).dy;
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorSchemeCycle).last);
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(find.byKey(kGzclTierKey)).dy, closeTo(before, 1));
+
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorModeWeight).last);
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(find.byKey(kGzclTierKey)).dy, closeTo(before, 1));
     });
   });
 
@@ -2285,7 +2326,7 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('the rule is read back as the three sentences it is', (
+    testWidgets('the dense three-sentence rule is replaced by one summary', (
       tester,
     ) async {
       final container = containerFor(db);
@@ -2293,19 +2334,9 @@ void main() {
       final l10n = l10nFor();
       await openAdvanced(tester, container);
 
-      // What a clean session and a miss do to the reps…
-      expect(
-        find.text(
-          l10n.itemEditorProgressionRule(
-            progressionAmount(l10n, 1, ProgressionMode.reps, 'kg'),
-            1,
-            progressionAmount(l10n, 2, ProgressionMode.reps, 'kg'),
-            2,
-          ),
-        ),
-        findsOneWidget,
-      );
-      // …what happens at the top of the range…
+      // The concise callout explains the method; the configured amounts remain
+      // visible in their controls instead of being repeated as three sentences.
+      expect(find.text(l10n.itemEditorRepsThenWeightHint), findsOneWidget);
       expect(
         find.text(
           l10n.itemEditorRuleAtTop(
@@ -2314,9 +2345,8 @@ void main() {
             6,
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      // …and what happens at the bottom.
       expect(
         find.text(
           l10n.itemEditorRuleAtBottom(
@@ -2325,7 +2355,7 @@ void main() {
             8,
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
 
       await stop(tester);

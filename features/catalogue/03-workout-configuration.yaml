@@ -49,7 +49,8 @@ groups:
     d: >-
       Contains the upper rep bound, to-failure mode, optional RPE target, and set
       scheme. It expands automatically when a slot uses any advanced option. RPE
-      is absent from a new slot until selected here.
+      is absent from a new slot until selected here, and an info action briefly
+      explains RPE through its reps-in-reserve equivalents.
     uses:
     - template.set-scheme
     - template.rep-target
@@ -117,8 +118,11 @@ groups:
     d: >-
       Selecting Rep then weight enables double progression; selecting another
       type clears it. Its hint explains the rep climb, while Cycle and each GZCLP
-      tier show hints specific to their progression rules. Cycle's weeks replace
-      the ordinary set and rep controls and are authored with the Target.
+      tier show a visually distinct, concise summary instead of stacking every
+      rule sentence in one block. Cycle's phases—usually, but not necessarily,
+      weeks—replace the ordinary set and rep controls and are authored with the
+      Target. The progression picker is held at the same screen position while
+      switching types, even when Target changes height substantially.
     screen: workout-edit
     uses:
     - progression.double
