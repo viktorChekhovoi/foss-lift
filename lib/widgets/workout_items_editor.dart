@@ -31,6 +31,7 @@ const kModeTimeKey = ValueKey('mode-time');
 const kModeAdvancedKey = ValueKey('mode-advanced');
 const kGzclTierKey = ValueKey('gzcl-tier');
 const kGzclStagesKey = ValueKey('gzcl-stages');
+ValueKey<String> gzclStageKey(int index) => ValueKey('gzcl-stage-$index');
 
 const kSupersetCheckKey = ValueKey('superset-with-previous');
 const kSupersetHintKey = ValueKey('superset-hint');
@@ -273,11 +274,12 @@ class ItemDraft {
   int gzclAmrapTarget;
 
   void setGzclTier(GzclTier? tier) {
+    final changed = tier != null && tier != gzclTier;
     gzclTier = tier;
     gzclStage = 0;
-    if (tier == GzclTier.t1 && gzclStages.isEmpty) {
+    if (tier == GzclTier.t1 && (changed || gzclStages.isEmpty)) {
       gzclStages = [...gzclpT1Stages];
-    } else if (tier == GzclTier.t2 && gzclStages.isEmpty) {
+    } else if (tier == GzclTier.t2 && (changed || gzclStages.isEmpty)) {
       gzclStages = [...gzclpT2Stages];
     }
     if (tier != null) progression = ProgressionMode.weight;
@@ -905,12 +907,17 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
             ),
             const SizedBox(height: 14),
             builderCard(l10n.itemEditorTarget, [
-              if (d.scheme == SetScheme.cycle) ...[
+              if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
+                _GzclStagesEditor(draft: d, onChanged: () => _bump(() {})),
+                const SizedBox(height: 16),
+              ] else if (d.scheme == SetScheme.cycle) ...[
                 _CycleEditor(draft: d, onChanged: () => _bump(() {})),
                 const SizedBox(height: 16),
               ],
               builderGrid([
-                if (d.scheme != SetScheme.cycle) ...[
+                if (d.scheme != SetScheme.cycle &&
+                    d.gzclTier != GzclTier.t1 &&
+                    d.gzclTier != GzclTier.t2) ...[
                   BuilderField(
                     label: l10n.itemEditorSets,
                     child: NumberStepper(
@@ -967,6 +974,19 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   ),
                 ),
               ]),
+              if (d.gzclTier == GzclTier.t3) ...[
+                const SizedBox(height: 16),
+                BuilderField(
+                  label: l10n.itemEditorGzclAmrapTarget,
+                  child: NumberStepper(
+                    value: d.gzclAmrapTarget,
+                    min: 1,
+                    max: 100,
+                    onChanged: (value) =>
+                        _bump(() => d.gzclAmrapTarget = value),
+                  ),
+                ),
+              ],
               if (widget.exerciseAbove case final above?) ...[
                 const SizedBox(height: 16),
                 _CheckRow(
@@ -977,7 +997,7 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                   onExplain: () => _explainSuperset(context),
                 ),
               ],
-              if (!_timed) ...[
+              if (!_timed && d.gzclTier == null) ...[
                 const SizedBox(height: 14),
                 _AdvancedToggle(
                   open: _advanced,
@@ -1119,11 +1139,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
                 carriesWeight: d.weightType.carriesWeight,
                 onChanged: _selectProgressionType,
               ),
-              if (_progressionHint(l10n, _progressionType)
-                  case final hint?) ...[
-                const SizedBox(height: 10),
-                _GuidanceCallout(text: hint),
-              ],
               const SizedBox(height: 16),
               builderGrid([
                 BuilderField(
@@ -1197,38 +1212,6 @@ class _ItemConfigSheetState extends ConsumerState<_ItemConfigSheet> {
               if (!d.onAdvancedAxis) ...[
                 const SizedBox(height: 14),
                 _note(progressionRule(l10n, d, _unit)),
-              ],
-              if (d.gzclTier == GzclTier.t1 || d.gzclTier == GzclTier.t2) ...[
-                const SizedBox(height: 12),
-                TextFormField(
-                  key: kGzclStagesKey,
-                  initialValue: encodeGzclStages(
-                    d.gzclStages,
-                  )?.replaceAll(';', ', '),
-                  decoration: builderInput(l10n.itemEditorGzclStages),
-                  onChanged: (value) => _bump(() {
-                    final stages = decodeGzclStages(
-                      value.replaceAll(',', ';').replaceAll('×', 'x'),
-                    );
-                    if (stages.isNotEmpty) {
-                      d.gzclStages = stages;
-                      d.gzclStage = d.gzclStage.clamp(0, stages.length - 1);
-                    }
-                  }),
-                ),
-              ],
-              if (d.gzclTier == GzclTier.t3) ...[
-                const SizedBox(height: 12),
-                BuilderField(
-                  label: l10n.itemEditorGzclAmrapTarget,
-                  child: NumberStepper(
-                    value: d.gzclAmrapTarget,
-                    min: 1,
-                    max: 100,
-                    onChanged: (value) =>
-                        _bump(() => d.gzclAmrapTarget = value),
-                  ),
-                ),
               ],
             ]),
             if (ex != null) ...[
@@ -1639,6 +1622,140 @@ class _CustomSetRow extends StatelessWidget {
       repsMax: top == null ? null : (top < bottom ? bottom : top),
       amrap: open,
       percent: percent ?? row.percent,
+    );
+  }
+}
+
+class _GzclStagesEditor extends StatelessWidget {
+  const _GzclStagesEditor({required this.draft, required this.onChanged});
+
+  final ItemDraft draft;
+  final VoidCallback onChanged;
+
+  void _replace(int index, GzclStage stage) {
+    draft.gzclStages = [
+      for (var i = 0; i < draft.gzclStages.length; i++)
+        if (i == index) stage else draft.gzclStages[i],
+    ];
+    onChanged();
+  }
+
+  void _remove(int index) {
+    if (draft.gzclStages.length <= 1) return;
+    draft.gzclStages = [...draft.gzclStages]..removeAt(index);
+    draft.gzclStage = draft.gzclStage.clamp(0, draft.gzclStages.length - 1);
+    onChanged();
+  }
+
+  void _add() {
+    final last = draft.gzclStages.isEmpty
+        ? const GzclStage(sets: 3, reps: 5)
+        : draft.gzclStages.last;
+    draft.gzclStages = [...draft.gzclStages, last];
+    onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      key: kGzclStagesKey,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(l10n.itemEditorGzclStages, style: sectionLabelStyle()),
+        const SizedBox(height: 10),
+        for (var i = 0; i < draft.gzclStages.length; i++) ...[
+          DecoratedBox(
+            key: gzclStageKey(i),
+            decoration: BoxDecoration(
+              color: i == draft.gzclStage
+                  ? AppColors.accent.withValues(alpha: .07)
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: i == draft.gzclStage
+                    ? AppColors.accent.withValues(alpha: .3)
+                    : AppColors.line,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    margin: const EdgeInsets.only(bottom: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: i == draft.gzclStage
+                          ? AppColors.accent
+                          : AppColors.surface2,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${i + 1}',
+                      style: kMono.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: i == draft.gzclStage
+                            ? AppColors.ground
+                            : AppColors.muted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: BuilderField(
+                      label: l10n.itemEditorSets,
+                      child: NumberStepper(
+                        value: draft.gzclStages[i].sets,
+                        min: 1,
+                        max: 12,
+                        onChanged: (sets) => _replace(
+                          i,
+                          GzclStage(sets: sets, reps: draft.gzclStages[i].reps),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: BuilderField(
+                      label: l10n.itemEditorReps,
+                      child: NumberStepper(
+                        value: draft.gzclStages[i].reps,
+                        min: 1,
+                        max: 100,
+                        onChanged: (reps) => _replace(
+                          i,
+                          GzclStage(sets: draft.gzclStages[i].sets, reps: reps),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.commonDelete,
+                    onPressed: draft.gzclStages.length > 1
+                        ? () => _remove(i)
+                        : null,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (i < draft.gzclStages.length - 1) const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: _add,
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: Text(l10n.commonAdd),
+        ),
+      ],
     );
   }
 }
@@ -2153,44 +2270,6 @@ class _CheckRow extends StatelessWidget {
 
 const kProgressionCycleKey = ValueKey('progression-cycle');
 
-class _GuidanceCallout extends StatelessWidget {
-  const _GuidanceCallout({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.accent.withValues(alpha: .22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.route_rounded, size: 17, color: AppColors.accent),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.text,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _EffortTargetField extends StatelessWidget {
   const _EffortTargetField({
     required this.label,
@@ -2425,16 +2504,6 @@ String _progressionTypeLabel(AppLocalizations l10n, _ProgressionType type) =>
       _ProgressionType.gzclT1 => l10n.itemEditorGzclpT1,
       _ProgressionType.gzclT2 => l10n.itemEditorGzclpT2,
       _ProgressionType.gzclT3 => l10n.itemEditorGzclpT3,
-    };
-
-String? _progressionHint(AppLocalizations l10n, _ProgressionType type) =>
-    switch (type) {
-      _ProgressionType.repsThenWeight => l10n.itemEditorRepsThenWeightHint,
-      _ProgressionType.cycle => l10n.itemEditorCycleHint,
-      _ProgressionType.gzclT1 => l10n.itemEditorGzclT1Hint,
-      _ProgressionType.gzclT2 => l10n.itemEditorGzclT2Hint,
-      _ProgressionType.gzclT3 => l10n.itemEditorGzclT3Hint,
-      _ => null,
     };
 
 String _progressionExplanation(AppLocalizations l10n, _ProgressionType type) =>

@@ -117,12 +117,11 @@ groups:
     t: Rep then weight has one switch in the progression-type dropdown
     d: >-
       Selecting Rep then weight enables double progression; selecting another
-      type clears it. Its hint explains the rep climb, while Cycle and each GZCLP
-      tier show a visually distinct, concise summary instead of stacking every
-      rule sentence in one block. Cycle's phases—usually, but not necessarily,
-      weeks—replace the ordinary set and rep controls and are authored with the
-      Target. The progression picker is held at the same screen position while
-      switching types, even when Target changes height substantially.
+      type clears it. Non-basic explanations stay behind the info action instead
+      of repeating the same prose in the card. Cycle's phases—usually, but not
+      necessarily, weeks—replace the ordinary set and rep controls and are
+      authored with the Target. The progression picker is held at the same screen
+      position while switching types, even when Target changes height substantially.
     screen: workout-edit
     uses:
     - progression.double

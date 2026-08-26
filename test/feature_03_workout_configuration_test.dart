@@ -122,6 +122,61 @@ void main() {
         expect(reopened.gzclAmrapTarget, 20);
       },
     );
+
+    testWidgets('T1 and T2 put their set-rep ladders in Target', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = (await tester.runAsync(
+        () async =>
+            ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+      ))!;
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorGzclpT1).last);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(kGzclStagesKey), findsOneWidget);
+      expect(find.byKey(gzclStageKey(0)), findsOneWidget);
+      expect(find.byKey(kAdvancedToggleKey), findsNothing);
+      expect(
+        tester.getTopLeft(find.byKey(kGzclStagesKey)).dy,
+        lessThan(tester.getTopLeft(find.byKey(kGzclTierKey)).dy),
+      );
+
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorGzclpT2).last);
+      await tester.pumpAndSettle();
+      expect(draft.gzclStages, gzclpT2Stages);
+    });
+
+    testWidgets('T3 puts its AMRAP target beside its base target', (
+      tester,
+    ) async {
+      final container = containerFor(db);
+      addTearDown(container.dispose);
+      final draft = (await tester.runAsync(
+        () async =>
+            ItemDraft.forExercise(await exerciseNamed(db, 'Bench Press')),
+      ))!;
+      await openSheet(tester, container, [draft]);
+
+      await tester.tap(find.byKey(kGzclTierKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10nFor().itemEditorGzclpT3).last);
+      await tester.pumpAndSettle();
+
+      expect(fieldLabel(l10nFor().itemEditorGzclAmrapTarget), findsOneWidget);
+      expect(find.byKey(kAdvancedToggleKey), findsNothing);
+      expect(
+        tester.getTopLeft(fieldLabel(l10nFor().itemEditorGzclAmrapTarget)).dy,
+        lessThan(tester.getTopLeft(find.byKey(kGzclTierKey)).dy),
+      );
+    });
   });
 
   group('the step-up and back-off amounts are tapped as well as typed', () {
@@ -1648,7 +1703,7 @@ void main() {
       expect(draft.onAdvancedAxis, isTrue);
       expect(draft.repsMax, draft.repsMin + 2);
       expect(draft.toFailure, isFalse);
-      expect(find.text(l10nFor().itemEditorRepsThenWeightHint), findsOneWidget);
+      expect(find.text(l10nFor().itemEditorRepsThenWeightHint), findsNothing);
 
       await tester.tap(find.byKey(kGzclTierKey));
       await tester.pumpAndSettle();
@@ -2326,17 +2381,13 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('the dense three-sentence rule is replaced by one summary', (
-      tester,
-    ) async {
+    testWidgets('the explanation stays behind the info action', (tester) async {
       final container = containerFor(db);
       addTearDown(container.dispose);
       final l10n = l10nFor();
       await openAdvanced(tester, container);
 
-      // The concise callout explains the method; the configured amounts remain
-      // visible in their controls instead of being repeated as three sentences.
-      expect(find.text(l10n.itemEditorRepsThenWeightHint), findsOneWidget);
+      expect(find.text(l10n.itemEditorRepsThenWeightHint), findsNothing);
       expect(
         find.text(
           l10n.itemEditorRuleAtTop(
@@ -2347,6 +2398,9 @@ void main() {
         ),
         findsNothing,
       );
+      await tester.tap(find.byKey(kCycleExplainKey));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.itemEditorRepsThenWeightExplained), findsOneWidget);
       expect(
         find.text(
           l10n.itemEditorRuleAtBottom(
