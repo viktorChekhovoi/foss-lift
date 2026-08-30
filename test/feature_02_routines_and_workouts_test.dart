@@ -1385,6 +1385,42 @@ void main() {
     });
   });
 
+  testWidgets('a workout preview shows the current GZCLP stage target', (
+    tester,
+  ) async {
+    late int w;
+    await tester.runAsync(() async {
+      w = await workoutIdNamed(db, 'Push');
+      final drafts = [
+        for (final v in await db.itemsForWorkout(w)) ItemDraft.fromView(v),
+      ];
+      drafts[0]
+        ..sets = 5
+        ..repsMin = 3
+        ..gzclTier = GzclTier.t1
+        ..gzclStages = const [
+          GzclStage(sets: 5, reps: 3),
+          GzclStage(sets: 6, reps: 2),
+        ]
+        ..gzclStage = 1;
+      await db.replaceWorkoutItems(w, itemCompanions(drafts, workoutId: w));
+    });
+    final container = containerFor(db);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      appUnder(container, WorkoutDetailScreen(workoutId: w)),
+    );
+    await pumpThroughDatabase(tester);
+
+    expect(
+      find.text(l10nFor().targetSetsReps(6, l10nFor().targetAmrap(2))),
+      findsOneWidget,
+    );
+    expect(find.text(l10nFor().targetSetsReps(5, '3')), findsNothing);
+    await stop(tester);
+  });
+
   group('a long routine offers the session you are on, not all of them', () {
     /// A routine of [days] training days, made current — the shape a program
     /// written out session by session arrives in.

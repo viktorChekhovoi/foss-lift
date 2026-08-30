@@ -214,6 +214,27 @@ class _ExerciseRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final perSide = _perSide(l10n);
     final muscle = muscleGroupLabel(l10n, view.exercise.muscleGroup);
+    final item = view.item;
+    final target = item.runsCycle
+        ? rowsTargetLabel(l10n, item.cycleRows)
+        : item.gzclTier == GzclTier.t3 && item.customRows.isNotEmpty
+        ? rowsTargetLabel(l10n, item.customRows)
+        : item.currentGzclStage != null && item.gzclTier == GzclTier.t1
+        ? l10n.targetSetsReps(
+            item.setCount,
+            rowLabel(l10n, reps: item.goalReps, amrap: true),
+          )
+        : setsTargetLabel(
+            l10n,
+            sets: item.setCount,
+            progression: item.progression,
+            toFailure: item.currentGzclStage != null ? false : item.toFailure,
+            holdSeconds: item.holdSeconds,
+            repsMin: item.goalReps,
+            repsMax: item.currentGzclStage != null || item.climbsRange
+                ? null
+                : item.repsMax,
+          );
     return Container(
       padding: EdgeInsets.fromLTRB(grouped ? 10 : 0, 14, 0, 14),
       decoration: BoxDecoration(
@@ -259,17 +280,7 @@ class _ExerciseRow extends StatelessWidget {
             ),
           ),
           Text(
-            view.item.runsCycle
-                ? rowsTargetLabel(l10n, view.item.cycleRows)
-                : setsTargetLabel(
-                    l10n,
-                    sets: view.item.targetSets,
-                    progression: view.item.progression,
-                    toFailure: view.item.toFailure,
-                    holdSeconds: view.item.holdSeconds,
-                    repsMin: view.item.goalReps,
-                    repsMax: view.item.climbsRange ? null : view.item.repsMax,
-                  ),
+            target,
             style: kMono.copyWith(
               fontSize: 13,
               color: AppColors.accent,

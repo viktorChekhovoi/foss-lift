@@ -164,6 +164,15 @@ groups:
     - template.item
 - name: Behaviour & edge cases
   items:
+  - id: workout-preview-follows-gzclp-stage
+    t: A workout preview shows the GZCLP stage it will run
+    d: >-
+      A staged GZCLP slot shows the current stage's sets and reps on the workout
+      detail screen, rather than the base target left from an earlier stage.
+    screen: workout-detail
+    uses:
+    - template.item
+    - progression.gzcl-tier
   - id: estimate-rounded-not-precise
     t: The estimate is rounded to five minutes and marked as approximate
     d: >-
