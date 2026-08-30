@@ -628,16 +628,22 @@ class ActiveWorkout {
     }
     final group = supersetGroupOf(ei);
     if (group.length == 1) {
+      final prompt = warmup
+          ? restAfterWarmup(ei, index)
+          : restAfterSet(ei, index);
       return (
-        seconds: warmup ? e.restAfterWarmup(index) : e.restSeconds,
-        prompt: warmup ? restAfterWarmup(ei, index) : restAfterSet(ei, index),
+        seconds: prompt == null
+            ? 0
+            : (warmup ? e.restAfterWarmup(index) : e.restSeconds),
+        prompt: prompt,
       );
     }
     final next = _afterInGroup(group, ei, index, warmup: warmup);
     if (next == null) {
       // The group has nothing left: what follows is whatever comes after it,
       // which is the same question an ordinary exercise's last set asks.
-      return (seconds: e.restSeconds, prompt: _nextExerciseAfter(group.last));
+      final prompt = _nextExerciseAfter(group.last);
+      return (seconds: prompt == null ? 0 : e.restSeconds, prompt: prompt);
     }
     // Still inside the round — another movement of the group owes this very set
     // — so there is no rest and nothing for a banner to say.
@@ -773,7 +779,7 @@ class ActiveWorkout {
   ///
   /// The last set of an exercise is the one that ends it, so the next thing is
   /// a different movement — and that is a walk across the gym, not a wait.
-  RestPrompt restAfterSet(int ei, int si) {
+  RestPrompt? restAfterSet(int ei, int si) {
     final e = exercises[ei];
     final next = e.sets.skip(si + 1).where((s) => !s.done).firstOrNull;
     if (next != null) {
@@ -796,8 +802,9 @@ class ActiveWorkout {
 
   /// The movement that follows the exercise at [ei] on the board: the next one
   /// with anything left to do, skipping past any already finished. [_justRest]
-  /// when there is nothing left anywhere — this was the last set of the session.
-  RestPrompt _nextExerciseAfter(int ei) {
+  /// Null when there is nothing left anywhere — this was the last set of the
+  /// session, so there is no next lift to rest for.
+  RestPrompt? _nextExerciseAfter(int ei) {
     for (var i = ei + 1; i < exercises.length; i++) {
       if (exercises[i].sets.any((s) => !s.done)) {
         return (
@@ -808,11 +815,11 @@ class ActiveWorkout {
         );
       }
     }
-    return _justRest;
+    return null;
   }
 
   /// A rest with nothing to set up: another set of the same thing at the same
-  /// weight, or the end of the session.
+  /// weight.
   static const _justRest = (
     purpose: RestPurpose.anotherSet,
     weightKg: null,
@@ -1607,7 +1614,22 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       if (!e.sets[i].done) e.sets[i].weight = targets[i].weightKg ?? 0;
     }
     _rebuildRamp(e, inventory: s.plates);
-    _commit(s.copyWith());
+    final restingForThisRamp =
+        s.restLeft > 0 &&
+        s.restFor?.exercise == ei &&
+        s.restPrompt?.purpose == RestPurpose.theWorkingSet;
+    _commit(
+      s.copyWith(
+        restPrompt: restingForThisRamp
+            ? (
+                purpose: RestPurpose.theWorkingSet,
+                weightKg: e.nextWeight,
+                exercise: null,
+                exerciseSeedKey: null,
+              )
+            : null,
+      ),
+    );
   }
 
   /// Writes what the console said on one set of a cardio machine.

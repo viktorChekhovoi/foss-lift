@@ -133,7 +133,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
       return;
     }
     final rest = session.restAfter(ei, index, warmup: warmup);
-    if (rest.seconds == 0) return;
+    if (rest.seconds == 0 || rest.prompt == null) return;
     _startRest(rest.seconds, rest.prompt, at);
   }
 
@@ -186,7 +186,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     final session = ref.read(activeWorkoutProvider);
     if (session != null) {
       final rest = session.restAfter(h.exercise, h.set, warmup: false);
-      if (rest.seconds > 0) {
+      if (rest.seconds > 0 && rest.prompt != null) {
         _startRest(rest.seconds, rest.prompt, (
           exercise: h.exercise,
           set: h.set,

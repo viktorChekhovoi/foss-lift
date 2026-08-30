@@ -4035,7 +4035,7 @@ void main() {
       ctl.cycleSet(0, 0);
 
       final p = session().restAfterSet(0, 0);
-      expect(p.purpose, RestPurpose.anotherSet);
+      expect(p!.purpose, RestPurpose.anotherSet);
       expect(p.weightKg, isNull);
       expect(p.exercise, isNull);
     });
@@ -4048,7 +4048,7 @@ void main() {
       }
 
       final p = session().restAfterSet(0, 3);
-      expect(p.purpose, RestPurpose.nextExercise);
+      expect(p!.purpose, RestPurpose.nextExercise);
       expect(p.exercise, session().exercises[1].name);
     });
 
@@ -4063,7 +4063,35 @@ void main() {
 
       // Walking to the machine you have already finished with is not advice.
       final p = session().restAfterSet(0, 3);
-      expect(p.exercise, session().exercises[2].name);
+      expect(p!.exercise, session().exercises[2].name);
+    });
+
+    test('the final outstanding set has no rest or next-lift prompt', () async {
+      final ctl = await startPush();
+      for (final e in session().exercises.indexed) {
+        for (var si = 0; si < e.$2.sets.length; si++) {
+          ctl.cycleSet(e.$1, si);
+        }
+      }
+
+      final lastExercise = session().exercises.length - 1;
+      final lastSet = session().exercises[lastExercise].sets.length - 1;
+      final rest = session().restAfter(lastExercise, lastSet, warmup: false);
+      expect(rest.seconds, 0);
+      expect(rest.prompt, isNull);
+    });
+
+    test('a live working-weight edit refreshes the post-warm-up cue', () async {
+      final ctl = await startPush();
+      final last = session().exercises[0].warmups.length - 1;
+      final prompt = session().restAfterWarmup(0, last);
+      ctl.startRest(90, prompt, forSet: (exercise: 0, set: last, warmup: true));
+
+      ctl.setWorkingWeight(0, 85);
+
+      expect(session().restPrompt?.purpose, RestPurpose.theWorkingSet);
+      expect(session().restPrompt?.weightKg, 85);
+      ctl.stopRest(tone: false);
     });
 
     testWidgets('and the banner says so, in the display unit', (tester) async {

@@ -121,7 +121,8 @@ groups:
       controls and an end alert. Clearing the set that started the rest stops that
       rest; clearing an earlier set does not. This applies to cycle edits, typed
       values, holds, warm-up rungs, and working sets. Changing a logged value does
-      not restart the clock.
+      not restart the clock. Completing the final outstanding working set does not
+      start a purposeless rest.
     defines:
     - session.rest-timer
     uses:
@@ -508,7 +509,8 @@ groups:
     d: >-
       Labels the next action: set up the next warm-up load, set up the working
       weight, rest before the next set, or set up the next exercise. It skips
-      completed exercises and names the next movement after a superset round.
+      completed exercises and names the next movement after a superset round. A
+      working-weight edit updates an active post-warm-up cue immediately.
     defines:
     - session.rest-cue
     uses:
