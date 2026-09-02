@@ -3850,7 +3850,8 @@ void main() {
     // Issue #61. The foreground service keeps the app's process alive to the
     // end of its own countdown, so the app plays the same asset through the
     // same player either way — see `volume-is-a-gain-because-app-plays-it`.
-    // What the pocket adds is a notification to look at, not a second noise.
+    // The workout shade remains the thing to look at; rest completion adds no
+    // second notification.
     late _RecordingAlarm alarm;
     late _RecordingTone tone;
     late _RecordingBuzz buzz;
@@ -3877,23 +3878,22 @@ void main() {
     }
 
     test(
-      'a rest running out off screen rings, and says what is next',
-        () async {
-      final ctl = await startPushWithPhone(onScreen: false);
-      ctl.startRest(90, null);
+      'a rest running out off screen uses the existing workout shade',
+      () async {
+        final ctl = await startPushWithPhone(onScreen: false);
+        ctl.startRest(90, null);
 
-      ctl.stopRest();
+        ctl.stopRest();
 
-      expect(alarm.rung, hasLength(1));
-        expect(
-          alarm.rung.single,
-          contains('Bench Press'),
-          reason: '"rest over" makes you open the app to find out what for',
-        );
+        expect(alarm.rung, isEmpty,
+            reason: 'the running workout already occupies the notification '
+                'shade; rest completion updates that status instead of posting '
+                'another alert');
         expect(
           tone.played,
           1,
-          reason: 'the notification joins the tone; it does not replace it',
+          reason: 'the existing shade replaces only the redundant completion '
+              'card',
         );
         expect(
           buzz.buzzes,
@@ -3931,17 +3931,17 @@ void main() {
 
     test(
       'skipping from the shade sounds, like every other end of a rest',
-        () async {
-      // It used to be silent, on the argument that whoever pressed Skip knows.
-      // What that produced was the one button in the app that is only ever
-      // pressed from a pocket, with no feedback of any kind.
-      final ctl = await startPushWithPhone(onScreen: false);
-      ctl.startRest(90, null);
+      () async {
+        // It used to be silent, on the argument that whoever pressed Skip knows.
+        // What that produced was the one button in the app that is only ever
+        // pressed from a pocket, with no feedback of any kind.
+        final ctl = await startPushWithPhone(onScreen: false);
+        ctl.startRest(90, null);
 
-      applyShadeAction(ctl, WorkoutShade.restSkipAction);
+        applyShadeAction(ctl, WorkoutShade.restSkipAction);
 
-      expect(alarm.rung, hasLength(1));
-      expect(session().restLeft, 0);
+        expect(alarm.rung, isEmpty);
+        expect(session().restLeft, 0);
       },
     );
 
@@ -3976,8 +3976,8 @@ void main() {
       expect(tone.played, 1);
       expect(
         alarm.rung,
-        hasLength(1),
-        reason: 'the notification is the picture beside the sound',
+        isEmpty,
+        reason: 'the existing workout shade is the picture beside the sound',
       );
     });
   });
@@ -4274,7 +4274,7 @@ void main() {
   });
 
   group('And it makes a sound when it is over', () {
-    test('the tone reaches the player, at the one volume there is', () async {
+    test('on Android the tone follows notification volume', () async {
       // The tone is Android-and-iOS only, and the runner is neither.
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -4283,6 +4283,8 @@ void main() {
 
       await tone.play();
       expect(player.touched, isTrue);
+      expect(player.context?.android.usageType, AndroidUsageType.notification,
+          reason: 'a quiet alarm setting must not make the gym rest cue quiet');
     });
   });
 
@@ -5103,10 +5105,14 @@ class _NoPlayer implements AudioPlayer {
 /// [RestTone.play] swallows what the player throws.
 class _WatchfulPlayer implements AudioPlayer {
   bool touched = false;
+  AudioContext? context;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
     touched = true;
+    if (invocation.memberName == #setAudioContext) {
+      context = invocation.positionalArguments.single as AudioContext;
+    }
     return Future<void>.value();
   }
 }

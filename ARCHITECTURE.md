@@ -62,8 +62,8 @@ lib/
 ├── services/
 │   ├── reminders.dart            Local notification scheduling (Android)
 │   ├── rest_tone.dart            The rest-end ding — the only route with a volume
-│   ├── rest_alarm.dart           The silent notification beside it, off screen
-│   ├── rest_buzz.dart            The vibration beside both, wherever the phone is
+│   ├── rest_alarm.dart           Clears legacy rest-complete notifications
+│   ├── rest_buzz.dart            The vibration beside the tone, wherever the phone is
 │   ├── workout_shade.dart        The live workout as an Android foreground service
 │   ├── backup_service.dart       Writing a backup file, and reading one back
 │   ├── notifications.dart        The notification plugin's one initialize
@@ -562,8 +562,8 @@ reminded on them.
   demo video, which is a review you can win, while `USE_EXACT_ALARM` is refused
   outright to anything that is not an alarm clock or a calendar. So
   `services/workout_shade.dart` runs `flutter_foreground_task` as `specialUse`
-  (declaration and video in `RELEASING.md`), and `services/rest_alarm.dart`
-  posts the end of a rest when it happens rather than scheduling anything. Three
+  (declaration and video in `RELEASING.md`). The app plays the end-of-rest tone
+  itself rather than scheduling anything. Three
   consequences worth knowing before changing either:
   - **The service is for the process, not the notification.** An ordinary
     notification draws the same thing. What the service buys is that the isolate
@@ -577,9 +577,10 @@ reminded on them.
     timer in this same isolate, so the player is reachable either way — which
     means one asset, one route and one behaviour rather than a channel sound
     posted whenever Android gets round to it. How loud it is is the phone's
-    alarm slider and nothing of the app's; there is no in-app volume.
-    `RestAlarm` is the silent visual beside it (`rest_end`, no sound, still
-    buzzes), posted only when the app is not on screen.
+    notification slider and nothing of the app's; there is no in-app volume.
+    The existing workout notification carries the updated rest state, so the
+    app posts no separate rest-complete notification. `RestAlarm` remains only
+    to clear a legacy `rest_end` card after an in-place update.
   - **The buzz is `RestBuzz`, and it is the vibrator rather than haptics.**
     `MainActivity` answers `com.fosslift.foss_lift/buzz` with a full-amplitude
     waveform played at alarm usage, so it carries through a bag and past a
@@ -599,9 +600,8 @@ reminded on them.
     runs in an isolate of its own and writes a press down before announcing it,
     so a press made after the app's isolate died is applied when it returns.
   - **One `initialize` for the notification plugin**, in `services/notifications.dart`.
-    `ReminderService` and `RestAlarm` share one plugin instance and `initialize`
-    keeps only the last arguments it was handed, so whichever initialized last
-    used to decide the configuration. Nothing else calls `plugin.initialize`.
+    `ReminderService` owns it for newly posted notifications. Nothing else posts
+    through the plugin during a live workout.
 ### Providers — `providers/`
 Thin bridge from widgets to data. Notable ones:
 - `databaseProvider` — the one DB instance (in its own file to break a cycle).

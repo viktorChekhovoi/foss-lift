@@ -144,11 +144,9 @@ void main() {
   }
 
   group('A rest ending is audible with the phone away', () {
-    // The user's report: "i still get no notification sound about a rest being
-    // done when i'm not in the app", and no sound even with the alarm volume at
-    // maximum. The countdown is a timer in this process and Android is free to
-    // kill the process the moment the app is backgrounded, so the ding cannot be
-    // this isolate's to make. It is handed to Android in advance.
+    // The foreground service keeps the countdown's isolate alive with the phone
+    // away. That isolate plays the tone while the existing workout notification
+    // continues to describe the session.
     late _RecordingAlarm alarm;
     late _RecordingTone tone;
 
@@ -181,11 +179,10 @@ void main() {
       ctl.discard();
     });
 
-    test('the app rings at the moment the rest ends', () async {
-      // `ding-posted-when-rest-ends`. Nothing was handed over in advance, so
-      // this is the only thing that makes a rest audible from a pocket — and it
-      // happens because the session's foreground service is still holding this
-      // isolate open when its own countdown reaches zero.
+    test('the app plays the tone at the moment the rest ends', () async {
+      // The foreground service keeps the session alive until its own countdown
+      // reaches zero. It can therefore play the tone and refresh the workout
+      // shade without posting a second notification.
       final ctl = await pushWithPhone(onScreen: false);
 
       // A real two-second rest, run out for real: the point of the test is what
@@ -196,17 +193,11 @@ void main() {
       expect(session().restLeft, 0, reason: 'the rest is over');
       expect(
         alarm.rung,
-        hasLength(1),
-        reason: 'off screen the notification is posted now, not scheduled',
+        isEmpty,
+        reason: 'the workout already has a notification-shade entry',
       );
-      expect(
-        alarm.rung.single,
-        contains('Bench Press'),
-        reason: '"rest done" makes you open the app to find out what for',
-      );
-      // `volume-is-a-gain-because-app-plays-it`: the notification is the
-      // picture, the player is the noise — including from a pocket, which is
-      // the only reason the volume setting means anything.
+      // `volume-is-a-gain-because-app-plays-it`: the shade is the picture, the
+      // player is the noise — including from a pocket.
       expect(tone.played, 1, reason: 'the sound is the tone either way');
 
       ctl.discard();
@@ -239,8 +230,7 @@ void main() {
       applyShadeAction(ctl, WorkoutShade.restSkipAction);
 
       expect(session().restLeft, 0);
-      expect(alarm.rung, hasLength(1));
-      expect(alarm.rung.single, contains('Bench Press'));
+      expect(alarm.rung, isEmpty);
 
       ctl.discard();
     });

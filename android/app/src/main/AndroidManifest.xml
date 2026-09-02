@@ -3,8 +3,8 @@
     <!-- The gym reminders are scheduled alarms on this device, and this lets the
          notification plugin lay them down again after a reboot, which is
          otherwise where every pending one goes to die. They are the only
-         scheduled notifications left — the end of a rest is posted when it
-         happens, see below.
+         scheduled notifications left; the end of a rest is played by the app
+         without posting another notification.
 
          **This app declares no alarm permission, and that is Play policy rather
          than a technical choice.** Read this before adding one back:
@@ -24,7 +24,7 @@
          of a rest itself, at the moment its own countdown reaches zero, and the
          foreground service below is what keeps it alive to do that. An inexact
          alarm was the alternative and it lands late, which for a rest timer is
-         its own kind of broken. See lib/services/rest_alarm.dart and issue #70.
+         its own kind of broken. See lib/services/rest_tone.dart and issue #70.
 
          **The foreground service, unlike the alarm, is winnable.** Every
          FOREGROUND_SERVICE_* type needs a Play Console declaration and a video
@@ -57,7 +57,7 @@
          usage, because a phone in a gym bag is not always somewhere a ding
          carries. Required for Vibrator.vibrate, and it is an install-time grant
          with nothing to ask the user at runtime. See lib/services/rest_buzz.dart
-         and MainActivity.kt; the notification beside it is rest_alarm.dart. -->
+         and MainActivity.kt. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- The live workout runs as a foreground service, which is what keeps the
          session's isolate alive while the phone is in a pocket — see

@@ -9,15 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../data/superset.dart';
 import '../data/warmup.dart';
-import '../l10n/app_localizations.dart';
 import '../providers/db_provider.dart';
-import '../providers/providers.dart' show appLocalizationsProvider;
 import '../services/rest_alarm.dart';
 import '../services/rest_buzz.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
-import '../services/workout_shade.dart'
-    show pendingShadeActionsProvider, restIsOverLine;
+import '../services/workout_shade.dart' show pendingShadeActionsProvider;
 import '../util/cardio_units.dart';
 import '../util/units.dart';
 import 'session_mirror.dart';
@@ -1022,15 +1019,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
 
   /// The one event this app makes a noise for.
   ///
-  /// **The sound is always the tone**, on screen and in a pocket, because the
-  /// tone is the only route with a volume in it. A notification channel's
-  /// loudness belongs to the phone's alarm slider and nothing an app posts can
-  /// move it, so a rest alert that rang from a channel could not be turned down
-  /// — which is what made the setting worth nothing to somebody whose phone is
-  /// in a pocket, the one case a rest timer is for. It does not have to ring
-  /// from a channel: the live session already runs behind a foreground service,
-  /// an app with one running may play audio while it is in the background, and
-  /// so the same player sounds the same asset at the same gain either way.
+  /// **The sound is always the tone**, on screen and in a pocket. The player uses
+  /// Android's notification stream, so its loudness follows the phone's
+  /// notification control rather than its alarm control. The live session runs
+  /// behind a foreground service, allowing the same player and asset to sound
+  /// either way.
   ///
   /// **The buzz goes with it, wherever the phone is.** It used to belong to the
   /// board, which meant it happened only while the board was mounted and, being
@@ -1038,46 +1031,16 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// the same reason the tone is: a phone in a bag is what a rest timer is for,
   /// and neither the screen nor the notification can be relied on to reach it.
   ///
-  /// **What the pocket adds is the notification, not the noise** — something to
-  /// look at when the phone comes out, silent because the sound has already been
-  /// made. On screen it is left off entirely: the countdown is already in front
-  /// of you.
-  ///
-  /// **Both are made here, at the moment the rest ends.** Nothing is handed to
-  /// Android in advance: what keeps this isolate alive to reach this line is the
-  /// foreground service — see [RestAlarm], and `workout_shade.dart` for the
-  /// service itself. A rest that ends with the app not running at all is silent,
-  /// and always was.
-  /// **The words are resolved here, at the moment of ringing**, and handed to
-  /// [RestAlarm] finished — see that class. Read rather than remembered: a rest
-  /// can outlive a language switch, and a catalogue cached when the session
-  /// started would announce the set in the language it started in.
+  /// The foreground service's existing notification already carries the live
+  /// rest state in the shade. Posting another completion notification would add
+  /// a redundant heads-up card, so the rest ending only updates session state,
+  /// plays this tone, and buzzes.
   void _sayTheRestIsOver() {
-    final alarm = ref.read(restAlarmProvider);
     ref.read(restToneProvider).play();
     ref.read(restBuzzProvider).buzz();
-    if (ref.read(appOnScreenProvider)()) {
-      alarm.clear();
-      return;
-    }
-    final l10n = ref.read(appLocalizationsProvider);
-    alarm.ring(
-      channel: (
-        name: l10n.restAlarmChannelName,
-        description: l10n.restAlarmChannelDescription,
-      ),
-      title: l10n.restAlarmTitle,
-      body: _whatComesNext(l10n),
-    );
-  }
-
-  /// What the rest is over *for*. A notification that says only "rest done"
-  /// makes you open the app to find out what for.
-  String _whatComesNext(AppLocalizations l10n) {
-    final s = state;
-    if (s == null) return l10n.restAlarmBackToIt;
-    final cue = nextUp(s);
-    return restIsOverLine(l10n, cue, cue == null ? s.unit : s.unitForCue(cue));
+    // Clear a completion card left by an older FossLift version after an
+    // in-place update. New rests never post one.
+    ref.read(restAlarmProvider).clear();
   }
 
   // ---- The crash snapshot --------------------------------------------------

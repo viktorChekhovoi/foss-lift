@@ -34,7 +34,7 @@ where: >-
   <b>State</b> lib/state/active_workout.dart · <b>Warm-up ramp</b> lib/data/warmup.dart,
   loadLadder in lib/data/plates.dart · <b>Screens</b> lib/screens/workout_screen.dart,
   lib/widgets/resume_workout_bar.dart · <b>Rest tone</b> lib/services/rest_tone.dart
-  on screen, rest_alarm.dart off it, generator in tool/make_rest_tone.dart · <b>Shade</b>
+  on screen and off it, generator in tool/make_rest_tone.dart · <b>Shade</b>
   lib/services/workout_shade.dart on lib/state/workout_cue.dart · <b>Starting
   one</b> lib/widgets/start_workout.dart
 groups:
@@ -590,9 +590,9 @@ groups:
     uses:
     - session.rest-sound
   - id: declared-alarm-android
-    t: Declared as an alarm on Android
+    t: Declared as a notification on Android
     d: >-
-      Uses the alarm audio stream, following the phone's silent and Do Not Disturb
+      Uses the notification audio stream, following the phone's silent and Do Not Disturb
       settings. It takes transient audio focus, pausing and then resuming other
       audio.
     screen: system
@@ -603,7 +603,7 @@ groups:
   - id: rest-alert-volume-slider
     t: How loud it is belongs to the phone, not to the app
     d: >-
-      The alarm volume comes from the phone's alarm control; the app has no separate
+      The rest tone follows the phone's notification volume; the app has no separate
       volume setting.
     screen: none
     uses:
@@ -620,28 +620,17 @@ groups:
     - session.shade
     - platform.android
   - id: off-screen-ding-notification-instead
-    t: Off screen the sound is joined by a notification, not replaced by one
+    t: Rest ending does not post another notification
     d: >-
-      Off screen, posts a silent high-importance notification with the next action
-      (for example, “Rest done — Bench Press · 80 kg × 8”). It clears itself when
-      the next rest starts. On screen, no notification is posted.
+      The live workout notification already shows the session and rest state in the
+      notification shade, so rest completion plays the tone and updates that existing
+      notification without posting a heads-up completion notification.
     screen: shade
     uses:
     - session.rest-sound
     - session.shade
     - platform.android
     manual: true
-  - id: ding-posted-when-rest-ends
-    t: The off-screen ding is posted when the rest ends, by the app
-    d: >-
-      The app posts the notification when its timestamp reaches zero. The
-      foreground service keeps the session alive, avoiding an inexact scheduled
-      alarm and exact-alarm permission.
-    screen: shade
-    uses:
-    - session.rest-sound
-    - session.shade
-    - platform.android
   - id: no-alarm-privilege-asked-for
     t: It asks for no alarm privilege, and that is why the service matters
     d: >-

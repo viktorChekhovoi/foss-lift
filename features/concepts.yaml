@@ -311,7 +311,7 @@ concepts:
   - id: session.rest-sound
     area: session
     what: The tone at the end of a rest, on screen and off it.
-    code: [lib/services/rest_tone.dart, lib/services/rest_alarm.dart, tool/make_rest_tone.dart]
+    code: [lib/services/rest_tone.dart, tool/make_rest_tone.dart]
 
   - id: session.rest-buzz
     area: session

@@ -1,7 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
-/// Plays the synthesized rest-complete tone through the platform alarm stream; failures are ignored so audio problems never interrupt a workout.
+/// Plays the synthesized rest-complete tone through the platform notification stream; failures are ignored so audio problems never interrupt a workout.
 
 bool restToneSupportedOn({
   required bool isWeb,
@@ -26,7 +26,7 @@ class RestTone {
   static bool get supported =>
       restToneSupportedOn(isWeb: kIsWeb, platform: defaultTargetPlatform);
 
-  /// Plays the tone once, at whatever the phone's alarm stream is set to.
+  /// Plays the tone once, at whatever the phone's notification stream is set to.
   ///
   /// Never throws: a device with no audio route, a locked player, an asset that
   /// failed to decode — none of that is worth interrupting a workout over, and
@@ -52,7 +52,7 @@ class RestTone {
     } catch (_) {}
   }
 
-  /// The alarm stream on Android, and a category on iOS that mixes rather than
+  /// The notification stream on Android, and a category on iOS that mixes rather than
   /// taking the session over.
   static final AudioContext _context = AudioContext(
     android: const AudioContextAndroid(
@@ -63,7 +63,7 @@ class RestTone {
       // is not worth being clever about. `WAKE_LOCK` is already in the manifest.
       stayAwake: true,
       contentType: AndroidContentType.sonification,
-      usageType: AndroidUsageType.alarm,
+      usageType: AndroidUsageType.notification,
       audioFocus: AndroidAudioFocus.gainTransient,
     ),
     // `ambient` already mixes, and asking for `mixWithOthers` on top of it is
