@@ -41,9 +41,11 @@ jobs:
 
       - run: flutter pub get
 
-      # The .arb catalogues are the source and the Dart is gitignored, so a
-      # fresh clone has no AppLocalizations until this runs. `flutter build`
-      # would do it too; doing it here means a codegen failure reads as one.
+      - run: dart run tool/l10n.dart
+
+      # The merged .arb catalogues and generated Dart are gitignored, so a fresh
+      # clone has no AppLocalizations until these run. `flutter build` would do
+      # the second step too; keeping both explicit makes a codegen failure clear.
       - run: flutter gen-l10n
 
       - name: Analyze

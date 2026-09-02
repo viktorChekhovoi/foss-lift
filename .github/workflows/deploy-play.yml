@@ -77,6 +77,8 @@ jobs:
 
       - run: flutter pub get
 
+      - run: dart run tool/l10n.dart
+
       - run: flutter gen-l10n
 
       - name: Analyze

@@ -1,0 +1,1237 @@
+{
+  "@@locale": "en",
+  "commonExerciseGone": "This exercise no longer exists.",
+  "@commonExerciseGone": {
+    "description": "Shown in place of a movement’s detail or its progress chart when it was deleted from the library while the screen was open."
+  },
+  "commonSetCount": "{count, plural, =1{1 set} other{{count} sets}}",
+  "@commonSetCount": {
+    "description": "How many sets were logged — for a whole past session on its row in History, and for one movement on its row in the session summary.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "commonExerciseCount": "{count, plural, =1{1 exercise} other{{count} exercises}}",
+  "@commonExerciseCount": {
+    "description": "How many exercises a workout holds, under its name in the routine’s list and in the routine builder.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "commonClipCount": "{count, plural, =1{1 clip} other{{count} clips}}",
+  "@commonClipCount": {
+    "description": "How many recorded set clips there are — on the button opening one movement’s reel, and in settings beside the bytes they occupy. A clip is a few seconds of video of a single set.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
+  "settingsPlateSizes": "{count, plural, =1{1 size} other{{count} sizes}}",
+  "@settingsPlateSizes": {
+    "description": "How many distinct plate denominations the rack holds — 5 sizes means five different plates, not five plates.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsTextSizeNote": "On top of your phone’s own text size, which the app follows either way.",
+  "@settingsTextSizeNote": {
+    "description": "Caption under the text-size chips, explaining that the setting multiplies the phone's rather than replacing it."
+  },
+  "settingsDeload": "Deload after time off",
+  "@settingsDeload": {
+    "description": "Card title over the layoff rules. A deload is a deliberate reduction in training load."
+  },
+  "settingsDeloadOffNote": "Returning to a workout after any gap starts it at the weight you left it at.",
+  "@settingsDeloadOffNote": {
+    "description": "Caption under the layoff card when the feature is switched off."
+  },
+  "settingsDeloadOnNote": "Go {days} days without a workout and starting it again offers to cut its targets by {percent}% — twice that after {doubleDays} days, and no more than {maxCut}% however long you are away.",
+  "@settingsDeloadOnNote": {
+    "description": "Caption under the layoff card explaining the configured rule in full.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      },
+      "doubleDays": {
+        "type": "int"
+      },
+      "maxCut": {
+        "type": "int"
+      }
+    }
+  },
+  "backupResetBody": "Your history, routines, exercises and settings are all deleted and the app starts over. This cannot be undone — save a backup first if you might want any of it back.",
+  "@backupResetBody": {
+    "description": "Body of the reset confirmation. It names the four things that go, says it is final, and points at the backup while there is still something to back up. Two sentences."
+  },
+  "settingsSwitchUnitBody": "Your exercise weights and available plates are converted to {unit} automatically. Some conversions may need to be manually adjusted.",
+  "@settingsSwitchUnitBody": {
+    "description": "Dialog body when changing the weight unit.",
+    "placeholders": {
+      "unit": {
+        "type": "String",
+        "example": "pounds"
+      }
+    }
+  },
+  "exerciseDumbbellCleanAndPress": "Dumbbell Clean and Press",
+  "@exerciseDumbbellCleanAndPress": {
+    "description": "Name of a movement in the starter exercise library."
+  },
+  "seedRoutineDescPushPullLegs": "Three sessions a week, each one a different half of what you do: the muscles you push with, the ones you pull with, and legs. The usual next step once a beginner program stops adding weight every session.",
+  "@seedRoutineDescPushPullLegs": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescUpperLower": "Four sessions a week, alternating the upper body and the lower. Each muscle is trained twice a week, and no single session has to cover everything.",
+  "@seedRoutineDescUpperLower": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescStartingStrength": "Mark Rippetoe's novice barbell program. Alternate two three-lift workouts three days per week and add weight each session.",
+  "@seedRoutineDescStartingStrength": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescStrongLifts5x5": "Mehdi Hadim’s three-day novice barbell program. Alternate two workouts built around five sets of five; deadlift remains one set of five.",
+  "@seedRoutineDescStrongLifts5x5": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescFullBody3x": "Three full-body sessions a week, each with a squat or hinge, a press, a pull and some core work. For training three times a week without keeping track of a split.",
+  "@seedRoutineDescFullBody3x": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescTwoDayFullBody": "Two sessions a week, each with a squat or a hinge, a press, a pull and some core work. For a week that has two training days in it rather than four.",
+  "@seedRoutineDescTwoDayFullBody": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescBodyweightBasics": "Three sessions a week with no equipment beyond a floor and something to hang from. Add reps first; when the top of the range gets easy, move to a harder version of the same movement.",
+  "@seedRoutineDescBodyweightBasics": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescDumbbellFullBody": "Three whole-body sessions a week on one pair of dumbbells. Everything is pressed, pulled or carried with the weight in your hands, so it works in a spare room as well as in a gym.",
+  "@seedRoutineDescDumbbellFullBody": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "seedRoutineDescIntervalConditioning": "Two conditioning sessions a week, measured in seconds rather than reps: rounds of hard work against the clock with a short rest between them. Meant to be trained alongside a strength program, not instead of one.",
+  "@seedRoutineDescIntervalConditioning": {
+    "description": "What one of the programs the app ships is, shown on the screen that offers it and on the routine it lands as. Plain and factual — no marketing."
+  },
+  "sessionFinishUnloggedTitle": "{count, plural, =1{Finish with 1 set unlogged?} other{Finish with {count} sets unlogged?}}",
+  "@sessionFinishUnloggedTitle": {
+    "description": "Title of the dialog shown when Finish is tapped with working sets still unlogged. Warm-up rungs are not counted. The count is how many working sets would go unwritten.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "sessionFinishUnloggedBody": "Unlogged sets are not saved, and an exercise short of its sets counts as a missed session.",
+  "@sessionFinishUnloggedBody": {
+    "description": "Body of that dialog. Says what finishing early costs: the sets never reach history, and progression treats the exercise as missed, which can drop next session's weight."
+  },
+  "sessionFinishUnloggedBack": "Back to the board",
+  "@sessionFinishUnloggedBack": {
+    "description": "Dismisses the unlogged-sets dialog and leaves the workout running. The default answer."
+  },
+  "sessionAbortBody": "Nothing from it is saved, and no target moves.",
+  "@sessionAbortBody": {
+    "description": "Body of the abort dialog. Says what is lost: no history row, and the progression that sets next session's weights stays where it was."
+  },
+  "sessionLoggingHint": "Tap a set to log it as completed · tap again for each rep missed · hold to type",
+  "@sessionLoggingHint": {
+    "description": "The one instruction on the live board, pinned under the stat strip: how the result cell works. Three clauses separated by a middle dot — keep that shape rather than turning it into a sentence, and keep it short enough to wrap to two lines on a phone."
+  },
+  "sessionLoggingHintTimed": "A held set times itself: tap to start, tap to stop.",
+  "@sessionLoggingHintTimed": {
+    "description": "Second line of the logging hint, added only when the session holds something for time (a plank, a hang). Shown directly under sessionLoggingHint."
+  },
+  "sessionWarmupSummary": "{count, plural, =0{None} =1{1 set} other{{count} sets}}",
+  "@sessionWarmupSummary": {
+    "description": "How many rungs the warm-up ramp has, shown beside the WARM-UP label on the collapsed group. Shares a single line with that label and ellipsises, so keep it to two words at most.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionWarmupTooLight": "Weight too light to auto calculate warm-up.",
+  "@sessionWarmupTooLight": {
+    "description": "Shown inside the warm-up group when rungs were asked for but the working weight is so light that no lighter step exists between the empty bar and it."
+  },
+  "sessionWarmupDisclaimer": "Suggested to prime the movement, not medical advice.",
+  "@sessionWarmupDisclaimer": {
+    "description": "Standing note at the foot of the opened warm-up ramp. A disclaimer, not a caption — keep both halves: the rungs are a suggestion, and they are not medical advice."
+  },
+  "sessionWeightFloor": "no lighter than the {bar} bar",
+  "@sessionWeightFloor": {
+    "description": "Note under the weight field naming the lightest load this exercise can take, because an empty bar is already that heavy. {bar} arrives formatted with its unit, e.g. \"20 kg\". Starts lower-case: where the dialog also has a subtitle the two are joined as \"This set only · no lighter than the 20 kg bar\".",
+    "placeholders": {
+      "bar": {
+        "type": "String",
+        "example": "20 kg"
+      }
+    }
+  },
+  "sessionRestSetUp": "Set up {weight}, then lift.",
+  "@sessionRestSetUp": {
+    "description": "Caption on the rest bar when the next warm-up rung is at a different load: change the bar, then lift. {weight} arrives formatted with its unit, e.g. \"60 kg\". \"Set up\" means load the bar or set the pin, not prepare yourself.",
+    "placeholders": {
+      "weight": {
+        "type": "String",
+        "example": "60 kg"
+      }
+    }
+  },
+  "sessionRestSetUpThenRest": "Set up {weight}, rest, then lift.",
+  "@sessionRestSetUpThenRest": {
+    "description": "The same caption when the working set follows the ramp: load the bar first, take the rest, then lift. The order of the three actions is the point.",
+    "placeholders": {
+      "weight": {
+        "type": "String",
+        "example": "100 kg"
+      }
+    }
+  },
+  "sessionRestNextExercise": "Set up {exercise}, rest, then lift.",
+  "@sessionRestNextExercise": {
+    "description": "Caption on the rest bar when this exercise is finished and another follows: walk to the next movement and set it up. {exercise} is the movement's name.",
+    "placeholders": {
+      "exercise": {
+        "type": "String",
+        "example": "Squat"
+      }
+    }
+  },
+  "builderNoteHint": "Note for the exercise",
+  "@builderNoteHint": {
+    "description": "Placeholder in the personal-note field on a movement. It says what the field is for; it is not an example note, so do not translate it as one and do not replace it with one. A few words — it sits inside the field."
+  },
+  "itemEditorEmpty": "No exercises yet — add one below.",
+  "@itemEditorEmpty": {
+    "description": "Shown in place of the exercise rows when a workout has none."
+  },
+  "itemEditorExerciseShared": "Applies everywhere this exercise is used.",
+  "@itemEditorExerciseShared": {
+    "description": "Line under the Exercise caption in the slot sheet, warning that these settings are shared with every other routine using the movement."
+  },
+  "itemEditorAddWeightAtTop": "Progress by reps, then weight",
+  "@itemEditorAddWeightAtTop": {
+    "description": "Checkbox label in the Progression card's Advanced half, and the name of the Advanced axis it switches the slot to: climb the rep goal to the top of the range, then add weight and start the reps again at the bottom. Always listed, and greyed out on a slot with no rep range to climb."
+  },
+  "itemEditorAddWeightAtTopHint": "Combine weight and rep progression; increase reps until you hit the max, then increase weight",
+  "@itemEditorAddWeightAtTopHint": {
+    "description": "The line under the \"Progress by reps, then weight\" checkbox, saying what the combination does. Always shown, whether or not the box can be ticked."
+  },
+  "itemEditorRuleAtTop": "At {top} reps, add {step} instead and start again at {bottom}.",
+  "@itemEditorRuleAtTop": {
+    "description": "What the earned step does once the rep goal has reached the top of the range: the weight moves instead of the reps, and the goal starts again at the bottom. Shown under the rep rule on the advanced axis. The amount arrives already formatted in its unit.",
+    "placeholders": {
+      "top": {
+        "type": "int"
+      },
+      "step": {
+        "type": "String",
+        "example": "2.5 kg"
+      },
+      "bottom": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorRuleAtBottom": "At {bottom} reps, drop {back} instead and start again at {top}.",
+  "@itemEditorRuleAtBottom": {
+    "description": "What the back-off does once the rep goal is already at the bottom of the range: the weight comes down instead of the reps, and the goal starts again at the top. Shown under the rep rule on the advanced axis.",
+    "placeholders": {
+      "bottom": {
+        "type": "int"
+      },
+      "back": {
+        "type": "String",
+        "example": "5 kg"
+      },
+      "top": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorRangeClimbNeedsRange": "Set up a rep range first",
+  "@itemEditorRangeClimbNeedsRange": {
+    "description": "The line under the greyed-out \"Progress by reps, then weight\" checkbox, saying what has to be set before it can be ticked. Shown when the slot has no rep range or runs to failure."
+  },
+  "itemEditorSupersetWhat": "What is a superset?",
+  "@itemEditorSupersetWhat": {
+    "description": "The tooltip on the info icon beside the superset checkbox, and the title of the box it opens. A question, because that is what the icon is answering."
+  },
+  "itemEditorSupersetExplained": "Two or more exercises done back to back, with no rest in between; saves time in the gym",
+  "@itemEditorSupersetExplained": {
+    "description": "What a superset is, for somebody who has just been offered one: what it is, then why anybody does it. The only place in the app outside the tour where a training term is defined."
+  },
+  "itemEditorAmountReps": "{count, plural, =1{1 rep} other{{count} reps}}",
+  "@itemEditorAmountReps": {
+    "description": "A progression amount named in repetitions, e.g. the \"1 rep\" in \"Add 1 rep after 2 clean sessions\".",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorProgressionRule": "Add {step} after {cleans, plural, =1{1 clean session} other{{cleans} clean sessions}}; drop {back} after {misses, plural, =1{1 missed session} other{{misses} missed sessions in a row}}.",
+  "@itemEditorProgressionRule": {
+    "description": "The four progression numbers read back as the rule they add up to: \"Add 2.5 kg after 2 clean sessions; drop 5 kg after 3 missed sessions in a row.\" A single miss has nothing to be in a row with, so that branch says so in the singular and drops the phrase. The amounts arrive already formatted in their own unit.",
+    "placeholders": {
+      "step": {
+        "type": "String",
+        "example": "2.5 kg"
+      },
+      "cleans": {
+        "type": "int"
+      },
+      "back": {
+        "type": "String",
+        "example": "5 kg"
+      },
+      "misses": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorProgressionRuleCycle": "Adds {step} to the training max at the end of a clean cycle; drops {back} after {misses, plural, =1{1 missed session} other{{misses} missed sessions}} in it.",
+  "@itemEditorProgressionRuleCycle": {
+    "description": "The progression numbers of a slot running a cycle, read back as the rule they add up to. Different from itemEditorProgressionRule in two ways: what moves is the training max the sets are percentages of, and it moves only when the cycle comes round rather than after a run of clean sessions. The misses are counted anywhere in the cycle rather than in a row, so no branch of this one says \"in a row\". The amounts arrive already formatted in their own unit.",
+    "placeholders": {
+      "step": {
+        "type": "String",
+        "example": "2.5 kg"
+      },
+      "back": {
+        "type": "String",
+        "example": "5 kg"
+      },
+      "misses": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorCycleWhat": "What is a cycle?",
+  "@itemEditorCycleWhat": {
+    "description": "Title of the dialog behind the info tap beside the Set scheme label. A question, as the superset one is."
+  },
+  "itemEditorCycleExplained": "A cycle repeats an ordered list of phases—often weeks, but they can represent any sequence you choose. Each workout uses the next phase’s sets and percentages. The weight field is your training max, not that day’s bar weight. Foss Lift changes the training max only after the final phase.",
+  "@itemEditorCycleExplained": {
+    "description": "The body of that dialog: what a cycle is, for somebody deciding whether to pick one. Keep it to three short sentences, and keep it about the shape — naming a particular program here would make the general tool read as that program's setting."
+  },
+  "themeQrCaption": "Point another phone at this. Foss Lift will ask before changing anything.",
+  "@themeQrCaption": {
+    "description": "Caption under the QR code. The second sentence is a promise that scanning cannot repaint the other phone without its owner agreeing. Foss Lift is the app's name and stays as it is."
+  },
+  "themePasteHint": "FLT1.… or a fosslift:// link",
+  "@themePasteHint": {
+    "description": "Placeholder text in the paste field, showing what a theme code looks like. FLT1 and fosslift:// are literal — leave both exactly as they are and translate only the connecting words."
+  },
+  "themeAaaTooltip": "Meets WCAG AAA contrast",
+  "@themeAaaTooltip": {
+    "description": "Tooltip explaining the AAA badge on a theme row. WCAG and AAA are the names of the accessibility standard and its highest level; keep both."
+  },
+  "themeNoColorOnClipboard": "No color on the clipboard.",
+  "@themeNoColorOnClipboard": {
+    "description": "Shown when paste is tapped and the clipboard holds something that is not a hex color."
+  },
+  "themePreviewContrastWarning": "This text is hard to read on this background. Try a lighter or darker \"Text\" color.",
+  "@themePreviewContrastWarning": {
+    "description": "Warning under the theme preview when body text does not have enough contrast against the background. This is guidance that changes what somebody does next, so it has to read naturally rather than literally — keep it plain and specific. The quoted word names the \"Text\" role in the editor above, so use the same wording you gave themeRoleText."
+  },
+  "themePreviewMarkersWarning": "\"Completed\" and \"Missed goal\" look alike. A glance down a column of sets should tell them apart.",
+  "@themePreviewMarkersWarning": {
+    "description": "Warning under the theme preview when the two set markers are too close in color to tell apart. This is guidance that changes what somebody does next, so it has to read naturally rather than literally. The two quoted words name the \"Completed\" and \"Missed goal\" roles in the editor above, so use the same wording you gave themeRoleGood and themeRoleGold."
+  },
+  "routineCardWorkoutCount": "{count, plural, =1{1 workout} other{{count} workouts}}",
+  "@routineCardWorkoutCount": {
+    "description": "How many workouts a routine holds, under its name on the routine card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "routineDetailShowOnToday": "Show this routine on Today",
+  "@routineDetailShowOnToday": {
+    "description": "Tooltip on the radio button that moves Today onto this routine."
+  },
+  "routineDetailEmpty": "No workouts yet. Tap the edit icon to add one.",
+  "@routineDetailEmpty": {
+    "description": "Shown in place of the training-day list when a routine has none."
+  },
+  "routineDetailWorkoutCount": "{count, plural, =1{workout} other{workouts}}",
+  "@routineDetailWorkoutCount": {
+    "description": "The noun alone, in the count chip at the top of a routine. The number is drawn beside it in a heavier weight, so it is not part of this string.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "routineEditNameHint": "e.g. Push / Pull / Legs",
+  "@routineEditNameHint": {
+    "description": "Placeholder in the routine's name field. Name a well-known split in the target language rather than translating this one word for word."
+  },
+  "routineEditDescriptionHint": "e.g. Three sessions a week, whole body in each",
+  "@routineEditDescriptionHint": {
+    "description": "Placeholder in the routine's description field, showing the kind of sentence that belongs there. Write a natural example in your language rather than translating this one word for word."
+  },
+  "routineEditDefaultRest": "Default rest between sets",
+  "@routineEditDefaultRest": {
+    "description": "Label over the stepper setting the rest every exercise in this routine starts from."
+  },
+  "routineEditNotifyDenied": "Turn on notifications for Foss Lift in Android settings.",
+  "@routineEditNotifyDenied": {
+    "description": "Toast shown when the user turns the reminder on but Android refuses the notification permission. Foss Lift and Android are names and stay as they are."
+  },
+  "routineEditNoExercises": "No exercises yet — tap to add",
+  "@routineEditNoExercises": {
+    "description": "Under an empty workout in the routine builder, where the exercise count would be."
+  },
+  "routineEditNameRequired": "Give the routine a name first.",
+  "@routineEditNameRequired": {
+    "description": "Refuses to save a routine whose name field is empty."
+  },
+  "routineEditWorkoutRequired": "Add at least one workout.",
+  "@routineEditWorkoutRequired": {
+    "description": "Refuses to save a routine with no workouts in it."
+  },
+  "routineEditDeleteBody": "This removes the routine and all of its workouts. Logged history is kept.",
+  "@routineEditDeleteBody": {
+    "description": "What deleting a routine costs, and what it does not: the sessions already logged against it stay."
+  },
+  "workoutEditNameRequired": "Give the workout a name first.",
+  "@workoutEditNameRequired": {
+    "description": "Refuses to save a workout whose name field is empty."
+  },
+  "workoutEditDeleteBody": "This removes the workout from the routine. Logged history is kept.",
+  "@workoutEditDeleteBody": {
+    "description": "What deleting a workout costs, and what it does not: the sessions already logged against it stay."
+  },
+  "workoutDetailEmpty": "No exercises yet. Tap the edit icon to add some.",
+  "@workoutDetailEmpty": {
+    "description": "Shown in place of the exercise list when a workout has none."
+  },
+  "workoutDetailExerciseCount": "{count, plural, =1{exercise} other{exercises}}",
+  "@workoutDetailExerciseCount": {
+    "description": "The noun alone, in the count chip at the top of a workout. The number is drawn beside it in a heavier weight, so it is not part of this string.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "startWorkoutSwitchBody": "{running} has {done} of {total} sets logged at {clock}. Discard it and switch to a new workout?",
+  "@startWorkoutSwitchBody": {
+    "description": "How much of the live session there is to lose. {clock} is an elapsed time such as 12:04. The day being started is named in the title and on the buttons, so it is not repeated here.",
+    "placeholders": {
+      "running": {
+        "type": "String"
+      },
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "clock": {
+        "type": "String"
+      }
+    }
+  },
+  "startWorkoutLayoffBody": "You last trained {name} {days, plural, =1{1 day} other{{days} days}} ago. Coming back at the same load is how people get hurt.\n\nFoss Lift can drop every target in this workout by {percent}% to ease you back in. Your logged history is not touched.",
+  "@startWorkoutLayoffBody": {
+    "description": "What the layoff offer noticed and what it proposes. Foss Lift is a name and stays as it is.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "startWorkoutDeloadNotice": "Targets cut {percent}% — {days, plural, =1{1 day} other{{days} days}} since you last trained this.",
+  "@startWorkoutDeloadNotice": {
+    "description": "Confirms the accepted layoff cut, carried into the live session as a one-line notice.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "historySessionCount": "{count, plural, =1{1 session} other{{count} sessions}}",
+  "@historySessionCount": {
+    "description": "The eyebrow above the History title: how many finished sessions the list holds. Rendered in small capitals.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyEmptyTitle": "No workouts logged yet",
+  "@historyEmptyTitle": {
+    "description": "Headline of the empty History screen."
+  },
+  "historyEmptyBody": "Finish a session and it will show up here.",
+  "@historyEmptyBody": {
+    "description": "Caption under the empty-History headline, saying what fills the list."
+  },
+  "summaryNoSets": "No sets were logged this session.",
+  "@summaryNoSets": {
+    "description": "Shown in place of the per-exercise breakdown when a session was finished without completing anything."
+  },
+  "summaryMissedCount": "{count, plural, =1{1 missed} other{{count} missed}}",
+  "@summaryMissedCount": {
+    "description": "How many of a movement's sets fell short of what they were aiming for. Only ever shown when the count is above zero, so there is no “0 missed” case to word.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryFilmedCount": "{count, plural, =1{1 filmed} other{{count} filmed}}",
+  "@summaryFilmedCount": {
+    "description": "How many of a movement's sets have a video clip attached. Only shown above zero.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryTargetReps": "{count, plural, =1{1 rep} other{{count} reps}}",
+  "@summaryTargetReps": {
+    "description": "Where a rep target now sits — what the next session of this movement will open at.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryStepReps": "{count, plural, =1{+1 rep} other{+{count} reps}}",
+  "@summaryStepReps": {
+    "description": "A whole line: progression stepped a rep target up by this many reps.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryBackOffReps": "{count, plural, =1{−1 rep} other{−{count} reps}}",
+  "@summaryBackOffReps": {
+    "description": "A whole line: progression backed a rep target off by this many reps. Minus sign (U+2212), not a hyphen.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryHeldMisses": "{count, plural, =1{1 more miss to a back-off} other{{count} more misses to a back-off}}",
+  "@summaryHeldMisses": {
+    "description": "The subline under a movement whose target did not move: how many more missed sessions before progression drops the weight. A “back-off” is the automatic reduction after repeated misses.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "summaryHeldCleanSessions": "{count, plural, =1{1 more clean session to a step} other{{count} more clean sessions to a step}}",
+  "@summaryHeldCleanSessions": {
+    "description": "The subline under a movement whose target did not move: how many more sessions hitting every rep before progression steps the target up. A “clean session” is one where nothing was missed.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "progressSessionsLogged": "{count, plural, =1{1 session logged} other{{count} sessions logged}}",
+  "@progressSessionsLogged": {
+    "description": "Subtitle under the movement's name: how many finished sessions the chart is drawn from.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "progressGainTime": "+{seconds}s since the start",
+  "@progressGainTime": {
+    "description": "A whole line under the chart: how much longer the best hold is than in the first logged session.",
+    "placeholders": {
+      "seconds": {
+        "type": "String",
+        "example": "20"
+      }
+    }
+  },
+  "progressLossTime": "−{seconds}s since the start",
+  "@progressLossTime": {
+    "description": "A whole line under the chart: how much shorter the best hold is than in the first logged session. Minus sign (U+2212), not a hyphen.",
+    "placeholders": {
+      "seconds": {
+        "type": "String",
+        "example": "20"
+      }
+    }
+  },
+  "progressEmptyLift": "Finish a session with this exercise logged and the curve starts here.",
+  "@progressEmptyLift": {
+    "description": "Empty state of the progress chart for a weighted movement."
+  },
+  "progressEmptyHold": "Finish a session with this exercise logged and the curve starts here.",
+  "@progressEmptyHold": {
+    "description": "Empty state of the progress chart for a movement measured in time."
+  },
+  "exerciseFormNameHint": "e.g. Cable Lateral Raise",
+  "@exerciseFormNameHint": {
+    "description": "Placeholder in the name field, giving an example of a movement. Use a movement name natural in your language — this one is a shoulder raise done on a cable machine."
+  },
+  "exerciseFormRepsNote": "Counted movements progress by adding load or reps.",
+  "@exerciseFormRepsNote": {
+    "description": "One-line note under the measure chips when the movement is counted."
+  },
+  "exerciseFormTimeNote": "Held movements are logged in seconds and progress by holding longer.",
+  "@exerciseFormTimeNote": {
+    "description": "One-line note under the measure chips when the movement is held for time."
+  },
+  "exerciseFormLoadedAsOptional": "Loaded as (if at all)",
+  "@exerciseFormLoadedAsOptional": {
+    "description": "The same label for a movement held for time, where carrying any load is the exception. Rendered in small capitals by the app; write it in ordinary case."
+  },
+  "exerciseFormHoldLoadNote": "For static exercises with added weight, e.g. Farmer's Carry",
+  "@exerciseFormHoldLoadNote": {
+    "description": "Note under the loading chips for a movement held for time. A farmer's carry is walking with a weight in each hand; substitute a loaded static exercise your readers will recognize if that name does not travel."
+  },
+  "exerciseFormNameRequired": "Give the exercise a name first.",
+  "@exerciseFormNameRequired": {
+    "description": "Snack bar shown when Save is tapped with the name field empty."
+  },
+  "exerciseDetailUnitSwitchBody": "This movement's suggested weights are converted to {unit}. Some conversions may need to be manually adjusted.",
+  "@exerciseDetailUnitSwitchBody": {
+    "description": "Body of the dialog that confirms pinning one movement to a unit. Only that movement's slots move; the rest of the app is untouched.",
+    "placeholders": {
+      "unit": {
+        "type": "String",
+        "example": "pounds"
+      }
+    }
+  },
+  "exerciseDetailLinkCopied": "Demo link copied to clipboard",
+  "@exerciseDetailLinkCopied": {
+    "description": "Snack bar confirming a long-press copied the demo link."
+  },
+  "exerciseDetailNoOpener": "Foss Lift can't open this link, copied to clipboard instead",
+  "@exerciseDetailNoOpener": {
+    "description": "Snack bar shown when the phone has nothing installed that will open a web address, so the app copied it instead."
+  },
+  "todayNoWorkoutsBody": "{routine} has no workouts. Add some to start training it.",
+  "@todayNoWorkoutsBody": {
+    "description": "Body of the empty card on the home screen when the current routine contains no workouts. A workout is one session of a routine, such as Push or Legs.",
+    "placeholders": {
+      "routine": {
+        "type": "String",
+        "example": "Push / Pull / Legs"
+      }
+    }
+  },
+  "todayNoRoutinesBody": "Add a ready-made one, or build your own.",
+  "@todayNoRoutinesBody": {
+    "description": "Body of the home screen's empty card when there are no routines. 'one' refers to a routine, named in the title above it."
+  },
+  "routineLibraryAdd": "Add to my routines",
+  "@routineLibraryAdd": {
+    "description": "The button that copies the program being previewed into the user's own routine list."
+  },
+  "routinesPasteHint": "FLR1.… or a fosslift:// link",
+  "@routinesPasteHint": {
+    "description": "Placeholder text in the paste-a-routine field, showing what a routine code looks like. 'FLR1.' is the fixed prefix of the app's routine share codes and 'fosslift://' is its URL scheme — neither is translated; only the surrounding words are."
+  },
+  "profileTagline": "Foss Lift — open-source workout tracker",
+  "@profileTagline": {
+    "description": "One-line description of the app under the profile heading. 'Foss Lift' is the app's name and is never translated; the rest is."
+  },
+  "backupTooBig": "Warning: backup exceeds {limit}. Consider excluding set videos.",
+  "@backupTooBig": {
+    "description": "Warning shown when the backup would be over the size mail and chat apps stop accepting, which is what {limit} is — already formatted with its unit, '200 MB'. It only appears when set videos are ticked in, so leaving them out is the fix it names. A caution rather than a refusal: the file can still be made.",
+    "placeholders": {
+      "limit": {
+        "type": "String",
+        "example": "200 MB"
+      }
+    }
+  },
+  "backupSaveFailed": "Could not write the backup.",
+  "@backupSaveFailed": {
+    "description": "Shown when building the backup file fails — no room on the phone, or a directory that cannot be written to. One sentence."
+  },
+  "backupRestoreHeading": "Restore from a backup",
+  "@backupRestoreHeading": {
+    "description": "Small heading over the half of the backup screen that reads a file back."
+  },
+  "backupRestoreReplaces": "Replaces everything on this phone.",
+  "@backupRestoreReplaces": {
+    "description": "The one line under the restore heading. Restoring is not a merge: what the backup holds is what the phone holds afterwards."
+  },
+  "backupReplaceBody": "Your log, routines and settings are replaced by the backup. This cannot be undone.",
+  "@backupReplaceBody": {
+    "description": "Body of the restore confirmation. 'Log' is the training history. Two short sentences."
+  },
+  "backupNotABackup": "That file is not a Foss Lift backup.",
+  "@backupNotABackup": {
+    "description": "Shown when the chosen file has nothing in it saying it is a backup — a photo, a renamed zip. 'Foss Lift' is the app's name and is not translated."
+  },
+  "backupFromNewerVersion": "That backup was made by a newer version of Foss Lift.",
+  "@backupFromNewerVersion": {
+    "description": "Shown when the chosen backup came from a newer build of the app, which this one cannot read. 'Foss Lift' is the app's name and is not translated."
+  },
+  "backupFinishWorkoutFirst": "Finish or abandon the workout first.",
+  "@backupFinishWorkoutFirst": {
+    "description": "Shown when a restore or a profile reset is asked for while a workout is running. The live workout is only written to history when it is finished, so replacing the database under it would throw it away. One string for both, because it is the same refusal for the same reason. 'Finish' and 'abandon' are the two words the session screen uses — sessionFinish and sessionAbort."
+  },
+  "aboutSubtitle": "An offline workout tracker.",
+  "@aboutSubtitle": {
+    "description": "One-line description under the app name at the top of the about screen. Offline means it works with no network at all."
+  },
+  "aboutDataSection": "WHAT IT DOES WITH YOUR DATA",
+  "@aboutDataSection": {
+    "description": "Heading over the privacy statement on the about screen. Rendered in small capitals by the app — the capitals are the app's styling, not part of the words."
+  },
+  "aboutDataPara1": "Nothing leaves this phone. No account, no server, no analytics. The app asks for no network permission, so it could not send your training anywhere if it wanted to.",
+  "@aboutDataPara1": {
+    "description": "First paragraph of the app's privacy statement, on the about screen. This is a factual claim about what the software does and its meaning is load-bearing: translate it exactly, without softening it ('almost nothing', 'we try not to') and without embellishing it with claims it does not make. Keep it as one paragraph. 'Network permission' is the Android permission an app must declare before it can reach the internet."
+  },
+  "aboutDataPara2": "Two things reach outside, and both hand off to another app you can see: opening a demo link in your browser, and passing a share code to the share sheet.",
+  "@aboutDataPara2": {
+    "description": "Second paragraph of the app's privacy statement, naming the only two exceptions to the first. Its meaning is load-bearing: translate it exactly, neither softening nor embellishing, and keep it as one paragraph. The 'share sheet' is the system dialog Android shows for sending something to another app."
+  },
+  "aboutLicenseBody": "AGPL-3.0. Free to use, read, change and pass on — the source is the whole of it, and anything built on it stays free too.",
+  "@aboutLicenseBody": {
+    "description": "The license statement on the about screen. 'AGPL-3.0' is the identifier of the GNU Affero General Public License version 3 — a proper noun that is never translated or spelled differently. 'Free' here means free as in freedom, not free of charge. Keep it as one paragraph."
+  },
+  "aboutBugReportSubject": "Foss Lift bug report",
+  "@aboutBugReportSubject": {
+    "description": "Subject line pre-filled into the mail draft the bug-report button opens. Not shown in the app itself; the user sees it in their mail app. 'Foss Lift' is the app's name and stays as it is."
+  },
+  "barSettingsEmpty": "No bars. Barbell lifts count {weight} until you add one.",
+  "@barSettingsEmpty": {
+    "description": "Shown in place of the bar list when the user has removed every barbell. `weight` is the fallback bar weight with its unit already attached, e.g. “20 kg”.",
+    "placeholders": {
+      "weight": {
+        "type": "String",
+        "example": "20 kg"
+      }
+    }
+  },
+  "barSettingsDuplicate": "You already have a {weight} bar.",
+  "@barSettingsDuplicate": {
+    "description": "Snackbar shown when adding or editing a barbell would give two of them the same weight, which the app refuses because a bar is referred to by what it weighs. `weight` already carries its unit, e.g. “20 kg”.",
+    "placeholders": {
+      "weight": {
+        "type": "String",
+        "example": "20 kg"
+      }
+    }
+  },
+  "barSettingsNote": "Every barbell lift uses the ticked bar unless otherwise stated.",
+  "@barSettingsNote": {
+    "description": "Caption under the bar list explaining what the tick does. An exercise may name a barbell of its own, which wins over this one."
+  },
+  "plateRackAdd": "Add a plate size",
+  "@plateRackAdd": {
+    "description": "The row at the foot of the plate list that opens the new-plate dialog. It adds a denomination, not one more of a plate already listed."
+  },
+  "plateRackEmpty": "No plates. Add some to enable bar loading suggestions",
+  "@plateRackEmpty": {
+    "description": "Shown in place of the plate list when the rack is empty. Without plates the app can only ever suggest the bare barbell."
+  },
+  "plateRackNote": "This rack is for {unit} plates. Switching units gives you a separate rack for the other unit.",
+  "@plateRackNote": {
+    "description": "Caption under the plate list. Each unit has its own rack; the one on screen holds the plates for the unit currently in use. `unit` is the short weight-unit suffix.",
+    "placeholders": {
+      "unit": {
+        "type": "String",
+        "example": "kg"
+      }
+    }
+  },
+  "plateRackReset": "Reset to a standard {unit} gym",
+  "@plateRackReset": {
+    "description": "Button that throws away the edited rack and restores the plates a typical gym racks in this unit. `unit` is the short weight-unit suffix.",
+    "placeholders": {
+      "unit": {
+        "type": "String",
+        "example": "kg"
+      }
+    }
+  },
+  "videoSettingsDeleteTitle": "{count, plural, =1{Delete 1 clip?} other{Delete {count} clips?}}",
+  "@videoSettingsDeleteTitle": {
+    "description": "Title of the confirmation dialog for deleting every clip, naming how many will go.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "videoSettingsDeleteBody": "This will delete every clip recorded so far. Exercise history is not affected",
+  "@videoSettingsDeleteBody": {
+    "description": "Body of the delete-every-clip confirmation: the logged sets themselves are untouched, but the footage is gone for good."
+  },
+  "plateLineBelowBar": "LIGHTER THAN THE BAR ({weight} {unit})",
+  "@plateLineBelowBar": {
+    "description": "The plate breakdown under an exercise when the target weight is less than the empty barbell, which cannot be loaded. Rendered in small capitals in a monospaced font on the session board, where width is tight — keep it short. `weight` is a formatted number and `unit` its suffix, already upper-cased by the app.",
+    "placeholders": {
+      "weight": {
+        "type": "String",
+        "example": "20"
+      },
+      "unit": {
+        "type": "String",
+        "example": "KG"
+      }
+    }
+  },
+  "plateLineNearest": "NEAREST YOU CAN LOAD: {weight} {unit}",
+  "@plateLineNearest": {
+    "description": "First segment of the plate breakdown when the plates on the rack cannot make the weight asked for, giving what they can make instead. Small capitals, monospaced, width-critical on the session board. `unit` arrives already upper-cased.",
+    "placeholders": {
+      "weight": {
+        "type": "String",
+        "example": "102.5"
+      },
+      "unit": {
+        "type": "String",
+        "example": "KG"
+      }
+    }
+  },
+  "commonNoCamera": "This device has no camera.",
+  "@commonNoCamera": {
+    "description": "Shown in place of the viewfinder when the phone reports no camera at all. Used by both the QR scanner and the set recorder."
+  },
+  "commonCameraFailed": "The camera could not be started.",
+  "@commonCameraFailed": {
+    "description": "Shown in place of the viewfinder when the camera exists but would not open, for a reason the app cannot name. Used by both the QR scanner and the set recorder."
+  },
+  "shareQrTooBig": "Too big for a QR code. Share a code instead.",
+  "@shareQrTooBig": {
+    "description": "Replaces the QR symbol when the payload is longer than any error-correction level can hold. \"Share a code\" points at the neighboring button that hands the same text to the system share sheet."
+  },
+  "shareRoutineDamaged": "Invalid routine code — characters missing.",
+  "@shareRoutineDamaged": {
+    "description": "Shown on the import screen when the text is recognizably a routine code but did not survive the trip: the checksum fails, usually because a copy-paste cut it short."
+  },
+  "shareThemeDamaged": "Invalid theme code — characters missing.",
+  "@shareThemeDamaged": {
+    "description": "The theme counterpart of shareRoutineDamaged: recognizably a theme code, but the checksum fails."
+  },
+  "routineShareSummary": "{workouts, plural, =1{1 workout} other{{workouts} workouts}} · {slots, plural, =1{1 exercise slot} other{{slots} exercise slots}} · {exercises, plural, =1{1 exercise} other{{exercises} exercises}}",
+  "@routineShareSummary": {
+    "description": "One line under the routine's name saying how big the thing being shared is. A workout is one workout; a slot is one exercise line inside a day, so the same movement on two days is two slots but one exercise. Rendered in a monospaced font on a single line — keep the middle dots as the separators.",
+    "placeholders": {
+      "workouts": {
+        "type": "int",
+        "example": "3"
+      },
+      "slots": {
+        "type": "int",
+        "example": "18"
+      },
+      "exercises": {
+        "type": "int",
+        "example": "14"
+      }
+    }
+  },
+  "routineShareQrCaption": "Point another phone at this. Foss Lift will ask before adding anything.",
+  "@routineShareQrCaption": {
+    "description": "Caption under the routine QR code, in the dialog that shows it. The second sentence promises the recipient sees a confirmation screen rather than having a routine appear in their library."
+  },
+  "routineImportSharedWithYou": "Shared with you. Here is what it would add.",
+  "@routineImportSharedWithYou": {
+    "description": "Line under the incoming routine's name, above the list of what accepting it would bring in. Conditional on purpose: nothing has been added yet."
+  },
+  "routineImportAddedToLibrary": "Added to your library.",
+  "@routineImportAddedToLibrary": {
+    "description": "One line under the NEW EXERCISES heading saying where those movements will end up — the recipient's own exercise library."
+  },
+  "routineImportNameClashes": "NAMES YOU ALREADY USE",
+  "@routineImportNameClashes": {
+    "description": "Section heading over the incoming movements whose names are already taken in the recipient's library. Rendered in small capitals; translate as a heading, not a sentence."
+  },
+  "routineImportClashHelp": "Your logged exercise history is kept.",
+  "@routineImportClashHelp": {
+    "description": "One line under the NAMES YOU ALREADY USE heading, answering the question the Keep mine / Use theirs switch raises: taking the sender's definition of a movement does not touch the sets already logged against it."
+  },
+  "routineImportFootnote": "Adds a routine. Nothing you have is removed or replaced.",
+  "@routineImportFootnote": {
+    "description": "Small print under the Add and Cancel buttons: accepting the routine is additive, whatever else is already in the app."
+  },
+  "scanRoutineHint": "Point the camera at a Foss Lift routine QR code.",
+  "@scanRoutineHint": {
+    "description": "Line under the viewfinder saying what the scanner is looking for. \"QR\" is the international name of the symbol and stays."
+  },
+  "scanThemeHint": "Point the camera at a Foss Lift theme QR code.",
+  "@scanThemeHint": {
+    "description": "The color-theme counterpart of scanRoutineHint."
+  },
+  "scanRoutineDenied": "Foss Lift needs the camera to scan a code. You can still paste a routine code instead.",
+  "@scanRoutineDenied": {
+    "description": "Shown in place of the viewfinder when camera permission was refused. The second sentence points at the paste dialog on the screen the user came from, which needs no camera."
+  },
+  "scanThemeDenied": "Foss Lift needs the camera to scan a code. You can still paste a theme code instead.",
+  "@scanThemeDenied": {
+    "description": "The color-theme counterpart of scanRoutineDenied."
+  },
+  "setVideoCameraDenied": "Foss Lift needs the camera to film a set. Clips stay on this phone.",
+  "@setVideoCameraDenied": {
+    "description": "Shown in place of the viewfinder when camera permission was refused before filming a set. The second sentence answers the question the permission prompt raises: nothing filmed is uploaded anywhere."
+  },
+  "clipPlayerDeleteBody": "Only the video goes — the set stays.",
+  "@clipPlayerDeleteBody": {
+    "description": "Body of the delete-clip dialog, answering the only question the title leaves open: the logged set and its weights and reps survive; just the recording is removed."
+  },
+  "clipPlayerMissing": "This clip is no longer on the phone.",
+  "@clipPlayerMissing": {
+    "description": "Shown in place of the player when the video file a set points at is gone — removed by hand, or lost with the app's storage."
+  },
+  "clipLabelReps": "{date} · set {number} · {reps, plural, =1{1 rep} other{{reps} reps}}",
+  "@clipLabelReps": {
+    "description": "clipLabelLoadedReps for a set done under no load — a push-up, a pull-up — where naming a weight would mean claiming it was zero.",
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "MMMd",
+        "example": "12 Mar"
+      },
+      "number": {
+        "type": "int",
+        "example": "3"
+      },
+      "reps": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "tutorialChooseTitle": "Welcome to Foss Lift",
+  "@tutorialChooseTitle": {
+    "description": "Title of the card the app opens on the first time it is launched, which asks which of two tours to take. Foss Lift is the app's name and stays as it is. One line on a card about 320 logical pixels wide."
+  },
+  "tutorialChooseBody": "Choose a tutorial option, or find them later in Profile.",
+  "@tutorialChooseBody": {
+    "description": "Body of the first-run card, above the two tour buttons. It must not rank the two — somebody who knows their way around a gym is not taking the lesser option. Two lines."
+  },
+  "tutorialTrackFullHint": "Explain everything, including gym terms",
+  "@tutorialTrackFullHint": {
+    "description": "The one line under the Full tour button saying what is in it. Not a recommendation — a description. One line, about 40 characters."
+  },
+  "tutorialTrackQuickHint": "A brief tour for an experienced gym-goer",
+  "@tutorialTrackQuickHint": {
+    "description": "The one line under the Quick tour button saying what is in it. One line, about 40 characters."
+  },
+  "tutorialTrackBuilderHint": "Make a program of your own, step by step",
+  "@tutorialTrackBuilderHint": {
+    "description": "The one line under the Building a routine button saying what is in it. One line, about 40 characters."
+  },
+  "tutorialReplayHint": "Replay it from Profile → Help & tour.",
+  "@tutorialReplayHint": {
+    "description": "The single line shown at the bottom of the screen when somebody skips or declines the tour, saying where to find it again. 'Profile' names a tab and 'Help & tour' names an entry on it, so both must match how those are translated. It fades away by itself — one line."
+  },
+  "tutorialTabTodayBody": "The main page. Shows your upcoming workouts.",
+  "@tutorialTabTodayBody": {
+    "description": "Body of the step about the Today tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  },
+  "tutorialRoutinesBody": "A routine is a training program — the set of workouts you rotate through, like Push, Pull and Legs. Pre-built and custom routines live here.",
+  "@tutorialRoutinesBody": {
+    "description": "Body of the step about the Routines tab. This is where the tour defines the word 'routine' for somebody who has never trained, so keep the definition; Push, Pull and Legs are the names of the shipped demo routine's days and should match how those are translated. Three lines."
+  },
+  "tutorialHistoryBody": "Every session you finish is logged here: what you lifted, and when.",
+  "@tutorialHistoryBody": {
+    "description": "Body of the step about the History tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  },
+  "tutorialProfileBody": "Find the settings, your exercise library, and the tutorial tour here.",
+  "@tutorialProfileBody": {
+    "description": "Body of the step about the Profile tab. Two lines — the callout sits above the bottom navigation bar with little room."
+  },
+  "tutorialBackToTodayBody": "Now we'll cover Today in depth.",
+  "@tutorialBackToTodayBody": {
+    "description": "Body of the step returning to the Today tab, which introduces the run of steps about what is on it. 'Today' names a tab. One line — the callout sits above the bottom navigation bar."
+  },
+  "tutorialTodayRoutineBody": "A routine is a training program: the workouts you rotate through, each one a session's worth of exercises. Get one here, and Today lists them with the one you are due next highlighted.",
+  "@tutorialTodayRoutineBody": {
+    "description": "Body of the step about the routine on Today. A fresh install has an empty routine list, so this is where the tour defines 'routine' and 'workout' and says that this screen is where a routine comes from — keep both definitions rather than shortening to the nouns. Budget four lines."
+  },
+  "tutorialLifetimeBody": "Every session you finish adds to your volume (overall weight lifted), sets and reps here.",
+  "@tutorialLifetimeBody": {
+    "description": "Body of the step about the lifetime totals card. The parenthesis glosses 'volume', which is the gym term for weight times reps summed over every set — keep the gloss, and match how todayStatVolume was translated. Two or three lines; this callout floats beside the card it points at."
+  },
+  "tutorialSessionOpenBody": "Open a workout, then tap Start workout to see this screen. This one is a push workout: chest, shoulders and triceps — the muscles you push with.",
+  "@tutorialSessionOpenBody": {
+    "description": "Body of the step explaining the jump from Today to the live workout screen. It has to name the Start workout button, because the tour has just replaced the picture and has to say why. Keep the button name matching the app's own label for it — see workoutDetailStart. The second sentence is where the tour defines 'push workout', which the drawn screen is headed with."
+  },
+  "tutorialBoardBody": "A rep is one repetition of a movement, and a set is a run of reps done back to back. Each row here is one set, and the outlined row is the one you are on. Tap its number to log the goal, tap again for each rep you fell short, or hold to type a number.",
+  "@tutorialBoardBody": {
+    "description": "Body of the step about logging a set: what the two words mean, then the three gestures a set row takes. This is where the tour defines 'set' and 'rep', so keep both definitions. The card sits over a mock board, so five lines is survivable."
+  },
+  "tutorialWeightBody": "Tap the weight beside an exercise to change it for all unlogged sets of that exercise. Tap a set's own weight to change that set only.",
+  "@tutorialWeightBody": {
+    "description": "Body of the step about the two weights a tap can move: the exercise's weight on its goal line, which carries every set still to come, and one set's weight, which moves nothing else. The closing phrase names one set the way the dialog does — translate it with the words you used for sessionSetOnly, and keep it distinct from sessionWarmupOnly, which is the same control on a warm-up rung. Do not explain what a set is. Budget three lines."
+  },
+  "tutorialRestBody": "In between sets, you rest to recover. The rest timer starts after you log a set, and you can change its duration or skip it.",
+  "@tutorialRestBody": {
+    "description": "Body of the step about the rest timer: what rest is for, what starts it, and what you can do to it. Budget three lines, four at the outside."
+  },
+  "tutorialNoteTitle": "Your note on a movement",
+  "@tutorialNoteTitle": {
+    "description": "Title of the tour step about the per-exercise note. One line — three or four words."
+  },
+  "tutorialNoteBody": "Optionally, write down exercise details like a form cue or a seat position for a machine. Tap the note icon to write, and it is saved for future workouts.",
+  "@tutorialNoteBody": {
+    "description": "Body of the step about exercise notes: what people write in them, how to open one, and that it persists across sessions. The longest body in the tour — budget four lines and do not exceed five."
+  },
+  "tutorialVideoBody": "Optionally, record your set to review your form later. Clip length and quality can be changed in Settings.",
+  "@tutorialVideoBody": {
+    "description": "Body of the step about filming a set: what the camera icon does, the two ways to watch a clip back, and that nothing is uploaded. Budget four lines, five at the outside."
+  },
+  "tutorialShadeBody": "If you exit the app mid-workout, you can log your exercises from the notification bar. It shows the current set and the rest timer in between sets.",
+  "@tutorialShadeBody": {
+    "description": "Body of the step about the notification. 'Done', 'Missed' and 'Skip' name the notification's own buttons — use the words you translated shadeDone, shadeMissed and sessionRestSkip with. Budget three lines."
+  },
+  "tutorialDoneTitle": "That is the tour",
+  "@tutorialDoneTitle": {
+    "description": "Title of the last step of the full tour. Three or four words on one line."
+  },
+  "tutorialDoneBody": "Replay it from Profile → Help & tour.",
+  "@tutorialDoneBody": {
+    "description": "Body of the last step of the full tour. 'Profile' names a tab and 'Help & tour' names an entry on it, so both must match how those are translated. The arrow is a separator between them and stays as it is. Three lines."
+  },
+  "tutorialDoneQuickBody": "Replay it from Profile → Help & tour, where the longer tour is too.",
+  "@tutorialDoneQuickBody": {
+    "description": "Body of the last step of the quick tour, in place of tutorialDoneBody. Same naming rules: 'Profile' is a tab, 'Help & tour' is an entry on it. Two or three lines."
+  },
+  "tutorialBuildNewBody": "A routine is a training program — the set of workouts you rotate through. New routine opens an empty one.",
+  "@tutorialBuildNewBody": {
+    "description": "Body of the step ringing New routine. This is where the tour defines the word 'routine' for somebody who has never trained, so keep the definition. It also has to say what the button opens, because the next step's picture is that screen."
+  },
+  "tutorialBuildNameBody": "New routine opens this. Name it whatever you will recognise on Today — “Push Pull Legs”, “Mondays and Thursdays”.",
+  "@tutorialBuildNameBody": {
+    "description": "Body of the step ringing the routine builder's name field. It opens by naming what got you here, because the picture has just changed with nothing on the phone having moved. The two examples are routine names a user might write; translate them as plausible names rather than word for word."
+  },
+  "tutorialBuildDaysBody": "A workout is one session: the exercises you do in one visit. Most programs have three to five and rotate through them.",
+  "@tutorialBuildDaysBody": {
+    "description": "Body of the step ringing the list of workouts. This is where the tour defines 'workout', so keep the definition. Budget three lines."
+  },
+  "tutorialBuildExercisesBody": "Tapping a workout opens it. Add the movements it is made of, in the order you will do them, and drag the grip on the left to reorder.",
+  "@tutorialBuildExercisesBody": {
+    "description": "Body of the step ringing a workout's exercise list. It opens by naming what got you here — the picture has changed to a different screen. 'Grip' is the drag handle at the left of each row."
+  },
+  "tutorialBuildSlotTitle": "What each exercise is set to",
+  "@tutorialBuildSlotTitle": {
+    "description": "Title of the builder-tour step explaining the per-exercise settings. One line, five or six words."
+  },
+  "tutorialBuildSlotBody": "Tap an exercise to configure it. Sets is how many times you repeat it, the rep target is what each set aims at, and rest is the pause between them. Step up by is how much is added after a clean session; back off by is how much comes off after missing one.",
+  "@tutorialBuildSlotBody": {
+    "description": "Body of the step about one exercise's settings, shown against a drawing of the sheet those settings are on. It names five of the fields on that sheet, so use the same words you translated those field captions with — itemEditorSets, itemEditorReps, itemEditorRest, itemEditorStepUpBy and itemEditorBackOffBy. Five lines is survivable."
+  },
+  "tutorialBuildSupersetBody": "Ticking this joins the exercise to the one above it: a set of each, back to back, with the rest at the end of the round instead of between them. That is a superset, and it saves time.",
+  "@tutorialBuildSupersetBody": {
+    "description": "Body of the step about the superset checkbox, shown with that checkbox ringed. It is where the tour defines 'superset' for somebody new to the gym, so keep the definition rather than assuming the word. Use the same noun as commonSuperset. Four lines."
+  },
+  "tutorialBuildQuickTitle": "Name it and fill it",
+  "@tutorialBuildQuickTitle": {
+    "description": "Title of the quick tour's one builder step, which stands in for the full tour's separate steps for naming a routine, adding its workouts and adding exercises to a day. Three or four words on one line."
+  },
+  "tutorialBuildQuickBody": "Name the routine, then add its workouts. Tap one to fill it with exercises.",
+  "@tutorialBuildQuickBody": {
+    "description": "Body of that step. The quick tour is for somebody who has used a tracker before, so it says where the controls are and does not define 'workout' — the full tour does that on a step of its own. Two lines at most."
+  },
+  "tutorialBuildSaveBody": "With every workout added, save the routine. It appears under Routines, and on Today once you make it the current one.",
+  "@tutorialBuildSaveBody": {
+    "description": "Body of the step ringing the routine builder's Save — the last step of the chapter. It says where the finished routine turns up."
+  },
+  "tutorialBuildDoneTitle": "That is a routine",
+  "@tutorialBuildDoneTitle": {
+    "description": "Title of the last step of the routine-builder tour. Three or four words."
+  },
+  "tutorialBuildDoneBody": "Replay this from Profile → Help & tour.",
+  "@tutorialBuildDoneBody": {
+    "description": "Body of the last step of the builder tour. 'Profile' names a tab and 'Help & tour' names an entry on it. The arrow is a separator and stays as it is. Two lines."
+  },
+  "shadeChannelDescription": "Shows the set you are on while a workout is running.",
+  "@shadeChannelDescription": {
+    "description": "Description of the live-workout notification channel, shown under its name in the phone's notification settings. One sentence."
+  },
+  "shadeFinishedBody": "Every set logged — tap to finish",
+  "@shadeFinishedBody": {
+    "description": "The second line of the live-workout notification once every set is logged. Tapping the notification opens the session board, where the Finish button is; nothing is written to history until it is pressed. 'Finish' is the same word as sessionFinish, the button it points at."
+  },
+  "restAlarmChannelDescription": "Sounds when a rest timer runs out.",
+  "@restAlarmChannelDescription": {
+    "description": "Description of the rest-alarm notification channel, shown under its name in the phone's notification settings. One sentence."
+  },
+  "reminderChannelDescription": "Nudges on the days a routine is scheduled to be trained.",
+  "@reminderChannelDescription": {
+    "description": "Description of the reminder notification channel, shown under its name in the phone's notification settings. One sentence."
+  },
+  "reminderBody": "Training day — time to lift.",
+  "@reminderBody": {
+    "description": "The body of a scheduled reminder; the bold line above it is the routine's own name. Fires on a day the routine is scheduled for. One short line — a notification on a lock screen. The dash is an em dash."
+  },
+  "tutorialBuildSaveDayBody": "That is one workout done. Saving it puts you back on the routine, where you add the next one.",
+  "@tutorialBuildSaveDayBody": {
+    "description": "Body of the step ringing a workout's Save. It has to say that saving returns you to the routine, because the next step's picture is that screen again."
+  },
+  "tutorialBuildOpenBody": "From Today, tap Routines. Every program you have is here, and the + in the corner adds another.",
+  "@tutorialBuildOpenBody": {
+    "description": "Body of the first step of the routine chapter. The full tour arrives here from the Today step, so it has to bridge the two: name the tab you came from and the tab you are now looking at. 'Today' and 'Routines' name tabs — see navToday and navRoutines. The + is the button in the top right of that screen."
+  },
+  "tutorialBuildAddBody": "The + is where a routine comes from. It offers three: take a ready-made program, build your own, or bring in one somebody sent you.",
+  "@tutorialBuildAddBody": {
+    "description": "Body of the step ringing the + on the Routines tab. It has to say what the button opens, because every step after it is on the sheet the + opened. Three lines."
+  },
+  "tutorialBuildLibraryTitle": "Take a ready-made one",
+  "@tutorialBuildLibraryTitle": {
+    "description": "Title of the tour step ringing the Ready-made routines row on the drawn sheet. One line."
+  },
+  "tutorialBuildLibraryBody": "Ready-made routines contains published programs such as Push/Pull/Legs, StrongLifts 5×5, and the Bodyweight Routine. Open one to review its workouts, then add it to your list.",
+  "@tutorialBuildLibraryBody": {
+    "description": "Body of the step about the routine library. It names the row — see routineLibraryTitle — so use the same words you translated that with. The two programs are names, not to be translated. Three lines."
+  },
+  "tutorialBuildImportTitle": "One somebody sent you",
+  "@tutorialBuildImportTitle": {
+    "description": "Title of the tour step ringing the Import a routine row on the drawn sheet. Three or four words."
+  },
+  "tutorialBuildImportBody": "Import a routine takes a program a friend shared: scan the QR on their phone, or paste the code they sent you. Nothing is added until you have read it.",
+  "@tutorialBuildImportBody": {
+    "description": "Body of the step about importing. It names the row — see routinesImport — so use the same words you translated that with. Three lines."
+  },
+  "storageEphemeralWarning": "This browser has nowhere to save your training. Anything you log will be gone when you close the tab.",
+  "@storageEphemeralWarning": {
+    "description": "A permanent warning shown on the Today screen of the browser build when the database could not be given real storage and is being held in memory. It must say plainly that the data will not survive, because the user would otherwise train a whole session into nothing. Two short sentences."
+  },
+  "storageEvictableNotice": "This browser has not promised to keep your training. It should survive, but clearing site data or running low on space would take it.",
+  "@storageEvictableNotice": {
+    "description": "A dismissible note shown on the Today screen of the browser build when storage is real but the browser refused to exempt it from eviction. Milder than storageEphemeralWarning: the data is probably fine. Two short sentences."
+  },
+  "itemEditorSchemeAmrap": "As many as possible",
+  "@itemEditorSchemeAmrap": {
+    "description": "Checkbox under one written-out set: the set has no upper rep count, only a minimum to beat. The \"+\" set of a 5/3/1 week."
+  },
+  "trainingMaxLead": "What this routine's percentages are of. One number per lift, written onto every slot that takes its percentages from it.",
+  "@trainingMaxLead": {
+    "description": "The one-paragraph lead at the top of the training-max screen, above the fields."
+  },
+  "trainingMaxMixed": "These slots differ. Type a number to make them agree.",
+  "@trainingMaxMixed": {
+    "description": "Shown under a training-max field whose slots do not all carry the same weight, so the field opens empty."
+  },
+  "trainingMaxEmpty": "Nothing in this routine trains off percentages.",
+  "@trainingMaxEmpty": {
+    "description": "Shown on the training-max screen for a routine with no written-out slot in it."
+  },
+  "seedRoutine531Classic": "5/3/1 Classic",
+  "@seedRoutine531Classic": {
+    "description": "Name of a shipped program in the routine library. \"5/3/1\" is the program's published name and stays as digits in every language."
+  },
+  "seedRoutine531BoringButBig": "5/3/1 Boring But Big",
+  "@seedRoutine531BoringButBig": {
+    "description": "Name of a shipped program. \"Boring But Big\" is the published name of the template; translate it only if it is known under a translated name in your language."
+  },
+  "seedRoutine531FirstSetLast": "5/3/1 First Set Last",
+  "@seedRoutine531FirstSetLast": {
+    "description": "Name of a shipped program. \"First Set Last\" is the published name of the template — five sets at the weight the session opened on."
+  },
+  "seedRoutine531Beginners": "5/3/1 for Beginners",
+  "@seedRoutine531Beginners": {
+    "description": "Name of a shipped program: the four lifts folded into three sessions a week."
+  },
+  "seedRoutineCanditoControl": "Candito Linear — Strength/Control",
+  "@seedRoutineCanditoControl": {
+    "description": "Name of a shipped program. \"Candito\" is the author's surname and stays as it is; \"Linear\" and \"Strength/Control\" are the published names of the program and its variant."
+  },
+  "seedRoutineTsaIntermediate2": "TSA Intermediate 2.0",
+  "seedRoutineDescTsaBeginner": "The Strength Athlete’s nine-week beginner powerlifting program. Train four days per week and choose each RPE-prescribed load in the session.",
+  "seedRoutineDescTsaIntermediate2": "The Strength Athlete’s nine-week Intermediate 2.0 powerlifting program. Four weekly sessions combine competition lifts, variations, and RPE-regulated work.",
+  "seedRoutineCanditoHypertrophy": "Candito Linear — Strength/Hypertrophy",
+  "@seedRoutineCanditoHypertrophy": {
+    "description": "Name of a shipped program: the same split with more volume on its variation days."
+  },
+  "seedRoutineDesc531Classic": "Jim Wendler’s four-day 5/3/1 template. Each day trains one main lift from a 90% training max, followed by two assistance movements.",
+  "@seedRoutineDesc531Classic": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDesc531BoringButBig": "Jim Wendler’s four-day Boring But Big template. Main 5/3/1 work is followed by five sets of ten at 50% of the training max.",
+  "@seedRoutineDesc531BoringButBig": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDesc531FirstSetLast": "Jim Wendler’s four-day First Set Last template. Main 5/3/1 work is followed by five sets at the first work-set percentage.",
+  "@seedRoutineDesc531FirstSetLast": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDesc531Beginners": "Jim Wendler’s three-day beginner template. Each session trains two main lifts from 90% training maxes, followed by assistance.",
+  "@seedRoutineDesc531Beginners": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDescCanditoControl": "Jonnie Candito’s four-day linear program with strength and control days. The control days use paused competition-lift variations for six sets of four.",
+  "@seedRoutineDescCanditoControl": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDescSheiko2932": "Boris Sheiko’s #29–32 sequence: sixteen weeks, three days per week, ending with a max test. Percentages use current competition maxes, not 90% training maxes.",
+  "@seedRoutineDescSheiko2932": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "seedRoutineDescCanditoHypertrophy": "Jonnie Candito’s four-day linear program with strength and hypertrophy days. The variation days begin with five sets of eight.",
+  "@seedRoutineDescCanditoHypertrophy": {
+    "description": "The description shown on that program's preview and copied onto the routine."
+  },
+  "itemEditorEffortTargetWhat": "What is an effort target?",
+  "itemEditorEffortTargetExplained": "An effort target uses RPE to describe how close a set should be to failure. RPE 10 means no reps left, RPE 8 means about two reps left, and RPE 6 means four or more.",
+  "rpeRepsLeft": "{count, plural, one {1 rep left} other {{count} reps left}}",
+  "@rpeRepsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "itemEditorGzclpOnlyHint": "Choose a tier only when building a GZCLP workout. Tiers change the set and failure progression rules.",
+  "itemEditorGzclStandardHint": "Use the progression method selected above",
+  "itemEditorGzclT1Hint": "GZCLP's main lift — heavy, low-rep work. ",
+  "itemEditorGzclT2Hint": "Secondary lift — moderate weight and reps",
+  "itemEditorGzclT3Hint": "Assistance — lighter, high-rep work",
+  "itemEditorProgressionTypeInfo": "About this progression type",
+  "itemEditorRepsThenWeightHint": "Build reps to the top of the range, then add weight and return to the bottom.",
+  "itemEditorCycleHint": "A training cycle is made up of repeating phases, each with custom sets and reps. They use a percentage of your training max, which progresses after the final phase.",
+  "itemEditorWeightProgressionExplained": "After enough successful workouts, the prescribed weight increases. Repeated misses reduce it.",
+  "itemEditorRepsProgressionExplained": "After enough successful workouts, the rep target increases. Repeated misses reduce it.",
+  "itemEditorTimeProgressionExplained": "After enough successful workouts, the hold target gets longer. Repeated misses shorten it.",
+  "itemEditorRepsThenWeightExplained": "The rep target climbs through a range. After reaching the top, the next increase adds weight and resets the target to the bottom. This type requires a rep range and cannot be combined with training to failure.",
+  "itemEditorGzclT1Explained": "GZCLP’s heavy main-lift tier. Success increases the exercise weight and keeps its current sets-and-reps stage. A miss advances to the next stage; at the final stage, Foss Lift holds it for a manual reset.",
+  "itemEditorGzclT2Explained": "GZCLP’s moderate secondary-lift tier. It uses the same staged failure progression as T1 with more reps and lighter weight.",
+  "itemEditorGzclT3Explained": "GZCLP’s higher-rep assistance tier. Weight increases when the final AMRAP set reaches its configured target.",
+  "seedRoutineDescPpl": "A six-day barbell push/pull/legs program. Pull, push, and legs repeat each week while deadlift alternates with row and bench alternates with overhead press.",
+  "seedRoutineDescFitnessBasicBeginner": "A barbell introduction trained three days per week. Alternate two three-lift workouts, add weight after successful sessions, and move to a larger program after no more than three months.",
+  "seedRoutineDescBodyweightfitnessRecommended": "A full-body routine trained three days per week. It uses bodyweight progressions and requires places to hang and perform rows; edit each slot when you move to a harder progression.",
+  "seedRoutineDescDumbbellStopgap": "A two-workout dumbbell routine. Alternate A and B three days per week, using adjustable dumbbells or a rack of increasing weights; plank holds are entered by time.",
+  "seedRoutineDescGzclp": "Cody Lefever’s novice linear progression. Four rotating sessions pair heavy main lifts with moderate secondary lifts and higher-rep assistance work."
+}
