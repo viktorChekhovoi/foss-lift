@@ -605,16 +605,19 @@ List<NotificationButton> shadeButtons(AppLocalizations l10n, WorkoutCue cue) =>
 /// What a rest that has just ended was for, in one line: where you are and the
 /// set itself, in enough detail to load a bar from.
 ///
-/// **One sentence, two places.** The notification posts it when the app is in a
-/// pocket and the rest bar shows it when the app is in your hand — see
-/// `session.rest-done`. They are the same fact, so they are the same line;
-/// anything else and the phone would say two different things about one rest.
+/// The finished rest bar shows it in the app, while the workout shade reflects
+/// the same session state — see `session.rest-done`.
 ///
 /// [cue] is what the session has outstanding — null, or a finished session,
 /// means there is nothing left to name.
 String restIsOverLine(AppLocalizations l10n, WorkoutCue? cue, String unit) {
-  if (cue == null || cue.kind == CueKind.finished) return l10n.restAlarmBackToIt;
-  return l10n.restAlarmBody(shadeWhere(l10n, cue), describeCue(l10n, cue, unit));
+  if (cue == null || cue.kind == CueKind.finished) {
+    return l10n.sessionRestWorkoutComplete;
+  }
+  return l10n.sessionRestDoneBody(
+    shadeWhere(l10n, cue),
+    describeCue(l10n, cue, unit),
+  );
 }
 
 /// One line describing a set: the load and the target.

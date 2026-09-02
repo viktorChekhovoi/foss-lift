@@ -50,7 +50,7 @@ groups:
       Logged sets retain their stored kilogram values; a set logged at 100 kg is
       displayed as the equivalent pounds after switching. Configuration targets
       and per-unit progression steps are converted as described below, and the
-      dialog explains this before the change.
+      dialog explains that plate racks remain separate before the change.
     uses:
     - load.units
     - load.unit-defaults

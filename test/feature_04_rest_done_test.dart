@@ -133,6 +133,27 @@ void main() {
       await stopAll(tester);
     });
 
+    testWidgets('with nothing left to name it says the workout is complete',
+        (tester) async {
+      await pumpPushScreen(tester);
+      await restOnBench(tester);
+
+      // Finish everything else while the first set's rest is still running.
+      // When that rest ends there is no next set or setup action to name.
+      final ctl = container!.read(activeWorkoutProvider.notifier);
+      for (final exercise in session().exercises.indexed) {
+        for (final set in exercise.$2.sets.indexed) {
+          if (!set.$2.done) ctl.cycleSet(exercise.$1, set.$1);
+        }
+      }
+
+      await tester.pump(const Duration(seconds: 121));
+
+      expect(find.byKey(kRestBannerKey), findsOneWidget);
+      expect(bannerLine(tester), 'Workout complete');
+      await stopAll(tester);
+    });
+
     testWidgets('Skip lands in the same place', (tester) async {
       await pumpPushScreen(tester);
       final resting = await restOnBench(tester);

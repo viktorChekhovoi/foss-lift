@@ -77,7 +77,7 @@
   "@backupResetBody": {
     "description": "Body of the reset confirmation. It names the four things that go, says it is final, and points at the backup while there is still something to back up. Two sentences."
   },
-  "settingsSwitchUnitBody": "Your exercise weights and available plates are converted to {unit} automatically. Some conversions may need to be manually adjusted.",
+  "settingsSwitchUnitBody": "Targets are converted to {unit}. Logged history stays stored in kilograms and is displayed in {unit}. Your kilogram and pound plate racks remain separate.",
   "@settingsSwitchUnitBody": {
     "description": "Dialog body when changing the weight unit.",
     "placeholders": {
@@ -166,7 +166,7 @@
       }
     }
   },
-  "sessionWarmupTooLight": "Weight too light to auto calculate warm-up.",
+  "sessionWarmupTooLight": "Weight too light to calculate a warm-up automatically.",
   "@sessionWarmupTooLight": {
     "description": "Shown inside the warm-up group when rungs were asked for but the working weight is so light that no lighter step exists between the empty bar and it."
   },
@@ -230,7 +230,7 @@
   "@itemEditorAddWeightAtTop": {
     "description": "Checkbox label in the Progression card's Advanced half, and the name of the Advanced axis it switches the slot to: climb the rep goal to the top of the range, then add weight and start the reps again at the bottom. Always listed, and greyed out on a slot with no rep range to climb."
   },
-  "itemEditorAddWeightAtTopHint": "Combine weight and rep progression; increase reps until you hit the max, then increase weight",
+  "itemEditorAddWeightAtTopHint": "Combine weight and rep progression; increase reps until you hit the maximum, then increase weight.",
   "@itemEditorAddWeightAtTopHint": {
     "description": "The line under the \"Progress by reps, then weight\" checkbox, saying what the combination does. Always shown, whether or not the box can be ticked."
   },
@@ -274,7 +274,7 @@
   "@itemEditorSupersetWhat": {
     "description": "The tooltip on the info icon beside the superset checkbox, and the title of the box it opens. A question, because that is what the icon is answering."
   },
-  "itemEditorSupersetExplained": "Two or more exercises done back to back, with no rest in between; saves time in the gym",
+  "itemEditorSupersetExplained": "Two or more exercises performed back to back with no rest between them, saving time in the gym.",
   "@itemEditorSupersetExplained": {
     "description": "What a superset is, for somebody who has just been offered one: what it is, then why anybody does it. The only place in the app outside the tour where a training term is defined."
   },
@@ -398,7 +398,7 @@
   "@routineEditNotifyDenied": {
     "description": "Toast shown when the user turns the reminder on but Android refuses the notification permission. Foss Lift and Android are names and stay as they are."
   },
-  "routineEditNoExercises": "No exercises yet — tap to add",
+  "routineEditNoExercises": "No exercises yet — tap to add.",
   "@routineEditNoExercises": {
     "description": "Under an empty workout in the routine builder, where the exercise count would be."
   },
@@ -453,7 +453,7 @@
       }
     }
   },
-  "startWorkoutLayoffBody": "You last trained {name} {days, plural, =1{1 day} other{{days} days}} ago. Coming back at the same load is how people get hurt.\n\nFoss Lift can drop every target in this workout by {percent}% to ease you back in. Your logged history is not touched.",
+  "startWorkoutLayoffBody": "You last trained {name} {days, plural, =1{1 day} other{{days} days}} ago. The previous load may be too much after time away.\n\nFoss Lift can reduce every target in this workout by {percent}% to ease you back in. Your logged history is unchanged.",
   "@startWorkoutLayoffBody": {
     "description": "What the layoff offer noticed and what it proposes. Foss Lift is a name and stays as it is.",
     "placeholders": {
@@ -617,9 +617,9 @@
   "@exerciseFormLoadedAsOptional": {
     "description": "The same label for a movement held for time, where carrying any load is the exception. Rendered in small capitals by the app; write it in ordinary case."
   },
-  "exerciseFormHoldLoadNote": "For static exercises with added weight, e.g. Farmer's Carry",
+  "exerciseFormHoldLoadNote": "For static exercises with added weight, such as a weighted plank.",
   "@exerciseFormHoldLoadNote": {
-    "description": "Note under the loading chips for a movement held for time. A farmer's carry is walking with a weight in each hand; substitute a loaded static exercise your readers will recognize if that name does not travel."
+    "description": "Note under the loading chips for a static movement held for time. Use a loaded static exercise that readers will recognize."
   },
   "exerciseFormNameRequired": "Give the exercise a name first.",
   "@exerciseFormNameRequired": {
@@ -639,7 +639,7 @@
   "@exerciseDetailLinkCopied": {
     "description": "Snack bar confirming a long-press copied the demo link."
   },
-  "exerciseDetailNoOpener": "Foss Lift can't open this link, copied to clipboard instead",
+  "exerciseDetailNoOpener": "Foss Lift can't open this link, so it was copied to the clipboard instead.",
   "@exerciseDetailNoOpener": {
     "description": "Snack bar shown when the phone has nothing installed that will open a web address, so the app copied it instead."
   },
@@ -723,9 +723,9 @@
   "@aboutDataPara2": {
     "description": "Second paragraph of the app's privacy statement, naming the only two exceptions to the first. Its meaning is load-bearing: translate it exactly, neither softening nor embellishing, and keep it as one paragraph. The 'share sheet' is the system dialog Android shows for sending something to another app."
   },
-  "aboutLicenseBody": "AGPL-3.0. Free to use, read, change and pass on — the source is the whole of it, and anything built on it stays free too.",
+  "aboutLicenseBody": "AGPL-3.0. You may use, inspect, modify, and share Foss Lift under the terms of its license.",
   "@aboutLicenseBody": {
-    "description": "The license statement on the about screen. 'AGPL-3.0' is the identifier of the GNU Affero General Public License version 3 — a proper noun that is never translated or spelled differently. 'Free' here means free as in freedom, not free of charge. Keep it as one paragraph."
+    "description": "The license statement on the about screen. 'AGPL-3.0' is the identifier of the GNU Affero General Public License version 3 — a proper noun that is never translated or spelled differently. Keep it as one paragraph."
   },
   "aboutBugReportSubject": "Foss Lift bug report",
   "@aboutBugReportSubject": {
@@ -759,7 +759,7 @@
   "@plateRackAdd": {
     "description": "The row at the foot of the plate list that opens the new-plate dialog. It adds a denomination, not one more of a plate already listed."
   },
-  "plateRackEmpty": "No plates. Add some to enable bar loading suggestions",
+  "plateRackEmpty": "No plates. Add some to enable bar-loading suggestions.",
   "@plateRackEmpty": {
     "description": "Shown in place of the plate list when the rack is empty. Without plates the app can only ever suggest the bare barbell."
   },
@@ -792,7 +792,7 @@
       }
     }
   },
-  "videoSettingsDeleteBody": "This will delete every clip recorded so far. Exercise history is not affected",
+  "videoSettingsDeleteBody": "This will delete every clip recorded so far. Exercise history is not affected.",
   "@videoSettingsDeleteBody": {
     "description": "Body of the delete-every-clip confirmation: the logged sets themselves are untouched, but the footage is gone for good."
   },
@@ -1085,9 +1085,9 @@
   "@shadeFinishedBody": {
     "description": "The second line of the live-workout notification once every set is logged. Tapping the notification opens the session board, where the Finish button is; nothing is written to history until it is pressed. 'Finish' is the same word as sessionFinish, the button it points at."
   },
-  "restAlarmChannelDescription": "Sounds when a rest timer runs out.",
+  "restAlarmChannelDescription": "Legacy channel for rest-finished alerts. Foss Lift no longer posts to it.",
   "@restAlarmChannelDescription": {
-    "description": "Description of the rest-alarm notification channel, shown under its name in the phone's notification settings. One sentence."
+    "description": "Description of the legacy rest-alert notification channel, shown under its name in the phone's notification settings."
   },
   "reminderChannelDescription": "Nudges on the days a routine is scheduled to be trained.",
   "@reminderChannelDescription": {
@@ -1216,7 +1216,7 @@
   },
   "itemEditorGzclpOnlyHint": "Choose a tier only when building a GZCLP workout. Tiers change the set and failure progression rules.",
   "itemEditorGzclStandardHint": "Use the progression method selected above",
-  "itemEditorGzclT1Hint": "GZCLP's main lift — heavy, low-rep work. ",
+  "itemEditorGzclT1Hint": "GZCLP’s main lift — heavy, low-rep work.",
   "itemEditorGzclT2Hint": "Secondary lift — moderate weight and reps",
   "itemEditorGzclT3Hint": "Assistance — lighter, high-rep work",
   "itemEditorProgressionTypeInfo": "About this progression type",

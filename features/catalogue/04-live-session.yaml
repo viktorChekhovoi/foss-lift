@@ -520,6 +520,7 @@ groups:
     t: A rest that has ended says the next set is up, and waits
     d: >-
       At zero, the banner remains and identifies the next set or setup action. It
+      reads “Workout complete” if nothing remains to name. It
       clears when that set is logged, a new rest starts, or its originating set is
       cleared. There is no separate dismiss action.
     defines:

@@ -2996,13 +2996,13 @@
   "@restAlarmTitle": {
     "description": "The bold line of the notification that sounds when a rest runs out while the app is not on screen. Two words — it is read on a lock screen at arm's length."
   },
-  "restAlarmBackToIt": "Back to it.",
-  "@restAlarmBackToIt": {
-    "description": "The body of the rest-finished notification when there is no set left to name — every set of the session is already logged. A short nudge back to the workout."
+  "sessionRestWorkoutComplete": "Workout complete",
+  "@sessionRestWorkoutComplete": {
+    "description": "The finished-rest banner when there is no set left to name because every set is already logged. Two words."
   },
-  "restAlarmBody": "{where} · {what}",
-  "@restAlarmBody": {
-    "description": "The body of the rest-finished notification: what the rest is over for. {where} is one of the shadeWhere* strings and {what} one of the shadeSet* strings; the separator is a middle dot with a space either side.",
+  "sessionRestDoneBody": "{where} · {what}",
+  "@sessionRestDoneBody": {
+    "description": "The finished-rest banner: what the rest was for. {where} is one of the shadeWhere* strings and {what} one of the shadeSet* strings; the separator is a middle dot with a space either side.",
     "placeholders": {
       "where": {
         "type": "String",

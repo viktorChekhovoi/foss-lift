@@ -688,6 +688,16 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Switch to pounds?'), findsOneWidget);
+      expect(
+        find.text(
+          'Targets are converted to pounds. Logged history stays stored in '
+          'kilograms and is displayed in pounds. Your kilogram and pound '
+          'plate racks remain separate.',
+        ),
+        findsOneWidget,
+        reason: 'the decision explains targets, immutable history with '
+            'converted display, and the two separate racks before it is made',
+      );
 
       await tester.tap(find.text('Cancel'));
       await tester.pump();
