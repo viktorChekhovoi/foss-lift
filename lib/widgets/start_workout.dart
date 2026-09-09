@@ -44,10 +44,13 @@ Future<void> startWorkout(
   for (final slots in byExercise.values) {
     final view = slots.first;
     final item = view.item;
-    final normalProgression = slots.any((slot) =>
-        !slot.item.progression.timed &&
-        !slot.item.runsCycle &&
-        slot.item.gzclTier == null);
+    final normalProgression = slots.any(
+      (slot) => usesNormalProgression(
+        mode: slot.item.progression,
+        runsCycle: slot.item.runsCycle,
+        gzclTier: slot.item.gzclTier,
+      ),
+    );
     final layoff = await db.layoffFor(
       workoutId,
       exerciseId: normalProgression ? item.exerciseId : null,

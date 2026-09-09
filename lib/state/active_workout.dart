@@ -340,7 +340,11 @@ class ExerciseEntry {
   /// Normal weight and rep progression scores only performed sets. A fully
   /// skipped exercise has no verdict and leaves its targets and streaks alone.
   SessionVerdict? get verdict {
-    if (mode.timed || scheme == SetScheme.cycle || gzclTier != null) {
+    if (!usesNormalProgression(
+      mode: mode,
+      runsCycle: scheme == SetScheme.cycle,
+      gzclTier: gzclTier,
+    )) {
       return succeeded ? SessionVerdict.success : SessionVerdict.miss;
     }
     if (!sets.any((s) => s.done)) return null;
