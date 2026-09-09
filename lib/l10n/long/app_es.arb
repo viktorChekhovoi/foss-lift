@@ -72,7 +72,7 @@
   "workoutDetailEmpty": "Aún no hay ejercicios. Toca el icono de editar para añadir alguno.",
   "workoutDetailExerciseCount": "{count, plural, =1{ejercicio} other{ejercicios}}",
   "startWorkoutSwitchBody": "{running} lleva {done} de {total} series registradas y {clock}. ¿Descartarlo y cambiar a otro entrenamiento?",
-  "startWorkoutLayoffBody": "La última vez que entrenaste {name} fue hace {days, plural, =1{1 día} other{{days} días}}. Volver con la misma carga es como se lesiona la gente.\n\nFoss Lift puede bajar un {percent}% todos los objetivos de este entrenamiento para retomarlo poco a poco. Tu historial registrado no se toca.",
+  "startWorkoutLayoffBody": "La última vez que entrenaste {name} fue hace {days, plural, =1{1 día} other{{days} días}}. Volver con la misma carga es como se lesiona la gente.\n\nFoss Lift puede bajar un {percent}% los objetivos de este ejercicio para retomarlo poco a poco. Tu historial registrado no se toca.",
   "startWorkoutDeloadNotice": "Objetivos recortados un {percent}%: {days, plural, =1{1 día} other{{days} días}} desde la última vez que lo entrenaste.",
   "historySessionCount": "{count, plural, =1{1 sesión} other{{count} sesiones}}",
   "historyEmptyTitle": "Aún no hay entrenamientos registrados",

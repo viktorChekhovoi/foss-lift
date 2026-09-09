@@ -3074,8 +3074,13 @@ class AppDatabase extends _$AppDatabase {
   /// round every week and Legs has not been touched since spring is exactly the
   /// case worth catching, and "the routine" was trained throughout. A workout
   /// that has never been trained has no gap and nothing to regress from.
-  Future<LayoffDeload?> layoffFor(int workoutId, {DateTime? now}) async {
-    final last = await lastTrainedAt(workoutId);
+  /// With [exerciseId], only that exercise's performed sets count as training.
+  Future<LayoffDeload?> layoffFor(
+    int workoutId, {
+    DateTime? now,
+    int? exerciseId,
+  }) async {
+    final last = await lastTrainedAt(workoutId, exerciseId: exerciseId);
     if (last == null) return null;
     final rules = await layoffSettings();
     return layoffDeload(
@@ -3093,11 +3098,15 @@ class AppDatabase extends _$AppDatabase {
   /// consecutive in any sense the progression rules mean. Returns how many
   /// slots actually moved — a workout of bodyweight movements with no target
   /// to cut moves nothing, and the UI should not claim otherwise.
-  Future<int> applyLayoffDeload(int workoutId, int percent) {
+  /// With [exerciseId], cuts only that exercise's slots in the workout.
+  Future<int> applyLayoffDeload(int workoutId, int percent, {int? exerciseId}) {
     return transaction(() async {
-      final items = await (select(
-        workoutItems,
-      )..where((i) => i.workoutId.equals(workoutId))).get();
+      final query = select(workoutItems)
+        ..where((i) => i.workoutId.equals(workoutId));
+      if (exerciseId != null) {
+        query.where((i) => i.exerciseId.equals(exerciseId));
+      }
+      final items = await query.get();
 
       var moved = 0;
       for (final it in items) {
@@ -3200,12 +3209,28 @@ class AppDatabase extends _$AppDatabase {
 
   /// When a workout was last trained, or null if it never has been. Drives the
   /// layoff check on the way into a session.
-  Future<DateTime?> lastTrainedAt(int workoutId) async {
+  /// With [exerciseId], requires a performed set in a finished session of this
+  /// workout. Other exercises and empty session headers do not reset its timer.
+  Future<DateTime?> lastTrainedAt(int workoutId, {int? exerciseId}) async {
     final row =
         await (select(sessions)
-              ..where(
-                (s) => s.workoutId.equals(workoutId) & s.endedAt.isNotNull(),
-              )
+              ..where((s) {
+                var predicate =
+                    s.workoutId.equals(workoutId) & s.endedAt.isNotNull();
+                if (exerciseId != null) {
+                  predicate =
+                      predicate &
+                      existsQuery(
+                        select(sessionSets)..where(
+                          (set) =>
+                              set.sessionId.equalsExp(s.id) &
+                              set.exerciseId.equals(exerciseId) &
+                              set.done.equals(true),
+                        ),
+                      );
+                }
+                return predicate;
+              })
               ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
               ..limit(1))
             .getSingleOrNull();

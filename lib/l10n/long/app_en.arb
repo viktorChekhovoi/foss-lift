@@ -453,7 +453,7 @@
       }
     }
   },
-  "startWorkoutLayoffBody": "You last trained {name} {days, plural, =1{1 day} other{{days} days}} ago. The previous load may be too much after time away.\n\nFoss Lift can reduce every target in this workout by {percent}% to ease you back in. Your logged history is unchanged.",
+  "startWorkoutLayoffBody": "You last trained {name} {days, plural, =1{1 day} other{{days} days}} ago. The previous load may be too much after time away.\n\nFoss Lift can reduce the targets for this exercise by {percent}% to ease you back in. Your logged history is unchanged.",
   "@startWorkoutLayoffBody": {
     "description": "What the layoff offer noticed and what it proposes. Foss Lift is a name and stays as it is.",
     "placeholders": {

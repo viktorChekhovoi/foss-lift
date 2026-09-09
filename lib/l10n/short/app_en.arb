@@ -1776,7 +1776,7 @@
   },
   "startWorkoutDeload": "Deload {percent}%",
   "@startWorkoutDeload": {
-    "description": "Accepts the layoff offer, cutting every target in the workout by that percentage.",
+    "description": "Accepts the layoff offer, cutting the targets for the named exercise by that percentage.",
     "placeholders": {
       "percent": {
         "type": "int"

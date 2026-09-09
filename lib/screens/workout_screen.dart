@@ -519,7 +519,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                         scrollCacheExtent: _opening ? _wholeBoard : null,
                         children: [
-                          if (session.notice case final notice?)
+                          for (final notice in session.notices)
                             _SessionNotice(notice: notice),
                           for (final group in session.supersetGroupList)
                             _SupersetBracket(
@@ -836,6 +836,9 @@ class _SessionNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = l10n.startWorkoutDeloadNotice(notice.percent, notice.days);
+    final name = notice.exerciseName;
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -851,9 +854,9 @@ class _SessionNotice extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              AppLocalizations.of(
-                context,
-              ).startWorkoutDeloadNotice(notice.percent, notice.days),
+              name == null
+                  ? text
+                  : '${seededName(l10n, notice.seedKey, name)}: $text',
               style: kMono.copyWith(
                 fontSize: 11.5,
                 height: 1.45,
