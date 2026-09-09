@@ -8,15 +8,17 @@ The request has two halves — a skipped set stops being a performance failure, 
 
 Estimated at 18–21 senior developer days, which fits the 10–25 day target for a single stage, including persisted offer handling, first-training eligibility and upgrade coverage.
 
-## Planning decision: hold clean partial exercises
+## Planning proposal awaiting user confirmation: hold clean partial exercises
 
-The feature request asked whether partial exercises should be judged on performed sets alone or hold until complete. This review request adopts Option B, so the decision is resolved for this stage and must be recorded in the catalogue before tests or implementation.
+The feature request asks the user to choose whether partial exercises are judged on performed sets alone or hold until complete. The preceding review scope selected Option B; no user confirmation is present in the supplied conversation or decision record. Option B below is therefore the prior review's proposal, not a confirmed user decision. The user has been asked to choose during this planning revision. Record their answer here before completing planning, then carry it into the catalogue before dependent tests or implementation.
 
-**Decision — Option B.** A performed working set that falls short is still a miss and follows existing performance rules, even if other sets were skipped. Otherwise, if any planned working set was skipped, the exercise neither succeeds nor fails: all normal targets and both streaks hold. With no performed sets it also holds. Only completing every planned set without a shortfall earns a success.
+**Proposal — Option B, awaiting the user.** A performed working set that falls short is still a miss and follows existing performance rules, even if other sets were skipped. Otherwise, if any planned working set was skipped, the exercise neither succeeds nor fails: all normal targets and both streaks hold. With no performed sets it also holds. Only completing every planned set without a shortfall earns a success.
 
 The hold includes adopting a heavier performed load and establishing a previously absent weight target: neither happens in a clean partial exercise. A partial exercise with a recorded shortfall follows the existing miss path, including its existing target-adoption rules. Any performed working set resets inactivity regardless of this progression verdict.
 
-**Recorded alternative — Option A, not selected.** Judging only performed sets would allow two clean sets out of three to earn a success. Option B requires the complete prescription for success, while preserving the request's rule that a recorded shortfall remains a performance miss.
+**Alternative — Option A, also awaiting the user's choice.** Judging only performed sets would allow two clean sets out of three to earn a success. Option B requires the complete prescription for success, while preserving the request's rule that a recorded shortfall remains a performance miss.
+
+All clean-partial clauses below, including target adoption, legacy bar correction, recap copy, catalogue rewrites and the partial cases in criteria 3, 17 and 19, describe the Option B proposal conditionally. They are not approved acceptance criteria until the user answers. If the user chooses Option A, revise these dependent clauses during planning before writing the catalogue; do not leave that reconciliation to implementation. Fully skipped exercises, recorded shortfalls and per-exercise inactivity do not depend on this choice.
 
 The outcome becomes three-valued (success / miss / neither). Keep the existing two-valued `SessionVerdict` used by cycle and GZCL rules; represent the neutral outcome with a nullable verdict or a wider type that is resolved before calling `stepProgression`. This is an internal representation choice, not an unresolved behaviour.
 
@@ -152,9 +154,9 @@ Each row of the acceptance table in the feature request is an integration test, 
 
 ## Dependencies
 
-None. This is the first and only stage.
+No stage dependencies. This is the first and only stage.
 
-The partial-exercise decision is settled above; no user decision is deferred to implementation.
+Planning remains incomplete until the user confirms the partial-exercise rule above. The prior review's selection is not evidence of user confirmation. Do not begin the dependent catalogue specification, tests or implementation while this answer is pending.
 
 ## Estimated effort
 
