@@ -8,17 +8,13 @@ The request has two halves — a skipped set stops being a performance failure, 
 
 Estimated at 18–21 senior developer days, which fits the 10–25 day target for a single stage, including persisted offer handling, first-training eligibility and upgrade coverage.
 
-## Planning proposal awaiting user confirmation: hold clean partial exercises
+## Planning default: hold clean partial exercises
 
-The feature request asks the user to choose whether partial exercises are judged on performed sets alone or hold until complete. The preceding review scope selected Option B; no user confirmation is present in the supplied conversation or decision record. Option B below is therefore the prior review's proposal, not a confirmed user decision. The user has been asked to choose during this planning revision. Record their answer here before completing planning, then carry it into the catalogue before dependent tests or implementation.
+**Decision provenance and deviation (2026-09-09).** The original feature request required a user choice during planning. The user was asked during this review, but no answer has been received. The current review explicitly permits "a stated default the implementer may proceed on with the deviation flagged". Adopt the hold rule below as that default; it is not a user-confirmed choice. This scope and its acceptance criteria specify one implementable behavior. Carry this default and its provenance into the catalogue before dependent tests or implementation, and report the departure from the original confirmation requirement in the implementation summary.
 
-**Proposal — Option B, awaiting the user.** A performed working set that falls short is still a miss and follows existing performance rules, even if other sets were skipped. Otherwise, if any planned working set was skipped, the exercise neither succeeds nor fails: all normal targets and both streaks hold. With no performed sets it also holds. Only completing every planned set without a shortfall earns a success.
+**Default — hold clean partial exercises.** A performed working set that falls short is still a miss and follows existing performance rules, even if other sets were skipped. Otherwise, if any planned working set was skipped, the exercise neither succeeds nor fails: all normal targets and both streaks hold. With no performed sets it also holds. Only completing every planned set without a shortfall earns a success.
 
 The hold includes adopting a heavier performed load and establishing a previously absent weight target: neither happens in a clean partial exercise. A partial exercise with a recorded shortfall follows the existing miss path, including its existing target-adoption rules. Any performed working set resets inactivity regardless of this progression verdict.
-
-**Alternative — Option A, also awaiting the user's choice.** Judging only performed sets would allow two clean sets out of three to earn a success. Option B requires the complete prescription for success, while preserving the request's rule that a recorded shortfall remains a performance miss.
-
-All clean-partial clauses below, including target adoption, legacy bar correction, recap copy, catalogue rewrites and the partial cases in criteria 3, 17 and 19, describe the Option B proposal conditionally. They are not approved acceptance criteria until the user answers. If the user chooses Option A, revise these dependent clauses during planning before writing the catalogue; do not leave that reconciliation to implementation. Fully skipped exercises, recorded shortfalls and per-exercise inactivity do not depend on this choice.
 
 The outcome becomes three-valued (success / miss / neither). Keep the existing two-valued `SessionVerdict` used by cycle and GZCL rules; represent the neutral outcome with a nullable verdict or a wider type that is resolved before calling `stepProgression`. This is an internal representation choice, not an unresolved behaviour.
 
@@ -160,7 +156,7 @@ Each row of the acceptance table in the feature request is an integration test, 
 
 No stage dependencies. This is the first and only stage.
 
-Planning remains incomplete until the user confirms the partial-exercise rule above. The prior review's selection is not evidence of user confirmation. Do not begin the dependent catalogue specification, tests or implementation while this answer is pending.
+The partial-exercise rule is the explicitly flagged planning default above. No behavior decision remains deferred to the implementer: write the catalogue from this rule, then follow feature → red → green → refactor. A later user instruction can revise the default before dependent work proceeds.
 
 ## Estimated effort
 
