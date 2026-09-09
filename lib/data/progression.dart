@@ -152,6 +152,14 @@ enum ExerciseMeasure {
       modes.contains(mode) ? mode : defaultMode;
 }
 
+/// Whether a slot uses normal weight or rep rules for skipped sets.
+/// These slots also track inactivity from the exercise's performed sets.
+bool usesNormalProgression({
+  required ProgressionMode mode,
+  required bool runsCycle,
+  required GzclTier? gzclTier,
+}) => !mode.timed && !runsCycle && gzclTier == null;
+
 /// Whether a session met its target.
 enum SessionVerdict {
   /// Evaluated sets met their targets. Feeds the success streak.

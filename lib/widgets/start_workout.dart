@@ -44,10 +44,13 @@ Future<void> startWorkout(
   for (final slots in byExercise.values) {
     final view = slots.first;
     final item = view.item;
-    final normalProgression = slots.any((slot) =>
-        !slot.item.progression.timed &&
-        !slot.item.runsCycle &&
-        slot.item.gzclTier == null);
+    final normalProgression = slots.any(
+      (slot) => usesNormalProgression(
+        mode: slot.item.progression,
+        runsCycle: slot.item.runsCycle,
+        gzclTier: slot.item.gzclTier,
+      ),
+    );
     final layoff = await db.layoffFor(
       workoutId,
       exerciseId: normalProgression ? item.exerciseId : null,
@@ -58,8 +61,11 @@ Future<void> startWorkout(
       context: context,
       builder: (_) => _LayoffDialog(
         layoff: layoff,
-        exerciseName:
-            seededName(l10n, view.exercise.seedKey, view.exercise.name),
+        exerciseName: seededName(
+          l10n,
+          view.exercise.seedKey,
+          view.exercise.name,
+        ),
       ),
     );
     if (accepted == true) {
@@ -130,7 +136,10 @@ class _LayoffDialog extends StatelessWidget {
       title: Text(l10n.startWorkoutLayoffTitle),
       content: Text(
         l10n.startWorkoutLayoffBody(
-            exerciseName, layoff.gapDays, layoff.percent),
+          exerciseName,
+          layoff.gapDays,
+          layoff.percent,
+        ),
         style: TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [
