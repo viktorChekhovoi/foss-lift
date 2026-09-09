@@ -72,7 +72,7 @@
   "workoutDetailEmpty": "Вправ ще немає. Торкніться значка редагування, щоб додати.",
   "workoutDetailExerciseCount": "{count, plural, one{вправа} few{вправи} many{вправ} other{вправ}}",
   "startWorkoutSwitchBody": "У «{running}» записано {done} з {total} підходів, {clock}. Відкинути його й перейти до іншого тренування?",
-  "startWorkoutLayoffBody": "Востаннє ви тренували «{name}» {days, plural, one{{days} день} few{{days} дні} many{{days} днів} other{{days} днів}} тому. Повертатися до тієї самої ваги — так і травмуються.\n\nFoss Lift може зрізати всі цілі цього тренування на {percent}%, щоб увійти легше. Записана історія не зміниться.",
+  "startWorkoutLayoffBody": "Востаннє ви тренували «{name}» {days, plural, one{{days} день} few{{days} дні} many{{days} днів} other{{days} днів}} тому. Повертатися до тієї самої ваги — так і травмуються.\n\nFoss Lift може зрізати цілі цієї вправи на {percent}%, щоб увійти легше. Записана історія не зміниться.",
   "startWorkoutDeloadNotice": "Цілі зрізано на {percent}% — {days, plural, one{{days} день} few{{days} дні} many{{days} днів} other{{days} днів}} від останнього разу.",
   "historySessionCount": "{count, plural, one{{count} тренування} few{{count} тренування} many{{count} тренувань} other{{count} тренувань}}",
   "historyEmptyTitle": "Ще немає записаних тренувань",

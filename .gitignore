@@ -60,6 +60,9 @@ app.*.map.json
 
 # Kettle's local working state
 .kettle/
+/.codex/hooks.json
+/.codex/hooks/check-pending-messages.sh
+/.codex/hooks/require-bash-timeout.sh
 
 # Release artifacts, built not committed.
 /dist/
