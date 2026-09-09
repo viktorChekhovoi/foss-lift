@@ -36,15 +36,19 @@ Future<void> startWorkout(
   final db = ref.read(databaseProvider);
   final items = await db.itemsForWorkout(workoutId);
 
-  LayoffNotice? notice;
-  final offered = <int>{};
+  final notices = <LayoffNotice>[];
+  final byExercise = <int, List<WorkoutItemView>>{};
   for (final view in items) {
+    (byExercise[view.item.exerciseId] ??= []).add(view);
+  }
+  for (final slots in byExercise.values) {
+    final view = slots.first;
     final item = view.item;
-    if (!offered.add(item.exerciseId)) continue;
-    final normalProgression = !item.progression.timed &&
-        !item.runsCycle &&
-        item.gzclTier == null &&
-        item.targetRpe == null;
+    final normalProgression = slots.any((slot) =>
+        !slot.item.progression.timed &&
+        !slot.item.runsCycle &&
+        slot.item.gzclTier == null &&
+        slot.item.targetRpe == null);
     final layoff = await db.layoffFor(
       workoutId,
       exerciseId: normalProgression ? item.exerciseId : null,
@@ -66,14 +70,19 @@ Future<void> startWorkout(
         exerciseId: item.exerciseId,
       );
       if (moved > 0) {
-        notice = (percent: layoff.percent, days: layoff.gapDays);
+        notices.add((
+          percent: layoff.percent,
+          days: layoff.gapDays,
+          exerciseName: view.exercise.name,
+          seedKey: view.exercise.seedKey,
+        ));
       }
     }
   }
 
   await ref
       .read(activeWorkoutProvider.notifier)
-      .start(workoutId: workoutId, name: name, notice: notice);
+      .start(workoutId: workoutId, name: name, notices: notices);
   if (context.mounted) context.push('/session');
 }
 

@@ -422,14 +422,19 @@ typedef RestPrompt = ({
 /// from would take a countdown you were still taking.
 typedef RestSetRef = ({int exercise, int set, bool warmup});
 
-/// The one thing a session has to say for itself: its targets were cut on the
-/// way in after a layoff, by [percent], after [days] away.
+/// An accepted target reduction for an exercise after a layoff, by [percent],
+/// after [days] away. Older workout-wide notices have no exercise name.
 ///
 /// **Facts, not a sentence.** The notice is on screen for the length of a
 /// workout, which is long enough to outlive a language switch — so the session
-/// carries the two numbers and `WorkoutScreen` composes the line from the
-/// catalogue every time it draws it.
-typedef LayoffNotice = ({int percent, int days});
+/// carries the numbers and exercise identity, and `WorkoutScreen` composes the
+/// line from the catalogue every time it draws it.
+typedef LayoffNotice = ({
+  int percent,
+  int days,
+  String? exerciseName,
+  String? seedKey,
+});
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
 /// mutation so Riverpod always sees a new value and rebuilds listeners, even
@@ -451,7 +456,7 @@ class ActiveWorkout {
     this.restPrompt,
     this.restFor,
     this.restDone = false,
-    this.notice,
+    this.notices = const [],
     this.rev = 0,
   });
 
@@ -501,7 +506,7 @@ class ActiveWorkout {
   /// It rides on the session rather than being a snackbar because a weight that
   /// dropped is a question the user will ask again halfway through the second
   /// exercise, by which time a snackbar is long gone.
-  final LayoffNotice? notice;
+  final List<LayoffNotice> notices;
 
   /// Seconds left on the rest, and what the rest is for. **On the session, not
   /// on the screen.** The rest has to keep running while the logging screen is
@@ -852,7 +857,7 @@ class ActiveWorkout {
     restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
     restFor: clearRest ? null : (restFor ?? this.restFor),
     restDone: clearRest ? false : (restDone ?? this.restDone),
-    notice: notice,
+    notices: notices,
     rev: bumpRevision ? rev + 1 : rev,
   );
 }
@@ -1135,13 +1140,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// Begins a live session from a workout template. Passing a null [workoutId]
   /// starts an empty ad-hoc session.
   ///
-  /// [notice] is shown for the length of the session — see [ActiveWorkout.notice].
+  /// [notices] stay visible for the session — see [ActiveWorkout.notices].
   /// The template is read *after* the caller has had its chance to change it,
   /// which is what lets a layoff deload land before the first set is drawn.
   Future<void> start({
     int? workoutId,
     required String name,
-    LayoffNotice? notice,
+    List<LayoffNotice> notices = const [],
   }) async {
     // A fresh session clears whatever the last one's summary was still holding
     // on to — the progression banner belongs to one finish only.
@@ -1202,7 +1207,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         plates: setup.plates,
         barKg: setup.barKg,
         warmupSets: warmupSets,
-        notice: notice,
+        notices: notices,
       ),
     );
     _startClock();
