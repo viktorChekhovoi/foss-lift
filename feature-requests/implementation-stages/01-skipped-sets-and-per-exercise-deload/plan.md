@@ -103,6 +103,8 @@ The pure-rule groups at the top of this file (`layoffDeload`, `deloadedTarget`) 
 
 Fully skipped and clean partial Time slots keep their misses, failure streaks and threshold-triggered `holdSeconds` deloads. Cycle and GZCL slots keep their verdict dispatch, week/stage advancement and T3 final-AMRAP trigger. RPE slots keep the `finish()` bypass.
 
+Add a custom-scheme slot with `WorkoutItems.targetRpe == null` and an active `CustomSet.targetRpe` (the `@8` suffix). Through Start and Finish, assert it retains the workout-based offer clock and automatic-progression bypass and never establishes per-exercise eligibility or a reduction baseline. Train that exercise in another workout while leaving this workout overdue: the RPE slot must still get the excluded-mode workout offer. Cover slot-level RPE, mixed custom rows with only one RPE target, and an RPE row beyond the planned set count (which must not exclude the active RPE-free prescription). These cases verify that the boundary follows the same resolved working sets as `ExerciseEntry.usesRpe`.
+
 ### `test/feature_04_session_continuity_test.dart` — snapshot (criterion 11)
 
 A snapshot written in the shipped two-key notice shape (`{'percent': int, 'days': int}`) restores without throwing, and one with no notice at all still restores. Add the new shape's round trip beside it.
@@ -132,22 +134,37 @@ Harness reminders that will otherwise cost a run each: wrap drift reads in `test
 
 ### 3.2 The boundary — one predicate, `lib/data/database.dart`
 
-Add a getter beside `runsCycle` in `extension WorkoutItemTarget`:
+Add a getter beside `runsCycle` in `extension WorkoutItemTarget`, with the RPE boundary derived from resolved working sets:
 
-```
+```dart
 bool get takesSkipAwareRules =>
-    gzclTier == null && !runsCycle && targetRpe == null &&
+    gzclTier == null && !runsCycle && !usesResolvedRpe &&
     progression != ProgressionMode.time;
+
+bool get usesResolvedRpe => resolveSetTargets(
+  scheme: scheme,
+  sets: setCount,
+  goalReps: progression.timed ? holdSeconds : goalReps,
+  topWeightKg: suggestedWeight,
+  unit: 'kg',
+  percent: schemePercent,
+  custom: decodeCustomSets(customSets),
+  cycle: cycleWeeks,
+  cyclePosition: cyclePosition,
+  targetRpe: targetRpe,
+).any((target) => target.targetRpe != null);
 ```
 
-This is the single definition of "in scope" and both Finish and Start read it, which is what the scope means by using the same boundary in both places. RPE's Finish bypass stays where it is in `finish()`; the predicate covers RPE for the offer side.
+`usesResolvedRpe` must call the existing resolver in `lib/data/set_scheme.dart`, not scan the slot column or every encoded custom row. It uses the same scheme, set count, active cycle position and slot/per-row RPE fallback as session hydration: `rows[i].targetRpe ?? targetRpe`, restricted to the rows actually prescribed. The fixed unit and default floor here affect only unused weight results; neither affects RPE presence. Leave the live board's full weight/unit/floor resolution unchanged.
+
+This is the single definition of "in scope" used by `advanceProgression`, `layoffOffersFor` and eligibility establishment in `saveSession`. RPE's Finish bypass stays on `ExerciseEntry.usesRpe`, computed from the hydrated working sets; `usesResolvedRpe` must agree for that same prescription. A custom slot with per-set RPE therefore follows the excluded workout clock on Start and the existing bypass on Finish, even with a null slot-level `targetRpe`. Warm-ups and unused encoded rows do not determine this boundary.
 
 ### 3.3 `advanceProgression` — `lib/data/database.dart` (~2813)
 
 Widen the parameter to `SessionVerdict? verdict`. The method already reads the row, so it owns the decision:
 
 - `gzclTier != null`, `runsCycle`, or `progression == ProgressionMode.time` → coerce `null` to `SessionVerdict.miss` and dispatch exactly as today. Nothing else in those paths changes.
-- Otherwise, `null` → return `(moved: 0, axis: it.progression, held: true)` **without writing anything**: no streak write, no bar-floor correction, no `sessionWeight` establishment, no adoption of a heavier `performedWeight`. This is where criteria 1, 3 and 17's deferral all land, and it is one early return rather than three guards further down.
+- `it.takesSkipAwareRules && verdict == null` → return `(moved: 0, axis: it.progression, held: true)` **without writing anything**: no streak write, no bar-floor correction, no `sessionWeight` establishment, no adoption of a heavier `performedWeight`. This is where criteria 1, 3 and 17's deferral all land, and it is one early return rather than three guards further down. Resolve a remaining neutral verdict to the excluded modes' existing `SessionVerdict.miss`; RPE sessions retain their Finish bypass above this call.
 - A non-null verdict keeps every existing rule, including the read-side bar floor and the percentage-prescription exclusion.
 
 ### 3.4 `finish()` and the recap — `lib/state/active_workout.dart` (~1934)
@@ -195,7 +212,7 @@ Add `lastPerformedFor(int exerciseId)` beside `lastLoggedWeight` (~3379), return
 
 ### 3.7 Establishing eligibility — `saveSession`
 
-Inside the existing transaction, after the set rows are inserted: select the still-ineligible slots whose `exerciseId` is among the distinct exercise ids just written — in **every** workout, not only this one, because the clock is global and eligibility travels with it — filter them in Dart with `takesSkipAwareRules` from §3.2, and update that set of ids to true. Filtering in Dart rather than restating the predicate as a SQL `WHERE` keeps one definition of "in scope"; `runsCycle` decodes `cycleBlocks`, which SQL cannot do faithfully, so a SQL restatement would drift from the real boundary.
+Inside the existing transaction, after the set rows are inserted: select the still-ineligible slots whose `exerciseId` is among the distinct exercise ids just written — in **every** workout, not only this one, because the clock is global and eligibility travels with it — filter them in Dart with `takesSkipAwareRules` from §3.2, and update that set of ids to true. Filtering in Dart rather than restating the predicate as a SQL `WHERE` keeps one definition of "in scope"; it must resolve both active cycle blocks and per-set RPE through the existing Dart rules. A null slot-level `targetRpe` alone does not make a custom prescription eligible.
 
 Consequences that are deliberate: an unfinished, discarded or fully skipped session writes no rows and so establishes nothing; warm-ups are never persisted and so cannot establish it; a slot later flipped onto the weight axis from Time arrives ineligible and waits for its next training, which is the conservative answer and matches "an axis edit is not training".
 
