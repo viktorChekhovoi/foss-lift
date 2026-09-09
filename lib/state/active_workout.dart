@@ -109,6 +109,8 @@ class ExerciseEntry {
     this.seedKey,
     this.itemId,
     this.mode = ProgressionMode.weight,
+    this.gzclTier,
+    this.gzclTierMissingFromSnapshot = false,
     this.weightType = WeightType.machine,
     this.barKg,
     this.restSeconds = 90,
@@ -295,6 +297,13 @@ class ExerciseEntry {
   /// The axis this exercise advances along, carried from the template.
   final ProgressionMode mode;
 
+  /// GZCL retains its own performance rules for unlogged sets.
+  /// Backfilled from the template when restoring a snapshot without the tier.
+  GzclTier? gzclTier;
+
+  /// An absent legacy field needs recovery; an explicit null means no GZCL.
+  final bool gzclTierMissingFromSnapshot;
+
   /// How the load is arranged, carried from the library — see [WeightType].
   /// What decides whether the screen can say what goes on the bar.
   final WeightType weightType;
@@ -323,22 +332,22 @@ class ExerciseEntry {
   /// for the next session.
   int restSeconds;
 
-  /// Whether this counts as a clean session for progression: every planned set
+  /// Whether this exercise was completed cleanly: every planned set
   /// logged, and none of them short.
-  ///
-  /// Skipping a set is a miss. The program asked for four and got three —
-  /// that is not the performance the next step up should be built on.
   bool get succeeded =>
       sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal);
 
-  /// What this session did to the target — the whole exercise's answer, which is
-  /// what progression is advanced with.
-  ///
-  /// Two-valued on every slot, the one taking reps and weight in turn included:
-  /// there the goal each set carries is wherever the climb has got to inside the
-  /// range, so "did you make it" is the same question it is anywhere else.
-  SessionVerdict get verdict =>
-      succeeded ? SessionVerdict.success : SessionVerdict.miss;
+  /// Normal weight and rep progression scores only performed sets. A fully
+  /// skipped exercise has no verdict and leaves its targets and streaks alone.
+  SessionVerdict? get verdict {
+    if (mode.timed || scheme == SetScheme.cycle || gzclTier != null) {
+      return succeeded ? SessionVerdict.success : SessionVerdict.miss;
+    }
+    if (!sets.any((s) => s.done)) return null;
+    return sets.any((s) => s.missedGoal)
+        ? SessionVerdict.miss
+        : SessionVerdict.success;
+  }
 
   /// The load actually carried through the whole exercise: the *lightest* of
   /// the logged sets, or null if none were.
@@ -418,14 +427,19 @@ typedef RestPrompt = ({
 /// from would take a countdown you were still taking.
 typedef RestSetRef = ({int exercise, int set, bool warmup});
 
-/// The one thing a session has to say for itself: its targets were cut on the
-/// way in after a layoff, by [percent], after [days] away.
+/// An accepted target reduction for an exercise after a layoff, by [percent],
+/// after [days] away. Older workout-wide notices have no exercise name.
 ///
 /// **Facts, not a sentence.** The notice is on screen for the length of a
 /// workout, which is long enough to outlive a language switch — so the session
-/// carries the two numbers and `WorkoutScreen` composes the line from the
-/// catalogue every time it draws it.
-typedef LayoffNotice = ({int percent, int days});
+/// carries the numbers and exercise identity, and `WorkoutScreen` composes the
+/// line from the catalogue every time it draws it.
+typedef LayoffNotice = ({
+  int percent,
+  int days,
+  String? exerciseName,
+  String? seedKey,
+});
 
 /// Immutable-ish snapshot of the in-progress session. `rev` is bumped on every
 /// mutation so Riverpod always sees a new value and rebuilds listeners, even
@@ -447,7 +461,7 @@ class ActiveWorkout {
     this.restPrompt,
     this.restFor,
     this.restDone = false,
-    this.notice,
+    this.notices = const [],
     this.rev = 0,
   });
 
@@ -497,7 +511,7 @@ class ActiveWorkout {
   /// It rides on the session rather than being a snackbar because a weight that
   /// dropped is a question the user will ask again halfway through the second
   /// exercise, by which time a snackbar is long gone.
-  final LayoffNotice? notice;
+  final List<LayoffNotice> notices;
 
   /// Seconds left on the rest, and what the rest is for. **On the session, not
   /// on the screen.** The rest has to keep running while the logging screen is
@@ -848,7 +862,7 @@ class ActiveWorkout {
     restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
     restFor: clearRest ? null : (restFor ?? this.restFor),
     restDone: clearRest ? false : (restDone ?? this.restDone),
-    notice: notice,
+    notices: notices,
     rev: bumpRevision ? rev + 1 : rev,
   );
 }
@@ -1089,6 +1103,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       _forget();
       return;
     }
+    for (final e in was.exercises) {
+      final itemId = e.itemId;
+      if (e.gzclTierMissingFromSnapshot && itemId != null) {
+        e.gzclTier = (await _db.workoutItemById(itemId))?.gzclTier;
+      }
+    }
     state = was;
     _startClock();
     if (was.workoutId case final id?) _watchTemplate(id);
@@ -1131,13 +1151,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// Begins a live session from a workout template. Passing a null [workoutId]
   /// starts an empty ad-hoc session.
   ///
-  /// [notice] is shown for the length of the session — see [ActiveWorkout.notice].
+  /// [notices] stay visible for the session — see [ActiveWorkout.notices].
   /// The template is read *after* the caller has had its chance to change it,
   /// which is what lets a layoff deload land before the first set is drawn.
   Future<void> start({
     int? workoutId,
     required String name,
-    LayoffNotice? notice,
+    List<LayoffNotice> notices = const [],
   }) async {
     // A fresh session clears whatever the last one's summary was still holding
     // on to — the progression banner belongs to one finish only.
@@ -1198,7 +1218,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
         plates: setup.plates,
         barKg: setup.barKg,
         warmupSets: warmupSets,
-        notice: notice,
+        notices: notices,
       ),
     );
     _startClock();
@@ -1263,6 +1283,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       seedKey: v.exercise.seedKey,
       muscle: v.exercise.muscleGroup,
       mode: mode,
+      gzclTier: v.item.gzclTier,
       weightType: v.exercise.weightType,
       barKg: v.exercise.barWeight,
       restSeconds: v.item.restSeconds ?? defaultRestSeconds,
@@ -1936,9 +1957,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       final itemId = e.itemId;
       if (itemId == null) continue;
       if (e.usesRpe) continue;
+      final verdict = e.verdict;
+      if (verdict == null) continue;
       final move = await _db.advanceProgression(
         itemId,
-        verdict: e.verdict,
+        verdict: verdict,
         performedWeight: e.performedWeight,
         // What this session carried, for a slot that arrived with no target at
         // all. Typing a weight onto a slot the builder never gave one is how a

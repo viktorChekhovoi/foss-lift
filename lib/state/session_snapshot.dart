@@ -15,7 +15,7 @@
 import 'dart:convert';
 
 import '../data/plates.dart';
-import '../data/progression.dart' show ProgressionMode;
+import '../data/progression.dart' show GzclTier, ProgressionMode;
 import '../data/set_scheme.dart';
 import '../data/warmup.dart' show kDefaultWarmupSets;
 import '../util/cardio_units.dart';
@@ -30,7 +30,15 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
       'startedAt': s.startedAt.millisecondsSinceEpoch,
       'elapsed': s.elapsed,
       'unit': s.unit,
-  if (s.notice case final n?) 'notice': {'percent': n.percent, 'days': n.days},
+      'notice': [
+        for (final n in s.notices)
+          {
+            'percent': n.percent,
+            'days': n.days,
+            'exerciseName': n.exerciseName,
+            'seedKey': n.seedKey,
+          },
+      ],
       'plates': [for (final p in s.plates) _stack(p)],
       'barKg': s.barKg,
       'warmupSets': s.warmupSets,
@@ -54,6 +62,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'seedKey': e.seedKey,
             'muscle': e.muscle,
             'mode': e.mode.name,
+            'gzclTier': e.gzclTier?.name,
             'weightType': e.weightType.name,
             'barKg': e.barKg,
             'restSeconds': e.restSeconds,
@@ -115,7 +124,7 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       startedAt: DateTime.fromMillisecondsSinceEpoch(m['startedAt'] as int),
       elapsed: (m['elapsed'] as int) + gone,
       unit: m['unit'] as String,
-      notice: _readNotice(m['notice']),
+      notices: _readNotice(m['notice']),
       plates: [
         for (final p in m['plates'] as List)
           _readStack(p as Map<String, dynamic>),
@@ -232,9 +241,19 @@ RestPrompt? _readPrompt(Object? raw) {
   return null;
 }
 
-LayoffNotice? _readNotice(Object? raw) {
-  if (raw is! Map<String, dynamic>) return null;
-  return (percent: raw['percent'] as int, days: raw['days'] as int);
+List<LayoffNotice> _readNotice(Object? raw) {
+  // Before exercise-specific offers, a snapshot held one workout-wide notice.
+  if (raw is Map<String, dynamic>) raw = [raw];
+  if (raw is! List) return const [];
+  return [
+    for (final n in raw.cast<Map<String, dynamic>>())
+      (
+        percent: n['percent'] as int,
+        days: n['days'] as int,
+        exerciseName: n['exerciseName'] as String?,
+        seedKey: n['seedKey'] as String?,
+      ),
+  ];
 }
 
 SetScheme _readScheme(Object? raw) {
@@ -257,6 +276,8 @@ ExerciseEntry _readExercise(
       seedKey: m['seedKey'] as String?,
       muscle: m['muscle'] as String,
       mode: ProgressionMode.values.byName(m['mode'] as String),
+      gzclTier: GzclTier.values.asNameMap()[m['gzclTier']],
+      gzclTierMissingFromSnapshot: !m.containsKey('gzclTier'),
       weightType: WeightType.values.byName(m['weightType'] as String),
       barKg: (m['barKg'] as num?)?.toDouble(),
       restSeconds: m['restSeconds'] as int,

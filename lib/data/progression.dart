@@ -154,10 +154,10 @@ enum ExerciseMeasure {
 
 /// Whether a session met its target.
 enum SessionVerdict {
-  /// Every planned set logged, none short. Feeds the success streak.
+  /// Evaluated sets met their targets. Feeds the success streak.
   success,
 
-  /// A set skipped, or one that came up short of what was asked.
+  /// A performance shortfall under the slot's progression rules.
   miss,
 }
 
