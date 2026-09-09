@@ -56,6 +56,11 @@ Each needs exactly one `defines` site among the entries below (a concept `--chec
 
 `05.automatic`, `05.verdict-every-planned-set-logged`, `05.loading-bar-past-suggestion-itself`, `05.weight-mode-slot-no-suggested`, `05.target-never-stored-below-its-bar`, `06.watches-gap-since-workout-was`, `06.offers-back-off-before-session`, `06.declining-not-recorded`, `06.nothing-applied-without-asking`, `06.set-rules`, `04.finish-asks-when-sets-are-unlogged` — content per the scope's "Entries to rewrite" list. Ids and titles stay stable (`06.declining-not-recorded` keeps both explicitly).
 
+Also rewrite these existing entries' prose before the red tests, retaining their ids:
+
+- `06.deload-clears-both-progression-streaks` — acceptance clears both streaks only for the displayed slots whose offers are validly applied. Slots absent from the accepted offer set, including new ineligible slots and exercises trained recently elsewhere, keep both streaks. An accepted eligible offer can clear streaks even if its target already matches the proposal; that is zero target movement and must not claim a new cut. Decline, dismissal and replay write nothing. Link `uses` to `progression.streak`, `progression.layoff-offer`, `progression.layoff-eligibility`, `progression.exercise-inactivity` and `template.item`; add the skipped-set/verdict concepts where the prose depends on how momentum was held.
+- `06.cut-lands-somewhere-trainable` — retain the existing rounding, rep-range width and mode/bar floors, and state that later in-scope proposals apply the capped total percentage to the retained baseline, never to an already reduced target. Keep excluded slots' existing arithmetic. Rewrite the notice sentence to describe the reductions actually applied to the affected exercises, with a total baseline reduction distinct from the latest target change; slots already at the proposed target contribute no new-cut claim. Keep the load-grid, units, bar and weight-type links and add `progression.axis`, `template.rep-target`, `progression.layoff-rules`, `progression.layoff-baseline` and `progression.layoff-offer` to match this prose.
+
 ### Entries to add
 
 - In section 05: a fully skipped in-scope exercise holds its targets and both streaks — `defines: [progression.skipped-set]`.
@@ -66,7 +71,7 @@ Put the mode exclusions **inside** the existing verdict and layoff entries. Do n
 
 ### Re-check `uses` on entries not otherwise touched
 
-`05.streaks-stored`, `05.loading-bar-past-suggestion-itself`, `06.deload-clears-both-progression-streaks`, `04.board-takes-the-change-where-it-can` all lean on the verdict; add `progression.skipped-set` where the prose now depends on it. Entries whose behaviour depends on the schema (`06.nothing-applied-without-asking`, the eligibility entry) need `storage.schema`, `template.item`, `history.session-record` and `session.finish` in `uses`.
+`05.streaks-stored`, `05.loading-bar-past-suggestion-itself` and `04.board-takes-the-change-where-it-can` all lean on the verdict; add `progression.skipped-set` where the prose now depends on it. The section-06 streak and trainable-cut entries require the prose rewrites and concept links above, not just a `uses` review. Entries whose behaviour depends on the schema (`06.nothing-applied-without-asking`, the eligibility entry) need `storage.schema`, `template.item`, `history.session-record` and `session.finish` in `uses`.
 
 **Gate:** `dart run tool/features.dart --check` clean. Report the added/reworded entry ids to the user (`CLAUDE.md` rule 3) as part of the final summary.
 
@@ -90,11 +95,21 @@ Written from the entries above, by an agent given the entries and `test/support/
 
 The pure-rule groups at the top of this file (`layoffDeload`, `deloadedTarget`) **stay byte-for-byte** — criterion 9 is that they pass unchanged. The "measured per workout through the database" group is rewritten against the new per-exercise behaviour; the workout-clock cases move to excluded-mode slots.
 
+Replace the ambiguous `trained(workout, daysAgo:)` fixture before writing those tests: it currently calls `saveSession(..., sets: const [])`, so it saves only a finished header and cannot establish per-exercise history or eligibility. Give the two fixture forms explicit names:
+
+- `finishedWorkoutWithoutSets(workout, daysAgo:)` retains the existing header-only save. Use it to prove that excluded Time/cycle/GZCL/RPE slots still use the workout clock, and that a fully skipped in-scope exercise gains neither a training time nor eligibility from finishing its workout.
+- `performedExercises(workout, daysAgo:, sets:)` saves a finished header plus explicitly selected performed working sets via `saveSession`. Each `SessionSetsCompanion.insert` includes `sessionId: 0` (replaced by `saveSession`), `exerciseId: Value(exercise.id)`, `exerciseName`, `setNumber`, `done: const Value(true)` and the recorded reps/seconds, weight and goals appropriate to that set. Return the saved session id for gap-identity assertions. Do not default to training every slot: callers must name which exercise and how many working sets were performed, including one set out of three. Warm-ups and skipped sets produce no rows.
+
+Update all existing `trained()` call sites deliberately: per-exercise offer/baseline cases need performed-set rows after their slots exist; workout-clock compatibility and fully skipped cases need the header-only form. Verify the fixture's resulting history through database queries before testing the offer: `performedExercises` makes only the named exercises visible to `lastPerformedFor` and establishes existing in-scope slots' eligibility through the production `saveSession` transaction, while the header-only form does neither. For criterion 21, seed the 200-day-old performed history before creating the new slots; keep the subsequent first-training save separate so the fixture cannot accidentally make those slots eligible early. Continue to use real Start/Finish interactions for the acceptance-table integration cases.
+
 - Per-exercise clock: finish with squats performed and bench skipped — bench's last-performed time is where it was, squats' has moved (criterion 5); one set of three resets that exercise's clock (criterion 6).
 - Offer eligibility: an exercise skipped past the threshold is offered its own gap's cut; an exercise trained throughout is offered nothing (criterion 7).
 - Accept/decline (criterion 8): accepting moves only the displayed eligible slots, clears their streaks and stores baseline + gap identity in one transaction; decline and dismissal write nothing at all; neither suppresses the next Start; replaying an accepted offer is a no-op; a stale offer whose target, axis or training identity moved is refused until recomputed.
+- Streak scope (`06.deload-clears-both-progression-streaks`): accept an overdue bench offer in a workout that also contains a new ineligible slot and a slot whose exercise was trained recently elsewhere, each with pending success/failure streaks. Assert only the accepted slot's streaks clear and the absent slots' counters remain byte-for-byte unchanged. Separately accept an eligible offer already at its proposed target: streaks clear if needed, but the applied movement list is empty and there is no new-cut notice. Link the mixed-percentage notice and floor/baseline scenarios below to `06.cut-lands-somewhere-trainable` as well as the offer entry.
+- Applied results and notice (criteria 14, 18): accept offers at 10%, 20% and 30% with different gaps, where only the 10% target moves and the others already meet their capped or floored targets. Assert the returned results identify only that changed slot with its before/after target, percentage and gap; the session notice uses that slot's 10% and gap and reports one exercise. All-zero movement and replay return no changed results and create no new-cut notice. Also cover several changed slots so the notice's maxima and count come only from committed changes.
 - The full day-by-day table of criterion 14, against a fixed `now` as the existing file already does: 80 kg bench, accepts at 14/28/42 → 72/64/56; accept at day 40 → 64, re-accept same day → 64 with zero movement reported; day 42 → 56 not 44.5; days 54/56/100/200/400 still offered; declines only, then accept at day 400 → 56; every response leaves the real last-trained time alone. Cover app restart (reopen the database), session discard, the boundary immediately before and at each percentage change, and gaps beyond `kMaxLayoffPeriods`.
 - Criterion 15: a performed set after an accept or decline starts a fresh gap and clears the baseline; a start before the next threshold offers nothing and at the threshold cuts from the current target; duplicate bench slots keep independent baselines; reorder, unrelated edits and new-backup restore preserve baseline and identity; a manual target or axis edit clears only the baseline, exercised **separately** through `replaceWorkoutItems` and through the live board's `_editSlot` → `itemUpdate` → `updateWorkoutItem`; saving unchanged settings or changing only rest preserves it in both paths; changing deload settings preserves the baseline, never increases a target and never compounds; disabling deloads offers nothing. Repeat the bounded-reduction assertions for Reps with a range and for Weight + Reps, including floors and a target already at the cap.
+- Training-max edits (criterion 15, with the training-max surface coverage in `test/feature_22_cycles_test.dart`): use an in-scope custom percentage slot without a cycle, GZCL tier or resolved RPE. Accept 10% off an 80 kg baseline to 72 kg, then save 100 kg through `/routine/:id/training-maxes` → `setTrainingMax` without performing the exercise. Assert the baseline and its identity clear with the saved target, eligibility and history hold, and the next eligible 10% offer proposes 90 kg from the edited target. Saving an unchanged 72 kg instead must retain the 80 kg baseline and its identity. Include multiple matching slots with different current targets to verify per-slot comparison, an unrelated slot whose state stays unchanged, and a cycle slot that retains its existing target-write and excluded layoff behaviour. Changing only the live working weight and discarding must leave the stored prescription and baseline untouched.
 - Criterion 21, first-training eligibility: bench performed 200 days ago in another routine; a new Push workout with 80 kg bench gets no offer on first Start and keeps 80 kg. Repeat for a slot added to an already trained workout, a routine-code import, a library routine, a re-added (duplicate) slot and a delete-and-recreate, including with the old routine deleted. Starting, discarding and finishing with every bench working set skipped leave each slot ineligible. Then save one bench working set anywhere: existing bench slots become eligible together, their gap starts at that session, nothing is offered before 14 days and an offer appears at 14. Training bench elsewhere resets the clock; training another exercise does not. Reorder and unrelated builder edits preserve the flag; a newly created duplicate does not inherit it.
 - Criterion 10's mixed workout lives here too, or in `feature_22`: skipped bench keeps its exercise gap while skipped plank keeps the workout gap and its offer; only applicable slots are cut; finishing resets plank's gap as before.
 
@@ -102,13 +117,15 @@ The pure-rule groups at the top of this file (`layoffDeload`, `deloadedTarget`) 
 
 Fully skipped and clean partial Time slots keep their misses, failure streaks and threshold-triggered `holdSeconds` deloads. Cycle and GZCL slots keep their verdict dispatch, week/stage advancement and T3 final-AMRAP trigger. RPE slots keep the `finish()` bypass.
 
+Add a custom-scheme slot with `WorkoutItems.targetRpe == null` and an active `CustomSet.targetRpe` (the `@8` suffix). Through Start and Finish, assert it retains the workout-based offer clock and automatic-progression bypass and never establishes per-exercise eligibility or a reduction baseline. Train that exercise in another workout while leaving this workout overdue: the RPE slot must still get the excluded-mode workout offer. Cover slot-level RPE, mixed custom rows with only one RPE target, and an RPE row beyond the planned set count (which must not exclude the active RPE-free prescription). These cases verify that the boundary follows the same resolved working sets as `ExerciseEntry.usesRpe`.
+
 ### `test/feature_04_session_continuity_test.dart` — snapshot (criterion 11)
 
 A snapshot written in the shipped two-key notice shape (`{'percent': int, 'days': int}`) restores without throwing, and one with no notice at all still restores. Add the new shape's round trip beside it.
 
 ### `test/feature_20_backup_and_restore_test.dart` — upgrade and backup (criterion 16)
 
-Build a pre-v19 database from `kSchemaV1` plus raw SQL rows the way `feature_13` and `feature_21` already do, open it through `AppDatabase` and assert the migration: history, routines, settings and targets unchanged; baseline and gap identity null everywhere; `layoffEligible` true only where a finished session filed against that slot's own workout contains a performed set with that exercise id. Cover a trained slot, a slot whose only history is in an unrelated or deleted workout, a never-trained workout and duplicate slots. Then a backup taken from the new build retains all three fields on restore, and an existing routine code still decodes and acquires no training state.
+Build a pre-v19 database from `kSchemaV1` plus raw SQL rows the way `feature_13` and `feature_21` already do, open it through `AppDatabase` and assert the migration: history, routines, settings and targets unchanged; baseline and gap identity null everywhere; `layoffEligible` true only where a finished session filed against that slot's own workout contains a performed set with that exercise id. Cover a trained slot, a slot whose only history is in an unrelated or deleted workout, a never-trained workout and duplicate slots. Read complete `WorkoutItem` rows after upgrading so a missing column fails the test. Then a backup taken from the new build retains `layoffEligible`, `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt` on restore, including false/true eligibility and a non-null timestamp that round-trips at Unix-second precision; an existing routine code still decodes and acquires no training state.
 
 ### `test/feature_15_text_size_test.dart` and `test/feature_18_language_test.dart` — copy and layout (criterion 18)
 
@@ -131,22 +148,37 @@ Harness reminders that will otherwise cost a run each: wrap drift reads in `test
 
 ### 3.2 The boundary — one predicate, `lib/data/database.dart`
 
-Add a getter beside `runsCycle` in `extension WorkoutItemTarget`:
+Add a getter beside `runsCycle` in `extension WorkoutItemTarget`, with the RPE boundary derived from resolved working sets:
 
-```
+```dart
 bool get takesSkipAwareRules =>
-    gzclTier == null && !runsCycle && targetRpe == null &&
+    gzclTier == null && !runsCycle && !usesResolvedRpe &&
     progression != ProgressionMode.time;
+
+bool get usesResolvedRpe => resolveSetTargets(
+  scheme: scheme,
+  sets: setCount,
+  goalReps: progression.timed ? holdSeconds : goalReps,
+  topWeightKg: suggestedWeight,
+  unit: 'kg',
+  percent: schemePercent,
+  custom: decodeCustomSets(customSets),
+  cycle: cycleWeeks,
+  cyclePosition: cyclePosition,
+  targetRpe: targetRpe,
+).any((target) => target.targetRpe != null);
 ```
 
-This is the single definition of "in scope" and both Finish and Start read it, which is what the scope means by using the same boundary in both places. RPE's Finish bypass stays where it is in `finish()`; the predicate covers RPE for the offer side.
+`usesResolvedRpe` must call the existing resolver in `lib/data/set_scheme.dart`, not scan the slot column or every encoded custom row. It uses the same scheme, set count, active cycle position and slot/per-row RPE fallback as session hydration: `rows[i].targetRpe ?? targetRpe`, restricted to the rows actually prescribed. The fixed unit and default floor here affect only unused weight results; neither affects RPE presence. Leave the live board's full weight/unit/floor resolution unchanged.
+
+This is the single definition of "in scope" used by `advanceProgression`, `layoffOffersFor` and eligibility establishment in `saveSession`. RPE's Finish bypass stays on `ExerciseEntry.usesRpe`, computed from the hydrated working sets; `usesResolvedRpe` must agree for that same prescription. A custom slot with per-set RPE therefore follows the excluded workout clock on Start and the existing bypass on Finish, even with a null slot-level `targetRpe`. Warm-ups and unused encoded rows do not determine this boundary.
 
 ### 3.3 `advanceProgression` — `lib/data/database.dart` (~2813)
 
 Widen the parameter to `SessionVerdict? verdict`. The method already reads the row, so it owns the decision:
 
 - `gzclTier != null`, `runsCycle`, or `progression == ProgressionMode.time` → coerce `null` to `SessionVerdict.miss` and dispatch exactly as today. Nothing else in those paths changes.
-- Otherwise, `null` → return `(moved: 0, axis: it.progression, held: true)` **without writing anything**: no streak write, no bar-floor correction, no `sessionWeight` establishment, no adoption of a heavier `performedWeight`. This is where criteria 1, 3 and 17's deferral all land, and it is one early return rather than three guards further down.
+- `it.takesSkipAwareRules && verdict == null` → return `(moved: 0, axis: it.progression, held: true)` **without writing anything**: no streak write, no bar-floor correction, no `sessionWeight` establishment, no adoption of a heavier `performedWeight`. This is where criteria 1, 3 and 17's deferral all land, and it is one early return rather than three guards further down. Resolve a remaining neutral verdict to the excluded modes' existing `SessionVerdict.miss`; RPE sessions retain their Finish bypass above this call.
 - A non-null verdict keeps every existing rule, including the read-side bar floor and the percentage-prescription exclusion.
 
 ### 3.4 `finish()` and the recap — `lib/state/active_workout.dart` (~1934)
@@ -172,7 +204,17 @@ One real column rather than one per axis: only in-scope slots ever carry a basel
 
 Bump `schemaVersion` to 19, add the ladder comment in the same voice as v14–v18, and add one `if (from < 19)` rung:
 
-1. Three `ALTER TABLE "workout_items" ADD COLUMN …` statements, written out as literal DDL — never `m.addColumn`, for the reason the v2 comment gives.
+1. Execute each statement below through `m.database.customStatement`, using literal DDL rather than `m.addColumn`, for the reason the v2 comment gives:
+
+   ```sql
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_eligible" INTEGER NOT NULL DEFAULT 0 CHECK ("layoff_eligible" IN (0, 1));
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_baseline" REAL NULL;
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_baseline_session" INTEGER NULL;
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_baseline_at" INTEGER NULL;
+   ```
+
+   The boolean uses the existing v4/v8/v9 INTEGER-and-CHECK representation. This database does not enable `storeDateTimeValuesAsText`: `layoff_baseline_at` stores Unix seconds as an INTEGER, matching drift's DateTime mapping, never TEXT or milliseconds.
+
 2. One `UPDATE workout_items SET layoff_eligible = 1 WHERE EXISTS (SELECT 1 FROM session_sets ss JOIN sessions s ON s.id = ss.session_id WHERE s.ended_at IS NOT NULL AND s.workout_id = workout_items.workout_id AND ss.exercise_id = workout_items.exercise_id AND ss.done = 1)` — the documented compatibility fallback. It is a workout-plus-exercise match because shipped history carries no slot id and no slot creation time; it must not be described anywhere as proving when a particular duplicate slot was first trained.
 3. Nothing else. No historical row is touched, no target is rewritten, and no baseline is fabricated.
 
@@ -184,7 +226,7 @@ Add `lastPerformedFor(int exerciseId)` beside `lastLoggedWeight` (~3379), return
 
 ### 3.7 Establishing eligibility — `saveSession`
 
-Inside the existing transaction, after the set rows are inserted: select the still-ineligible slots whose `exerciseId` is among the distinct exercise ids just written — in **every** workout, not only this one, because the clock is global and eligibility travels with it — filter them in Dart with `takesSkipAwareRules` from §3.2, and update that set of ids to true. Filtering in Dart rather than restating the predicate as a SQL `WHERE` keeps one definition of "in scope"; `runsCycle` decodes `cycleBlocks`, which SQL cannot do faithfully, so a SQL restatement would drift from the real boundary.
+Inside the existing transaction, after the set rows are inserted: select the still-ineligible slots whose `exerciseId` is among the distinct exercise ids just written — in **every** workout, not only this one, because the clock is global and eligibility travels with it — filter them in Dart with `takesSkipAwareRules` from §3.2, and update that set of ids to true. Filtering in Dart rather than restating the predicate as a SQL `WHERE` keeps one definition of "in scope"; it must resolve both active cycle blocks and per-set RPE through the existing Dart rules. A null slot-level `targetRpe` alone does not make a custom prescription eligible.
 
 Consequences that are deliberate: an unfinished, discarded or fully skipped session writes no rows and so establishes nothing; warm-ups are never persisted and so cannot establish it; a slot later flipped onto the weight axis from Time arrives ineligible and waits for its next training, which is the conservative answer and matches "an axis edit is not training".
 
@@ -215,35 +257,49 @@ typedef LayoffOffer = ({
 
 ### 3.9 Acceptance — `applyLayoffDeload`
 
-Change its signature to take the accepted offers (`Future<int> applyLayoffDeload(List<LayoffOffer> accepted)`) and keep the name, which section 06's corrected `where:` points at. One transaction:
+Change its signature to `Future<List<AppliedLayoff>> applyLayoffDeload(List<LayoffOffer> accepted)` and keep the name, which section 06's corrected `where:` points at. Define the result beside `LayoffOffer` in `lib/data/layoff.dart`:
+
+```dart
+typedef AppliedLayoff = ({
+  int itemId, int exerciseId, ProgressionMode axis,
+  double beforeTarget, double afterTarget,
+  int totalPercent, int gapDays,
+});
+```
+
+Return one result per slot whose target actually changed, after the transaction commits. `beforeTarget` and `afterTarget` are the persisted axis values read and written in that transaction; `totalPercent` and `gapDays` come from that slot's validated accepted offer. The percentage describes its capped total baseline reduction, while the target pair shows the actual change after rounding and floors. The list length replaces the old movement count. One transaction:
 
 - Re-read each slot and drop the offer if its target, axis or training identity has moved since the offer was built — a stale offer is recomputed, not applied.
 - Apply the proposed target, clear both streaks, and for an in-scope slot store `layoffBaseline` (the pre-cut target, only if there is not already a live baseline for this gap) with `layoffBaselineSession` / `layoffBaselineAt` from the offer, all in the same write.
 - Excluded slots take the cut and store no baseline.
-- Count only slots whose target actually moved; a proposal already at its capped value reports zero movement rather than claiming a further cut.
+- Collect only slots whose target actually moved. A capped or floored proposal that already matches the target, a streak-only reset, a rejected stale offer or a replay contributes no result; an empty result list reports zero movement. Do not return results for a rolled-back transaction.
 
 Factor the per-slot axis cut into one private helper so there is exactly one place that turns `(target, percent, axis, floor)` into a companion — rule 6.
 
-### 3.10 Baseline invalidation on slot edits — one shared rule, two save paths
+### 3.10 Baseline invalidation on saved target edits — one shared rule
 
-`lib/widgets/workout_items_editor.dart`:
+Put the shared `layoffStateFor` comparison in the data layer (`lib/data/layoff.dart`) with plain before/after prescription values and existing layoff state as inputs, so both the editor and `AppDatabase` can call it without importing widgets into the database. Compare the effective values that will be persisted, including weight/rep targets and the ordinary versus Advanced axis; clear `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt` only on an actual target/axis change. Preserve eligibility unless the exercise identity is replaced. Do not attach this edit rule to progression or accepted deload writes, which manage their own baseline lifecycle.
+
+Builder and live slot settings — `lib/widgets/workout_items_editor.dart`, `lib/data/database.dart`:
 
 - `ItemDraft` carries `layoffEligible`, `layoffBaseline`, `layoffBaselineSession`, `layoffBaselineAt`, populated by `ItemDraft.fromView`. A draft built for a **new** slot gets the defaults (ineligible, no baseline), which is what makes a re-added or re-created slot start false without any extra code.
-- Add one shared helper — `layoffStateFor(draft, {defaultBarKg, loaded})` — that compares the effective persisted target and axis before and after the edit and returns the three companion values to write, clearing the baseline trio on an actual change and preserving it otherwise. `ItemDraft` needs to remember the target/axis it was loaded with so the comparison is against storage, not against a sibling draft.
-- `itemCompanions` (→ `replaceWorkoutItems`) and `itemUpdate` (→ `updateWorkoutItem`) both call that helper. `itemUpdate` writes only the fields it names, so the three columns must be named explicitly there or a stale baseline survives an edit that should have cleared it — that is the scope's specific warning about this path.
+- `ItemDraft` also remembers the persisted target/axis it was loaded with. `itemCompanions` calls the shared comparison with those before values and the normalized values it will save, then carries the resulting eligibility and baseline fields into `replaceWorkoutItems`' transactional replacement writes. Compare against that draft's source slot, never against a sibling draft.
+- `itemUpdate` supplies the normalized edited prescription to `updateWorkoutItem`. Make `updateWorkoutItem` read the current persisted row and merge only present companion fields inside its write transaction; call the same comparison on the effective before/after values and include explicit `Value(null)` for `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt` when invalidating. Omitting those fields would retain stale state. An unchanged save or rest-only edit preserves the current baseline and eligibility.
 - Eligibility is carried through, never cleared by an edit: reorder, rename and rest-only edits preserve everything; replacing the exercise identity produces a different slot and starts both flag and baseline fresh.
 
-`lib/screens/workout_screen.dart` `_editSlot` needs no new logic — it already round-trips through `ItemDraft.fromView` and `itemUpdate`, so putting the rule in the helper covers it. Verify the live working-weight control still writes only `suggestedWeight` through its own path (`database.dart` ~2299) and is **not** treated as a prescription edit.
+`lib/screens/workout_screen.dart` `_editSlot` already round-trips through `ItemDraft.fromView` and `itemUpdate`, so it reaches the database's shared invalidation rule. The live working-weight control is separate: `ActiveWorkoutController.setWorkingWeight` in `lib/state/active_workout.dart` mutates `ExerciseEntry.workingKg` and unlogged set weights in session state. It does not write `WorkoutItems.suggestedWeight` and must not invalidate its baseline; Finish later saves performed working sets and runs the applicable progression rules.
+
+Training-max screen — `lib/screens/training_max_screen.dart` `_save` → `AppDatabase.setTrainingMax` in `lib/data/database.dart` (~2285): this is another explicit saved-target edit. Preserve its current selection by routine, percentage base and `scheme.isWrittenOut` (custom or cycle). Within a transaction, compare each matching slot's persisted target against the requested kilogram value; for in-scope custom slots call the same data-layer comparison and clear the baseline fields atomically with an actual `suggestedWeight` change. A value unchanged for one matching slot preserves that slot's baseline even if other slots in the group change. Preserve eligibility, streaks and training history, and retain excluded slots' existing target-update behaviour. The database owns the rule; the screen needs no duplicate invalidation logic.
 
 `lib/data/routine_import.dart` and `addStarterRoutine`: imported, copied and library-added slots take the column defaults. Nothing to add beyond confirming they insert through `WorkoutItemsCompanion.insert` without touching the new fields, and that no routine-code field bit is added — the share format does not move in this stage.
 
 ### 3.11 Start dialog and notice — `lib/widgets/start_workout.dart`, `lib/state/*`
 
-- `startWorkout` calls `layoffOffersFor`, shows the dialog when the list is non-empty, and on accept calls `applyLayoffDeload(offers)`.
+- `startWorkout` calls `layoffOffersFor`, shows the dialog when the list is non-empty, and on accept awaits `applyLayoffDeload(offers)`. Build the notice from the returned `AppliedLayoff` results; the displayed offers alone cannot identify which targets actually changed.
 - `_LayoffDialog` becomes a list: one row per offer with the exercise name (through `seededName`), its current target and its proposed target, and the **total** reduction against the retained baseline where there was an earlier cut — 64 kg after an earlier 72 kg is 20% off 80 kg, not a fresh 20%. A row already at its capped target says so rather than promising another cut.
 - Constrain the content to the viewport and make the list scrollable inside the dialog, with both actions outside the scroll area so they stay reachable; names and target labels wrap rather than clip. This is what criterion 18's sweep asserts.
 - Dismissal stays distinct from decline through the nullable `showDialog<bool>` result: `null` is dismissal, `false` is decline, and both write nothing.
-- `LayoffNotice` widens to `({int percent, int days, int exercises})`, carrying the deepest total reduction actually applied, the longest gap among the slots that moved, and how many moved. It is only set when something moved, so zero movement cannot claim a cut. The copy must not describe a uniform percentage across several exercises.
+- `LayoffNotice` widens to `({int percent, int days, int exercises})`. For a non-empty applied-result list, derive `percent` as the maximum returned `totalPercent`, `days` as the maximum returned `gapDays` and `exercises` as the list length. Never include percentages or gaps from accepted offers whose targets did not move. An empty result leaves the notice null. The copy must describe a total reduction of up to that percentage across the changed exercises, without implying a uniform percentage, a shared gap or a fresh cut of that percentage from already reduced targets.
 - `lib/state/session_snapshot.dart` `_readNotice` must read the **old two-key map** without throwing: it casts with `as int` today, so a shipped snapshot would throw on the first resumed session after the update. Read each key defensively, default the new count, and return null on anything unrecognisable. Write all three keys going forward.
 - `lib/screens/workout_screen.dart` `_SessionNotice` composes the line from the widened notice.
 
@@ -263,7 +319,7 @@ Factor the per-slot axis cut into one private helper so there is exactly one pla
 ## Step 4 — refactor and documentation
 
 - Remove duplication the green pass introduced. The three places that must each have exactly one implementation: the in-scope predicate (§3.2), the per-slot axis cut (§3.9), and the baseline invalidation rule (§3.10).
-- `ARCHITECTURE.md` (criterion 13): the `WorkoutItems` row in the table map gains the four columns; the **Layoffs** section says the gap is per exercise for Weight/Reps/Weight + Reps after a slot establishes training, with the workout gap retained for Time, cycle, GZCL and RPE, and describes the retained baseline and why declining still records nothing; the **Progression** section replaces "A skipped set is a miss" with the three-valued verdict and its mode boundary.
+- `ARCHITECTURE.md` (criterion 13): the `WorkoutItems` row in the table map gains the columns listed in §3.5; the **Layoffs** section says the gap is per exercise for Weight/Reps/Weight + Reps after a slot establishes training, with the workout gap retained for Time, cycle, GZCL and RPE, and describes the retained baseline and why declining still records nothing; the **Progression** section replaces "A skipped set is a miss" with the three-valued verdict and its mode boundary.
 - Regenerate the catalogue pages with `dart run tool/features.dart`. The HTML is gitignored — never commit it.
 
 ---
@@ -285,9 +341,9 @@ Steps 4–7 are one working set; do not run the suite between them file by file.
 ## Integration points to watch
 
 - `advanceProgression`'s signature change touches `finish()` and `test/feature_05_progression_test.dart`'s local `advance` helper; the widened `ProgressionMove` touches every reader of `move.axis`.
-- `applyLayoffDeload`'s signature change touches `start_workout.dart` and the existing section-06 tests.
+- `applyLayoffDeload`'s signature and `AppliedLayoff` result touch `start_workout.dart` and the existing section-06 tests: count assertions read the returned list length, and notice assertions use only the committed per-slot results.
 - `LayoffNotice`'s widening touches `active_workout.dart`, `session_snapshot.dart` (both directions), `workout_screen.dart` and the continuity tests.
-- `ItemDraft`'s new fields touch `workout_edit_screen.dart`, `routine_edit_screen.dart` and `workout_screen.dart` `_editSlot`; all three already go through `fromView` / `itemCompanions` / `itemUpdate`, so the change is additive if the helper is the only place the rule lives.
+- `ItemDraft`'s new fields touch `workout_edit_screen.dart`, `routine_edit_screen.dart` and `workout_screen.dart` `_editSlot`, through `fromView` / `itemCompanions` / `itemUpdate`. The shared data-layer comparison also serves `updateWorkoutItem` and `setTrainingMax`; the latter is reached from `training_max_screen.dart` and must not retain a baseline after changing an in-scope custom slot's saved target.
 - Backup carries the database file itself, so the new columns ride along and only the manifest's schema number moves; old backups climb the same rung.
 
 ## Risks
