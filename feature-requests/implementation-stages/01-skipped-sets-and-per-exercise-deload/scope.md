@@ -71,6 +71,8 @@ The recap already renders a "held" outcome with a note. Give a fully skipped exe
 
 `04.finish-asks-when-sets-are-unlogged` describes the confirmation dialog as reporting sets that "count as misses for progression". That blanket statement becomes false. Keep the dialog counting unlogged working sets, but remove the universal miss claim from its copy. The catalogue must distinguish the new rules for Weight, Reps and Weight + Reps from unchanged excluded modes.
 
+The deload settings explanation in `lib/screens/exercise_settings_screen.dart` also changes. Rewrite `settingsDeloadOnNote` and `settingsDeloadOffNote` in every locale. Enabled copy must describe the per-exercise training gap for Weight, Reps and Weight + Reps, the configured threshold/percentage and existing cap, and one offer per gap after a response. It must not imply that training another exercise resets that gap. Keep the excluded modes' workout-based rule clear where the explanation refers to them. Disabled copy must say timed-deload offers are off, without suggesting that ordinary performance progression is disabled or that inactivity is measured only per workout. Retain the current controls and settings values; adjust placeholders and their caller together if needed.
+
 New and changed strings go in `lib/l10n/short/` or `lib/l10n/long/` by the three-word rule in `lib/l10n/README.md`, for all five locales (en, es, pt, pt_BR, uk), then `dart run tool/l10n.dart` and `flutter gen-l10n`.
 
 ### Catalogue
@@ -87,6 +89,7 @@ Entries to rewrite:
 - `06.offers-back-off-before-session` — the offer names exercises and their own cuts, once per slot's inactivity gap; additional elapsed periods cannot trigger a second offer after that gap is handled.
 - `06.declining-not-recorded` — retain the stable id but replace the title and prose: accepting or declining records offer acknowledgement for in-scope slots, without changing last-trained time. Only a newer performed session rearms the offer; one performed working set is enough.
 - `06.nothing-applied-without-asking` — accepting atomically records acknowledgement and applies the displayed cuts; declining or dismissing records acknowledgement alone.
+- `06.set-rules` — settings remain app-wide; their enabled/disabled explanation describes the applicable exercise/workout clocks and one-off offer handling without changing thresholds or percentages.
 - `04.finish-asks-when-sets-are-unlogged` — count unlogged working sets without claiming that every skip is a miss; link to the mode-specific verdict rules.
 
 Entries to add: an in-scope fully skipped exercise holds its targets and streaks and does not reset its inactivity; any performed working set counts the exercise as trained. Put the exclusions in the existing verdict and layoff entries rather than adding a second verdict definition.
@@ -125,6 +128,7 @@ Each row of the acceptance table in the feature request is an integration test, 
 15. After either response, one performed bench working set rearms future eligibility and resets its training time. A start before the next configured threshold offers nothing; a start at the threshold offers one fresh cut. Duplicate bench slots handle that gap independently without applying a cut twice to either target. Editing or reordering the workout, changing deload settings, and restoring a new backup preserve acknowledgement.
 16. Upgrading a shipped database or restoring an old backup preserves history, routines, settings and targets and initializes acknowledgement to null; historical performed sets determine the first offer. A backup from the new build retains acknowledgement on restore. Existing routine codes remain readable and do not acquire training state.
 17. With a legacy stored target of 15 kg on a 20 kg bar, fully skipped and clean partial exercises leave the stored target and streaks unchanged while the live board uses its existing 20 kg floor. Next complete all sets cleanly at 20 kg with a success threshold that does not yet earn a step: the stored target corrects to 20 kg, and the recap does not claim a 5 kg progression increase. Verify a partial exercise with a recorded shortfall and an accepted layoff still use their existing bar-floor correction paths.
+18. Profile → Exercise settings → Deload shows enabled copy describing the correct inactivity clock, configured reduction and once-per-gap offer handling; disabling deloads shows that timed offers are off. Neither state universally describes inactivity as a workout gap. Verify both `settingsDeloadOnNote` and `settingsDeloadOffNote` in en, es, pt, pt_BR and uk, including interpolated settings, and check the settings surface at 2× text size for overflow.
 
 ## Dependencies
 
@@ -142,7 +146,7 @@ The partial-exercise decision is settled above; no user decision is deferred to 
 | Verdict rules — `ExerciseEntry`, `advanceProgression`, the Time/cycle/GZCL/RPE boundary, the three interacting rules | 2–3 |
 | Per-exercise last-trained query, per-slot offer handling, additive migration and editor state preservation | 4–5 |
 | `finish()` plumbing and the recap outcome | 1.5–2 |
-| Start dialog, session notice, snapshot compatibility, finish-confirm copy, l10n across five locales | 3 |
+| Start dialog, session notice, snapshot compatibility, finish-confirm copy, enabled/disabled deload settings notes, l10n across five locales | 3 |
 | Integration tests for the whole acceptance table, repeat offers, upgrades and backup restore, plus unchanged behaviour | 4–5 |
 | `flutter analyze`, `ARCHITECTURE.md`, catalogue regeneration, the pre-existing `--check` fix | 1 |
 
@@ -164,15 +168,17 @@ The partial-exercise decision is settled above; no user decision is deferred to 
 
 **UI**
 - `lib/widgets/start_workout.dart` — the layoff dialog and what accepting applies
+- `lib/screens/exercise_settings_screen.dart` — enabled/disabled deload explanation and any matching localization placeholder changes
 - `lib/screens/workout_screen.dart` — `_SessionNotice`, the finish confirmation dialog
 - `lib/screens/summary_screen.dart` — the recap row for a held or skipped exercise
 
 **Catalogue and copy**
 - `features/catalogue/04-live-session.yaml`, `05-progression.yaml`, `06-layoff-deloads.yaml`, `features/concepts.yaml`
-- `lib/l10n/short/app_{en,es,pt,pt_BR,uk}.arb`, `lib/l10n/long/app_{en,es,pt,pt_BR,uk}.arb`
+- `lib/l10n/short/app_{en,es,pt,pt_BR,uk}.arb`, `lib/l10n/long/app_{en,es,pt,pt_BR,uk}.arb` — include `settingsDeloadOnNote` and `settingsDeloadOffNote` alongside Start, notice, recap and Finish copy
 - `ARCHITECTURE.md`
 
 **Tests**
 - `test/feature_05_progression_test.dart`, `test/feature_06_layoff_deloads_test.dart`, `test/feature_04_live_session_test.dart`, `test/feature_04_session_continuity_test.dart`, `test/feature_22_cycles_test.dart`
 - `test/feature_20_backup_and_restore_test.dart` — upgrade and backup compatibility, including persisted acknowledgement.
+- `test/feature_15_text_size_test.dart`, `test/feature_18_language_test.dart` — settings copy across locales and at larger text sizes, alongside layoff feature integration tests for enabled/disabled settings.
 - `test/support/harness.dart`, `test/support/seeded.dart` — read before writing; a drift future needs `tester.runAsync`, and a live session never settles
