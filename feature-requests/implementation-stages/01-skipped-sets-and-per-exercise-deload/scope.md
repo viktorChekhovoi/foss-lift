@@ -8,27 +8,23 @@ The request has two halves — a skipped set stops being a performance failure, 
 
 Estimated at 17–20 senior developer days, which fits the 10–25 day target for a single stage, including persisted offer handling and upgrade coverage.
 
-## Decision to resolve before writing the catalogue entries
+## Planning decision: hold clean partial exercises
 
-The feature request leaves one question open, and the catalogue entry is the specification, so it has to be answered before step 5.1 of the workflow:
+The feature request asked whether partial exercises should be judged on performed sets alone or hold until complete. This review request adopts Option B, so the decision is resolved for this stage and must be recorded in the catalogue before tests or implementation.
 
-> For a partially completed exercise, should normal progression evaluate only the performed sets, or hold the exercise's targets and progression streaks until all planned sets are performed?
+**Decision — Option B.** A performed working set that falls short is still a miss and follows existing performance rules, even if other sets were skipped. Otherwise, if any planned working set was skipped, the exercise neither succeeds nor fails: all normal targets and both streaks hold. With no performed sets it also holds. Only completing every planned set without a shortfall earns a success.
 
-Ask the user, and record the answer in the entry you write. The rest of the stage does not depend on the answer and can proceed while it is outstanding — only the partial-exercise verdict and the tests covering row 2 of the acceptance table are blocked by it.
+The hold includes adopting a heavier performed load and establishing a previously absent weight target: neither happens in a clean partial exercise. A partial exercise with a recorded shortfall follows the existing miss path, including its existing target-adoption rules. Any performed working set resets inactivity regardless of this progression verdict.
 
-**Option A — judge the performed sets.** Three of three sets clean is a success; two of three clean, one skipped, is also a success and steps the target up. Simple to state, but it lets an exercise progress on two thirds of the prescribed work, and repeated partial sessions climb the target on volume nobody did.
+**Recorded alternative — Option A, not selected.** Judging only performed sets would allow two clean sets out of three to earn a success. Option B requires the complete prescription for success, while preserving the request's rule that a recorded shortfall remains a performance miss.
 
-**Option B — hold until the exercise is complete.** A performed set that falls short is still a miss, because the request keeps that rule explicitly ("A recorded performance shortfall remains subject to the normal performance rules"). Otherwise, if any planned set was skipped, the session neither succeeds nor fails: the target holds and both streaks stay where they were.
-
-Option B is the recommendation. It satisfies every stated requirement without inventing one, it reuses the same "do not advance" mechanism the fully-skipped case already needs, and it keeps the meaning of the success streak — consecutive sessions where the programme was done as written — intact. Option A quietly redefines that streak.
-
-Either way the outcome becomes three-valued (success / miss / neither), because the fully-skipped case alone requires a state that moves nothing. Do not add the third value to `SessionVerdict`, which is persisted-adjacent and consumed by the cycle and GZCL paths; make `ExerciseEntry.verdict` nullable, or introduce a wider outcome type in `lib/data/progression.dart` that collapses to `SessionVerdict` before it reaches `stepProgression`.
+The outcome becomes three-valued (success / miss / neither). Keep the existing two-valued `SessionVerdict` used by cycle and GZCL rules; represent the neutral outcome with a nullable verdict or a wider type that is resolved before calling `stepProgression`. This is an internal representation choice, not an unresolved behaviour.
 
 ## Scope
 
 ### Progression: a skipped set is not a miss
 
-`ExerciseEntry.succeeded` currently reads `sets.every((s) => s.done && !s.missedGoal)`, so an unlogged set is a miss with no way to tell it from a set that came up short. Replace it with the three-valued outcome above. An exercise with no performed sets moves nothing: no step, no back-off, no streak change, no write to the slot at all.
+`ExerciseEntry.succeeded` currently reads `sets.every((s) => s.done && !s.missedGoal)`, so an unlogged set is a miss with no way to tell it from a set that came up short. Replace it with the three-valued outcome above. A fully skipped or clean partial exercise moves nothing: no step, no back-off, no streak change, no write to the slot at all during progression on Finish.
 
 `finish()` in `lib/state/active_workout.dart` passes the outcome to `AppDatabase.advanceProgression`. Make the null case explicit in that signature rather than filtering it out in the caller, because the decision is not the same for every slot:
 
@@ -37,8 +33,8 @@ Either way the outcome becomes three-valued (success / miss / neither), because 
 
 Two existing rules need re-checking against the new outcome, and each needs a test:
 
-- **Loading the bar past the suggestion is itself progression** (`05.loading-bar-past-suggestion-itself`). It reads `performedWeight`, which is null when nothing was logged, so a fully skipped exercise is already inert. A *partial* session that loaded the bar past the suggestion still raises the target under both options — decide it deliberately and write it into the entry.
-- **A weight slot with no suggested weight takes one from the session** (`05.weight-mode-slot-no-suggested`). `ExerciseEntry.sessionLoadKg` falls back to `workingKg` when nothing was logged, so today a slot with no stored target, a weight typed onto the board and every set skipped establishes that weight as its target and applies a miss to it. Under the new rule it must establish nothing. The window is narrow — it needs a slot that has never had a suggested weight — but it is exactly the "do not record the exercise as completed or failed" case.
+- **Loading the bar past the suggestion is itself progression** (`05.loading-bar-past-suggestion-itself`). The neutral outcome takes precedence over this rule: a clean partial exercise holds its stored weight even when every performed set exceeds it. For example, one clean 85 kg set out of three planned at 80 kg leaves the target at 80 kg and both streaks unchanged. Fully completed exercises and partial exercises with a recorded shortfall retain existing target-adoption rules, including exclusions for percentage-based prescriptions.
+- **A weight slot with no suggested weight takes one from the session** (`05.weight-mode-slot-no-suggested`). `ExerciseEntry.sessionLoadKg` falls back to `workingKg` when nothing was logged. A weight typed onto the board must establish no target when the exercise is fully skipped or clean but partial; the stored target remains null. Once all sets are performed, or a performed set has a shortfall, existing target-establishment and performance rules apply.
 
 ### Timed deload: inactivity per exercise
 
@@ -78,8 +74,9 @@ Written first, per rule 5 of `CLAUDE.md`. Edit in place; do not add a second ent
 
 Entries to rewrite:
 
-- `05.verdict-every-planned-set-logged` — "A skipped set or reduced-weight set is a miss" is the sentence this feature deletes. It has to distinguish the two and state the new outcome, including the answer to the open question above.
-- `05.weight-mode-slot-no-suggested` — a session that performed nothing establishes no target.
+- `05.verdict-every-planned-set-logged` — replace the skipped-set-as-miss rule with the planning decision: a recorded shortfall is a miss, every planned set performed cleanly is a success, and a fully skipped or clean partial exercise is neutral.
+- `05.loading-bar-past-suggestion-itself` — the neutral outcome holds the stored target even when the performed load exceeds it; existing adoption rules continue for success and miss outcomes.
+- `05.weight-mode-slot-no-suggested` — fully skipped and clean partial exercises establish no target, including when a working weight was entered.
 - `06.watches-gap-since-workout-was` — the gap is per exercise, not per workout.
 - `06.offers-back-off-before-session` — the offer names exercises and their own cuts, once per slot's inactivity gap; additional elapsed periods cannot trigger a second offer after that gap is handled.
 - `06.declining-not-recorded` — retain the stable id but replace the title and prose: accepting or declining records offer acknowledgement for in-scope slots, without changing last-trained time. Only a newer performed session rearms the offer; one performed working set is enough.
@@ -107,7 +104,7 @@ Each row of the acceptance table in the feature request is an integration test, 
 
 1. An exercise whose planned sets are all skipped comes out of Finish with its `suggestedWeight`, `repsMin`/`repsMax`, `holdSeconds`, `repsTarget`, `successStreak` and `failStreak` byte-for-byte as they went in, and does not appear in the recap as a success or a miss.
 2. Skipping the whole exercise repeatedly never produces a performance deload, however many sessions it takes — the failure streak does not advance.
-3. A partially performed exercise behaves as the resolved decision says. Under Option B: all performed sets clean and at least one skipped holds the target and both streaks; a performed set that fell short of reps or came down in weight is still a miss and still advances the failure streak.
+3. For each of Weight, Reps and Weight + Reps, one or two clean sets out of three planned hold every normal target and both streaks, including across repeated partial sessions. A clean partial exercise at a heavier load does not adopt it, and a clean partial exercise with a null target does not establish one. A performed set short on reps or weight is a miss even when other sets are skipped: existing failure thresholds and performance deloads apply, with existing target adoption on that miss path. All planned sets performed use the existing success/miss rules. Cover nonzero success and failure streaks and the Weight + Reps range boundaries.
 4. A performed set that misses its target is still distinguishable from a skipped set — the existing `missedGoal` and `underWeight` behaviour is unchanged, and a test asserts the two produce different outcomes from the same session shape.
 5. Finishing a workout with squats performed and bench press entirely skipped leaves bench press's last-trained time where it was, and moves squats'.
 6. Performing one set of three of an exercise resets that exercise's inactivity timer.
@@ -126,7 +123,7 @@ Each row of the acceptance table in the feature request is an integration test, 
 
 None. This is the first and only stage.
 
-The open question under "Decision to resolve" blocks the partial-exercise verdict and criterion 3, and nothing else.
+The partial-exercise decision is settled above; no user decision is deferred to implementation.
 
 ## Estimated effort
 
@@ -134,7 +131,7 @@ The open question under "Decision to resolve" blocks the partial-exercise verdic
 
 | Work | Days |
 | --- | --- |
-| Resolve the open question; write and validate the catalogue entries and concepts | 1 |
+| Record the planning decision; write and validate the catalogue entries and concepts | 1 |
 | Verdict rules — `ExerciseEntry`, `advanceProgression`, the cycle/GZCL boundary, the two interacting rules | 2–3 |
 | Per-exercise last-trained query, per-slot offer handling, additive migration and editor state preservation | 4–5 |
 | `finish()` plumbing and the recap outcome | 1.5–2 |
