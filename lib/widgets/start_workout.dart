@@ -61,8 +61,11 @@ Future<void> startWorkout(
       context: context,
       builder: (_) => _LayoffDialog(
         layoff: layoff,
-        exerciseName:
-            seededName(l10n, view.exercise.seedKey, view.exercise.name),
+        exerciseName: seededName(
+          l10n,
+          view.exercise.seedKey,
+          view.exercise.name,
+        ),
       ),
     );
     if (accepted == true) {
@@ -133,7 +136,10 @@ class _LayoffDialog extends StatelessWidget {
       title: Text(l10n.startWorkoutLayoffTitle),
       content: Text(
         l10n.startWorkoutLayoffBody(
-            exerciseName, layoff.gapDays, layoff.percent),
+          exerciseName,
+          layoff.gapDays,
+          layoff.percent,
+        ),
         style: TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [

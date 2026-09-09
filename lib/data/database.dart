@@ -3099,11 +3099,7 @@ class AppDatabase extends _$AppDatabase {
   /// slots actually moved — a workout of bodyweight movements with no target
   /// to cut moves nothing, and the UI should not claim otherwise.
   /// With [exerciseId], cuts only that exercise's slots in the workout.
-  Future<int> applyLayoffDeload(
-    int workoutId,
-    int percent, {
-    int? exerciseId,
-  }) {
+  Future<int> applyLayoffDeload(int workoutId, int percent, {int? exerciseId}) {
     return transaction(() async {
       final query = select(workoutItems)
         ..where((i) => i.workoutId.equals(workoutId));
@@ -3222,14 +3218,16 @@ class AppDatabase extends _$AppDatabase {
                 var predicate =
                     s.workoutId.equals(workoutId) & s.endedAt.isNotNull();
                 if (exerciseId != null) {
-                  predicate = predicate & existsQuery(
-                    select(sessionSets)..where(
-                      (set) =>
-                          set.sessionId.equalsExp(s.id) &
-                          set.exerciseId.equals(exerciseId) &
-                          set.done.equals(true),
-                    ),
-                  );
+                  predicate =
+                      predicate &
+                      existsQuery(
+                        select(sessionSets)..where(
+                          (set) =>
+                              set.sessionId.equalsExp(s.id) &
+                              set.exerciseId.equals(exerciseId) &
+                              set.done.equals(true),
+                        ),
+                      );
                 }
                 return predicate;
               })

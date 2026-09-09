@@ -23,71 +23,71 @@ import 'active_workout.dart';
 
 /// Encodes the live session as JSON.
 String encodeSession(ActiveWorkout s) => jsonEncode({
-      'routineId': s.routineId,
-      'workoutId': s.workoutId,
-      'name': s.name,
-      'seedKey': s.seedKey,
-      'startedAt': s.startedAt.millisecondsSinceEpoch,
-      'elapsed': s.elapsed,
-      'unit': s.unit,
-      'notice': [
-        for (final n in s.notices)
-          {
-            'percent': n.percent,
-            'days': n.days,
-            'exerciseName': n.exerciseName,
-            'seedKey': n.seedKey,
-          },
-      ],
-      'plates': [for (final p in s.plates) _stack(p)],
-      'barKg': s.barKg,
-      'warmupSets': s.warmupSets,
-      'restLeft': s.restLeft,
-      'restDone': s.restDone,
-      if (s.restPrompt case final p?)
-        'restPrompt': {
-          'purpose': p.purpose.name,
-          'weightKg': p.weightKg,
-          'exercise': p.exercise,
-          'exerciseSeedKey': p.exerciseSeedKey,
-        },
-      if (s.restFor case final r?)
+  'routineId': s.routineId,
+  'workoutId': s.workoutId,
+  'name': s.name,
+  'seedKey': s.seedKey,
+  'startedAt': s.startedAt.millisecondsSinceEpoch,
+  'elapsed': s.elapsed,
+  'unit': s.unit,
+  'notice': [
+    for (final n in s.notices)
+      {
+        'percent': n.percent,
+        'days': n.days,
+        'exerciseName': n.exerciseName,
+        'seedKey': n.seedKey,
+      },
+  ],
+  'plates': [for (final p in s.plates) _stack(p)],
+  'barKg': s.barKg,
+  'warmupSets': s.warmupSets,
+  'restLeft': s.restLeft,
+  'restDone': s.restDone,
+  if (s.restPrompt case final p?)
+    'restPrompt': {
+      'purpose': p.purpose.name,
+      'weightKg': p.weightKg,
+      'exercise': p.exercise,
+      'exerciseSeedKey': p.exerciseSeedKey,
+    },
+  if (s.restFor case final r?)
     'restFor': {'exercise': r.exercise, 'set': r.set, 'warmup': r.warmup},
-      'exercises': [
-        for (final e in s.exercises)
-          {
-            'exerciseId': e.exerciseId,
-            'itemId': e.itemId,
-            'name': e.name,
-            'seedKey': e.seedKey,
-            'muscle': e.muscle,
-            'mode': e.mode.name,
-            'gzclTier': e.gzclTier?.name,
-            'weightType': e.weightType.name,
-            'barKg': e.barKg,
-            'restSeconds': e.restSeconds,
-            'workingKg': e.workingKg,
-            // The scheme, whole. A back-off that came back as a flat slot would
-            // put every rung on the top weight the next time the working weight
-            // moved — and quietly inflate what progression made of the session.
-            'scheme': e.scheme.name,
-            'schemePercent': e.schemePercent,
-            'customSets': encodeCustomSets(e.customSets),
-            'goalReps': e.goalReps,
+  'exercises': [
+    for (final e in s.exercises)
+      {
+        'exerciseId': e.exerciseId,
+        'itemId': e.itemId,
+        'name': e.name,
+        'seedKey': e.seedKey,
+        'muscle': e.muscle,
+        'mode': e.mode.name,
+        'gzclTier': e.gzclTier?.name,
+        'weightType': e.weightType.name,
+        'barKg': e.barKg,
+        'restSeconds': e.restSeconds,
+        'workingKg': e.workingKg,
+        // The scheme, whole. A back-off that came back as a flat slot would
+        // put every rung on the top weight the next time the working weight
+        // moved — and quietly inflate what progression made of the session.
+        'scheme': e.scheme.name,
+        'schemePercent': e.schemePercent,
+        'customSets': encodeCustomSets(e.customSets),
+        'goalReps': e.goalReps,
         'targetRpe': e.targetRpe,
-            'floorKg': e.floorKg,
-            'supersetWithPrevious': e.supersetWithPrevious,
-            'cardioMachine': e.cardioMachine,
-            'unit': e.unit,
-            'warmupCount': e.warmupCount,
-            'warmupBarKg': e.warmupBarKg,
-            'warmupRestSeconds': e.warmupRestSeconds,
-            'warmupLadder': [for (final r in e.warmupLadder) _rung(r)],
-            'sets': [for (final x in e.sets) _set(x)],
-            'warmups': [for (final x in e.warmups) _set(x)],
-          },
-      ],
-    });
+        'floorKg': e.floorKg,
+        'supersetWithPrevious': e.supersetWithPrevious,
+        'cardioMachine': e.cardioMachine,
+        'unit': e.unit,
+        'warmupCount': e.warmupCount,
+        'warmupBarKg': e.warmupBarKg,
+        'warmupRestSeconds': e.warmupRestSeconds,
+        'warmupLadder': [for (final r in e.warmupLadder) _rung(r)],
+        'sets': [for (final x in e.sets) _set(x)],
+        'warmups': [for (final x in e.warmups) _set(x)],
+      },
+  ],
+});
 
 /// Decodes a snapshot and advances its timers by [dead], returning null when invalid.
 ///
@@ -124,7 +124,7 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       startedAt: DateTime.fromMillisecondsSinceEpoch(m['startedAt'] as int),
       elapsed: (m['elapsed'] as int) + gone,
       unit: m['unit'] as String,
-      notices: _readNotice(m['notice']),
+      notices: _readNotices(m['notice']),
       plates: [
         for (final p in m['plates'] as List)
           _readStack(p as Map<String, dynamic>),
@@ -241,7 +241,7 @@ RestPrompt? _readPrompt(Object? raw) {
   return null;
 }
 
-List<LayoffNotice> _readNotice(Object? raw) {
+List<LayoffNotice> _readNotices(Object? raw) {
   // Before exercise-specific offers, a snapshot held one workout-wide notice.
   if (raw is Map<String, dynamic>) raw = [raw];
   if (raw is! List) return const [];
@@ -270,47 +270,47 @@ ExerciseEntry _readExercise(
   Map<String, dynamic> m, {
   required String sessionUnit,
 }) => ExerciseEntry(
-      exerciseId: m['exerciseId'] as int?,
-      itemId: m['itemId'] as int?,
-      name: m['name'] as String,
-      seedKey: m['seedKey'] as String?,
-      muscle: m['muscle'] as String,
-      mode: ProgressionMode.values.byName(m['mode'] as String),
-      gzclTier: GzclTier.values.asNameMap()[m['gzclTier']],
-      gzclTierMissingFromSnapshot: !m.containsKey('gzclTier'),
-      weightType: WeightType.values.byName(m['weightType'] as String),
-      barKg: (m['barKg'] as num?)?.toDouble(),
-      restSeconds: m['restSeconds'] as int,
-      workingKg: (m['workingKg'] as num?)?.toDouble(),
-      // A snapshot written by an older build carries none of the five. Absent
-      // reads as the default it had then — a flat slot — rather than failing the
-      // whole session back to nothing.
-      scheme: _readScheme(m['scheme']),
-      schemePercent: m['schemePercent'] as int? ?? kDefaultSchemePercent,
-      customSets: decodeCustomSets(m['customSets'] as String?),
-      goalReps: m['goalReps'] as int? ?? 0,
+  exerciseId: m['exerciseId'] as int?,
+  itemId: m['itemId'] as int?,
+  name: m['name'] as String,
+  seedKey: m['seedKey'] as String?,
+  muscle: m['muscle'] as String,
+  mode: ProgressionMode.values.byName(m['mode'] as String),
+  gzclTier: GzclTier.values.asNameMap()[m['gzclTier']],
+  gzclTierMissingFromSnapshot: !m.containsKey('gzclTier'),
+  weightType: WeightType.values.byName(m['weightType'] as String),
+  barKg: (m['barKg'] as num?)?.toDouble(),
+  restSeconds: m['restSeconds'] as int,
+  workingKg: (m['workingKg'] as num?)?.toDouble(),
+  // A snapshot written by an older build carries none of the five. Absent
+  // reads as the default it had then — a flat slot — rather than failing the
+  // whole session back to nothing.
+  scheme: _readScheme(m['scheme']),
+  schemePercent: m['schemePercent'] as int? ?? kDefaultSchemePercent,
+  customSets: decodeCustomSets(m['customSets'] as String?),
+  goalReps: m['goalReps'] as int? ?? 0,
   targetRpe: m['targetRpe'] as int?,
-      floorKg: (m['floorKg'] as num?)?.toDouble() ?? 0,
-      // Absent in a snapshot from a build that had no supersets, which means
-      // exactly what it says: this exercise stood on its own.
-      supersetWithPrevious: m['supersetWithPrevious'] as bool? ?? false,
-      // Likewise absent in a snapshot from a build that had no console readouts:
-      // no exercise on that board offered them, so false is what it meant.
-      cardioMachine: m['cardioMachine'] as bool? ?? false,
-      // Absent in a snapshot from a build where no movement could be pinned to
-      // a unit — where the session's was every movement's.
-      unit: m['unit'] as String? ?? sessionUnit,
-      warmupCount: m['warmupCount'] as int,
-      warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
-      warmupRestSeconds: m['warmupRestSeconds'] as int,
-      warmupLadder: [
-        for (final r in m['warmupLadder'] as List)
-          _readRung(r as Map<String, dynamic>),
-      ],
+  floorKg: (m['floorKg'] as num?)?.toDouble() ?? 0,
+  // Absent in a snapshot from a build that had no supersets, which means
+  // exactly what it says: this exercise stood on its own.
+  supersetWithPrevious: m['supersetWithPrevious'] as bool? ?? false,
+  // Likewise absent in a snapshot from a build that had no console readouts:
+  // no exercise on that board offered them, so false is what it meant.
+  cardioMachine: m['cardioMachine'] as bool? ?? false,
+  // Absent in a snapshot from a build where no movement could be pinned to
+  // a unit — where the session's was every movement's.
+  unit: m['unit'] as String? ?? sessionUnit,
+  warmupCount: m['warmupCount'] as int,
+  warmupBarKg: (m['warmupBarKg'] as num).toDouble(),
+  warmupRestSeconds: m['warmupRestSeconds'] as int,
+  warmupLadder: [
+    for (final r in m['warmupLadder'] as List)
+      _readRung(r as Map<String, dynamic>),
+  ],
   sets: [
     for (final s in m['sets'] as List) _readSet(s as Map<String, dynamic>),
   ],
-      warmups: [
-        for (final s in m['warmups'] as List) _readSet(s as Map<String, dynamic>),
-      ],
-    );
+  warmups: [
+    for (final s in m['warmups'] as List) _readSet(s as Map<String, dynamic>),
+  ],
+);
