@@ -1,0 +1,63 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/tmp/kettle-worktrees/foss-lift/partial-workout-implementation1/implement-1/assessment/fix-1/workspace/.codex/hooks/check-pending-messages.sh",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/tmp/kettle-worktrees/foss-lift/partial-workout-implementation1/implement-1/assessment/fix-1/workspace/.codex/hooks/check-pending-messages.sh",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/tmp/kettle-worktrees/foss-lift/partial-workout-implementation1/implement-1/assessment/fix-1/workspace/.codex/hooks/require-bash-timeout.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "if [ -n \"$KETTLE_SHELL_CAPTURE_BINARY\" ]; then \"$KETTLE_SHELL_CAPTURE_BINARY\" --shell-capture-hook; fi",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "^Bash$"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "/tmp/kettle-worktrees/foss-lift/partial-workout-implementation1/implement-1/assessment/fix-1/workspace/.codex/hooks/check-pending-messages.sh",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "/tmp/kettle-worktrees/foss-lift/partial-workout-implementation1/implement-1/assessment/fix-1/workspace/.codex/hooks/check-pending-messages.sh",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
