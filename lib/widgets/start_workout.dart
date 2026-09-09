@@ -34,16 +34,37 @@ Future<void> startWorkout(
   }
 
   final db = ref.read(databaseProvider);
-  final layoff = await db.layoffFor(workoutId);
+  final items = await db.itemsForWorkout(workoutId);
 
   LayoffNotice? notice;
-  if (layoff != null && context.mounted) {
+  final offered = <int>{};
+  for (final view in items) {
+    final item = view.item;
+    if (!offered.add(item.exerciseId)) continue;
+    final normalProgression = !item.progression.timed &&
+        !item.runsCycle &&
+        item.gzclTier == null &&
+        item.targetRpe == null;
+    final layoff = await db.layoffFor(
+      workoutId,
+      exerciseId: normalProgression ? item.exerciseId : null,
+    );
+    if (!context.mounted) return;
+    if (layoff == null) continue;
     final accepted = await showDialog<bool>(
       context: context,
-      builder: (_) => _LayoffDialog(layoff: layoff, workoutName: shown),
+      builder: (_) => _LayoffDialog(
+        layoff: layoff,
+        exerciseName:
+            seededName(l10n, view.exercise.seedKey, view.exercise.name),
+      ),
     );
     if (accepted == true) {
-      final moved = await db.applyLayoffDeload(workoutId, layoff.percent);
+      final moved = await db.applyLayoffDeload(
+        workoutId,
+        layoff.percent,
+        exerciseId: item.exerciseId,
+      );
       if (moved > 0) {
         notice = (percent: layoff.percent, days: layoff.gapDays);
       }
@@ -89,9 +110,9 @@ class _SwitchDialog extends StatelessWidget {
 }
 
 class _LayoffDialog extends StatelessWidget {
-  const _LayoffDialog({required this.layoff, required this.workoutName});
+  const _LayoffDialog({required this.layoff, required this.exerciseName});
   final LayoffDeload layoff;
-  final String workoutName;
+  final String exerciseName;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +122,7 @@ class _LayoffDialog extends StatelessWidget {
       title: Text(l10n.startWorkoutLayoffTitle),
       content: Text(
         l10n.startWorkoutLayoffBody(
-            workoutName, layoff.gapDays, layoff.percent),
+            exerciseName, layoff.gapDays, layoff.percent),
         style: TextStyle(color: AppColors.muted, height: 1.5),
       ),
       actions: [

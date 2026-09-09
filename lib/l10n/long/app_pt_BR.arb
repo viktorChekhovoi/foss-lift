@@ -72,7 +72,7 @@
   "workoutDetailEmpty": "Nenhum exercício ainda. Toque no ícone de editar para adicionar alguns.",
   "workoutDetailExerciseCount": "{count, plural, =1{exercício} other{exercícios}}",
   "startWorkoutSwitchBody": "{running} tem {done} de {total} séries registradas e {clock}. Descartar e trocar para outro treino?",
-  "startWorkoutLayoffBody": "Você treinou {name} pela última vez há {days, plural, =1{1 dia} other{{days} dias}}. Voltar com a mesma carga é assim que a gente se machuca.\n\nO Foss Lift pode baixar todas as metas deste treino em {percent}% para você voltar aos poucos. Seu histórico registrado não é alterado.",
+  "startWorkoutLayoffBody": "Você treinou {name} pela última vez há {days, plural, =1{1 dia} other{{days} dias}}. Voltar com a mesma carga é assim que a gente se machuca.\n\nO Foss Lift pode baixar as metas deste exercício em {percent}% para você voltar aos poucos. Seu histórico registrado não é alterado.",
   "startWorkoutDeloadNotice": "Metas cortadas em {percent}% — {days, plural, =1{1 dia} other{{days} dias}} desde a última vez que você treinou isto.",
   "historySessionCount": "{count, plural, =1{1 sessão} other{{count} sessões}}",
   "historyEmptyTitle": "Nenhum treino registrado ainda",

@@ -15,7 +15,7 @@
 import 'dart:convert';
 
 import '../data/plates.dart';
-import '../data/progression.dart' show ProgressionMode;
+import '../data/progression.dart' show GzclTier, ProgressionMode;
 import '../data/set_scheme.dart';
 import '../data/warmup.dart' show kDefaultWarmupSets;
 import '../util/cardio_units.dart';
@@ -54,6 +54,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
             'seedKey': e.seedKey,
             'muscle': e.muscle,
             'mode': e.mode.name,
+            'gzclTier': e.gzclTier?.name,
             'weightType': e.weightType.name,
             'barKg': e.barKg,
             'restSeconds': e.restSeconds,
@@ -257,6 +258,7 @@ ExerciseEntry _readExercise(
       seedKey: m['seedKey'] as String?,
       muscle: m['muscle'] as String,
       mode: ProgressionMode.values.byName(m['mode'] as String),
+      gzclTier: GzclTier.values.asNameMap()[m['gzclTier']],
       weightType: WeightType.values.byName(m['weightType'] as String),
       barKg: (m['barKg'] as num?)?.toDouble(),
       restSeconds: m['restSeconds'] as int,
