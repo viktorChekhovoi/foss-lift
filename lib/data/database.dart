@@ -3068,6 +3068,25 @@ class AppDatabase extends _$AppDatabase {
 
   // ---- Layoff deloads -----------------------------------------------------
 
+  /// Timed-deload offers for the normal-progression slots in [workoutId], keyed
+  /// by workout-item id. Each gap follows that exercise's performed sets in
+  /// finished history; skipped exercises keep their previous training time.
+  /// Reading offers never changes targets or progression streaks.
+  Future<Map<int, LayoffDeload>> layoffsForWorkout(
+    int workoutId, {
+    DateTime? now,
+  }) async {
+    // TODO: Derive each exercise's gap and apply the configured layoff rule.
+    return {};
+  }
+
+  /// Applies accepted offers to only the named workout items, using the existing
+  /// reduction rules and clearing their streaks. Returns the number moved.
+  Future<int> applyLayoffDeloads(Map<int, LayoffDeload> offers) async {
+    // TODO: Apply each accepted offer without changing other workout items.
+    return 0;
+  }
+
   /// The back-off that returning to [workoutId] has earned, or null for none.
   ///
   /// Measured per workout rather than per routine: a split where Push comes
