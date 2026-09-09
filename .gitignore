@@ -58,6 +58,9 @@ app.*.map.json
 # Claude Code's local working state
 .claude/
 
+# Kettle's local working state
+.kettle/
+
 # Release artifacts, built not committed.
 /dist/
 /release/
