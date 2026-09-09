@@ -332,7 +332,11 @@ void main() {
             expect(
               await benchOffer(
                 f,
-                at: saved.startedAt.add(const Duration(days: 14)),
+                at: DateTime(
+                  saved.startedAt.year,
+                  saved.startedAt.month,
+                  saved.startedAt.day + 14,
+                ),
               ),
               (gapDays: 14, periods: 1, percent: 10),
             );
