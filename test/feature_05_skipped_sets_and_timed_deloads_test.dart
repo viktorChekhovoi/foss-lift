@@ -48,6 +48,7 @@ void main() {
     int successes = 0,
     int failures = 0,
     int successThreshold = 3,
+    int? targetRpe,
   }) async {
     final workout = await workoutNamed(db, 'Push');
     final bench = await exerciseNamed(db, 'Bench Press');
@@ -61,6 +62,7 @@ void main() {
         repsMax: const Value(8),
         repsTarget: Value(advanced ? 7 : null),
         suggestedWeight: const Value(80),
+        targetRpe: Value(targetRpe),
         progression: Value(mode),
         addWeightAtTopOfRange: Value(advanced),
         increment: Value(mode.defaultIncrement),
@@ -655,14 +657,15 @@ void main() {
     for (final config in [
       for (final accept in [false, true])
         for (final gzclFirst in [null, true, false])
-          (accept: accept, gzclFirst: gzclFirst),
+          for (final targetRpe in [null, 80])
+            (accept: accept, gzclFirst: gzclFirst, targetRpe: targetRpe),
     ]) {
       final accept = config.accept;
       testWidgets('a skipped bench offers a deload; $config', (
         tester,
       ) async {
         final f = (await tester.runAsync(() async {
-          final f = await fixture(failures: 1);
+          final f = await fixture(failures: 1, targetRpe: config.targetRpe);
           if (config.gzclFirst != null) {
             await db.into(db.workoutItems).insert(
               WorkoutItemsCompanion.insert(
