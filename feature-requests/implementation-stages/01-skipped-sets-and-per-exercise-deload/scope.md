@@ -67,7 +67,9 @@ This requires a schema increment and a new additive `onUpgrade` rung (currently 
 
 `LayoffNotice` is `({int percent, int days})` and is carried into the session and shown for its length. If it grows to describe several exercises, `_readNotice` in `lib/state/session_snapshot.dart` must keep reading the old two-key map: that snapshot is on disk on shipped phones, and its reader casts with `as int` today, so a shape change without a compatibility path throws on the first resumed session after the update. A snapshot written by the old build has to restore.
 
-The recap already renders a "held" outcome with a note. Give a fully skipped exercise an honest line there — held, with a reason — or leave it out of the report entirely. Do not let it render as a miss.
+**Recap decision: omit fully skipped in-scope exercises from the progression report.** `finish()` must not append a `ProgressionOutcome` for them or read the slot back solely to construct that recap row. This applies with or without a stored target and with either pre-existing streak. Keep other exercises' outcomes and the performed-set history visible; do not invent a skipped history set. If no reportable outcomes remain, hide the progression panel rather than rendering an empty panel. Excluded progression types retain their existing recap behaviour.
+
+A clean partial in-scope exercise with a stored target does get a neutral held row, with a localized reason that the planned sets were not all performed. Do not derive its note from preserved success/failure streaks or imply this session earned either outcome. A clean partial weight exercise without a stored target remains omitted under the existing targetless-row rule. This distinguishes logged partial work from an exercise with no performed sets while keeping targets and streaks unchanged.
 
 `04.finish-asks-when-sets-are-unlogged` describes the confirmation dialog as reporting sets that "count as misses for progression". That blanket statement becomes false. Keep the dialog counting unlogged working sets, but remove the universal miss claim from its copy. The catalogue must distinguish the new rules for Weight, Reps and Weight + Reps from unchanged excluded modes.
 
@@ -81,6 +83,7 @@ Written first, per rule 5 of `CLAUDE.md`. Edit in place; do not add a second ent
 
 Entries to rewrite:
 
+- `05.automatic` — progression still runs on Finish; fully skipped in-scope exercises are omitted from the progression recap, while clean partial exercises with a target show a neutral hold for incomplete planned sets. An empty progression report produces no panel.
 - `05.verdict-every-planned-set-logged` — for in-scope slots, a recorded shortfall is a miss, every planned set performed cleanly is a success, and a fully skipped or clean partial exercise is neutral. State that Time, cycle and GZCL verdicts keep the existing skipped-set-as-miss rule and RPE retains its progression bypass.
 - `05.loading-bar-past-suggestion-itself` — the neutral outcome holds the stored target even when the performed load exceeds it; existing adoption rules continue for success and miss outcomes.
 - `05.weight-mode-slot-no-suggested` — fully skipped and clean partial exercises establish no target, including when a working weight was entered.
@@ -111,7 +114,7 @@ Fix them in this stage — the paths are now `lib/l10n/short/app_en.arb` and `li
 
 Each row of the acceptance table in the feature request is an integration test, written from the catalogue entries and seen to fail before the code exists. Unless explicitly testing excluded-mode compatibility, these criteria apply to Weight, Reps and Weight + Reps only.
 
-1. An in-scope exercise whose planned sets are all skipped comes out of Finish with its `suggestedWeight`, `repsMin`/`repsMax`, `repsTarget`, `successStreak` and `failStreak` byte-for-byte as they went in, including a legacy target below its bar, and does not appear in the recap as a success or a miss. Compare immediately before and after Finish: an explicitly accepted layoff at Start is a separate, permitted target update.
+1. An in-scope exercise whose planned sets are all skipped comes out of Finish with its `suggestedWeight`, `repsMin`/`repsMax`, `repsTarget`, `successStreak` and `failStreak` byte-for-byte as they went in, including a legacy target below its bar, and has no row in the progression recap. Compare immediately before and after Finish: an explicitly accepted layoff at Start is a separate, permitted target update.
 2. Skipping the whole exercise repeatedly never produces a performance deload, however many sessions it takes — the failure streak does not advance.
 3. For each of Weight, Reps and Weight + Reps, one or two clean sets out of three planned hold every normal target and both streaks, including across repeated partial sessions. A clean partial exercise at a heavier load does not adopt it, and a clean partial exercise with a null target does not establish one. A performed set short on reps or weight is a miss even when other sets are skipped: existing failure thresholds and performance deloads apply, with existing target adoption on that miss path. All planned sets performed use the existing success/miss rules. Cover nonzero success and failure streaks and the Weight + Reps range boundaries.
 4. A performed set that misses its target is still distinguishable from a skipped set — the existing `missedGoal` and `underWeight` behaviour is unchanged, and a test asserts the two produce different outcomes from the same session shape.
@@ -129,6 +132,7 @@ Each row of the acceptance table in the feature request is an integration test, 
 16. Upgrading a shipped database or restoring an old backup preserves history, routines, settings and targets and initializes acknowledgement to null; historical performed sets determine the first offer. A backup from the new build retains acknowledgement on restore. Existing routine codes remain readable and do not acquire training state.
 17. With a legacy stored target of 15 kg on a 20 kg bar, fully skipped and clean partial exercises leave the stored target and streaks unchanged while the live board uses its existing 20 kg floor. Next complete all sets cleanly at 20 kg with a success threshold that does not yet earn a step: the stored target corrects to 20 kg, and the recap does not claim a 5 kg progression increase. Verify a partial exercise with a recorded shortfall and an accepted layoff still use their existing bar-floor correction paths.
 18. Profile → Exercise settings → Deload shows enabled copy describing the correct inactivity clock, configured reduction and once-per-gap offer handling; disabling deloads shows that timed offers are off. Neither state universally describes inactivity as a workout gap. Verify both `settingsDeloadOnNote` and `settingsDeloadOffNote` in en, es, pt, pt_BR and uk, including interpolated settings, and check the settings surface at 2× text size for overflow.
+19. Finish with squats completed and bench fully skipped: the progression recap contains the squat outcome and no bench row, with bench tested both with and without a target and with pending success/failure streaks. Finish with one clean bench set instead: a stored target yields a held row explaining incomplete planned sets, without success/miss streak commentary; a null weight target yields no row. When no reportable outcomes remain, the progression panel is absent while the normal session summary and performed-set history remain available.
 
 ## Dependencies
 
@@ -170,7 +174,7 @@ The partial-exercise decision is settled above; no user decision is deferred to 
 - `lib/widgets/start_workout.dart` — the layoff dialog and what accepting applies
 - `lib/screens/exercise_settings_screen.dart` — enabled/disabled deload explanation and any matching localization placeholder changes
 - `lib/screens/workout_screen.dart` — `_SessionNotice`, the finish confirmation dialog
-- `lib/screens/summary_screen.dart` — the recap row for a held or skipped exercise
+- `lib/screens/summary_screen.dart` — clean partial held-row reason and absence of fully skipped rows or empty progression panels
 
 **Catalogue and copy**
 - `features/catalogue/04-live-session.yaml`, `05-progression.yaml`, `06-layoff-deloads.yaml`, `features/concepts.yaml`
