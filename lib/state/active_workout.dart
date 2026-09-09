@@ -109,6 +109,7 @@ class ExerciseEntry {
     this.seedKey,
     this.itemId,
     this.mode = ProgressionMode.weight,
+    this.gzclTier,
     this.weightType = WeightType.machine,
     this.barKg,
     this.restSeconds = 90,
@@ -295,6 +296,9 @@ class ExerciseEntry {
   /// The axis this exercise advances along, carried from the template.
   final ProgressionMode mode;
 
+  /// GZCL retains its own performance rules for unlogged sets.
+  final GzclTier? gzclTier;
+
   /// How the load is arranged, carried from the library — see [WeightType].
   /// What decides whether the screen can say what goes on the bar.
   final WeightType weightType;
@@ -323,22 +327,22 @@ class ExerciseEntry {
   /// for the next session.
   int restSeconds;
 
-  /// Whether this counts as a clean session for progression: every planned set
+  /// Whether this exercise was completed cleanly: every planned set
   /// logged, and none of them short.
-  ///
-  /// Skipping a set is a miss. The program asked for four and got three —
-  /// that is not the performance the next step up should be built on.
   bool get succeeded =>
       sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal);
 
-  /// What this session did to the target — the whole exercise's answer, which is
-  /// what progression is advanced with.
-  ///
-  /// Two-valued on every slot, the one taking reps and weight in turn included:
-  /// there the goal each set carries is wherever the climb has got to inside the
-  /// range, so "did you make it" is the same question it is anywhere else.
-  SessionVerdict get verdict =>
-      succeeded ? SessionVerdict.success : SessionVerdict.miss;
+  /// Normal weight and rep progression scores only performed sets. A fully
+  /// skipped exercise has no verdict and leaves its targets and streaks alone.
+  SessionVerdict? get verdict {
+    if (mode.timed || scheme == SetScheme.cycle || gzclTier != null) {
+      return succeeded ? SessionVerdict.success : SessionVerdict.miss;
+    }
+    if (!sets.any((s) => s.done)) return null;
+    return sets.any((s) => s.missedGoal)
+        ? SessionVerdict.miss
+        : SessionVerdict.success;
+  }
 
   /// The load actually carried through the whole exercise: the *lightest* of
   /// the logged sets, or null if none were.
@@ -1263,6 +1267,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       seedKey: v.exercise.seedKey,
       muscle: v.exercise.muscleGroup,
       mode: mode,
+      gzclTier: v.item.gzclTier,
       weightType: v.exercise.weightType,
       barKg: v.exercise.barWeight,
       restSeconds: v.item.restSeconds ?? defaultRestSeconds,
@@ -1936,9 +1941,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       final itemId = e.itemId;
       if (itemId == null) continue;
       if (e.usesRpe) continue;
+      final verdict = e.verdict;
+      if (verdict == null) continue;
       final move = await _db.advanceProgression(
         itemId,
-        verdict: e.verdict,
+        verdict: verdict,
         performedWeight: e.performedWeight,
         // What this session carried, for a slot that arrived with no target at
         // all. Typing a weight onto a slot the builder never gave one is how a
