@@ -110,6 +110,7 @@ class ExerciseEntry {
     this.itemId,
     this.mode = ProgressionMode.weight,
     this.gzclTier,
+    this.gzclTierMissingFromSnapshot = false,
     this.weightType = WeightType.machine,
     this.barKg,
     this.restSeconds = 90,
@@ -297,7 +298,11 @@ class ExerciseEntry {
   final ProgressionMode mode;
 
   /// GZCL retains its own performance rules for unlogged sets.
-  final GzclTier? gzclTier;
+  /// Backfilled from the template when restoring a snapshot without the tier.
+  GzclTier? gzclTier;
+
+  /// An absent legacy field needs recovery; an explicit null means no GZCL.
+  final bool gzclTierMissingFromSnapshot;
 
   /// How the load is arranged, carried from the library — see [WeightType].
   /// What decides whether the screen can say what goes on the bar.
@@ -1097,6 +1102,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
       // would only fail again on the next launch.
       _forget();
       return;
+    }
+    for (final e in was.exercises) {
+      final itemId = e.itemId;
+      if (e.gzclTierMissingFromSnapshot && itemId != null) {
+        e.gzclTier = (await _db.workoutItemById(itemId))?.gzclTier;
+      }
     }
     state = was;
     _startClock();

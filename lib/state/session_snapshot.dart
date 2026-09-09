@@ -277,6 +277,7 @@ ExerciseEntry _readExercise(
       muscle: m['muscle'] as String,
       mode: ProgressionMode.values.byName(m['mode'] as String),
       gzclTier: GzclTier.values.asNameMap()[m['gzclTier']],
+      gzclTierMissingFromSnapshot: !m.containsKey('gzclTier'),
       weightType: WeightType.values.byName(m['weightType'] as String),
       barKg: (m['barKg'] as num?)?.toDouble(),
       restSeconds: m['restSeconds'] as int,

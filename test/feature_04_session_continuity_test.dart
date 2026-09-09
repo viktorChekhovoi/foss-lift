@@ -485,6 +485,53 @@ void main() {
       container!.read(activeWorkoutProvider.notifier).discard();
     });
 
+    for (final legacy in [true, false]) {
+      for (final loggedSets in [0, 1, 5]) {
+        test('restored GZCL keeps its verdict; legacy=$legacy, sets=$loggedSets',
+            () async {
+          final ex = await exerciseNamed(db, 'Bench Press');
+          final push = await workoutNamed(db, 'Push');
+          await db.replaceWorkoutItems(push.id, [
+            WorkoutItemsCompanion.insert(
+              workoutId: push.id,
+              exerciseId: ex.id,
+              suggestedWeight: const Value(80),
+              increment: const Value(2.5),
+              gzclTier: const Value(GzclTier.t1),
+              gzclStages: Value(encodeGzclStages(const [
+                GzclStage(sets: 5, reps: 3),
+                GzclStage(sets: 6, reps: 2),
+                GzclStage(sets: 10, reps: 1),
+              ])),
+            ),
+          ]);
+          final ctl = await startPush();
+          final itemId = session().exercises.single.itemId!;
+          for (var i = 0; i < loggedSets; i++) {
+            ctl.setLogged(0, i, 3);
+          }
+          await snapshot();
+          await _settle();
+          if (legacy) {
+            final raw = jsonDecode((await snapshot()).payload)
+                as Map<String, dynamic>;
+            for (final e in raw['exercises'] as List) {
+              (e as Map<String, dynamic>).remove('gzclTier');
+            }
+            await db.saveLiveSession(jsonEncode(raw));
+          }
+
+          final back = (await relaunch())!;
+          await container!.read(activeWorkoutProvider.notifier).finish();
+
+          final item = (await db.workoutItemById(itemId))!;
+          expect(item.suggestedWeight, loggedSets == 5 ? 82.5 : 80);
+          expect(item.gzclStage, loggedSets == 5 ? 0 : 1);
+          expect(back.exercises.single.gzclTier, GzclTier.t1);
+        });
+      }
+    }
+
     test('and so does a rest, minus the time the app was dead', () async {
       final ctl = await startPush();
       ctl.startRest(120, (
