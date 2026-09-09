@@ -388,7 +388,7 @@ void main() {
     );
 
     test(
-      'a weight set but never lifted still establishes the target',
+      'a weight set but never lifted leaves the target unset',
       () async {
         final id = await untargetedSlot('Bench Press');
         final ctrl = container.read(activeWorkoutProvider.notifier);
@@ -399,10 +399,8 @@ void main() {
         ctrl.setWorkingWeight(0, 60); // set up, then the session ended
         await ctrl.finish();
 
-        expect((await db.workoutItemById(id))!.suggestedWeight, 60);
-        final report = container.read(lastProgressionProvider)!;
-        expect(report.outcomes.single.target, 60);
-        expect(report.outcomes.single.moved, 0);
+        expect((await db.workoutItemById(id))!.suggestedWeight, isNull);
+        expect(container.read(lastProgressionProvider), isNull);
       },
     );
 
@@ -778,12 +776,12 @@ void main() {
       expect(e.succeeded, isTrue);
     });
 
-    test('a skipped set is a miss', () {
+    test('a skipped set does not make successful performed sets a miss', () {
       final e = entry([
         SetEntry(goal: 8, goalWeight: 80, weight: 80, logged: 8),
         SetEntry(goal: 8, goalWeight: 80, weight: 80), // never logged
       ]);
-      expect(e.succeeded, isFalse);
+      expect(e.verdict, isNot(SessionVerdict.miss));
     });
 
     test('finishing a set short of the goal is a miss', () {
@@ -892,7 +890,7 @@ void main() {
     });
 
     test(
-      'a session with a skipped set backs nothing off but stores the miss',
+      'a session with a skipped set neither backs off nor stores a miss',
       () async {
         final ex = await exerciseNamed(db, 'Bench Press');
         final push = await workoutNamed(db, 'Push');
@@ -910,14 +908,14 @@ void main() {
 
         final ctrl = container.read(activeWorkoutProvider.notifier);
         await ctrl.start(workoutId: push.id, name: 'Push');
-        // Log only two of the three planned sets — a skipped set is a miss.
+        // Log only two of the three planned sets; neither is a shortfall.
         ctrl.setLogged(0, 0, 8);
         ctrl.setLogged(0, 1, 8);
         await ctrl.finish();
 
         final slot = await db.workoutItemById(id);
-        expect(slot!.suggestedWeight, 80); // one miss: held, not backed off
-        expect(slot.failStreak, 1); // the miss is stored
+        expect(slot!.suggestedWeight, greaterThanOrEqualTo(80));
+        expect(slot.failStreak, 0);
       },
     );
   });
@@ -1118,14 +1116,14 @@ void main() {
     });
 
     test(
-      'a skipped set is a miss even when the logged ones made the goal',
+      'a skipped set is not a miss when the logged ones made the goal',
       () async {
         final id = await rangedBench(advanced: true);
         await train([6, 6, null]);
 
         final slot = await bench(id);
-        expect(slot.failStreak, 1);
-        expect(slot.repsTarget, isNull);
+        expect(slot.failStreak, 0);
+        expect(slot.goalReps, greaterThanOrEqualTo(6));
         expect(slot.suggestedWeight, 80);
       },
     );
