@@ -556,12 +556,28 @@ void main() {
   });
 
   group('the start-workout offer uses exercise inactivity', () {
-    for (final accept in [false, true]) {
-      testWidgets('a skipped bench offers a deload; accept=$accept', (
+    for (final config in [
+      for (final accept in [false, true])
+        for (final gzclFirst in [null, true, false])
+          (accept: accept, gzclFirst: gzclFirst),
+    ]) {
+      final accept = config.accept;
+      testWidgets('a skipped bench offers a deload; $config', (
         tester,
       ) async {
         final f = (await tester.runAsync(() async {
           final f = await fixture(failures: 1);
+          if (config.gzclFirst != null) {
+            await db.into(db.workoutItems).insert(
+              WorkoutItemsCompanion.insert(
+                workoutId: f.workout.id,
+                exerciseId: f.bench.exerciseId,
+                position: Value(config.gzclFirst! ? -1 : 2),
+                gzclTier: const Value(GzclTier.t1),
+                suggestedWeight: const Value(80),
+              ),
+            );
+          }
           final today = DateTime.now();
           await history(
             f,
@@ -609,8 +625,16 @@ void main() {
           await pumpThroughDatabase(tester);
           expect(find.text('at /session'), findsOneWidget);
           final live = container.read(activeWorkoutProvider)!;
-          expect(live.exercises[0].sets.first.goalWeight, accept ? 72 : 80);
-          expect(live.exercises[1].sets.first.goalWeight, 100);
+          expect(
+            live.exercises.firstWhere((e) => e.itemId == f.bench.id)
+                .sets.first.goalWeight,
+            accept ? 72 : 80,
+          );
+          expect(
+            live.exercises.firstWhere((e) => e.itemId == f.squat.id)
+                .sets.first.goalWeight,
+            100,
+          );
           final after = await tester.runAsync(
             () => db.workoutItemById(f.bench.id),
           );

@@ -37,14 +37,18 @@ Future<void> startWorkout(
   final items = await db.itemsForWorkout(workoutId);
 
   LayoffNotice? notice;
-  final offered = <int>{};
+  final byExercise = <int, List<WorkoutItemView>>{};
   for (final view in items) {
+    (byExercise[view.item.exerciseId] ??= []).add(view);
+  }
+  for (final slots in byExercise.values) {
+    final view = slots.first;
     final item = view.item;
-    if (!offered.add(item.exerciseId)) continue;
-    final normalProgression = !item.progression.timed &&
-        !item.runsCycle &&
-        item.gzclTier == null &&
-        item.targetRpe == null;
+    final normalProgression = slots.any((slot) =>
+        !slot.item.progression.timed &&
+        !slot.item.runsCycle &&
+        slot.item.gzclTier == null &&
+        slot.item.targetRpe == null);
     final layoff = await db.layoffFor(
       workoutId,
       exerciseId: normalProgression ? item.exerciseId : null,
