@@ -3074,7 +3074,12 @@ class AppDatabase extends _$AppDatabase {
   /// round every week and Legs has not been touched since spring is exactly the
   /// case worth catching, and "the routine" was trained throughout. A workout
   /// that has never been trained has no gap and nothing to regress from.
-  Future<LayoffDeload?> layoffFor(int workoutId, {DateTime? now}) async {
+  // TODO: Use the exercise's training history when exerciseId is supplied.
+  Future<LayoffDeload?> layoffFor(
+    int workoutId, {
+    DateTime? now,
+    int? exerciseId,
+  }) async {
     final last = await lastTrainedAt(workoutId);
     if (last == null) return null;
     final rules = await layoffSettings();
@@ -3093,7 +3098,12 @@ class AppDatabase extends _$AppDatabase {
   /// consecutive in any sense the progression rules mean. Returns how many
   /// slots actually moved — a workout of bodyweight movements with no target
   /// to cut moves nothing, and the UI should not claim otherwise.
-  Future<int> applyLayoffDeload(int workoutId, int percent) {
+  // TODO: Limit an accepted exercise offer to that exercise's slots.
+  Future<int> applyLayoffDeload(
+    int workoutId,
+    int percent, {
+    int? exerciseId,
+  }) {
     return transaction(() async {
       final items = await (select(
         workoutItems,
@@ -3200,7 +3210,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// When a workout was last trained, or null if it never has been. Drives the
   /// layoff check on the way into a session.
-  Future<DateTime?> lastTrainedAt(int workoutId) async {
+  // TODO: Only performed sets of exerciseId may reset its training date.
+  Future<DateTime?> lastTrainedAt(int workoutId, {int? exerciseId}) async {
     final row =
         await (select(sessions)
               ..where(
