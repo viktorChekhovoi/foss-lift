@@ -108,7 +108,7 @@ A snapshot written in the shipped two-key notice shape (`{'percent': int, 'days'
 
 ### `test/feature_20_backup_and_restore_test.dart` — upgrade and backup (criterion 16)
 
-Build a pre-v19 database from `kSchemaV1` plus raw SQL rows the way `feature_13` and `feature_21` already do, open it through `AppDatabase` and assert the migration: history, routines, settings and targets unchanged; baseline and gap identity null everywhere; `layoffEligible` true only where a finished session filed against that slot's own workout contains a performed set with that exercise id. Cover a trained slot, a slot whose only history is in an unrelated or deleted workout, a never-trained workout and duplicate slots. Then a backup taken from the new build retains all three fields on restore, and an existing routine code still decodes and acquires no training state.
+Build a pre-v19 database from `kSchemaV1` plus raw SQL rows the way `feature_13` and `feature_21` already do, open it through `AppDatabase` and assert the migration: history, routines, settings and targets unchanged; baseline and gap identity null everywhere; `layoffEligible` true only where a finished session filed against that slot's own workout contains a performed set with that exercise id. Cover a trained slot, a slot whose only history is in an unrelated or deleted workout, a never-trained workout and duplicate slots. Read complete `WorkoutItem` rows after upgrading so a missing column fails the test. Then a backup taken from the new build retains `layoffEligible`, `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt` on restore, including false/true eligibility and a non-null timestamp that round-trips at Unix-second precision; an existing routine code still decodes and acquires no training state.
 
 ### `test/feature_15_text_size_test.dart` and `test/feature_18_language_test.dart` — copy and layout (criterion 18)
 
@@ -172,7 +172,17 @@ One real column rather than one per axis: only in-scope slots ever carry a basel
 
 Bump `schemaVersion` to 19, add the ladder comment in the same voice as v14–v18, and add one `if (from < 19)` rung:
 
-1. Three `ALTER TABLE "workout_items" ADD COLUMN …` statements, written out as literal DDL — never `m.addColumn`, for the reason the v2 comment gives.
+1. Execute each statement below through `m.database.customStatement`, using literal DDL rather than `m.addColumn`, for the reason the v2 comment gives:
+
+   ```sql
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_eligible" INTEGER NOT NULL DEFAULT 0 CHECK ("layoff_eligible" IN (0, 1));
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_baseline" REAL NULL;
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_baseline_session" INTEGER NULL;
+   ALTER TABLE "workout_items" ADD COLUMN "layoff_baseline_at" INTEGER NULL;
+   ```
+
+   The boolean uses the existing v4/v8/v9 INTEGER-and-CHECK representation. This database does not enable `storeDateTimeValuesAsText`: `layoff_baseline_at` stores Unix seconds as an INTEGER, matching drift's DateTime mapping, never TEXT or milliseconds.
+
 2. One `UPDATE workout_items SET layoff_eligible = 1 WHERE EXISTS (SELECT 1 FROM session_sets ss JOIN sessions s ON s.id = ss.session_id WHERE s.ended_at IS NOT NULL AND s.workout_id = workout_items.workout_id AND ss.exercise_id = workout_items.exercise_id AND ss.done = 1)` — the documented compatibility fallback. It is a workout-plus-exercise match because shipped history carries no slot id and no slot creation time; it must not be described anywhere as proving when a particular duplicate slot was first trained.
 3. Nothing else. No historical row is touched, no target is rewritten, and no baseline is fabricated.
 
@@ -229,8 +239,8 @@ Factor the per-slot axis cut into one private helper so there is exactly one pla
 `lib/widgets/workout_items_editor.dart`:
 
 - `ItemDraft` carries `layoffEligible`, `layoffBaseline`, `layoffBaselineSession`, `layoffBaselineAt`, populated by `ItemDraft.fromView`. A draft built for a **new** slot gets the defaults (ineligible, no baseline), which is what makes a re-added or re-created slot start false without any extra code.
-- Add one shared helper — `layoffStateFor(draft, {defaultBarKg, loaded})` — that compares the effective persisted target and axis before and after the edit and returns the three companion values to write, clearing the baseline trio on an actual change and preserving it otherwise. `ItemDraft` needs to remember the target/axis it was loaded with so the comparison is against storage, not against a sibling draft.
-- `itemCompanions` (→ `replaceWorkoutItems`) and `itemUpdate` (→ `updateWorkoutItem`) both call that helper. `itemUpdate` writes only the fields it names, so the three columns must be named explicitly there or a stale baseline survives an edit that should have cleared it — that is the scope's specific warning about this path.
+- Add one shared helper — `layoffStateFor(draft, {defaultBarKg, loaded})` — that compares the effective persisted target and axis before and after the edit and returns companion values for `layoffEligible`, `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt`. Clear only `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt` on an actual target/axis change, preserving eligibility; preserve all state otherwise. `ItemDraft` needs to remember the target/axis it was loaded with so the comparison is against storage, not against a sibling draft.
+- `itemCompanions` (→ `replaceWorkoutItems`) and `itemUpdate` (→ `updateWorkoutItem`) both call that helper. Carry eligibility explicitly through replacement writes. `itemUpdate` writes only the fields it names, so name `layoffBaseline`, `layoffBaselineSession` and `layoffBaselineAt` with explicit `Value(null)` when invalidating; omitting them would retain stale state. Preserve `layoffEligible` on an unchanged exercise identity.
 - Eligibility is carried through, never cleared by an edit: reorder, rename and rest-only edits preserve everything; replacing the exercise identity produces a different slot and starts both flag and baseline fresh.
 
 `lib/screens/workout_screen.dart` `_editSlot` needs no new logic — it already round-trips through `ItemDraft.fromView` and `itemUpdate`, so putting the rule in the helper covers it. Verify the live working-weight control still writes only `suggestedWeight` through its own path (`database.dart` ~2299) and is **not** treated as a prescription edit.
@@ -263,7 +273,7 @@ Factor the per-slot axis cut into one private helper so there is exactly one pla
 ## Step 4 — refactor and documentation
 
 - Remove duplication the green pass introduced. The three places that must each have exactly one implementation: the in-scope predicate (§3.2), the per-slot axis cut (§3.9), and the baseline invalidation rule (§3.10).
-- `ARCHITECTURE.md` (criterion 13): the `WorkoutItems` row in the table map gains the four columns; the **Layoffs** section says the gap is per exercise for Weight/Reps/Weight + Reps after a slot establishes training, with the workout gap retained for Time, cycle, GZCL and RPE, and describes the retained baseline and why declining still records nothing; the **Progression** section replaces "A skipped set is a miss" with the three-valued verdict and its mode boundary.
+- `ARCHITECTURE.md` (criterion 13): the `WorkoutItems` row in the table map gains the columns listed in §3.5; the **Layoffs** section says the gap is per exercise for Weight/Reps/Weight + Reps after a slot establishes training, with the workout gap retained for Time, cycle, GZCL and RPE, and describes the retained baseline and why declining still records nothing; the **Progression** section replaces "A skipped set is a miss" with the three-valued verdict and its mode boundary.
 - Regenerate the catalogue pages with `dart run tool/features.dart`. The HTML is gitignored — never commit it.
 
 ---
