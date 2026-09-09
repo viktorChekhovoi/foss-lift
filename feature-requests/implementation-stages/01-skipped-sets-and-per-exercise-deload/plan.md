@@ -93,6 +93,7 @@ The pure-rule groups at the top of this file (`layoffDeload`, `deloadedTarget`) 
 - Per-exercise clock: finish with squats performed and bench skipped — bench's last-performed time is where it was, squats' has moved (criterion 5); one set of three resets that exercise's clock (criterion 6).
 - Offer eligibility: an exercise skipped past the threshold is offered its own gap's cut; an exercise trained throughout is offered nothing (criterion 7).
 - Accept/decline (criterion 8): accepting moves only the displayed eligible slots, clears their streaks and stores baseline + gap identity in one transaction; decline and dismissal write nothing at all; neither suppresses the next Start; replaying an accepted offer is a no-op; a stale offer whose target, axis or training identity moved is refused until recomputed.
+- Applied results and notice (criteria 14, 18): accept offers at 10%, 20% and 30% with different gaps, where only the 10% target moves and the others already meet their capped or floored targets. Assert the returned results identify only that changed slot with its before/after target, percentage and gap; the session notice uses that slot's 10% and gap and reports one exercise. All-zero movement and replay return no changed results and create no new-cut notice. Also cover several changed slots so the notice's maxima and count come only from committed changes.
 - The full day-by-day table of criterion 14, against a fixed `now` as the existing file already does: 80 kg bench, accepts at 14/28/42 → 72/64/56; accept at day 40 → 64, re-accept same day → 64 with zero movement reported; day 42 → 56 not 44.5; days 54/56/100/200/400 still offered; declines only, then accept at day 400 → 56; every response leaves the real last-trained time alone. Cover app restart (reopen the database), session discard, the boundary immediately before and at each percentage change, and gaps beyond `kMaxLayoffPeriods`.
 - Criterion 15: a performed set after an accept or decline starts a fresh gap and clears the baseline; a start before the next threshold offers nothing and at the threshold cuts from the current target; duplicate bench slots keep independent baselines; reorder, unrelated edits and new-backup restore preserve baseline and identity; a manual target or axis edit clears only the baseline, exercised **separately** through `replaceWorkoutItems` and through the live board's `_editSlot` → `itemUpdate` → `updateWorkoutItem`; saving unchanged settings or changing only rest preserves it in both paths; changing deload settings preserves the baseline, never increases a target and never compounds; disabling deloads offers nothing. Repeat the bounded-reduction assertions for Reps with a range and for Weight + Reps, including floors and a target already at the cap.
 - Criterion 21, first-training eligibility: bench performed 200 days ago in another routine; a new Push workout with 80 kg bench gets no offer on first Start and keeps 80 kg. Repeat for a slot added to an already trained workout, a routine-code import, a library routine, a re-added (duplicate) slot and a delete-and-recreate, including with the old routine deleted. Starting, discarding and finishing with every bench working set skipped leave each slot ineligible. Then save one bench working set anywhere: existing bench slots become eligible together, their gap starts at that session, nothing is offered before 14 days and an offer appears at 14. Training bench elsewhere resets the clock; training another exercise does not. Reorder and unrelated builder edits preserve the flag; a newly created duplicate does not inherit it.
@@ -225,12 +226,22 @@ typedef LayoffOffer = ({
 
 ### 3.9 Acceptance — `applyLayoffDeload`
 
-Change its signature to take the accepted offers (`Future<int> applyLayoffDeload(List<LayoffOffer> accepted)`) and keep the name, which section 06's corrected `where:` points at. One transaction:
+Change its signature to `Future<List<AppliedLayoff>> applyLayoffDeload(List<LayoffOffer> accepted)` and keep the name, which section 06's corrected `where:` points at. Define the result beside `LayoffOffer` in `lib/data/layoff.dart`:
+
+```dart
+typedef AppliedLayoff = ({
+  int itemId, int exerciseId, ProgressionMode axis,
+  double beforeTarget, double afterTarget,
+  int totalPercent, int gapDays,
+});
+```
+
+Return one result per slot whose target actually changed, after the transaction commits. `beforeTarget` and `afterTarget` are the persisted axis values read and written in that transaction; `totalPercent` and `gapDays` come from that slot's validated accepted offer. The percentage describes its capped total baseline reduction, while the target pair shows the actual change after rounding and floors. The list length replaces the old movement count. One transaction:
 
 - Re-read each slot and drop the offer if its target, axis or training identity has moved since the offer was built — a stale offer is recomputed, not applied.
 - Apply the proposed target, clear both streaks, and for an in-scope slot store `layoffBaseline` (the pre-cut target, only if there is not already a live baseline for this gap) with `layoffBaselineSession` / `layoffBaselineAt` from the offer, all in the same write.
 - Excluded slots take the cut and store no baseline.
-- Count only slots whose target actually moved; a proposal already at its capped value reports zero movement rather than claiming a further cut.
+- Collect only slots whose target actually moved. A capped or floored proposal that already matches the target, a streak-only reset, a rejected stale offer or a replay contributes no result; an empty result list reports zero movement. Do not return results for a rolled-back transaction.
 
 Factor the per-slot axis cut into one private helper so there is exactly one place that turns `(target, percent, axis, floor)` into a companion — rule 6.
 
@@ -249,11 +260,11 @@ Factor the per-slot axis cut into one private helper so there is exactly one pla
 
 ### 3.11 Start dialog and notice — `lib/widgets/start_workout.dart`, `lib/state/*`
 
-- `startWorkout` calls `layoffOffersFor`, shows the dialog when the list is non-empty, and on accept calls `applyLayoffDeload(offers)`.
+- `startWorkout` calls `layoffOffersFor`, shows the dialog when the list is non-empty, and on accept awaits `applyLayoffDeload(offers)`. Build the notice from the returned `AppliedLayoff` results; the displayed offers alone cannot identify which targets actually changed.
 - `_LayoffDialog` becomes a list: one row per offer with the exercise name (through `seededName`), its current target and its proposed target, and the **total** reduction against the retained baseline where there was an earlier cut — 64 kg after an earlier 72 kg is 20% off 80 kg, not a fresh 20%. A row already at its capped target says so rather than promising another cut.
 - Constrain the content to the viewport and make the list scrollable inside the dialog, with both actions outside the scroll area so they stay reachable; names and target labels wrap rather than clip. This is what criterion 18's sweep asserts.
 - Dismissal stays distinct from decline through the nullable `showDialog<bool>` result: `null` is dismissal, `false` is decline, and both write nothing.
-- `LayoffNotice` widens to `({int percent, int days, int exercises})`, carrying the deepest total reduction actually applied, the longest gap among the slots that moved, and how many moved. It is only set when something moved, so zero movement cannot claim a cut. The copy must not describe a uniform percentage across several exercises.
+- `LayoffNotice` widens to `({int percent, int days, int exercises})`. For a non-empty applied-result list, derive `percent` as the maximum returned `totalPercent`, `days` as the maximum returned `gapDays` and `exercises` as the list length. Never include percentages or gaps from accepted offers whose targets did not move. An empty result leaves the notice null. The copy must describe a total reduction of up to that percentage across the changed exercises, without implying a uniform percentage, a shared gap or a fresh cut of that percentage from already reduced targets.
 - `lib/state/session_snapshot.dart` `_readNotice` must read the **old two-key map** without throwing: it casts with `as int` today, so a shipped snapshot would throw on the first resumed session after the update. Read each key defensively, default the new count, and return null on anything unrecognisable. Write all three keys going forward.
 - `lib/screens/workout_screen.dart` `_SessionNotice` composes the line from the widened notice.
 
@@ -295,7 +306,7 @@ Steps 4–7 are one working set; do not run the suite between them file by file.
 ## Integration points to watch
 
 - `advanceProgression`'s signature change touches `finish()` and `test/feature_05_progression_test.dart`'s local `advance` helper; the widened `ProgressionMove` touches every reader of `move.axis`.
-- `applyLayoffDeload`'s signature change touches `start_workout.dart` and the existing section-06 tests.
+- `applyLayoffDeload`'s signature and `AppliedLayoff` result touch `start_workout.dart` and the existing section-06 tests: count assertions read the returned list length, and notice assertions use only the committed per-slot results.
 - `LayoffNotice`'s widening touches `active_workout.dart`, `session_snapshot.dart` (both directions), `workout_screen.dart` and the continuity tests.
 - `ItemDraft`'s new fields touch `workout_edit_screen.dart`, `routine_edit_screen.dart` and `workout_screen.dart` `_editSlot`; all three already go through `fromView` / `itemCompanions` / `itemUpdate`, so the change is additive if the helper is the only place the rule lives.
 - Backup carries the database file itself, so the new columns ride along and only the manifest's schema number moves; old backups climb the same rung.
