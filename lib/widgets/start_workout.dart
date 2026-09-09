@@ -36,7 +36,7 @@ Future<void> startWorkout(
   final db = ref.read(databaseProvider);
   final items = await db.itemsForWorkout(workoutId);
 
-  LayoffNotice? notice;
+  final notices = <LayoffNotice>[];
   final byExercise = <int, List<WorkoutItemView>>{};
   for (final view in items) {
     (byExercise[view.item.exerciseId] ??= []).add(view);
@@ -70,14 +70,19 @@ Future<void> startWorkout(
         exerciseId: item.exerciseId,
       );
       if (moved > 0) {
-        notice = (percent: layoff.percent, days: layoff.gapDays);
+        notices.add((
+          percent: layoff.percent,
+          days: layoff.gapDays,
+          exerciseName: view.exercise.name,
+          seedKey: view.exercise.seedKey,
+        ));
       }
     }
   }
 
   await ref
       .read(activeWorkoutProvider.notifier)
-      .start(workoutId: workoutId, name: name, notice: notice);
+      .start(workoutId: workoutId, name: name, notices: notices);
   if (context.mounted) context.push('/session');
 }
 

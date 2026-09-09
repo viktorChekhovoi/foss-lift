@@ -2,13 +2,17 @@
 // Clean partial sessions may hold or progress: that product decision is open.
 // They may never manufacture a performance miss from an unlogged set.
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foss_lift/data/database.dart';
 import 'package:foss_lift/providers/providers.dart';
+import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/state/session_snapshot.dart';
 import 'package:foss_lift/widgets/start_workout.dart';
 
 import 'support/harness.dart';
@@ -556,6 +560,98 @@ void main() {
   });
 
   group('the start-workout offer uses exercise inactivity', () {
+    test('older snapshots retain workout-wide notices or no notice', () {
+      final raw = jsonDecode(encodeSession(ActiveWorkout(
+        routineId: null,
+        workoutId: null,
+        name: 'Workout',
+        startedAt: now,
+        exercises: [],
+        elapsed: 0,
+      ))) as Map<String, dynamic>;
+      raw.remove('notice');
+      expect(decodeSession(jsonEncode(raw))!.notices, isEmpty);
+      raw['notice'] = {'percent': 20, 'days': 28};
+      expect(decodeSession(jsonEncode(raw))!.notices, [
+        (percent: 20, days: 28, exerciseName: null, seedKey: null),
+      ]);
+    });
+
+    for (final acceptSquat in [false, true]) {
+      testWidgets('accepted reductions remain named; acceptSquat=$acceptSquat', (
+        tester,
+      ) async {
+        final f = (await tester.runAsync(() async {
+          final f = await fixture();
+          final today = DateTime.now();
+          await history(
+            f,
+            today.subtract(const Duration(days: 42)),
+            benchSets: 3,
+            squatSets: 0,
+          );
+          await history(f, today.subtract(const Duration(days: 14)));
+          return f;
+        }))!;
+        final l10n = l10nFor();
+        await tester.pumpWidget(
+          routedAppUnder(
+            container,
+            Consumer(
+              builder: (context, ref, _) => TextButton(
+                onPressed: () =>
+                    startWorkout(context, ref, f.workout.id, f.workout.name),
+                child: const Text('Start test workout'),
+              ),
+            ),
+            scaffold: true,
+            alsoRoutes: ['session'],
+          ),
+        );
+        try {
+          await tester.tap(find.text('Start test workout'));
+          await pumpThroughDatabase(tester);
+          expect(
+            find.text(l10n.startWorkoutLayoffBody('Bench Press', 42, 30)),
+            findsOneWidget,
+          );
+          await tester.tap(find.text(l10n.startWorkoutDeload(30)));
+          await pumpThroughDatabase(tester);
+          expect(
+            find.text(l10n.startWorkoutLayoffBody('Back Squat', 14, 10)),
+            findsOneWidget,
+          );
+          await tester.tap(find.text(
+            acceptSquat
+                ? l10n.startWorkoutDeload(10)
+                : l10n.startWorkoutKeepWeights,
+          ));
+          await pumpThroughDatabase(tester);
+          expect(find.text('at /session'), findsOneWidget);
+          final live = container.read(activeWorkoutProvider)!;
+          expect(live.exercises[0].sets.first.goalWeight, 56);
+          expect(live.exercises[1].sets.first.goalWeight, acceptSquat ? 90 : 100);
+          expect(live.notices, hasLength(acceptSquat ? 2 : 1));
+          expect(decodeSession(encodeSession(live))!.notices, live.notices);
+          await tester.pumpWidget(appUnder(container, const WorkoutScreen()));
+          await tester.pump();
+          expect(
+            find.text('Bench Press: ${l10n.startWorkoutDeloadNotice(30, 42)}'),
+            findsOneWidget,
+          );
+          expect(
+            find.text('Back Squat: ${l10n.startWorkoutDeloadNotice(10, 14)}'),
+            acceptSquat ? findsOneWidget : findsNothing,
+          );
+        } finally {
+          await tester.runAsync(
+            () => container.read(activeWorkoutProvider.notifier).discard(),
+          );
+          await stop(tester);
+        }
+      });
+    }
+
     for (final config in [
       for (final accept in [false, true])
         for (final gzclFirst in [null, true, false])
