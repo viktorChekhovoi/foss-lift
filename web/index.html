@@ -78,9 +78,10 @@
       // New visits rely on versioned HTTP caching instead.
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then((registrations) => {
-          const legacy = new URL('flutter_service_worker.js', document.baseURI).href;
+          const legacy = new URL('flutter_service_worker.js', document.baseURI);
           for (const registration of registrations) {
-            if (registration.active?.scriptURL === legacy) registration.update().catch(() => {});
+            const active = registration.active && new URL(registration.active.scriptURL);
+            if (active?.origin === legacy.origin && active.pathname === legacy.pathname) registration.update().catch(() => {});
           }
         }).catch(() => {});
       }

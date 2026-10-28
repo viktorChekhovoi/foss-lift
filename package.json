@@ -6,7 +6,7 @@
     "test:cloud": "esbuild server/worker.js --bundle --format=esm --outfile=build/cloud-test/worker.js && node --test server/test/*.test.mjs",
     "prepare:web": "node tool/prepare-web.mjs",
     "test:web": "node tool/test-web.mjs",
-    "dev:cloud": "node tool/provision-cloud.mjs --local && wrangler d1 migrations apply DB --local --config=build/wrangler.local.json && wrangler pages dev build/web --config=build/wrangler.local.json --port=8788",
+    "dev:cloud": "node tool/provision-cloud.mjs --local && wrangler d1 migrations apply DB --local --config=build/wrangler.local.json --persist-to=build/cloudflare-local-state && wrangler pages dev build/web --port=8788 --persist-to=build/cloudflare-local-state --d1=DB --binding=APP_ORIGIN=http://localhost:8788",
     "setup:cloud": "node tool/provision-cloud.mjs"
   },
   "engines": {

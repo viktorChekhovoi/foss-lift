@@ -47,6 +47,19 @@ try {
       await mkdir('build/web-verification', { recursive: true });
       await page.screenshot({ path: `build/web-verification/${result.target}-${visit}.png` });
     }
+    // A real program must survive a reload of the compiled app's browser store.
+    await page.goto(`${server.url}/#/routines/library/gzclp`);
+    await page.getByRole('button', { name: 'Add to my routines', exact: true }).click();
+    await page.getByText('GZCLP', { exact: true }).first().waitFor();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.getElementById('boot')?.hidden);
+    await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
+    await page.getByText('GZCLP', { exact: true }).first().waitFor();
+    await page.goto(`${server.url}/#/profile/cloud`);
+    await page.getByText('Cloud backups have not been configured on this server.', { exact: true }).waitFor();
+    await page.screenshot({ path: `build/web-verification/${fallback ? 'javascript' : 'wasm'}-cloud.png` });
+    assert.deepEqual(outside, []);
+    assert.deepEqual(errors, []);
     await context.close();
   }
   await writeFile('build/web-verification/measurements.json', JSON.stringify(results, null, 2) + '\n');

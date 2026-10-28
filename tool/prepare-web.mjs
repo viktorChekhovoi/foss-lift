@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readdir, readFile, mkdir, rename, writeFile, stat, rm } from 'node:fs/promises';
+import { readdir, readFile, mkdir, rename, writeFile, stat, rm, cp } from 'node:fs/promises';
 import path from 'node:path';
 import { writePrivacyPage } from './privacy-page.mjs';
 
@@ -28,7 +28,12 @@ for (const [group, names] of [
   for (const name of names) await digest(hash, name);
   const prefix = `_app/${hash.digest('hex').slice(0, 20)}/`;
   await mkdir(path.join(output, prefix), { recursive: true });
-  for (const name of names) await rename(path.join(output, name), path.join(output, prefix, name));
+  for (const name of names) {
+    // Open tabs from the previous release still refer to root assets (notably
+    // the rest tone). Keep that compatibility path until those tabs close.
+    if (name === 'assets') await cp(path.join(output, name), path.join(output, prefix, name), { recursive: true });
+    else await rename(path.join(output, name), path.join(output, prefix, name));
+  }
   bootstrap = bootstrap.replace(`__FOSS_LIFT_${group}_ROOT__`, prefix);
   console.log(`Versioned ${group.toLowerCase()}: ${prefix}`);
 }

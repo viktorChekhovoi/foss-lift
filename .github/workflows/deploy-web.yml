@@ -123,19 +123,16 @@ jobs:
         # but GitHub has deprecated node20 and is already force-upgrading it,
         # which is a warning now and a failure later.
         #
-        # Unlike Flutter above, wrangler is deliberately left on its default
-        # (v4, latest). It is a client for a live API rather than a compiler:
-        # pinning it freezes our end of a protocol whose other end keeps
-        # moving, which is the opposite of what pinning buys.
+        # Keep the CLI aligned with package-lock.json and local verification.
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.154.0'
           # A deploy on the project's production branch goes to the live site;
           # any other branch gets its own preview URL, which is what makes a
           # pull request reviewable in a real browser.
           command: >-
             pages deploy build/web
-            --config=build/wrangler.deploy.json
             --project-name=foss-lift
             --branch=${{ github.head_ref || github.ref_name }}
