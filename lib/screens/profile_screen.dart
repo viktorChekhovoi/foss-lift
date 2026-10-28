@@ -103,12 +103,6 @@ class ProfileScreen extends ConsumerWidget {
               label: l10n.profileBackup,
               onTap: () => context.push(linkPath(context, '/backup')),
             ),
-          if (ref.watch(capabilitiesProvider).cloudBackups)
-            _SettingsTile(
-              icon: Icons.cloud_outlined,
-              label: l10n.cloudTitle,
-              onTap: () => context.push(linkPath(context, '/cloud')),
-            ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             label: l10n.aboutTitle,

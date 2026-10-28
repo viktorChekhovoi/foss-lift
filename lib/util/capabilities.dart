@@ -16,7 +16,6 @@ class Capabilities {
     required this.localFiles,
     required this.leaveGuard,
     required this.eagerKeyboard,
-    this.cloudBackups = false,
   });
 
   /// A phone: everything the app was written for.
@@ -35,7 +34,6 @@ class Capabilities {
   /// A browser tab. See `docs/web-build.md` for why each of these is false and
   /// what the user gets instead.
   static const Capabilities web = Capabilities(
-    cloudBackups: true,
     reminders: false,
     setVideos: false,
     scanning: false,
@@ -100,9 +98,6 @@ class Capabilities {
   /// dialog exists would only mean a keyboard for a dialog about to be
   /// cancelled.
   final bool eagerKeyboard;
-
-  /// Optional server backups currently use same-origin browser cookies.
-  final bool cloudBackups;
 }
 
 /// The capabilities of the build that is running.

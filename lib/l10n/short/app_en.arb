@@ -3272,41 +3272,5 @@
         "type": "String"
       }
     }
-  },
-  "cloudTitle": "Cloud backup",
-  "cloudEmail": "Email",
-  "cloudSendLink": "Email sign-in link",
-  "cloudSave": "Save backup",
-  "cloudRestore": "Restore backup",
-  "cloudSignOut": "Sign out",
-  "cloudDeleteAccount": "Delete account",
-  "cloudRefresh": "Refresh",
-  "cloudNoBackup": "No backup yet",
-  "@cloudTitle": {
-    "description": "Optional browser cloud backup: cloudTitle"
-  },
-  "@cloudEmail": {
-    "description": "Optional browser cloud backup: cloudEmail"
-  },
-  "@cloudSendLink": {
-    "description": "Optional browser cloud backup: cloudSendLink"
-  },
-  "@cloudSave": {
-    "description": "Optional browser cloud backup: cloudSave"
-  },
-  "@cloudRestore": {
-    "description": "Optional browser cloud backup: cloudRestore"
-  },
-  "@cloudSignOut": {
-    "description": "Optional browser cloud backup: cloudSignOut"
-  },
-  "@cloudDeleteAccount": {
-    "description": "Optional browser cloud backup: cloudDeleteAccount"
-  },
-  "@cloudRefresh": {
-    "description": "Optional browser cloud backup: cloudRefresh"
-  },
-  "@cloudNoBackup": {
-    "description": "Optional browser cloud backup: cloudNoBackup"
   }
 }

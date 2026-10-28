@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:foss_lift/data/starter_routines.dart';
 import 'package:foss_lift/screens/about_screen.dart';
-import 'package:foss_lift/screens/cloud_screen.dart';
 import 'package:foss_lift/screens/backup_screen.dart';
 import 'package:foss_lift/screens/bar_settings_screen.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart';
@@ -44,7 +43,6 @@ final Map<String, Widget Function()> kSweepScreens = {
   'theme': () => const AppearanceScreen(),
   'language': () => const LanguageScreen(),
   'about': () => const AboutScreen(),
-  'cloud backup': () => const CloudScreen(),
   // The size it would report needs a filesystem, which a test runner has no
   // plugin for; the screen renders '…' in its place and the words are the point.
   'backup': () => const BackupScreen(),
@@ -59,18 +57,17 @@ Map<String, Widget> idSweepScreens({
   required int workoutId,
   required int routineId,
   required int sessionId,
-}) =>
-    {
-      'exercise detail': ExerciseDetailScreen(exerciseId: exerciseId),
-      'exercise progress': ExerciseProgressScreen(exerciseId: exerciseId),
-      'workout detail': WorkoutDetailScreen(workoutId: workoutId),
-      'workout edit': WorkoutEditScreen(workoutId: workoutId),
-      'routine detail': RoutineDetailScreen(routineId: routineId),
-      'routine edit': RoutineEditScreen(routineId: routineId),
-      'summary': SummaryScreen(sessionId: sessionId),
-      'routine share': RoutineShareScreen(routineId: routineId),
-      'custom theme': const CustomThemeEditorScreen(),
-    };
+}) => {
+  'exercise detail': ExerciseDetailScreen(exerciseId: exerciseId),
+  'exercise progress': ExerciseProgressScreen(exerciseId: exerciseId),
+  'workout detail': WorkoutDetailScreen(workoutId: workoutId),
+  'workout edit': WorkoutEditScreen(workoutId: workoutId),
+  'routine detail': RoutineDetailScreen(routineId: routineId),
+  'routine edit': RoutineEditScreen(routineId: routineId),
+  'summary': SummaryScreen(sessionId: sessionId),
+  'routine share': RoutineShareScreen(routineId: routineId),
+  'custom theme': const CustomThemeEditorScreen(),
+};
 
 // A sweep mounts these with `routedAppUnder(..., scaffold: true)` from
 // `harness.dart` — the one way an app is put under test here. Several of these

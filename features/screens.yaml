@@ -14,11 +14,6 @@
 # the parts hardest to test by hand as the parts nobody wrote down.
 
 screens:
-  - id: cloud
-    title: Cloud backup
-    route: /profile/cloud
-    reach: In the browser, Profile → Cloud backup.
-
   # -------------------------------------------------------------- the tabs
   - id: today
     title: Today

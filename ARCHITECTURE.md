@@ -16,7 +16,7 @@ Flutter widgets  ──watch──►  Riverpod providers  ──call──►  
 
 - **UI never touches SQLite directly.** Screens read providers; providers call
   methods on the single `AppDatabase`.
-- **Training is offline and on-device.** Optional browser cloud backups use explicit save/restore actions and same-origin email authentication; there is no telemetry. Native apps retain local file backups. See `docs/cloud-backup.md`.
+- **Training is offline and on-device.** There are no app accounts, server backups, or telemetry. Native apps support local file backups; browser training data stays in the browser's storage.
 - **Weights are stored in kilograms.** The chosen unit (kg/lb) is a display
   concern only — see `util/units.dart`.
 - **The live workout is intentionally not in the DB** until you finish it. It
@@ -263,9 +263,7 @@ below.
 
 First-run rows and finished-session sets use batches to avoid a worker round trip per row. Copying a starter routine reads the exercise library once and batches its slots. The first history page reads its rows and count in one transaction; it never waits for a later count to catch up. The plate solver retains a bounded cache of small searches keyed by inventory values and target limit.
 
-`data/cloud_snapshot.dart` exports the same tables as portable JSON, excluding live sessions. Restore validates the format, schema, row shape and foreign keys before committing a single replacement transaction. It does not change the local schema or existing file backup format. `services/cloud_client_web.dart` is the sole outbound transport and is reached only through the optional `CloudScreen` in Profile. Its native conditional export reports unavailable.
-
-`server/api.js` runs in Cloudflare Pages Functions under `/api/*`. D1 holds accounts, one-use browser-bound email link hashes, secure session hashes and one versioned backup per account. `wrangler.jsonc`, `migrations/`, and `tool/provision-cloud.mjs` define and provision this infrastructure. Static requests bypass Functions. See `docs/cloud-backup.md` for secrets, permissions and free-tier limits.
+The web release is a static Cloudflare Pages deployment. It has no Functions, account API, D1 database, or provisioning step. `tool/prepare-web.mjs` prepares compressed, versioned assets and a public privacy page; these build steps do not provision infrastructure.
 
 `ios/` is a native Runner project with camera disclosure, silent video capture, Foss Lift URL registration, and the app's icon and splash screen. iOS has a separate capability set: camera and local files are available; Android background controls and reminders are hidden. The macOS workflow builds unsigned device and simulator apps; signing and TestFlight setup are documented in `docs/ios-testflight.md`.
 

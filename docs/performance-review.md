@@ -1,6 +1,6 @@
-# Performance, iOS, and cloud review — 28 October 2026
+# Performance and iOS review — 28 October 2026
 
-The changes keep the existing training model and local database. The web release now ships WebAssembly with a JavaScript fallback, caches unchanged assets across visits, and removes serial database work from startup and common actions. iOS now has a compiling native project and macOS build workflow. Optional server backups and email sign-in are implemented; production authentication stays disabled until its database and email credentials are configured.
+The performance improvements and iOS project are retained. The web release ships WebAssembly with a JavaScript fallback, caches unchanged assets across visits, and removes serial database work from startup and common actions. The app has no accounts, server backups, or account API. Cloudflare Pages serves static files through the existing deployment workflow; there is no infrastructure provisioning.
 
 ## Findings addressed
 
@@ -21,7 +21,7 @@ The changes keep the existing training model and local database. The web release
 
 Measurements use the actual Cloudflare deployment, desktop Chrome with a 390 × 844 viewport, and a new browser context for each cold visit. A repeat visit reuses that context and its HTTP/database storage. Readiness means the initial tutorial can be dismissed and the **Ready-made routines** control is available, rather than Flutter's first blank frame. Three runs per version provide a median. These are controlled comparisons, not field telemetry or a promise for every device.
 
-The old production deployment was compared with the published release `428587e` at `https://foss-lift.pages.dev/` (deployment `ceffc457`). The slow profile uses 200,000 bytes/second download bandwidth, 100,000 bytes/second upload bandwidth, and 150 ms latency. The normal profile adds no artificial network limit. The individual samples and profile settings are in [performance-measurements.json](performance-measurements.json).
+These historical measurements compare the old production deployment with optimized release `428587e` at `https://foss-lift.pages.dev/` (deployment `ceffc457`), before the requested removal of the server feature. All performance changes remain in the static release. The slow profile uses 200,000 bytes/second download bandwidth, 100,000 bytes/second upload bandwidth, and 150 ms latency. The normal profile adds no artificial network limit. The individual samples and profile settings are in [performance-measurements.json](performance-measurements.json).
 
 | Connection and visit | Old median | New median | Reduction |
 | --- | ---: | ---: | ---: |
@@ -38,41 +38,31 @@ A first visit still needs Flutter's rendering engine. This release retains the c
 
 ## Data preservation and verification
 
-- Flutter analysis is clean. The complete Flutter suite passes **1,749 tests**, with **18 existing skips**. The added cloud screen also passes the shared language and text-size sweeps.
-- Eight HTTP/Workers integration tests use real local D1 through Miniflare and a fake email provider. They cover browser-bound single-use tokens, expiry, secure cookies, account isolation, concurrent saves, malformed/oversized requests, rate limits, sign-out, and account deletion. They send no real email.
+- After removing the server feature, Flutter analysis is clean and the complete Flutter suite passes **1,739 tests**, with **18 existing skips**. The language and text-size sweeps continue to cover the retained screens.
 - Browser checks run the compiled Wasm and JavaScript renderers, reload a saved GZCLP routine, and reject script errors and third-party resource requests. The persistence assertion uses Flutter's combined accessible routine group after reload.
-- Both renderers also pass those persistence and resource checks against the production URL. Tapping **Profile → Cloud backup** reaches the expected unconfigured state.
-- An isolated browser flow with real SQLite and D1, and a fake email provider, completes magic-link sign-in, checks the HttpOnly/Secure/SameSite cookie, explicitly saves a backup, restores it after adding another routine, and deletes the account and server backup. Actual email delivery remains untested until the sending domain and key are supplied.
-- A restore test first failed against the unguarded replacement, then passed after checking the shared database's unfinished-workout record inside the restore transaction. Local routines and that record survive a refused restore; restore succeeds after the workout is cleared.
 - An upgrade check loads the old deployed app, saves a GZCLP routine, verifies it after reload, installs a representative legacy Flutter cache worker, then switches the same origin to the new deployment. The routine survives, the worker unregisters, and the old static caches disappear. IndexedDB and OPFS are left intact. The database remains named `foss_lift`, and the local schema remains version 18.
 - macOS CI successfully builds both a simulator app and an unsigned release device app using Xcode 26. Physical-device camera, file-backup, and workout/background behavior still need the checks listed in [ios-testflight.md](ios-testflight.md).
 
 The final [web deployment workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40644209036) and [iOS build workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40644208956) both passed. The local `dist/ios-final/` directory holds the downloaded device and simulator ZIPs from that iOS run.
 
-## Cloudflare and authentication
+## Static hosting and removed server feature
 
-Cloudflare Free supports the required [Wrangler configuration](https://developers.cloudflare.com/pages/functions/wrangler-configuration/) and [D1 allowance](https://developers.cloudflare.com/d1/platform/pricing/). `wrangler.jsonc`, SQL migrations, and `npm run setup:cloud` define and provision the infrastructure. Only `/api/*` invokes Functions; static downloads do not consume Function requests.
+The requested rollback removes the Wrangler IaC configuration, D1 migrations, Pages Functions, email provider integration, server provisioning, backup/auth clients and UI, and cloud-only tests and translations. The deployment retains the original Pages token and account ID for static hosting. No database was provisioned or live user backup stored: D1 access had returned HTTP 401.
 
-The existing GitHub token can deploy Pages, but D1 provisioning returned HTTP 401. The local Wrangler login is also expired, so there is no second authenticated provisioning route available in this environment. No database was silently substituted, no paid plan was enabled, and sign-in reports unavailable until the required bindings exist.
-
-To activate backups, give the deployment token **D1: Edit**, configure a verified Resend sender and `RESEND_API_KEY`, and rerun provisioning/deployment. [cloud-backup.md](cloud-backup.md) contains the exact commands and limits. Cloudflare's public-recipient email service requires Workers Paid; the Resend adapter keeps this small installation compatible with a free email allowance instead.
-
-Email links are suitable for this optional backup account model when the mailbox is secure. This is single-factor email authentication. Token handling follows the random, expiring, single-use URL-token practices described by [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html): 256 random bits, a 15-minute lifetime, hash-only storage, and an explicit POST to consume a browser-bound link. Session cookies are secure and HttpOnly, mutations require the configured origin, and saves use revision checks to prevent another device's backup being overwritten.
-
-Backups are explicit save/restore operations, currently available in the browser. They are not automatic cross-device synchronization. Each account keeps one backup up to 1 MB; videos and unfinished sessions are excluded. Restore validates the payload and commits atomically. Server backups are not end-to-end encrypted. The public policy is at `/privacy/`.
+The public privacy policy and About copy describe local storage again. The native file-backup format, browser database name and schema are unchanged. Browser verification checks Profile without an account tile and rejects account/API requests. The web compression, versioned asset caching, loading UI, startup query guards, history fix, and plate optimization remain.
 
 ## iOS distribution
 
 The compiled device app uses `com.fosslift.fosslift`, version 0.5.10, and minimum iOS 14. It is unsigned and cannot be uploaded directly to TestFlight. Signing requires the owner's paid Apple Developer team. The console steps, signing command, and private external-testing group setup are in [ios-testflight.md](ios-testflight.md).
 
-iOS supports local training, camera scanning, silent set videos, and file backups. Android notification-shade controls, scheduled reminders, and background rest alerts are hidden. Native cloud sign-in is not included in this release.
+iOS supports local training, camera scanning, silent set videos, and file backups. Android notification-shade controls, scheduled reminders, and background rest alerts are hidden.
 
 ## Feature catalogue changes
 
-Existing entry IDs are preserved. The catalogue check passes with 25 sections and 569 entries.
+The retained entry IDs are preserved. The catalogue check passes with 24 sections, 564 entries and 119 concepts. Section 25 remains the iOS section; it is not renumbered after removing section 24.
 
-- Section 13: updated `makes-no-network-connections-collects` and the section tagline to describe offline training with optional browser backups accurately.
-- Section 19: updated `browser-holds-database`; added `startup-shows-progress-and-retry`, `wasm-with-browser-fallback`, and `repeat-loads-reuse-versioned-assets`.
-- New section 24: `cloud-backup-is-opt-in`, `email-link-sign-in`, `sessions-stay-in-secure-cookies`, `one-versioned-server-backup`, and `restore-validates-before-replacing`.
+- Section 13: reworded `makes-no-network-connections-collects` and the section tagline to restore the local-only, no-account contract.
+- Section 19: reworded `browser-holds-database` to remove server uploads. Retained `startup-shows-progress-and-retry`, `wasm-with-browser-fallback`, and `repeat-loads-reuse-versioned-assets`.
+- Removed section 24 and its entries: `cloud-backup-is-opt-in`, `email-link-sign-in`, `sessions-stay-in-secure-cookies`, `one-versioned-server-backup`, and `restore-validates-before-replacing`.
 - New section 25: `ios-keeps-local-training` and `ios-builds-on-macos`.
-- Added the `cloud.backup` and `cloud.auth` concepts and the cloud-backup screen mapping.
+- Removed the `cloud.backup` and `cloud.auth` concepts and the cloud-backup screen mapping.

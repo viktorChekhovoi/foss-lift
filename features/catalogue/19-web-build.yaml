@@ -43,8 +43,8 @@ groups:
     d: >-
       SQLite is compiled to WebAssembly and stored in the browser's origin-private
       file system or IndexedDB. The schema and Drift queries match the phone
-      build; only the storage backend differs. Data stays in that browser unless
-      the user explicitly saves a cloud backup.
+      build; only the storage backend differs. Training data stays in that
+      browser and is never uploaded to a server.
     defines:
     - storage.database-location
     uses:

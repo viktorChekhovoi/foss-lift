@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'screens/about_screen.dart';
-import 'screens/cloud_screen.dart';
 import 'screens/backup_screen.dart';
 import 'screens/bar_settings_screen.dart';
 import 'screens/exercise_detail_screen.dart';
@@ -72,7 +71,6 @@ String _rootOf(String location) {
 typedef _Browsable = ({List<String> tabs, GoRouterWidgetBuilder build});
 
 final _browsable = <String, _Browsable>{
-  '/cloud': (tabs: ['/profile'], build: (c, s) => const CloudScreen()),
   '/routine/:id': (
     tabs: ['/today', '/routines'],
     build: (c, s) =>

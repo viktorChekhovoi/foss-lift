@@ -16,8 +16,10 @@ try {
     const page = await context.newPage();
     const errors = [];
     const outside = [];
+    const backendRequests = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('request', (request) => { if (!request.url().startsWith(server.url) && !request.url().startsWith('blob:')) outside.push(request.url()); });
+    page.on('request', (request) => { if (/^\/(api|auth)(\/|$)/.test(new URL(request.url()).pathname)) backendRequests.push(request.url()); });
     // Simulate a browser without WasmGC. Routing/intercepting requests would
     // disable Chromium's HTTP cache and invalidate the repeat-visit measurement.
     if (fallback) await page.addInitScript(() => { WebAssembly.validate = () => false; });
@@ -59,10 +61,12 @@ try {
     await page.waitForFunction(() => document.getElementById('boot')?.hidden);
     await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
     await page.getByRole('group', { name: /^GZCLP\b/ }).waitFor();
-    await page.goto(`${server.url}/#/profile/cloud`);
-    await page.getByText('Cloud backups have not been configured on this server.', { exact: true }).waitFor();
+    await page.getByRole('tab', { name: 'Profile', exact: true }).click();
+    await page.getByRole('button', { name: 'About Foss Lift', exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Cloud backup', exact: true }).count(), 0);
     await page.waitForTimeout(250);
-    await page.screenshot({ path: `build/web-verification/${fallback ? 'javascript' : 'wasm'}-cloud.png` });
+    await page.screenshot({ path: `build/web-verification/${fallback ? 'javascript' : 'wasm'}-profile.png` });
+    assert.deepEqual(backendRequests, [], 'Training and Profile must not contact an account or backup API');
     assert.deepEqual(outside, []);
     assert.deepEqual(errors, []);
     await context.close();

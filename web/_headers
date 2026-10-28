@@ -34,10 +34,3 @@
 
 /index.html
   Cache-Control: no-cache
-
-/auth/*
-  Cache-Control: no-store
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
-
-/api/*
-  Cache-Control: no-store

@@ -13,8 +13,8 @@ import 'support/harness.dart';
 import 'support/schema_v1.dart';
 
 void main() {
-  group('training remains offline without enabling cloud backups', () {
-    test('only the explicit cloud transport can reach the server', () {
+  group('nothing in the app reaches the network', () {
+    test('no lib/ source imports a networking package or an HTTP client', () {
       final lib = Directory('lib');
       expect(lib.existsSync(), isTrue, reason: 'run from the package root');
 
@@ -66,8 +66,6 @@ void main() {
       final offenders = <String>[];
       for (final entity in lib.listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
-        // Section 24 authorizes same-origin backup requests on explicit use.
-        if (entity.path == 'lib/services/cloud_client_web.dart') continue;
         final source = entity.readAsStringSync();
         final exempt = browserApiFiles.contains(entity.path);
         for (final marker in exempt ? forbiddenBrowserApis : forbidden) {
@@ -77,9 +75,13 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty,
-          reason: 'the app must make no network connections:\n'
-              '${offenders.join('\n')}');
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'the app must make no network connections:\n'
+            '${offenders.join('\n')}',
+      );
     });
 
     test('the browser-API exemption names files that exist', () {
@@ -90,9 +92,13 @@ void main() {
         'lib/services/storage_probe_web.dart',
         'lib/services/tab_awake_web.dart',
       ]) {
-        expect(File(path).existsSync(), isTrue,
-            reason: '$path is exempted from the networking-import ban but is '
-                'not there — remove the exemption or fix the path');
+        expect(
+          File(path).existsSync(),
+          isTrue,
+          reason:
+              '$path is exempted from the networking-import ban but is '
+              'not there — remove the exemption or fix the path',
+        );
       }
     });
   });
@@ -109,12 +115,18 @@ void main() {
 
       expect(db, isA<AppDatabase>());
 
-      expect(await db.watchExercises().first, isNotEmpty,
-          reason: 'seeded on first open with no network');
+      expect(
+        await db.watchExercises().first,
+        isNotEmpty,
+        reason: 'seeded on first open with no network',
+      );
       expect(await db.watchRoutines().first, isEmpty);
       await db.addStarterRoutine(kStarterRoutines.first);
-      expect(await db.watchRoutines().first, hasLength(1),
-          reason: 'a program is taken out of the app, not off a server');
+      expect(
+        await db.watchRoutines().first,
+        hasLength(1),
+        reason: 'a program is taken out of the app, not off a server',
+      );
     });
   });
 
@@ -131,28 +143,30 @@ void main() {
     /// frozen [kSchemaV1] and the rows are written as SQL, so the upgrade is
     /// handed the same bytes a phone would hand it.
     AppDatabase v1Database() => AppDatabase.forTesting(
-          NativeDatabase.memory(setup: (raw) {
-            for (final stmt in kSchemaV1) {
-              raw.execute(stmt);
-            }
-            raw.execute(
-              'INSERT INTO settings (id, weight_unit, layoff_days, '
-              'layoff_percent, theme_preset_id, text_scale) '
-              "VALUES (1, 'lb', 21, 15, 'carbon', 1.2)",
-            );
-            raw.execute(
-              'INSERT INTO sessions (id, name, started_at, ended_at, '
-              'duration_seconds, total_volume, sets_completed) '
-              "VALUES (1, 'Push', 1700000000, 1700003600, 3600, 2400.0, 4)",
-            );
-            raw.execute(
-              'INSERT INTO session_sets (session_id, exercise_name, '
-              'set_number, weight, reps, done, goal_reps) '
-              "VALUES (1, 'Bench Press', 1, 80.0, 8, 1, 8)",
-            );
-            raw.execute('PRAGMA user_version = 1');
-          }),
-        );
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final stmt in kSchemaV1) {
+            raw.execute(stmt);
+          }
+          raw.execute(
+            'INSERT INTO settings (id, weight_unit, layoff_days, '
+            'layoff_percent, theme_preset_id, text_scale) '
+            "VALUES (1, 'lb', 21, 15, 'carbon', 1.2)",
+          );
+          raw.execute(
+            'INSERT INTO sessions (id, name, started_at, ended_at, '
+            'duration_seconds, total_volume, sets_completed) '
+            "VALUES (1, 'Push', 1700000000, 1700003600, 3600, 2400.0, 4)",
+          );
+          raw.execute(
+            'INSERT INTO session_sets (session_id, exercise_name, '
+            'set_number, weight, reps, done, goal_reps) '
+            "VALUES (1, 'Bench Press', 1, 80.0, 8, 1, 8)",
+          );
+          raw.execute('PRAGMA user_version = 1');
+        },
+      ),
+    );
 
     test('the settings a v1 phone chose survive the climb', () async {
       final db = v1Database();
@@ -206,11 +220,14 @@ void main() {
 
       Future<Map<String, String>> shape(AppDatabase db) async {
         final rows = await db
-            .customSelect('SELECT name, sql FROM sqlite_master '
-                'WHERE sql IS NOT NULL ORDER BY name')
+            .customSelect(
+              'SELECT name, sql FROM sqlite_master '
+              'WHERE sql IS NOT NULL ORDER BY name',
+            )
             .get();
         return {
-          for (final r in rows) r.data['name'] as String: r.data['sql'] as String,
+          for (final r in rows)
+            r.data['name'] as String: r.data['sql'] as String,
         };
       }
 
@@ -223,20 +240,22 @@ void main() {
     /// nothing else from the library — the shape a phone several releases behind
     /// hands the ladder.
     AppDatabase v1WithOneMovement() => AppDatabase.forTesting(
-          NativeDatabase.memory(setup: (raw) {
-            for (final stmt in kSchemaV1) {
-              raw.execute(stmt);
-            }
-            raw.execute('INSERT INTO settings (id) VALUES (1)');
-            raw.execute(
-              'INSERT INTO exercises (id, name, seed_key, muscle_group, '
-              'equipment, weight_type, notes) '
-              "VALUES (1, 'Bench Press', 'bench_press', 'Chest', 'Barbell', "
-              "'bar', 'seat 4, pin 7')",
-            );
-            raw.execute('PRAGMA user_version = 1');
-          }),
-        );
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final stmt in kSchemaV1) {
+            raw.execute(stmt);
+          }
+          raw.execute('INSERT INTO settings (id) VALUES (1)');
+          raw.execute(
+            'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+            'equipment, weight_type, notes) '
+            "VALUES (1, 'Bench Press', 'bench_press', 'Chest', 'Barbell', "
+            "'bar', 'seat 4, pin 7')",
+          );
+          raw.execute('PRAGMA user_version = 1');
+        },
+      ),
+    );
 
     test('the cardio machines arrive with the climb', () async {
       final db = v1WithOneMovement();
@@ -262,34 +281,38 @@ void main() {
   });
 
   group('a set logged before the update carries no console readouts', () {
-    test('the four columns arrive empty on history that was already there',
-        () async {
-      final db = AppDatabase.forTesting(
-        NativeDatabase.memory(setup: (raw) {
-          for (final stmt in kSchemaV1) {
-            raw.execute(stmt);
-          }
-          raw.execute('INSERT INTO settings (id) VALUES (1)');
-          raw.execute(
-            'INSERT INTO sessions (id, name, started_at, duration_seconds) '
-            "VALUES (1, 'Push', 1700000000, 3600)",
-          );
-          raw.execute(
-            'INSERT INTO session_sets (session_id, exercise_name, set_number, '
-            "weight, reps, done) VALUES (1, 'Bench Press', 1, 80.0, 8, 1)",
-          );
-          raw.execute('PRAGMA user_version = 1');
-        }),
-      );
-      addTearDown(db.close);
+    test(
+      'the four columns arrive empty on history that was already there',
+      () async {
+        final db = AppDatabase.forTesting(
+          NativeDatabase.memory(
+            setup: (raw) {
+              for (final stmt in kSchemaV1) {
+                raw.execute(stmt);
+              }
+              raw.execute('INSERT INTO settings (id) VALUES (1)');
+              raw.execute(
+                'INSERT INTO sessions (id, name, started_at, duration_seconds) '
+                "VALUES (1, 'Push', 1700000000, 3600)",
+              );
+              raw.execute(
+                'INSERT INTO session_sets (session_id, exercise_name, set_number, '
+                "weight, reps, done) VALUES (1, 'Bench Press', 1, 80.0, 8, 1)",
+              );
+              raw.execute('PRAGMA user_version = 1');
+            },
+          ),
+        );
+        addTearDown(db.close);
 
-      final set = (await db.setsForSession(1)).single;
-      expect(set.reps, 8, reason: 'the set itself is unchanged');
-      expect(set.speedKph, isNull);
-      expect(set.inclinePercent, isNull);
-      expect(set.resistanceLevel, isNull);
-      expect(set.distanceKm, isNull);
-    });
+        final set = (await db.setsForSession(1)).single;
+        expect(set.reps, 8, reason: 'the set itself is unchanged');
+        expect(set.speedKph, isNull);
+        expect(set.inclinePercent, isNull);
+        expect(set.resistanceLevel, isNull);
+        expect(set.distanceKm, isNull);
+      },
+    );
   });
 
   group('a workout from before the update has no supersets in it', () {
@@ -301,43 +324,53 @@ void main() {
     /// written as SQL against the frozen [kSchemaV1] — the bytes a phone on the
     /// shipped build would hand the upgrade.
     AppDatabase v1WithWorkout() => AppDatabase.forTesting(
-          NativeDatabase.memory(setup: (raw) {
-            for (final stmt in kSchemaV1) {
-              raw.execute(stmt);
-            }
-            raw.execute('INSERT INTO settings (id) VALUES (1)');
-            raw.execute(
-              'INSERT INTO exercises (id, name, muscle_group, equipment) '
-              "VALUES (1, 'Bench Press', 'Chest', 'Barbell'), "
-              "(2, 'Overhead Press', 'Shoulders', 'Barbell')",
-            );
-            raw.execute("INSERT INTO routines (id, name) VALUES (1, 'My split')");
-            raw.execute(
-              'INSERT INTO workouts (id, routine_id, name) '
-              "VALUES (1, 1, 'Push')",
-            );
-            raw.execute(
-              'INSERT INTO workout_items (id, workout_id, exercise_id, '
-              'position, target_sets) VALUES (1, 1, 1, 0, 4), (2, 1, 2, 1, 3)',
-            );
-            raw.execute('PRAGMA user_version = 1');
-          }),
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final stmt in kSchemaV1) {
+            raw.execute(stmt);
+          }
+          raw.execute('INSERT INTO settings (id) VALUES (1)');
+          raw.execute(
+            'INSERT INTO exercises (id, name, muscle_group, equipment) '
+            "VALUES (1, 'Bench Press', 'Chest', 'Barbell'), "
+            "(2, 'Overhead Press', 'Shoulders', 'Barbell')",
+          );
+          raw.execute("INSERT INTO routines (id, name) VALUES (1, 'My split')");
+          raw.execute(
+            'INSERT INTO workouts (id, routine_id, name) '
+            "VALUES (1, 1, 'Push')",
+          );
+          raw.execute(
+            'INSERT INTO workout_items (id, workout_id, exercise_id, '
+            'position, target_sets) VALUES (1, 1, 1, 0, 4), (2, 1, 2, 1, 3)',
+          );
+          raw.execute('PRAGMA user_version = 1');
+        },
+      ),
+    );
+
+    test(
+      'every slot of a day that was already there stands on its own',
+      () async {
+        final db = v1WithWorkout();
+        addTearDown(db.close);
+
+        final items = await db.itemsForWorkout(1);
+        expect(items.map((v) => v.exercise.name), [
+          'Bench Press',
+          'Overhead Press',
+        ], reason: 'the day itself is unchanged');
+        expect(
+          items.map((v) => v.item.supersetWithPrevious),
+          everyElement(isFalse),
         );
-
-    test('every slot of a day that was already there stands on its own',
-        () async {
-      final db = v1WithWorkout();
-      addTearDown(db.close);
-
-      final items = await db.itemsForWorkout(1);
-      expect(items.map((v) => v.exercise.name),
-          ['Bench Press', 'Overhead Press'],
-          reason: 'the day itself is unchanged');
-      expect(items.map((v) => v.item.supersetWithPrevious),
-          everyElement(isFalse));
-      expect(items.map((v) => v.item.targetSets), [4, 3],
-          reason: 'nothing else about the slots moved either');
-    });
+        expect(
+          items.map((v) => v.item.targetSets),
+          [4, 3],
+          reason: 'nothing else about the slots moved either',
+        );
+      },
+    );
   });
 
   group('an exercise from before the update keeps its group', () {
@@ -353,28 +386,32 @@ void main() {
     /// [kSchemaV1] is: the upgrade has to be handed the bytes a phone would
     /// hand it, not the shape this build would have made.
     AppDatabase v2Database() => AppDatabase.forTesting(
-          NativeDatabase.memory(setup: (raw) {
-            for (final stmt in kSchemaV1) {
-              raw.execute(stmt);
-            }
-            raw.execute('ALTER TABLE "settings" ADD COLUMN "warmup_sets" '
-                'INTEGER NOT NULL DEFAULT 3');
-            raw.execute('INSERT INTO settings (id) VALUES (1)');
-            raw.execute(
-              'INSERT INTO exercises (id, name, seed_key, muscle_group, '
-              'equipment, is_custom, measure, weight_type, notes, bar_weight) '
-              "VALUES (1, 'Bench Press', 'bench_press', 'Chest', 'Barbell', "
-              "0, 'reps', 'bar', 'Rack pin 7', 15.0)",
-            );
-            raw.execute(
-              'INSERT INTO exercises (id, name, seed_key, muscle_group, '
-              'equipment, is_custom, measure, weight_type) '
-              "VALUES (2, 'Zercher Squat', NULL, 'Legs', 'Barbell', 1, "
-              "'reps', 'bar')",
-            );
-            raw.execute('PRAGMA user_version = 2');
-          }),
-        );
+      NativeDatabase.memory(
+        setup: (raw) {
+          for (final stmt in kSchemaV1) {
+            raw.execute(stmt);
+          }
+          raw.execute(
+            'ALTER TABLE "settings" ADD COLUMN "warmup_sets" '
+            'INTEGER NOT NULL DEFAULT 3',
+          );
+          raw.execute('INSERT INTO settings (id) VALUES (1)');
+          raw.execute(
+            'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+            'equipment, is_custom, measure, weight_type, notes, bar_weight) '
+            "VALUES (1, 'Bench Press', 'bench_press', 'Chest', 'Barbell', "
+            "0, 'reps', 'bar', 'Rack pin 7', 15.0)",
+          );
+          raw.execute(
+            'INSERT INTO exercises (id, name, seed_key, muscle_group, '
+            'equipment, is_custom, measure, weight_type) '
+            "VALUES (2, 'Zercher Squat', NULL, 'Legs', 'Barbell', 1, "
+            "'reps', 'bar')",
+          );
+          raw.execute('PRAGMA user_version = 2');
+        },
+      ),
+    );
 
     Future<Exercise> row(AppDatabase db, String name) async =>
         (await db.watchExercises().first).firstWhere((e) => e.name == name);
@@ -384,7 +421,11 @@ void main() {
       addTearDown(db.close);
 
       final mine = await row(db, 'Zercher Squat');
-      expect(mine.muscleGroup, 'Legs', reason: 'nothing filed under Legs moves');
+      expect(
+        mine.muscleGroup,
+        'Legs',
+        reason: 'nothing filed under Legs moves',
+      );
       expect(mine.muscles.primary, ['Legs']);
       expect(mine.muscles.secondary, isEmpty);
     });
@@ -424,8 +465,10 @@ void main() {
 
       Future<Map<String, String>> shape(AppDatabase db) async {
         final rows = await db
-            .customSelect('SELECT name, sql FROM sqlite_master '
-                'WHERE sql IS NOT NULL ORDER BY name')
+            .customSelect(
+              'SELECT name, sql FROM sqlite_master '
+              'WHERE sql IS NOT NULL ORDER BY name',
+            )
             .get();
         return {
           for (final r in rows)
@@ -438,42 +481,45 @@ void main() {
   });
 
   group('the only platform integration is a local Android reminder', () {
-    test('the reminder scheduler is a no-op off Android and touches no channel',
-        () async {
-      // Off a device the reminder service does nothing — no server, no plugin
-      // call — so a reminder that would schedule on Android is silently ignored
-      // here rather than reaching for a platform channel.
-      final service = ReminderService();
-      expect(service.supported, isFalse);
+    test(
+      'the reminder scheduler is a no-op off Android and touches no channel',
+      () async {
+        // Off a device the reminder service does nothing — no server, no plugin
+        // call — so a reminder that would schedule on Android is silently ignored
+        // here rather than reaching for a platform channel.
+        final service = ReminderService();
+        expect(service.supported, isFalse);
 
-      final l10n = l10nFor();
-      await service.sync(
-        [
-          (
-            reminder: const RoutineReminder(
-              routineId: 1,
-              name: 'Push / Pull / Legs',
-              scheduleDays: 1 << 0,
-              reminderMinutes: 600,
+        final l10n = l10nFor();
+        await service.sync(
+          [
+            (
+              reminder: const RoutineReminder(
+                routineId: 1,
+                name: 'Push / Pull / Legs',
+                scheduleDays: 1 << 0,
+                reminderMinutes: 600,
+              ),
+              title: 'Push / Pull / Legs',
+              body: l10n.reminderBody,
             ),
-            title: 'Push / Pull / Legs',
-            body: l10n.reminderBody,
+          ],
+          channel: (
+            name: l10n.reminderChannelName,
+            description: l10n.reminderChannelDescription,
           ),
-        ],
-        channel: (
-          name: l10n.reminderChannelName,
-          description: l10n.reminderChannelDescription,
-        ),
-        now: DateTime(2024, 1, 1, 8, 0),
-      );
+          now: DateTime(2024, 1, 1, 8, 0),
+        );
 
-      expect(await service.permitted(), isFalse);
-    });
+        expect(await service.permitted(), isFalse);
+      },
+    );
   });
 
   group('About says what the app does with your data, and how to complain', () {
-    testWidgets('the promise and the contact address are both on the screen',
-        (tester) async {
+    testWidgets('the promise and the contact address are both on the screen', (
+      tester,
+    ) async {
       final db = memoryDb();
       addTearDown(db.close);
       final container = containerFor(db);

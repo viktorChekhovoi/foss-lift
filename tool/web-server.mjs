@@ -14,11 +14,6 @@ export async function serveWeb(port = 0) {
   const server = createServer(async (request, response) => {
     try {
       let route = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-      if (route.startsWith('/api/')) {
-        response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-        response.end(JSON.stringify({ available: false, email: null, revision: 0 }));
-        return;
-      }
       if (route.endsWith('/')) route += 'index.html';
       const absolute = path.resolve(root, `.${route}`);
       if (!absolute.startsWith(root + path.sep)) { response.writeHead(403); response.end(); return; }

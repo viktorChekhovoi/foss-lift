@@ -17,7 +17,7 @@ flutter analyze                # lints
 dart run build_runner build --delete-conflicting-outputs   # after schema changes
 ```
 
-[Browser builds and verification](docs/web-build.md), [Cloudflare and optional server backups](docs/cloud-backup.md), and [iOS builds and private TestFlight testing](docs/ios-testflight.md) cover deployment and platform setup.
+[Browser builds and verification](docs/web-build.md) and [iOS builds and private TestFlight testing](docs/ios-testflight.md) cover deployment and platform setup.
 
 [The October performance review](docs/performance-review.md) records the findings, measured results, verification, and remaining setup.
 
@@ -35,7 +35,7 @@ See [`README.md`](features/README.md) for more details on cataloguing features.
 
 ## Privacy
 
-Training works offline without an account or telemetry. The browser optionally saves a server backup after email sign-in and an explicit Save action. Native apps retain their local storage and file backups. See
+Training data stays on the device, with no app accounts, server backups, or telemetry. Native apps support local file backups; the browser keeps its SQLite database in local browser storage. See
 [`PRIVACY.md`](PRIVACY.md).
 
 ## License

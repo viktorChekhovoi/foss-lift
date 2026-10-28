@@ -51,7 +51,6 @@ void main() {
       expect(c.shade, isFalse);
       expect(c.backgroundAlerts, isFalse);
       expect(c.reminders, isFalse);
-      expect(c.cloudBackups, isFalse);
     });
 
     test('the running build reports the native set under the test runner', () {
@@ -73,8 +72,9 @@ void main() {
       addTearDown(tester.view.reset);
       // runAsync, because a drift future only completes on the real event loop
       // and this body runs in the test's fake one.
-      final rid =
-          (await tester.runAsync(() => routineWithCountNamed(db)))!.routine.id;
+      final rid = (await tester.runAsync(
+        () => routineWithCountNamed(db),
+      ))!.routine.id;
       final container = containerFor(
         db,
         overrides: [capabilitiesProvider.overrideWithValue(caps)],
@@ -88,8 +88,9 @@ void main() {
       await pumpThroughDatabase(tester);
     }
 
-    testWidgets('the routine builder offers no reminder on the web',
-        (tester) async {
+    testWidgets('the routine builder offers no reminder on the web', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await pumpBuilder(tester, Capabilities.web);
 
@@ -101,8 +102,9 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('the routine builder still offers one on a phone',
-        (tester) async {
+    testWidgets('the routine builder still offers one on a phone', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await pumpBuilder(tester, Capabilities.native);
 
@@ -120,24 +122,35 @@ void main() {
         overrides: [capabilitiesProvider.overrideWithValue(caps)],
       );
       addTearDown(container.dispose);
-      await tester.pumpWidget(routedAppUnder(container, const RoutinesScreen(),
-          scaffold: true, alsoRoutes: ['scan']));
+      await tester.pumpWidget(
+        routedAppUnder(
+          container,
+          const RoutinesScreen(),
+          scaffold: true,
+          alsoRoutes: ['scan'],
+        ),
+      );
       await pumpThroughDatabase(tester);
       await tester.tap(find.byKey(kRoutinesAddKey));
       await pumpThroughDatabase(tester);
     }
 
-    testWidgets('importing on the web goes straight to the paste box',
-        (tester) async {
+    testWidgets('importing on the web goes straight to the paste box', (
+      tester,
+    ) async {
       final l10n = l10nFor();
       await openAddSheet(tester, Capabilities.web);
 
       await tester.tap(find.text(l10n.routinesImport));
       await pumpThroughDatabase(tester);
 
-      expect(find.text(l10n.routinesPasteTitle), findsOneWidget,
-          reason: 'a sheet whose only row is the one choice left is a tap for '
-              'nothing');
+      expect(
+        find.text(l10n.routinesPasteTitle),
+        findsOneWidget,
+        reason:
+            'a sheet whose only row is the one choice left is a tap for '
+            'nothing',
+      );
       expect(find.text(l10n.themeScanQr), findsNothing);
       await stop(tester);
     });
@@ -158,9 +171,13 @@ void main() {
   group('a routine code means the same thing in a browser', () {
     test('the code compresses without dart:io', () {
       final source = File('lib/data/routine_code.dart').readAsStringSync();
-      expect(source.contains("import 'dart:io'"), isFalse,
-          reason: 'dart:io compiles on the web but throws when used — the '
-              'share code has to compress with pure Dart');
+      expect(
+        source.contains("import 'dart:io'"),
+        isFalse,
+        reason:
+            'dart:io compiles on the web but throws when used — the '
+            'share code has to compress with pure Dart',
+      );
     });
 
     test('what it writes is still a raw deflate stream', () async {
@@ -206,22 +223,29 @@ void main() {
         'web/sqlite3.wasm',
         'web/drift_worker.js',
       ]) {
-        expect(File(name).existsSync(), isTrue,
-            reason: '$name is missing — see docs/web-build.md');
+        expect(
+          File(name).existsSync(),
+          isTrue,
+          reason: '$name is missing — see docs/web-build.md',
+        );
       }
     });
 
     test('the page names no remote origin to load anything from', () {
       // Comments stripped first: the page explains at length *why* it must not
       // reach a CDN, and the explanation names the host it is avoiding.
-      final markup = File('web/index.html')
-          .readAsStringSync()
-          .replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+      final markup = File(
+        'web/index.html',
+      ).readAsStringSync().replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
       for (final host in const ['gstatic.com', 'googleapis.com', '//http']) {
-        expect(markup.contains(host), isFalse,
-            reason: 'the engine and the fonts must be served from this '
-                'origin: a CDN fetch breaks the "no network" claim and is '
-                'blocked outright under COEP');
+        expect(
+          markup.contains(host),
+          isFalse,
+          reason:
+              'the engine and the fonts must be served from this '
+              'origin: a CDN fetch breaks the "no network" claim and is '
+              'blocked outright under COEP',
+        );
       }
     });
   });
@@ -252,9 +276,10 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.runAsync(() async {
         final wid = await workoutIdNamed(db, 'Push');
-        container = containerFor(db, overrides: [
-          capabilitiesProvider.overrideWithValue(Capabilities.web),
-        ]);
+        container = containerFor(
+          db,
+          overrides: [capabilitiesProvider.overrideWithValue(Capabilities.web)],
+        );
         await container!
             .read(activeWorkoutProvider.notifier)
             .start(workoutId: wid, name: 'Push');
@@ -281,21 +306,27 @@ void main() {
       await stop(tester);
     }
 
-    testWidgets('it is ready to type in within the tap that opened it',
-        (tester) async {
+    testWidgets('it is ready to type in within the tap that opened it', (
+      tester,
+    ) async {
       await openWeightDialog(tester);
 
       // Not pumped first, deliberately. A browser opens the keyboard only
       // while it is still handling the tap that asked for it; a field that
       // asks once the dialog has been built and animated is asking too late,
       // and the symptom is a dialog you have to tap a second time to type in.
-      expect(tester.testTextInput.hasAnyClients, isTrue,
-          reason: 'nothing had asked for the keyboard by the end of the tap');
+      expect(
+        tester.testTextInput.hasAnyClients,
+        isTrue,
+        reason: 'nothing had asked for the keyboard by the end of the tap',
+      );
 
       // And what it is typing into is the dialog's own box.
       await frames(tester);
-      expect(tester.widget<EditableText>(dialogField).focusNode.hasFocus,
-          isTrue);
+      expect(
+        tester.widget<EditableText>(dialogField).focusNode.hasFocus,
+        isTrue,
+      );
       await tester.enterText(find.byType(TextField).first, '85');
       await tester.pump();
       expect(find.text('85'), findsOneWidget);
@@ -318,21 +349,34 @@ void main() {
         }
       });
 
-      expect(overflows, isEmpty,
-          reason: 'the box was squeezed into what was left rather than '
-              'shrinking and scrolling inside itself: '
-              '${overflows.join(" | ")}');
-      expect(tester.getRect(dialogField).height, closeTo(wasTall, 1.0),
-          reason: 'the field is what has to stay readable');
+      expect(
+        overflows,
+        isEmpty,
+        reason:
+            'the box was squeezed into what was left rather than '
+            'shrinking and scrolling inside itself: '
+            '${overflows.join(" | ")}',
+      );
+      expect(
+        tester.getRect(dialogField).height,
+        closeTo(wasTall, 1.0),
+        reason: 'the field is what has to stay readable',
+      );
       for (final part in <String, Finder>{
         'the title': title,
         'the field': dialogField,
       }.entries) {
         final rect = tester.getRect(part.value);
-        expect(rect.top, greaterThanOrEqualTo(0.0),
-            reason: '${part.key} was shoved off the top of the page');
-        expect(rect.bottom, lessThanOrEqualTo(screen.height - keyboard),
-            reason: '${part.key} is behind the keyboard');
+        expect(
+          rect.top,
+          greaterThanOrEqualTo(0.0),
+          reason: '${part.key} was shoved off the top of the page',
+        );
+        expect(
+          rect.bottom,
+          lessThanOrEqualTo(screen.height - keyboard),
+          reason: '${part.key} is behind the keyboard',
+        );
       }
 
       await stopAll(tester);

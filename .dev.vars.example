@@ -1,4 +1,0 @@
-# Copy to .dev.vars for npm run dev:cloud. Never commit an API key.
-APP_ORIGIN=http://localhost:8788
-EMAIL_FROM=Foss Lift <login@your-verified-domain.example>
-RESEND_API_KEY=replace-with-a-resend-sending-key
