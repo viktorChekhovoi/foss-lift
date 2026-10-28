@@ -1,0 +1,91 @@
+{
+  "date_utc": "2026-10-28",
+  "url": "https://foss-lift.pages.dev/",
+  "release_commit": "428587e58d9010ea788cb3b288501e00330e4dfa",
+  "deployment": "ceffc457",
+  "browser": "Google Chrome, headless on Linux",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "runs": 3,
+  "cold_context": "new browser context for each run",
+  "repeat_context": "same context immediately after its cold visit",
+  "readiness": "Initial tutorial dismissed and Ready-made routines control available",
+  "profiles": {
+    "normal": {
+      "network": null,
+      "results": {
+        "cold": {
+          "before_ms": [
+            2921,
+            2750,
+            2773
+          ],
+          "after_ms": [
+            1289,
+            1308,
+            1240
+          ],
+          "before_median_ms": 2773,
+          "after_median_ms": 1289,
+          "reduction_percent": 53.5
+        },
+        "repeat": {
+          "before_ms": [
+            1105,
+            1107,
+            1110
+          ],
+          "after_ms": [
+            996,
+            526,
+            434
+          ],
+          "before_median_ms": 1107,
+          "after_median_ms": 526,
+          "reduction_percent": 52.5
+        }
+      }
+    },
+    "slow": {
+      "network": {
+        "download_bytes_per_second": 200000,
+        "upload_bytes_per_second": 100000,
+        "latency_ms": 150
+      },
+      "results": {
+        "cold": {
+          "before_ms": [
+            23317,
+            23263,
+            22937
+          ],
+          "after_ms": [
+            17489,
+            17455,
+            17462
+          ],
+          "before_median_ms": 23263,
+          "after_median_ms": 17462,
+          "reduction_percent": 24.9
+        },
+        "repeat": {
+          "before_ms": [
+            1954,
+            1961,
+            1949
+          ],
+          "after_ms": [
+            1190,
+            1190,
+            1192
+          ],
+          "before_median_ms": 1954,
+          "after_median_ms": 1190,
+          "reduction_percent": 39.1
+        }
+      }
+    }
+  }
+}

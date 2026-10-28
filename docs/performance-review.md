@@ -21,16 +21,16 @@ The changes keep the existing training model and local database. The web release
 
 Measurements use the actual Cloudflare deployment, desktop Chrome with a 390 × 844 viewport, and a new browser context for each cold visit. A repeat visit reuses that context and its HTTP/database storage. Readiness means the initial tutorial can be dismissed and the **Ready-made routines** control is available, rather than Flutter's first blank frame. Three runs per version provide a median. These are controlled comparisons, not field telemetry or a promise for every device.
 
-The old production deployment was compared with the compressed Cloudflare release candidate `5020e09` (`4db0c802.foss-lift.pages.dev`). The slow profile uses 200,000 bytes/second download bandwidth, 100,000 bytes/second upload bandwidth, and 150 ms latency. The normal profile adds no artificial network limit.
+The old production deployment was compared with the published release `428587e` at `https://foss-lift.pages.dev/` (deployment `ceffc457`). The slow profile uses 200,000 bytes/second download bandwidth, 100,000 bytes/second upload bandwidth, and 150 ms latency. The normal profile adds no artificial network limit. The individual samples and profile settings are in [performance-measurements.json](performance-measurements.json).
 
 | Connection and visit | Old median | New median | Reduction |
 | --- | ---: | ---: | ---: |
-| Normal connection, first visit | 2.77 s | 1.27 s | 54% |
-| Normal connection, repeat visit | 1.11 s | 0.96 s | 14% |
-| Slow connection, first visit | 23.26 s | 17.55 s | 25% |
+| Normal connection, first visit | 2.77 s | 1.29 s | 54% |
+| Normal connection, repeat visit | 1.11 s | 0.53 s | 52% |
+| Slow connection, first visit | 23.26 s | 17.46 s | 25% |
 | Slow connection, repeat visit | 1.95 s | 1.19 s | 39% |
 
-The normal-connection repeat measurements ranged from 0.45 to 0.96 seconds, so that result has more variation than the cold measurements. The final capability guards also remove queries for unsupported startup services; they were added after this candidate comparison. Production checks confirm the deployed build separately.
+The normal-connection repeat measurements ranged from 0.43 to 1.00 seconds, so that result has more variation than the cold measurements. The production checks also confirm Brotli response encoding, immutable asset caching, cross-origin isolation, and the public privacy-policy page.
 
 Resource Timing on the page omits downloads initiated inside workers, so its byte sum must not be treated as the complete download size. Screenshots and raw measurements are kept locally under `dist/performance/`; CI also retains `web-verification` artifacts.
 
@@ -41,9 +41,13 @@ A first visit still needs Flutter's rendering engine. This release retains the c
 - Flutter analysis is clean. The complete Flutter suite passes **1,749 tests**, with **18 existing skips**. The added cloud screen also passes the shared language and text-size sweeps.
 - Eight HTTP/Workers integration tests use real local D1 through Miniflare and a fake email provider. They cover browser-bound single-use tokens, expiry, secure cookies, account isolation, concurrent saves, malformed/oversized requests, rate limits, sign-out, and account deletion. They send no real email.
 - Browser checks run the compiled Wasm and JavaScript renderers, reload a saved GZCLP routine, and reject script errors and third-party resource requests. The persistence assertion uses Flutter's combined accessible routine group after reload.
+- Both renderers also pass those persistence and resource checks against the production URL. Tapping **Profile → Cloud backup** reaches the expected unconfigured state.
+- An isolated browser flow with real SQLite and D1, and a fake email provider, completes magic-link sign-in, checks the HttpOnly/Secure/SameSite cookie, explicitly saves a backup, restores it after adding another routine, and deletes the account and server backup. Actual email delivery remains untested until the sending domain and key are supplied.
 - A restore test first failed against the unguarded replacement, then passed after checking the shared database's unfinished-workout record inside the restore transaction. Local routines and that record survive a refused restore; restore succeeds after the workout is cleared.
 - An upgrade check loads the old deployed app, saves a GZCLP routine, verifies it after reload, installs a representative legacy Flutter cache worker, then switches the same origin to the new deployment. The routine survives, the worker unregisters, and the old static caches disappear. IndexedDB and OPFS are left intact. The database remains named `foss_lift`, and the local schema remains version 18.
 - macOS CI successfully builds both a simulator app and an unsigned release device app using Xcode 26. Physical-device camera, file-backup, and workout/background behavior still need the checks listed in [ios-testflight.md](ios-testflight.md).
+
+The final [web deployment workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40644209036) and [iOS build workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40644208956) both passed. The local `dist/ios-final/` directory holds the downloaded device and simulator ZIPs from that iOS run.
 
 ## Cloudflare and authentication
 

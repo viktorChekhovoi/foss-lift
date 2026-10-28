@@ -12,7 +12,7 @@ The app remains fully usable offline without an account. Until both D1 and email
 
 ## Set up production
 
-1. Create or update a Cloudflare API token with account **Cloudflare Pages: Edit** and **D1: Edit** permissions, scoped to the account hosting Foss Lift. The existing GitHub deployment secrets are `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. A Pages-only token can deploy the static app but cannot provision D1.
+1. Create or update a Cloudflare API token with account **Cloudflare Pages: Edit** and **D1: Edit** permissions, scoped to the account hosting Foss Lift. The existing GitHub deployment secrets are `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; use those environment variables for local CLI commands as well. A Pages-only token can deploy the static app but cannot provision D1.
 2. Verify a sending domain in Resend. Set the repository variable `CLOUD_EMAIL_FROM` to a sender such as `Foss Lift <login@your-domain.example>`, or edit `vars.EMAIL_FROM` in `wrangler.jsonc`. Do not use an address on `pages.dev`; you do not control its email DNS.
 3. Add the Resend key as a Cloudflare Pages production secret: `npx wrangler pages secret put RESEND_API_KEY --project-name=foss-lift`. Enter the key at the prompt. Keep it out of Git, build flags, browser code, and command history.
 4. With the Cloudflare token and account ID in your environment, run `npm ci` and `npm run setup:cloud`. This creates `foss-lift-users`, applies `migrations/`, and writes the real database binding into the standard root `wrangler.jsonc`. It never creates a paid subscription. GitHub's web push workflow performs the same provisioning step when its token allows it.
