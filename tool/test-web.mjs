@@ -45,19 +45,23 @@ try {
       results.push(result);
       console.log(`${result.target} ${visit}: ready ${result.readyMs} ms; transferred ${report.resources.reduce((n, r) => n + r.bytes, 0)} bytes`);
       await mkdir('build/web-verification', { recursive: true });
+      // Skwasm presents from a worker after Flutter updates its semantics.
+      // Allow that frame to arrive for the screenshot, after recording timing.
+      await page.waitForTimeout(250);
       await page.screenshot({ path: `build/web-verification/${result.target}-${visit}.png` });
     }
     // A real program must survive a reload of the compiled app's browser store.
     await page.goto(`${server.url}/#/routines/library/gzclp`);
     await page.getByRole('button', { name: 'Add to my routines', exact: true }).click();
     await page.waitForFunction(() => location.hash === '#/routines');
-    await page.getByText('GZCLP', { exact: true }).first().waitFor();
+    await page.getByRole('group', { name: /^GZCLP\b/ }).waitFor();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => document.getElementById('boot')?.hidden);
     await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
-    await page.getByText('GZCLP', { exact: true }).first().waitFor();
+    await page.getByRole('group', { name: /^GZCLP\b/ }).waitFor();
     await page.goto(`${server.url}/#/profile/cloud`);
     await page.getByText('Cloud backups have not been configured on this server.', { exact: true }).waitFor();
+    await page.waitForTimeout(250);
     await page.screenshot({ path: `build/web-verification/${fallback ? 'javascript' : 'wasm'}-cloud.png` });
     assert.deepEqual(outside, []);
     assert.deepEqual(errors, []);
