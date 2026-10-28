@@ -54,6 +54,13 @@ app.*.map.json
 *.apk
 *.aab
 *.zip
+*.ipa
+
+# Apple signing material belongs in encrypted CI secrets, outside the checkout.
+*.p12
+*.p8
+*.mobileprovision
+apple-distribution.key
 
 # Claude Code's local working state
 .claude/

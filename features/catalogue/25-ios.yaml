@@ -2,7 +2,8 @@ id: "25"
 title: iOS
 tagline: Build the native app for iPhone and distribute beta builds with TestFlight.
 screen: none
-code: [ios/Runner/Info.plist, lib/util/capabilities.dart, .github/workflows/build-ios.yml]
+code: [ios/Runner/Info.plist, lib/util/capabilities.dart, .github/workflows/build-ios.yml, .github/workflows/testflight.yml]
+test: [test/ci/test_ios_distribution.py]
 groups:
 - name: Platform support
   items:
@@ -11,6 +12,10 @@ groups:
     d: The iPhone app supports routine editing, live workouts, progression, camera scanning, silent set videos, and local file backups. Camera use is declared; clips remain in app-private storage. The app registers fosslift links. Android foreground controls, background rest alerts, and scheduled reminders are not advertised on iOS.
     uses: [platform.portability, storage.database-location, platform.permissions, video.storage, share.deep-link]
   - id: ios-builds-on-macos
-    t: The macOS workflow builds an unsigned iOS release
-    d: A manual or pull-request build compiles the simulator app and an unsigned device release. Distribution requires an Apple Developer team, a matching App Store Connect app, and Apple signing on a Mac; an unsigned artifact is not installable through TestFlight.
+    t: macOS CI builds unsigned apps and manually requested signed IPAs
+    d: Push and pull-request builds compile the simulator app and an unsigned device release without signing credentials. A separate manual workflow on main can build a signed App Store IPA using encrypted GitHub secrets. It checks the profile's bundle ID, distribution type, expiry and certificate before building. Invalid or missing signing inputs fail before archive creation. Signed app identity and build number are verified before keeping the IPA as a downloadable artifact.
+    uses: [platform.portability]
+  - id: ios-testflight-upload-is-manual
+    t: TestFlight uploads require an explicit manual choice
+    d: The TestFlight workflow defaults to building a signed IPA without uploading it. Upload runs only when the owner manually selects the upload operation on main and provides a unique positive build number. It uses an App Store Connect team API key, leaves beta review and tester invitations to the owner, and removes temporary signing material after the job. A check operation tests the signing setup with generated dummy credentials and never uses production secrets or uploads an app.
     uses: [platform.portability]

@@ -1,6 +1,6 @@
 # Private iPhone testing with TestFlight
 
-Foss Lift's iOS project and unsigned CI builds are ready. The remaining distribution steps need the owner's paid Apple Developer membership and Apple signing. The current `FossLift-unsigned-device.zip` cannot be uploaded to TestFlight; it contains an unsigned `.app`, not a signed distribution IPA.
+Foss Lift can build a signed distribution IPA on a GitHub-hosted Mac and optionally upload it to App Store Connect. You can do the setup from Linux or Windows. The owner's paid Apple Developer membership, signing credentials, and App Store Connect app record are required. The automatic **Build iOS** workflow still produces unsigned apps for compilation checks; use the manual **iOS TestFlight** workflow for distribution.
 
 Use a private external TestFlight group for friends. They install TestFlight and accept email invitations. They do not need access to your App Store Connect team, paid developer memberships, registered device UDIDs, or a public App Store release.
 
@@ -18,6 +18,44 @@ Use a private external TestFlight group for friends. They install TestFlight and
 | App login required | No |
 
 Use the bundle ID above consistently in the Developer portal, Xcode, signing profile, and App Store Connect. The Android identifier contains an underscore and is different. Once the Apple app record is created and builds are uploaded, changing identity is more involved than changing the display name.
+
+## Build and upload without a Mac
+
+Complete portal steps 1–3 below, then use [Actions → iOS TestFlight](https://github.com/viktorChekhovoi/foss-lift/actions/workflows/testflight.yml). The hosted `macos-26` runner provides Xcode; you do not need to install macOS locally. Steps 4–6 are an alternative for someone using a Mac directly.
+
+The repository needs these encrypted **Actions secrets** under **Settings → Secrets and variables → Actions**:
+
+| Secret | Contents |
+| --- | --- |
+| `IOS_DISTRIBUTION_P12_BASE64` | Base64 of the Apple Distribution certificate and its private key in a password-protected `.p12`. |
+| `IOS_P12_PASSWORD` | The `.p12` export password, which can differ from the original PEM private-key password. |
+| `IOS_PROVISION_PROFILE_BASE64` | Base64 of the matching App Store Connect distribution `.mobileprovision` for `com.fosslift.fosslift`. |
+| `ASC_API_PRIVATE_KEY` | The raw contents of the team API key's `.p8` file, including its PEM header and footer. |
+| `ASC_API_KEY_ID` | The API key's Key ID. |
+| `ASC_API_ISSUER_ID` | The API key's Issuer ID, a UUID from App Store Connect. |
+
+The team and profile IDs are read from the provisioning profile. The API key authorizes upload; it does not replace the certificate/private key or provisioning profile. Create the team API key in **App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys** with **Developer** access. Download it once and keep a secure backup. Do not commit signing files or paste passwords and private keys into chat. See [Apple's API-key instructions](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/) and [GitHub's signing guide](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
+
+After storing the secrets:
+
+1. Open **iOS TestFlight → Run workflow** and select branch **main**.
+2. Choose **check** once to test profile validation, temporary keychain import, app signing configuration, and cleanup using generated dummy credentials. This operation does not read production signing secrets or upload an app.
+3. Choose **build**, enter an unused positive build number such as `29`, and run it. The default operation builds without uploading. Download **signed-ipa-29** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
+4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `29` can be used for the first upload if it was only built and never uploaded.
+5. Continue with step 7 below after Apple processes the upload. The workflow does not submit beta review, create groups, invite testers, or publish an App Store release.
+
+The same explicit operations work from the GitHub CLI:
+
+```sh
+gh workflow run testflight.yml --ref main -f operation=check
+gh workflow run testflight.yml --ref main -f operation=build -f build_number=29
+# Run this separately when ready to upload:
+gh workflow run testflight.yml --ref main -f operation=upload -f build_number=29
+```
+
+Signing and upload jobs run only from `main` through manual dispatch. Pushes and pull requests do not invoke them. The signing preflight rejects missing credentials, a different app's profile, expired profiles, development/ad hoc/enterprise profiles, and a certificate that does not match the profile. Xcode then validates Apple signing while archiving and exporting. The workflow verifies the archive and exported IPA signatures, certificate, bundle ID, embedded profile, and build number before saving the artifact. Temporary keychain, profiles, extracted signing files, and upload key are removed after the job; artifact retention is 14 days.
+
+If **Prepare temporary signing credentials** fails with `p12_import`, re-enter the export password with `gh secret set IOS_P12_PASSWORD --repo viktorChekhovoi/foss-lift`. If a profile is expired or tied to an old certificate, renew the certificate/profile in the Developer portal and replace the corresponding secrets. A rejected upload's log explains whether the app record, API permissions, agreements, build number, or binary need attention. An upload accepted by the tool still needs Apple processing and any required beta review.
 
 ## 1. Activate the developer membership
 
@@ -52,7 +90,7 @@ Open [App Store Connect → Apps](https://appstoreconnect.apple.com/apps), press
 
 Create the record. If the Bundle ID is missing, check that both portals are using the same developer team and that step 2 is complete. Complete any required account agreements shown by Apple. [Apple's new-app reference](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app).
 
-## 4. Prepare a Mac for signing
+## 4. Alternative: prepare a Mac for signing
 
 Install a supported stable Xcode and its iOS platform tools. Launch it once to finish setup. Apple currently requires [Xcode 26 or later with an iOS 26 SDK or later](https://developer.apple.com/news/upcoming-requirements/?id=04282026a) for uploads. That SDK requirement is separate from the app's iOS 14 deployment target; keep the deployment target at 14.
 
@@ -148,11 +186,3 @@ Each uploaded beta build expires after 90 days. Upload the next build with a new
 Verify that a workout starts, survives backgrounding/reopening, logs sets, and finishes correctly. Test QR scanning, silent video capture/playback, and file backup/restore on a real iPhone. Check the smallest available phone at a large text size. The app requires iOS 14 or later, and the installed TestFlight client must also support the tester's OS.
 
 Android foreground notification controls, background rest alerts, and scheduled reminders are hidden on iOS. The CI builds prove compilation; these device checks verify the platform behavior.
-
-## If you do not have a Mac
-
-The Developer portal and App Store Connect steps work from Linux or Windows. Signing and archiving must run on macOS, either a local/remote Mac or a hosted macOS CI runner.
-
-The current GitHub **Build iOS** workflow only produces unsigned simulator and device apps. A conventional signed CI upload would additionally need the Apple **Team ID**, an **Apple Distribution certificate with its private key** (usually a password-protected `.p12`), a matching **App Store Connect distribution provisioning profile**, and an **App Store Connect API key** (`.p8`, Key ID, Issuer ID) for unattended upload. The upload API key does not replace the signing certificate and profile. Store these as CI secrets, never in source control or chat. This workflow does not currently sign or upload.
-
-For the hosted-runner setup, see [GitHub's certificate/profile installation guide](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications) and [Apple's API-key guide](https://developer.apple.com/documentation/AppStoreConnectAPI/creating-api-keys-for-app-store-connect-api).

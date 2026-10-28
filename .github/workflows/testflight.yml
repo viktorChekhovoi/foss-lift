@@ -1,0 +1,94 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Check with dummy keys, build a signed IPA, or build and upload to TestFlight
+        type: choice
+        options: [build, check, upload]
+        default: build
+        required: true
+      build_number:
+        description: Positive build number; use a new number for each Apple upload
+        type: string
+        default: '29'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: inputs.operation == 'check'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Use OpenSSL 3
+        run: echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+      - name: Install the Xcode project editor
+        run: gem install --user-install xcodeproj --version 1.28.1 --no-document
+      - name: Check profile validation, keychain import, app configuration, and cleanup
+        run: python3 -m unittest discover -s test/ci -p 'test_ios_distribution.py' -v
+      - name: Check the Apple toolchain and uploader
+        run: |
+          xcodebuild -version
+          xcrun --find altool
+
+  release:
+    if: github.ref == 'refs/heads/main' && (inputs.operation == 'build' || inputs.operation == 'upload')
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      IOS_BUILD_NUMBER: ${{ inputs.build_number }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate the build number
+        run: python3 tool/ios_signing.py validate-build-number "$IOS_BUILD_NUMBER"
+      - name: Use OpenSSL 3
+        run: echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+      - name: Install the Xcode project editor
+        run: gem install --user-install xcodeproj --version 1.28.1 --no-document
+      - name: Prepare temporary signing credentials
+        env:
+          IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+          IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+        run: python3 tool/ios_signing.py prepare
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+          cache: true
+      - name: Show Apple toolchain
+        run: xcodebuild -version
+      - run: dart tool/l10n.dart
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - name: Configure signing on the app target
+        run: ruby tool/configure_ios_signing.rb "$IOS_SIGNING_STATE"
+      - name: Archive and export the signed IPA
+        run: flutter build ipa --release --build-number="$IOS_BUILD_NUMBER" --export-options-plist="$IOS_EXPORT_OPTIONS"
+      - name: Verify the signed app and exported IPA
+        run: python3 tool/ios_signing.py verify-ipa "$IOS_BUILD_NUMBER"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: signed-ipa-${{ inputs.build_number }}
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload to App Store Connect
+        if: inputs.operation == 'upload'
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_PRIVATE_KEY: ${{ secrets.ASC_API_PRIVATE_KEY }}
+        run: python3 tool/ios_signing.py upload
+      - name: Remove temporary signing material
+        if: always()
+        run: python3 tool/ios_signing.py cleanup
