@@ -70,6 +70,10 @@ extension CloudSnapshots on AppDatabase {
       throw const FormatException('cloud_backup_invalid');
     }
     await transaction(() async {
+      // Other tabs share this record without sharing the UI's live controller.
+      if (await loadLiveSession() != null) {
+        throw const FormatException('workout_running');
+      }
       for (final table in allTables.toList().reversed) {
         await customStatement('DELETE FROM "${table.actualTableName}"');
       }

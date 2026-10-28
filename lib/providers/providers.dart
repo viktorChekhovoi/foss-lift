@@ -308,6 +308,7 @@ final reminderServiceProvider = Provider<ReminderService>(
 /// reminder, or the next training day is announced in the language the phone
 /// was in when the schedule was last edited.
 final reminderSyncProvider = Provider<void>((ref) {
+  if (!ref.watch(capabilitiesProvider).reminders) return;
   final reminders = ref.watch(routineRemindersProvider).value;
   if (reminders == null) return;
   final l10n = ref.watch(appLocalizationsProvider);
@@ -376,6 +377,7 @@ final tabAwakeSyncProvider = Provider<void>((ref) {
 ///
 /// Watch it somewhere permanent; see `main.dart`.
 final workoutShadeSyncProvider = Provider<void>((ref) {
+  if (!ref.watch(capabilitiesProvider).shade) return;
   final shade = ref.watch(workoutShadeProvider);
 
   // The buttons come back from the service's own isolate, which holds no
@@ -791,6 +793,7 @@ final videoUsageProvider = FutureProvider<int>((ref) async {
 /// see `main.dart`. Files younger than [kOrphanGrace] are left alone, which is
 /// what keeps it from deleting the set somebody is filming right now.
 final orphanSweepProvider = FutureProvider<int>((ref) async {
+  if (!ref.watch(capabilitiesProvider).setVideos) return 0;
   final db = ref.watch(databaseProvider);
   return ref
       .watch(setVideoStoreProvider)

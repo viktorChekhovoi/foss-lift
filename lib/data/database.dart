@@ -3979,7 +3979,7 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
 
-    // One batch avoids a worker round trip and disk commit for every seed row.
+    // Batch seed rows to avoid a separate worker round trip for each insert.
     await batch((b) {
       // The bars a gym is assumed to rack, both units' lists at once: the unit can
       // be switched at any time and the list for the other one should be there

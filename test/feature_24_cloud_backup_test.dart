@@ -213,6 +213,47 @@ void main() {
     expect(observed, contains(1));
   });
 
+  test(
+    'restore preserves an unfinished workout in the shared database',
+    () async {
+      final db = memoryDb();
+      addTearDown(db.close);
+      await db.createRoutine(
+        name: 'Backup program',
+        color: 'FF6A3D',
+        restSeconds: 90,
+      );
+      final snapshot = await db.exportCloudSnapshot();
+      await db.createRoutine(
+        name: 'Local program',
+        color: 'FF6A3D',
+        restSeconds: 90,
+      );
+      // Another tab can persist a workout without this screen's controller
+      // holding it. The database is the shared record of unfinished work.
+      const live = '{"private":"workout in another tab"}';
+      await db.saveLiveSession(live);
+      await expectLater(
+        db.restoreCloudSnapshot(snapshot),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'workout_running',
+          ),
+        ),
+      );
+      expect((await db.loadLiveSession())?.payload, live);
+      expect((await db.watchRoutines().first).length, 2);
+      await db.clearLiveSession();
+      await db.restoreCloudSnapshot(snapshot);
+      expect(
+        (await db.watchRoutines().first).single.routine.name,
+        'Backup program',
+      );
+    },
+  );
+
   test('oversized backup is refused before replacing local data', () async {
     final db = memoryDb();
     addTearDown(db.close);

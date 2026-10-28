@@ -19,6 +19,8 @@ dart run build_runner build --delete-conflicting-outputs   # after schema change
 
 [Browser builds and verification](docs/web-build.md), [Cloudflare and optional server backups](docs/cloud-backup.md), and [iOS builds and private TestFlight testing](docs/ios-testflight.md) cover deployment and platform setup.
 
+[The October performance review](docs/performance-review.md) records the findings, measured results, verification, and remaining setup.
+
 
 ## Contributing
 

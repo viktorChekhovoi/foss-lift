@@ -406,6 +406,8 @@ typedef _Kind = ({double kg, int g, int pairs});
 final _plateSearchCache = <String, Map<int, List<int>>>{};
 
 Map<int, List<int>> _reachablePerSide(List<_Kind> kinds, int limitG) {
+  // Each state retains one count per size; bound both dimensions of the cache.
+  if (kinds.length > 32) return _findReachablePerSide(kinds, limitG);
   final key = '$limitG|${kinds.map((k) => '${k.kg}:${k.pairs}').join(',')}';
   final cached = _plateSearchCache.remove(key);
   if (cached != null) {

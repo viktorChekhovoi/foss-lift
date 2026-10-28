@@ -29,5 +29,5 @@ groups:
     uses: [cloud.backup, cloud.auth, storage.schema, history.session-record]
   - id: restore-validates-before-replacing
     t: Restore validates before replacing local data
-    d: Restore asks for confirmation, refuses incompatible schema versions and malformed data, and replaces local rows atomically. A failure rolls back all local changes. Restore is unavailable during a live workout. No background merge or automatic overwriting occurs.
+    d: Restore asks for confirmation, refuses incompatible schema versions and malformed data, and replaces local rows atomically. A failure rolls back all local changes. Restore is unavailable when the browser database holds an unfinished workout, including one running in another tab. No background merge or automatic overwriting occurs.
     uses: [cloud.backup, storage.schema, storage.migration, session.live-state]
