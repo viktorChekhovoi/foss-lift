@@ -1,13 +1,14 @@
 // A local production-like static server for compiled-browser verification.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { brotliCompressSync, constants } from 'node:zlib';
+import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export async function serveWeb(port = 0) {
   const root = path.resolve('build/web');
+  const encoded = JSON.parse(await readFile(path.join(root, '_encodings.json'), 'utf8').catch(() => '{}'));
   const cache = new Map();
   const types = { '.js': 'application/javascript', '.mjs': 'application/javascript', '.wasm': 'application/wasm', '.html': 'text/html; charset=utf-8', '.json': 'application/json', '.ttf': 'font/ttf', '.otf': 'font/otf', '.png': 'image/png' };
   const server = createServer(async (request, response) => {
@@ -23,8 +24,10 @@ export async function serveWeb(port = 0) {
       if (!absolute.startsWith(root + path.sep)) { response.writeHead(403); response.end(); return; }
       let file = cache.get(absolute);
       if (!file) {
-        const raw = await readFile(absolute);
-        file = { raw, br: brotliCompressSync(raw, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }), etag: `"${createHash('sha256').update(raw).digest('hex')}"` };
+        const bytes = await readFile(absolute);
+        const raw = encoded[route.slice(1)] ? brotliDecompressSync(bytes) : bytes;
+        const br = encoded[route.slice(1)] ? bytes : brotliCompressSync(raw, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } });
+        file = { raw, br, etag: `"${createHash('sha256').update(bytes).digest('hex')}"` };
         cache.set(absolute, file);
       }
       const headers = {

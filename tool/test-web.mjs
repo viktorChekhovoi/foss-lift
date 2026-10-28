@@ -50,6 +50,7 @@ try {
     // A real program must survive a reload of the compiled app's browser store.
     await page.goto(`${server.url}/#/routines/library/gzclp`);
     await page.getByRole('button', { name: 'Add to my routines', exact: true }).click();
+    await page.waitForFunction(() => location.hash === '#/routines');
     await page.getByText('GZCLP', { exact: true }).first().waitFor();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => document.getElementById('boot')?.hidden);

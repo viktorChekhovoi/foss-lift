@@ -10,7 +10,7 @@ name: Deploy web
 
 on:
   push:
-    branches: [main, codex/performance-ios-cloud]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

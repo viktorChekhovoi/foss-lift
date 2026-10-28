@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:foss_lift/data/starter_routines.dart';
 import 'package:foss_lift/screens/about_screen.dart';
+import 'package:foss_lift/screens/cloud_screen.dart';
 import 'package:foss_lift/screens/backup_screen.dart';
 import 'package:foss_lift/screens/bar_settings_screen.dart';
 import 'package:foss_lift/screens/exercise_detail_screen.dart';
@@ -43,6 +44,7 @@ final Map<String, Widget Function()> kSweepScreens = {
   'theme': () => const AppearanceScreen(),
   'language': () => const LanguageScreen(),
   'about': () => const AboutScreen(),
+  'cloud backup': () => const CloudScreen(),
   // The size it would report needs a filesystem, which a test runner has no
   // plugin for; the screen renders '…' in its place and the words are the point.
   'backup': () => const BackupScreen(),
