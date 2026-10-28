@@ -40,10 +40,11 @@ A first visit still needs Flutter's rendering engine. This release retains the c
 
 - After removing the server feature, Flutter analysis is clean and the complete Flutter suite passes **1,739 tests**, with **18 existing skips**. The language and text-size sweeps continue to cover the retained screens.
 - Browser checks run the compiled Wasm and JavaScript renderers, reload a saved GZCLP routine, and reject script errors and third-party resource requests. The persistence assertion uses Flutter's combined accessible routine group after reload.
+- The static-only production release also passes both renderers, preserves a saved routine after reload, and shows Profile without account controls. The former API URL serves the static app rather than a JSON endpoint. The live privacy page describes local-only data, and the Wasm module keeps Brotli encoding and immutable caching.
 - An upgrade check loads the old deployed app, saves a GZCLP routine, verifies it after reload, installs a representative legacy Flutter cache worker, then switches the same origin to the new deployment. The routine survives, the worker unregisters, and the old static caches disappear. IndexedDB and OPFS are left intact. The database remains named `foss_lift`, and the local schema remains version 18.
 - macOS CI successfully builds both a simulator app and an unsigned release device app using Xcode 26. Physical-device camera, file-backup, and workout/background behavior still need the checks listed in [ios-testflight.md](ios-testflight.md).
 
-The final [web deployment workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40644209036) and [iOS build workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40644208956) both passed. The local `dist/ios-final/` directory holds the downloaded device and simulator ZIPs from that iOS run.
+The static-only [web deployment workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40709912759) and [iOS build workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40709912839) both passed. The local `dist/ios-static/` directory holds the downloaded device and simulator ZIPs from that iOS run.
 
 ## Static hosting and removed server feature
 
