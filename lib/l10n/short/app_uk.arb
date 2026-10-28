@@ -694,5 +694,14 @@
   "seedDayPullB": "Тяга B",
   "seedDayPushB": "Жим B",
   "seedDayLegsB": "Ноги B",
-  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%",
+  "cloudTitle": "Хмарна копія",
+  "cloudEmail": "Ел. пошта",
+  "cloudSendLink": "Надіслати посилання",
+  "cloudSave": "Зберегти копію",
+  "cloudRestore": "Відновити копію",
+  "cloudSignOut": "Вийти",
+  "cloudDeleteAccount": "Видалити акаунт",
+  "cloudRefresh": "Оновити",
+  "cloudNoBackup": "Копії ще немає"
 }

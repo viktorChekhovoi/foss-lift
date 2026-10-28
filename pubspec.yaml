@@ -117,10 +117,22 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+    - family: FossLiftMono
+      fonts:
+        - asset: assets/fonts/RobotoMono.ttf
+
   # The rest-timer tone. Synthesised rather than sourced, so there is no licence
   # attached to it and nothing to attribute — see lib/services/rest_tone.dart.
   assets:
     - assets/sound/rest_done.wav
+    - assets/fonts/Roboto_LICENSE.txt
+    - assets/fonts/RobotoMono-OFL.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -167,7 +179,8 @@ flutter:
 #     dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
+  remove_alpha_ios: true
   image_path: assets/icon/icon.png
   adaptive_icon_background: "#0E1117"
   adaptive_icon_foreground: assets/icon/icon_foreground.png
@@ -190,7 +203,7 @@ flutter_launcher_icons:
 #     dart run flutter_native_splash:create
 flutter_native_splash:
   android: true
-  ios: false
+  ios: true
   web: false
   color: "#0E1117"
   color_dark: "#0E1117"

@@ -20,3 +20,24 @@
   Cross-Origin-Embedder-Policy: require-corp
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
+  Permissions-Policy: microphone=(), geolocation=()
+
+# These paths contain a digest of every file in that app release.
+/_app/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/flutter_bootstrap.js
+  Cache-Control: no-cache
+
+/flutter_service_worker.js
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/auth/*
+  Cache-Control: no-store
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+
+/api/*
+  Cache-Control: no-store

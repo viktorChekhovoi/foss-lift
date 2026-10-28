@@ -1,114 +1,55 @@
 # Privacy Policy for Foss Lift
 
-**Last updated: 27 July 2026**
+Last updated: 28 October 2026
 
-Foss Lift is an offline workout tracker.
+Foss Lift is a workout tracker. Training works offline without an account. There are no advertising, analytics, or crash-reporting SDKs.
 
-## What we collect
+## Local training data
 
-**Nothing.** Foss Lift does not collect, transmit, sell, or share any personal
-data or usage data. 
+Routines, exercises, notes, settings and completed workouts are stored in a SQLite database in the app's private storage on Android and iOS. In the web app, the browser stores that database for the app's origin. Clearing app or site storage deletes the local copy. A private browser window may discard it when closed.
 
-## What the app stores, and where
+The native Android and iOS apps do not upload training data to our server. The Android release has no Internet permission. Browser cloud backups are optional and are described below.
 
-Everything you log or save through the app (routines, workouts, exercises, logged sets, weights
-and session history) is written to a database file in Foss Lift's private
-storage on your device. Android prevents other apps from reading it.
+## Optional browser cloud backup
 
-That data is never uploaded anywhere by Foss Lift.
+On the web, Profile → Cloud backup lets you request an email sign-in link and explicitly save or restore a backup. Signing in does not automatically upload training data. A backup contains routines, exercises, completed history, preferences, custom themes and bars. Video files and unfinished workouts are not uploaded. The service keeps one current backup, up to 1 MB, per account.
 
-**In a browser**, the same database is held by the browser itself, in the storage
-set aside for the page's address. No other site can read it and it is still never
-uploaded — but it is browser data, so clearing your browsing data deletes it, and
-a private window starts empty and keeps nothing. The Android app is the one to
-use if you want your training history to persist.
+If you use this feature, the server stores your email address, the backup you choose to save, timestamps, and cryptographic hashes of login and session tokens. Login links expire after 15 minutes and work in the browser that requested them. Sessions expire after 30 days. Credentials use secure HttpOnly cookies rather than browser localStorage. Temporary rate-limit records contain hashes of email addresses and IP addresses; they expire after their request window and are removed during subsequent sign-in cleanup.
 
-## Sharing a routine or a theme
+Cloudflare hosts the web app, API and D1 database. Resend delivers requested login emails when email delivery is configured. These providers process the information needed to provide those services, including ordinary network metadata. We do not sell training data or use it for advertising. Email links and backup content are not written to application logs.
 
-Foss Lift can turn one of your routines, or a color theme you have built, into
-a short code; that code can be shown on screen, copied to your clipboard, or handed to your phone's share flow so you can send it to someone yourself.
+Backups travel over HTTPS. They are not end-to-end encrypted: the service operator and infrastructure provider can access the stored copy. If you do not want a server copy, keep using local storage and file backups without signing in.
 
-- **Nothing is shared until the user initiates it.** 
-- **A code does not contain personal data.** It includes workout routine details or color theme configuration. No workout history or recorded video clips are shared.
+## Deleting server data
 
+Profile → Cloud backup → Delete account removes the active server backup and account, invalidates all sessions, and removes outstanding login links. Local training data stays on the device. Deleting local app data or uninstalling does not delete a server account. Infrastructure recovery backups may retain deleted records until the provider's backup retention expires.
 
-## Backups you make yourself
+## Local file backups
 
-Profile → Backup & restore writes everything the app holds — your training history, your routines and exercises, your settings and themes — into a single file, and optionally the clips you have filmed as well. This is the one feature that can carry your log off the phone, so it works only when you ask it to.
+On Android and iOS, Profile → Backup & restore creates a file containing your training database and, if selected, recorded clips. The file is created locally and handed to the system share sheet. You choose where it goes; a selected messaging or cloud-storage app has its own privacy policy. The file is not encrypted. Restoring a file replaces local data only after confirmation.
 
-- **The file is built on your phone and handed straight to the share sheet.** Where it goes from there is your choice: a cable, a message to yourself, a cloud drive. Foss Lift has no account and no server, and it cannot upload anything.
-- **The app keeps no copy.** The file is written to temporary storage on the way to the share sheet and is not retained.
-- **A backup does contain personal data** — it is your whole training log — so treat it the way you would treat any file with your data in it. It is not encrypted.
-- **Restoring replaces what is on the phone**, and the app asks before it does.
+## Sharing and external links
 
-## Network access
+Routine and theme codes are shared only when you choose to display, copy or send them. A routine code contains a training prescription, not completed history, personal exercise notes, or videos. Text you write into routine names and descriptions travels with the prescription.
 
-Foss Lift is built **without the Android `INTERNET` permission**, so it is incapable of making a network connection.
+Exercise demonstration links open your browser or YouTube app only when tapped. Bug reports open a draft in your mail app. Those external services operate under their own policies. Loading the web app's own engine, fonts and database assets does not require third-party font or rendering CDNs.
 
-The exercise library includes demo-video links. If you tap one, Foss Lift hands the address to your browser or YouTube app. 
-From that point you are visiting an ordinary website, and what happens there is covered by that site's privacy policy.
+## Camera, video and device permissions
 
-Links are only ever opened when you tap one. Foss Lift never opens anything on
-its own or in the background.
+The camera is used to scan routine/theme QR codes or record a set when you ask. Scanning examines frames locally. Set videos are silent, are stored in app-private support storage, and do not access your photo library. The app does not request microphone access for recording.
 
-## Permissions the app requests
+On Android, notification permission supports workout reminders and live workout controls. Vibration announces a rest ending; boot handling restores scheduled reminders; a foreground service keeps an active workout running. iOS does not advertise those Android-specific background controls. Browser builds do not offer camera scanning or set-video recording.
 
-- **Notifications** (`POST_NOTIFICATIONS`) -- used to send workout reminders and display the current workout in the notification bar.
-- **Vibration** (`VIBRATE`) -- vibrate the phone when a rest timer is up.
-- **Run at startup** (`RECEIVE_BOOT_COMPLETED`) -- keeps reminders working after a phone restarts.
-- **Run in foreground** (`FOREGROUND_SERVICE`) -- prevents the system from shutting down the app when you exit to the home screen or switch to another app. Required in order to keep the active workout running.
-- **Camera** (`CAMERA`) -- only used for:
-  - **Scanning a QR code** to import a routine or a color theme. The image is
-    examined on your device and immediately discarded.
-  - **Filming a set**, which creates a file in private storage. See below for more information on set videos.
+Your operating system may include app data and clips in device backups according to your Apple or Google account settings. Those backups are made by the operating system, not by the Foss Lift cloud-backup service.
 
-### Videos you record
+## Deleting local data
 
-Through Foss Lift, you can film a set while you train, and keep the clip attached 
-to its set. 
+Use the app's reset action, clear its storage, or uninstall the native app to remove local training data. In a browser, clear the site's storage. Device backups and any files you exported are separate copies and must be managed where you saved them.
 
-- **Recording is handled within the app** Foss Lift never accesses your gallery or other photos.
-- **Clips are stored in the app's private storage.** No other app can list or read them. 
-- **No audio is captured.** A recording is picture only.
-- **There is no way to upload or share a clip from this app.** Routines and
-  themes have a share sheet; videos deliberately do not. A clip leaves your
-  phone only if you move the file yourself.
+## Source and contact
 
-## Device backups
+Foss Lift's source is available in the [public repository](https://github.com/viktorChekhovoi/foss-lift) under AGPL-3.0-or-later.
 
-If Android's backup feature is enabled on your phone, the operating system
-may include Foss Lift's data in the encrypted backup it makes to your Google
-account. That copy is made by Android, not by Foss Lift, and it is governed by
-Google's privacy policy and your device settings. You can turn it off in
-Android's system settings under Backup.
+Questions about this policy: birdie.software.studios@gmail.com.
 
-This applies to videos you have recorded as well as to your training data. If
-you would rather your clips never left the device even in an encrypted backup,
-turn Android's backup off.
-
-## Third parties
-
-Foss Lift contains no advertising SDKs, no analytics SDKs, and no crash
-reporting. No third party receives any information about you through this app.
-
-## Deleting your data
-
-Uninstalling Foss Lift, or clearing its storage in Android's app settings,
-permanently deletes everything the app has stored. There is no copy held
-anywhere else for us to delete, because there is nowhere else.
-
-## Open source
-
-Foss Lift is free and open-source software. The complete source is published at
-<https://github.com/viktorChekhovoi/foss-lift> and can be read and built by
-anyone.
-
-## Changes to this policy
-
-If a future version of Foss Lift ever changes what it does with your data, this
-policy will be updated before that version is released, and the date at the top
-will change.
-
-## Contact
-
-Questions about this policy: **birdie.software.studios@gmail.com**
+This policy will be updated before a release changes how the app handles your data.

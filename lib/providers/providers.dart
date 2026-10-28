@@ -182,14 +182,12 @@ class PagedHistoryController extends AsyncNotifier<HistoryPage> {
 
   Future<HistoryPage> _firstPage() async {
     final db = ref.read(databaseProvider);
-    final rows = await db.historyPage(limit: kHistoryPageSize + 1);
-    final total = await db
-        .watchSessionCount()
-        .firstWhere((count) => count >= rows.length);
+    final window = await db.initialHistoryPage(limit: kHistoryPageSize + 1);
+    final rows = window.rows;
     return HistoryPage(
       sessions: rows.take(kHistoryPageSize).toList(),
       hasMore: rows.length > kHistoryPageSize,
-      total: total,
+      total: window.total,
     );
   }
 

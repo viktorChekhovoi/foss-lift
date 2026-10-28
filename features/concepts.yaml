@@ -760,6 +760,16 @@ concepts:
       what asks before they do, and what the app is on the other side of it.
     code: [lib/data/database.dart, lib/screens/exercise_settings_screen.dart]
 
+  - id: cloud.backup
+    area: platform
+    what: Optional, explicit server storage of a browser's training database.
+    code: [lib/data/cloud_snapshot.dart, server/api.js]
+
+  - id: cloud.auth
+    area: platform
+    what: Email login links, secure server sessions, and account deletion.
+    code: [server/api.js]
+
   - id: privacy.offline
     area: platform
     what: The promise that nothing leaves the phone, and what upholds it.

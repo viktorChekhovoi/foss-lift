@@ -43,6 +43,17 @@ void main() {
       expect(c.localFiles, isFalse);
     });
 
+    test('iOS has camera and files without Android background controls', () {
+      const c = Capabilities.ios;
+      expect(c.setVideos, isTrue);
+      expect(c.scanning, isTrue);
+      expect(c.localFiles, isTrue);
+      expect(c.shade, isFalse);
+      expect(c.backgroundAlerts, isFalse);
+      expect(c.reminders, isFalse);
+      expect(c.cloudBackups, isFalse);
+    });
+
     test('the running build reports the native set under the test runner', () {
       // The VM test runner is not a browser, so the value the app actually
       // reads must be the native one. A test that overrides the provider is

@@ -28,11 +28,64 @@
   <title>Foss Lift</title>
   <link rel="manifest" href="manifest.json">
 
+  <link rel="preload" href="sqlite3.wasm" as="fetch" type="application/wasm" crossorigin>
+
   <style>
     html, body { margin: 0; padding: 0; height: 100%; background-color: #0E1117; }
+    #boot { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-content: center; gap: 18px; padding: 24px; text-align: center; color: #e8edf4; background: #0E1117; font: 16px/1.5 system-ui, sans-serif; }
+    #boot[hidden], #boot-retry[hidden] { display: none; }
+    #boot h1 { margin: 0; font-size: 32px; letter-spacing: -1px; }
+    #boot p { margin: 0; color: #a1a9b6; max-width: 30em; }
+    #boot progress { width: min(260px, 75vw); height: 5px; margin: 0 auto; accent-color: #ff6a3d; }
+    #boot button { justify-self: center; padding: 10px 20px; font: inherit; color: #0e1117; background: #ff6a3d; border: 0; border-radius: 10px; cursor: pointer; }
   </style>
 </head>
 <body>
+  <div id="boot" role="status" aria-live="polite">
+    <h1>Foss Lift</h1>
+    <p id="boot-status">Loading your workout tracker…</p>
+    <progress aria-label="Loading"></progress>
+    <button id="boot-retry" type="button" hidden>Reload</button>
+    <noscript><p>Enable JavaScript to open your training log.</p></noscript>
+  </div>
+  <script>
+    (() => {
+      const boot = document.getElementById('boot');
+      const status = document.getElementById('boot-status');
+      const retry = document.getElementById('boot-retry');
+      let ready = false;
+      retry.addEventListener('click', () => location.reload());
+      window.addEventListener('fosslift-ready', () => {
+        ready = true;
+        performance.mark('fosslift-ready');
+        boot.hidden = true;
+      });
+      window.addEventListener('fosslift-failed', () => {
+        if (ready) return;
+        status.textContent = 'Your training log could not open. Check your connection and reload.';
+        boot.querySelector('progress').hidden = true;
+        retry.hidden = false;
+      });
+      window.addEventListener('error', (event) => {
+        if (event.target?.tagName === 'SCRIPT') window.dispatchEvent(new Event('fosslift-failed'));
+      }, true);
+      setTimeout(() => {
+        if (ready) return;
+        status.textContent = 'Still loading. A first visit needs to download the app.';
+        retry.hidden = false;
+      }, 20000);
+      // Retire Flutter's old cache worker without touching IndexedDB or OPFS.
+      // New visits rely on versioned HTTP caching instead.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          const legacy = new URL('flutter_service_worker.js', document.baseURI).href;
+          for (const registration of registrations) {
+            if (registration.active?.scriptURL === legacy) registration.update().catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    })();
+  </script>
   <!--
     The engine is loaded from this origin, never from a CDN. Two reasons, and
     both are requirements rather than preferences:
@@ -48,6 +101,6 @@
     this file. Building without that flag produces a page that fetches the
     engine remotely — see docs/web-build.md.
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js?release=__FOSS_LIFT_BOOT_VERSION__" async></script>
 </body>
 </html>

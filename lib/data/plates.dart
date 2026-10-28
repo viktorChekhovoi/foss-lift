@@ -36,8 +36,7 @@ double loadFloorKg({
   required WeightType type,
   required double defaultBarKg,
   double? barKg,
-}) =>
-    type.loadedPerSide ? (barKg ?? defaultBarKg) : 0.0;
+}) => type.loadedPerSide ? (barKg ?? defaultBarKg) : 0.0;
 
 /// Chooses the initial weight type from an exercise's equipment.
 WeightType weightTypeForEquipment(String equipment) =>
@@ -401,7 +400,29 @@ typedef _Kind = ({double kg, int g, int pairs});
 /// Per-side loads in grams → how many of each kind makes them, for every load
 /// up to [limitG]. Keyed by the load, so the same weight reached two ways is
 /// stored once — the [_betterStack] way.
+// The board asks for the same breakdown on every clock tick. Cache by value,
+// including the limit, so an edited rack cannot reuse a stale answer. Large
+// searches are left uncached to bound memory independently of user inventory.
+final _plateSearchCache = <String, Map<int, List<int>>>{};
+
 Map<int, List<int>> _reachablePerSide(List<_Kind> kinds, int limitG) {
+  final key = '$limitG|${kinds.map((k) => '${k.kg}:${k.pairs}').join(',')}';
+  final cached = _plateSearchCache.remove(key);
+  if (cached != null) {
+    _plateSearchCache[key] = cached;
+    return cached;
+  }
+  final result = _findReachablePerSide(kinds, limitG);
+  if (result.length <= 2048) {
+    if (_plateSearchCache.length >= 8) {
+      _plateSearchCache.remove(_plateSearchCache.keys.first);
+    }
+    _plateSearchCache[key] = result;
+  }
+  return result;
+}
+
+Map<int, List<int>> _findReachablePerSide(List<_Kind> kinds, int limitG) {
   var reachable = <int, List<int>>{0: List.filled(kinds.length, 0)};
   for (var i = 0; i < kinds.length; i++) {
     final next = Map<int, List<int>>.from(reachable);

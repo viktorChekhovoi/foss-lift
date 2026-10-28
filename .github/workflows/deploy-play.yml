@@ -75,9 +75,9 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter pub get
+      - run: dart tool/l10n.dart
 
-      - run: dart run tool/l10n.dart
+      - run: flutter pub get
 
       - run: flutter gen-l10n
 

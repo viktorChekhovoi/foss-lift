@@ -13,8 +13,8 @@ import 'support/harness.dart';
 import 'support/schema_v1.dart';
 
 void main() {
-  group('nothing in the app reaches the network', () {
-    test('no lib/ source imports a networking package or an HTTP client', () {
+  group('training remains offline without enabling cloud backups', () {
+    test('only the explicit cloud transport can reach the server', () {
       final lib = Directory('lib');
       expect(lib.existsSync(), isTrue, reason: 'run from the package root');
 
@@ -47,6 +47,7 @@ void main() {
         'lib/util/leave_guard_web.dart',
         'lib/services/storage_probe_web.dart',
         'lib/services/tab_awake_web.dart',
+        'lib/services/startup_signal_web.dart',
       };
 
       // What those files must still never touch. Narrower than the list above
@@ -65,6 +66,8 @@ void main() {
       final offenders = <String>[];
       for (final entity in lib.listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        // Section 24 authorizes same-origin backup requests on explicit use.
+        if (entity.path == 'lib/services/cloud_client_web.dart') continue;
         final source = entity.readAsStringSync();
         final exempt = browserApiFiles.contains(entity.path);
         for (final marker in exempt ? forbiddenBrowserApis : forbidden) {
@@ -479,7 +482,8 @@ void main() {
       await tester.pumpWidget(appUnder(container, const AboutScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Nothing leaves this phone'), findsOneWidget);
+      expect(find.text(l10nFor().aboutDataPara1), findsOneWidget);
+      expect(find.text(l10nFor().aboutDataPara2), findsOneWidget);
       // Printed as well as linked, so a phone with no mail app still leaves you
       // an address you can write down.
       expect(find.text(kContactEmail), findsOneWidget);

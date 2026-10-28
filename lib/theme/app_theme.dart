@@ -675,7 +675,7 @@ abstract final class AppType {
 /// A monospace text style for numeric data (weights, reps, timers, volume) —
 /// tabular figures so columns of digits line up like a barbell readout.
 const TextStyle kMono = TextStyle(
-  fontFamily: 'monospace',
+  fontFamily: 'FossLiftMono',
   fontFeatures: [FontFeature.tabularFigures()],
 );
 
@@ -687,7 +687,11 @@ class AppTheme {
   static ThemeData build(AppPalette palette) {
     AppColors.apply(palette);
     final isLight = palette.brightness == Brightness.light;
-    final base = ThemeData(brightness: palette.brightness, useMaterial3: true);
+    final base = ThemeData(
+      brightness: palette.brightness,
+      useMaterial3: true,
+      fontFamily: 'Roboto',
+    );
     final error = isLight ? const Color(0xFFC62828) : const Color(0xFFFF5D5D);
     final scheme = isLight
         ? ColorScheme.light(

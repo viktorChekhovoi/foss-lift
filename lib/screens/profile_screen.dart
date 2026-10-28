@@ -42,28 +42,35 @@ class ProfileScreen extends ConsumerWidget {
                   shape: BoxShape.circle,
                   color: AppColors.surface2,
                 ),
-                child: Icon(Icons.fitness_center_rounded, color: AppColors.text),
+                child: Icon(
+                  Icons.fitness_center_rounded,
+                  color: AppColors.text,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 12),
           Center(
-            child: Text(l10n.profileTitle,
-                style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w700)),
+            child: Text(
+              l10n.profileTitle,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(height: 2),
           Center(
-            child: Text(l10n.profileTagline,
-                style: kMono.copyWith(fontSize: 12, color: AppColors.muted)),
+            child: Text(
+              l10n.profileTagline,
+              style: kMono.copyWith(fontSize: 12, color: AppColors.muted),
+            ),
           ),
           const SizedBox(height: 22),
           Row(
             children: [
               _PStat(
-                  value: '$workouts',
-                  label: l10n.commonStatWorkouts,
-                  accent: true),
+                value: '$workouts',
+                label: l10n.commonStatWorkouts,
+                accent: true,
+              ),
               const SizedBox(width: 12),
               _PStat(value: '$routineCount', label: l10n.profileStatRoutines),
             ],
@@ -87,13 +94,20 @@ class ProfileScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.brightness_6_outlined,
             label: l10n.profileAppearance,
-            onTap: () => context.push(linkPath(context, '/settings/appearance')),
+            onTap: () =>
+                context.push(linkPath(context, '/settings/appearance')),
           ),
           if (ref.watch(capabilitiesProvider).localFiles)
             _SettingsTile(
               icon: Icons.save_alt_rounded,
               label: l10n.profileBackup,
               onTap: () => context.push(linkPath(context, '/backup')),
+            ),
+          if (ref.watch(capabilitiesProvider).cloudBackups)
+            _SettingsTile(
+              icon: Icons.cloud_outlined,
+              label: l10n.cloudTitle,
+              onTap: () => context.push(linkPath(context, '/cloud')),
             ),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
@@ -137,7 +151,11 @@ class _PStat extends StatelessWidget {
             Text(
               label.toUpperCase(),
               textAlign: TextAlign.center,
-              style: kMono.copyWith(fontSize: 10, letterSpacing: 0.8, color: AppColors.faint),
+              style: kMono.copyWith(
+                fontSize: 10,
+                letterSpacing: 0.8,
+                color: AppColors.faint,
+              ),
             ),
           ],
         ),
@@ -165,11 +183,16 @@ class _SettingsTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(
-          border: last ? null : Border(bottom: BorderSide(color: AppColors.line)),
+          border: last
+              ? null
+              : Border(bottom: BorderSide(color: AppColors.line)),
         ),
         child: Row(
           children: [
-            SizedBox(width: 26, child: Icon(icon, size: 20, color: AppColors.muted)),
+            SizedBox(
+              width: 26,
+              child: Icon(icon, size: 20, color: AppColors.muted),
+            ),
             const SizedBox(width: 8),
             Expanded(child: Text(label, style: const TextStyle(fontSize: 15))),
             Icon(Icons.chevron_right, color: AppColors.faint),

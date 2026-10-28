@@ -16,6 +16,7 @@ class Capabilities {
     required this.localFiles,
     required this.leaveGuard,
     required this.eagerKeyboard,
+    this.cloudBackups = false,
   });
 
   /// A phone: everything the app was written for.
@@ -34,6 +35,7 @@ class Capabilities {
   /// A browser tab. See `docs/web-build.md` for why each of these is false and
   /// what the user gets instead.
   static const Capabilities web = Capabilities(
+    cloudBackups: true,
     reminders: false,
     setVideos: false,
     scanning: false,
@@ -42,6 +44,18 @@ class Capabilities {
     localFiles: false,
     leaveGuard: true,
     eagerKeyboard: true,
+  );
+
+  /// iOS supports local training and camera/files, without Android's service.
+  static const Capabilities ios = Capabilities(
+    reminders: false,
+    setVideos: true,
+    scanning: true,
+    shade: false,
+    backgroundAlerts: false,
+    localFiles: true,
+    leaveGuard: false,
+    eagerKeyboard: false,
   );
 
   /// A routine may ask to be reminded on its training days.
@@ -86,11 +100,17 @@ class Capabilities {
   /// dialog exists would only mean a keyboard for a dialog about to be
   /// cancelled.
   final bool eagerKeyboard;
+
+  /// Optional server backups currently use same-origin browser cookies.
+  final bool cloudBackups;
 }
 
 /// The capabilities of the build that is running.
 ///
 /// Read [capabilitiesProvider] from a widget rather than this — a test
 /// overrides the provider to mount a screen as another platform would draw it.
-const Capabilities currentCapabilities =
-    kIsWeb ? Capabilities.web : Capabilities.native;
+final Capabilities currentCapabilities = kIsWeb
+    ? Capabilities.web
+    : defaultTargetPlatform == TargetPlatform.iOS
+    ? Capabilities.ios
+    : Capabilities.native;

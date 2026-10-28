@@ -8,6 +8,7 @@ import 'l10n/app_localizations.dart';
 import 'providers/providers.dart';
 import 'router.dart';
 import 'services/deep_links.dart';
+import 'services/startup_signal.dart' as startup;
 import 'state/unsaved_work.dart';
 import 'theme/app_theme.dart';
 import 'util/locales.dart';
@@ -17,14 +18,18 @@ import 'widgets/tutorial.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
-  runApp(ProviderScope(
-    overrides: [openSessionProvider.overrideWithValue(_openSession)],
-    child: const FossLiftApp(),
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
+  runApp(
+    ProviderScope(
+      overrides: [openSessionProvider.overrideWithValue(_openSession)],
+      child: const FossLiftApp(),
+    ),
+  );
 }
 
 /// Raises the live board — what the shade's Done, Missed and Start buttons do
@@ -59,6 +64,12 @@ class FossLiftApp extends ConsumerWidget {
     ref.watch(tabAwakeSyncProvider);
     final palette = ref.watch(activePaletteProvider);
     final locale = ref.watch(activeLocaleProvider);
+    if (ref.watch(themePresetIdProvider).hasError ||
+        ref.watch(customThemesProvider).hasError ||
+        ref.watch(localeTagProvider).hasError ||
+        ref.watch(unitChosenProvider).hasError) {
+      startup.startupFailed();
+    }
     // `intl` formats dates and numbers off a global rather than off the widget
     // tree, so the one place that knows the language has to tell it. Set here,
     // above the tree that reads it, so a switch reaches every NumberFormat and
@@ -82,11 +93,14 @@ class FossLiftApp extends ConsumerWidget {
     // light theme, light icons over a dark one. Re-applied here so switching to
     // a light theme flips them immediately rather than leaving them invisible.
     final light = palette.brightness == Brightness.light;
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: light ? Brightness.dark : Brightness.light,
-      statusBarBrightness: light ? Brightness.light : Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: light ? Brightness.dark : Brightness.light,
+        statusBarBrightness: light ? Brightness.light : Brightness.dark,
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => startup.appReady());
     return MaterialApp.router(
       // The screens read AppColors directly, not Theme.of, so a theme change
       // has to force the whole tree to repaint. Keying by the palette's
@@ -116,9 +130,7 @@ class FossLiftApp extends ConsumerWidget {
       builder: (context, child) => PinchTextScale(
         child: DeepLinkListener(
           router: appRouter,
-          child: TutorialOverlay(
-            child: ResumeWorkoutOverlay(child: child!),
-          ),
+          child: TutorialOverlay(child: ResumeWorkoutOverlay(child: child!)),
         ),
       ),
     );

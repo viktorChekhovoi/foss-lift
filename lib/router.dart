@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'screens/about_screen.dart';
+import 'screens/cloud_screen.dart';
 import 'screens/backup_screen.dart';
 import 'screens/bar_settings_screen.dart';
 import 'screens/exercise_detail_screen.dart';
@@ -49,7 +50,9 @@ bool insideTabShell(GoRouter go) {
 
 String _branchRootOf(GoRouter go) {
   for (final match in go.routerDelegate.currentConfiguration.matches) {
-    if (match is ShellRouteMatch) return _rootOf(_leafOf(match).matchedLocation);
+    if (match is ShellRouteMatch) {
+      return _rootOf(_leafOf(match).matchedLocation);
+    }
   }
   return '';
 }
@@ -69,6 +72,7 @@ String _rootOf(String location) {
 typedef _Browsable = ({List<String> tabs, GoRouterWidgetBuilder build});
 
 final _browsable = <String, _Browsable>{
+  '/cloud': (tabs: ['/profile'], build: (c, s) => const CloudScreen()),
   '/routine/:id': (
     tabs: ['/today', '/routines'],
     build: (c, s) =>
@@ -116,9 +120,8 @@ final _browsable = <String, _Browsable>{
   // An id edits an existing theme; `from` seeds a new one from a preset.
   '/settings/appearance/custom/:id': (
     tabs: ['/profile'],
-    build: (c, s) => CustomThemeEditorScreen(
-      themeId: int.parse(s.pathParameters['id']!),
-    ),
+    build: (c, s) =>
+        CustomThemeEditorScreen(themeId: int.parse(s.pathParameters['id']!)),
   ),
   '/settings/appearance/custom': (
     tabs: ['/profile'],
@@ -137,10 +140,10 @@ final _browsable = <String, _Browsable>{
 
 /// Builds the browsable screens hosted by [tab] as sub-routes.
 List<RouteBase> _tabRoutes(String tab) => [
-      for (final entry in _browsable.entries)
-        if (entry.value.tabs.contains(tab))
-          GoRoute(path: entry.key.substring(1), builder: entry.value.build),
-    ];
+  for (final entry in _browsable.entries)
+    if (entry.value.tabs.contains(tab))
+      GoRoute(path: entry.key.substring(1), builder: entry.value.build),
+];
 
 /// Resolves [path] under the current tab when possible, otherwise its first owning tab. Paths with no owner use the current branch root.
 String tabPath(BuildContext context, String path) {
@@ -153,8 +156,8 @@ String tabPath(BuildContext context, String path) {
 /// Resolves a link to [path] for the current shell context.
 String linkPath(BuildContext context, String path) =>
     _overTabShell(GoRouter.maybeOf(context) ?? appRouter)
-        ? path
-        : tabPath(context, path);
+    ? path
+    : tabPath(context, path);
 
 /// Whether a configured route is stacked over the tab shell.
 bool _overTabShell(GoRouter go) =>
@@ -178,13 +181,13 @@ List<String> _tabsFor(String path) {
 
 /// Builds the legacy bare route for a browsable screen. It redirects into a hosting tab unless the route is already stacked over the shell.
 GoRoute _bareRoute(String path, _Browsable screen) => GoRoute(
-      path: path,
-      redirect: (context, state) => _overTabShell(
-              GoRouter.maybeOf(context) ?? appRouter)
-          ? null
-          : state.uri.replace(path: tabPath(context, state.uri.path)).toString(),
-      builder: screen.build,
-    );
+  path: path,
+  redirect: (context, state) =>
+      _overTabShell(GoRouter.maybeOf(context) ?? appRouter)
+      ? null
+      : state.uri.replace(path: tabPath(context, state.uri.path)).toString(),
+  builder: screen.build,
+);
 
 final appRouter = GoRouter(
   initialLocation: '/today',
@@ -229,7 +232,9 @@ final appRouter = GoRouter(
           ],
         ),
         StatefulShellBranch(
-          routes: [GoRoute(path: '/history', builder: (c, s) => const HistoryScreen())],
+          routes: [
+            GoRoute(path: '/history', builder: (c, s) => const HistoryScreen()),
+          ],
         ),
         StatefulShellBranch(
           routes: [
@@ -270,7 +275,10 @@ final appRouter = GoRouter(
       builder: (c, s) =>
           WorkoutEditScreen(workoutId: int.parse(s.pathParameters['id']!)),
     ),
-    GoRoute(path: '/library/new', builder: (c, s) => const ExerciseFormScreen()),
+    GoRoute(
+      path: '/library/new',
+      builder: (c, s) => const ExerciseFormScreen(),
+    ),
     GoRoute(
       path: '/exercise/:id/edit',
       builder: (c, s) =>

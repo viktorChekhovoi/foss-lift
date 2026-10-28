@@ -16,7 +16,7 @@ Flutter widgets  ──watch──►  Riverpod providers  ──call──►  
 
 - **UI never touches SQLite directly.** Screens read providers; providers call
   methods on the single `AppDatabase`.
-- **Everything is offline & on-device.** No network, no auth, no telemetry.
+- **Training is offline and on-device.** Optional browser cloud backups use explicit save/restore actions and same-origin email authentication; there is no telemetry. Native apps retain local file backups. See `docs/cloud-backup.md`.
 - **Weights are stored in kilograms.** The chosen unit (kg/lb) is a display
   concern only — see `util/units.dart`.
 - **The live workout is intentionally not in the DB** until you finish it. It
@@ -254,12 +254,20 @@ the starter library only the Plank is held.
   the builder never gave a number appears on the recap like any other. With no
   target and no weight there is genuinely nothing to move, and nothing is
   invented — "load 2.5 kg onto a push-up".
-`_seed()` populates the starter library (~85 exercises, from the
+`_seed()` populates the starter library (133 exercises, from the
 `_starterLibrary` table above it — keyed by the group each movement *files*
 under, with the rest of what it trains and assists beside it), the racked bars and
 the settings row — and **no routines at all**. The thirteen programs the app ships
 live in the routine library instead, and arrive only when somebody adds one; see
 below.
+
+First-run rows and finished-session sets use batches to avoid a worker round trip per row. Copying a starter routine reads the exercise library once and batches its slots. The first history page reads its rows and count in one transaction; it never waits for a later count to catch up. The plate solver retains a bounded cache of small searches keyed by inventory values and target limit.
+
+`data/cloud_snapshot.dart` exports the same tables as portable JSON, excluding live sessions. Restore validates the format, schema, row shape and foreign keys before committing a single replacement transaction. It does not change the local schema or existing file backup format. `services/cloud_client_web.dart` is the sole outbound transport and is reached only through the optional `CloudScreen` in Profile. Its native conditional export reports unavailable.
+
+`server/api.js` runs in Cloudflare Pages Functions under `/api/*`. D1 holds accounts, one-use browser-bound email link hashes, secure session hashes and one versioned backup per account. `wrangler.jsonc`, `migrations/`, and `tool/provision-cloud.mjs` define and provision this infrastructure. Static requests bypass Functions. See `docs/cloud-backup.md` for secrets, permissions and free-tier limits.
+
+`ios/` is a native Runner project with camera disclosure, silent video capture, Foss Lift URL registration, and the app's icon and splash screen. iOS has a separate capability set: camera and local files are available; Android background controls and reminders are hidden. The macOS workflow builds unsigned device and simulator apps; signing and TestFlight setup are documented in `docs/ios-testflight.md`.
 
 `database.g.dart` is generated — after editing tables/`@DriftDatabase`, run:
 ```

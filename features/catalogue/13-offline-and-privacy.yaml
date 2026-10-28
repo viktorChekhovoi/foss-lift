@@ -1,6 +1,6 @@
 id: "13"
 title: Offline & privacy
-tagline: All data stays on-device; the app has no network, account, or telemetry.
+tagline: Training works offline; server backups are an explicit browser-only choice. No telemetry.
 screen: about
 code:
 - lib/screens/about_screen.dart
@@ -15,16 +15,18 @@ groups:
 - name: What it does
   items:
   - id: makes-no-network-connections-collects
-    t: Makes no network connections and collects no telemetry
+    t: Training works offline and collects no telemetry
     d: >-
-      The app has no account, server, or analytics and works offline. Request-capable
-      imports are prohibited except for two named browser-API files used by the web
-      build.
+      Training, routines, settings, and local history work offline without an
+      account. Optional browser cloud backups contact the app's own server only
+      when opened or used. No analytics, advertising, or telemetry is collected.
+      Network access is isolated in the cloud transport.
     screen: none
     defines:
     - privacy.offline
     uses:
     - platform.web
+    - cloud.backup
   - id: stores-all-data-device
     t: Stores all data on the current device
     d: >-

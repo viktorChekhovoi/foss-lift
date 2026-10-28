@@ -694,5 +694,14 @@
   "seedDayPullB": "Puxar B",
   "seedDayPushB": "Empurrar B",
   "seedDayLegsB": "Pernas B",
-  "itemEditorCycleWeekSummary": "{reps} · {percents}%"
+  "itemEditorCycleWeekSummary": "{reps} · {percents}%",
+  "cloudTitle": "Cópia na nuvem",
+  "cloudEmail": "Correio eletrónico",
+  "cloudSendLink": "Enviar ligação",
+  "cloudSave": "Guardar cópia",
+  "cloudRestore": "Restaurar cópia",
+  "cloudSignOut": "Terminar sessão",
+  "cloudDeleteAccount": "Eliminar conta",
+  "cloudRefresh": "Atualizar",
+  "cloudNoBackup": "Ainda sem cópia"
 }

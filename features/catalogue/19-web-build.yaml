@@ -43,8 +43,8 @@ groups:
     d: >-
       SQLite is compiled to WebAssembly and stored in the browser's origin-private
       file system or IndexedDB. The schema and Drift queries match the phone
-      build; only the storage backend differs. Data is not uploaded and is scoped
-      to that browser and machine.
+      build; only the storage backend differs. Data stays in that browser unless
+      the user explicitly saves a cloud backup.
     defines:
     - storage.database-location
     uses:
@@ -69,6 +69,27 @@ groups:
     uses:
     - privacy.offline
     - platform.web
+  - id: startup-shows-progress-and-retry
+    t: Startup shows progress and offers a retry if loading fails
+    d: >-
+      A lightweight page appears before the rendering engine downloads. It stays
+      visible until settings have loaded and a usable app screen has painted.
+      Failed engine or database startup shows an error and a reload action.
+    uses: [platform.web, storage.settings]
+  - id: wasm-with-browser-fallback
+    t: Supported browsers use the smaller WebAssembly build
+    d: >-
+      The release includes WebAssembly and JavaScript builds. Browsers supporting
+      Flutter's WebAssembly runtime use it; others use CanvasKit with the same
+      database, routines, history, and share formats.
+    uses: [platform.web, storage.database-location]
+  - id: repeat-loads-reuse-versioned-assets
+    t: Repeat visits reuse downloaded app assets
+    d: >-
+      Content-addressed app assets can be cached for a year. The page and loader
+      revalidate so an update selects the matching new assets. Database files
+      and authenticated API responses are never put in this cache.
+    uses: [platform.web, storage.durability]
 - name: Behaviour & edge cases
   items:
   - id: capabilities-absent-not-broken

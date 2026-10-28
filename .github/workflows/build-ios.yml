@@ -1,0 +1,48 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [main, codex/performance-ios-cloud]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+          cache: true
+      - name: Show Apple toolchain
+        run: xcodebuild -version
+      # Standalone Dart runs before pub get's automatic Flutter code generation.
+      - run: dart tool/l10n.dart
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - name: Build for the simulator
+        run: flutter build ios --simulator --debug --no-codesign
+      - name: Build the device release
+        env:
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+        run: flutter build ios --release --no-codesign --build-number="$IOS_BUILD_NUMBER"
+      - name: Package unsigned apps
+        run: |
+          ditto -c -k --keepParent build/ios/iphoneos/Runner.app build/ios/FossLift-unsigned-device.zip
+          ditto -c -k --keepParent build/ios/iphonesimulator/Runner.app build/ios/FossLift-simulator.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ios-apps
+          path: build/ios/FossLift-*.zip
+          if-no-files-found: error
+          retention-days: 14

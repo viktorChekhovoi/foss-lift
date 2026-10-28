@@ -1,14 +1,14 @@
 # Foss Lift
 
-A feature-rich workout tracker for Android (and a planned iOS release). 
+An open-source workout tracker for Android, iOS, and the browser.
 
 ## Getting started
 
 You need the [Flutter SDK](https://docs.flutter.dev/get-started/install) (Dart
-SDK ^3.12.2) and an Android device or emulator. There is no `ios/` directory
-yet; the port is planned, not started.
+SDK ^3.12.2). Native iOS builds require macOS and Xcode; the GitHub workflow also builds unsigned device and simulator apps.
 
 ```bash
+dart tool/l10n.dart             # before pub get's automatic localization generation
 flutter pub get
 flutter run                    # launch on a connected device/emulator
 flutter test                   # the feature tests
@@ -17,8 +17,7 @@ flutter analyze                # lints
 dart run build_runner build --delete-conflicting-outputs   # after schema changes
 ```
 
-[`RUNNING.md`](RUNNING.md) covers device and emulator setup.
-[`RELEASING.md`](RELEASING.md) covers signing and uploading to Play.
+[Browser builds and verification](docs/web-build.md), [Cloudflare and optional server backups](docs/cloud-backup.md), and [iOS builds and private TestFlight testing](docs/ios-testflight.md) cover deployment and platform setup.
 
 
 ## Contributing
@@ -34,7 +33,7 @@ See [`README.md`](features/README.md) for more details on cataloguing features.
 
 ## Privacy
 
-Foss Lift makes no network connections and collects nothing. See
+Training works offline without an account or telemetry. The browser optionally saves a server backup after email sign-in and an explicit Save action. Native apps retain their local storage and file backups. See
 [`PRIVACY.md`](PRIVACY.md).
 
 ## License

@@ -2557,6 +2557,11 @@ class AppDatabase extends _$AppDatabase {
         // can be re-described.
         description: program.description,
       );
+      final library = <String, List<Exercise>>{};
+      for (final exercise in await select(exercises).get()) {
+        (library[exercise.name] ??= []).add(exercise);
+      }
+      final pendingItems = <WorkoutItemsCompanion>[];
       var dayPosition = 0;
       for (final day in program.days) {
         final workoutId = await into(workouts).insert(
@@ -2569,9 +2574,7 @@ class AppDatabase extends _$AppDatabase {
         );
         var position = 0;
         for (final slot in day.items) {
-          final exercise = await (select(
-            exercises,
-          )..where((e) => e.name.equals(slot.exercise))).getSingleOrNull();
+          final exercise = library[slot.exercise]?.single;
           if (exercise == null) continue;
           // A held movement can only progress on time. Otherwise: a slot with no
           // suggested load has nothing to add load to, so it progresses on reps —
@@ -2596,7 +2599,7 @@ class AppDatabase extends _$AppDatabase {
           final sets = cycling
               ? slot.cycle.first.length
               : (written ? slot.customSets.length : slot.sets);
-          await into(workoutItems).insert(
+          pendingItems.add(
             WorkoutItemsCompanion.insert(
               workoutId: workoutId,
               exerciseId: exercise.id,
@@ -2653,6 +2656,7 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+      await batch((b) => b.insertAll(workoutItems, pendingItems));
       return routineId;
     });
   }
@@ -3188,6 +3192,17 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  /// A page and its count from one read snapshot. Waiting for a later count to
+  /// catch up can wait forever if a reset or restore removed sessions meanwhile.
+  Future<({List<Session> rows, int total})> initialHistoryPage({
+    int limit = 50,
+  }) => transaction(
+    () async => (
+      rows: await historyPage(limit: limit),
+      total: await _sessionCountQuery().getSingle(),
+    ),
+  );
+
   /// The most recently finished session of a routine, if it has ever been
   /// trained. Drives the next-workout suggestion.
   Stream<Session?> watchLastSessionForRoutine(int routineId) {
@@ -3245,9 +3260,11 @@ class AppDatabase extends _$AppDatabase {
           setsCompleted: Value(sets.length),
         ),
       );
-      for (final s in sets) {
-        await into(sessionSets).insert(s.copyWith(sessionId: Value(sessionId)));
-      }
+      await batch(
+        (b) => b.insertAll(sessionSets, [
+          for (final s in sets) s.copyWith(sessionId: Value(sessionId)),
+        ]),
+      );
       return sessionId;
     });
   }
@@ -3405,13 +3422,15 @@ class AppDatabase extends _$AppDatabase {
 
   // ---- Aggregate stats ----------------------------------------------------
 
-  Stream<int> watchSessionCount() {
+  Selectable<int> _sessionCountQuery() {
     final countExp = sessions.id.count();
     final q = selectOnly(sessions)
       ..addColumns([countExp])
       ..where(sessions.endedAt.isNotNull());
-    return q.watchSingle().map((row) => row.read(countExp) ?? 0);
+    return q.map((row) => row.read(countExp) ?? 0);
   }
+
+  Stream<int> watchSessionCount() => _sessionCountQuery().watchSingle();
 
   /// Lifetime volume, reps and sets over every completed set of every finished
   /// session. Volume is kg·reps, in kilograms.
@@ -3960,71 +3979,73 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
 
-    // The bars a gym is assumed to rack, both units' lists at once: the unit can
-    // be switched at any time and the list for the other one should be there
-    // when it is, the same way the plate rack is.
-    for (final unit in const ['kg', 'lb']) {
-      for (final b in namedBars(unit)) {
-        await into(bars).insert(
-          BarsCompanion.insert(
-            unit: unit,
-            name: b.name,
-            seedKey: Value(kSeedBarKeys[b.name]),
-            weightKg: b.weight,
+    // One batch avoids a worker round trip and disk commit for every seed row.
+    await batch((b) {
+      // The bars a gym is assumed to rack, both units' lists at once: the unit can
+      // be switched at any time and the list for the other one should be there
+      // when it is, the same way the plate rack is.
+      for (final unit in const ['kg', 'lb']) {
+        for (final bar in namedBars(unit)) {
+          b.insert(
+            bars,
+            BarsCompanion.insert(
+              unit: unit,
+              name: bar.name,
+              seedKey: Value(kSeedBarKeys[bar.name]),
+              weightKg: bar.weight,
+            ),
+          );
+        }
+      }
+
+      // A curated starter library. Each ships with a demo link (a YouTube
+      // search, so the link never rots).
+      void ex(
+        String name,
+        MuscleMap muscles,
+        String equip, {
+        ExerciseMeasure measure = ExerciseMeasure.reps,
+      }) {
+        final groups = muscleColumns(muscles);
+        b.insert(
+          exercises,
+          ExercisesCompanion.insert(
+            name: name,
+            // What the screens actually render from — see `seed_names.dart`.
+            seedKey: Value(kSeedExerciseKeys[name]),
+            muscleGroup: groups.muscleGroup,
+            extraPrimaryGroups: groups.extraPrimaryGroups,
+            secondaryGroups: groups.secondaryGroups,
+            equipment: Value(equip),
+            measure: Value(measure),
+            weightType: Value(_seedWeightType(name, equip)),
+            // A specific video, in the canonical short form — see
+            // [_starterDemos]. These were YouTube *searches*, which meant a
+            // results page to pick from rather than a demo, and no id for a
+            // shared routine to carry.
+            videoUrl: Value(
+              _starterDemos[name] == null
+                  ? null
+                  : youTubeUrl(_starterDemos[name]!),
+            ),
           ),
         );
       }
-    }
 
-    // A curated starter library. Each ships with a demo link (a YouTube
-    // search, so the link never rots).
-    final ids = <String, int>{};
-    final measures = <String, ExerciseMeasure>{};
-    Future<int> ex(
-      String name,
-      MuscleMap muscles,
-      String equip, {
-      ExerciseMeasure measure = ExerciseMeasure.reps,
-    }) async {
-      measures[name] = measure;
-      final groups = muscleColumns(muscles);
-      return ids[name] ??= await into(exercises).insert(
-        ExercisesCompanion.insert(
-          name: name,
-          // What the screens actually render from — see `seed_names.dart`.
-          seedKey: Value(kSeedExerciseKeys[name]),
-          muscleGroup: groups.muscleGroup,
-          extraPrimaryGroups: groups.extraPrimaryGroups,
-          secondaryGroups: groups.secondaryGroups,
-          equipment: Value(equip),
-          measure: Value(measure),
-          weightType: Value(_seedWeightType(name, equip)),
-          // A specific video, in the canonical short form — see
-          // [_starterDemos]. These were YouTube *searches*, which meant a
-          // results page to pick from rather than a demo, and no id for a
-          // shared routine to carry.
-          videoUrl: Value(
-            _starterDemos[name] == null
-                ? null
-                : youTubeUrl(_starterDemos[name]!),
-          ),
-        ),
-      );
-    }
-
-    final muscles = _starterMuscles;
-    for (final group in _starterLibrary.entries) {
-      for (final movement in group.value.entries) {
-        await ex(
-          movement.key,
-          muscles[movement.key]!,
-          movement.value.kit,
-          measure: _heldStarters.contains(movement.key)
-              ? ExerciseMeasure.time
-              : ExerciseMeasure.reps,
-        );
+      final muscles = _starterMuscles;
+      for (final group in _starterLibrary.entries) {
+        for (final movement in group.value.entries) {
+          ex(
+            movement.key,
+            muscles[movement.key]!,
+            movement.value.kit,
+            measure: _heldStarters.contains(movement.key)
+                ? ExerciseMeasure.time
+                : ExerciseMeasure.reps,
+          );
+        }
       }
-    }
+    });
 
     // **No routines.** The programs the app ships live in the routine library
     // — `data/starter_routines.dart` — and a list is what somebody put in it:

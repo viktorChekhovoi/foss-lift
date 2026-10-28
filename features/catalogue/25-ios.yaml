@@ -1,0 +1,16 @@
+id: "25"
+title: iOS
+tagline: Build the native app for iPhone and distribute beta builds with TestFlight.
+screen: none
+code: [ios/Runner/Info.plist, lib/util/capabilities.dart, .github/workflows/build-ios.yml]
+groups:
+- name: Platform support
+  items:
+  - id: ios-keeps-local-training
+    t: iOS uses the same local training database and screens
+    d: The iPhone app supports routine editing, live workouts, progression, camera scanning, silent set videos, and local file backups. Camera use is declared; clips remain in app-private storage. The app registers fosslift links. Android foreground controls, background rest alerts, and scheduled reminders are not advertised on iOS.
+    uses: [platform.portability, storage.database-location, platform.permissions, video.storage, share.deep-link]
+  - id: ios-builds-on-macos
+    t: The macOS workflow builds an unsigned iOS release
+    d: A manual or pull-request build compiles the simulator app and an unsigned device release. Distribution requires an Apple Developer team, a matching App Store Connect app, and Apple signing on a Mac; an unsigned artifact is not installable through TestFlight.
+    uses: [platform.portability]

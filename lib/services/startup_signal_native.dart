@@ -1,0 +1,2 @@
+void appReady() {}
+void startupFailed() {}

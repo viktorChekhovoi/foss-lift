@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "foss-lift",
+  "pages_build_output_dir": "./build/web",
+  "compatibility_date": "2026-10-01",
+  "send_metrics": false,
+  "vars": {
+    "APP_ORIGIN": "https://foss-lift.pages.dev",
+    "EMAIL_FROM": ""
+  }
+}

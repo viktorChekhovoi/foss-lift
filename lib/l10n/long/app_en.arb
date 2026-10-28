@@ -715,11 +715,11 @@
   "@aboutDataSection": {
     "description": "Heading over the privacy statement on the about screen. Rendered in small capitals by the app — the capitals are the app's styling, not part of the words."
   },
-  "aboutDataPara1": "Nothing leaves this phone. No account, no server, no analytics. The app asks for no network permission, so it could not send your training anywhere if it wanted to.",
+  "aboutDataPara1": "Training data stays on this device. Routines, workout history, notes and settings work offline without an account.",
   "@aboutDataPara1": {
     "description": "First paragraph of the app's privacy statement, on the about screen. This is a factual claim about what the software does and its meaning is load-bearing: translate it exactly, without softening it ('almost nothing', 'we try not to') and without embellishing it with claims it does not make. Keep it as one paragraph. 'Network permission' is the Android permission an app must declare before it can reach the internet."
   },
-  "aboutDataPara2": "Two things reach outside, and both hand off to another app you can see: opening a demo link in your browser, and passing a share code to the share sheet.",
+  "aboutDataPara2": "On the web, Cloud backup optionally stores your email address and a backup on our server when you sign in and choose Save. Videos and unfinished workouts are never uploaded. We collect no analytics or advertising data.",
   "@aboutDataPara2": {
     "description": "Second paragraph of the app's privacy statement, naming the only two exceptions to the first. Its meaning is load-bearing: translate it exactly, neither softening nor embellishing, and keep it as one paragraph. The 'share sheet' is the system dialog Android shows for sending something to another app."
   },
@@ -1233,5 +1233,66 @@
   "seedRoutineDescFitnessBasicBeginner": "A barbell introduction trained three days per week. Alternate two three-lift workouts, add weight after successful sessions, and move to a larger program after no more than three months.",
   "seedRoutineDescBodyweightfitnessRecommended": "A full-body routine trained three days per week. It uses bodyweight progressions and requires places to hang and perform rows; edit each slot when you move to a harder progression.",
   "seedRoutineDescDumbbellStopgap": "A two-workout dumbbell routine. Alternate A and B three days per week, using adjustable dumbbells or a rack of increasing weights; plank holds are entered by time.",
-  "seedRoutineDescGzclp": "Cody Lefever’s novice linear progression. Four rotating sessions pair heavy main lifts with moderate secondary lifts and higher-rep assistance work."
+  "seedRoutineDescGzclp": "Cody Lefever’s novice linear progression. Four rotating sessions pair heavy main lifts with moderate secondary lifts and higher-rep assistance work.",
+  "cloudAccountCopy": "Save routines, settings and completed workouts. Videos and unfinished workouts stay on this device.",
+  "cloudUnavailable": "Cloud backups have not been configured on this server.",
+  "cloudLinkSent": "Check your email. Open the link in this browser within 15 minutes, then press Continue.",
+  "cloudEmailInvalid": "Enter a valid email address.",
+  "cloudFailed": "Cloud backup is unavailable. Check your connection and try again.",
+  "cloudConflict": "The server backup changed on another device. Refresh before saving again.",
+  "cloudTooLarge": "This backup exceeds the 1 MB server limit. Keep using local backups.",
+  "cloudIncompatible": "This backup cannot be restored by this app version. Your local data is unchanged.",
+  "cloudLiveSession": "Finish or discard your workout before saving or restoring a backup.",
+  "cloudRestoreWarning": "Replace all local routines, settings and completed workouts with the server backup? Video files are not restored. This cannot be undone.",
+  "cloudDeleteWarning": "Permanently delete your server backup and account, and sign out on every device? Your local training data stays here.",
+  "cloudSaved": "Backup saved to the server.",
+  "cloudRestored": "Backup restored.",
+  "cloudLastBackup": "Last backup: {date}",
+  "@cloudAccountCopy": {
+    "description": "Optional browser cloud backup: cloudAccountCopy"
+  },
+  "@cloudUnavailable": {
+    "description": "Optional browser cloud backup: cloudUnavailable"
+  },
+  "@cloudLinkSent": {
+    "description": "Optional browser cloud backup: cloudLinkSent"
+  },
+  "@cloudEmailInvalid": {
+    "description": "Optional browser cloud backup: cloudEmailInvalid"
+  },
+  "@cloudFailed": {
+    "description": "Optional browser cloud backup: cloudFailed"
+  },
+  "@cloudConflict": {
+    "description": "Optional browser cloud backup: cloudConflict"
+  },
+  "@cloudTooLarge": {
+    "description": "Optional browser cloud backup: cloudTooLarge"
+  },
+  "@cloudIncompatible": {
+    "description": "Optional browser cloud backup: cloudIncompatible"
+  },
+  "@cloudLiveSession": {
+    "description": "Optional browser cloud backup: cloudLiveSession"
+  },
+  "@cloudRestoreWarning": {
+    "description": "Optional browser cloud backup: cloudRestoreWarning"
+  },
+  "@cloudDeleteWarning": {
+    "description": "Optional browser cloud backup: cloudDeleteWarning"
+  },
+  "@cloudSaved": {
+    "description": "Optional browser cloud backup: cloudSaved"
+  },
+  "@cloudRestored": {
+    "description": "Optional browser cloud backup: cloudRestored"
+  },
+  "@cloudLastBackup": {
+    "description": "Optional browser cloud backup: cloudLastBackup",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  }
 }

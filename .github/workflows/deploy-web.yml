@@ -10,7 +10,7 @@ name: Deploy web
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/performance-ios-cloud]
   pull_request:
   workflow_dispatch:
 
@@ -39,9 +39,20 @@ jobs:
           channel: stable
           cache: true
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      # pub get generates localizations automatically; its input must exist.
+      - run: dart tool/l10n.dart
+
       - run: flutter pub get
 
-      - run: dart run tool/l10n.dart
+      - run: npm ci
+
+      - name: Test cloud API and D1
+        run: npm run test:cloud
 
       # The merged .arb catalogues and generated Dart are gitignored, so a fresh
       # clone has no AppLocalizations until these run. `flutter build` would do
@@ -63,13 +74,44 @@ jobs:
       # web/_headers — with the headers on and the engine remote, the page does
       # not load at all. The flag is not optional.
       - name: Build
-        run: flutter build web --no-web-resources-cdn
+        run: flutter build web --release --wasm --optimization-level=4 --no-web-resources-cdn
+
+      - name: Version app assets for browser caching
+        run: npm run prepare:web
+
+      - name: Install browser for release verification
+        run: npx playwright install --with-deps chromium
+
+      - name: Check both browser renderers and local storage
+        run: npm run test:web
+
+      - name: Keep browser verification results
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-verification
+          path: build/web-verification
 
       # web/_headers is what gives the browser cross-origin isolation, and
       # without it drift never reaches OPFS. It is copied by the build, so its
       # absence here means the build changed, not that the file is missing.
       - name: Check the headers file survived the build
         run: test -f build/web/_headers
+
+      - name: Configure free-tier D1 storage when the token permits it
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUD_EMAIL_FROM: ${{ vars.CLOUD_EMAIL_FROM }}
+          PROVISION_CLOUD: ${{ github.event_name == 'push' }}
+        run: |
+          if [ "$PROVISION_CLOUD" = "true" ]; then
+            node tool/provision-cloud.mjs --optional
+          else
+            node tool/provision-cloud.mjs --static
+          fi
 
       - name: Publish to Cloudflare Pages
         # Forks cannot read secrets. Their pull requests still get everything
@@ -94,5 +136,6 @@ jobs:
           # pull request reviewable in a real browser.
           command: >-
             pages deploy build/web
+            --config=build/wrangler.deploy.json
             --project-name=foss-lift
             --branch=${{ github.head_ref || github.ref_name }}
