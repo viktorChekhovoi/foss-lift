@@ -39,7 +39,7 @@ The team and profile IDs are read from the provisioning profile. The API key aut
 After storing the secrets:
 
 1. Open **iOS TestFlight → Run workflow** and select branch **main**.
-2. Choose **check** once to test profile validation, temporary keychain import, app signing configuration, and cleanup using generated dummy credentials. This operation does not read production signing secrets or upload an app.
+2. Choose **check** once to test profile validation, temporary keychain import, app signing configuration, a signed fixture IPA, certificate mismatch rejection, and cleanup using generated dummy credentials. This operation does not read production signing secrets or upload an app.
 3. Choose **build**, enter an unused positive build number such as `29`, and run it. The default operation builds without uploading. Download **signed-ipa-29** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
 4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `29` can be used for the first upload if it was only built and never uploaded.
 5. Continue with step 7 below after Apple processes the upload. The workflow does not submit beta review, create groups, invite testers, or publish an App Store release.
@@ -56,6 +56,12 @@ gh workflow run testflight.yml --ref main -f operation=upload -f build_number=29
 Signing and upload jobs run only from `main` through manual dispatch. Pushes and pull requests do not invoke them. The signing preflight rejects missing credentials, a different app's profile, expired profiles, development/ad hoc/enterprise profiles, and a certificate that does not match the profile. Xcode then validates Apple signing while archiving and exporting. The workflow verifies the archive and exported IPA signatures, certificate, bundle ID, embedded profile, and build number before saving the artifact. Temporary keychain, profiles, extracted signing files, and upload key are removed after the job; artifact retention is 14 days.
 
 If **Prepare temporary signing credentials** fails with `p12_import`, re-enter the export password with `gh secret set IOS_P12_PASSWORD --repo viktorChekhovoi/foss-lift`. If a profile is expired or tied to an old certificate, renew the certificate/profile in the Developer portal and replace the corresponding secrets. A rejected upload's log explains whether the app record, API permissions, agreements, build number, or binary need attention. An upload accepted by the tool still needs Apple processing and any required beta review.
+
+### Verified build
+
+On 2026-10-28, source commit `0d9940f` passed [all eight macOS signing integration checks](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40777271616) and produced [signed build 0.5.10 (29)](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40777419623). The IPA uses `com.fosslift.fosslift`, Xcode 26.6, the iOS 26.5 SDK, and an iOS 14 deployment target. Archive and IPA signatures, certificate identity, embedded profile, bundle ID, build number, and cleanup passed. The App Store Connect key and existing app record were checked through read-only API calls. The run used **build**, so Apple upload, processing, beta review, and installation on a real iPhone remain to be done.
+
+The downloaded `foss_lift.ipa` is 27,946,518 bytes; its SHA-256 is `dec788b408a703a643f86d7df3b5d05fc4970f96e9749697843db4e1b8506c99`. The run retains its **signed-ipa-29** artifact for 14 days; later builds have their own artifacts and hashes.
 
 ## 1. Activate the developer membership
 
