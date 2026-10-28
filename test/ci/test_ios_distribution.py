@@ -154,6 +154,43 @@ class DistributionProfileTest(unittest.TestCase):
             options = plistlib.loads(Path(state["export_options"]).read_bytes())
             self.assertEqual(options["method"], "app-store-connect")
             self.assertEqual(options["provisioningProfiles"], {"com.fosslift.fosslift": state["profile_uuid"]})
+            checkout = root / "fixture-checkout"
+            app = checkout / "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+            executable = app / "Fixture"
+            app.mkdir(parents=True)
+            sdk = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "--show-sdk-path"], text=True).strip()
+            subprocess.run([
+                "xcrun", "--sdk", "iphoneos", "clang", "-target", "arm64-apple-ios14.0", "-isysroot", sdk,
+                "-x", "c", "-o", str(executable), "-",
+            ], input=b"int main(void) { return 0; }", check=True, capture_output=True)
+            (app / "Info.plist").write_bytes(plistlib.dumps({
+                "CFBundleIdentifier": "com.fosslift.fosslift", "CFBundleExecutable": "Fixture",
+                "CFBundleVersion": "29", "CFBundlePackageType": "APPL",
+                "CFBundleSupportedPlatforms": ["iPhoneOS"],
+            }))
+            shutil.copyfile(profile, app / "embedded.mobileprovision")
+            subprocess.run([
+                "codesign", "--force", "--sign", state["identity_sha1"], "--keychain", state["keychain"], str(app),
+            ], check=True, capture_output=True)
+            payload = root / "Payload"
+            shutil.copytree(app, payload / "Runner.app")
+            ipa = checkout / "build/ios/ipa/Fixture.ipa"
+            ipa.parent.mkdir(parents=True)
+            subprocess.run([
+                "ditto", "-c", "-k", "--keepParent", str(payload), str(ipa),
+            ], check=True, capture_output=True)
+            verify_env = {**env, "IOS_SIGNING_STATE": str(root / "state.json")}
+            verified = subprocess.run([
+                sys.executable, str(HELPER), "verify-ipa", "29",
+            ], cwd=checkout, env=verify_env, capture_output=True, text=True)
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            state["identity_sha1"] = "A" * 40
+            (root / "state.json").write_text(json.dumps(state))
+            mismatched = subprocess.run([
+                sys.executable, str(HELPER), "verify-ipa", "29",
+            ], cwd=checkout, env=verify_env, capture_output=True, text=True)
+            self.assertNotEqual(mismatched.returncode, 0)
+            self.assertIn("ipa_certificate_mismatch", mismatched.stderr)
         finally:
             result = subprocess.run([sys.executable, str(HELPER), "cleanup"], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)

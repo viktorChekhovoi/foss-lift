@@ -4,8 +4,7 @@ An open-source workout tracker for Android, iOS, and the browser.
 
 ## Getting started
 
-You need the [Flutter SDK](https://docs.flutter.dev/get-started/install) (Dart
-SDK ^3.12.2). Native iOS builds require macOS and Xcode; the GitHub workflow also builds unsigned device and simulator apps.
+You need the [Flutter SDK](https://docs.flutter.dev/get-started/install) (Dart SDK ^3.12.2). Native iOS builds require macOS and Xcode. GitHub's hosted Macs provide automatic unsigned compilation checks and a manual workflow for signed IPAs and TestFlight uploads.
 
 ```bash
 dart tool/l10n.dart             # before pub get's automatic localization generation

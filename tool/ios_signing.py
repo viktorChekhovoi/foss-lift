@@ -196,11 +196,7 @@ def verify_ipa(number):
     run(["ditto", "-x", "-k", str(files[0]), str(exported)], error="ipa_extract_failed")
     exported_app = exported / info_files[0].removesuffix("/Info.plist")
     run(["codesign", "--verify", "--deep", "--strict", str(exported_app)], error="ipa_signature_invalid")
-    certificate_prefix = root_dir() / "ipa-certificate-"
-    run(["codesign", "-d", "--extract-certificates", str(certificate_prefix), str(exported_app)], error="ipa_certificate_missing")
-    certificate = Path(f"{certificate_prefix}0").read_bytes()
-    if hashlib.sha1(certificate).hexdigest().upper() != state["identity_sha1"]:
-        raise SigningError("ipa_certificate_mismatch")
+    run(["codesign", "--verify", "-R", f'certificate leaf = H"{state["identity_sha1"]}"', str(exported_app)], error="ipa_certificate_mismatch")
     print(f"Verified signed IPA: {BUNDLE_ID}, build {number}.")
 
 
