@@ -65,6 +65,8 @@ The downloaded `foss_lift.ipa` is 27,946,518 bytes; its SHA-256 is `dec788b408a7
 
 On 2026-10-29, [build 29 was uploaded successfully](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40882556308). Apple accepted it with warning 90068 about the iOS 15 minimum for uploads starting in April 2027. The owner confirmed there are no iOS 14 users and authorized raising the target now. New builds target iOS 15; the previous iOS 14 artifact and its review remain separate from this source change.
 
+Source commit `00a5432` passed [all nine macOS signing integration checks](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40885311631) and produced [signed build 0.5.10 (30)](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40885436076). The exported IPA declares `MinimumOSVersion = 15.0`; signature, certificate, profile, app identity, build number, deployment-target validation, and cleanup passed. This run used **build**, so uploading build 30 remains a separate manual action. Its IPA is 25,264,305 bytes with SHA-256 `41e0a19bee1bc824271d7b6104f0cebf1e0786fd80538a33b5671b3a09a86ab9`.
+
 ## 1. Activate the developer membership
 
 Sign in at [Apple Developer](https://developer.apple.com/account/) using the Apple Account that will own the app. Enable two-factor authentication. If already enrolled, use the existing team. Otherwise [enroll in the Apple Developer Program](https://developer.apple.com/programs/enroll/) and finish identity verification, agreements, and payment. The US price is **99 USD per membership year**; local pricing can differ.
