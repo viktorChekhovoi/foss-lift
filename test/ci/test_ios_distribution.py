@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "tool/ios_signing.py"
@@ -108,6 +109,29 @@ class DistributionProfileTest(unittest.TestCase):
             self.assertIn("build_number", result.stderr)
         subprocess.run([sys.executable, str(HELPER), "validate-build-number", "29"], check=True, capture_output=True)
 
+    def test_distribution_ipa_rejects_old_or_invalid_minimum_ios(self):
+        profile = self.profile().read_bytes()
+        with tempfile.TemporaryDirectory(dir=self.folder) as folder:
+            checkout = Path(folder)
+            ipa = checkout / "build/ios/ipa/Fixture.ipa"
+            ipa.parent.mkdir(parents=True)
+            state = checkout / "state.json"
+            state.write_text(json.dumps({"profile_uuid": "b653721e-1547-4f49-a0a3-569549b870e7"}))
+            env = {**os.environ, "IOS_SIGNING_STATE": str(state), "RUNNER_TEMP": str(checkout)}
+            for minimum in ["14.0", "15.invalid", None]:
+                with self.subTest(minimum=minimum):
+                    info = {"CFBundleIdentifier": "com.fosslift.fosslift", "CFBundleVersion": "29"}
+                    if minimum is not None:
+                        info["MinimumOSVersion"] = minimum
+                    with zipfile.ZipFile(ipa, "w") as archive:
+                        archive.writestr("Payload/Fixture.app/Info.plist", plistlib.dumps(info))
+                        archive.writestr("Payload/Fixture.app/embedded.mobileprovision", profile)
+                    result = subprocess.run([
+                        sys.executable, str(HELPER), "verify-ipa", "29",
+                    ], cwd=checkout, env=env, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("ipa_deployment_target", result.stderr)
+
     @unittest.skipUnless(sys.platform == "darwin", "Apple keychain integration needs macOS")
     def test_macos_prepares_app_signing_and_removes_temporary_credentials(self):
         # All keys in this test are generated fixtures, never repository secrets.
@@ -160,13 +184,14 @@ class DistributionProfileTest(unittest.TestCase):
             app.mkdir(parents=True)
             sdk = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "--show-sdk-path"], text=True).strip()
             subprocess.run([
-                "xcrun", "--sdk", "iphoneos", "clang", "-target", "arm64-apple-ios14.0", "-isysroot", sdk,
+                "xcrun", "--sdk", "iphoneos", "clang", "-target", "arm64-apple-ios15.0", "-isysroot", sdk,
                 "-x", "c", "-o", str(executable), "-",
             ], input=b"int main(void) { return 0; }", check=True, capture_output=True)
             (app / "Info.plist").write_bytes(plistlib.dumps({
                 "CFBundleIdentifier": "com.fosslift.fosslift", "CFBundleExecutable": "Fixture",
                 "CFBundleVersion": "29", "CFBundlePackageType": "APPL",
                 "CFBundleSupportedPlatforms": ["iPhoneOS"],
+                "MinimumOSVersion": "15.0",
             }))
             shutil.copyfile(profile, app / "embedded.mobileprovision")
             subprocess.run([

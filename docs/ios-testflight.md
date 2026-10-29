@@ -11,8 +11,8 @@ Use a private external TestFlight group for friends. They install TestFlight and
 | Bundle ID | `com.fosslift.fosslift` |
 | App display name | Foss Lift |
 | Version | `0.5.10` |
-| Suggested first signed build number | `29`, if not already uploaded |
-| Minimum app deployment target | iOS 14 |
+| Suggested next signed build number | `30`, if not already uploaded |
+| Minimum app deployment target | iOS 15 |
 | Privacy policy | `https://foss-lift.pages.dev/privacy/` |
 | Suggested App Store Connect SKU | `foss-lift-ios` |
 | App login required | No |
@@ -40,20 +40,20 @@ After storing the secrets:
 
 1. Open **iOS TestFlight → Run workflow** and select branch **main**.
 2. Choose **check** once to test profile validation, temporary keychain import, app signing configuration, a signed fixture IPA, certificate mismatch rejection, and cleanup using generated dummy credentials. This operation does not read production signing secrets or upload an app.
-3. Choose **build**, enter an unused positive build number such as `29`, and run it. The default operation builds without uploading. Download **signed-ipa-29** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
-4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `29` can be used for the first upload if it was only built and never uploaded.
+3. Choose **build**, enter an unused positive build number such as `30`, and run it. The default operation builds without uploading. Download **signed-ipa-30** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
+4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `30` can be uploaded if it was only built and never uploaded. Build `29` has already been accepted by Apple and must not be reused for an upload.
 5. Continue with step 7 below after Apple processes the upload. The workflow does not submit beta review, create groups, invite testers, or publish an App Store release.
 
 The same explicit operations work from the GitHub CLI:
 
 ```sh
 gh workflow run testflight.yml --ref main -f operation=check
-gh workflow run testflight.yml --ref main -f operation=build -f build_number=29
+gh workflow run testflight.yml --ref main -f operation=build -f build_number=30
 # Run this separately when ready to upload:
-gh workflow run testflight.yml --ref main -f operation=upload -f build_number=29
+gh workflow run testflight.yml --ref main -f operation=upload -f build_number=30
 ```
 
-Signing and upload jobs run only from `main` through manual dispatch. Pushes and pull requests do not invoke them. The signing preflight rejects missing credentials, a different app's profile, expired profiles, development/ad hoc/enterprise profiles, and a certificate that does not match the profile. Xcode then validates Apple signing while archiving and exporting. The workflow verifies the archive and exported IPA signatures, certificate, bundle ID, embedded profile, and build number before saving the artifact. Temporary keychain, profiles, extracted signing files, and upload key are removed after the job; artifact retention is 14 days.
+Signing and upload jobs run only from `main` through manual dispatch. Pushes and pull requests do not invoke them. The signing preflight rejects missing credentials, a different app's profile, expired profiles, development/ad hoc/enterprise profiles, and a certificate that does not match the profile. Xcode then validates Apple signing while archiving and exporting. The workflow verifies the archive and exported IPA signatures, certificate, bundle ID, embedded profile, build number, and a minimum iOS version of 15.0 or later before saving the artifact. Missing, malformed, or older deployment targets fail verification. Temporary keychain, profiles, extracted signing files, and upload key are removed after the job; artifact retention is 14 days.
 
 If **Prepare temporary signing credentials** fails with `p12_import`, re-enter the export password with `gh secret set IOS_P12_PASSWORD --repo viktorChekhovoi/foss-lift`. If a profile is expired or tied to an old certificate, renew the certificate/profile in the Developer portal and replace the corresponding secrets. A rejected upload's log explains whether the app record, API permissions, agreements, build number, or binary need attention. An upload accepted by the tool still needs Apple processing and any required beta review.
 
@@ -62,6 +62,8 @@ If **Prepare temporary signing credentials** fails with `p12_import`, re-enter t
 On 2026-10-28, source commit `0d9940f` passed [all eight macOS signing integration checks](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40777271616) and produced [signed build 0.5.10 (29)](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40777419623). The IPA uses `com.fosslift.fosslift`, Xcode 26.6, the iOS 26.5 SDK, and an iOS 14 deployment target. Archive and IPA signatures, certificate identity, embedded profile, bundle ID, build number, and cleanup passed. The App Store Connect key and existing app record were checked through read-only API calls. The run used **build**, so Apple upload, processing, beta review, and installation on a real iPhone remain to be done.
 
 The downloaded `foss_lift.ipa` is 27,946,518 bytes; its SHA-256 is `dec788b408a703a643f86d7df3b5d05fc4970f96e9749697843db4e1b8506c99`. The run retains its **signed-ipa-29** artifact for 14 days; later builds have their own artifacts and hashes.
+
+On 2026-10-29, [build 29 was uploaded successfully](https://github.com/viktorChekhovoi/foss-lift/actions/runs/40882556308). Apple accepted it with warning 90068 about the iOS 15 minimum for uploads starting in April 2027. The owner confirmed there are no iOS 14 users and authorized raising the target now. New builds target iOS 15; the previous iOS 14 artifact and its review remain separate from this source change.
 
 ## 1. Activate the developer membership
 
@@ -98,7 +100,7 @@ Create the record. If the Bundle ID is missing, check that both portals are usin
 
 ## 4. Alternative: prepare a Mac for signing
 
-Install a supported stable Xcode and its iOS platform tools. Launch it once to finish setup. Apple currently requires [Xcode 26 or later with an iOS 26 SDK or later](https://developer.apple.com/news/upcoming-requirements/?id=04282026a) for uploads. That SDK requirement is separate from the app's iOS 14 deployment target; keep the deployment target at 14.
+Install a supported stable Xcode and its iOS platform tools. Launch it once to finish setup. Apple currently requires [Xcode 26 or later with an iOS 26 SDK or later](https://developer.apple.com/news/upcoming-requirements/?id=04282026a) for uploads. The app's deployment target is iOS 15.0; this is the minimum OS supported by the app and is separate from the build SDK version.
 
 Use Flutter **3.44.8**, matching CI, and install CocoaPods if `flutter doctor -v` reports it missing. From the repository root:
 
@@ -129,7 +131,7 @@ Automatic signing on this Mac avoids manually exporting a certificate and upload
 From the repository root, after saving the signing settings:
 
 ```sh
-flutter build ipa --release --build-number=29
+flutter build ipa --release --build-number=30
 ```
 
 Use a build number not previously uploaded for this version. The command generates an archive under `build/ios/archive/` and an IPA under `build/ios/ipa/`. The version remains `0.5.10`; the build number distinguishes uploads. [Flutter's distribution instructions](https://docs.flutter.dev/deployment/ios).
@@ -189,6 +191,6 @@ Each uploaded beta build expires after 90 days. Upload the next build with a new
 
 ## Device checks before inviting friends
 
-Verify that a workout starts, survives backgrounding/reopening, logs sets, and finishes correctly. Test QR scanning, silent video capture/playback, and file backup/restore on a real iPhone. Check the smallest available phone at a large text size. The app requires iOS 14 or later, and the installed TestFlight client must also support the tester's OS.
+Verify that a workout starts, survives backgrounding/reopening, logs sets, and finishes correctly. Test QR scanning, silent video capture/playback, and file backup/restore on a real iPhone. Check the smallest available phone at a large text size. New builds require iOS 15 or later, and the installed TestFlight client must also support the tester's OS.
 
 Android foreground notification controls, background rest alerts, and scheduled reminders are hidden on iOS. The CI builds prove compilation; these device checks verify the platform behavior.

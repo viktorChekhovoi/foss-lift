@@ -54,7 +54,7 @@ The public privacy policy and About copy describe local storage again. The nativ
 
 ## iOS distribution
 
-The compiled device app uses `com.fosslift.fosslift`, version 0.5.10, and minimum iOS 14. It is unsigned and cannot be uploaded directly to TestFlight. Signing requires the owner's paid Apple Developer team. The console steps, signing command, and private external-testing group setup are in [ios-testflight.md](ios-testflight.md).
+The unsigned device app verified in this performance review used `com.fosslift.fosslift`, version 0.5.10, and minimum iOS 14. That unsigned artifact cannot be uploaded directly to TestFlight. New builds target iOS 15 and support signed CI distribution using the owner's paid Apple Developer team. Current signing and private external-testing instructions are in [ios-testflight.md](ios-testflight.md).
 
 iOS supports local training, camera scanning, silent set videos, and file backups. Android notification-shade controls, scheduled reminders, and background rest alerts are hidden.
 

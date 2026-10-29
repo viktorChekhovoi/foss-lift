@@ -184,6 +184,9 @@ def verify_ipa(number):
         info = plistlib.loads(archive.read(info_files[0]))
         if info.get("CFBundleIdentifier") != BUNDLE_ID or info.get("CFBundleVersion") != number:
             raise SigningError("ipa_app_identity_or_build_number")
+        minimum = info.get("MinimumOSVersion")
+        if not isinstance(minimum, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){0,2}", minimum) or int(minimum.split(".")[0]) < 15:
+            raise SigningError("ipa_deployment_target: iOS 15.0 or later required")
         profile_name = info_files[0].removesuffix("Info.plist") + "embedded.mobileprovision"
         embedded = root_dir() / "exported.mobileprovision"
         private_file(embedded, archive.read(profile_name))
@@ -197,7 +200,7 @@ def verify_ipa(number):
     exported_app = exported / info_files[0].removesuffix("/Info.plist")
     run(["codesign", "--verify", "--deep", "--strict", str(exported_app)], error="ipa_signature_invalid")
     run(["codesign", "--verify", "-R", f'=certificate leaf = H"{state["identity_sha1"]}"', str(exported_app)], error="ipa_certificate_mismatch")
-    print(f"Verified signed IPA: {BUNDLE_ID}, build {number}.")
+    print(f"Verified signed IPA: {BUNDLE_ID}, build {number}, minimum iOS {minimum}.")
 
 
 def upload():
