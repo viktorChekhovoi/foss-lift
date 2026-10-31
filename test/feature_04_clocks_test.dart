@@ -10,6 +10,8 @@ import 'package:foss_lift/providers/providers.dart';
 import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_buzz.dart';
 import 'package:foss_lift/services/rest_tone.dart';
+import 'package:foss_lift/services/workout_shade.dart'
+    show PendingShadeActions, pendingShadeActionsProvider;
 import 'package:foss_lift/state/active_workout.dart';
 import 'package:foss_lift/screens/workout_screen.dart';
 import 'package:foss_lift/util/format.dart';
@@ -82,6 +84,10 @@ void main() {
           RestAlarm(platformSupported: false),
         ),
         restBuzzProvider.overrideWithValue(RestBuzz(platformSupported: false)),
+        // Clock tests never use Android's persisted notification actions.
+        pendingShadeActionsProvider.overrideWithValue(
+          PendingShadeActions(read: () async => null, write: (_) async {}),
+        ),
         ...extra,
       ],
     );
