@@ -1461,7 +1461,7 @@ class _SetRow extends StatelessWidget {
 
   Color get _tone => holdingSeconds != null
       ? AppColors.accent
-      : (_entry.missedGoal ? AppColors.gold : AppColors.good);
+      : (_entry.missedGoal(unit) ? AppColors.gold : AppColors.good);
 
   @override
   Widget build(BuildContext context) {
@@ -1646,7 +1646,7 @@ class _SetRow extends StatelessWidget {
                     tone: _tone,
                   ),
                 ),
-                if (_entry.missedGoal && !holding) ...[
+                if (_entry.missedGoal(unit) && !holding) ...[
                   const SizedBox(width: 2),
                   Icon(Icons.arrow_downward_rounded, size: 13, color: _tone),
                 ],

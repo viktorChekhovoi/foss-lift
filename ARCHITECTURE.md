@@ -499,8 +499,7 @@ reminded on them.
   colour is the row, does it count) is the same either way. `cycle()` is the tap
   behaviour: goal → one fewer → … → 0 → untouched, or goal ⇄ untouched for a
   timed set, since nobody taps a plank down a second at a time. `missedGoal` is
-  a logged set that fell short on reps/seconds *or* weight (deloading to finish
-  counts as a miss). A logged set also carries `loggedOrder` — a counter, not a
+  a logged set that fell short on reps/seconds *or* weight. Weight shortfalls smaller than one fine-grid step (0.125 kg or 0.25 lb) meet the target; an exact step still misses. `missedGoal(unit)` uses the parent exercise's resolved unit, including after restoring a snapshot. The live board, progression and recap share `weightMissesGoal`, without rounding stored weights or goals. A logged set also carries `loggedOrder` — a counter, not a
   clock, handed out by `ActiveWorkout.restamp` and travelling in the snapshot —
   which is how `workout_cue.dart` knows which movement was worked *most
   recently* rather than which sits last in the list.

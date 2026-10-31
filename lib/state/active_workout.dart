@@ -77,14 +77,13 @@ class SetEntry {
 
   bool get done => logged != null;
 
-  /// A logged set that came up short — under the goal's floor, or at a weight
-  /// below the suggested one. Deloading to finish a set is still a miss.
-  bool get missedGoal => done && (logged! < goalMin || underWeight);
+  /// A logged set below the rep or duration minimum, or at least one fine-grid step below the suggested weight.
+  bool missedGoal(String unit) =>
+      done && (logged! < goalMin || underWeight(unit));
 
-  /// A logged set done at less than the load it was set. Split out from
-  /// [missedGoal] because the two failures read differently on the board:
-  /// coming down in weight to finish the set is a miss whatever the reps did.
-  bool get underWeight => done && weight < (goalWeight ?? 0) - 1e-9;
+  /// A logged set whose weight shortfall reaches the exercise's fine-grid step. Smaller differences meet the weight target; reps are judged separately by [missedGoal].
+  bool underWeight(String unit) =>
+      done && weightMissesGoal(weight, goalWeight, unit);
 
   /// Cycles the quick-log value. Timed sets toggle between goal and untouched; rep sets count down from the goal.
   void cycle() {
@@ -329,7 +328,7 @@ class ExerciseEntry {
   /// Skipping a set is a miss. The program asked for four and got three —
   /// that is not the performance the next step up should be built on.
   bool get succeeded =>
-      sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal);
+      sets.isNotEmpty && sets.every((s) => s.done && !s.missedGoal(unit));
 
   /// What this session did to the target — the whole exercise's answer, which is
   /// what progression is advanced with.
@@ -535,8 +534,10 @@ class ActiveWorkout {
   int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
   int get doneSets =>
       exercises.fold(0, (a, e) => a + e.sets.where((s) => s.done).length);
-  int get missedSets =>
-      exercises.fold(0, (a, e) => a + e.sets.where((s) => s.missedGoal).length);
+  int get missedSets => exercises.fold(
+    0,
+    (a, e) => a + e.sets.where((s) => s.missedGoal(e.unit)).length,
+  );
 
   /// Load moved, in kg. Timed sets contribute nothing — a 60-second plank is
   /// not sixty reps of anything.

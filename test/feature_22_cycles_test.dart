@@ -506,7 +506,7 @@ void main() {
           .last;
       expect(open.amrap, isTrue);
       open.logged = 9;
-      expect(open.missedGoal, isFalse, reason: '9 beats the 5 it asked for');
+      expect(open.missedGoal('kg'), isFalse, reason: '9 beats the 5 it asked for');
       ctrl.discard();
     });
 
@@ -519,7 +519,7 @@ void main() {
           .sets
           .last;
       open.logged = 3;
-      expect(open.missedGoal, isTrue);
+      expect(open.missedGoal('kg'), isTrue);
       ctrl.discard();
     });
 
@@ -539,17 +539,17 @@ void main() {
   group('a range row is judged against its own floor', () {
     test('a set inside its range is not a miss', () {
       final e = SetEntry(goal: 12, goalMin: 8, weight: 60)..logged = 9;
-      expect(e.missedGoal, isFalse);
+      expect(e.missedGoal('kg'), isFalse);
     });
 
     test('a set under the bottom of its range is', () {
       final e = SetEntry(goal: 12, goalMin: 8, weight: 60)..logged = 7;
-      expect(e.missedGoal, isTrue);
+      expect(e.missedGoal('kg'), isTrue);
     });
 
     test('a plain set is still its own floor', () {
       final e = SetEntry(goal: 8, weight: 60)..logged = 7;
-      expect(e.missedGoal, isTrue);
+      expect(e.missedGoal('kg'), isTrue);
     });
   });
 

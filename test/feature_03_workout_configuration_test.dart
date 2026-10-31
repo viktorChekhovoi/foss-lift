@@ -1454,7 +1454,7 @@ void main() {
         final e = container.read(activeWorkoutProvider)!.exercises.single;
         for (final set in e.sets) {
           expect(
-            set.missedGoal,
+            set.missedGoal(e.unit),
             isFalse,
             reason: 'finishing a back-off set at its own weight is not a miss',
           );

@@ -171,6 +171,10 @@ const double kFineGridLb = 0.25;
 double fineGridKg(String unit) =>
     unit == 'lb' ? toKg(kFineGridLb, 'lb') : kFineGridKg;
 
+/// Whether the load falls at least one fine-grid step below its goal in [unit]. Smaller shortfalls meet the weight target without changing either stored value. The epsilon keeps an exact cutoff a miss after floating-point unit conversion.
+bool weightMissesGoal(double actualKg, double? goalKg, String unit) =>
+    goalKg != null && goalKg - actualKg >= fineGridKg(unit) - 1e-9;
+
 /// [kg] put onto [fineGridKg], measured in [unit] so a pounds gym lands on a
 /// quarter pound rather than on a quarter pound's worth of kilograms.
 double snapToFineGrid(double kg, String unit) {

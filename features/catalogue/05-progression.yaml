@@ -140,11 +140,17 @@ groups:
   items:
   - id: verdict-every-planned-set-logged
     t: The verdict is "every planned set logged and none short"
-    d: >-
-      A skipped set or reduced-weight set is a miss. The same rule applies to the
-      Advanced axis: the session either reaches its live rep goal or does not.
+    d: A skipped set or a set below its rep or duration minimum is a miss. Weight shortfalls smaller than one fine-grid step in the exercise's resolved unit count as meeting the target; shortfalls at or above that step miss. The same rule applies to the Advanced axis and determines whether Finish advances progression.
     defines:
     - progression.verdict
+    uses:
+    - session.set-logging
+    - session.exercise-weight
+    - load.units
+    - load.exercise-unit
+    - load.fine-grid
+    - template.rep-target
+    - progression.advanced
   - id: recap-names-the-axis-that-actually-moved
     t: The recap reports whichever axis a slot moved on
     d: >-

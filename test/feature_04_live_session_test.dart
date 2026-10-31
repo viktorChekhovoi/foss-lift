@@ -28,6 +28,7 @@ import 'package:foss_lift/services/workout_shade.dart';
 import 'package:foss_lift/widgets/board_cells.dart';
 import 'package:foss_lift/widgets/builder_widgets.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/state/session_snapshot.dart';
 import 'package:foss_lift/state/workout_cue.dart';
 import 'package:foss_lift/theme/app_theme.dart';
 import 'package:foss_lift/util/text_scale.dart';
@@ -2965,20 +2966,96 @@ void main() {
   });
 
   group('Verdict and volume read only the working sets', () {
-    test('missedGoal is true short on reps, and short on weight', () async {
-      final ctl = await startPush();
-      final set = session().exercises[0].sets[0];
+    test(
+      'missedGoal uses the exercise precision for weight and still requires full reps',
+      () async {
+        for (final (appUnit, override) in [
+          ('kg', null),
+          ('lb', null),
+          ('kg', 'lb'),
+          ('lb', 'kg'),
+        ]) {
+          await db.setWeightUnit(appUnit);
+          final exercise = await exerciseNamed(db, 'Bench Press');
+          await db.setExerciseUnit(exercise.id, override);
+          final ctl = await startPush();
+          final bench = session().exercises[0];
+          final set = bench.sets[0];
+          final unit = override ?? appUnit;
+          final goalWeight = set.goalWeight!;
+          final cutoff = toKg(unit == 'lb' ? 0.25 : 0.125, unit);
 
-      ctl.cycleSet(0, 0); // logged at goal, at weight → a hit
-      expect(set.missedGoal, isFalse);
+          ctl.cycleSet(0, 0);
+          expect(set.missedGoal(unit), isFalse);
+          ctl.setWeight(0, 0, goalWeight - cutoff / 2);
+          expect(
+            set.missedGoal(unit),
+            isFalse,
+            reason: '$unit: below the cutoff',
+          );
 
-      ctl.setLogged(0, 0, benchGoal - 1); // short on reps
-      expect(set.missedGoal, isTrue);
+          ctl.setLogged(0, 0, benchGoal - 1);
+          expect(
+            set.missedGoal(unit),
+            isTrue,
+            reason: 'reps still have to be met',
+          );
+          ctl.setLogged(0, 0, benchGoal);
+          ctl.setWeight(0, 0, goalWeight - cutoff);
+          expect(
+            set.missedGoal(unit),
+            isTrue,
+            reason: '$unit: exactly at the cutoff',
+          );
+          ctl.setWeight(0, 0, goalWeight - cutoff - 0.001);
+          expect(
+            set.missedGoal(unit),
+            isTrue,
+            reason: '$unit: above the cutoff',
+          );
+          ctl.setWeight(0, 0, goalWeight - 0.12);
+          expect(
+            set.missedGoal(unit),
+            unit == 'lb',
+            reason: 'the override controls precision',
+          );
 
-      ctl.setLogged(0, 0, benchGoal); // back to full reps...
-      ctl.setWeight(0, 0, benchWeight - 5); // ...but under the suggested weight
-      expect(set.missedGoal, isTrue);
-    });
+          ctl.setWeight(0, 0, goalWeight - cutoff / 2);
+          for (var tap = 0; tap < benchGoal + 1; tap++) {
+            ctl.cycleSet(0, 0);
+          }
+          expect(set.logged, isNull);
+          ctl.cycleSet(0, 0);
+          expect(set.logged, benchGoal);
+          expect(set.missedGoal(unit), isFalse);
+          for (var si = 1; si < bench.sets.length; si++) {
+            ctl.cycleSet(0, si);
+          }
+          expect(bench.succeeded, isTrue);
+
+          final restored = decodeSession(encodeSession(session()))!;
+          expect(
+            restored.exercises[0].sets[0].missedGoal(
+              restored.exercises[0].unit,
+            ),
+            isFalse,
+          );
+          expect(restored.exercises[0].succeeded, isTrue);
+
+          final id = await ctl.finish();
+          final saved = (await db.setsForSession(id!)).first;
+          expect(saved.weight, goalWeight - cutoff / 2);
+          expect(saved.goalWeight, goalWeight);
+          final outcome = container!
+              .read(lastProgressionProvider)!
+              .outcomes
+              .firstWhere((o) => o.name == 'Bench Press');
+          expect(outcome.moved, greaterThan(0));
+          container!.dispose();
+          container = null;
+        }
+      },
+    );
 
     test('succeeded needs every planned set logged and none short', () async {
       final ctl = await startPush();
@@ -3350,7 +3427,7 @@ void main() {
 
       expect(session().exercises[0].sets[0].logged, benchGoal);
         expect(
-          session().exercises[0].sets[0].missedGoal,
+          session().exercises[0].sets[0].missedGoal(session().exercises[0].unit),
           isFalse,
           reason: 'at the goal is a hit',
         );
@@ -3429,7 +3506,7 @@ void main() {
 
       expect(session().exercises[0].sets[0].logged, benchGoal - 1);
       expect(
-        session().exercises[0].sets[0].missedGoal,
+        session().exercises[0].sets[0].missedGoal(session().exercises[0].unit),
         isTrue,
         reason: 'it lands gold, which is the point of seeding it short',
       );
@@ -4378,7 +4455,7 @@ void main() {
       await tester.pump();
 
       final row = session().exercises[0].sets[1];
-      expect(row.missedGoal, isTrue);
+      expect(row.missedGoal(session().exercises[0].unit), isTrue);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('0-1-Bench Press')),

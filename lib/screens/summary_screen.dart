@@ -514,7 +514,7 @@ class _SessionExerciseRow extends StatelessWidget {
           : s.weight * s.reps > best.weight * best.reps;
       if (better) best = s;
     }
-    final missed = sets.where(setMissedGoal).length;
+    final missed = sets.where((set) => setMissedGoal(set, unit: unit)).length;
     final filmed = sets.where((s) => s.videoPath != null).length;
     final w = best.weight == 0
         ? l10n.summaryBodyweightShort

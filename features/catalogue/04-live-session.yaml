@@ -777,10 +777,16 @@ groups:
     - session.hold-timer
   - id: missed-set-one-fell-short
     t: A missed set is one that fell short on reps/seconds or weight
-    d: deloading to finish counts as a miss. This feeds progression.
+    d: A logged set misses its goal when it falls below the rep or duration minimum, or its weight is at least 0.125 kg or 0.25 lb below the target in the exercise's resolved unit. Smaller weight differences count as meeting the target; a shortfall exactly at the cutoff still misses. The same rule controls row colour and progression and survives restoring the session. Actual weights and targets are retained without rounding or rewriting them.
     screen: none
     uses:
     - progression.verdict
+    - session.set-logging
+    - session.live-state
+    - session.exercise-weight
+    - load.units
+    - load.exercise-unit
+    - load.fine-grid
 - name: Cardio machines
   screen: session
   uses:

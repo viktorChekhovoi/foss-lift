@@ -312,7 +312,7 @@ void main() {
           at.reps! - 1,
           reason: 'one short lands gold, not green',
         );
-        expect(set.missedGoal, isTrue);
+        expect(set.missedGoal(session().exercises[at.exerciseIndex].unit), isTrue);
         expect(opened, 1, reason: 'the number is one you are meant to correct');
         expect(
           session().restLeft,
@@ -392,7 +392,7 @@ void main() {
       expect(back.exercises, hasLength(5));
       expect(back.exercises[0].sets[0].logged, 8);
       expect(back.exercises[0].sets[1].logged, 7);
-      expect(back.exercises[0].sets[1].missedGoal, isTrue);
+      expect(back.exercises[0].sets[1].missedGoal(back.exercises[0].unit), isTrue);
       expect(back.doneSets, 2);
       expect(back.exercises[1].workingKg, 47.5);
       expect(
@@ -606,7 +606,7 @@ void main() {
         at.reps! - 1,
         reason: 'the press was made; the app being dead is not an answer',
       );
-      expect(set.missedGoal, isTrue);
+      expect(set.missedGoal(session().exercises[at.exerciseIndex].unit), isTrue);
       expect(
         back.restLeft,
         greaterThan(0),

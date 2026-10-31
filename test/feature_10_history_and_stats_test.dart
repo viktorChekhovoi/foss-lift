@@ -68,15 +68,26 @@ void main() {
     return {for (final w in workouts) w.name: w.id};
   }
 
-  /// Drives the live controller through a clean session of [workoutId] (every
-  /// set logged at its goal) and finishes it, returning the new session id.
-  Future<int> finishClean(container, int workoutId, String name) async {
+  /// Logs every planned rep or duration goal through the live controller, optionally reducing each load by [shortfallKg], and finishes the session.
+  Future<int> finishAtFullReps(
+    container,
+    int workoutId,
+    String name, {
+    double shortfallKg = 0,
+  }) async {
     final notifier = container.read(activeWorkoutProvider.notifier);
     await notifier.start(workoutId: workoutId, name: name);
     final s = container.read(activeWorkoutProvider)!;
     for (var ei = 0; ei < s.exercises.length; ei++) {
       for (var si = 0; si < s.exercises[ei].sets.length; si++) {
         notifier.cycleSet(ei, si); // first tap claims the goal → logged, clean
+        if (shortfallKg > 0) {
+          notifier.setWeight(
+            ei,
+            si,
+            s.exercises[ei].sets[si].weight - shortfallKg,
+          );
+        }
       }
     }
     return (await notifier.finish())!;
@@ -589,7 +600,7 @@ void main() {
       'finishing tags the report with that session id and reports its slots',
       () async {
         final push = (await pplWorkouts(db))['Push']!;
-        final id = await finishClean(container, push, 'Push');
+        final id = await finishAtFullReps(container, push, 'Push');
 
         final report = container.read(lastProgressionProvider);
         expect(report, isNotNull);
@@ -600,7 +611,7 @@ void main() {
 
     test('a starting a fresh session clears the previous report', () async {
       final workouts = await pplWorkouts(db);
-      await finishClean(container, workouts['Push']!, 'Push');
+      await finishAtFullReps(container, workouts['Push']!, 'Push');
       expect(container.read(lastProgressionProvider), isNotNull);
 
       // Beginning the next session clears the banner the last one left behind.
@@ -641,7 +652,7 @@ void main() {
         ),
       ]);
 
-      await finishClean(container, wid, 'T');
+      await finishAtFullReps(container, wid, 'T');
 
       final names = container
           .read(lastProgressionProvider)!
@@ -676,7 +687,9 @@ void main() {
       late int id;
       await tester.runAsync(() async {
         final push = (await pplWorkouts(db))['Push']!;
-        id = await finishClean(container, push, 'Push');
+        final bench = await exerciseNamed(db, 'Bench Press');
+        await db.setExerciseUnit(bench.id, 'lb');
+        id = await finishAtFullReps(container, push, 'Push', shortfallKg: 0.12);
       });
 
       await tester.pumpWidget(
@@ -705,6 +718,16 @@ void main() {
       expect(find.text('SESSION'), findsOneWidget);
       // Logged sets grouped by exercise.
       expect(find.text('Bench Press'), findsWidgets);
+      expect(
+        find.textContaining(l10nFor().summaryMissedCount(4), findRichText: true),
+        findsOneWidget,
+        reason: '0.12 kg misses the pounds cutoff only on the pinned Bench Press',
+      );
+      expect(
+        find.textContaining(l10nFor().summaryMissedCount(3), findRichText: true),
+        findsNothing,
+        reason: 'the kilogram exercises accept a shortfall below 0.125 kg',
+      );
 
       await stop(tester);
     });
@@ -750,7 +773,7 @@ void main() {
       late int id;
       await tester.runAsync(() async {
         final push = (await pplWorkouts(db))['Push']!;
-        id = await finishClean(container, push, 'Push');
+        id = await finishAtFullReps(container, push, 'Push');
       });
 
       await tester.pumpWidget(
@@ -775,7 +798,7 @@ void main() {
       late int id;
       await tester.runAsync(() async {
         final push = (await pplWorkouts(db))['Push']!;
-        id = await finishClean(container, push, 'Push');
+        id = await finishAtFullReps(container, push, 'Push');
       });
       expect(container.read(lastProgressionProvider), isNotNull);
 

@@ -1613,15 +1613,12 @@ int? nextWorkoutId(List<int> orderedIds, int? lastWorkoutId) {
 /// Whether a logged set fell short of what it was aiming for: fewer reps (or
 /// seconds) than the goal, or a weight below the one the template suggested.
 ///
-/// Dropping the weight counts as a miss even at full reps — deloading to finish
-/// the set is exactly the failure progression needs to see. A set that recorded
-/// no goal at all — zero reps to beat and no suggested weight — never reads as
-/// a failure, since there was nothing to fall short of.
-bool setMissedGoal(SessionSet s) {
+/// Weight shortfalls use the same fine-grid tolerance as the live board, in the exercise's displayed [unit]. A set with no goal has nothing to fall short of.
+bool setMissedGoal(SessionSet s, {String unit = 'kg'}) {
   final short = s.goalSeconds == null
       ? s.reps < s.goalReps
       : (s.seconds ?? 0) < s.goalSeconds!;
-  return short || (s.goalWeight != null && s.weight < s.goalWeight! - 1e-9);
+  return short || weightMissesGoal(s.weight, s.goalWeight, unit);
 }
 
 // A slot's target in words — "4 × 6–8", "3 × Failure" — is formatted by

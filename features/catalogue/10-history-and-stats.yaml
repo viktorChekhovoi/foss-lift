@@ -19,10 +19,7 @@ groups:
   items:
   - id: post-session-recap
     t: A recap opens after a session is finished
-    d: >-
-      It shows a "Workout logged" heading, session name, duration and completed-set
-      tiles, progression results for each exercise, and logged sets grouped by
-      exercise.
+    d: It shows a "Workout logged" heading, session name, duration and completed-set tiles, progression results for each exercise, and logged sets grouped by exercise. Missed-set counts use the same fine-grid weight tolerance as the live board, in the exercise's displayed unit. Reading a recap never rounds or rewrites saved weights or targets.
     screen: summary
     defines:
     - session.recap
@@ -30,6 +27,10 @@ groups:
     - session.finish
     - history.session-record
     - progression.rates
+    - progression.verdict
+    - load.units
+    - load.exercise-unit
+    - load.fine-grid
   - id: session-history
     t: Finished sessions appear in History
     d: >-
