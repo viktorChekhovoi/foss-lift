@@ -890,6 +890,20 @@ void main() {
     Finder chip(String group, int row) => find.text(group).at(row);
 
     Future<void> tapChip(WidgetTester tester, String group, int row) async {
+      if (row == 1 &&
+          find.byType(ExpansionTile).evaluate().isNotEmpty &&
+          find
+              .descendant(
+                of: find.byType(ExpansionTile),
+                matching: find.text(group),
+              )
+              .evaluate()
+              .isEmpty) {
+        await tester.tap(
+          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
+        );
+        await tester.pumpAndSettle();
+      }
       await tester.tap(chip(group, row));
       await tester.pumpAndSettle();
     }
@@ -902,6 +916,10 @@ void main() {
 
     testWidgets('two rows offer the same seven groups', (tester) async {
       await openEditor(tester, await mine(tester, MuscleMap.single('Legs')));
+      await tester.tap(
+        find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
+      );
+      await tester.pumpAndSettle();
 
       for (final group in kMuscleGroups.where((g) => g != 'Other')) {
         expect(
@@ -916,6 +934,61 @@ void main() {
 
       await stop(tester);
     });
+
+    testWidgets(
+      'Beta feedback: secondary choices are optional and keep selections when collapsed',
+      (tester) async {
+        final id = await mine(tester, MuscleMap.single('Legs'));
+        await openEditor(tester, id);
+
+        expect(
+          find.text(l10nFor().exerciseMusclesTrained.toUpperCase()),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Back'),
+          findsOneWidget,
+          reason: 'only the primary picker is open without saved secondaries',
+        );
+        await tester.tap(
+          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Back'), findsNWidgets(2));
+        await tapChip(tester, 'Back', 1);
+        await tester.tap(
+          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Back'), findsOneWidget);
+
+        final saved = await save(tester, id);
+        expect(saved.muscles.primary, ['Legs']);
+        expect(saved.muscles.secondary, ['Back']);
+        await stop(tester);
+      },
+    );
+
+    testWidgets(
+      'Beta feedback: saved secondary choices are shown when an exercise is reopened',
+      (tester) async {
+        final id = await mine(
+          tester,
+          MuscleMap(primary: ['Legs'], secondary: ['Core']),
+        );
+        await openEditor(tester, id);
+        expect(find.text('Core'), findsNWidgets(2));
+        await tester.tap(
+          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Core'), findsOneWidget);
+        final saved = await save(tester, id);
+        expect(saved.muscles.primary, ['Legs']);
+        expect(saved.muscles.secondary, ['Core']);
+        await stop(tester);
+      },
+    );
 
     testWidgets('the order you tick them in is the order they are stored', (
       tester,

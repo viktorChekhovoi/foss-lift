@@ -39,6 +39,7 @@ import 'support/harness.dart';
 import 'support/seeded.dart';
 import 'package:foss_lift/util/format.dart';
 import 'package:foss_lift/util/locales.dart';
+import 'package:foss_lift/util/capabilities.dart';
 
 // The seeded PPL Push day, in template order.
 const kPushSize = 5; // Bench, Overhead, Incline DB, Lateral, Triceps
@@ -4134,6 +4135,63 @@ void main() {
   });
 
   group('A held set times itself', () {
+    testWidgets(
+      'Beta feedback: a hold includes background time and stops at the current time',
+      (tester) async {
+        var now = DateTime(2026, 10, 30, 10);
+        await pumpPlank(
+          tester,
+          overrides: [
+            clockProvider.overrideWithValue(() => now),
+            capabilitiesProvider.overrideWithValue(Capabilities.ios),
+          ],
+        );
+        final cell = repsCell('0-0-Plank');
+        await tester.tap(cell);
+        await tester.pump();
+
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        now = now.add(const Duration(seconds: 73));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(
+          find.descendant(
+            of: cell,
+            matching: find.text(l10nFor().unitSecondsShort('73')),
+          ),
+          findsOneWidget,
+        );
+
+        now = now.add(const Duration(seconds: 2));
+        await tester.tap(cell);
+        await tester.pump();
+        expect(session().exercises[0].sets[0].logged, 75);
+        await stopAll(tester);
+      },
+    );
+
+    testWidgets(
+      'Beta feedback: stopping between ticks records the whole hold',
+      (tester) async {
+        var now = DateTime(2026, 10, 30, 10);
+        await pumpPlank(
+          tester,
+          overrides: [clockProvider.overrideWithValue(() => now)],
+        );
+        final cell = repsCell('0-0-Plank');
+        await tester.tap(cell);
+        await tester.pump();
+        now = now.add(const Duration(seconds: 21));
+        await tester.tap(cell);
+        await tester.pump();
+
+        expect(session().exercises[0].sets[0].logged, 21);
+        await stopAll(tester);
+      },
+    );
+
     testWidgets('tap starts a count-up; tap again logs what it read', (
       tester,
     ) async {

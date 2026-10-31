@@ -204,12 +204,24 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
           onSelect: _togglePrimary,
         ),
         const SizedBox(height: 18),
-        _Label(l10n.exerciseMusclesAssisted),
-        _Choices(
-          options: kMuscleGroups,
-          label: (v) => muscleGroupLabel(l10n, v),
-          selected: _secondary.toSet(),
-          onSelect: _toggleSecondary,
+        ExpansionTile(
+          title: _Label(l10n.exerciseMusclesAssisted, bottomPadding: 0),
+          initiallyExpanded: _secondary.isNotEmpty,
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(top: 8),
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          iconColor: AppColors.faint,
+          collapsedIconColor: AppColors.faint,
+          children: [
+            _Choices(
+              options: kMuscleGroups,
+              label: (v) => muscleGroupLabel(l10n, v),
+              selected: _secondary.toSet(),
+              onSelect: _toggleSecondary,
+            ),
+          ],
         ),
         const SizedBox(height: 18),
         _Label(l10n.exerciseFormEquipment),
@@ -286,11 +298,12 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
 }
 
 class _Label extends StatelessWidget {
-  const _Label(this.text);
+  const _Label(this.text, {this.bottomPadding = 8});
   final String text;
+  final double bottomPadding;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, left: 2),
+    padding: EdgeInsets.only(bottom: bottomPadding, left: 2),
     child: Text(
       text.toUpperCase(),
       style: kMono.copyWith(

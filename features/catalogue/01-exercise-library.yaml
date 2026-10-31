@@ -206,14 +206,13 @@ groups:
     - exercise.weight-type
     - exercise.video-url
   - id: form-ticks-primary-then-secondary
-    t: The form ticks the primaries first, then the secondaries
-    d: >-
-      The form has separate primary and secondary rows. Selecting a group in one
-      row clears it in the other, and at least one primary is required. Primary
-      selection order is stored; the first selected group determines filing.
+    t: The form distinguishes primary muscles from optional secondary muscles
+    d: The form labels the two roles explicitly as primary and secondary muscles. Primary choices are always shown. The optional secondary picker starts collapsed when no secondary groups are saved, opens on demand, and starts expanded when editing an exercise with saved secondary groups. Collapsing the picker keeps its selections. Selecting a group in one role clears it in the other, and at least one primary is required. Primary selection order is stored; the first selected group determines filing. Existing exercises and shared routine codes keep their primary and secondary classifications.
     screen: exercise-form
     uses:
     - exercise.muscle-map
+    - exercise.identity
+    - share.routine-code
   - id: edit-them-afterwards
     t: Edit your own afterwards
     d: >-

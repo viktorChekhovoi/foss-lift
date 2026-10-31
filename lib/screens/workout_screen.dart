@@ -52,8 +52,10 @@ class WorkoutScreen extends ConsumerStatefulWidget {
   ConsumerState<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
+class _WorkoutScreenState extends ConsumerState<WorkoutScreen>
+    with WidgetsBindingObserver {
   ({int exercise, int set})? _holding;
+  DateTime? _holdStartedAt;
   int _held = 0;
   Timer? _holdTimer;
 
@@ -71,6 +73,7 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Defer the provider update until the first build has completed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -101,10 +104,31 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _holdTimer?.cancel();
     final visibility = _visibility;
     Future.microtask(() => visibility.set(false));
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncHold();
+  }
+
+  int get _holdElapsed {
+    final startedAt = _holdStartedAt;
+    if (startedAt == null) return 0;
+    return math.max(
+      0,
+      ref.read(clockProvider)().difference(startedAt).inSeconds,
+    );
+  }
+
+  void _syncHold() {
+    if (!mounted || _holding == null) return;
+    final elapsed = _holdElapsed;
+    if (elapsed != _held) setState(() => _held = elapsed);
   }
 
   void _startRest(int seconds, RestPrompt? prompt, RestSetRef forSet) => ref
@@ -160,12 +184,11 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     HapticFeedback.selectionClick();
     setState(() {
       _holding = (exercise: ei, set: si);
+      _holdStartedAt = ref.read(clockProvider)();
       _held = 0;
     });
     _holdTimer?.cancel();
-    _holdTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _held++);
-    });
+    _holdTimer = Timer.periodic(const Duration(seconds: 1), (_) => _syncHold());
   }
 
   void _stopHold() {
@@ -173,9 +196,10 @@ class _WorkoutScreenState extends ConsumerState<WorkoutScreen> {
     _holdTimer?.cancel();
     _holdTimer = null;
     if (h == null) return;
-    final seconds = _held;
+    final seconds = _holdElapsed;
     setState(() {
       _holding = null;
+      _holdStartedAt = null;
       _held = 0;
     });
     HapticFeedback.selectionClick();

@@ -2039,13 +2039,13 @@
   "@exerciseFormEditTitle": {
     "description": "App bar title of the same form while changing a movement that already exists."
   },
-  "exerciseMusclesTrained": "Trains",
+  "exerciseMusclesTrained": "Primary muscles",
   "@exerciseMusclesTrained": {
-    "description": "Field label over the chips for the muscle groups a movement trains. Rendered in small capitals by the app; write it in ordinary case."
+    "description": "Field label for the movement's primary target muscle groups, distinct from its secondary assisting muscles. Rendered in small capitals by the app; write it in ordinary case."
   },
-  "exerciseMusclesAssisted": "Also works",
+  "exerciseMusclesAssisted": "Secondary muscles",
   "@exerciseMusclesAssisted": {
-    "description": "Field label over the chips for the muscle groups a movement only assists. Rendered in small capitals by the app; write it in ordinary case."
+    "description": "Label for the movement's secondary assisting muscles, distinct from its primary targets. Also labels the optional expandable picker in the exercise form. Rendered in small capitals by the form; write it in ordinary case."
   },
   "exerciseFormEquipment": "Equipment",
   "@exerciseFormEquipment": {

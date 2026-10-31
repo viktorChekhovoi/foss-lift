@@ -490,12 +490,12 @@ groups:
     - session.live-state
   - id: clocks-read-the-time-rather-than-count
     t: Both clocks read the time rather than counting their own ticks
-    d: >-
-      Both clocks derive elapsed time from timestamps rather than decrementing a
-      counter. They remain correct across sleep, background throttling, and restore.
+    d: Workout duration and rest derive their elapsed time from timestamps rather than counting callbacks. They remain correct across sleep, background throttling, and restore. Returning to the foreground immediately refreshes both clocks before another periodic tick is needed. A rest that expired while the app was suspended is completed once on return; a later tick or another resume does not repeat its end cue.
     uses:
     - session.rest-timer
     - session.live-state
+    - session.rest-sound
+    - platform.portability
   - id: a-rest-that-ends-unwatched-ends-once
     t: A rest that ends while nothing is watching still ends, once
     d: >-
@@ -760,15 +760,14 @@ groups:
     - exercise.weight-type
   - id: held-set-times-itself
     t: A held set times itself
-    d: >-
-      The result cell starts and stops a stopwatch; elapsed seconds are logged.
-      Stopping starts rest and plays the rest tone.
+    d: The result cell starts and stops a stopwatch measured from its start timestamp. Time spent with the app in the background or without timer callbacks counts toward the held duration. Returning to the foreground immediately refreshes the displayed duration, and stopping records the time at that instant even before the next tick. Stopping starts rest and plays the rest tone.
     defines:
     - session.hold-timer
     uses:
     - session.rest-sound
     - session.rest-timer
     - exercise.measure
+    - session.live-state
   - id: only-one-hold-runs-time
     t: Only one hold runs at a time
     d: >-

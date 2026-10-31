@@ -504,12 +504,8 @@ reminded on them.
   clock, handed out by `ActiveWorkout.restamp` and travelling in the snapshot —
   which is how `workout_cue.dart` knows which movement was worked *most
   recently* rather than which sits last in the list.
-- `ActiveWorkoutController extends Notifier<ActiveWorkout?>` — null when idle.
-  `start(workoutId:)` hydrates from a workout template (deriving its routine for
-  the rest default), a 1s timer ticks `elapsed`, edits mutate in place (with a
-  `rev` bump so Riverpod rebuilds), and `finish()` writes only the completed sets
-  via `saveSession()`, then advances each exercise's progression — in that
-  order, so a template never steps up without the history to justify it.
+- `ActiveWorkoutController extends Notifier<ActiveWorkout?>` — null when idle. `start(workoutId:)` hydrates from a workout template, deriving its routine for the rest default. One-second timers refresh workout duration and rest from timestamps; returning to the foreground refreshes both immediately, including completing an expired rest once. Edits mutate in place with a `rev` bump so Riverpod rebuilds. `finish()` writes only completed sets via `saveSession()`, then advances each exercise's progression, so a template never steps up without the history to justify it.
+- `WorkoutScreen` measures a running held set from its start timestamp using the same `clockProvider`. Its periodic timer redraws the number; resuming refreshes it immediately, and stopping reads the clock again before logging. Suspended callbacks do not shorten the hold.
 - **The session survives being collapsed.** The controller is a plain
   `Notifier`, so leaving `/session` (the down-arrow just pops the route) does not
   touch the state. `widgets/resume_workout_bar.dart` watches

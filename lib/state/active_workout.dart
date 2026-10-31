@@ -897,6 +897,14 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     return null;
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // iOS can suspend both timers. Refresh before the first foreground frame and before an expired rest is mirrored.
+    _syncElapsed();
+    _syncRest();
+  }
+
   /// The binding, or null where there is none — a pure-Dart test that never
   /// started one. Nothing here needs it badly enough to fail over.
   WidgetsBinding? get _binding {

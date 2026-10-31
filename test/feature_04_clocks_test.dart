@@ -1,6 +1,7 @@
 // Integration tests for live-session clocks and browser tab keepalive (features/index.html#sec04 and #sec19).
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,8 @@ import 'package:foss_lift/services/rest_alarm.dart';
 import 'package:foss_lift/services/rest_buzz.dart';
 import 'package:foss_lift/services/rest_tone.dart';
 import 'package:foss_lift/state/active_workout.dart';
+import 'package:foss_lift/screens/workout_screen.dart';
+import 'package:foss_lift/util/format.dart';
 
 import 'support/harness.dart';
 import 'support/seeded.dart';
@@ -88,6 +91,63 @@ void main() {
   }
 
   ActiveWorkout session() => container!.read(activeWorkoutProvider)!;
+
+  group('Beta feedback: clocks refresh when the app returns', () {
+    testWidgets(
+      'duration and an unfinished rest catch up before a timer tick',
+      (tester) async {
+        final ctl = (await tester.runAsync(() => startPush()))!;
+        ctl.startRest(180, null);
+        await tester.pumpWidget(appUnder(container!, const WorkoutScreen()));
+        await tester.pump();
+
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        clock.skip(const Duration(seconds: 75));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+
+        expect(session().elapsed, 75);
+        expect(session().restLeft, 105);
+        expect(tone.played, 0);
+        await tester.pump();
+        expect(find.text(fmtDuration(75)), findsOneWidget);
+
+        await tester.runAsync(() => ctl.discard());
+        await stop(tester);
+      },
+    );
+
+    testWidgets(
+      'an expired rest ends once on return, including another resume',
+      (tester) async {
+        final ctl = (await tester.runAsync(() => startPush()))!;
+        ctl.startRest(90, null);
+
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        clock.skip(const Duration(minutes: 3));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+
+        expect(session().elapsed, 180);
+        expect(session().restLeft, 0);
+        expect(session().restDone, isTrue);
+        expect(tone.played, 1);
+
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        clock.skip(const Duration(seconds: 10));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(seconds: 2));
+        expect(session().elapsed, 190);
+        expect(tone.played, 1);
+
+        await tester.runAsync(() => ctl.discard());
+      },
+    );
+  });
 
   group('a rest knows when it is due, not how often it was asked', () {
     test(
