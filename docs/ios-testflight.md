@@ -11,7 +11,7 @@ Use a private external TestFlight group for friends. They install TestFlight and
 | Bundle ID | `com.fosslift.fosslift` |
 | App display name | Foss Lift |
 | Version | `0.5.10` |
-| Suggested next signed build number | `33`, if not already uploaded |
+| Suggested next signed build number | `34`, if not already uploaded |
 | Minimum app deployment target | iOS 15 |
 | Privacy policy | `https://foss-lift.pages.dev/privacy/` |
 | Suggested App Store Connect SKU | `foss-lift-ios` |
@@ -36,21 +36,23 @@ The repository needs these encrypted **Actions secrets** under **Settings → Se
 
 The team and profile IDs are read from the provisioning profile. The API key authorizes upload; it does not replace the certificate/private key or provisioning profile. Create the team API key in **App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys** with **Developer** access. Download it once and keep a secure backup. Do not commit signing files or paste passwords and private keys into chat. See [Apple's API-key instructions](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/) and [GitHub's signing guide](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
 
+Developer access is sufficient for binary uploads and What to Test notes. Managing external TestFlight groups and submitting beta review requires **App Manager**, **Admin**, or **Account Holder** access; the current Developer key receives HTTP 403 for those API actions. To automate them, create a separate **App Manager** team key. An existing key's role cannot be changed. The upload key can remain active. See [Apple's external-testing roles](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/).
+
 After storing the secrets:
 
 1. Open **iOS TestFlight → Run workflow** and select branch **main**.
 2. Choose **check** once to test profile validation, temporary keychain import, app signing configuration, a signed fixture IPA, certificate mismatch rejection, and cleanup using generated dummy credentials. This operation does not read production signing secrets or upload an app.
-3. Choose **build**, enter an unused positive build number such as `33`, and run it. The default operation builds without uploading. Download **signed-ipa-33** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
-4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `33` can be uploaded if it was only built and never uploaded. Builds `29` and `32` have already been accepted by Apple and must not be reused for an upload.
+3. Choose **build**, enter an unused positive build number such as `34`, and run it. The default operation builds without uploading. Download **signed-ipa-34** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
+4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `34` can be uploaded if it was only built and never uploaded. Builds `29`, `32`, and `33` have already been accepted by Apple's uploader and must not be reused for an upload.
 5. Continue with step 7 below after Apple processes the upload. The workflow does not submit beta review, create groups, invite testers, or publish an App Store release.
 
 The same explicit operations work from the GitHub CLI:
 
 ```sh
 gh workflow run testflight.yml --ref main -f operation=check
-gh workflow run testflight.yml --ref main -f operation=build -f build_number=33
+gh workflow run testflight.yml --ref main -f operation=build -f build_number=34
 # Run this separately when ready to upload:
-gh workflow run testflight.yml --ref main -f operation=upload -f build_number=33
+gh workflow run testflight.yml --ref main -f operation=upload -f build_number=34
 ```
 
 Signing and upload jobs run only from `main` through manual dispatch. Pushes and pull requests do not invoke them. The signing preflight rejects missing credentials, a different app's profile, expired profiles, development/ad hoc/enterprise profiles, and a certificate that does not match the profile. Xcode then validates Apple signing while archiving and exporting. The workflow verifies the archive and exported IPA signatures, certificate, bundle ID, embedded profile, build number, and a minimum iOS version of 15.0 or later before saving the artifact. Missing, malformed, or older deployment targets fail verification. Temporary keychain, profiles, extracted signing files, and upload key are removed after the job; artifact retention is 14 days.
@@ -72,6 +74,8 @@ Source commit `66e62f1` produced [signed build 0.5.10 (31)](https://github.com/v
 The regression changes followed catalogue → failing integration tests → implementation. The local full Flutter suite passes 1,745 tests with 18 existing skips, and analysis is clean. The final [web workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41162416673) passes analysis, the full test suite, both browser renderers, local-storage persistence checks, and static deployment. The [unsigned iOS workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41162416667) also passes simulator and device compilation. The phone checks below remain necessary to verify real iOS suspension and interaction.
 
 Source commit `c0de92b` produced [signed build 0.5.10 (32)](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41165371628). Weight shortfalls below 0.125 kg or 0.25 lb now meet the target in the exercise's resolved unit; an exact cutoff remains a miss. The live board, progression, and recap share this rule, without rounding saved weights or changing schema 18 or existing formats. The local suite passes 1,745 tests with 18 existing skips; analysis, catalogue validation, and workflow lint pass. The [unsigned iOS workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41165367407) passes simulator and device compilation. The signed IPA retains `com.fosslift.fosslift` and iOS 15.0; signature, profile, certificate, identity, build number, and cleanup checks pass. Apple upload was skipped. The IPA is 25,310,377 bytes with SHA-256 `0b36db956cce283a77f3e3ac1259e23541c46007f1611dff7f515c8ba31f83f5`. The matching [web workflow](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41165367380) passes analysis, all tests, Wasm and JavaScript browser checks, local-storage persistence, and static Pages deployment.
+
+On 2026-11-02, source commit `f381561` produced and [successfully uploaded build 0.5.10 (33)](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41483802683). The exercise editor now has one **Trains** selector: tap for primary, hold for secondary, and use the other gesture to switch roles. Existing assignments and the final required primary are preserved. The signed IPA targets iOS 15.0; signature, profile, certificate, identity, build number, and cleanup checks pass. Its size is 25,265,135 bytes and SHA-256 is `bc8e6d4d9a5d7f2d386245a772f0bab474f60cc33dbe4f56b574580b1da9a44d`. The existing integration tests were updated from the revised catalogue entry; the full suite passes 1,745 tests with 18 existing skips and analysis is clean. [Unsigned iOS checks](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41483791350) pass for simulator and device. The matching [web run](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41483791276) passes both browser renderers and persistence verification and publishes the static site. [Google Play build 38](https://github.com/viktorChekhovoi/foss-lift/actions/runs/41483805579) is uploaded to the existing `alpha` closed-testing track. Apple processing and external beta review remain separate from upload success; the Developer key cannot submit that review.
 
 ## 1. Activate the developer membership
 
@@ -139,7 +143,7 @@ Automatic signing on this Mac avoids manually exporting a certificate and upload
 From the repository root, after saving the signing settings:
 
 ```sh
-flutter build ipa --release --build-number=33
+flutter build ipa --release --build-number=34
 ```
 
 Use a build number not previously uploaded for this version. The command generates an archive under `build/ios/archive/` and an IPA under `build/ios/ipa/`. The version remains `0.5.10`; the build number distinguishes uploads. [Flutter's distribution instructions](https://docs.flutter.dev/deployment/ios).
@@ -195,7 +199,7 @@ Suggested What to Test:
 
 > Add a ready-made routine, edit a workout, log and finish sets, and check History. Resume an unfinished workout after closing and reopening the app. Test kg/lb, themes, and larger text. Scan a routine QR code, record and play a silent set video, then export and restore a local file backup. Report device model, iOS version, and steps for any failure.
 
-Each uploaded beta build expires after 90 days. Upload the next build with a new number, such as `33`, and add it to the group. Testers do not need new app records for updates. The service allows up to 10,000 external testers; a small private group is sufficient. [TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
+Each uploaded beta build expires after 90 days. Upload the next build with a new number, such as `34`, and add it to the group. Testers do not need new app records for updates. The service allows up to 10,000 external testers; a small private group is sufficient. [TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
 
 ## Device checks before inviting friends
 
