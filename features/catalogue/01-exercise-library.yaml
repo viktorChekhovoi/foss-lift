@@ -206,8 +206,8 @@ groups:
     - exercise.weight-type
     - exercise.video-url
   - id: form-ticks-primary-then-secondary
-    t: The form distinguishes primary muscles from optional secondary muscles
-    d: The form labels the two roles explicitly as primary and secondary muscles. Primary choices are always shown. The optional secondary picker starts collapsed when no secondary groups are saved, opens on demand, and starts expanded when editing an exercise with saved secondary groups. Collapsing the picker keeps its selections. Selecting a group in one role clears it in the other, and at least one primary is required. Primary selection order is stored; the first selected group determines filing. Existing exercises and shared routine codes keep their primary and secondary classifications.
+    t: One Trains selector assigns primary and secondary muscles
+    d: The form shows every muscle group once in a single Trains selector. Tapping toggles a primary selection; holding toggles a secondary selection. Using the other gesture switches the group's role, so a group cannot occupy both roles. The final primary cannot be removed or made secondary. Distinct markers and selected-state labels identify both roles, with a short tap/hold legend. Primary selection order is stored; the first selected group determines filing. Reopening an exercise shows all saved roles in the same selector, and saving preserves existing exercises and shared routine-code classifications.
     screen: exercise-form
     uses:
     - exercise.muscle-map

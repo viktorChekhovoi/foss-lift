@@ -857,7 +857,7 @@ void main() {
     });
   });
 
-  group('the form ticks the primaries first, then the secondaries', () {
+  group('one Trains selector assigns primary and secondary muscles', () {
     setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
 
     /// A movement of your own with [map] on it, ready to reopen in the form.
@@ -872,7 +872,7 @@ void main() {
         ))!;
 
     Future<void> openEditor(WidgetTester tester, int id) async {
-      // Tall enough for both chip rows and the Save button below them.
+      // Tall enough for every form control and Save without scrolling.
       tester.view.physicalSize = const Size(1000, 2600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -884,27 +884,19 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// The [group] chip in the row that says what the movement trains (row 0)
-    /// or what it also works (row 1). The same seven chips twice, so the two
-    /// rows are told apart by where they are.
-    Finder chip(String group, int row) => find.text(group).at(row);
+    /// Other also labels equipment, so its muscle chip is the first match.
+    Finder chip(String group) => find.text(group).first;
 
-    Future<void> tapChip(WidgetTester tester, String group, int row) async {
-      if (row == 1 &&
-          find.byType(ExpansionTile).evaluate().isNotEmpty &&
-          find
-              .descendant(
-                of: find.byType(ExpansionTile),
-                matching: find.text(group),
-              )
-              .evaluate()
-              .isEmpty) {
-        await tester.tap(
-          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
-        );
-        await tester.pumpAndSettle();
+    Future<void> tapChip(
+      WidgetTester tester,
+      String group, {
+      bool secondary = false,
+    }) async {
+      if (secondary) {
+        await tester.longPress(chip(group));
+      } else {
+        await tester.tap(chip(group));
       }
-      await tester.tap(chip(group, row));
       await tester.pumpAndSettle();
     }
 
@@ -914,53 +906,34 @@ void main() {
       return (await tester.runAsync(() => db.exerciseById(id)))!;
     }
 
-    testWidgets('two rows offer the same seven groups', (tester) async {
-      await openEditor(tester, await mine(tester, MuscleMap.single('Legs')));
-      await tester.tap(
-        find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
-      );
-      await tester.pumpAndSettle();
-
-      for (final group in kMuscleGroups.where((g) => g != 'Other')) {
-        expect(
-          find.text(group),
-          findsNWidgets(2),
-          reason: '$group is offered as a primary and as a secondary',
+    testWidgets(
+      'one selector offers every group once with both roles visible',
+      (tester) async {
+        await openEditor(
+          tester,
+          await mine(tester, MuscleMap(primary: ['Legs'], secondary: ['Core'])),
         );
-      }
-      // "Other" is a muscle group and an equipment kind both, so it is on the
-      // form three times — which is the one collision in the vocabulary.
-      expect(find.text('Other'), findsNWidgets(3));
 
-      await stop(tester);
-    });
+        for (final group in kMuscleGroups.where((g) => g != 'Other')) {
+          expect(
+            find.text(group),
+            findsOneWidget,
+            reason: '$group has one control for both roles',
+          );
+        }
+        expect(find.text('Other'), findsNWidgets(2));
+        expect(find.byType(ExpansionTile), findsNothing);
+
+        await stop(tester);
+      },
+    );
 
     testWidgets(
-      'Beta feedback: secondary choices are optional and keep selections when collapsed',
+      'holding an unselected muscle selects it as secondary without a primary tap',
       (tester) async {
         final id = await mine(tester, MuscleMap.single('Legs'));
         await openEditor(tester, id);
-
-        expect(
-          find.text(l10nFor().exerciseMusclesTrained.toUpperCase()),
-          findsOneWidget,
-        );
-        expect(
-          find.text('Back'),
-          findsOneWidget,
-          reason: 'only the primary picker is open without saved secondaries',
-        );
-        await tester.tap(
-          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Back'), findsNWidgets(2));
-        await tapChip(tester, 'Back', 1);
-        await tester.tap(
-          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Back'), findsOneWidget);
+        await tapChip(tester, 'Back', secondary: true);
 
         final saved = await save(tester, id);
         expect(saved.muscles.primary, ['Legs']);
@@ -970,23 +943,31 @@ void main() {
     );
 
     testWidgets(
-      'Beta feedback: saved secondary choices are shown when an exercise is reopened',
+      'reopening shows and preserves each saved role on the same controls',
       (tester) async {
-        final id = await mine(
-          tester,
-          MuscleMap(primary: ['Legs'], secondary: ['Core']),
-        );
-        await openEditor(tester, id);
-        expect(find.text('Core'), findsNWidgets(2));
-        await tester.tap(
-          find.text(l10nFor().exerciseMusclesAssisted.toUpperCase()),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Core'), findsOneWidget);
-        final saved = await save(tester, id);
-        expect(saved.muscles.primary, ['Legs']);
-        expect(saved.muscles.secondary, ['Core']);
-        await stop(tester);
+        final semantics = tester.ensureSemantics();
+        try {
+          final id = await mine(
+            tester,
+            MuscleMap(primary: ['Legs'], secondary: ['Core']),
+          );
+          await openEditor(tester, id);
+          expect(find.text('Core'), findsOneWidget);
+          expect(
+            tester.getSemantics(chip('Legs')).value,
+            l10nFor().exerciseMusclesTrained,
+          );
+          expect(
+            tester.getSemantics(chip('Core')).value,
+            l10nFor().exerciseMusclesAssisted,
+          );
+          final saved = await save(tester, id);
+          expect(saved.muscles.primary, ['Legs']);
+          expect(saved.muscles.secondary, ['Core']);
+          await stop(tester);
+        } finally {
+          semantics.dispose();
+        }
       },
     );
 
@@ -996,8 +977,8 @@ void main() {
       final id = await mine(tester, MuscleMap.single('Legs'));
       await openEditor(tester, id);
 
-      await tapChip(tester, 'Back', 0);
-      await tapChip(tester, 'Core', 0);
+      await tapChip(tester, 'Back');
+      await tapChip(tester, 'Core');
       final saved = await save(tester, id);
 
       expect(saved.muscles.primary, ['Legs', 'Back', 'Core']);
@@ -1010,7 +991,7 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('ticking a group as secondary takes it off the primaries', (
+    testWidgets('holding a primary muscle switches it to secondary', (
       tester,
     ) async {
       final id = await mine(
@@ -1019,7 +1000,7 @@ void main() {
       );
       await openEditor(tester, id);
 
-      await tapChip(tester, 'Back', 1);
+      await tapChip(tester, 'Back', secondary: true);
       final saved = await save(tester, id);
 
       expect(saved.muscles.primary, ['Legs']);
@@ -1028,14 +1009,16 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('and the other way round', (tester) async {
+    testWidgets('tapping a secondary muscle switches it to primary', (
+      tester,
+    ) async {
       final id = await mine(
         tester,
         MuscleMap(primary: ['Legs'], secondary: ['Core']),
       );
       await openEditor(tester, id);
 
-      await tapChip(tester, 'Core', 0);
+      await tapChip(tester, 'Core');
       final saved = await save(tester, id);
 
       expect(saved.muscles.primary, ['Legs', 'Core']);
@@ -1044,15 +1027,19 @@ void main() {
       await stop(tester);
     });
 
-    testWidgets('the last primary cannot be unticked', (tester) async {
+    testWidgets('the last primary cannot be removed or made secondary', (
+      tester,
+    ) async {
       // A movement that trains nothing is not a movement.
       final id = await mine(tester, MuscleMap.single('Legs'));
       await openEditor(tester, id);
 
-      await tapChip(tester, 'Legs', 0);
+      await tapChip(tester, 'Legs');
+      await tapChip(tester, 'Legs', secondary: true);
       final saved = await save(tester, id);
 
       expect(saved.muscles.primary, ['Legs']);
+      expect(saved.muscles.secondary, isEmpty);
 
       await stop(tester);
     });
@@ -1064,7 +1051,7 @@ void main() {
       );
       await openEditor(tester, id);
 
-      await tapChip(tester, 'Core', 1);
+      await tapChip(tester, 'Core', secondary: true);
       final saved = await save(tester, id);
 
       expect(saved.muscles.secondary, isEmpty);
@@ -1087,7 +1074,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField).first, 'Sandbag Clean');
-      await tapChip(tester, 'Core', 1);
+      await tapChip(tester, 'Core', secondary: true);
       await tester.tap(find.text('Save exercise'));
       await tester.pumpAndSettle();
 

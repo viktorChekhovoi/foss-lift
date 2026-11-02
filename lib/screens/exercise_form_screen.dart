@@ -9,6 +9,9 @@ import '../theme/app_theme.dart';
 import '../util/seed_names.dart';
 import '../util/video_links.dart';
 
+const _primaryMuscleMark = Icons.check_circle_rounded;
+const _secondaryMuscleMark = Icons.circle_outlined;
+
 class ExerciseFormScreen extends ConsumerStatefulWidget {
   const ExerciseFormScreen({super.key, this.exerciseId});
 
@@ -196,31 +199,45 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
           maxLength: kMaxNameLength,
         ),
         const SizedBox(height: 18),
-        _Label(l10n.exerciseMusclesTrained),
+        _Label(l10n.exerciseFormTrains),
         _Choices(
           options: kMuscleGroups,
           label: (v) => muscleGroupLabel(l10n, v),
           selected: _primary.toSet(),
+          secondary: _secondary.toSet(),
           onSelect: _togglePrimary,
+          onLongSelect: _toggleSecondary,
+          semanticValue: (group) => _primary.contains(group)
+              ? l10n.exerciseMusclesTrained
+              : _secondary.contains(group)
+              ? l10n.exerciseMusclesAssisted
+              : null,
         ),
-        const SizedBox(height: 18),
-        ExpansionTile(
-          title: _Label(l10n.exerciseMusclesAssisted, bottomPadding: 0),
-          initiallyExpanded: _secondary.isNotEmpty,
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: const EdgeInsets.only(top: 8),
-          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-          shape: const Border(),
-          collapsedShape: const Border(),
-          iconColor: AppColors.faint,
-          collapsedIconColor: AppColors.faint,
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 14,
+          runSpacing: 4,
           children: [
-            _Choices(
-              options: kMuscleGroups,
-              label: (v) => muscleGroupLabel(l10n, v),
-              selected: _secondary.toSet(),
-              onSelect: _toggleSecondary,
-            ),
+            for (final (icon, label) in [
+              (_primaryMuscleMark, l10n.exerciseFormPrimaryGesture),
+              (_secondaryMuscleMark, l10n.exerciseFormSecondaryGesture),
+            ])
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 13, color: AppColors.muted),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: kMono.copyWith(
+                        fontSize: 11,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
         const SizedBox(height: 18),
@@ -298,12 +315,11 @@ class _ExerciseFormScreenState extends ConsumerState<ExerciseFormScreen>
 }
 
 class _Label extends StatelessWidget {
-  const _Label(this.text, {this.bottomPadding = 8});
+  const _Label(this.text);
   final String text;
-  final double bottomPadding;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: bottomPadding, left: 2),
+    padding: const EdgeInsets.only(bottom: 8, left: 2),
     child: Text(
       text.toUpperCase(),
       style: kMono.copyWith(
@@ -362,45 +378,87 @@ class _Choices<T> extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onSelect,
+    this.secondary = const {},
+    this.onLongSelect,
+    this.semanticValue,
   });
   final List<T> options;
   final String Function(T) label;
   final Set<T> selected;
   final ValueChanged<T> onSelect;
+  final Set<T> secondary;
+  final ValueChanged<T>? onLongSelect;
+  final String? Function(T)? semanticValue;
+
+  Widget _choice(T option) {
+    final primary = selected.contains(option);
+    final assisting = secondary.contains(option);
+    final active = primary || assisting;
+    final tone = primary
+        ? AppColors.accent
+        : assisting
+        ? AppColors.text
+        : AppColors.muted;
+    return Semantics(
+      button: true,
+      selected: active,
+      value: semanticValue?.call(option),
+      child: GestureDetector(
+        onTap: () => onSelect(option),
+        onLongPress: onLongSelect == null ? null : () => onLongSelect!(option),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          constraints: onLongSelect == null
+              ? null
+              : const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: primary
+                ? AppColors.accent.withValues(alpha: 0.14)
+                : assisting
+                ? AppColors.surface2
+                : AppColors.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: primary
+                  ? AppColors.accent
+                  : assisting
+                  ? AppColors.accent.withValues(alpha: 0.55)
+                  : AppColors.line,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onLongSelect != null && active) ...[
+                Icon(
+                  primary ? _primaryMuscleMark : _secondaryMuscleMark,
+                  size: 13,
+                  color: tone,
+                ),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label(option),
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: tone,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: [
-        for (final o in options)
-          GestureDetector(
-            onTap: () => onSelect(o),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-              decoration: BoxDecoration(
-                color: selected.contains(o)
-                    ? AppColors.accent.withValues(alpha: 0.14)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color:
-                      selected.contains(o) ? AppColors.accent : AppColors.line,
-                ),
-              ),
-              child: Text(
-                label(o),
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color:
-                      selected.contains(o) ? AppColors.accent : AppColors.muted,
-                ),
-              ),
-            ),
-          ),
-      ],
+      children: [for (final option in options) _choice(option)],
     );
   }
 }

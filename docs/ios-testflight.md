@@ -11,7 +11,7 @@ Use a private external TestFlight group for friends. They install TestFlight and
 | Bundle ID | `com.fosslift.fosslift` |
 | App display name | Foss Lift |
 | Version | `0.5.10` |
-| Suggested next signed build number | `32`, if not already uploaded |
+| Suggested next signed build number | `33`, if not already uploaded |
 | Minimum app deployment target | iOS 15 |
 | Privacy policy | `https://foss-lift.pages.dev/privacy/` |
 | Suggested App Store Connect SKU | `foss-lift-ios` |
@@ -40,17 +40,17 @@ After storing the secrets:
 
 1. Open **iOS TestFlight → Run workflow** and select branch **main**.
 2. Choose **check** once to test profile validation, temporary keychain import, app signing configuration, a signed fixture IPA, certificate mismatch rejection, and cleanup using generated dummy credentials. This operation does not read production signing secrets or upload an app.
-3. Choose **build**, enter an unused positive build number such as `32`, and run it. The default operation builds without uploading. Download **signed-ipa-32** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
-4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `32` can be uploaded if it was only built and never uploaded. Build `29` has already been accepted by Apple and must not be reused for an upload.
+3. Choose **build**, enter an unused positive build number such as `33`, and run it. The default operation builds without uploading. Download **signed-ipa-33** from the completed run's **Artifacts** section. A distribution IPA is intended for Apple upload; downloading it does not install it on an iPhone.
+4. When ready to send the app to Apple, run the workflow with **upload** and the intended build number. This builds, verifies, keeps the IPA artifact, and uploads it. Use a new number for every accepted Apple upload. Build `33` can be uploaded if it was only built and never uploaded. Builds `29` and `32` have already been accepted by Apple and must not be reused for an upload.
 5. Continue with step 7 below after Apple processes the upload. The workflow does not submit beta review, create groups, invite testers, or publish an App Store release.
 
 The same explicit operations work from the GitHub CLI:
 
 ```sh
 gh workflow run testflight.yml --ref main -f operation=check
-gh workflow run testflight.yml --ref main -f operation=build -f build_number=32
+gh workflow run testflight.yml --ref main -f operation=build -f build_number=33
 # Run this separately when ready to upload:
-gh workflow run testflight.yml --ref main -f operation=upload -f build_number=32
+gh workflow run testflight.yml --ref main -f operation=upload -f build_number=33
 ```
 
 Signing and upload jobs run only from `main` through manual dispatch. Pushes and pull requests do not invoke them. The signing preflight rejects missing credentials, a different app's profile, expired profiles, development/ad hoc/enterprise profiles, and a certificate that does not match the profile. Xcode then validates Apple signing while archiving and exporting. The workflow verifies the archive and exported IPA signatures, certificate, bundle ID, embedded profile, build number, and a minimum iOS version of 15.0 or later before saving the artifact. Missing, malformed, or older deployment targets fail verification. Temporary keychain, profiles, extracted signing files, and upload key are removed after the job; artifact retention is 14 days.
@@ -139,7 +139,7 @@ Automatic signing on this Mac avoids manually exporting a certificate and upload
 From the repository root, after saving the signing settings:
 
 ```sh
-flutter build ipa --release --build-number=32
+flutter build ipa --release --build-number=33
 ```
 
 Use a build number not previously uploaded for this version. The command generates an archive under `build/ios/archive/` and an IPA under `build/ios/ipa/`. The version remains `0.5.10`; the build number distinguishes uploads. [Flutter's distribution instructions](https://docs.flutter.dev/deployment/ios).
@@ -195,14 +195,14 @@ Suggested What to Test:
 
 > Add a ready-made routine, edit a workout, log and finish sets, and check History. Resume an unfinished workout after closing and reopening the app. Test kg/lb, themes, and larger text. Scan a routine QR code, record and play a silent set video, then export and restore a local file backup. Report device model, iOS version, and steps for any failure.
 
-Each uploaded beta build expires after 90 days. Upload the next build with a new number, such as `32`, and add it to the group. Testers do not need new app records for updates. The service allows up to 10,000 external testers; a small private group is sufficient. [TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
+Each uploaded beta build expires after 90 days. Upload the next build with a new number, such as `33`, and add it to the group. Testers do not need new app records for updates. The service allows up to 10,000 external testers; a small private group is sufficient. [TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
 
 ## Device checks before inviting friends
 
 Verify that a workout starts, survives backgrounding/reopening, logs sets, and finishes correctly. Test QR scanning, silent video capture/playback, and file backup/restore on a real iPhone. Check the smallest available phone at a large text size. New builds require iOS 15 or later, and the installed TestFlight client must also support the tester's OS.
 
 - Start a workout and a rest, lock the phone for a minute, then reopen the app. Duration should immediately include the minute away; rest should show its actual remainder or end once if its deadline passed. Repeat with a timed hold, then stop it before another second ticks: the logged hold should include time spent away.
-- Open **Library → +**. **Primary muscles** is shown and **Secondary muscles** starts collapsed. Expand the secondary picker, choose a group, collapse it, and save. Reopen the custom exercise with its pencil: the saved secondary choices should be visible and selected.
+- Open **Profile → Exercise library → +**. The single **Trains** selector shows every muscle group once. Tap a group for primary, hold it for secondary, and use the other gesture to switch roles. Tap a selected primary to remove it, or hold a selected secondary to remove it; the final primary stays selected. Save and reopen the custom exercise with its pencil: both roles should retain their assignments and distinct markers.
 - Start a weighted workout with a known target, reduce one row's weight by 0.1 in the exercise's displayed unit, and log full reps: the row should be green. Tap through zero and untouched, then log full reps again: it should remain green. A shortfall of exactly 0.125 kg or 0.25 lb should be yellow, as should missing the rep goal. Finish and check that the recap applies the same weight tolerance. Repeat with an exercise pinned to the other unit.
 
 Android foreground notification controls, background rest alerts, and scheduled reminders are hidden on iOS. The CI builds prove compilation; these device checks verify the platform behavior.
