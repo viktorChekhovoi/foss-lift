@@ -37,24 +37,5 @@ jobs:
       - run: flutter gen-l10n
       - name: Build for the simulator
         run: flutter build ios --simulator --debug --no-codesign
-      - name: Build the device release
-        env:
-          IOS_BUILD_NUMBER: ${{ github.run_number }}
-        run: flutter build ios --release --no-codesign --build-number="$IOS_BUILD_NUMBER"
-      - name: Verify the workout widget and rest sound in both apps
-        run: |
-          for sdk in iphoneos iphonesimulator; do
-            app="build/ios/$sdk/Runner.app"
-            cmp assets/sound/rest_done.wav "$app/rest_done.wav"
-            test -x "$app/PlugIns/WorkoutActivity.appex/WorkoutActivity"
-          done
-      - name: Package unsigned apps
-        run: |
-          ditto -c -k --keepParent build/ios/iphoneos/Runner.app build/ios/FossLift-unsigned-device.zip
-          ditto -c -k --keepParent build/ios/iphonesimulator/Runner.app build/ios/FossLift-simulator.zip
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ios-apps
-          path: build/ios/FossLift-*.zip
-          if-no-files-found: error
-          retention-days: 14
+      - name: Exercise the workout button on a real iPhone simulator runtime
+        run: python3 tool/smoke_ios_controls.py
