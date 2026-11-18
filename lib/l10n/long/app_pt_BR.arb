@@ -62,7 +62,7 @@
   "routineEditNameHint": "ex.: Push / Pull / Legs",
   "routineEditDescriptionHint": "ex.: Três sessões por semana, corpo inteiro em cada uma",
   "routineEditDefaultRest": "Descanso padrão entre séries",
-  "routineEditNotifyDenied": "Ative as notificações do Foss Lift nas configurações do Android.",
+  "routineEditNotifyDenied": "Ative as notificações do Foss Lift nas configurações do celular.",
   "routineEditNoExercises": "Nenhum exercício ainda — toque para adicionar",
   "routineEditNameRequired": "Dê um nome à rotina primeiro.",
   "routineEditWorkoutRequired": "Adicione pelo menos um treino.",

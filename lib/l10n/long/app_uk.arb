@@ -62,7 +62,7 @@
   "routineEditNameHint": "напр. Жим / Тяга / Ноги",
   "routineEditDescriptionHint": "напр. Три тренування на тиждень, у кожному все тіло",
   "routineEditDefaultRest": "Типовий відпочинок між підходами",
-  "routineEditNotifyDenied": "Увімкніть сповіщення для Foss Lift у налаштуваннях Android.",
+  "routineEditNotifyDenied": "Увімкніть сповіщення для Foss Lift у налаштуваннях телефона.",
   "routineEditNoExercises": "Вправ ще немає — торкніться, щоб додати",
   "routineEditNameRequired": "Спочатку дайте програмі назву.",
   "routineEditWorkoutRequired": "Додайте хоча б одне тренування.",

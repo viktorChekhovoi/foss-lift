@@ -394,9 +394,9 @@
   "@routineEditDefaultRest": {
     "description": "Label over the stepper setting the rest every exercise in this routine starts from."
   },
-  "routineEditNotifyDenied": "Turn on notifications for Foss Lift in Android settings.",
+  "routineEditNotifyDenied": "Turn on notifications for Foss Lift in your phone’s settings.",
   "@routineEditNotifyDenied": {
-    "description": "Toast shown when the user turns the reminder on but Android refuses the notification permission. Foss Lift and Android are names and stay as they are."
+    "description": "Shown when notification permission is off and the user tries to enable a routine reminder on iPhone or Android."
   },
   "routineEditNoExercises": "No exercises yet — tap to add.",
   "@routineEditNoExercises": {
