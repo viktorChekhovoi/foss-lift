@@ -17,6 +17,8 @@ import uuid
 import zipfile
 
 BUNDLE_ID = "com.fosslift.fosslift"
+WIDGET_ID = f"{BUNDLE_ID}.WorkoutActivity"
+WIDGET_PATH = "PlugIns/WorkoutActivity.appex"
 
 
 class SigningError(Exception):
@@ -55,14 +57,14 @@ def decode_profile(path):
         raise SigningError("profile_decode") from None
 
 
-def profile_metadata(profile, certificate=None):
+def profile_metadata(profile, certificate=None, *, bundle_id=BUNDLE_ID):
     entitlements = profile.get("Entitlements", {})
     teams = profile.get("TeamIdentifier", [])
     prefixes = profile.get("ApplicationIdentifierPrefix", [])
     if not teams or not re.fullmatch(r"[A-Z0-9]{10}", teams[0]):
         raise SigningError("profile_team")
-    if not prefixes or entitlements.get("application-identifier") != f"{prefixes[0]}.{BUNDLE_ID}":
-        raise SigningError("profile_bundle: expected com.fosslift.fosslift")
+    if not prefixes or entitlements.get("application-identifier") != f"{prefixes[0]}.{bundle_id}":
+        raise SigningError(f"profile_bundle: expected {bundle_id}")
     if entitlements.get("get-task-allow") is not False or "ProvisionedDevices" in profile or profile.get("ProvisionsAllDevices"):
         raise SigningError("profile_distribution: use an App Store Connect distribution profile")
     expiry = profile.get("ExpirationDate")
@@ -80,7 +82,7 @@ def profile_metadata(profile, certificate=None):
     if not isinstance(profile.get("Name"), str) or not profile["Name"].strip():
         raise SigningError("profile_name")
     return {
-        "bundle_id": BUNDLE_ID, "team_id": teams[0], "profile_uuid": profile["UUID"],
+        "bundle_id": bundle_id, "team_id": teams[0], "profile_uuid": profile["UUID"],
         "profile_name": profile["Name"], "expires": expiry.isoformat(),
         "certificate_sha1s": [hashlib.sha1(cert).hexdigest().upper() for cert in certificates],
     }
@@ -106,14 +108,23 @@ def prepare():
     password = required("IOS_P12_PASSWORD")
     try:
         p12 = base64.b64decode(required("IOS_DISTRIBUTION_P12_BASE64"), validate=True)
-        profile_data = base64.b64decode(required("IOS_PROVISION_PROFILE_BASE64"), validate=True)
+        profile_files = {
+            BUNDLE_ID: base64.b64decode(required("IOS_PROVISION_PROFILE_BASE64"), validate=True),
+            WIDGET_ID: base64.b64decode(required("IOS_WIDGET_PROVISION_PROFILE_BASE64"), validate=True),
+        }
     except ValueError:
         raise SigningError("signing_files_must_be_base64") from None
     root = root_dir()
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    profile_path, p12_path = root / "profile.mobileprovision", root / "identity.p12"
-    private_file(profile_path, profile_data)
-    state = profile_metadata(decode_profile(profile_path))
+    p12_path = root / "identity.p12"
+    profiles = {}
+    for bundle_id, data in profile_files.items():
+        profile_path = root / f"{bundle_id}.mobileprovision"
+        private_file(profile_path, data)
+        profiles[bundle_id] = profile_metadata(decode_profile(profile_path), bundle_id=bundle_id)
+    if profiles[BUNDLE_ID]["team_id"] != profiles[WIDGET_ID]["team_id"]:
+        raise SigningError("profile_team: app and widget require the same team")
+    state = {"profiles": profiles, "team_id": profiles[BUNDLE_ID]["team_id"]}
     previous = shlex.split(run(["security", "list-keychains", "-d", "user"]).decode())
     keychain = root / "signing.keychain-db"
     state.update(keychain=str(keychain), previous_keychains=previous, installed_profiles=[])
@@ -130,20 +141,22 @@ def prepare():
         run(["security", "list-keychains", "-d", "user", "-s", str(keychain), *previous])
         identities = run(["security", "find-identity", "-p", "codesigning", str(keychain)]).decode()
         matches = {value.upper() for value in re.findall(r'([A-Fa-f0-9]{40}) "', identities)}
-        available = matches.intersection(state["certificate_sha1s"])
+        available = matches.intersection(*(p["certificate_sha1s"] for p in profiles.values()))
         if len(available) != 1:
             raise SigningError("profile_certificate: imported identity does not match the profile")
         state["identity_sha1"] = available.pop()
-        destination = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles" / f'{state["profile_uuid"]}.mobileprovision'
-        if destination.exists():
-            raise SigningError("profile_already_installed: refusing to overwrite another profile")
-        state["installed_profiles"].append(str(destination))
-        save_state(root, state)
-        private_file(destination, profile_data)
+        profile_folder = Path.home() / "Library/Developer/Xcode/UserData/Provisioning Profiles"
+        for bundle_id, profile in profiles.items():
+            destination = profile_folder / f'{profile["profile_uuid"]}.mobileprovision'
+            if destination.exists():
+                raise SigningError("profile_already_installed: refusing to overwrite another profile")
+            state["installed_profiles"].append(str(destination))
+            save_state(root, state)
+            private_file(destination, profile_files[bundle_id])
         options = {
             "method": "app-store-connect", "signingStyle": "manual", "teamID": state["team_id"],
             "signingCertificate": state["identity_sha1"], "stripSwiftSymbols": True,
-            "provisioningProfiles": {BUNDLE_ID: state["profile_uuid"]},
+            "provisioningProfiles": {key: p["profile_uuid"] for key, p in profiles.items()},
         }
         export_path = root / "ExportOptions.plist"
         private_file(export_path, plistlib.dumps(options))
@@ -187,19 +200,30 @@ def verify_ipa(number):
         minimum = info.get("MinimumOSVersion")
         if not isinstance(minimum, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){0,2}", minimum) or int(minimum.split(".")[0]) < 15:
             raise SigningError("ipa_deployment_target: iOS 15.0 or later required")
-        profile_name = info_files[0].removesuffix("Info.plist") + "embedded.mobileprovision"
-        embedded = root_dir() / "exported.mobileprovision"
-        private_file(embedded, archive.read(profile_name))
-        metadata = profile_metadata(decode_profile(embedded))
-        if metadata["profile_uuid"] != state["profile_uuid"]:
-            raise SigningError("ipa_profile_mismatch")
+        app_path = info_files[0].removesuffix("/Info.plist")
+        widget_path = f"{app_path}/{WIDGET_PATH}"
+        if f"{widget_path}/Info.plist" not in archive.namelist():
+            raise SigningError("ipa_missing_workout_widget")
+        widget = plistlib.loads(archive.read(f"{widget_path}/Info.plist"))
+        if (widget.get("CFBundleIdentifier") != WIDGET_ID or widget.get("CFBundleVersion") != number
+                or not info.get("CFBundleShortVersionString")
+                or widget.get("CFBundleShortVersionString") != info.get("CFBundleShortVersionString")
+                or widget.get("NSExtension", {}).get("NSExtensionPointIdentifier") != "com.apple.widgetkit-extension"):
+            raise SigningError("ipa_widget_identity_or_version")
+        for bundle_id, path in [(BUNDLE_ID, app_path), (WIDGET_ID, widget_path)]:
+            embedded = root_dir() / f"{bundle_id}-exported.mobileprovision"
+            private_file(embedded, archive.read(f"{path}/embedded.mobileprovision"))
+            metadata = profile_metadata(decode_profile(embedded), bundle_id=bundle_id)
+            if metadata["profile_uuid"] != state["profiles"][bundle_id]["profile_uuid"]:
+                raise SigningError(f"ipa_profile_mismatch: {bundle_id}")
     app = Path("build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app")
     run(["codesign", "--verify", "--deep", "--strict", str(app)], error="archive_signature_invalid")
     exported = root_dir() / "verified-ipa"
     run(["ditto", "-x", "-k", str(files[0]), str(exported)], error="ipa_extract_failed")
     exported_app = exported / info_files[0].removesuffix("/Info.plist")
     run(["codesign", "--verify", "--deep", "--strict", str(exported_app)], error="ipa_signature_invalid")
-    run(["codesign", "--verify", "-R", f'=certificate leaf = H"{state["identity_sha1"]}"', str(exported_app)], error="ipa_certificate_mismatch")
+    for bundle in [exported_app, exported_app / WIDGET_PATH]:
+        run(["codesign", "--verify", "-R", f'=certificate leaf = H"{state["identity_sha1"]}"', str(bundle)], error="ipa_certificate_mismatch")
     print(f"Verified signed IPA: {BUNDLE_ID}, build {number}, minimum iOS {minimum}.")
 
 

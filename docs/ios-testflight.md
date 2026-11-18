@@ -9,6 +9,7 @@ Use a private external TestFlight group for friends. They install TestFlight and
 | Field | Value |
 | --- | --- |
 | Bundle ID | `com.fosslift.fosslift` |
+| Workout widget bundle ID | `com.fosslift.fosslift.WorkoutActivity` |
 | App display name | Foss Lift |
 | Version | `0.5.10` |
 | Suggested next signed build number | `34`, if not already uploaded |
@@ -30,6 +31,7 @@ The repository needs these encrypted **Actions secrets** under **Settings → Se
 | `IOS_DISTRIBUTION_P12_BASE64` | Base64 of the Apple Distribution certificate and its private key in a password-protected `.p12`. |
 | `IOS_P12_PASSWORD` | The `.p12` export password, which can differ from the original PEM private-key password. |
 | `IOS_PROVISION_PROFILE_BASE64` | Base64 of the matching App Store Connect distribution `.mobileprovision` for `com.fosslift.fosslift`. |
+| `IOS_WIDGET_PROVISION_PROFILE_BASE64` | Base64 of the App Store Connect distribution profile for `com.fosslift.fosslift.WorkoutActivity`, using the same team and distribution certificate as the app. |
 | `ASC_API_PRIVATE_KEY` | The raw contents of the team API key's `.p8` file, including its PEM header and footer. |
 | `ASC_API_KEY_ID` | The API key's Key ID. |
 | `ASC_API_ISSUER_ID` | The API key's Issuer ID, a UUID from App Store Connect. |
@@ -93,6 +95,8 @@ Open [Certificates, Identifiers & Profiles → Identifiers](https://developer.ap
 4. Leave optional services such as CloudKit, HealthKit, Push Notifications, and Sign in with Apple off; this build does not use them. Camera permission is already declared in the app's `Info.plist`.
 5. Continue, check the identifier, and register it. Reuse the existing entry if your team already registered this exact ID.
 
+Register a second explicit App ID, `com.fosslift.fosslift.WorkoutActivity`, for the embedded widget. In **Profiles**, create an **App Store Connect** distribution profile for this ID with the app’s existing distribution certificate. Download the profile and store its base64 contents as `IOS_WIDGET_PROVISION_PROFILE_BASE64`. The widget ships inside the Foss Lift app record.
+
 See [Apple's App ID instructions](https://developer.apple.com/help/account/identifiers/register-an-app-id/).
 
 ## 3. Create the App Store Connect record
@@ -133,7 +137,7 @@ Select the blue **Runner** project, then the **Runner** app target, then **Signi
 
 - Enable **Automatically manage signing**.
 - Select the **paid developer team**, rather than a free Personal Team.
-- Confirm the Bundle Identifier is `com.fosslift.fosslift`.
+- Confirm the Bundle Identifier is `com.fosslift.fosslift`. Select the same team for the **WorkoutActivity** target with identifier `com.fosslift.fosslift.WorkoutActivity`.
 - Let Xcode create or select the certificates and profiles. Resolve signing errors shown here before archiving.
 
 Automatic signing on this Mac avoids manually exporting a certificate and uploading it to CI. The repository deliberately contains no signing credentials.
@@ -185,7 +189,7 @@ Open **TestFlight → Additional → Test Information**. Enter the beta descript
 
 Suggested review notes:
 
-> Foss Lift works offline and does not require an account. On the first-run tour, choose Not now. Open Ready-made routines, choose GZCLP, and add it. From Today, start a workout, log sets, and finish it to see History. Camera permission is used only when scanning a QR code or recording a silent set video. Android notification controls and background rest alerts are not offered in this iOS build.
+> Foss Lift works offline and does not require an account. On the first-run tour, choose Not now. Open Ready-made routines, choose GZCLP, and add it. From Today, start a workout, log sets, and finish it to see History. Camera permission is used only when scanning a QR code or recording a silent set video. Starting a workout shows a Live Activity on iOS 16.2 or later when enabled. Logging a set starts rest and, on first use, asks permission to sound a local alert at its end.
 
 Supply the contact fields yourself; the reviewer may need to reach you. The beta description and review information can differ from the eventual public store listing.
 
@@ -209,4 +213,5 @@ Verify that a workout starts, survives backgrounding/reopening, logs sets, and f
 - Open **Profile → Exercise library → +**. The single **Trains** selector shows every muscle group once. Tap a group for primary, hold it for secondary, and use the other gesture to switch roles. Tap a selected primary to remove it, or hold a selected secondary to remove it; the final primary stays selected. Save and reopen the custom exercise with its pencil: both roles should retain their assignments and distinct markers.
 - Start a weighted workout with a known target, reduce one row's weight by 0.1 in the exercise's displayed unit, and log full reps: the row should be green. Tap through zero and untouched, then log full reps again: it should remain green. A shortfall of exactly 0.125 kg or 0.25 lb should be yellow, as should missing the rep goal. Finish and check that the recap applies the same weight tolerance. Repeat with an exercise pinned to the other unit.
 
-Android foreground notification controls, background rest alerts, and scheduled reminders are hidden on iOS. The CI builds prove compilation; these device checks verify the platform behavior.
+- With Ring mode on and Focus off, start a workout on iPhone, log a set, allow notifications, and lock the screen. Listen for one rest tone at zero, then reopen Foss Lift. Repeat with the app open and while using another app. Repeat after changing the rest duration, skipping, and aborting to check for stray alerts at the old deadline.
+- On iOS 16.2 or later, check the workout name, next set, and countdown on the Lock Screen and, on supported phones, the Dynamic Island. Tap the activity to return to the workout, then finish or discard and check that it disappears.

@@ -12,6 +12,7 @@ class Capabilities {
     required this.setVideos,
     required this.scanning,
     required this.shade,
+    this.liveActivity = false,
     required this.backgroundAlerts,
     required this.localFiles,
     required this.leaveGuard,
@@ -50,7 +51,8 @@ class Capabilities {
     setVideos: true,
     scanning: true,
     shade: false,
-    backgroundAlerts: false,
+    liveActivity: true,
+    backgroundAlerts: true,
     localFiles: true,
     leaveGuard: false,
     eagerKeyboard: false,
@@ -71,6 +73,9 @@ class Capabilities {
 
   /// The live session can be driven from outside the app.
   final bool shade;
+
+  /// iPhone can show the session through ActivityKit on supported OS versions.
+  final bool liveActivity;
 
   /// The end of a rest can be announced when the app is not on screen.
   final bool backgroundAlerts;

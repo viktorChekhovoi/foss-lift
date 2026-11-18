@@ -6,11 +6,7 @@
 // finish or discard. Android kills backgrounded processes, and a session that
 // evaporates because somebody looked at a text message is not a tracker.
 //
-// **The shape here is not a wire format.** It never leaves the phone and it is
-// re-read only by the build that wrote it (a launch, minutes later), so a field
-// can be renamed freely: a snapshot that will not parse is discarded and the
-// user is where they would have been without it. `decodeSession` therefore
-// returns null rather than throwing on anything it does not recognise.
+// Snapshots can survive an app update. Older snapshots store the seconds left on the rest, while newer ones also store the deadline handed to iOS.
 
 import 'dart:convert';
 
@@ -35,6 +31,7 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
       'barKg': s.barKg,
       'warmupSets': s.warmupSets,
       'restLeft': s.restLeft,
+      if (s.restEndsAt case final end?) 'restEndsAt': end.millisecondsSinceEpoch,
       'restDone': s.restDone,
       if (s.restPrompt case final p?)
         'restPrompt': {
@@ -89,11 +86,21 @@ String encodeSession(ActiveWorkout s) => jsonEncode({
 /// back as no rest at all — its notification has already sounded.
 ///
 /// Returns null for anything unreadable; see the note at the top of this file.
-ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
+ActiveWorkout? decodeSession(
+  String payload, {
+  Duration dead = Duration.zero,
+  DateTime? now,
+}) {
   try {
     final m = jsonDecode(payload) as Map<String, dynamic>;
     final gone = dead.inSeconds < 0 ? 0 : dead.inSeconds;
-    final restLeft = (m['restLeft'] as int) - gone;
+    final endMillis = m['restEndsAt'] as int?;
+    final deadline = endMillis == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(endMillis);
+    final restLeft = deadline != null && now != null
+        ? (deadline.difference(now).inMilliseconds / 1000).ceil()
+        : (m['restLeft'] as int) - gone;
     final resting = restLeft > 0;
     // A rest that ran out while the process was dead has already sounded and has
     // nothing left to announce; one that had already ended when the snapshot was
@@ -123,6 +130,7 @@ ActiveWorkout? decodeSession(String payload, {Duration dead = Duration.zero}) {
       barKg: (m['barKg'] as num?)?.toDouble() ?? kDefaultBarKg,
       warmupSets: m['warmupSets'] as int? ?? kDefaultWarmupSets,
       restLeft: resting ? restLeft : 0,
+      restEndsAt: resting ? deadline : null,
       restPrompt: resting || done ? _readPrompt(m['restPrompt']) : null,
       restFor: resting || done ? _readRestFor(m['restFor']) : null,
       restDone: done,

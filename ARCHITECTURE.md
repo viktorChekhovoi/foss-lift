@@ -62,7 +62,7 @@ lib/
 ├── services/
 │   ├── reminders.dart            Local notification scheduling (Android)
 │   ├── rest_tone.dart            The rest-end ding — the only route with a volume
-│   ├── rest_alarm.dart           Clears legacy rest-complete notifications
+│   ├── rest_alarm.dart           Schedules iOS rest alerts and clears legacy Android cards
 │   ├── rest_buzz.dart            The vibration beside the tone, wherever the phone is
 │   ├── workout_shade.dart        The live workout as an Android foreground service
 │   ├── backup_service.dart       Writing a backup file, and reading one back
@@ -265,7 +265,7 @@ First-run rows and finished-session sets use batches to avoid a worker round tri
 
 The web release is a static Cloudflare Pages deployment. It has no Functions, account API, D1 database, or provisioning step. `tool/prepare-web.mjs` prepares compressed, versioned assets and a public privacy page; these build steps do not provision infrastructure.
 
-`ios/` is a native Runner project for iOS 15 or later with camera disclosure, silent video capture, Foss Lift URL registration, and the app's icon and splash screen. iOS has a separate capability set: camera and local files are available; Android background controls and reminders are hidden. The automatic macOS workflow builds unsigned device and simulator apps. The manual `testflight.yml` workflow checks signing with dummy keys, builds a signed IPA from encrypted GitHub secrets, or uploads it when explicitly selected. `tool/ios_signing.py` validates profiles, manages the temporary keychain, verifies the exported IPA including its minimum OS version, and invokes Apple's uploader; `tool/configure_ios_signing.rb` applies manual signing only to the app target in the CI checkout. Setup and private beta review are documented in `docs/ios-testflight.md`.
+`ios/` is a native Runner project for iOS 15 or later with camera disclosure, silent video capture, Foss Lift URL registration, and the app's icon and splash screen. iOS supports local sound notifications at rest deadlines. On iOS 16.2 or later, ActivityKit and the WorkoutActivity widget show the next set and a system-rendered countdown on the Lock Screen. The automatic macOS workflow builds unsigned device and simulator apps. The manual `testflight.yml` workflow checks signing with dummy keys, builds a signed IPA from encrypted GitHub secrets, or uploads it when explicitly selected. `tool/ios_signing.py` validates profiles, manages the temporary keychain, verifies the exported IPA including its minimum OS version, and invokes Apple's uploader. `tool/configure_ios_signing.rb` configures the app and workout widget targets with their respective profiles in the CI checkout. Setup and private beta review are documented in `docs/ios-testflight.md`.
 
 `database.g.dart` is generated — after editing tables/`@DriftDatabase`, run:
 ```
@@ -480,13 +480,7 @@ reminded on them.
   a fresh launch all converge on the same answer. `reminderSyncProvider` fires
   it from a single `ref.watch` in `main.dart`; the alternative is remembering to
   re-schedule in three places and forgetting in a fourth.
-- Reminders are scheduled **inexactly**: an exact alarm needs either a permission
-  Android 14 makes the user grant by hand or one Play reserves for alarm clocks,
-  and a nudge to go to the gym does not need to land on the second. These are the
-  only scheduled notifications left — the rest ding is posted when the rest ends,
-  see the live-session section. Android needs
-  `RECEIVE_BOOT_COMPLETED` plus the plugin's two receivers in the manifest, and
-  core-library desugaring in `android/app/build.gradle.kts`.
+- Android schedules routine reminders inexactly and plays the rest tone from the foreground service. The reminder plugin uses `RECEIVE_BOOT_COMPLETED`, two receivers in the manifest, and core-library desugaring in `android/app/build.gradle.kts`.
 - Everything in the service is a no-op off Android, so `flutter test` never goes
   near a platform channel.
 
@@ -602,8 +596,7 @@ reminded on them.
     runs in an isolate of its own and writes a press down before announcing it,
     so a press made after the app's isolate died is applied when it returns.
   - **One `initialize` for the notification plugin**, in `services/notifications.dart`.
-    `ReminderService` owns it for newly posted notifications. Nothing else posts
-    through the plugin during a live workout.
+    `ReminderService` uses it on Android. On iOS, `RestAlarm` requests alert and sound permission when the first rest starts and schedules the bundled tone for the deadline. The app plays the foreground fallback if scheduling fails or the lifter declines. The session snapshot retains the deadline across relaunches.
 ### Providers — `providers/`
 Thin bridge from widgets to data. Notable ones:
 - `databaseProvider` — the one DB instance (in its own file to break a cycle).

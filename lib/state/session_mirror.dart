@@ -39,9 +39,11 @@ class SessionMirror {
   Future<ActiveWorkout?> load() async {
     final row = await _db.loadLiveSession();
     if (row == null) return null;
+    final now = DateTime.now();
     return decodeSession(
       row.payload,
-      dead: DateTime.now().difference(row.savedAt),
+      dead: now.difference(row.savedAt),
+      now: now,
     );
   }
 

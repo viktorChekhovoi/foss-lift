@@ -132,7 +132,11 @@ void main() {
       await snapshot();
       await _settle();
       final row = await snapshot();
-      await db.saveLiveSession(row.payload, at: savedAt);
+      final payload = jsonDecode(row.payload) as Map<String, dynamic>;
+      if (payload['restEndsAt'] case final int deadline) {
+        payload['restEndsAt'] = deadline - DateTime.now().difference(savedAt).inMilliseconds;
+      }
+      await db.saveLiveSession(jsonEncode(payload), at: savedAt);
     }
     container?.dispose();
     container = containerFor(db, mirrorSession: true, overrides: overrides);

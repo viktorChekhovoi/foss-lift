@@ -51,6 +51,7 @@ class FossLiftApp extends ConsumerWidget {
     ref.watch(unitSeedProvider);
     // Puts the live workout in the notification shade and keeps it current.
     ref.watch(workoutShadeSyncProvider);
+    ref.watch(workoutActivitySyncProvider);
     // Brings back a session Android killed the process out from under. Once, on
     // launch, before anything can be started on top of it.
     ref.watch(liveSessionRestoreProvider);

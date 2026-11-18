@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/routine_code.dart';
 import '../data/share_code.dart';
+import '../providers/providers.dart'
+    show activeWorkoutProvider, liveSessionRestoreProvider;
 import '../theme/theme_code.dart';
 
 /// Turns a `fosslift://` URI into an in-app route.
@@ -16,6 +21,7 @@ import '../theme/theme_code.dart';
 /// arbitrary because a URL looked vaguely right is worse than doing nothing.
 String? routeForLink(Uri uri) {
   if (uri.scheme != kShareScheme) return null;
+  if (uri.host == 'session' && uri.path.isEmpty) return '/session';
   // fosslift://<host>/<code> — the host says what was shared, the code is the
   // path. Some senders normalise the slashes differently, so accept the code
   // wherever it lands rather than insisting on one exact shape.
@@ -50,18 +56,22 @@ bool readsAsShare(String host, String text) => switch (host) {
 /// app, and the warm case, where the app was already running — [AppLinks.uriLinkStream]
 /// reports the initial link too, so a single subscription handles both without
 /// racing to read it separately.
-class DeepLinkListener extends StatefulWidget {
-  const DeepLinkListener({super.key, required this.router, required this.child});
+class DeepLinkListener extends ConsumerStatefulWidget {
+  const DeepLinkListener({
+    super.key,
+    required this.router,
+    required this.child,
+  });
 
   final GoRouter router;
   final Widget child;
 
   @override
-  State<DeepLinkListener> createState() => _DeepLinkListenerState();
+  ConsumerState<DeepLinkListener> createState() => _DeepLinkListenerState();
 }
 
-class _DeepLinkListenerState extends State<DeepLinkListener> {
-  Object? _subscription;
+class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
+  StreamSubscription<Uri>? _subscription;
 
   /// The last link actually routed, across every instance of this widget.
   ///
@@ -78,9 +88,13 @@ class _DeepLinkListenerState extends State<DeepLinkListener> {
     super.initState();
     _subscription = AppLinks().uriLinkStream.listen(
       (uri) {
-        if (uri == _routed) return;
         final route = routeForLink(uri);
         if (route == null || !mounted) return;
+        if (route == '/session') {
+          unawaited(_openWorkout());
+          return;
+        }
+        if (uri == _routed) return;
         _routed = uri;
         widget.router.push(route);
       },
@@ -90,9 +104,25 @@ class _DeepLinkListenerState extends State<DeepLinkListener> {
     );
   }
 
+  Future<void> _openWorkout() async {
+    if (ref.read(activeWorkoutProvider) == null) {
+      // A Lock Screen tap can cold-launch the app before the snapshot has loaded.
+      try {
+        await ref.read(liveSessionRestoreProvider.future);
+      } catch (_) {
+        return;
+      }
+    }
+    if (mounted &&
+        ref.read(activeWorkoutProvider) != null &&
+        widget.router.state.uri.path != '/session') {
+      widget.router.push('/session');
+    }
+  }
+
   @override
   void dispose() {
-    (_subscription as dynamic)?.cancel();
+    _subscription?.cancel();
     super.dispose();
   }
 

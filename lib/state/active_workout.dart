@@ -10,11 +10,12 @@ import '../data/database.dart';
 import '../data/superset.dart';
 import '../data/warmup.dart';
 import '../providers/db_provider.dart';
+import '../providers/locale_provider.dart';
 import '../services/rest_alarm.dart';
 import '../services/rest_buzz.dart';
 import '../services/rest_tone.dart';
 import '../services/set_video_store.dart';
-import '../services/workout_shade.dart' show pendingShadeActionsProvider;
+import '../services/workout_shade.dart' show pendingShadeActionsProvider, restIsOverLine;
 import '../util/cardio_units.dart';
 import '../util/units.dart';
 import 'session_mirror.dart';
@@ -443,6 +444,7 @@ class ActiveWorkout {
     this.barKg = kDefaultBarKg,
     this.warmupSets = kDefaultWarmupSets,
     this.restLeft = 0,
+    this.restEndsAt,
     this.restPrompt,
     this.restFor,
     this.restDone = false,
@@ -504,6 +506,9 @@ class ActiveWorkout {
   /// notification shade needs a countdown to show while the app is not even
   /// visible. A timer owned by a widget dies with the widget.
   final int restLeft;
+
+  /// The same wall-clock deadline drives the board, the iPhone alert, and the Lock Screen countdown.
+  final DateTime? restEndsAt;
   final RestPrompt? restPrompt;
 
   /// The set this rest is for — see [RestSetRef]. Null for a rest nobody
@@ -828,6 +833,7 @@ class ActiveWorkout {
   ActiveWorkout copyWith({
     int? elapsed,
     int? restLeft,
+    DateTime? restEndsAt,
     RestPrompt? restPrompt,
     RestSetRef? restFor,
     bool? restDone,
@@ -846,6 +852,9 @@ class ActiveWorkout {
     barKg: barKg,
     warmupSets: warmupSets,
     restLeft: clearRest ? 0 : (restLeft ?? this.restLeft),
+    restEndsAt: clearRest || restLeft == 0
+        ? null
+        : (restEndsAt ?? this.restEndsAt),
     restPrompt: clearRest ? null : (restPrompt ?? this.restPrompt),
     restFor: clearRest ? null : (restFor ?? this.restFor),
     restDone: clearRest ? false : (restDone ?? this.restDone),
@@ -859,16 +868,8 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   Timer? _timer;
   Timer? _restTimer;
 
-  /// The moment the running rest is due to end, or null when nothing is
-  /// resting.
-  ///
-  /// **This, not `restLeft`, is what a rest actually is.** `restLeft` is the
-  /// number the board and the shade read, recomputed from here on every tick;
-  /// it stays on the state (and so in the crash snapshot) because that is what
-  /// everything downstream already consumes and what an installed build's
-  /// snapshot already carries. Deriving it rather than decrementing it is the
-  /// difference between a rest that survives a gap and one that loses it.
-  DateTime? _restEndsAt;
+  // A natural expiry waits for this handoff before deciding whether the app needs to play a fallback tone.
+  Future<bool>? _scheduledAlert;
 
   /// Where the session clock was, and when — [ActiveWorkout.elapsed] is the
   /// first plus the time since the second.
@@ -931,20 +932,47 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   void startRest(int seconds, RestPrompt? prompt, {RestSetRef? forSet}) {
     final s = state;
     if (s == null) return;
-    _restTimer?.cancel();
+    if (seconds <= 0) {
+      _endRest(announce: false);
+      return;
+    }
     // Through a cleared rest rather than straight onto the running one: the
     // prompt and the set are the old rest's, and a new rest that inherited
     // either would describe the set before it.
-    _restEndsAt = _now.add(Duration(seconds: seconds));
-    _commit(
-      s
-          .copyWith(clearRest: true)
-          .copyWith(restLeft: seconds, restPrompt: prompt, restFor: forSet),
+    final next = s.copyWith(clearRest: true).copyWith(
+      restLeft: seconds,
+      restEndsAt: _now.add(Duration(seconds: seconds)),
+      restPrompt: prompt,
+      restFor: forSet,
     );
-    // Anything left over from the last rest — the ding for a rest this one
-    // replaces is a ding for a rest that is over.
-    ref.read(restAlarmProvider).clear();
+    _runRest(next);
+  }
+
+  void _runRest(ActiveWorkout session, {bool restoring = false}) {
+    _commit(session);
+    _updateRestAlert(session, restoring: restoring);
+    _restTimer?.cancel();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) => _syncRest());
+  }
+
+  void _updateRestAlert(ActiveWorkout session, {bool restoring = false}) {
+    final alarm = ref.read(restAlarmProvider);
+    if (!alarm.schedulesAhead) {
+      alarm.clear();
+      return;
+    }
+    final l10n = ref.read(appLocalizationsProvider);
+    final cue = nextUp(session);
+    _scheduledAlert = alarm.schedule(
+      session.restEndsAt!,
+      restoring: restoring,
+      title: l10n.restAlarmTitle,
+      body: restIsOverLine(
+        l10n,
+        cue,
+        cue == null ? session.unit : session.unitForCue(cue),
+      ),
+    );
   }
 
   /// Puts [ActiveWorkout.restLeft] where the clock says it should be, and ends
@@ -961,13 +989,13 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// pass to ring again.
   void _syncRest() {
     final s = state;
-    final endsAt = _restEndsAt;
-    if (s == null || endsAt == null) return;
+    final endsAt = s?.restEndsAt;
+    if (s == null || endsAt == null || _restTimer == null) return;
     // Rounded up, so a rest with a fraction of a second on it still reads as
     // one rather than as zero-but-not-finished.
     final left = (endsAt.difference(_now).inMilliseconds / 1000).ceil();
     if (left <= 0) {
-      _endRest();
+      _endRest(expired: true);
       return;
     }
     if (left == s.restLeft) return;
@@ -980,15 +1008,23 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// zero ends it — see the −15s rule.
   void nudgeRest(int seconds) {
     final s = state;
-    if (s == null || s.restLeft == 0) return;
-    final left = s.restLeft + seconds;
+    final end = s?.restEndsAt;
+    if (s == null || end == null) return;
+    final now = _now;
+    if (!end.isAfter(now)) {
+      _endRest(expired: true);
+      return;
+    }
+    final deadline = end.add(Duration(seconds: seconds));
+    final left = (deadline.difference(now).inMilliseconds / 1000).ceil();
     if (left <= 0) {
       _endRest();
     } else {
       // The deadline is the rest; moving only the number would put the two out
       // of step and the next tick would undo the nudge.
-      _restEndsAt = _now.add(Duration(seconds: left));
-      _commit(s.copyWith(restLeft: left));
+      final next = s.copyWith(restLeft: left, restEndsAt: deadline);
+      _commit(next);
+      if (ref.read(restAlarmProvider).schedulesAhead) _updateRestAlert(next);
     }
   }
 
@@ -998,7 +1034,10 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// **Skipping does sound.** It used not to, from the shade, on the argument
   /// that somebody pressing Skip knows the rest is over. What that produced was a
   /// button with no feedback at all on the one screen that is in a pocket.
-  void stopRest({bool tone = true}) => _endRest(announce: tone);
+  void stopRest({bool tone = true}) {
+    final end = state?.restEndsAt;
+    _endRest(announce: tone, expired: end != null && !end.isAfter(_now));
+  }
 
   /// Ends the rest.
   ///
@@ -1009,47 +1048,39 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   /// cleared outright, because there is no finished rest to report. That is
   /// also what takes a bar left over from a finished rest away: the second call
   /// finds nothing running and clears.
-  void _endRest({bool announce = true}) {
+  void _endRest({bool announce = true, bool expired = false}) {
     _restTimer?.cancel();
     _restTimer = null;
-    _restEndsAt = null;
     final s = state;
     if (s == null) return;
     if (s.restLeft > 0 && announce) {
       // The prompt and the set it was for stay: they are what the bar has left
       // to say, and what an un-log of that set is matched against.
       _commit(s.copyWith(restLeft: 0, restDone: true));
-      _sayTheRestIsOver();
+      final delivery = _scheduledAlert;
+      if (expired && delivery != null) {
+        // iOS owns the audible cue in both foreground and background once it accepts this deadline. Leave the notification in place on resume.
+        unawaited(_fallbackIfNeeded(delivery));
+      } else {
+        _scheduledAlert = null;
+        ref.read(restAlarmProvider).clear();
+        ref.read(restToneProvider).play();
+        ref.read(restBuzzProvider).buzz();
+      }
       return;
     }
+    _scheduledAlert = null;
     _commit(s.copyWith(clearRest: true));
     ref.read(restAlarmProvider).clear();
   }
 
-  /// The one event this app makes a noise for.
-  ///
-  /// **The sound is always the tone**, on screen and in a pocket. The player uses
-  /// Android's notification stream, so its loudness follows the phone's
-  /// notification control rather than its alarm control. The live session runs
-  /// behind a foreground service, allowing the same player and asset to sound
-  /// either way.
-  ///
-  /// **The buzz goes with it, wherever the phone is.** It used to belong to the
-  /// board, which meant it happened only while the board was mounted and, being
-  /// touch feedback, often not even then — see [RestBuzz]. It is made here for
-  /// the same reason the tone is: a phone in a bag is what a rest timer is for,
-  /// and neither the screen nor the notification can be relied on to reach it.
-  ///
-  /// The foreground service's existing notification already carries the live
-  /// rest state in the shade. Posting another completion notification would add
-  /// a redundant heads-up card, so the rest ending only updates session state,
-  /// plays this tone, and buzzes.
-  void _sayTheRestIsOver() {
-    ref.read(restToneProvider).play();
-    ref.read(restBuzzProvider).buzz();
-    // Clear a completion card left by an older FossLift version after an
-    // in-place update. New rests never post one.
-    ref.read(restAlarmProvider).clear();
+  Future<void> _fallbackIfNeeded(Future<bool> delivery) async {
+    final scheduled = await delivery;
+    if (_gone || delivery != _scheduledAlert) return;
+    _scheduledAlert = null;
+    if (!scheduled && ref.read(appOnScreenProvider)()) {
+      await ref.read(restToneProvider).play();
+    }
   }
 
   // ---- The crash snapshot --------------------------------------------------
@@ -1105,7 +1136,12 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     // the app was dead is simply over — and its alarm has already sounded, which
     // is why nothing is cleared here.
     if (was.restLeft > 0) {
-      startRest(was.restLeft, was.restPrompt, forSet: was.restFor);
+      _runRest(
+        was.copyWith(
+          restEndsAt: was.restEndsAt ?? _now.add(Duration(seconds: was.restLeft)),
+        ),
+        restoring: true,
+      );
     }
   }
 
@@ -1867,7 +1903,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _elapsedAnchor = null;
     _restTimer?.cancel();
     _restTimer = null;
-    _restEndsAt = null;
+    _scheduledAlert = null;
     ref.read(restAlarmProvider).clear();
     // Before a row is written: advancing progression edits the very slots this
     // is watching, and a session on its way out has no use for the answer.
@@ -2015,7 +2051,7 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
     _elapsedAnchor = null;
     _restTimer?.cancel();
     _restTimer = null;
-    _restEndsAt = null;
+    _scheduledAlert = null;
     ref.read(restAlarmProvider).clear();
     _forget();
     final clips = _clipPaths.toList();
