@@ -28,7 +28,7 @@ Cloudflare Pages hosts the static web app. Loading the page downloads its engine
 
 The camera is used to scan routine/theme QR codes or record a set when you ask. Scanning examines frames locally. Set videos are silent, are stored in app-private support storage, and do not access your photo library. The app does not request microphone access for recording.
 
-On Android, notification permission supports workout reminders and live workout controls. Vibration announces a rest ending; boot handling restores scheduled reminders; a foreground service keeps an active workout running. iOS does not advertise those Android-specific background controls. Browser builds do not offer camera scanning or set-video recording.
+On Android, notification permission supports workout reminders and live workout controls. The phone vibrates when a rest ends. Boot handling restores scheduled reminders, and a foreground service keeps an active workout running. On iPhone, Foss Lift requests notification permission for rest sounds and routine reminders. A Live Activity can show the workout and next set on the Lock Screen and in the Dynamic Island. On iOS 17 or later its buttons can log a counted set or adjust a rest without opening Foss Lift. The phone schedules the alert and updates the activity locally. Browser builds do not offer camera scanning or set-video recording.
 
 Your operating system may include app data and clips in device backups according to your Apple or Google account settings. These backups are made by the operating system and managed through its account settings.
 

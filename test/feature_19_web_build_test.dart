@@ -43,14 +43,15 @@ void main() {
       expect(c.localFiles, isFalse);
     });
 
-    test('iOS has camera and files without Android background controls', () {
+    test('iOS offers live workout controls, rest alerts and routine reminders', () {
       const c = Capabilities.ios;
       expect(c.setVideos, isTrue);
       expect(c.scanning, isTrue);
       expect(c.localFiles, isTrue);
       expect(c.shade, isFalse);
-      expect(c.backgroundAlerts, isFalse);
-      expect(c.reminders, isFalse);
+      expect(c.liveActivity, isTrue);
+      expect(c.backgroundAlerts, isTrue);
+      expect(c.reminders, isTrue);
     });
 
     test('the running build reports the native set under the test runner', () {

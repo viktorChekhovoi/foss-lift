@@ -41,6 +41,13 @@ jobs:
         env:
           IOS_BUILD_NUMBER: ${{ github.run_number }}
         run: flutter build ios --release --no-codesign --build-number="$IOS_BUILD_NUMBER"
+      - name: Verify the workout widget and rest sound in both apps
+        run: |
+          for sdk in iphoneos iphonesimulator; do
+            app="build/ios/$sdk/Runner.app"
+            cmp assets/sound/rest_done.wav "$app/rest_done.wav"
+            test -x "$app/PlugIns/WorkoutActivity.appex/WorkoutActivity"
+          done
       - name: Package unsigned apps
         run: |
           ditto -c -k --keepParent build/ios/iphoneos/Runner.app build/ios/FossLift-unsigned-device.zip

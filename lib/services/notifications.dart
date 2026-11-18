@@ -38,5 +38,10 @@ Future<void> initNotifications(FlutterLocalNotificationsPlugin plugin) =>
     plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/ic_stat_fosslift'),
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestSoundPermission: false,
+          requestBadgePermission: false,
+        ),
       ),
     );

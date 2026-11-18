@@ -2,50 +2,21 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'notification_ids.dart';
 import 'notifications.dart';
 
-/// The rest ending, as something to look at when the phone comes out.
-///
-/// **It makes no sound, and that is the point.** It used to: the notification
-/// carried `res/raw/rest_done.wav` on a high-importance channel, and the tone
-/// was the on-screen alternative to it. A notification channel's loudness,
-/// though, belongs to the phone's alarm slider — nothing an app posts can turn
-/// it down — so the rest-alert volume could not reach the one case a rest timer
-/// exists for, a phone in a pocket. It does not have to be a channel sound:
-/// [RestTone] plays out of the app's own isolate, the live session already runs
-/// behind a foreground service, and an app with one running may play audio while
-/// it is in the background. So `ActiveWorkoutController` sounds the tone either
-/// way and posts this alongside it off screen — the picture, not the noise. It
-/// still buzzes, because a buzz is not a volume.
-///
-/// **Posted when the rest ends, not handed over in advance.** It used to be
-/// scheduled the moment an off-screen rest started, because the countdown is a
-/// timer in this process and a process Android has killed plays nothing. Two
-/// things changed that. The foreground service keeps the session alive to the
-/// end of its own rest, so there is normally something here to post. And a
-/// scheduled alarm could only be inexact — Play grants the exact-alarm
-/// permission to alarm clocks and calendars and not to a workout tracker — so
-/// the fallback would arrive late, which for a rest timer is its own kind of
-/// wrong. See the manifest note and issue #70.
-///
-/// What that costs is the rest that ends while the app is not running at all: a
-/// force-stop, or a reclaim the service did not prevent. That one is silent, and
-/// always was — nothing was ever handed to Android to ring on its own. The
-/// workout itself is not lost; the crash snapshot brings it back.
-///
-/// Android only, like every other notification here. Off it, every method is a
-/// no-op rather than a crash — the shape `ReminderService` uses. See issue #33.
+/// iOS delivers a scheduled rest cue even when Dart is suspended. Android's foreground service plays the in-app tone and clears legacy completion cards.
 class RestAlarm {
-  /// [platformSupported] defaults to the real check; a test overrides it
-  /// because the runner is not Android and there is no channel to post to.
-  RestAlarm({
-    FlutterLocalNotificationsPlugin? plugin,
-    bool? platformSupported,
-  })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
-        _platformSupported =
-            platformSupported ?? (!kIsWeb && Platform.isAndroid);
+  /// Tests can override platform availability before exercising a notification channel.
+  RestAlarm({FlutterLocalNotificationsPlugin? plugin, bool? platformSupported})
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+      _platformSupported =
+          platformSupported ??
+          (!kIsWeb &&
+              (Platform.isAndroid ||
+                  defaultTargetPlatform == TargetPlatform.iOS));
 
   final FlutterLocalNotificationsPlugin _plugin;
   final bool _platformSupported;
@@ -66,7 +37,83 @@ class RestAlarm {
   /// notification settings follows the app.
   NotificationChannelCopy? _channelCopy;
 
+  bool get schedulesAhead =>
+      supported && !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
   bool get supported => _platformSupported;
+
+  Future<void> _pending = Future<void>.value();
+  Future<void> get settled => _pending;
+  int _revision = 0;
+  bool _iosInitialized = false;
+
+  /// Reuses one notification ID for the current deadline. Serialize native writes so a slow permission answer or add cannot revive a skipped or replaced rest.
+  Future<bool> schedule(
+    DateTime deadline, {
+    required String title,
+    required String body,
+    bool restoring = false,
+  }) {
+    final revision = ++_revision;
+    final result = _pending.then((_) async {
+      if (revision != _revision) return false;
+      try {
+        final ios = _plugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
+        if (ios == null) return false;
+        final stamp = deadline.millisecondsSinceEpoch.toString();
+        if (restoring) {
+          // A pending notification survives the process. Leave it armed across a cold launch, including when it fires during restoration.
+          final pending = await ios.pendingNotificationRequests();
+          final alreadyArmed = pending.any(
+            (request) => request.id == kRestAlarmId && request.payload == stamp,
+          );
+          if (alreadyArmed || !deadline.isAfter(DateTime.now())) return true;
+        }
+        await ios.cancel(id: kRestAlarmId);
+        if (!_iosInitialized) {
+          await initNotifications(_plugin);
+          _iosInitialized = true;
+        }
+        if (revision != _revision) return false;
+        final allowed = await ios.requestPermissions(alert: true, sound: true);
+        if (allowed != true || revision != _revision) return false;
+
+        // Apple's calendar trigger has one-second precision. Round up so a fractional deadline never rings early.
+        final seconds =
+            (deadline.microsecondsSinceEpoch / Duration.microsecondsPerSecond)
+                .ceil();
+        await ios.zonedSchedule(
+          id: kRestAlarmId,
+          scheduledDate: tz.TZDateTime.fromMillisecondsSinceEpoch(
+            tz.UTC,
+            seconds * Duration.millisecondsPerSecond,
+          ),
+          title: title,
+          body: body,
+          payload: stamp,
+          notificationDetails: const DarwinNotificationDetails(
+            sound: 'rest_done.wav',
+            presentSound: true,
+            presentAlert: false,
+            presentBanner: false,
+            presentList: false,
+            presentBadge: false,
+          ),
+        );
+        return true;
+      } catch (error) {
+        debugPrint(
+          'RestAlarm: could not schedule the iPhone rest alert ($error)',
+        );
+        return false;
+      }
+    });
+    _pending = result.then((_) {});
+    return result;
+  }
 
   /// Puts the end of the rest on screen now, replacing anything still there.
   ///
@@ -81,7 +128,7 @@ class RestAlarm {
     required String title,
     required String body,
   }) async {
-    if (!supported) return;
+    if (!supported || schedulesAhead) return;
     await _guard('post the end of the rest', () async {
       await _init(channel);
       // One id for the rest, so a second one replaces the first rather than
@@ -100,8 +147,17 @@ class RestAlarm {
   /// session ending all end here — a rest that ended two minutes ago is not news.
   Future<void> clear() async {
     if (!supported) return;
-    await _guard(
-        'clear the notification', () => _plugin.cancel(id: kRestAlarmId));
+    Future<void> cancel() => _guard(
+      'clear the notification',
+      () => _plugin.cancel(id: kRestAlarmId),
+    );
+    if (schedulesAhead) {
+      _revision++;
+      _pending = _pending.then((_) => cancel());
+      await _pending;
+    } else {
+      await cancel();
+    }
   }
 
   /// Nothing this class does is worth interrupting a workout over: a denied

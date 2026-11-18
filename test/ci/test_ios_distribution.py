@@ -14,6 +14,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "tool/ios_signing.py"
+APP_ID = "com.fosslift.fosslift"
+WIDGET_ID = f"{APP_ID}.WorkoutActivity"
 
 
 class DistributionProfileTest(unittest.TestCase):
@@ -39,18 +41,18 @@ class DistributionProfileTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def profile(self, **changes):
+    def profile(self, bundle_id=APP_ID, **changes):
         value = {
             "Name": "FossLiftAppStore", "UUID": "b653721e-1547-4f49-a0a3-569549b870e7",
             "TeamIdentifier": ["TEAM123456"], "ApplicationIdentifierPrefix": ["TEAM123456"],
             "ExpirationDate": dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + dt.timedelta(days=1),
             "DeveloperCertificates": [self.der],
-            "Entitlements": {"application-identifier": "TEAM123456.com.fosslift.fosslift", "get-task-allow": False},
+            "Entitlements": {"application-identifier": f"TEAM123456.{bundle_id}", "get-task-allow": False},
         }
         value.update(changes)
         source = self.folder / "profile.plist"
         source.write_bytes(plistlib.dumps(value))
-        target = self.folder / "profile.mobileprovision"
+        target = self.folder / f"{bundle_id}.mobileprovision"
         subprocess.run([
             "openssl", "cms", "-sign", "-binary", "-nodetach", "-in", str(source),
             "-signer", str(self.cert), "-inkey", str(self.key), "-outform", "DER", "-out", str(target),
@@ -132,6 +134,26 @@ class DistributionProfileTest(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn("ipa_deployment_target", result.stderr)
 
+    def test_distribution_requires_the_embedded_workout_widget_with_matching_version(self):
+        with tempfile.TemporaryDirectory(dir=self.folder) as folder:
+            checkout = Path(folder)
+            ipa = checkout / "build/ios/ipa/Fixture.ipa"
+            ipa.parent.mkdir(parents=True)
+            state = checkout / "state.json"
+            state.write_text("{}")
+            env = {**os.environ, "IOS_SIGNING_STATE": str(state), "RUNNER_TEMP": str(checkout)}
+            app = {"CFBundleIdentifier": APP_ID, "CFBundleVersion": "34", "CFBundleShortVersionString": "0.5.10", "MinimumOSVersion": "15.0"}
+            widget = {**app, "CFBundleIdentifier": WIDGET_ID, "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"}}
+            for changes in [None, {"CFBundleIdentifier": APP_ID}, {"CFBundleVersion": "33"}, {"CFBundleShortVersionString": "0.5.9"}]:
+                with self.subTest(changes=changes):
+                    with zipfile.ZipFile(ipa, "w") as archive:
+                        archive.writestr("Payload/Fixture.app/Info.plist", plistlib.dumps(app))
+                        if changes is not None:
+                            archive.writestr("Payload/Fixture.app/PlugIns/WorkoutActivity.appex/Info.plist", plistlib.dumps({**widget, **changes}))
+                    result = subprocess.run([sys.executable, str(HELPER), "verify-ipa", "34"], cwd=checkout, env=env, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("ipa_missing_workout_widget" if changes is None else "ipa_widget_identity_or_version", result.stderr)
+
     @unittest.skipUnless(sys.platform == "darwin", "Apple keychain integration needs macOS")
     def test_macos_prepares_app_signing_and_removes_temporary_credentials(self):
         # All keys in this test are generated fixtures, never repository secrets.
@@ -144,21 +166,23 @@ class DistributionProfileTest(unittest.TestCase):
         runner = self.folder / "runner"
         runner.mkdir()
         profile = self.profile()
+        widget_profile = self.profile(WIDGET_ID, UUID="cec67ed9-1547-4f49-a0a3-569549b870e8")
         env = {
             **os.environ, "RUNNER_TEMP": str(runner), "GITHUB_ENV": str(runner / "env"),
             "IOS_DISTRIBUTION_P12_BASE64": base64.b64encode(p12.read_bytes()).decode(),
             "IOS_PROVISION_PROFILE_BASE64": base64.b64encode(profile.read_bytes()).decode(),
+            "IOS_WIDGET_PROVISION_PROFILE_BASE64": base64.b64encode(widget_profile.read_bytes()).decode(),
             "IOS_P12_PASSWORD": "fixture-password",
         }
         before = subprocess.check_output(["security", "list-keychains", "-d", "user"])
         root = runner / "foss-lift-signing"
-        installed = None
+        installed = []
         try:
             result = subprocess.run([sys.executable, str(HELPER), "prepare"], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             state = json.loads((root / "state.json").read_text())
-            installed = Path(state["installed_profiles"][0])
-            self.assertEqual(installed.read_bytes(), profile.read_bytes())
+            installed = [Path(file) for file in state["installed_profiles"]]
+            self.assertEqual([file.read_bytes() for file in installed], [profile.read_bytes(), widget_profile.read_bytes()])
             self.assertFalse((root / "identity.p12").exists())
             project = self.folder / "Runner.xcodeproj"
             shutil.copytree(ROOT / "ios/Runner.xcodeproj", project)
@@ -167,17 +191,21 @@ class DistributionProfileTest(unittest.TestCase):
             ], check=True, capture_output=True)
             configured = subprocess.check_output([
                 "ruby", "-rjson", "-rxcodeproj", "-e",
-                "p = Xcodeproj::Project.open(ARGV[0]); puts JSON.generate(p.targets.find { |t| t.name == 'Runner' }.build_configurations.map(&:build_settings))",
+                "p = Xcodeproj::Project.open(ARGV[0]); puts JSON.generate(p.targets.select { |t| ['Runner', 'WorkoutActivity'].include?(t.name) }.flat_map { |t| t.build_configurations.map(&:build_settings) })",
                 str(project),
             ])
-            for settings in json.loads(configured):
+            profiles = {key: value["profile_uuid"] for key, value in state["profiles"].items()}
+            self.assertEqual(set(profiles), {APP_ID, WIDGET_ID})
+            settings_by_target = json.loads(configured)
+            self.assertEqual({s["PRODUCT_BUNDLE_IDENTIFIER"] for s in settings_by_target}, {APP_ID, WIDGET_ID})
+            for settings in settings_by_target:
                 self.assertEqual(settings["CODE_SIGN_STYLE"], "Manual")
                 self.assertEqual(settings["DEVELOPMENT_TEAM"], "TEAM123456")
-                self.assertEqual(settings["PROVISIONING_PROFILE_SPECIFIER"], state["profile_uuid"])
+                self.assertEqual(settings["PROVISIONING_PROFILE_SPECIFIER"], profiles[settings["PRODUCT_BUNDLE_IDENTIFIER"]])
                 self.assertEqual(settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"], state["identity_sha1"])
             options = plistlib.loads(Path(state["export_options"]).read_bytes())
             self.assertEqual(options["method"], "app-store-connect")
-            self.assertEqual(options["provisioningProfiles"], {"com.fosslift.fosslift": state["profile_uuid"]})
+            self.assertEqual(options["provisioningProfiles"], profiles)
             checkout = root / "fixture-checkout"
             app = checkout / "build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
             executable = app / "Fixture"
@@ -189,10 +217,22 @@ class DistributionProfileTest(unittest.TestCase):
             ], input=b"int main(void) { return 0; }", check=True, capture_output=True)
             (app / "Info.plist").write_bytes(plistlib.dumps({
                 "CFBundleIdentifier": "com.fosslift.fosslift", "CFBundleExecutable": "Fixture",
-                "CFBundleVersion": "29", "CFBundlePackageType": "APPL",
+                "CFBundleVersion": "29", "CFBundleShortVersionString": "0.5.10", "CFBundlePackageType": "APPL",
                 "CFBundleSupportedPlatforms": ["iPhoneOS"],
                 "MinimumOSVersion": "15.0",
             }))
+            widget = app / "PlugIns/WorkoutActivity.appex"
+            widget.mkdir(parents=True)
+            shutil.copy2(executable, widget / "Fixture")
+            (widget / "Info.plist").write_bytes(plistlib.dumps({
+                "CFBundleIdentifier": WIDGET_ID, "CFBundleExecutable": "Fixture",
+                "CFBundleVersion": "29", "CFBundleShortVersionString": "0.5.10", "CFBundlePackageType": "XPC!", "MinimumOSVersion": "16.2",
+                "NSExtension": {"NSExtensionPointIdentifier": "com.apple.widgetkit-extension"},
+            }))
+            shutil.copyfile(widget_profile, widget / "embedded.mobileprovision")
+            subprocess.run([
+                "codesign", "--force", "--sign", state["identity_sha1"], "--keychain", state["keychain"], str(widget),
+            ], check=True, capture_output=True)
             shutil.copyfile(profile, app / "embedded.mobileprovision")
             subprocess.run([
                 "codesign", "--force", "--sign", state["identity_sha1"], "--keychain", state["keychain"], str(app),
@@ -220,8 +260,8 @@ class DistributionProfileTest(unittest.TestCase):
             result = subprocess.run([sys.executable, str(HELPER), "cleanup"], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(root.exists())
-        if installed:
-            self.assertFalse(installed.exists())
+        for file in installed:
+            self.assertFalse(file.exists())
         self.assertEqual(subprocess.check_output(["security", "list-keychains", "-d", "user"]), before)
 
 

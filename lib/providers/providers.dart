@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -15,17 +16,20 @@ import '../services/set_video_store.dart';
 import '../services/set_video_thumbnails.dart';
 import '../services/storage_health.dart';
 import '../services/tab_awake.dart';
+import '../services/workout_activity.dart';
 import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
+import '../state/session_mirror.dart';
 import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import '../util/capabilities.dart';
-import '../util/locales.dart';
 import '../util/seed_names.dart';
 import '../util/units.dart';
 import 'db_provider.dart';
+import 'locale_provider.dart';
 
 export 'db_provider.dart' show databaseProvider;
+export 'locale_provider.dart';
 // The rest clock lives on the session controller, so the two providers it needs
 // live beside it — see the note on db_provider.dart for why that shape exists.
 export '../state/active_workout.dart' show restToneProvider, clockProvider;
@@ -333,6 +337,104 @@ final reminderSyncProvider = Provider<void>((ref) {
 /// The live workout in the notification shade.
 final workoutShadeProvider = Provider<WorkoutShade>((ref) => WorkoutShade());
 
+final workoutActivityProvider = Provider<WorkoutActivity>((ref) {
+  final activity = WorkoutActivity();
+  activity.handleActions((press) async {
+    await ref.read(liveSessionRestoreProvider.future);
+    final controller = ref.read(activeWorkoutProvider.notifier);
+    controller.refreshClocks();
+    final session = ref.read(activeWorkoutProvider);
+    final l10n = ref.read(appLocalizationsProvider);
+    if (session != null &&
+        press['session'] == session.startedAt.millisecondsSinceEpoch) {
+      final cue = nextUp(session)!;
+      final resting = session.restLeft > 0;
+      final buttons = workoutButtons(
+        l10n,
+        resting ? CueKind.resting : cue.kind,
+      );
+      final action = press['action'];
+      if (press['target'] == _activityTarget(session, cue) &&
+          (!resting ||
+              press['restEndsAt'] ==
+                  session.restEndsAt?.millisecondsSinceEpoch) &&
+          buttons.any((button) => button.id == action) &&
+          action is String) {
+        applyShadeAction(controller, action);
+      }
+    }
+    await Future.wait([
+      if (ref.read(sessionMirrorProvider) case final mirror?) mirror.saved,
+      ref.read(restAlarmProvider).settled,
+      activity.sync(_activityContent(ref.read(activeWorkoutProvider), l10n)),
+    ]);
+  });
+  ref.onDispose(activity.dispose);
+  return activity;
+});
+
+// Include the displayed goal and movement identity as well as its board position. A stale tap after a template edit or a zero-rest superset must never log the next row.
+String _activityTarget(ActiveWorkout session, WorkoutCue cue) {
+  final exercise = cue.exerciseIndex < 0
+      ? null
+      : session.exercises[cue.exerciseIndex];
+  return jsonEncode([
+    cue.kind.name,
+    cue.exerciseIndex,
+    exercise?.itemId,
+    exercise?.exerciseId,
+    cue.exercise,
+    cue.warmup,
+    cue.setIndex,
+    cue.reps,
+    cue.seconds,
+    cue.weightKg,
+  ]);
+}
+
+Map<String, Object?>? _activityContent(
+  ActiveWorkout? session,
+  AppLocalizations l10n,
+) {
+  if (session == null) return null;
+  final cue = nextUp(session)!;
+  List<Map<String, String>> buttons(CueKind kind) => [
+    for (final button in workoutButtons(l10n, kind))
+      {'id': button.id, 'label': button.text},
+  ];
+  return {
+    'session': session.startedAt.millisecondsSinceEpoch,
+    'workout': seededName(l10n, session.seedKey, session.name),
+    'movement': shadeTitle(l10n, cue),
+    'detail': shadeText(l10n, cue, session.unitForCue(cue)),
+    'restEndsAt': session.restEndsAt?.millisecondsSinceEpoch,
+    'target': _activityTarget(session, cue),
+    'setButtons': buttons(cue.kind),
+    'restButtons': buttons(CueKind.resting),
+  };
+}
+
+/// The iPhone Lock Screen shows the next set even while its native timer counts down. Workout edits and language changes refresh the text.
+final workoutActivitySyncProvider = Provider<void>((ref) {
+  if (!ref.watch(capabilitiesProvider).liveActivity) return;
+  final restored = ref.watch(liveSessionRestoreProvider).hasValue;
+  final activity = ref.watch(workoutActivityProvider);
+  final l10n = ref.watch(appLocalizationsProvider);
+  void sync() {
+    final session = ref.read(activeWorkoutProvider);
+    // ActivityKit outlives the process. Wait for the snapshot before interpreting an empty controller as a finished workout.
+    if (session != null || restored) {
+      activity.sync(_activityContent(session, l10n));
+    }
+  }
+
+  ref.listen(
+    activeWorkoutProvider.select((s) => (s?.startedAt, s?.rev)),
+    (_, _) => sync(),
+  );
+  sync();
+});
+
 /// How the shade's set buttons raise the live board once the press has reached
 /// this isolate.
 ///
@@ -510,61 +612,6 @@ final textScaleProvider = StreamProvider<double>((ref) {
   return ref.watch(databaseProvider).watchTextScale();
 });
 
-/// The language the app renders in, as a stored tag (`uk`, `pt_BR`).
-///
-/// **The phone is consulted once, not for ever.** An install that has not
-/// chosen yet emits null exactly once; that null is answered by resolving the
-/// phone's preference list against the catalogues we ship and writing the
-/// answer to `Settings.localeTag`. So there is no "follow the phone" state to
-/// be in — the picker always has one of the five selected, and changing the
-/// phone's language afterwards leaves the app where the user left it.
-final localeTagProvider = StreamProvider<String?>((ref) {
-  final db = ref.watch(databaseProvider);
-  return db.watchLocaleTag().asyncMap((tag) async {
-    if (tag != null) return tag;
-    final resolved = localeTag(
-      resolveLocale(null, WidgetsBinding.instance.platformDispatcher.locales),
-    );
-    await db.setLocaleTag(resolved);
-    return resolved;
-  });
-});
-
-/// The language to render in.
-///
-/// Synchronous, and deliberately: the app root needs a locale for the very
-/// first frame, and the stored choice has not arrived yet. Until it does — and
-/// on the first launch, until the write above lands — this is the phone's own
-/// answer, which is what first run is about to store anyway. See
-/// [localeReadyProvider] for the gate that keeps that guess off the screen.
-final activeLocaleProvider = Provider<Locale>((ref) {
-  return resolveLocale(
-    ref.watch(localeTagProvider).value,
-    WidgetsBinding.instance.platformDispatcher.locales,
-  );
-});
-
-/// The string catalogue for [activeLocaleProvider].
-///
-/// **For the parts of the app that render text with no widget tree under
-/// them** — the notification shade, the rest alarm, the scheduled reminders.
-/// Everywhere there is a `BuildContext`, `AppLocalizations.of(context)` is the
-/// answer and this is not.
-///
-/// Derived rather than remembered, and read at the moment the text is built:
-/// switching language rebuilds it in the same pass that rebuilds the screens,
-/// so nothing can post yesterday's language.
-final appLocalizationsProvider = Provider<AppLocalizations>(
-  (ref) => lookupAppLocalizations(ref.watch(activeLocaleProvider)),
-);
-
-/// Whether the stored language has arrived. Joined with [themeReadyProvider]
-/// at the app root, for the same reason: painting a frame in the wrong
-/// language and correcting it is a flicker on every cold launch.
-final localeReadyProvider = Provider<bool>((ref) {
-  return ref.watch(localeTagProvider).hasValue;
-});
-
 /// The layoff rules: the gap that earns a back-off and how deep it cuts.
 final layoffSettingsProvider = StreamProvider<LayoffSettings>((ref) {
   return ref.watch(databaseProvider).watchLayoffSettings();
@@ -731,6 +778,7 @@ final activeWorkoutProvider =
 /// itself to, and would be dropped for the second time.
 final liveSessionRestoreProvider = FutureProvider<void>((ref) async {
   await ref.read(activeWorkoutProvider.notifier).restore();
+  if (!ref.read(capabilitiesProvider).shade) return;
   await drainShadeActions(
     ref.read(activeWorkoutProvider.notifier),
     ref.read(pendingShadeActionsProvider),

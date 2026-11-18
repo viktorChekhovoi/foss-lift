@@ -553,7 +553,10 @@ String shadeText(AppLocalizations l10n, WorkoutCue cue, String unit) {
 
 /// The buttons: two to log a set with, or three to run the rest with.
 List<NotificationButton> shadeButtons(AppLocalizations l10n, WorkoutCue cue) =>
-    switch (cue.kind) {
+    workoutButtons(l10n, cue.kind);
+
+List<NotificationButton> workoutButtons(AppLocalizations l10n, CueKind kind) =>
+    switch (kind) {
       // Nothing is outstanding: what is left is Finish, which weighs up unlogged
       // sets and opens the recap, and neither of those belongs on a control you
       // brush past through a coat. The notification says so and its body opens

@@ -45,15 +45,9 @@ class ReminderService {
   bool _ready = false;
   Future<void> _queue = Future<void>.value();
 
-  /// Android is the only platform this app ships on, and the only one with a
-  /// notification story worth having here. Everywhere else — desktop, the
-  /// browser, and the test runner — every method below is a no-op rather than a
-  /// crash.
-  ///
-  /// The web is checked first and separately: `Platform.isAndroid` does not
-  /// return false in a browser, it throws. `dart:io` compiles for the web and
-  /// then refuses to do anything.
-  bool get supported => !kIsWeb && Platform.isAndroid;
+  bool get supported =>
+      !kIsWeb &&
+      (Platform.isAndroid || defaultTargetPlatform == TargetPlatform.iOS);
 
   /// Prepares the time-zone database and the plugin. Safe to call repeatedly;
   /// only the first call does anything.
@@ -64,7 +58,7 @@ class ReminderService {
     _ready = true;
   }
 
-  /// Asks for the notification permission Android 13+ requires. Returns whether
+  /// Asks for the phone's notification permission. Returns whether
   /// it was granted; false on every platform that cannot be asked.
   ///
   /// Called when the user turns a reminder on, which is the moment the request
@@ -73,8 +67,17 @@ class ReminderService {
   Future<bool> requestPermission() async {
     if (!supported) return false;
     await init();
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (ios != null) {
+      return await ios.requestPermissions(alert: true, sound: true) ?? false;
+    }
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     return await android?.requestNotificationsPermission() ?? false;
   }
 
@@ -82,8 +85,15 @@ class ReminderService {
   Future<bool> permitted() async {
     if (!supported) return false;
     await init();
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (ios != null) return (await ios.checkPermissions())?.isEnabled ?? false;
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     return await android?.areNotificationsEnabled() ?? false;
   }
 
@@ -125,9 +135,23 @@ class ReminderService {
       if (isReminderId(pending.id)) await _plugin.cancel(id: pending.id);
     }
 
-    for (final post in posts) {
-      final at = post.reminder.nextFireAt(now);
-      if (at == null) continue;
+    final scheduled = [
+      for (final post in posts)
+        if (post.reminder.nextFireAt(now) case final at?) (post: post, at: at),
+    ];
+    // iOS keeps 64 pending requests per app. Reserve one for the rest timer.
+    const iosRoutineLimit = 63;
+    if (defaultTargetPlatform == TargetPlatform.iOS &&
+        scheduled.length > iosRoutineLimit) {
+      scheduled.sort((a, b) {
+        final byTime = a.at.compareTo(b.at);
+        return byTime != 0
+            ? byTime
+            : a.post.reminder.routineId.compareTo(b.post.reminder.routineId);
+      });
+      scheduled.removeRange(iosRoutineLimit, scheduled.length);
+    }
+    for (final (:post, :at) in scheduled) {
       await _plugin.zonedSchedule(
         // The routine's own id, so re-syncing replaces its reminder rather than
         // stacking a second one beside it.
@@ -136,6 +160,7 @@ class ReminderService {
         body: post.body,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
         notificationDetails: NotificationDetails(
+          iOS: const DarwinNotificationDetails(),
           android: AndroidNotificationDetails(
             _channelId,
             channel.name,

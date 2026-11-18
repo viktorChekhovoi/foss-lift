@@ -24,11 +24,16 @@ void main() {
       statusBarIconBrightness: Brightness.light,
     ),
   );
+  final container = ProviderContainer(
+    overrides: [openSessionProvider.overrideWithValue(_openSession)],
+  );
+  // A LiveActivityIntent can cold-launch this engine before iOS creates a window.
+  // Install its channel without depending on a widget's first frame.
+  if (container.read(capabilitiesProvider).liveActivity) {
+    container.read(workoutActivityProvider);
+  }
   runApp(
-    ProviderScope(
-      overrides: [openSessionProvider.overrideWithValue(_openSession)],
-      child: const FossLiftApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const FossLiftApp()),
   );
 }
 
@@ -51,6 +56,7 @@ class FossLiftApp extends ConsumerWidget {
     ref.watch(unitSeedProvider);
     // Puts the live workout in the notification shade and keeps it current.
     ref.watch(workoutShadeSyncProvider);
+    ref.watch(workoutActivitySyncProvider);
     // Brings back a session Android killed the process out from under. Once, on
     // launch, before anything can be started on top of it.
     ref.watch(liveSessionRestoreProvider);
