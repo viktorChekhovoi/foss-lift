@@ -135,9 +135,23 @@ class ReminderService {
       if (isReminderId(pending.id)) await _plugin.cancel(id: pending.id);
     }
 
-    for (final post in posts) {
-      final at = post.reminder.nextFireAt(now);
-      if (at == null) continue;
+    final scheduled = [
+      for (final post in posts)
+        if (post.reminder.nextFireAt(now) case final at?) (post: post, at: at),
+    ];
+    // iOS keeps 64 pending requests per app. Reserve one for the rest timer.
+    const iosRoutineLimit = 63;
+    if (defaultTargetPlatform == TargetPlatform.iOS &&
+        scheduled.length > iosRoutineLimit) {
+      scheduled.sort((a, b) {
+        final byTime = a.at.compareTo(b.at);
+        return byTime != 0
+            ? byTime
+            : a.post.reminder.routineId.compareTo(b.post.reminder.routineId);
+      });
+      scheduled.removeRange(iosRoutineLimit, scheduled.length);
+    }
+    for (final (:post, :at) in scheduled) {
       await _plugin.zonedSchedule(
         // The routine's own id, so re-syncing replaces its reminder rather than
         // stacking a second one beside it.
