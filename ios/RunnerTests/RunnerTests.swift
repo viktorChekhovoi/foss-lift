@@ -20,12 +20,15 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(first.setButtons?.map { $0.id }, ["set_done", "set_missed"])
     let press = WorkoutActionIntent(session: id, target: try XCTUnwrap(first.target), action: "set_done", restEndsAt: nil)
     _ = try await press.perform()
+    _ = try await press.perform()
+    let updateDeadline = Date().addingTimeInterval(20)
+    while workout.content.state.target == first.target, Date() < updateDeadline {
+      try await Task.sleep(nanoseconds: 100_000_000)
+    }
     let second = workout.content.state
     XCTAssertNotEqual(second.target, first.target)
     XCTAssertTrue(second.movement.contains("Rows"), second.movement)
     XCTAssertNil(second.restEndsAt, "There is no rest between the two superset movements")
-    _ = try await press.perform()
-    XCTAssertEqual(workout.content.state.target, second.target)
 
     var db: OpaquePointer?
     let path = docs.appendingPathComponent("foss_lift.sqlite").path

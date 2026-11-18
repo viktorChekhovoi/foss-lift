@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 import time
 
 def sim(*args):
@@ -10,11 +11,13 @@ def sim(*args):
 devices = json.loads(sim("list", "devices", "available", "--json"))["devices"]
 candidates = [(runtime, device) for runtime, group in devices.items() if "iOS-" in runtime
               for device in group if device["name"].startswith("iPhone") and "Pro" in device["name"]]
-runtime, device = max(candidates, key=lambda entry: (entry[1]["state"] == "Booted", entry[0], entry[1]["name"]))
+runtime, device = max(candidates, key=lambda entry: (entry[1]["state"] in {"Booted", "Booting"}, entry[0], entry[1]["name"]))
 udid = device["udid"]
 print(f"Testing on {device['name']} ({runtime})", flush=True)
-if device["state"] != "Booted":
+if device["state"] not in {"Booted", "Booting"}:
     sim("boot", udid)
+if "--boot-only" in sys.argv:
+    sys.exit(0)
 sim("bootstatus", udid, "-b")
 app = "com.fosslift.fosslift"
 sim("install", udid, "build/ios/iphonesimulator/Runner.app")

@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+      - name: Start the iPhone simulator while Flutter builds
+        run: python3 tool/smoke_ios_controls.py --boot-only
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.44.8
