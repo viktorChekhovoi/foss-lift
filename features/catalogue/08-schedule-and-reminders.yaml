@@ -74,7 +74,7 @@ groups:
   - id: android-only
     t: Routine reminders are available on Android and iPhone
     d: >-
-      Android and iPhone schedule local alerts when a lifter enables reminders and grants notification permission. Rescheduling a routine preserves an active workout's rest alert. Android registers its boot receiver. The browser keeps the training schedule without posting notifications.
+      Android and iPhone schedule local alerts when a lifter enables reminders and grants notification permission. Rescheduling a routine preserves an active workout's rest alert. An iPhone keeps room for the rest sound when many routines have reminders, scheduling the nearest reminders first. Android registers its boot receiver. The browser keeps the training schedule without posting notifications.
     screen: none
     uses:
     - platform.android

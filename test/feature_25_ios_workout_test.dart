@@ -261,6 +261,39 @@ void main() {
     },
   );
 
+  test('many training reminders leave space for the rest sound', () async {
+    final ctl = await start();
+    ctl.startRest(60, null);
+    await flush();
+    final rest = pending.keys.single;
+    final service = ReminderService();
+    await service.sync(
+      [
+        for (var id = 70; id >= 1; id--)
+          (
+            reminder: RoutineReminder(
+              routineId: id,
+              name: 'Routine $id',
+              scheduleDays: kEveryDayMask,
+              reminderMinutes: 60 + id,
+            ),
+            title: 'Routine $id',
+            body: l10nFor().reminderBody,
+          ),
+      ],
+      channel: (
+        name: l10nFor().reminderChannelName,
+        description: l10nFor().reminderChannelDescription,
+      ),
+      now: DateTime(now.year, now.month, now.day + 2),
+    );
+    expect(
+      pending.keys,
+      unorderedEquals([rest, for (var id = 1; id <= 63; id++) id]),
+    );
+    await ctl.discard();
+  });
+
   test(
     'iPhone offers a background rest alert and the Live Activity opens the workout',
     () {
