@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -44,8 +43,3 @@ with sqlite3.connect(db) as conn:
 subprocess.run(["xcodebuild", "test", "-workspace", "ios/Runner.xcworkspace", "-scheme", "Runner",
                 "-configuration", "Debug", "-destination", f"platform=iOS Simulator,id={udid}", "-parallel-testing-enabled", "NO",
                 "-only-testing:RunnerTests/RunnerTests/testIslandLogsOnlyTheDisplayedSet", "CODE_SIGNING_ALLOWED=NO"], check=True)
-with sqlite3.connect(db) as conn:
-    saved = json.loads(conn.execute("SELECT payload FROM live_sessions WHERE id=1").fetchone()[0])
-assert saved["exercises"][0]["sets"][0]["logged"] == 8
-assert saved["exercises"][1]["sets"][0]["logged"] is None
-print("Verified that the native button persisted exactly one set in the workout database.")

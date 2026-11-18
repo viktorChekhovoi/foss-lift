@@ -1,4 +1,5 @@
 import ActivityKit
+import SQLite3
 import XCTest
 @testable import Runner
 
@@ -25,6 +26,30 @@ final class RunnerTests: XCTestCase {
     XCTAssertNil(second.restEndsAt, "There is no rest between the two superset movements")
     _ = try await press.perform()
     XCTAssertEqual(workout.content.state.target, second.target)
-    print("Foss Lift simulator verified app launch, ActivityKit, the App Intent and the next superset row.")
+
+    var db: OpaquePointer?
+    let path = docs.appendingPathComponent("foss_lift.sqlite").path
+    let opened = sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil)
+    defer { sqlite3_close(db) }
+    guard opened == SQLITE_OK else { return XCTFail("Could not open the active session database") }
+    var statement: OpaquePointer?
+    let prepared = sqlite3_prepare_v2(db, "SELECT payload FROM live_sessions WHERE id=1", -1, &statement, nil)
+    defer { sqlite3_finalize(statement) }
+    guard prepared == SQLITE_OK, sqlite3_step(statement) == SQLITE_ROW else {
+      return XCTFail("The active session must be readable after the button returns")
+    }
+    let payload = String(cString: try XCTUnwrap(sqlite3_column_text(statement, 0)))
+    struct Session: Decodable {
+      struct Exercise: Decodable {
+        struct SetRow: Decodable { let logged: Int? }
+        let sets: [SetRow]
+      }
+      let startedAt: Int64
+      let exercises: [Exercise]
+    }
+    let saved = try JSONDecoder().decode(Session.self, from: Data(payload.utf8))
+    XCTAssertEqual(saved.startedAt, id)
+    XCTAssertEqual(saved.exercises.flatMap { $0.sets.map(\.logged) }, [8, nil])
+    print("Foss Lift simulator verified ActivityKit, the native App Intent and exactly one persisted set after two taps.")
   }
 }
