@@ -189,7 +189,7 @@ Open **TestFlight → Additional → Test Information**. Enter the beta descript
 
 Suggested review notes:
 
-> Foss Lift works offline and does not require an account. On the first-run tour, choose Not now. Open Ready-made routines, choose GZCLP, and add it. From Today, start a workout, log sets, and finish it to see History. Camera permission is used only when scanning a QR code or recording a silent set video. Starting a workout shows a Live Activity on iOS 16.2 or later when enabled. Logging a set starts rest and, on first use, asks permission to sound a local alert at its end.
+> Foss Lift works offline and does not require an account. On the first-run tour, choose Not now. Open Ready-made routines, choose GZCLP, and add it. From Today, start a workout, log sets, and finish it to see History. Camera permission is used only when scanning a QR code or recording a silent set video. Starting a workout shows a Live Activity on iOS 16.2 or later when enabled. Allow notifications to hear the rest timer. On iOS 17 or later, hold the Dynamic Island or use the Lock Screen to log a counted set and adjust its rest.
 
 Supply the contact fields yourself; the reviewer may need to reach you. The beta description and review information can differ from the eventual public store listing.
 
@@ -214,4 +214,4 @@ Verify that a workout starts, survives backgrounding/reopening, logs sets, and f
 - Start a weighted workout with a known target, reduce one row's weight by 0.1 in the exercise's displayed unit, and log full reps: the row should be green. Tap through zero and untouched, then log full reps again: it should remain green. A shortfall of exactly 0.125 kg or 0.25 lb should be yellow, as should missing the rep goal. Finish and check that the recap applies the same weight tolerance. Repeat with an exercise pinned to the other unit.
 
 - With Ring mode on and Focus off, start a workout on iPhone, log a set, allow notifications, and lock the screen. Listen for one rest tone at zero, then reopen Foss Lift. Repeat with the app open and while using another app. Repeat after changing the rest duration, skipping, and aborting to check for stray alerts at the old deadline.
-- On iOS 16.2 or later, check the workout name, next set, and countdown on the Lock Screen and, on supported phones, the Dynamic Island. Tap the activity to return to the workout, then finish or discard and check that it disappears.
+- On iOS 16.2 or later, check the next set and countdown on the Lock Screen and, on supported phones, the Dynamic Island. On iOS 17 or later, switch to another app, hold the island and tap Done. Check that the rest starts and your other app stays open. Try Missed and the rest controls, then open Foss Lift and check the logged reps. Tap Start on a timed hold to open the stopwatch. Finish or discard and check that the activity disappears.

@@ -43,6 +43,7 @@ class RestAlarm {
   bool get supported => _platformSupported;
 
   Future<void> _pending = Future<void>.value();
+  Future<void> get settled => _pending;
   int _revision = 0;
   bool _iosInitialized = false;
 

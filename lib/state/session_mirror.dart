@@ -25,6 +25,10 @@ class SessionMirror {
   final AppDatabase _db;
 
   Future<void> _queue = Future<void>.value();
+  Future<void> _lastWrite = Future<void>.value();
+
+  /// A background button must finish its write before iOS can suspend the app.
+  Future<void> get saved => _lastWrite;
 
   /// Queues a snapshot of [session].
   void save(ActiveWorkout session) {
@@ -48,8 +52,10 @@ class SessionMirror {
   }
 
   void _next(Future<void> Function() write, String what) {
-    _queue = _queue.then((_) => write()).catchError(
-        (Object e) => debugPrint('SessionMirror: could not $what ($e)'));
+    _lastWrite = _queue.then((_) => write());
+    _queue = _lastWrite.catchError(
+      (Object e) => debugPrint('SessionMirror: could not $what ($e)'),
+    );
   }
 }
 

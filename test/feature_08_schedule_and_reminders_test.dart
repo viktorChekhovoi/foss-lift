@@ -311,8 +311,8 @@ void main() {
     });
   });
 
-  group('the reminder service is Android-only and inert off a device', () {
-    test('it reports unsupported and schedules nothing off Android', () async {
+  group('the reminder service is inert off a phone', () {
+    test('it reports unsupported and schedules nothing on the desktop test host', () async {
       final service = ReminderService();
 
       // The host test runner is never Android, so every entry point must be a

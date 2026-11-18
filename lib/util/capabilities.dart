@@ -47,7 +47,7 @@ class Capabilities {
 
   /// iOS supports local training and camera/files, without Android's service.
   static const Capabilities ios = Capabilities(
-    reminders: false,
+    reminders: true,
     setVideos: true,
     scanning: true,
     shade: false,

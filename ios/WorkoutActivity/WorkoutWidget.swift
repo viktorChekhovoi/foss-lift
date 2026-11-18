@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -17,6 +18,7 @@ struct WorkoutWidget: Widget {
         }
         Text(context.state.movement).font(.headline)
         Text(context.state.detail).font(.subheadline).foregroundStyle(.secondary)
+        if #available(iOS 17.0, *) { WorkoutControls(context: context) }
       }
       .lineLimit(1)
       .padding()
@@ -33,6 +35,7 @@ struct WorkoutWidget: Widget {
           VStack(alignment: .leading, spacing: 3) {
             Text(context.state.movement).font(.headline)
             Text(context.state.detail).font(.subheadline).foregroundStyle(.secondary)
+            if #available(iOS 17.0, *) { WorkoutControls(context: context) }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .lineLimit(1)
@@ -45,6 +48,35 @@ struct WorkoutWidget: Widget {
         Image(systemName: context.state.restEndsAt != nil && !context.isStale ? "timer" : "figure.strengthtraining.traditional")
       }
       .widgetURL(sessionURL)
+    }
+  }
+}
+
+@available(iOS 17.0, *)
+private struct WorkoutControls: View {
+  let context: ActivityViewContext<WorkoutAttributes>
+
+  var body: some View {
+    let state = context.state
+    let resting = !context.isStale && (state.restEndsAt.map { $0 > Date() } ?? false)
+    if let target = state.target, let buttons = resting ? state.restButtons : state.setButtons, !buttons.isEmpty {
+      HStack(spacing: 6) {
+        ForEach(buttons) { button in
+          if button.id == "set_start" {
+            Link(destination: URL(string: "fosslift://session")!) {
+              Label(button.label, systemImage: "stopwatch")
+            }
+          } else {
+            Button(intent: WorkoutActionIntent(session: context.attributes.session, target: target,
+                                               action: button.id, restEndsAt: state.restEndsAt)) {
+              Text(verbatim: button.label)
+            }
+          }
+        }
+      }
+      .font(.subheadline.weight(.semibold))
+      .controlSize(.small)
+      .buttonStyle(.bordered)
     }
   }
 }

@@ -902,7 +902,11 @@ class ActiveWorkoutController extends Notifier<ActiveWorkout?>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    // iOS can suspend both timers. Refresh before the first foreground frame and before an expired rest is mirrored.
+    refreshClocks();
+  }
+
+  /// Both foreground entry and a Live Activity button can wake suspended timers.
+  void refreshClocks() {
     _syncElapsed();
     _syncRest();
   }

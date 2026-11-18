@@ -60,7 +60,7 @@ lib/
 ├── state/active_workout.dart     In-memory live-session model + controller
 ├── state/workout_cue.dart        "What now?" — the next unlogged set, in one value
 ├── services/
-│   ├── reminders.dart            Local notification scheduling (Android)
+│   ├── reminders.dart            Local routine notifications on Android and iOS
 │   ├── rest_tone.dart            The rest-end ding — the only route with a volume
 │   ├── rest_alarm.dart           Schedules iOS rest alerts and clears legacy Android cards
 │   ├── rest_buzz.dart            The vibration beside the tone, wherever the phone is
@@ -265,7 +265,7 @@ First-run rows and finished-session sets use batches to avoid a worker round tri
 
 The web release is a static Cloudflare Pages deployment. It has no Functions, account API, D1 database, or provisioning step. `tool/prepare-web.mjs` prepares compressed, versioned assets and a public privacy page; these build steps do not provision infrastructure.
 
-`ios/` is a native Runner project for iOS 15 or later with camera disclosure, silent video capture, Foss Lift URL registration, and the app's icon and splash screen. iOS supports local sound notifications at rest deadlines. On iOS 16.2 or later, ActivityKit and the WorkoutActivity widget show the next set and a system-rendered countdown on the Lock Screen. The automatic macOS workflow builds unsigned device and simulator apps. The manual `testflight.yml` workflow checks signing with dummy keys, builds a signed IPA from encrypted GitHub secrets, or uploads it when explicitly selected. `tool/ios_signing.py` validates profiles, manages the temporary keychain, verifies the exported IPA including its minimum OS version, and invokes Apple's uploader. `tool/configure_ios_signing.rb` configures the app and workout widget targets with their respective profiles in the CI checkout. Setup and private beta review are documented in `docs/ios-testflight.md`.
+`ios/` is a native Runner project for iOS 15 or later with camera disclosure, silent video capture, Foss Lift URL registration, and the app's icon and splash screen. iOS supports local sound notifications at rest deadlines. On iOS 16.2 or later, ActivityKit and the WorkoutActivity widget show the next set and a system-rendered countdown on the Lock Screen. On iOS 17 or later the Lock Screen and expanded Dynamic Island can log the displayed set and adjust rest through the same Flutter engine as the board, even when the app has no window. iPhone also schedules routine reminders locally. The automatic macOS workflow builds unsigned device and simulator apps. The manual `testflight.yml` workflow checks signing with dummy keys, builds a signed IPA from encrypted GitHub secrets, or uploads it when explicitly selected. `tool/ios_signing.py` validates profiles, manages the temporary keychain, verifies the exported IPA including its minimum OS version, and invokes Apple's uploader. `tool/configure_ios_signing.rb` configures the app and workout widget targets with their respective profiles in the CI checkout. Setup and private beta review are documented in `docs/ios-testflight.md`.
 
 `database.g.dart` is generated — after editing tables/`@DriftDatabase`, run:
 ```

@@ -43,7 +43,7 @@ void main() {
       expect(c.localFiles, isFalse);
     });
 
-    test('iOS has camera, files, a live workout activity, and rest alerts', () {
+    test('iOS offers live workout controls, rest alerts and routine reminders', () {
       const c = Capabilities.ios;
       expect(c.setVideos, isTrue);
       expect(c.scanning, isTrue);
@@ -51,7 +51,7 @@ void main() {
       expect(c.shade, isFalse);
       expect(c.liveActivity, isTrue);
       expect(c.backgroundAlerts, isTrue);
-      expect(c.reminders, isFalse);
+      expect(c.reminders, isTrue);
     });
 
     test('the running build reports the native set under the test runner', () {

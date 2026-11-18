@@ -1,13 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-
-typedef WorkoutActivityState = ({
-  int session,
-  String workout,
-  String movement,
-  String detail,
-  int? restEndsAt,
-});
 
 /// Sends session changes to ActivityKit in order. The widget counts down from the deadline without waking Dart every second.
 class WorkoutActivity with WidgetsBindingObserver {
@@ -19,13 +14,31 @@ class WorkoutActivity with WidgetsBindingObserver {
     'com.fosslift.foss_lift/workout_activity',
   );
   Future<void> _pending = Future.value();
-  WorkoutActivityState? _latest;
+  Map<String, Object?>? _latest;
+  String? _lastPayload;
   int _revision = 0;
 
-  void sync(WorkoutActivityState? state) {
-    if (_revision != 0 && state == _latest) return;
+  void handleActions(Future<void> Function(Map<Object?, Object?>) apply) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method != 'performAction') throw MissingPluginException();
+      await apply(call.arguments as Map<Object?, Object?>);
+      return true;
+    });
+    unawaited(
+      _channel.invokeMethod<void>('ready').catchError((Object error) {
+        debugPrint('WorkoutActivity: could not register its controls ($error)');
+      }),
+    );
+  }
+
+  Future<void> sync(Map<String, Object?>? state) {
+    // The labels and controls are nested lists. Compare their contents so clock ticks and provider rebuilds don't republish the activity.
+    final payload = jsonEncode(state);
+    if (payload == _lastPayload) return _pending;
+    _lastPayload = payload;
     _latest = state;
     _send();
+    return _pending;
   }
 
   void _send() {
@@ -33,19 +46,7 @@ class WorkoutActivity with WidgetsBindingObserver {
     _pending = _pending
         .then((_) async {
           if (_revision != revision) return;
-          final state = _latest;
-          await _channel.invokeMethod<void>(
-            'sync',
-            state == null
-                ? null
-                : {
-                    'session': state.session,
-                    'workout': state.workout,
-                    'movement': state.movement,
-                    'detail': state.detail,
-                    'restEndsAt': state.restEndsAt,
-                  },
-          );
+          await _channel.invokeMethod<void>('sync', _latest);
         })
         .catchError((Object error) {
           debugPrint(
@@ -60,5 +61,8 @@ class WorkoutActivity with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed && _latest != null) _send();
   }
 
-  void dispose() => WidgetsBinding.instance.removeObserver(this);
+  void dispose() {
+    _channel.setMethodCallHandler(null);
+    WidgetsBinding.instance.removeObserver(this);
+  }
 }

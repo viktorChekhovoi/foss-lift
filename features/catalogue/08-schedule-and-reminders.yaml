@@ -72,11 +72,11 @@ groups:
     - platform.reminders
     - session.shade
   - id: android-only
-    t: Android-only
+    t: Routine reminders are available on Android and iPhone
     d: >-
-      The service is a no-op off Android. Android requires RECEIVE_BOOT_COMPLETED,
-      the plugin receivers, and core-library desugaring.
+      Android and iPhone schedule local alerts when a lifter enables reminders and grants notification permission. Rescheduling a routine preserves an active workout's rest alert. Android registers its boot receiver. The browser keeps the training schedule without posting notifications.
     screen: none
     uses:
     - platform.android
+    - platform.reminders
     - platform.portability

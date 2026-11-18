@@ -9,14 +9,14 @@ groups:
   items:
   - id: ios-keeps-local-training
     t: iOS uses the same local training database and screens
-    d: The iPhone app requires iOS 15 or later and supports routine editing, live workouts, progression, camera scanning, silent set videos, and local file backups. The app declares camera use, keeps clips in app-private storage, and registers fosslift links. Notification shade controls and scheduled routine reminders are Android features.
-    uses: [platform.portability, storage.database-location, platform.permissions, video.storage, share.deep-link]
+    d: The iPhone app requires iOS 15 or later and supports routine editing, scheduled routine reminders, live workouts, progression, camera scanning, silent set videos, and local file backups. The app declares camera use, keeps clips in app-private storage, and registers fosslift links.
+    uses: [platform.portability, platform.reminders, storage.database-location, platform.permissions, video.storage, share.deep-link]
   - id: ios-shows-live-workout
     t: The Lock Screen shows the active workout
-    d: On iOS 16.2 or later, starting a workout shows its next set on the Lock Screen and in the Dynamic Island on supported iPhones when Live Activities are enabled. A running rest counts down to its deadline while the phone is locked. Tapping the activity opens the workout. Finishing or discarding the session removes it.
+    d: On iOS 16.2 or later, starting a workout shows its next set on the Lock Screen and in the Dynamic Island on supported iPhones when Live Activities are enabled. On iOS 17 or later, the Lock Screen and expanded island offer Done and Missed for the displayed counted set. These log the goal or one rep short and start the same rest as the board while the lifter stays in their other app. A running rest offers Skip, −15s and +15s. When the rest expires, the next set's controls become available even while Foss Lift is suspended. A stale or repeated tap cannot log a different set. Start on a timed hold opens the workout for its stopwatch. Tapping the activity opens the board where the lifter can finish the session. Finishing or discarding removes the activity.
     screen: system
     code: [lib/services/workout_activity.dart, ios/Runner/WorkoutLiveActivity.swift, ios/WorkoutActivity/WorkoutWidget.swift]
-    uses: [session.live-state, session.progress-mark, session.rest-timer, load.units, ui.navigation, platform.portability]
+    uses: [session.live-state, session.progress-mark, session.set-logging, session.rest-timer, load.units, ui.navigation, platform.portability]
   - id: ios-rest-alert-at-deadline
     t: Rest ends with one audible cue, including when the phone is locked
     d: When a workout first needs notifications, iOS asks permission for alerts and sounds. With permission, the phone plays the rest tone at the scheduled deadline even if Foss Lift is suspended. Adjusting or replacing a rest moves its alert. Skipping, undoing the originating set, finishing, or discarding cancels the old deadline. Reopening the workout after delivery does not replay the tone. A lifter who declines can still hear the in-app cue while training with the app open. iPhone sound and Focus settings apply.

@@ -24,11 +24,16 @@ void main() {
       statusBarIconBrightness: Brightness.light,
     ),
   );
+  final container = ProviderContainer(
+    overrides: [openSessionProvider.overrideWithValue(_openSession)],
+  );
+  // A LiveActivityIntent can cold-launch this engine before iOS creates a window.
+  // Install its channel without depending on a widget's first frame.
+  if (container.read(capabilitiesProvider).liveActivity) {
+    container.read(workoutActivityProvider);
+  }
   runApp(
-    ProviderScope(
-      overrides: [openSessionProvider.overrideWithValue(_openSession)],
-      child: const FossLiftApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const FossLiftApp()),
   );
 }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../data/database.dart';
 import '../data/routine_code.dart';
 import '../data/routine_import.dart';
+import '../l10n/app_localizations.dart';
 import '../services/reminders.dart';
 import '../services/set_video_store.dart';
 import '../services/set_video_thumbnails.dart';
@@ -17,6 +19,7 @@ import '../services/tab_awake.dart';
 import '../services/workout_activity.dart';
 import '../services/workout_shade.dart';
 import '../state/active_workout.dart';
+import '../state/session_mirror.dart';
 import '../state/workout_cue.dart';
 import '../theme/app_theme.dart';
 import '../util/capabilities.dart';
@@ -336,9 +339,80 @@ final workoutShadeProvider = Provider<WorkoutShade>((ref) => WorkoutShade());
 
 final workoutActivityProvider = Provider<WorkoutActivity>((ref) {
   final activity = WorkoutActivity();
+  activity.handleActions((press) async {
+    await ref.read(liveSessionRestoreProvider.future);
+    final controller = ref.read(activeWorkoutProvider.notifier);
+    controller.refreshClocks();
+    final session = ref.read(activeWorkoutProvider);
+    final l10n = ref.read(appLocalizationsProvider);
+    if (session != null &&
+        press['session'] == session.startedAt.millisecondsSinceEpoch) {
+      final cue = nextUp(session)!;
+      final resting = session.restLeft > 0;
+      final buttons = workoutButtons(
+        l10n,
+        resting ? CueKind.resting : cue.kind,
+      );
+      final action = press['action'];
+      if (press['target'] == _activityTarget(session, cue) &&
+          (!resting ||
+              press['restEndsAt'] ==
+                  session.restEndsAt?.millisecondsSinceEpoch) &&
+          buttons.any((button) => button.id == action) &&
+          action is String) {
+        applyShadeAction(controller, action);
+      }
+    }
+    await Future.wait([
+      if (ref.read(sessionMirrorProvider) case final mirror?) mirror.saved,
+      ref.read(restAlarmProvider).settled,
+      activity.sync(_activityContent(ref.read(activeWorkoutProvider), l10n)),
+    ]);
+  });
   ref.onDispose(activity.dispose);
   return activity;
 });
+
+// Include the displayed goal and movement identity as well as its board position. A stale tap after a template edit or a zero-rest superset must never log the next row.
+String _activityTarget(ActiveWorkout session, WorkoutCue cue) {
+  final exercise = cue.exerciseIndex < 0
+      ? null
+      : session.exercises[cue.exerciseIndex];
+  return jsonEncode([
+    cue.kind.name,
+    cue.exerciseIndex,
+    exercise?.itemId,
+    exercise?.exerciseId,
+    cue.exercise,
+    cue.warmup,
+    cue.setIndex,
+    cue.reps,
+    cue.seconds,
+    cue.weightKg,
+  ]);
+}
+
+Map<String, Object?>? _activityContent(
+  ActiveWorkout? session,
+  AppLocalizations l10n,
+) {
+  if (session == null) return null;
+  final cue = nextUp(session)!;
+  List<Map<String, String>> buttons(CueKind kind) => [
+    for (final button in workoutButtons(l10n, kind))
+      {'id': button.id, 'label': button.text},
+  ];
+  return {
+    'session': session.startedAt.millisecondsSinceEpoch,
+    'workout': seededName(l10n, session.seedKey, session.name),
+    'movement': shadeTitle(l10n, cue),
+    'detail': shadeText(l10n, cue, session.unitForCue(cue)),
+    'restEndsAt': session.restEndsAt?.millisecondsSinceEpoch,
+    'target': _activityTarget(session, cue),
+    'setButtons': buttons(cue.kind),
+    'restButtons': buttons(CueKind.resting),
+  };
+}
 
 /// The iPhone Lock Screen shows the next set even while its native timer counts down. Workout edits and language changes refresh the text.
 final workoutActivitySyncProvider = Provider<void>((ref) {
@@ -348,19 +422,10 @@ final workoutActivitySyncProvider = Provider<void>((ref) {
   final l10n = ref.watch(appLocalizationsProvider);
   void sync() {
     final session = ref.read(activeWorkoutProvider);
-    if (session == null) {
-      // ActivityKit outlives the process. Wait for the snapshot before interpreting an empty controller as a finished workout.
-      if (restored) activity.sync(null);
-      return;
+    // ActivityKit outlives the process. Wait for the snapshot before interpreting an empty controller as a finished workout.
+    if (session != null || restored) {
+      activity.sync(_activityContent(session, l10n));
     }
-    final cue = nextUp(session)!;
-    activity.sync((
-      session: session.startedAt.millisecondsSinceEpoch,
-      workout: seededName(l10n, session.seedKey, session.name),
-      movement: shadeTitle(l10n, cue),
-      detail: shadeText(l10n, cue, session.unitForCue(cue)),
-      restEndsAt: session.restEndsAt?.millisecondsSinceEpoch,
-    ));
   }
 
   ref.listen(
